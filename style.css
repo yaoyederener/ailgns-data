@@ -433,3 +433,8 @@ button:active, .btn:active { transform: translateY(1px); }
 }
 /* 按钮按下时的轻微反馈，代替系统的灰色高亮 */
 a:active, button:active { opacity: .85; }
+
+/* 团队新增业绩 */
+#growth:empty { display: none; }
+#growth .seg { margin: 0; }
+.g-h { font-size: 15px; font-weight: 800; margin: 16px 0 8px; }

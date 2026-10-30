@@ -627,6 +627,193 @@
     };
   }
 
+  // ---------- 团队新增业绩（会员）：一段时间内团队里谁投了多少 DAI ----------
+  var POWER = "0x9E68F61E2615cc1D2C4a2D0026bFc1EBFdf68C1b";
+  var DAI_QUEUED = "0x41fd86243836b698405554ae311d223dec7e355200f05fd658fb3adffe567668"; // 用 DAI 买算力：topics[1]=地址，data=[DAI, 算力]
+  var LGNS_BURN = "0x16b309670cfc6e855d1def7ee55e395827e8a8694f4c701ffe0adbc7b75121cc"; // 销毁 LGNS 换算力：topics[1]=地址，data=[LGNS(9 位小数), 算力]
+  var COMMUNITY = "0xc9f9a8a2dBf8188AD6610e0239105CAbE67c4993";
+  var ANUBIS_RPCS = ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"];
+
+  function batchRpc(calls, k) {
+    k = k || 0;
+    var body = calls.map(function (c, i) { return { jsonrpc: "2.0", id: i, method: c[0], params: c[1] }; });
+    return fetch(ANUBIS_RPCS[k % ANUBIS_RPCS.length], { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); }).then(function (arr) {
+        var out = [];
+        arr.forEach(function (x) { out[x.id] = x.error ? null : x.result; });
+        return out;
+      }).catch(function (e) { if (k < ANUBIS_RPCS.length - 1) return batchRpc(calls, k + 1); throw e; });
+  }
+  // 从 root 往下一层层读出整个团队：地址 → { line: 属于哪条直推线, depth: 第几层 }
+  var teamCache = {};
+  function buildTeam(root, progress) {
+    var hit = teamCache[root];
+    if (hit && Date.now() - hit.at < 10 * 60 * 1000) return Promise.resolve(hit.team);
+    var team = {}, frontier = [root], level = 0;
+    team[root] = { line: "self", depth: 0 };
+    function refCall(a, off, lim) {
+      return ["eth_call", [{ to: COMMUNITY, data: "0xc01b35a1" + A.pad(a) + off.toString(16).padStart(64, "0") + lim.toString(16).padStart(64, "0") }, "latest"]];
+    }
+    function batched(calls) {
+      var chunks = [];
+      for (var i = 0; i < calls.length; i += 200) chunks.push(calls.slice(i, i + 200));
+      return A.pool(chunks, 3, batchRpc).then(function (r) { return [].concat.apply([], r); });
+    }
+    function step() {
+      if (!frontier.length || level > 200) {
+        teamCache[root] = { at: Date.now(), team: team };
+        return Promise.resolve(team);
+      }
+      level++;
+      // 先查每个人有多少直推，再分页读出直推地址（每页最多 100，不能超过剩余数量）
+      return batched(frontier.map(function (a) { return refCall(a, 0, 0); })).then(function (counts) {
+        var pages = [];
+        frontier.forEach(function (a, i) {
+          var h = counts[i], total = h ? parseInt(h.slice(2, 66), 16) : 0;
+          for (var off = 0; off < total; off += 100) pages.push({ parent: a, call: refCall(a, off, Math.min(100, total - off)) });
+        });
+        return batched(pages.map(function (p) { return p.call; })).then(function (res) {
+          var next = [];
+          pages.forEach(function (p, i) {
+            var h = res[i];
+            if (!h) return;
+            var len = parseInt(h.slice(2 + 128, 2 + 192), 16), par = team[p.parent];
+            for (var k = 0; k < len; k++) {
+              var c = "0x" + h.slice(2 + (3 + k) * 64 + 24, 2 + (4 + k) * 64);
+              if (team[c]) continue;
+              team[c] = { line: p.parent === root ? c : par.line, depth: par.depth + 1 };
+              next.push(c);
+            }
+          });
+          frontier = next;
+          if (progress) progress(Object.keys(team).length - 1);
+          return step();
+        });
+      });
+    }
+    return step();
+  }
+  // 找到时间戳对应的区块（Anubis 大约 1 秒一个块）
+  function blockAt(ts, latest) {
+    var lo = Math.max(1, latest.n - Math.ceil((latest.t - ts) * 1.1) - 2000), hi = latest.n;
+    function tsOf(n) { return A.rpc("eth_getBlockByNumber", ["0x" + n.toString(16), false]).then(function (b) { return parseInt(b.timestamp, 16); }); }
+    function search() {
+      if (hi - lo <= 1) return Promise.resolve(hi);
+      var mid = Math.floor((lo + hi) / 2);
+      return tsOf(mid).then(function (t) { if (t < ts) lo = mid; else hi = mid; return search(); });
+    }
+    return tsOf(lo).then(function (t) { if (t >= ts) lo = Math.max(1, lo - 200000); return search(); });
+  }
+  function depositsBetween(from, to) {
+    var ranges = [];
+    for (var b = from; b <= to; b += 5000) ranges.push([b, Math.min(to, b + 4999)]);
+    return A.pool(ranges, 4, function (r) {
+      return A.rpc("eth_getLogs", [{ address: POWER, topics: [[DAI_QUEUED, LGNS_BURN]], fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16) }]);
+    }).then(function (chunks) {
+      return [].concat.apply([], chunks.map(function (c) { return c || []; })).map(function (l) {
+        var d = l.data.slice(2), lgns = l.topics[0] === LGNS_BURN, amt = Number(BigInt("0x" + d.slice(0, 64)));
+        return { addr: "0x" + l.topics[1].slice(26), kind: lgns ? "LGNS" : "DAI", dai: lgns ? 0 : amt / 1e18, lgns: lgns ? amt / 1e9 : 0,
+          power: Number(BigInt("0x" + d.slice(64, 128))) / 1e18, block: parseInt(l.blockNumber, 16), tx: l.transactionHash };
+      });
+    });
+  }
+
+  var PERIODS = [["today", "今天"], ["yesterday", "昨天"], ["7d", "近 7 天"]];
+  function periodRange(key) {
+    var bjMidnight = Math.floor((Date.now() / 1000 + 8 * 3600) / 86400) * 86400 - 8 * 3600; // 北京时间今天 0 点
+    if (key === "yesterday") return [bjMidnight - 86400, bjMidnight];
+    if (key === "7d") return [bjMidnight - 6 * 86400, null];
+    return [bjMidnight, null];
+  }
+
+  function teamGrowth(id, root, el) {
+    if (!el || !member()) return;
+    root = root.toLowerCase();
+    var period = "today", lastRows = [];
+    function shell(body) {
+      el.innerHTML = '<div class="card-head"><h2>团队新增业绩</h2><div class="seg" id="g-period">' +
+        PERIODS.map(function (p) { return '<button data-p="' + p[0] + '"' + (p[0] === period ? ' class="on"' : "") + ">" + p[1] + "</button>"; }).join("") + "</div></div>" + body;
+      el.querySelectorAll("#g-period button").forEach(function (b) { b.onclick = function () { period = b.getAttribute("data-p"); run(); }; });
+    }
+    function run() {
+      var my = ++runId, r = periodRange(period);
+      var say = function (t) { if (my === runId && A.isCurrent(id)) shell('<div class="loading">' + t + "</div>"); };
+      say("正在读取这段时间的全部投资记录…");
+      var latest, from, to;
+      // 团队名单和投资记录同时读
+      var teamP = buildTeam(root, function (n) { var el2 = el.querySelector(".loading"); if (el2 && my === runId) el2.textContent = "正在读取团队名单…已读到 " + A.fmt(n) + " 人"; });
+      A.rpc("eth_getBlockByNumber", ["latest", false]).then(function (b) {
+        latest = { n: parseInt(b.number, 16), t: parseInt(b.timestamp, 16) };
+        return Promise.all([blockAt(r[0], latest), r[1] ? blockAt(r[1], latest).then(function (x) { return x - 1; }) : latest.n]);
+      }).then(function (bs) {
+        from = bs[0]; to = bs[1];
+        return depositsBetween(from, to);
+      }).then(function (deps) {
+        say("共 " + A.fmt(deps.length) + " 笔投资，正在读取团队名单…");
+        return teamP.then(function (known) { return { deps: deps, known: known }; });
+      }).then(function (x) {
+        if (my !== runId || !A.isCurrent(id)) return;
+        var t0 = r[0], t1 = r[1] || latest.t, span = Math.max(1, to - from);
+        var rows = x.deps.filter(function (d) { return x.known[d.addr]; }).map(function (d) {
+          var k = x.known[d.addr];
+          return { addr: d.addr, kind: d.kind, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
+        }).sort(function (a, b) { return b.t - a.t; });
+        lastRows = rows;
+        draw(rows, x.deps.length);
+      }).catch(function () {
+        if (my === runId && A.isCurrent(id)) shell('<div class="card err">读取失败，请稍后再试。</div>');
+      });
+    }
+    function draw(rows, scanned) {
+      var team = rows.filter(function (r) { return r.line !== "self"; }), self = rows.filter(function (r) { return r.line === "self"; });
+      var sum = function (l, k) { return l.reduce(function (t, r) { return t + r[k || "power"]; }, 0); };
+      var uniq = function (l) { return Object.keys(l.reduce(function (o, r) { o[r.addr] = 1; return o; }, {})).length; };
+      var lines = {};
+      team.forEach(function (r) {
+        var L = lines[r.line] || (lines[r.line] = { line: r.line, power: 0, dai: 0, lgns: 0, n: 0, who: {} });
+        L.power += r.power; L.dai += r.dai; L.lgns += r.lgns; L.n++; L.who[r.addr] = 1;
+      });
+      var lineList = Object.keys(lines).map(function (k) { return lines[k]; }).sort(function (a, b) { return b.power - a.power; });
+      var fmtT = function (t) { return new Date(t * 1000).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }); };
+      var html = '<div class="kpis" style="margin-top:4px"><div class="kpi hero"><div class="k">团队新增算力</div><div class="v num">' + A.fmt(sum(team)) + '</div><div class="d">' + team.length + " 笔 · " + uniq(team) + " 个地址</div></div>" +
+        '<div class="kpi"><div class="k">其中 DAI 投入</div><div class="v num">' + A.fmt(sum(team, "dai"), 2) + '<small>DAI</small></div><div class="d">真实 DAI，P 等级按这个算</div></div>' +
+        '<div class="kpi"><div class="k">其中销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">换来的算力也计入新增</div></div>' +
+        '<div class="kpi"><div class="k">本人新增</div><div class="v num">' + A.fmt(sum(self)) + '</div><div class="d">' + self.length + " 笔（不计入团队）</div></div></div>";
+      if (!rows.length) {
+        el.innerHTML = "";
+        shell(html + '<div class="empty">这段时间团队里没有新增投资（全网共 ' + A.fmt(scanned) + " 笔）</div>");
+        return;
+      }
+      html += '<h3 class="g-h">按直推线</h3><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">直推线</th><th>新增算力</th><th>DAI 投入</th><th>销毁 LGNS</th><th>笔数</th><th>地址数</th></tr></thead><tbody>' +
+        lineList.map(function (L) {
+          return '<tr><td data-l="直推线" class="l">' + A.addrLink(L.line, "team") + '</td><td data-l="新增算力"><b>' + A.fmt(L.power) + '</b></td><td data-l="DAI 投入">' + A.fmt(L.dai, 2) + '</td><td data-l="销毁 LGNS">' + A.fmt(L.lgns, 2) +
+            '</td><td data-l="笔数">' + L.n + '</td><td data-l="地址数">' + Object.keys(L.who).length + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+      html += '<div class="card-head" style="margin-top:18px"><h3 class="g-h" style="margin:0">具体地址</h3><button class="ghost" id="g-csv" style="padding:6px 14px">导出表格</button></div><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">时间</th><th class="l">地址</th><th class="l">方式</th><th>投入</th><th>新增算力</th><th class="l">所属直推线</th><th>第几层</th></tr></thead><tbody>' +
+        rows.slice(0, 500).map(function (r) {
+          return '<tr><td data-l="时间" class="l">' + fmtT(r.t) + '</td><td data-l="地址" class="l">' + A.addrLink(r.addr, "team") + '</td><td data-l="方式" class="l">' + (r.kind === "LGNS" ? "销毁 LGNS" : "DAI 买入") +
+            '</td><td data-l="投入">' + (r.kind === "LGNS" ? A.fmt(r.lgns, 2) + " LGNS" : A.fmt(r.dai, 2) + " DAI") + '</td><td data-l="新增算力"><b>' + A.fmt(r.power) + "</b>" +
+            '</td><td data-l="所属直推线" class="l">' + (r.line === "self" ? "本人" : A.addrLink(r.line, "team")) + '</td><td data-l="第几层">' + (r.line === "self" ? "—" : r.depth) + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        (rows.length > 500 ? '<p class="note">只显示最近 500 笔，导出表格可以拿到全部 ' + rows.length + " 笔。</p>" : "") +
+        '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
+      shell(html);
+      document.getElementById("g-csv").onclick = function () {
+        var csv = "时间,地址,方式,DAI,LGNS,新增算力,所属直推线,第几层,交易\n" + lastRows.map(function (r) {
+          return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, r.power, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx].join(",");
+        }).join("\n");
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+        a.download = "团队新增业绩-" + root.slice(2, 8) + "-" + period + ".csv";
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      };
+    }
+    run();
+  }
+  var runId = 0;
+  A.teamGrowth = teamGrowth;
+
   // 团队与等级：会员专属
   function renderTeamGate(id, addr) {
     if (member()) return A.renderTeam(id, addr);
