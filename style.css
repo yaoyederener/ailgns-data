@@ -509,27 +509,55 @@ a:active, button:active { opacity: .85; }
 
 /* 会员等级 */
 .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 6px; }
-.plan { position: relative; display: grid; align-content: start; justify-items: start; gap: 6px; text-align: left; background: var(--panel); color: var(--text); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); font-weight: 500; }
-.plan:hover { filter: none; border-color: #c9b6f5; }
-.plan.on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(112, 39, 217, .14), var(--shadow); }
-.plan-pro { background: linear-gradient(160deg, #fbf7ff, #fff 60%); }
-.plan-pro.on { border-color: #a014f8; }
-.plan-name { font-size: 16px; font-weight: 700; }
-.plan-pro .plan-name { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.plan-tag { position: absolute; top: -10px; right: 14px; background: var(--grad); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.plan { white-space: normal; min-width: 0; width: 100%; position: relative; display: grid; align-content: start; justify-items: start; gap: 6px; text-align: left; background: var(--panel); color: var(--text); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); font-weight: 500; }
+.plan:hover { filter: none; }
+.plan-name { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; }
 .plan-price { display: flex; align-items: baseline; gap: 6px; }
 .plan-price b { font-size: 30px; line-height: 1.1; }
 .plan-price small { color: var(--muted); font-size: 13px; }
 .plan-up .plan-price { margin-bottom: 6px; }
+.plan-up h2 { display: flex; align-items: center; gap: 8px; }
+/* 初级：绿色 */
+.plan-basic { border-color: #bfe9d1; background: linear-gradient(165deg, #effcf4, #fff 55%); }
+.plan-basic .plan-name { color: #0b7d47; }
+.plan-basic .perks li::before { color: #16a34a; }
+.plan-basic.on { border-color: #22b86c; box-shadow: 0 0 0 3px rgba(34, 184, 108, .18), var(--shadow); }
+/* 高级：黑金 */
+.plan-pro { background: radial-gradient(120% 80% at 100% 0%, #4a3810 0%, #1d160a 55%, #120d05 100%); border-color: #6b5320; color: #f3e6c0; }
+.plan-pro .plan-name { color: transparent; background: linear-gradient(100deg, #fff1bf, #e9c25a 40%, #b8862b 60%, #f6dc8a); -webkit-background-clip: text; background-clip: text; }
+.plan-pro .plan-name svg { flex: none; }
+.plan-pro .plan-price b { color: #f3cf63; }
+.plan-pro .plan-price small { color: #cdb98a; }
+.plan-pro .perks { color: #eadcb3; }
+.plan-pro .perks li::before { color: #f3cf63; }
+.plan-pro.on { border-color: #e9c25a; box-shadow: 0 0 0 3px rgba(233, 194, 90, .35), 0 14px 34px rgba(60, 40, 5, .35); }
+.plan-tag { position: absolute; top: -11px; right: 14px; background: linear-gradient(100deg, #fff1bf, #e9c25a 45%, #b8862b); color: #3a2800; font-size: 12px; font-weight: 800; padding: 3px 12px; border-radius: 999px; box-shadow: 0 4px 12px rgba(184, 134, 43, .35); }
 .perks { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 6px; font-size: 13.5px; color: var(--text); }
 .perks li { position: relative; padding-left: 20px; line-height: 1.45; }
 .perks li::before { content: "✓"; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
-.vip { display: inline-block; font-size: .8em; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: 2px; background: var(--gold-soft); color: var(--gold); }
-.vip-pro { background: var(--grad); color: #fff; }
-.vip-mini { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 6px; line-height: 17px; background: var(--gold-soft); color: var(--gold); vertical-align: 1px; }
-.vip-mini.on, button:not(.ghost) .vip-mini { background: rgba(255, 255, 255, .25); color: inherit; }
-.subnav .vip-mini.on { background: var(--grad); color: #fff; }
-#txh { flex: 1; min-width: 0; resize: vertical; font-size: 13px; }
+/* 等级徽章 */
+.vip { display: inline-flex; align-items: center; gap: 5px; font-size: .8em; font-weight: 800; padding: 3px 12px 3px 5px; border-radius: 999px; vertical-align: 2px; }
+.vip-emb { flex: none; display: block; }
+.vip-basic { background: linear-gradient(100deg, #e6f9ee, #c9f1da); color: #0b7d47; border: 1px solid #a8e6c3; }
+.vip-pro { background: linear-gradient(100deg, #2a1f0b, #4a3810); color: #f3cf63; border: 1px solid #b8862b; box-shadow: 0 2px 10px rgba(184, 134, 43, .3); }
+.vip-mini { display: inline-block; font-size: 11px; font-weight: 800; padding: 0 6px; border-radius: 6px; line-height: 17px; vertical-align: 1px; background: linear-gradient(100deg, #fff1bf, #e9c25a 55%, #c99a35); color: #3a2800; }
+.vip-mini.green { background: linear-gradient(100deg, #b8f0cf, #34c27a); color: #063f24; }
+button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
+/* 会员卡 */
+.mcard { position: relative; overflow: hidden; border-radius: 20px; padding: 18px 20px 16px; min-height: 170px; display: grid; align-content: space-between; gap: 14px; color: #fff; }
+.mcard-pro { background: radial-gradient(140% 120% at 100% 0%, #5a4414 0%, #241a09 45%, #0e0a04 100%); border: 1px solid #8a6a26; color: #f3e6c0; box-shadow: 0 18px 40px rgba(40, 26, 4, .35), inset 0 0 0 1px rgba(243, 207, 99, .15); }
+.mcard-basic { background: linear-gradient(135deg, #0f9b58, #18b86b 45%, #6fdc9f); box-shadow: 0 16px 34px rgba(16, 140, 80, .28); }
+.mcard-shine { position: absolute; inset: -60% -20%; background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .16) 50%, transparent 60%); animation: mcardShine 5s ease-in-out infinite; pointer-events: none; }
+@keyframes mcardShine { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+.mcard-top { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; letter-spacing: .08em; opacity: .9; }
+.mcard-ok { font-size: 12px; letter-spacing: 0; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, .16); }
+.mcard-main { display: flex; align-items: center; gap: 14px; }
+.mcard-tier { font-size: 26px; font-weight: 900; letter-spacing: .02em; line-height: 1.15; }
+.mcard-pro .mcard-tier { color: transparent; background: linear-gradient(100deg, #fff1bf, #e9c25a 40%, #b8862b 60%, #f6dc8a); -webkit-background-clip: text; background-clip: text; }
+.mcard-sub { font-size: 13px; opacity: .85; margin-top: 2px; }
+.mcard-foot { display: flex; justify-content: space-between; font-size: 12.5px; opacity: .85; }
+.mcard-pro .mcard-foot .mono { color: #f3cf63; }
+.mcard .vip-emb { filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .35)); }
 @media (max-width: 600px) { .plans { grid-template-columns: 1fr; } }
 
 /* 右下角机器人客服 */
@@ -653,3 +681,12 @@ a:active, button:active { opacity: .85; }
   .up-a { flex-basis: 100%; order: 3; font-size: 12.5px; }
   .up-act { margin-left: auto; }
 }
+/* 升级高级：同样黑金 */
+.plan-up { background: radial-gradient(120% 80% at 100% 0%, #4a3810 0%, #1d160a 55%, #120d05 100%); border-color: #6b5320; color: #f3e6c0; }
+.plan-up h2 { color: transparent; background: linear-gradient(100deg, #fff1bf, #e9c25a 40%, #b8862b 60%, #f6dc8a); -webkit-background-clip: text; background-clip: text; }
+.plan-up h2 svg { flex: none; }
+.plan-up .muted { color: #cdb98a; }
+.plan-up .plan-price b { color: #f3cf63; }
+.plan-up .plan-price small { color: #cdb98a; }
+.plan-up .perks { color: #eadcb3; }
+.plan-up .perks li::before { color: #f3cf63; }

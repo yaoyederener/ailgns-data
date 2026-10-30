@@ -262,7 +262,26 @@
     pro: ["包含初级 VIP 全部功能", "导出全部数据：结构图长图、完整名单 CSV、新增业绩表格", "结构图优先刷新：每 5 分钟更新", "尊享级标识，一次付款终生有效"]
   };
   function perkList(t) { return '<ul class="perks">' + PERKS[t].map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>"; }
-  function tierBadge(t) { return '<span class="vip vip-' + t + '">' + TIERS[t].name + "</span>"; }
+  // 会员标志：高级 VIP 是金色皇冠勋章，初级 VIP 是绿色盾牌
+  function vipEmblem(t, size) {
+    var s = size || 22;
+    if (t === "pro") {
+      return '<svg class="vip-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
+        '<linearGradient id="vgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff4c8"/><stop offset=".3" stop-color="#f3cf63"/><stop offset=".55" stop-color="#b8862b"/><stop offset=".8" stop-color="#f1d27a"/><stop offset="1" stop-color="#9c6d1c"/></linearGradient>' +
+        '<linearGradient id="vgD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2010"/><stop offset="1" stop-color="#120c04"/></linearGradient></defs>' +
+        '<circle cx="32" cy="32" r="31" fill="url(#vgG)"/><circle cx="32" cy="32" r="27.5" fill="none" stroke="#7a5512" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="1.6 2.4"/>' +
+        '<circle cx="32" cy="32" r="23.5" fill="url(#vgD)" stroke="#f3cf63" stroke-width="1.5"/>' +
+        '<path d="M18.5 40.5l-2.6-15.2 8.6 6.4L32 19.5l7.5 12.2 8.6-6.4-2.6 15.2z" fill="url(#vgG)"/>' +
+        '<rect x="18.5" y="42.5" width="27" height="4.2" rx="1.6" fill="url(#vgG)"/>' +
+        '<circle cx="15.9" cy="24.6" r="2.2" fill="#f7dc8b"/><circle cx="32" cy="18" r="2.4" fill="#f7dc8b"/><circle cx="48.1" cy="24.6" r="2.2" fill="#f7dc8b"/></svg>';
+    }
+    return '<svg class="vip-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
+      '<linearGradient id="vgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8f5c6"/><stop offset=".45" stop-color="#22b86c"/><stop offset="1" stop-color="#0b7d47"/></linearGradient></defs>' +
+      '<path d="M32 4l22 8v17c0 15.5-9.4 26.6-22 31-12.6-4.4-22-15.5-22-31V12z" fill="url(#vgE)"/>' +
+      '<path d="M32 9.5l17 6.2V29c0 12.3-7.2 21.3-17 25.2-9.8-3.9-17-12.9-17-25.2V15.7z" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.6"/>' +
+      '<path d="M32 19.5l3.6 7.4 8.1 1.2-5.9 5.7 1.4 8.1L32 38.1l-7.2 3.8 1.4-8.1-5.9-5.7 8.1-1.2z" fill="#fff"/></svg>';
+  }
+  function tierBadge(t) { return '<span class="vip vip-' + t + '">' + vipEmblem(t, 18) + TIERS[t].name + "</span>"; }
 
   // ---------- 页面：会员 ----------
   function renderMember(id) {
@@ -282,11 +301,11 @@
       function needOf(x) { var i = METHODS.indexOf(x); return prices[i] ? need(x, prices[i], usdNow()) : null; }
 
       var plans = upgrade
-        ? '<section class="card plan-up"><div class="card-head"><h2>升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
+        ? '<section class="card plan-up"><div class="card-head"><h2>' + vipEmblem("pro", 26) + ' 升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
           '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
         : '<div class="plans">' +
-          '<button class="plan on" data-plan="basic"><span class="plan-name">' + TIERS.basic.name + '</span><span class="plan-price"><b class="num">' + FEE_USD + '</b><small>美元等值 · 永久</small></span>' + perkList("basic") + "</button>" +
-          '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">尊享级专用</span><span class="plan-name">' + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
+          '<button class="plan plan-basic on" data-plan="basic"><span class="plan-name">' + vipEmblem("basic", 26) + TIERS.basic.name + '</span><span class="plan-price"><b class="num">' + FEE_USD + '</b><small>美元等值 · 永久</small></span>' + perkList("basic") + "</button>" +
+          '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">尊享级专用</span><span class="plan-name">' + vipEmblem("pro", 26) + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
           '<p class="note">先开初级也可以，以后补 ' + (PRO_USD - FEE_USD) + " 美元差价升级高级。</p>";
 
       app.innerHTML = head + (upgrade ? memberCard(m) : "") + plans +
@@ -416,7 +435,13 @@
       if (p.method === "manual") return A.esc(p.note) + (/^0x/.test(p.tx) ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>' : "");
       return show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
     }).join("<br>") + (m.payments && m.payments.length > 1 ? "<br><span class=\"muted\">累计约 " + A.fmt(m.usd, 2) + " 美元</span>" : "");
-    return '<section class="card"><div class="card-head"><h2>✓ 你已经是 ' + tierBadge(m.tier) + '</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
+    var t = m.tier;
+    var mcard = '<div class="mcard mcard-' + t + '"><div class="mcard-shine"></div>' +
+      '<div class="mcard-top"><span class="mcard-brand">AiLGNS 服务站 · MEMBERSHIP</span><span class="mcard-ok">✓ 已验证</span></div>' +
+      '<div class="mcard-main">' + vipEmblem(t, 64) + '<div><div class="mcard-tier">' + (t === "pro" ? "高级 VIP" : "初级 VIP") + "</div>" +
+      '<div class="mcard-sub">' + (t === "pro" ? "尊享级 · 终生会员" : "永久会员") + "</div></div></div>" +
+      '<div class="mcard-foot"><span class="mono">' + A.short(m.addr) + "</span><span>" + (t === "pro" ? "终生有效" : "永久有效") + "</span></div></div>";
+    return '<section class="card">' + mcard + '<dl class="dl" style="margin-top:16px">' +
       "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + pays + "</dd></dl>" +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
       '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
@@ -1500,7 +1525,7 @@
     }
   }
   function renderUpline(id, addr) {
-    var app = A.app, head = '<h1>上级查询 <span class="vip vip-pro" style="font-size:.5em">高级 VIP</span></h1>' +
+    var app = A.app, head = '<h1>上级查询 <span class="vip vip-pro" style="font-size:.5em">' + vipEmblem("pro", 18) + '高级 VIP</span></h1>' +
       '<p class="sub">输入任意地址（比如在 DEX 卖币的地址），列出他的上级、上级的上级……一直到最顶层，每个地址都能一键复制，用来锁定他所在的整条线。</p>';
     if (!isPro()) {
       app.innerHTML = head + '<div class="demo-cta"><div><b>高级 VIP · 尊享级专属</b><span class="muted">' + (member() ? "你已是初级 VIP，补 " + (PRO_USD - FEE_USD) + " 美元差价即可升级" : PRO_USD + " 美元等值，一次付款终生使用") + '</span></div><a class="btn" href="#/member">' + (member() ? "去升级 →" : "开通会员 →") + "</a></div>" +
@@ -1563,7 +1588,7 @@
       tree: '<rect x="9" y="3" width="6" height="4.5" rx="1.2"/><rect x="3" y="16" width="6" height="4.5" rx="1.2"/><rect x="15" y="16" width="6" height="4.5" rx="1.2"/><path d="M12 7.5V12M6 16v-2.5h12V16"/>',
       upline: '<path d="M12 21V8"/><path d="M7 12.5L12 7.5l5 5"/><circle cx="12" cy="4" r="1.6"/>'
     };
-    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini' + (mm.tier === "pro" ? " on" : "") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>']].map(function (t) {
+    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini ' + (mm.tier === "pro" ? "gold" : "green") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>']].map(function (t) {
       return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + '><svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[t[0]] + "</svg><span>" + t[1] + t[2] + "</span></a>";
     }).join("");
   }
