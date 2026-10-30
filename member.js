@@ -1,4 +1,4 @@
-// 会员：用钱包签名注册，付 Anubis LGNS / Anubis AiLGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（尊享级）1000 美元终生，多出导出数据和结构图优先刷新
+// 会员：用钱包签名注册，付 Anubis LGNS（按市价 50% 计）/ Anubis AiLGNS / Polygon LGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（尊享级）1000 美元终生，多出导出数据和结构图优先刷新
 (function () {
   "use strict";
 
@@ -27,12 +27,20 @@
     }
   };
 
-  // 三种付款方式：都按美元等值、实时价格折算
+  // 四种付款方式：都按美元等值、实时价格折算
+  // Anubis 链的 LGNS 卖出要扣 50% 手续费，所以按市价的 50% 计价（同样 20 美元要付两倍数量）
   var METHODS = [
-    { id: "lgns", symbol: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, digits: 0, tol: 0.97, price: function (b) { return pairPrice("0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", 9, b); } },
+    { id: "lgns", symbol: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, digits: 0, tol: 0.97, haircut: 0.5, price: function (b) { return pairPrice("0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", 9, b).then(function (p) { return p * 0.5; }); } },
     { id: "ailgns", symbol: "AiLGNS", chain: "anubis", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, digits: 4, tol: 0.97, price: function (b) { return pairPrice("0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", 18, b); } },
+    { id: "lgns_poly", symbol: "LGNS", chain: "polygon", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dec: 9, digits: 0, tol: 0.97, price: function () { return polyLgnsPrice(); } },
     { id: "dai", symbol: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18, digits: 2, tol: 0.999, price: function () { return Promise.resolve(1); } }
   ];
+  // Polygon 上 LGNS 的价格：QuickSwap LGNS/DAI 池（token0 = DAI，token1 = LGNS）
+  function polyLgnsPrice() {
+    return rpcOn("polygon", "eth_call", [{ to: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", data: "0x0902f1ac" }, "latest"]).then(function (h) {
+      return (Number(A.word(h, 0)) / 1e18) / (Number(A.word(h, 1)) / 1e9);
+    });
+  }
   function method(id) { return METHODS.filter(function (m) { return m.id === id; })[0] || METHODS[0]; }
 
   // ---------- 读链 ----------
@@ -53,8 +61,10 @@
   function show(m, amount) { return A.fmt(amount, m.digits) + " " + m.symbol; }
 
   // 一笔转账值多少美元：按付款那个区块之前的价格算（价格容差记在付款方一边）
+  var HAIRCUT_FROM = 17853796; // Anubis LGNS 按 50% 计价从这个区块开始；之前付的老会员仍按全价算，不受影响
   function value(m, amount, block, tx) {
     return m.price(m.chain === "anubis" ? block - 1 : null).then(function (p) {
+      if (m.haircut && block < HAIRCUT_FROM) p = p / m.haircut;
       return { method: m.id, chain: m.chain, tx: tx, block: block, paid: amount, usd: amount * p / m.tol };
     });
   }
@@ -314,7 +324,7 @@
           var c = CHAINS[x.chain];
           return '<button class="payopt' + (x === pick ? " on" : "") + '" data-m="' + x.id + '"' + (prices[i] ? "" : " disabled") + '>' +
             '<span class="payopt-tok">' + x.symbol + '</span><span class="payopt-chain">' + c.name + ' 链</span>' +
-            '<b class="num" data-amt="' + x.id + '">—</b><small>' + (x.id === "dai" ? "稳定币，1 DAI = 1 美元" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
+            '<b class="num" data-amt="' + x.id + '">—</b><small>' + (x.id === "dai" ? "稳定币，1 DAI = 1 美元" : x.haircut ? "按市价 " + x.haircut * 100 + "% 计：" + A.fmt(prices[i], 5) + " DAI（卖出扣 " + (100 - x.haircut * 100) + "%）" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
         }).join("") + "</div></section>" +
         '<section class="card"><div class="card-head"><h2>' + (upgrade ? "用钱包升级" : "用钱包开通") + "</h2>" + (upgrade ? "" : '<a href="#/tree">先看看效果 →</a>') + "</div>" +
         '<div class="flow"><div class="flow-step" id="s1"><b>1</b><div><div class="flow-t">连接钱包，签名' + (upgrade ? "确认身份" : "注册") + '</div><div class="muted">证明钱包是你的。只是签一段文字：<b>不花钱、不授权、不发交易</b>。已经付过款的，签完直接' + (upgrade ? "升级" : "开通") + "。</div></div></div>" +
@@ -1477,7 +1487,7 @@
       '<p class="sub">你的团队今天、昨天、近 7 天新增了多少业绩：按直推线汇总，列出每一笔的具体地址（高级 VIP 可导出表格）。</p>';
     if (!m) {
       app.innerHTML = head +
-        '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / Polygon DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+        '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>团队新增入金</b><span class="muted">今天 / 昨天 / 近 7 天，团队新增了多少 DAI 一眼看到</span></div>' +
         '<div class="feature"><b>按直推线汇总</b><span class="muted">哪条线在增长、增长了多少，按多少排序</span></div>' +
@@ -1502,7 +1512,7 @@
     if (member()) return A.renderTeam(id, addr);
     A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
       '<p class="sub">查看你自己（付款钱包）的直推线、每条线的团队地址数和入金（DAI）、三个区业绩，以及官方 P1–P7 等级。</p>' +
-      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / Polygon DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
       '<div class="features">' +
       '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队地址数、团队入金，按入金排序</span></div>' +
       '<div class="feature"><b>三个区业绩</b><span class="muted">对比下一级门槛，差多少一目了然</span></div>' +

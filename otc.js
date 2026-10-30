@@ -497,7 +497,8 @@
       { name: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9 },
       { name: "AiLGNS", chain: "anubis", token: AILGNS, dec: 18 },
       { name: "DAI", chain: "anubis", token: DAI, dec: 18 },
-      { name: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18 }
+      { name: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18 },
+      { name: "LGNS", chain: "polygon", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dec: 9 }
     ];
     var CH = { anubis: { name: "Anubis", explorer: EXPLORER }, polygon: { name: "Polygon", explorer: "https://polygonscan.com" } };
     function read(chain, to, data) { return (chain === "anubis" ? A.call(to, data) : W.rpcOn("polygon", "eth_call", [{ to: to, data: data }, "latest"])).then(BigInt); }
@@ -507,9 +508,9 @@
       PAYEES.map(function (p, i) { return "<dt>" + p[1] + "%</dt><dd>" + A.addrLink(p[0]) + (i === 2 ? '　<span class="muted">（原收款钱包，这份留在原地）</span>' : "") + "</dd>"; }).join("") +
       "<dt>分账合约</dt><dd>" + Object.keys(SPLITTERS).map(function (c) { return CH[c].name + '：<a class="mono" target="_blank" rel="noopener" href="' + CH[c].explorer + "/address/" + SPLITTERS[c] + '">' + A.short(SPLITTERS[c]) + " ↗</a>"; }).join("　") +
       '</dd><dt>源码</dt><dd><a href="contracts/AilgnsFeeSplitter.sol" target="_blank" rel="noopener">AilgnsFeeSplitter.sol ↗</a></dd></dl>' +
-      '<p class="note">分账范围：转进原收款钱包的 Anubis 链 LGNS、AiLGNS、DAI 和 Polygon 链 DAI（会员费 + OTC 手续费，包括任何人转进来的这几种币），只算分账上线之后到账的。分账合约不收任何费用，触发分账的 Gas 由自动退款那个小钱包支付。</p></section>' +
+      '<p class="note">分账范围：转进原收款钱包的 Anubis 链 LGNS、AiLGNS、DAI 和 Polygon 链 DAI、LGNS（会员费 + OTC 手续费，包括任何人转进来的这几种币），只算分账上线之后到账的。分账合约不收任何费用，触发分账的 Gas 由自动退款那个小钱包支付。</p></section>' +
       '<section class="card"><div class="card-head"><h2>授权状态</h2><span class="muted">请用原收款钱包 ' + A.short(FEE_RECIPIENT) + ' 授权，每种币一次</span></div><div id="sp-state" class="loading">正在读取…</div>' +
-      '<p class="note">授权后分账合约只能把钱按上面的比例转给这三个固定地址，不能转到别处。Polygon 的 DAI 授权需要少量 POL 付 Gas。</p><p class="note" id="sp-st"></p></section>';
+      '<p class="note">授权后分账合约只能把钱按上面的比例转给这三个固定地址，不能转到别处。Polygon 上的授权需要少量 POL 付 Gas。</p><p class="note" id="sp-st"></p></section>';
     var st = document.getElementById("sp-st");
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
     function load() {
