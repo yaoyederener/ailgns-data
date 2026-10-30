@@ -385,7 +385,7 @@
     }).then(function (c) {
       if (c.v !== 2) throw new Error("old team format");
       var all = [root].concat(c.list.map(function (x) { return x[0]; }));
-      if (progress) progress("正在读取 " + A.fmt(all.length) + " 人的算力…");
+      if (progress) progress("正在读取 " + A.fmt(all.length) + " 个地址的算力…");
       var calls = all.map(function (a) { return ["eth_call", [{ to: POWER, data: POWER_OF + A.pad(a) }, "latest"]]; }), chunks = [];
       for (var i = 0; i < calls.length; i += 300) chunks.push(calls.slice(i, i + 300));
       return A.pool(chunks, 4, batchRpc).then(function (parts) {
@@ -426,7 +426,7 @@
     return data;
   }
 
-  // 筛选：只画团队人数够多、或有等级、或被定位到的人；其他的合并成"还有 N 人"
+  // 筛选：只画团队人数够多、或有等级、或被定位到的地址；其他的合并成"还有 N 个"
   function applyFilter(data) {
     var min = data.min;
     data.nodes.forEach(function (n) {
@@ -474,14 +474,14 @@
     var badge = n.level ? "P" + n.level : "—";
     var zone = n.zone ? ["一区", "二区", "三区"][n.zone - 1] : "";
     var s = '<g class="node" data-a="' + n.a + '" transform="translate(' + n.x + "," + n.y + ')" style="cursor:' + (n.direct ? "pointer" : "default") + '">' +
-      "<title>" + e(n.a) + "\n团队 " + A.fmt(n.team) + " 人 · 团队算力 " + A.fmt(n.power) + " · 直推 " + A.fmt(n.direct) + "</title>" +
+      "<title>" + e(n.a) + "\n团队 " + A.fmt(n.team) + " 个地址 · 团队算力 " + A.fmt(n.power) + " · 直推 " + A.fmt(n.direct) + "</title>" +
       (n.hl ? '<rect x="-6" y="-6" width="' + (NODE_W + 12) + '" height="' + (NODE_H + 12) + '" rx="14" fill="rgba(255,122,26,.16)"/>' : "") +
       '<rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="' + (n.hl ? "#fff7ef" : COLORS.node) + '" stroke="' + stroke + '" stroke-width="' + (n.hl ? 3 : n === root ? 2 : 1.2) + '"/>' +
       '<text x="14" y="23" fill="' + COLORS.text + '" font-size="13" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="600">' + A.short(n.a) + "</text>" +
       '<rect x="' + (NODE_W - 48) + '" y="9" width="36" height="19" rx="5" fill="' + (n.level ? COLORS.gold : COLORS.chip) + '"/>' +
       '<text x="' + (NODE_W - 30) + '" y="23" text-anchor="middle" fill="' + (n.level ? "#fff" : COLORS.muted) + '" font-size="12" font-weight="700">' + badge + "</text>" +
       (zone ? '<text x="' + (NODE_W - 56) + '" y="23" text-anchor="end" fill="' + COLORS.gold + '" font-size="11">' + zone + "</text>" : "") +
-      '<text x="14" y="43" fill="' + COLORS.muted + '" font-size="12">团队 <tspan fill="' + COLORS.text + '">' + A.fmt(n.team) + '</tspan> 人 · 算力 <tspan fill="' + COLORS.text + '">' + A.wan(n.power).replace(" ", "") + "</tspan></text>" +
+      '<text x="14" y="43" fill="' + COLORS.muted + '" font-size="12">团队 <tspan fill="' + COLORS.text + '">' + A.fmt(n.team) + '</tspan> 个地址 · 算力 <tspan fill="' + COLORS.text + '">' + A.wan(n.power).replace(" ", "") + "</tspan></text>" +
       '<text x="14" y="59" fill="' + COLORS.muted + '" font-size="12">直推 ' + A.fmt(n.direct) + (n.self ? " · 个人 " + A.wan(n.self).replace(" ", "") : "") + "</text>";
     if (n.direct) {
       s += '<circle cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="10" fill="' + COLORS.bg + '" stroke="' + COLORS.line + '"/>' +
@@ -598,7 +598,7 @@
       g.fillStyle = COLORS.text; g.font = "800 28px " + font; g.textAlign = "left";
       g.fillText("团队完整结构", 32, 52);
       g.font = "500 17px " + font; g.fillStyle = COLORS.muted;
-      g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 人 · 团队算力 " + A.wan(root.power).replace(" ", "") + " · 编号 1.3.2 = 第1条直推线→第3人→第2人" + (pages > 1 ? "　第 " + (p + 1) + "/" + pages + " 张" : ""), 32, 80);
+      g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 个地址 · 团队算力 " + A.wan(root.power).replace(" ", "") + " · 编号 1.3.2 = 第1条直推线→第3个→第2个" + (pages > 1 ? "　第 " + (p + 1) + "/" + pages + " 张" : ""), 32, 80);
       part.forEach(function (r, i) {
         var y = HEAD + i * ROW, n = r.n, x = 32 + Math.min(r.depth, 24) * 16;
         if (r.depth === 1) { // 每条直推线开头加一条色带
@@ -622,7 +622,7 @@
         }
         if (n.zone && r.depth === 1) { g.fillStyle = COLORS.gold; g.font = "700 14px " + font; g.fillText(["一区", "二区", "三区"][n.zone - 1], tx, cy); tx += 40; }
         g.fillStyle = COLORS.muted; g.font = "500 15px " + font;
-        g.fillText((r.depth ? "第" + r.depth + "层 · " : "") + "团队 " + A.fmt(n.team) + " 人 · 算力 " + A.wan(n.power).replace(" ", "") + " · 直推 " + A.fmt(n.direct) + (n.more ? "（另 " + n.more + " 人未列出）" : ""), tx, cy);
+        g.fillText((r.depth ? "第" + r.depth + "层 · " : "") + "团队 " + A.fmt(n.team) + " 个地址 · 算力 " + A.wan(n.power).replace(" ", "") + " · 直推 " + A.fmt(n.direct) + (n.more ? "（另 " + n.more + " 个地址未列出）" : ""), tx, cy);
       });
       g.font = "600 14px " + font; g.fillStyle = "rgba(112, 39, 217, .6)"; g.textAlign = "right";
       g.fillText("AiLGNS 服务站 · ailgns.dev", W - 24, H - 14);
@@ -674,7 +674,7 @@
   }
   // 完整名单表格：每个人的上级、层级、直推、团队人数和算力
   function exportCsv(data) {
-    var n = data.nodes, rows = ["地址,上级,第几层,所属直推线,直推人数,团队人数,个人算力,团队算力"];
+    var n = data.nodes, rows = ["地址,上级,第几层,所属直推线,直推地址数,团队地址数,个人算力,团队算力"];
     data.list.forEach(function (x, i) {
       var node = n[i + 1], parent = x[3] < 0 ? n[0].a : data.list[x[3]][0];
       rows.push([x[0], parent, x[2], data.lines ? data.lines[x[1]] : "", node.direct, node.team, Math.round(node.self), Math.round(node.power)].join(","));
@@ -692,7 +692,7 @@
       '<button class="ghost" data-expand>展开下一层</button><button class="ghost" data-all>全部展开</button><button class="ghost" data-fold>收起</button>' +
       '<button data-png>导出图片</button><button class="ghost" data-csv hidden>导出完整名单</button><span class="muted" id="tree-status"></span></div>' +
       '<div class="tree-find" id="tree-find" hidden><input id="find-a" placeholder="输入你团队里的地址（可只输前几位）" autocomplete="off" spellcheck="false"><button id="find-go">定位</button>' +
-      '<select id="tree-min"><option value="1">显示：有团队的人</option><option value="10">团队 ≥ 10 人</option><option value="50">团队 ≥ 50 人</option><option value="200">团队 ≥ 200 人</option></select></div>' +
+      '<select id="tree-min"><option value="1">显示：有团队的地址</option><option value="10">团队 ≥ 10 个地址</option><option value="50">团队 ≥ 50 个地址</option><option value="200">团队 ≥ 200 个地址</option></select></div>' +
       '<div class="tree-path" id="tree-path" hidden></div>' +
       '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
   }
@@ -759,7 +759,7 @@
       pathEl.innerHTML = '<div class="tp-head"><b>' + (n === root ? "你自己" : "第 " + (p.length - 1) + " 层 · 位置 " + posCode(n)) + "</b>" +
         (n === root ? "" : '<span class="muted">' + (p[1].zone ? ["一区", "二区", "三区"][p[1].zone - 1] + " · " : "") + "属于直推线 " + A.short(p[1].a) + "</span>") + "</div>" +
         '<div class="tp-chain">' + p.map(function (x, i) {
-          return '<button class="tp-step' + (x === n ? " on" : "") + '" data-go="' + x.a + '"><span>' + (i === 0 ? "你" : "第 " + i + " 层") + '</span><b class="mono">' + A.short(x.a) + "</b><small>团队 " + A.fmt(x.team) + " 人" + (x.level ? " · P" + x.level : "") + "</small></button>";
+          return '<button class="tp-step' + (x === n ? " on" : "") + '" data-go="' + x.a + '"><span>' + (i === 0 ? "你" : "第 " + i + " 层") + '</span><b class="mono">' + A.short(x.a) + "</b><small>团队 " + A.fmt(x.team) + " 个地址" + (x.level ? " · P" + x.level : "") + "</small></button>";
         }).join('<i class="tp-arrow">›</i>') + "</div>";
       pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(data.byAddr[b.getAttribute("data-go")]); }; });
     }
@@ -814,7 +814,7 @@
     };
   }
 
-  var LEGEND_FULL = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。团队算力 = 下级所有人的已登记算力之和（含排队生效中的，比官方每日快照多出当天新增）；没有团队的直推合并显示，完整名单可导出表格。";
+  var LEGEND_FULL = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的，比官方每日快照多出当天新增）；没有团队的直推合并显示，完整名单可导出表格。";
   var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
 
   function renderTree(id, addr) {
@@ -824,8 +824,8 @@
         '<p class="sub">开通会员后，就能画出你自己团队的结构图。下面是<b>示例效果</b>，可以直接点、拖、缩放试试。</p>' +
         '<div class="demo-cta"><div><b>' + "一次付款，永久使用" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
-        '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少人、多少算力</span></div>' +
-        '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个人的下级，几十层也能看</span></div>' +
+        '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少个地址、多少算力</span></div>' +
+        '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个地址的下级，几十层也能看</span></div>' +
         '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 紫色标记，数据来自官方接口</span></div>' +
         '<div class="feature"><b>导出图片</b><span class="muted">一键保存高清 PNG，直接发团队群</span></div></div>' +
         '<div class="demo-tag">示例效果 · 地址和数据都是随机生成的</div>' +
@@ -1102,8 +1102,8 @@
         lastRows = rows;
         var n = Object.keys(team).length - 1;
         draw(rows, deps.length, teamDone
-          ? '团队 ' + A.fmt(n) + ' 人 · 名单更新于 ' + (at ? Math.max(1, Math.round((Date.now() - at) / 60000)) + " 分钟前" : "刚刚") + ' · <a href="#" id="g-refresh">重新读取团队</a>'
-          : '<span class="spin"></span>团队名单读取中，已读到 ' + A.fmt(n) + " 人，结果还在补充…");
+          ? '团队 ' + A.fmt(n) + ' 个地址 · 名单更新于 ' + (at ? Math.max(1, Math.round((Date.now() - at) / 60000)) + " 分钟前" : "刚刚") + ' · <a href="#" id="g-refresh">重新读取团队</a>'
+          : '<span class="spin"></span>团队名单读取中，已读到 ' + A.fmt(n) + " 个地址，结果还在补充…");
       }
       var teamP = buildTeam(root, function (t) { team = t; render(); }, fresh).then(function (t) {
         team = t; teamDone = true; at = teamCache[root] ? teamCache[root].at : Date.now(); render();
@@ -1215,13 +1215,13 @@
   function renderTeamGate(id, addr) {
     if (member()) return A.renderTeam(id, addr);
     A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
-      '<p class="sub">查看你自己（付款钱包）的直推线、每条线的团队人数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
+      '<p class="sub">查看你自己（付款钱包）的直推线、每条线的团队地址数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
       '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
       '<div class="features">' +
-      '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队人数、团队算力，按算力排序</span></div>' +
+      '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队地址数、团队算力，按算力排序</span></div>' +
       '<div class="feature"><b>三个区业绩</b><span class="muted">对比下一级门槛，差多少一目了然</span></div>' +
       '<div class="feature"><b>一层层往下查</b><span class="muted">点任意直推，继续看他的团队</span></div>' +
-      '<div class="feature"><b>全网等级分布</b><span class="muted">P1–P7 各有多少人、门槛多少</span></div></div>' +
+      '<div class="feature"><b>全网等级分布</b><span class="muted">P1–P7 各有多少个地址、门槛多少</span></div></div>' +
       '<p class="note">开通后同时解锁「团队新增业绩」和「团队结构图」。<a href="#/tree">先看看结构图示例 →</a></p>';
   }
 

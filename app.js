@@ -327,7 +327,7 @@
       html += '<div class="kpi hero"><div class="k">官方等级</div><div class="v">' + (lvl && lvl.level ? "P" + lvl.level : "无等级") + '</div><div class="d">' + (lvl ? "官方第 " + lvl.day + " 天评估" : "暂无评估") + "</div></div>";
       if (pw && pw.summary) html += '<div class="kpi"><div class="k">生效算力</div><div class="v num">' + wan(pw.summary.activePower) + '</div><div class="d">投入 ' + wan(pw.summary.totalDai) + " DAI · " + pw.summary.records + " 笔</div></div>";
       if (lvl) html += '<div class="kpi"><div class="k">ve 锁仓价值</div><div class="v num">' + wan(lvl.veUsd) + '<small>DAI</small></div><div class="d">个人业绩 ' + wan(lvl.selfPower) + "</div></div>";
-      if (com) html += '<div class="kpi"><div class="k">团队</div><div class="v num">' + fmt(com.team) + '<small>人</small></div><div class="d">直推 ' + fmt(com.direct) + " · 团队算力 " + wan(com.teamActivePower) + "</div></div>";
+      if (com) html += '<div class="kpi"><div class="k">团队</div><div class="v num">' + fmt(com.team) + '<small>个地址</small></div><div class="d">直推 ' + fmt(com.direct) + " · 团队算力 " + wan(com.teamActivePower) + "</div></div>";
       html += '<div class="kpi"><div class="k">钱包余额</div><div class="v num">' + (dai != null ? wan(dai) : "—") + '<small>DAI</small></div><div class="d">' + (ail != null ? fmt(ail, 4) : "—") + " AiLGNS</div></div>";
       html += "</div>";
 
@@ -338,8 +338,8 @@
           "<dt>推荐人</dt><dd>" + (com.referrer && isAddr(com.referrer) && !/^0x0+1?$/.test(com.referrer) ? addrLink(com.referrer) : "—") + "</dd>" +
           "<dt>绑定时间</dt><dd>" + (com.boundAt ? timeBJ(com.boundAt) : "—") + "</dd>" +
           "<dt>所在层级</dt><dd>第 " + fmt(com.level) + " 层</dd>" +
-          "<dt>直推人数</dt><dd>" + fmt(com.direct) + "</dd>" +
-          "<dt>团队人数</dt><dd>" + fmt(com.team) + "</dd>" +
+          "<dt>直推地址数</dt><dd>" + fmt(com.direct) + "</dd>" +
+          "<dt>团队地址数</dt><dd>" + fmt(com.team) + "</dd>" +
           "<dt>团队生效算力</dt><dd>" + fmt(com.teamActivePower) + "</dd></dl></section>";
       }
       html += "</div>";
@@ -390,7 +390,7 @@
   // ---------- 页面：团队与等级 ----------
   function levelOverview(lv) {
     var s = '<section class="card"><div class="card-head"><h2>全网 P 等级分布</h2><span class="muted">官方第 ' + lv.day + " 天 · 已评估 " + fmt(lv.evaluated) + ' 个地址</span></div><div class="tbl-wrap"><table><thead><tr>' +
-      "<th>等级</th><th>人数</th><th>每区门槛（DAI）</th><th>三区合计</th><th>ve 锁仓价值</th></tr></thead><tbody>";
+      "<th>等级</th><th>地址数</th><th>每区门槛（DAI）</th><th>三区合计</th><th>ve 锁仓价值</th></tr></thead><tbody>";
     lv.thresholds.forEach(function (t) {
       var d = lv.distribution.filter(function (x) { return x.level === t.level; })[0];
       s += "<tr><td>" + lv_(t.level) + "</td><td><b>" + fmt(d ? d.members : 0) + "</b></td><td>" + (t.zoneUsd ? fmt(t.zoneUsd) : "每区 1 名 P" + t.contains) + "</td><td>" + (t.zoneUsd ? fmt(n(t.zoneUsd) * 3) : "—") + "</td><td>" + fmt(t.veUsd) + "</td></tr>";
@@ -400,7 +400,7 @@
   var lv_ = lv;
 
   function renderTeam(id, addr) {
-    var head = '<h1>团队与等级</h1><p class="sub">你的付款地址的直推线、每条线的团队人数和算力，以及官方 P 等级。</p>';
+    var head = '<h1>团队与等级</h1><p class="sub">你的付款地址的直推线、每条线的团队地址数和算力，以及官方 P 等级。</p>';
     var box = function (v) { return window.AIL.ownOnly ? "" : searchBox("team", v); };
     app.innerHTML = head + box(addr) + '<div class="loading">正在读取…</div>';
     var levelP = api("/level").then(function (l) { THRESHOLDS = l.thresholds; return l; }).catch(function () { return null; });
@@ -421,8 +421,8 @@
         html += '<div class="kpis">';
         html += '<div class="kpi hero"><div class="k">官方等级</div><div class="v">' + (me && me.level ? "P" + me.level : "无等级") + '</div><div class="d">ve ' + (me ? wan(me.veUsd) : "—") + " DAI</div></div>";
         if (com) {
-          html += '<div class="kpi"><div class="k">直推</div><div class="v num">' + fmt(com.direct) + '<small>人</small></div><div class="d">链上可读 ' + (refs ? fmt(refs.total) : "—") + " 个</div></div>";
-          html += '<div class="kpi"><div class="k">团队人数</div><div class="v num">' + fmt(com.team) + '<small>人</small></div><div class="d">所在第 ' + fmt(com.level) + " 层</div></div>";
+          html += '<div class="kpi"><div class="k">直推</div><div class="v num">' + fmt(com.direct) + '<small>个地址</small></div><div class="d">链上可读 ' + (refs ? fmt(refs.total) : "—") + " 个</div></div>";
+          html += '<div class="kpi"><div class="k">团队地址数</div><div class="v num">' + fmt(com.team) + '<small>个地址</small></div><div class="d">所在第 ' + fmt(com.level) + " 层</div></div>";
           html += '<div class="kpi"><div class="k">团队生效算力</div><div class="v num">' + wan(com.teamActivePower) + "</div><div class=\"d\">官方统计</div></div>";
         }
         html += "</div>";
@@ -439,7 +439,7 @@
         var rows = [];
         function draw() {
           var sorted = rows.filter(Boolean).sort(function (a, b) { return b.total - a.total; });
-          var s = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th class="l">直推地址</th><th class="l">等级</th><th>个人业绩</th><th>团队人数</th><th>团队算力</th><th>直推</th></tr></thead><tbody>';
+          var s = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th class="l">直推地址</th><th class="l">等级</th><th>个人业绩</th><th>团队地址数</th><th>团队算力</th><th>直推</th></tr></thead><tbody>';
           sorted.forEach(function (x, i) {
             s += "<tr><td>" + (i < 3 ? '<b style="color:var(--gold)">' + ["一区", "二区", "三区"][i] + "</b>" : i + 1) + '</td><td class="l">' + addrLink(x.a, "team") + '</td><td class="l">' + lv(x.level) + "</td><td>" + wan(x.self) + "</td><td>" + fmt(x.team) +
               "</td><td><b>" + wan(x.teamPower) + "</b></td><td>" + fmt(x.direct) + "</td></tr>";
