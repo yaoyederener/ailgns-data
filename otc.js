@@ -10,6 +10,9 @@
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
   var FEE_BPS = 100n;
   var EXPLORER = "https://anubisscan.io";
+  // 手续费分账合约：原收款钱包授权后，到账的手续费按 30% / 40% / 30% 自动分出去（地址、比例写死）
+  var SPLITTER = "0xeee877c1b6285b82890bdcd027d2715f658ecf23";
+  var PAYEES = [["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], [FEE_RECIPIENT, 30]];
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
   var VERIFY = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md";
   var SEL = {
@@ -161,6 +164,7 @@
     var app = A.app;
     var head = hero(null, null);
     if (sub === "deploy") return renderDeploy(id);
+    if (sub === "split") return renderSplit(id);
     if (!OTC) {
       app.innerHTML = head + TRUST + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
@@ -464,6 +468,49 @@
         say('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + '</b><br>把这个地址发给我，我把它填进网站就能开放交易。<a target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + r.contractAddress + '">在浏览器查看 ↗</a>');
       }, function (e) { say(niceError(e), true); btn.disabled = false; });
     };
+  }
+
+  // 手续费分账：原收款钱包在这里授权分账合约；之后每 5 分钟自动把新到的手续费分出去
+  function renderSplit(id) {
+    var app = A.app, MAX = (1n << 256n) - 1n, TOKS = [["AiLGNS", AILGNS], ["DAI", DAI]];
+    var totalSel = "0x0399205c"; // totalSplit(address)
+    app.innerHTML = '<h1>手续费分账</h1><p class="sub">OTC 手续费照旧进入原收款钱包。原收款钱包授权分账合约后，每 5 分钟检查一次，新到账的手续费自动按比例分出去。地址和比例写死在合约里，任何人都改不了。</p>' +
+      '<section class="card"><div class="card-head"><h2>分账规则</h2><a target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + SPLITTER + '">分账合约 ↗</a></div><dl class="dl">' +
+      PAYEES.map(function (p, i) { return "<dt>" + p[1] + "%</dt><dd>" + A.addrLink(p[0]) + (i === 2 ? '　<span class="muted">（原收款钱包，这份留在原地）</span>' : "") + "</dd>"; }).join("") +
+      '<dt>合约</dt><dd class="mono">' + SPLITTER + '</dd><dt>源码</dt><dd><a href="contracts/AilgnsFeeSplitter.sol" target="_blank" rel="noopener">AilgnsFeeSplitter.sol ↗</a></dd></dl>' +
+      '<p class="note">只分「托管合约 → 原收款钱包」的手续费，原收款钱包里其他的钱不会动。分账合约不收任何费用，触发分账的 Gas 由自动退款那个小钱包支付。</p></section>' +
+      '<section class="card"><div class="card-head"><h2>状态</h2></div><div id="sp-state" class="loading">正在读取…</div></section>' +
+      '<section class="card"><div class="card-head"><h2>授权（只需一次）</h2></div>' +
+      '<p class="muted">请用<b>原收款钱包 ' + A.short(FEE_RECIPIENT) + '</b> 连接。授权后分账合约只能把钱按上面的比例转给这三个固定地址，不能转到别处。</p>' +
+      '<div class="form-grid"><label>授权数量（不填 = 不限额）<input id="sp-amt" inputmode="decimal" placeholder="不限额"></label></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button data-ap="0">授权 AiLGNS</button><button data-ap="1">授权 DAI</button></div><p class="note" id="sp-st"></p></section>';
+    var st = document.getElementById("sp-st");
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function load() {
+      Promise.all(TOKS.map(function (t) {
+        return Promise.all([A.call(t[1], SEL.allowance + u256(FEE_RECIPIENT) + u256(SPLITTER)).then(BigInt), A.call(SPLITTER, totalSel + u256(t[1])).then(BigInt)]);
+      })).then(function (r) {
+        if (!A.isCurrent(id)) return;
+        document.getElementById("sp-state").outerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权额度</th><th>累计已分</th></tr></thead><tbody>' +
+          TOKS.map(function (t, i) {
+            var a = r[i][0];
+            return '<tr><td class="l">' + t[0] + "</td><td>" + (a === 0n ? '<span class="down">未授权</span>' : a > MAX / 2n ? '<span class="up">不限额 ✓</span>' : show(a)) + "</td><td>" + show(r[i][1]) + "</td></tr>";
+          }).join("") + "</tbody></table></div>";
+      }, function () { var el = document.getElementById("sp-state"); if (el) el.textContent = "读取失败，请刷新"; });
+    }
+    load();
+    app.querySelectorAll("[data-ap]").forEach(function (b) {
+      b.onclick = function () {
+        var t = TOKS[+b.getAttribute("data-ap")], v = document.getElementById("sp-amt").value.trim(), amt = v ? toWei(v) : MAX;
+        if (v && !amt) { say("数量格式不对", true); return; }
+        b.disabled = true;
+        ready().then(function () {
+          if (account !== FEE_RECIPIENT) throw new Error("请切换到原收款钱包 " + A.short(FEE_RECIPIENT) + " 再授权（现在连接的是 " + A.short(account) + "）");
+          return send(t[1], SEL.approve + u256(SPLITTER) + u256(amt), say, "授权分账合约使用 " + t[0]);
+        }).then(function () { say("✅ " + t[0] + " 授权成功，之后新到账的手续费会自动分账"); b.disabled = false; load(); },
+          function (e) { say(niceError(e), true); b.disabled = false; });
+      };
+    });
   }
 
   // 其他页面顶部的 AiLGNS OTC 推荐条
