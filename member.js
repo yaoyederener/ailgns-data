@@ -1,49 +1,119 @@
-// 会员：用钱包签名注册、用 Anubis 链 LGNS 付款开通（一次付款永久），开通后可以画团队结构图；未开通时展示示例结构图
+// 会员：用钱包签名注册，付 20 美元等值的 Anubis LGNS / Anubis AiLGNS / Polygon DAI 开通（一次付款永久），开通后可以画团队结构图；未开通时展示示例结构图
 (function () {
   "use strict";
 
   var A = window.AIL;
-  var RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
-  var LGNS = "0x4D1D808a081FdAc440703b3765FC61f8028C06B8"; // 9 位小数
-  var LGNS_PAIR = "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0"; // token0 = LGNS，token1 = DAI
-  var FEE_DAI = 20; // 会员价：20 美元（DAI）等值的 LGNS
-  var LGNS_RATE = 1; // LGNS 按实时价格折算
-  var TOLERANCE = 0.97; // 付款到验证之间价格会动，少 3% 以内也算付够
-  var START_BLOCK = 17790000; // 会员功能上线前的转账不算
+  var RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 两条链都收到这个地址
+  var FEE_USD = 20; // 会员价：20 美元等值
+  var START_BLOCK = 17790000; // Anubis：会员功能上线前的转账不算
+  var POLY_START = 96420000; // Polygon：多付款方式上线前的转账不算
+  var POLY_LOOKBACK = 14 * 43200; // Polygon 按地址找付款时最多往回查 14 天（约 2 秒一个块）
   var EXPLORER_API = "https://browser.anubispace.org/api";
   var EXPLORER = "https://anubisscan.io";
   var ETHERS = "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js";
   var KEY = "ailgns-member-v1";
+  var TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-  // ---------- 价格与付款 ----------
-  function lgnsPrice(block) {
-    return A.rpc("eth_call", [{ to: LGNS_PAIR, data: "0x0902f1ac" }, block ? "0x" + block.toString(16) : "latest"]).then(function (h) {
-      var lgns = Number(A.word(h, 0)) / 1e9, dai = Number(A.word(h, 1)) / 1e18;
-      return dai / lgns;
+  var CHAINS = {
+    anubis: {
+      name: "Anubis", explorer: EXPLORER, gas: "DAI",
+      params: { chainId: "0x1a3a", chainName: "Anubis Chain", nativeCurrency: { name: "gasDAI", symbol: "DAI", decimals: 18 }, rpcUrls: ["https://rpc.anubispace.org"], blockExplorerUrls: [EXPLORER] }
+    },
+    polygon: {
+      name: "Polygon", explorer: "https://polygonscan.com", gas: "POL", rpc: "https://polygon-bor-rpc.publicnode.com",
+      params: { chainId: "0x89", chainName: "Polygon", nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 }, rpcUrls: ["https://polygon-bor-rpc.publicnode.com"], blockExplorerUrls: ["https://polygonscan.com"] }
+    }
+  };
+
+  // 三种付款方式：都按 20 美元等值折算
+  var METHODS = [
+    { id: "lgns", symbol: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, digits: 0, tol: 0.97, price: function (b) { return pairPrice("0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", 9, b); } },
+    { id: "ailgns", symbol: "AiLGNS", chain: "anubis", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, digits: 4, tol: 0.97, price: function (b) { return pairPrice("0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", 18, b); } },
+    { id: "dai", symbol: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18, digits: 2, tol: 0.999, price: function () { return Promise.resolve(1); } }
+  ];
+  function method(id) { return METHODS.filter(function (m) { return m.id === id; })[0] || METHODS[0]; }
+
+  // ---------- 读链 ----------
+  function rpcOn(chain, m, params) {
+    if (chain === "anubis") return A.rpc(m, params);
+    return fetch(CHAINS[chain].rpc, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: m, params: params }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error.message); return j.result; });
+  }
+  // Uniswap V2 式交易对：token0 是被定价的币，token1 是 DAI
+  function pairPrice(pair, dec0, block) {
+    return A.rpc("eth_call", [{ to: pair, data: "0x0902f1ac" }, block ? "0x" + block.toString(16) : "latest"]).then(function (h) {
+      return (Number(A.word(h, 1)) / 1e18) / (Number(A.word(h, 0)) / Math.pow(10, dec0));
     });
   }
-  function required(price) { return Math.ceil(FEE_DAI / (price * LGNS_RATE)); }
+  // 20 美元需要多少枚（向上取整到这个币的显示精度）
+  function need(m, price) { var k = Math.pow(10, m.digits); return Math.ceil(FEE_USD / price * k) / k; }
+  function units(m, amount) { return BigInt(Math.round(amount * Math.pow(10, m.digits))) * 10n ** BigInt(m.dec - m.digits); }
+  function show(m, amount) { return A.fmt(amount, m.digits) + " " + m.symbol; }
 
-  // 按时间顺序累计这个地址转给收款地址的 LGNS，累计数量达到当笔付款时的应付数量就算开通
-  function findPayment(addr) {
-    var url = EXPLORER_API + "?module=account&action=tokentx&address=" + addr + "&contractaddress=" + LGNS + "&startblock=" + START_BLOCK + "&page=1&offset=200&sort=asc";
+  // 一笔转账够不够：按付款那个区块之前的价格算
+  function judge(m, amount, block, tx) {
+    return m.price(m.chain === "anubis" ? block - 1 : null).then(function (p) {
+      var n = need(m, p);
+      return amount >= n * m.tol ? { method: m.id, chain: m.chain, tx: tx, block: block, paid: amount, need: n } : null;
+    });
+  }
+
+  // 按地址找以前的付款：Anubis 用浏览器接口，Polygon 用节点分段查日志
+  function findAnubis(addr, m) {
+    var url = EXPLORER_API + "?module=account&action=tokentx&address=" + addr + "&contractaddress=" + m.token + "&startblock=" + START_BLOCK + "&page=1&offset=200&sort=asc";
     return A.getJSON(url).then(function (r) {
-      var txs = (r.result || []).filter(function (t) {
-        return t.from.toLowerCase() === addr && t.to.toLowerCase() === RECEIVER && Number(t.blockNumber) >= START_BLOCK;
-      });
+      var txs = (r.result || []).filter(function (t) { return t.from.toLowerCase() === addr && t.to.toLowerCase() === RECEIVER; });
       var sum = 0, i = 0;
       function next() {
         if (i >= txs.length) return null;
         var t = txs[i++];
-        sum += Number(t.value) / 1e9;
-        return lgnsPrice(Number(t.blockNumber) - 1).then(function (p) {
-          var need = required(p);
-          if (sum >= need * TOLERANCE) return { tx: t.hash, block: Number(t.blockNumber), paid: sum, need: need };
-          return next();
-        });
+        sum += Number(t.value) / Math.pow(10, m.dec); // 分几笔付也算，累计够数就开通
+        return judge(m, sum, Number(t.blockNumber), t.hash).then(function (ok) { return ok || next(); });
       }
       return next();
     });
+  }
+  function findPolygon(addr, m) {
+    return rpcOn("polygon", "eth_blockNumber", []).then(function (h) {
+      var latest = parseInt(h, 16), from = Math.max(POLY_START, latest - POLY_LOOKBACK), ranges = [];
+      for (var b = latest; b >= from; b -= 10000) ranges.push([Math.max(from, b - 9999), b]);
+      return A.pool(ranges, 4, function (r) {
+        return rpcOn("polygon", "eth_getLogs", [{ address: m.token, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [TRANSFER, "0x" + A.pad(addr), "0x" + A.pad(RECEIVER)] }]);
+      });
+    }).then(function (chunks) {
+      var logs = [].concat.apply([], chunks.filter(Boolean));
+      var sum = logs.reduce(function (t, l) { return t + Number(BigInt(l.data)) / 1e18; }, 0);
+      if (!logs.length) return null;
+      var last = logs[logs.length - 1];
+      return judge(m, sum, parseInt(last.blockNumber, 16), last.transactionHash);
+    });
+  }
+  function findPayment(addr) {
+    var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { return null; }); });
+    return Promise.all(tries).then(function (r) { return r.filter(Boolean)[0] || null; });
+  }
+
+  // 从交易回执里直接确认付款（钱包付款、或者用户填交易哈希）
+  function paymentFromReceipt(chain, r, addr) {
+    var checks = METHODS.filter(function (m) { return m.chain === chain; }).map(function (m) {
+      var log = (r.logs || []).filter(function (l) {
+        return l.address.toLowerCase() === m.token.toLowerCase() && l.topics[0] === TRANSFER &&
+          "0x" + l.topics[1].slice(26) === addr && "0x" + l.topics[2].slice(26) === RECEIVER;
+      })[0];
+      return log ? judge(m, Number(BigInt(log.data)) / Math.pow(10, m.dec), parseInt(r.blockNumber, 16), r.transactionHash) : null;
+    });
+    return Promise.all(checks).then(function (x) { return x.filter(Boolean)[0] || null; });
+  }
+  function verifyHash(addr, hash) {
+    var chains = ["anubis", "polygon"], i = 0;
+    function next() {
+      if (i >= chains.length) return Promise.resolve(null);
+      var c = chains[i++];
+      return rpcOn(c, "eth_getTransactionReceipt", [hash]).then(function (r) {
+        return r && r.status === "0x1" ? paymentFromReceipt(c, r, addr) : null;
+      }, function () { return null; }).then(function (p) { return p || next(); });
+    }
+    return next();
   }
 
   // ---------- 会员状态（存在本浏览器） ----------
@@ -66,11 +136,7 @@
   }
 
   // ---------- 钱包：注册（签名）与付款 ----------
-  var CHAIN = {
-    chainId: "0x1a3a", chainName: "Anubis Chain",
-    nativeCurrency: { name: "gasDAI", symbol: "DAI", decimals: 18 },
-    rpcUrls: ["https://rpc.anubispace.org"], blockExplorerUrls: [EXPLORER]
-  };
+  var CHAIN = CHAINS.anubis.params; // otc.js 用的是 Anubis 链
   // 当前选中的钱包（由 wallets.js 自动识别、让用户选择）
   function wallet() {
     var p = A.wallets.current();
@@ -104,67 +170,56 @@
     });
   }
 
-  function switchChain(eth) {
-    return eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN.chainId }] }).catch(function (e) {
+  function switchTo(eth, chain) {
+    var params = CHAINS[chain || "anubis"].params;
+    return eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
       if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
-        return eth.request({ method: "wallet_addEthereumChain", params: [CHAIN] });
+        return eth.request({ method: "wallet_addEthereumChain", params: [params] });
       }
       throw e;
     });
   }
-  function waitReceipt(hash) {
+  function switchChain(eth) { return switchTo(eth, "anubis"); }
+  function waitOn(chain, hash) {
     var tries = 0;
     return new Promise(function (ok, fail) {
       (function poll() {
-        A.rpc("eth_getTransactionReceipt", [hash]).then(function (r) {
+        rpcOn(chain, "eth_getTransactionReceipt", [hash]).then(function (r) {
           if (r) return r.status === "0x1" ? ok(r) : fail(new Error("转账失败（交易被链上拒绝）"));
-          if (++tries > 90) return fail(new Error("等了 3 分钟还没确认，请稍后到会员页点「验证」"));
+          if (++tries > 90) return fail(new Error("等了 3 分钟还没确认，请稍后用交易哈希验证"));
           setTimeout(poll, 2000);
         }, function () { setTimeout(poll, 3000); });
       })();
     });
   }
-  // 直接从交易回执里确认这笔 LGNS 转账，不用等浏览器索引
-  function paymentFromReceipt(r, addr) {
-    var topic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
-    var log = (r.logs || []).filter(function (l) {
-      return l.address.toLowerCase() === LGNS.toLowerCase() && l.topics[0] === topic &&
-        "0x" + l.topics[1].slice(26) === addr && "0x" + l.topics[2].slice(26) === RECEIVER;
-    })[0];
-    if (!log) return Promise.resolve(null);
-    var amount = Number(BigInt(log.data)) / 1e9, block = parseInt(r.blockNumber, 16);
-    return lgnsPrice(block - 1).then(function (p) {
-      var need = required(p);
-      return amount >= need * TOLERANCE ? { tx: r.transactionHash, block: block, paid: amount, need: need } : null;
-    });
-  }
+  function waitReceipt(hash) { return waitOn("anubis", hash); }
 
-  // 第 2 步：用钱包直接付款（切到 Anubis 链 → 转 LGNS → 等确认）
-  function pay(reg, status) {
-    var eth = wallet(), need;
-    status("正在切换到 Anubis 链…");
-    return switchChain(eth).then(function () {
-      return Promise.all([lgnsPrice(), A.call(LGNS, "0x70a08231" + A.pad(reg.addr))]);
+  // 第 2 步：用钱包直接付款（切到对应的链 → 转账 → 等确认）
+  function pay(reg, m, status) {
+    var eth = wallet(), n, chain = CHAINS[m.chain];
+    status("正在切换到 " + chain.name + " 链…");
+    return switchTo(eth, m.chain).then(function () {
+      return Promise.all([m.price(), rpcOn(m.chain, "eth_call", [{ to: m.token, data: "0x70a08231" + A.pad(reg.addr) }, "latest"])]);
     }).then(function (r) {
-      need = required(r[0]);
-      var bal = Number(A.word(r[1], 0)) / 1e9;
-      if (bal < need) throw new Error("钱包里只有 " + A.fmt(bal, 2) + " LGNS，开通需要 " + A.fmt(need) + " LGNS");
-      status("请在钱包里确认转账 " + A.fmt(need) + " LGNS…");
-      var data = "0xa9059cbb" + A.pad(RECEIVER) + (BigInt(need) * 1000000000n).toString(16).padStart(64, "0");
-      return eth.request({ method: "eth_sendTransaction", params: [{ from: reg.addr, to: LGNS, data: data }] });
+      n = need(m, r[0]);
+      var bal = Number(BigInt(r[1])) / Math.pow(10, m.dec);
+      if (bal < n) throw new Error(chain.name + " 链上的钱包里只有 " + show(m, bal) + "，开通需要 " + show(m, n));
+      status("请在钱包里确认转账 " + show(m, n) + "（Gas 用 " + chain.gas + "）…");
+      var data = "0xa9059cbb" + A.pad(RECEIVER) + units(m, n).toString(16).padStart(64, "0");
+      return eth.request({ method: "eth_sendTransaction", params: [{ from: reg.addr, to: m.token, data: data }] });
     }).then(function (hash) {
-      status("已提交，等待链上确认…（通常几秒钟）");
-      return waitReceipt(hash);
+      status("已提交，等待 " + chain.name + " 链确认…（通常几秒钟）");
+      return waitOn(m.chain, hash);
     }).then(function (r) {
-      return paymentFromReceipt(r, reg.addr);
+      return paymentFromReceipt(m.chain, r, reg.addr);
     }).then(function (p) {
-      if (!p) throw new Error("转账已确认，但金额不够。请到会员页点「验证」重新核对，或联系站长");
+      if (!p) throw new Error("转账已确认，但金额不够。请联系站长核对");
       return p;
     });
   }
 
   function activate(reg, p) {
-    saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, tx: p.tx, block: p.block, paid: p.paid, at: Date.now() });
+    saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, method: p.method, chain: p.chain, tx: p.tx, block: p.block, paid: p.paid, at: Date.now() });
   }
 
   // ---------- 页面：会员 ----------
@@ -172,33 +227,61 @@
     var app = A.app, m = member();
     var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查任意地址的「团队与等级」，并画出整个团队的结构图。</p>';
     if (m) {
+      var pm = method(m.method || "lgns"), pc = CHAINS[m.chain || "anubis"];
       app.innerHTML = head + '<section class="card"><div class="card-head"><h2>✓ 你已经是会员</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
-        "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + A.fmt(m.paid, 2) + ' LGNS · <a target="_blank" rel="noopener" href="' + EXPLORER + "/tx/" + m.tx + '">查看交易 ↗</a></dd></dl>' +
+        "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + show(pm, m.paid) + "（" + pc.name + '） · <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + m.tx + '">查看交易 ↗</a></dd></dl>' +
         '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
         '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
       document.getElementById("logout").onclick = function () { logout(); subnav(); renderMember(id); };
       return;
     }
-    app.innerHTML = head + '<div class="loading">正在读取 LGNS 实时价格…</div>';
-    lgnsPrice().then(function (p) {
+    app.innerHTML = head + '<div class="loading">正在读取实时价格…</div>';
+    Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
-      var need = required(p);
+      var needs = {};
+      METHODS.forEach(function (x, i) { needs[x.id] = prices[i] ? need(x, prices[i]) : null; });
+      var pick = METHODS.filter(function (x) { return needs[x.id]; })[0] || METHODS[0];
+
       app.innerHTML = head +
-        '<div class="kpis"><div class="kpi hero"><div class="k">开通会员需要</div><div class="v num">' + A.fmt(need) + '<small>LGNS</small></div><div class="d">= ' + FEE_DAI + " 美元等值 · 按 LGNS 实时价格计算</div></div>" +
-        '<div class="kpi"><div class="k">LGNS 实时价格</div><div class="v num">' + p.toFixed(5) + '<small>DAI</small></div><div class="d">Anubis 链 LGNS/DAI 池</div></div>' +
+        '<div class="kpis"><div class="kpi hero"><div class="k">会员价</div><div class="v num">' + FEE_USD + '<small>美元等值</small></div><div class="d">三种币任选一种，按实时价格折算</div></div>' +
         '<div class="kpi"><div class="k">有效期</div><div class="v">永久</div><div class="d">一次付款，绑定你的钱包</div></div></div>' +
+        '<section class="card"><div class="card-head"><h2>选择付款方式</h2><span class="muted">金额已按实时价格折算成 ' + FEE_USD + ' 美元</span></div><div class="paylist">' +
+        METHODS.map(function (x, i) {
+          var c = CHAINS[x.chain];
+          return '<button class="payopt' + (x === pick ? " on" : "") + '" data-m="' + x.id + '"' + (needs[x.id] ? "" : " disabled") + '>' +
+            '<span class="payopt-tok">' + x.symbol + '</span><span class="payopt-chain">' + c.name + ' 链</span>' +
+            '<b class="num">' + (needs[x.id] ? A.fmt(needs[x.id], x.digits) : "—") + '</b><small>' + (x.id === "dai" ? "稳定币，固定 20" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
+        }).join("") + "</div></section>" +
         '<section class="card"><div class="card-head"><h2>用钱包开通</h2><a href="#/tree">先看看效果 →</a></div>' +
         '<div class="flow"><div class="flow-step" id="s1"><b>1</b><div><div class="flow-t">连接钱包，签名注册</div><div class="muted">证明钱包是你的。只是签一段文字：<b>不花钱、不授权、不发交易</b>。已经付过款的，签完直接开通。</div></div></div>' +
-        '<div class="flow-step" id="s2"><b>2</b><div><div class="flow-t">钱包付款 ' + A.fmt(need) + ' LGNS</div><div class="muted">自动切到 Anubis 链，在钱包里确认一笔 LGNS 转账。确认后几秒钟自动开通。</div></div></div></div>' +
+        '<div class="flow-step" id="s2"><b>2</b><div><div class="flow-t" id="s2t"></div><div class="muted" id="s2d"></div></div></div></div>' +
         '<button id="go" style="padding:12px 22px;margin-top:4px">连接钱包</button><p class="note" id="st"></p>' +
-        '<p class="note">手机上请在 <b>Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b>。电脑上需要装 MetaMask 等浏览器插件钱包。</p></section>' +
+        '<p class="note">手机上请在 <b>OKX、Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b>。电脑上需要装浏览器插件钱包。</p></section>' +
         '<details class="card manual"><summary>不方便用 DApp 浏览器？手动转账也可以</summary><ol class="steps" style="margin-top:12px">' +
-        "<li>在 <b>Anubis 链</b>上转 <b>" + A.fmt(need) + " LGNS</b> 到收款地址：" +
-        '<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div>' +
-        '<span class="muted">只收 Anubis 链上的 LGNS（合约 ' + A.short(LGNS) + "），转其他币或其他链无法开通，也无法退回。</span></li>" +
-        "<li>之后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通。</li></ol></details>" +
-        '<p class="note">本站为独立运营的数据站，会员费由本站收取，与 AWAKE HELIX 项目方无关。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        '<li id="man1"></li>' +
+        '<li>收款地址（Anubis 和 Polygon 都是这个）：<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div></li>' +
+        "<li>转完后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通（Polygon 付款自动查找最近 14 天）。</li>" +
+        '<li>找不到的话，把付款的交易哈希贴在这里验证：<div class="copy"><input id="txh" class="mono" placeholder="0x…" spellcheck="false"><button class="ghost" id="txgo">验证</button></div></li></ol></details>' +
+        '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面三种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
+      var st = document.getElementById("st"), go = document.getElementById("go"), reg = null;
+      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      function done(step) { document.getElementById(step).classList.add("ok"); }
+      function describe() {
+        var c = CHAINS[pick.chain], amt = show(pick, needs[pick.id]);
+        document.getElementById("s2t").textContent = "钱包付款 " + amt + "（" + c.name + " 链）";
+        document.getElementById("s2d").textContent = "自动切到 " + c.name + " 链，在钱包里确认一笔 " + pick.symbol + " 转账，Gas 用 " + c.gas + "。确认后几秒钟自动开通。";
+        document.getElementById("man1").innerHTML = "在 <b>" + c.name + " 链</b>上转 <b>" + amt + "</b>（合约 " + A.short(pick.token) + "）";
+        if (reg) go.textContent = "付款 " + amt;
+      }
+      describe();
+      app.querySelectorAll(".payopt").forEach(function (b) {
+        b.onclick = function () {
+          pick = method(b.getAttribute("data-m"));
+          app.querySelectorAll(".payopt").forEach(function (x) { x.classList.toggle("on", x === b); });
+          describe();
+        };
+      });
       document.getElementById("copy").onclick = function () {
         var b = this;
         (navigator.clipboard ? navigator.clipboard.writeText(RECEIVER) : Promise.reject()).then(function () { b.textContent = "已复制"; }, function () {
@@ -206,13 +289,26 @@
           var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = "已选中，请复制";
         });
       };
-      var st = document.getElementById("st"), go = document.getElementById("go"), reg = null;
-      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
-      function done(step) { document.getElementById(step).classList.add("ok"); }
+      function ensureReg() {
+        return reg ? Promise.resolve(reg) : register(say).then(function (r) { reg = r; done("s1"); return r; });
+      }
+      // 用交易哈希验证
+      document.getElementById("txgo").onclick = function () {
+        var h = document.getElementById("txh").value.trim(), btn = this;
+        if (!/^0x[0-9a-fA-F]{64}$/.test(h)) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
+        btn.disabled = true;
+        ensureReg().then(function (r) {
+          say("正在核对这笔交易…");
+          return verifyHash(r.addr, h.toLowerCase()).then(function (p) {
+            if (!p) throw new Error("这笔交易不是从你的钱包转给收款地址的，或者金额不够 20 美元");
+            activate(r, p); say("验证成功，会员已开通！");
+            setTimeout(function () { location.hash = "#/tree"; }, 800);
+          });
+        }).catch(function (e) { say(walletError(e), true); btn.disabled = false; });
+      };
       go.onclick = function () {
         go.disabled = true;
-        var step = reg ? Promise.resolve(reg) : register(say).then(function (r) {
-          reg = r; done("s1");
+        var step = reg ? Promise.resolve(reg) : ensureReg().then(function (r) {
           say("签名成功，正在查找你之前的付款…");
           return findPayment(r.addr).catch(function () { return null; }).then(function (p) {
             if (p) { activate(r, p); location.hash = "#/tree"; throw null; }
@@ -220,12 +316,12 @@
           });
         });
         step.then(function (r) {
-          go.textContent = "付款 " + A.fmt(need) + " LGNS";
-          say("已注册 " + A.short(r.addr) + "。点上面的按钮用钱包付款。");
+          describe();
+          say("已注册 " + A.short(r.addr) + "。确认上面选的付款方式，点按钮用钱包付款。");
           go.disabled = false;
           go.onclick = function () {
             go.disabled = true;
-            pay(r, say).then(function (p) {
+            pay(r, pick, say).then(function (p) {
               done("s2"); activate(r, p);
               say("付款成功，会员已开通！");
               setTimeout(function () { location.hash = "#/tree"; }, 800);
@@ -237,7 +333,7 @@
         });
       };
     }, function () {
-      if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">LGNS 价格暂时读不到，请稍后刷新。</div>';
+      if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">价格暂时读不到，请稍后刷新。</div>';
     });
   }
 
@@ -533,7 +629,7 @@
     if (member()) return A.renderTeam(id, addr);
     A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
       '<p class="sub">查看任意地址的直推线、每条线的团队人数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
-      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_DAI + ' 美元等值的 LGNS，一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
       '<div class="features">' +
       '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队人数、团队算力，按算力排序</span></div>' +
       '<div class="feature"><b>三个区业绩</b><span class="muted">对比下一级门槛，差多少一目了然</span></div>' +

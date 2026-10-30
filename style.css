@@ -406,3 +406,20 @@ button:active, .btn:active { transform: translateY(1px); }
   .vd-amt { font-size: 24px; }
   .vd-mini b { font-size: 17px; }
 }
+
+/* 会员付款方式 */
+.paylist { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.payopt { display: grid; justify-items: start; gap: 2px; text-align: left; background: var(--panel); color: var(--text); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px 16px; box-shadow: none; font-weight: 500; }
+.payopt:hover { border-color: #c9b6f5; filter: none; }
+.payopt.on { border-color: var(--gold); background: linear-gradient(180deg, var(--gold-soft), var(--panel)); box-shadow: 0 6px 18px rgba(112, 39, 217, .14); }
+.payopt-tok { font-size: 16px; font-weight: 800; }
+.payopt-chain { font-size: 12px; color: var(--muted); }
+.payopt b { font-size: 24px; margin-top: 6px; }
+.payopt small { font-size: 12px; color: var(--muted); }
+.copy input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font-size: 13px; outline: none; }
+@media (max-width: 600px) {
+  .paylist { grid-template-columns: 1fr; }
+  .payopt { grid-template-columns: auto 1fr auto; align-items: center; column-gap: 10px; }
+  .payopt b { margin: 0; grid-row: span 2; font-size: 20px; }
+  .payopt small { grid-column: 1 / 3; }
+}
