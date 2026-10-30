@@ -771,6 +771,31 @@
     });
   }
 
+  // 优先读每天整理好的投资记录文件（Cloudflare 边缘缓存，很快）；文件还没覆盖到的最近一段，再直接查链补上
+  function dayFile(date) {
+    return A.getJSON("/api/deposits/" + date).catch(function () {
+      return A.getJSON("https://raw.githubusercontent.com/yaoyederener/monita/main/data/deposits/" + date + ".json");
+    }).catch(function () { return null; });
+  }
+  function loadDeposits(r, from, to) {
+    var dates = [];
+    for (var t = r[0]; t < (r[1] || Date.now() / 1000); t += 86400) dates.push(bjDate(t));
+    return Promise.all(dates.map(dayFile)).then(function (files) {
+      if (files.some(function (f) { return !f; })) return depositsBetween(from, to); // 有缺的就整段查链
+      var rows = [], covered = 0;
+      files.forEach(function (f) {
+        covered = Math.max(covered, f.to);
+        f.rows.forEach(function (x) {
+          if (x[4] < from || x[4] > to) return;
+          var burn = x[1] === 1;
+          rows.push({ addr: "0x" + x[0], kind: burn ? "LGNS" : "DAI", dai: burn ? 0 : x[2], lgns: burn ? x[2] : 0, power: x[3], block: x[4], tx: null });
+        });
+      });
+      if (covered >= to) return rows;
+      return depositsBetween(covered + 1, to).then(function (more) { return rows.concat(more); });
+    });
+  }
+
   var PERIODS = [["today", "今天"], ["yesterday", "昨天"], ["7d", "近 7 天"]];
   function periodRange(key) {
     var bjMidnight = Math.floor((Date.now() / 1000 + 8 * 3600) / 86400) * 86400 - 8 * 3600; // 北京时间今天 0 点
@@ -798,7 +823,7 @@
         var t0 = r[0], t1 = r[1] || latest.t, span = Math.max(1, to - from);
         var rows = deps.filter(function (d) { return team[d.addr]; }).map(function (d) {
           var k = team[d.addr];
-          return { addr: d.addr, kind: d.kind, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
+          return { addr: d.addr, kind: d.kind, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, block: d.block, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
         }).sort(function (a, b) { return b.t - a.t; });
         lastRows = rows;
         var n = Object.keys(team).length - 1;
@@ -814,7 +839,7 @@
         return periodBlocks(r, latest);
       }).then(function (bs) {
         from = bs[0]; to = bs[1];
-        return depositsBetween(from, to);
+        return loadDeposits(r, from, to);
       }).then(function (d) {
         deps = d;
         if (!team) say("共 " + A.fmt(d.length) + " 笔投资，正在读取团队名单…");
@@ -861,8 +886,8 @@
       shell(html);
       bindRefresh();
       document.getElementById("g-csv").onclick = function () {
-        var csv = "时间,地址,方式,DAI,LGNS,新增算力,所属直推线,第几层,交易\n" + lastRows.map(function (r) {
-          return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, r.power, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx].join(",");
+        var csv = "时间,地址,方式,DAI,LGNS,新增算力,所属直推线,第几层,交易或区块\n" + lastRows.map(function (r) {
+          return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, r.power, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx || "区块 " + r.block].join(",");
         }).join("\n");
         var a = document.createElement("a");
         a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
