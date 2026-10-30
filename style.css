@@ -588,3 +588,25 @@ a:active, button:active { opacity: .85; }
   .vs h2 { font-size: 21px; }
   .vs-grid { grid-template-columns: 1fr; }
 }
+.vs-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.vs-num { border-radius: 18px; padding: 14px 12px; display: grid; gap: 2px; text-align: center; }
+.vs-num span { font-size: 13px; font-weight: 600; }
+.vs-num b { font-size: 30px; line-height: 1.15; font-weight: 900; letter-spacing: -.02em; }
+.vs-num small { font-size: 12px; opacity: .8; }
+.vs-bad { background: #ffe8ea; color: #c2142f; }
+.vs-bad b { text-decoration: line-through; text-decoration-thickness: 3px; text-decoration-color: rgba(194, 20, 47, .55); }
+.vs-good { background: #e7f8ee; color: #0f7a3a; }
+.vs-win { background: #ffe066; color: #3d2a00; box-shadow: 0 0 0 3px rgba(255, 224, 102, .35); }
+.vs-bars { display: grid; gap: 8px; margin-bottom: 16px; padding: 14px; border-radius: 18px; background: rgba(255, 255, 255, .1); }
+.vs-bars div { display: grid; grid-template-columns: 92px 1fr 52px; align-items: center; gap: 10px; font-size: 13px; }
+.vs-bars i { display: block; height: 14px; border-radius: 7px; min-width: 6px; }
+.vs-bars i.bad { background: linear-gradient(90deg, #ff8a8a, #ff4d6d); }
+.vs-bars i.good { background: #4ade80; }
+.vs-bars b { text-align: right; }
+@media (max-width: 600px) {
+  .vs-nums { gap: 6px; }
+  .vs-num { padding: 12px 6px; border-radius: 14px; }
+  .vs-num span { font-size: 12px; }
+  .vs-num b { font-size: 17px; white-space: nowrap; }
+  .vs-bars div { grid-template-columns: 64px 1fr 44px; gap: 8px; }
+}
