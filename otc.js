@@ -127,14 +127,35 @@
 
   // ---------- 页面 ----------
   var TRUST = '<div class="trust">' +
-    '<div><b>🔒 合约托管</b><span>挂单的币锁在智能合约里，平台和任何人都动不了</span></div>' +
-    '<div><b>⚡ 原子成交</b><span>付款和收币在同一笔交易完成，要么都成功、要么都退回，不存在一方跑路</span></div>' +
-    '<div><b>↩️ 过期自动退回</b><span>默认 30 分钟没成交，自动原路退回挂单人；也能随时撤单</span></div>' +
-    '<div><b>🧾 规则公开</b><span>合约无管理员、不可升级，源码公开可查；成交收 1% 手续费</span></div></div>';
+    '<div><i><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10" fill="none" stroke="currentColor" stroke-width="2"/></svg></i><b>合约托管</b><span>挂单的币锁在智能合约里，平台和任何人都动不了</span></div>' +
+    '<div><i><svg viewBox="0 0 24 24"><path d="M13 2 5 13.5h6L10 22l9-12.5h-6z" fill="currentColor"/></svg></i><b>原子成交</b><span>付款和收币在同一笔交易完成，要么都成功、要么都退回，不存在一方跑路</span></div>' +
+    '<div><i><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4.5 12H15a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>过期自动退回</b><span>默认 30 分钟没成交，自动原路退回挂单人；也能随时撤单</span></div>' +
+    '<div><i><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>规则公开</b><span>合约无管理员、不可升级，源码公开可查；成交收 1% 手续费</span></div></div>';
+
+  // 首页大横幅：AiLGNS OTC 主推
+  var HERO_ART = '<svg class="hero-art" viewBox="0 0 220 180" aria-hidden="true"><defs>' +
+    '<linearGradient id="ha" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#009cff"/><stop offset=".55" stop-color="#4936ff"/><stop offset="1" stop-color="#a014f8"/></linearGradient>' +
+    '<linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity=".7"/></linearGradient></defs>' +
+    '<circle cx="110" cy="90" r="78" fill="url(#ha)" opacity=".12"/><circle cx="110" cy="90" r="56" fill="url(#ha)" opacity=".16"/>' +
+    '<path d="M110 40l34 13v26c0 23-15 40-34 47-19-7-34-24-34-47V53z" fill="url(#ha)"/>' +
+    '<path d="M95 88l11 11 20-22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<g><circle cx="38" cy="58" r="24" fill="url(#hb)" stroke="#d9cdfa" stroke-width="2"/><text x="38" y="64" text-anchor="middle" font-size="15" font-weight="800" fill="#4936ff">AiL</text></g>' +
+    '<g><circle cx="182" cy="122" r="24" fill="url(#hb)" stroke="#d9cdfa" stroke-width="2"/><text x="182" y="128" text-anchor="middle" font-size="14" font-weight="800" fill="#a014f8">DAI</text></g>' +
+    '<path d="M62 50c22-18 48-22 66-16" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="4 5"/>' +
+    '<path d="M158 130c-22 18-48 22-66 16" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="4 5"/></svg>';
+  function hero(mkt, live) {
+    return '<section class="otc-hero"><div class="hero-txt">' +
+      '<span class="pill">智能合约担保 · 无需信任 · 无需许可</span>' +
+      '<h1>AiLGNS <span class="grad">OTC</span></h1>' +
+      '<p>AiLGNS ⇄ DAI 场外交易。币锁在合约里，付款和收币一笔完成，30 分钟没成交自动退回。</p>' +
+      '<div class="hero-cta"><button data-go="sell">我要卖 AiLGNS</button><button class="ghost" data-go="buy">我要买 AiLGNS</button></div>' +
+      '<div class="hero-stats"><div><span>AiLGNS 市价</span><b>' + (mkt ? A.fmt(mkt, 2) : "—") + ' <small>DAI</small></b></div>' +
+      "<div><span>挂单中</span><b>" + (live === null ? "—" : live) + " <small>张</small></b></div><div><span>成交手续费</span><b>1%</b></div></div></div>" + HERO_ART + "</section>";
+  }
 
   function renderOtc(id, sub) {
     var app = A.app;
-    var head = '<h1>OTC 担保交易</h1><p class="sub">AiLGNS ⇄ DAI 场外大额交易。智能合约托管，无需信任对方，无需任何人许可。</p>';
+    var head = hero(null, null);
     if (sub === "deploy") return renderDeploy(id);
     if (!OTC) {
       app.innerHTML = head + TRUST + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
@@ -172,15 +193,14 @@
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
-      var html = head + TRUST;
-      html += '<div class="kpis"><div class="kpi"><div class="k">AiLGNS 市价（主池）</div><div class="v num">' + (mkt ? A.fmt(mkt, 2) : "—") + '<small>DAI</small></div><div class="d">挂单价格可以自由设置</div></div>' +
-        '<div class="kpi"><div class="k">挂单中</div><div class="v num">' + live.length + '</div><div class="d">卖单 ' + sells.length + " · 买单 " + buys.length + "</div></div>" +
+      var html = hero(mkt, live.length) + TRUST;
+      html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">查看合约源码 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
       html += book("卖单 · 买入 AiLGNS", sells, "价格从低到高") + book("买单 · 卖出 AiLGNS", buys, "价格从高到低");
       html += createForm();
       if (account) html += myOrders(mine, now);
-      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的数据站，与 AWAKE HELIX 项目方无关。</p>';
+      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
       bind(id, orders, mkt);
@@ -220,7 +240,7 @@
     }
 
     function createForm() {
-      return '<section class="card"><div class="card-head"><h2>发布挂单</h2><span class="muted">币先存进托管合约，成交前随时可撤</span></div>' +
+      return '<section class="card" id="otc-form"><div class="card-head"><h2>发布挂单</h2><span class="muted">币先存进托管合约，成交前随时可撤</span></div>' +
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 AiLGNS</button><button data-side="buy">我要买 AiLGNS</button></div>' +
         '<div class="form-grid"><label>数量（AiLGNS）<input id="otc-qty" inputmode="decimal" placeholder="例如 5"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 800"></label>' +
@@ -249,6 +269,16 @@
       function reload() { if (A.isCurrent(id)) renderOtc(id); }
       var c = document.getElementById("otc-connect");
       if (c) c.onclick = function () { connect().then(reload, function (e) { say(niceError(e), true); }); };
+
+      A.app.querySelectorAll("[data-go]").forEach(function (b) {
+        b.onclick = function () {
+          var t = document.querySelector('#otc-side [data-side="' + b.getAttribute("data-go") + '"]');
+          if (t) t.click();
+          var f = document.getElementById("otc-form");
+          if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
+          setTimeout(function () { var q = document.getElementById("otc-qty"); if (q) q.focus({ preventScroll: true }); }, 500);
+        };
+      });
 
       // 发布挂单
       var side = "sell";
@@ -397,6 +427,16 @@
       }, function (e) { say(niceError(e), true); btn.disabled = false; });
     };
   }
+
+  // 其他页面顶部的 AiLGNS OTC 推荐条
+  function promo() {
+    var el = document.getElementById("promo");
+    if (!el) return;
+    var tab = location.hash.replace(/^#\/?/, "").split("/")[0] || "otc";
+    el.innerHTML = tab === "otc" ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">智能合约担保交易 · 一笔成交 · 30 分钟不成交自动退回</span><span class="promo-go">去交易 →</span></a>';
+  }
+  window.addEventListener("hashchange", promo);
+  promo();
 
   // 钱包里切换账户时，页面跟着换
   var listening = false;

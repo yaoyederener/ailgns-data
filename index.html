@@ -2,36 +2,55 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>链上观测站 · AiLGNS 数据</title>
-<meta name="description" content="链上观测站：AiLGNS 链上资金流向、钱包快查、团队与 P 等级、团队结构图。本站为独立运营的数据站。">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AiLGNS 服务站 · OTC 担保交易</title>
+<meta name="description" content="AiLGNS 服务站：AiLGNS OTC 智能合约担保交易，资金流向、钱包快查、团队与等级、团队结构图。本站为独立运营的服务站。">
+<meta name="theme-color" content="#f3f4ff">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23009cff'/%3E%3Cstop offset='.55' stop-color='%234936ff'/%3E%3Cstop offset='1' stop-color='%23a014f8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M7 22l6-6.5 4 3.5 7.5-9' fill='none' stroke='%23fff' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='24.5' cy='10' r='2.6' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=202610292139">
+<link rel="stylesheet" href="style.css?v=202610292147">
 </head>
 <body>
 <header class="top">
   <div class="wrap top-in">
-    <a class="brand" href="#/flows"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#009cff"/><stop offset=".55" stop-color="#4936ff"/><stop offset="1" stop-color="#a014f8"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M7 22l6-6.5 4 3.5 7.5-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.6" fill="#fff"/><path d="M7 25.5h18" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/></svg><span class="brand-t"><b>链上观测站</b><small>AiLGNS DATA</small></span></a>
+    <a class="brand" href="#/otc"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#009cff"/><stop offset=".55" stop-color="#4936ff"/><stop offset="1" stop-color="#a014f8"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><path d="M7 22l6-6.5 4 3.5 7.5-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.6" fill="#fff"/><path d="M7 25.5h18" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/></svg><span class="brand-t"><b>AiLGNS 服务站</b><small>SERVICE STATION</small></span></a>
     <nav class="tabs" aria-label="页面">
+      <a href="#/otc" data-tab="otc" class="feat">AiLGNS OTC<i>热</i></a>
       <a href="#/flows" data-tab="flows">资金流向</a>
       <a href="#/wallet" data-tab="wallet">钱包快查</a>
-      <a href="#/otc" data-tab="otc">OTC</a>
       <a href="#/member" data-tab="member" data-tabs="member team tree">会员</a>
     </nav>
+    <a class="debox" href="https://m.debox.pro/card?id=twbzjko7&amp;invite_code=twbzjko7" target="_blank" rel="noopener" title="加站长 DeBox"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#fff"/><circle cx="12" cy="9.6" r="1.2" fill="#fff"/><circle cx="15" cy="9.6" r="1.2" fill="#fff"/></svg><span>加站长 <b>DeBox</b></span></a>
   </div>
 </header>
 
+<div class="wrap" id="promo"></div>
 <nav class="wrap subnav" id="subnav" aria-label="会员" hidden></nav>
 <main class="wrap" id="app" aria-live="polite"></main>
 
-<footer class="wrap foot">
-  <p>数据来自 Anubis 链上合约与 Awake Helix 官方公开接口，本站只读，不索取私钥或助记词；只有开通会员时，会请你的钱包签名注册、并由你确认一笔 LGNS 付款。</p>
-  <p>本站为独立运营的数据站，与 AWAKE HELIX 项目方无关。内容不构成投资建议，加密资产波动剧烈，请独立判断。</p>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-brand">
+      <a class="brand" href="#/otc"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#009cff"/><stop offset=".55" stop-color="#4936ff"/><stop offset="1" stop-color="#a014f8"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg2)"/><path d="M7 22l6-6.5 4 3.5 7.5-9" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24.5" cy="10" r="2.6" fill="#fff"/><path d="M7 25.5h18" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/></svg><span class="brand-t"><b>AiLGNS 服务站</b><small>SERVICE STATION</small></span></a>
+      <p>AiLGNS OTC 智能合约担保交易，以及链上资金、钱包、团队数据服务。</p>
+      <a class="debox" href="https://m.debox.pro/card?id=twbzjko7&amp;invite_code=twbzjko7" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#fff"/><circle cx="12" cy="9.6" r="1.2" fill="#fff"/><circle cx="15" cy="9.6" r="1.2" fill="#fff"/></svg><span>加站长 <b>DeBox</b></span></a>
+    </div>
+    <div class="foot-links">
+      <b>服务</b>
+      <a href="#/otc">AiLGNS OTC</a>
+      <a href="#/flows">资金流向</a>
+      <a href="#/wallet">钱包快查</a>
+      <a href="#/member">会员中心</a>
+    </div>
+    <div class="foot-note">
+      <p>数据来自 Anubis 链上合约与 Awake Helix 官方公开接口。本站不索取私钥或助记词；只有开通会员、OTC 挂单和成交时，才会请你在自己的钱包里签名或确认交易。</p>
+      <p>本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。内容不构成投资建议，加密资产波动剧烈，请独立判断。</p>
+    </div>
+  </div>
 </footer>
 
-<script src="app.js?v=202610292139"></script>
-<script src="wallets.js?v=202610292139"></script>
-<script src="member.js?v=202610292139"></script>
-<script src="otc.js?v=202610292139"></script>
+<script src="app.js?v=202610292147"></script>
+<script src="wallets.js?v=202610292147"></script>
+<script src="member.js?v=202610292147"></script>
+<script src="otc.js?v=202610292147"></script>
 </body>
 </html>

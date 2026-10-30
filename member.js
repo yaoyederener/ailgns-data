@@ -91,7 +91,7 @@
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (accs) {
       addr = String(accs[0]).toLowerCase();
-      msg = "链上观测站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
+      msg = "AiLGNS 服务站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
       status("请在钱包里签名（不花钱、不授权）…");
       return eth.request({ method: "personal_sign", params: [utf8Hex(msg), addr] });
     }).then(function (s) {
@@ -379,11 +379,11 @@
       g.font = "600 " + 13 * scale + "px -apple-system, PingFang SC, Microsoft YaHei, sans-serif";
       g.fillStyle = "rgba(112, 39, 217, .55)";
       g.textAlign = "right";
-      g.fillText("链上观测站 · ailgns.dev", c.width - 16 * scale, c.height - 12 * scale);
+      g.fillText("AiLGNS 服务站 · ailgns.dev", c.width - 16 * scale, c.height - 12 * scale);
       c.toBlob(function (b) {
         var a = document.createElement("a");
         a.href = URL.createObjectURL(b);
-        a.download = "链上观测站-团队-" + root.a.slice(2, 8) + ".png";
+        a.download = "AiLGNS服务站-团队-" + root.a.slice(2, 8) + ".png";
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
       });

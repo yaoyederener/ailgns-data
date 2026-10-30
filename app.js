@@ -420,9 +420,9 @@
   function route() {
     var id = ++renderId;
     var parts = location.hash.replace(/^#\/?/, "").split("/");
-    var tab = parts[0] || "flows", a = (parts[1] || "").toLowerCase();
     var extra = window.AIL.pages;
-    if (["flows", "wallet", "team"].indexOf(tab) < 0 && !extra[tab]) tab = "flows";
+    var tab = parts[0] || "otc", a = (parts[1] || "").toLowerCase();
+    if (["flows", "wallet", "team"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
     if (a && !isAddr(a)) a = "";
     document.querySelectorAll(".tabs a").forEach(function (el) {
       el.classList.toggle("on", (el.getAttribute("data-tabs") || el.getAttribute("data-tab")).split(" ").indexOf(tab) >= 0);
