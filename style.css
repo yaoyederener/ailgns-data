@@ -453,3 +453,22 @@ a:active, button:active { opacity: .85; }
 .export-actions button { padding: 10px 16px; }
 .export-imgs { display: grid; gap: 10px; }
 .export-imgs img { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); -webkit-touch-callout: default; user-select: auto; }
+
+/* 结构图：定位、筛选、路径 */
+.tree-find { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.tree-find input { flex: 1; min-width: 200px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; font: 14px ui-monospace, Menlo, monospace; color: var(--text); }
+.tree-find input:focus { outline: none; border-color: var(--gold); }
+.tree-find button { padding: 0 18px; }
+.tree-find select { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; font-size: 14px; color: var(--text); min-height: 42px; }
+.tree-path { background: var(--panel); border: 1px solid #ffd2ad; border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.tp-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; margin-bottom: 8px; }
+.tp-head b { color: #e0620e; }
+.tp-head .muted { font-size: 13px; }
+.tp-chain { display: flex; align-items: center; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+.tp-step { flex: none; display: grid; gap: 1px; text-align: left; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 6px 10px; box-shadow: none; font-weight: 500; }
+.tp-step span { font-size: 11px; color: var(--muted); }
+.tp-step b { font-size: 13px; }
+.tp-step small { font-size: 11px; color: var(--muted); }
+.tp-step.on { border-color: #ff7a1a; background: #fff7ef; }
+.tp-arrow { font-style: normal; color: var(--muted); flex: none; }
+@media (max-width: 600px) { .tree-find select { flex: 1; } .tree-find button { flex: none; } }

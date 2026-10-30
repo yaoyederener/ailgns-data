@@ -392,20 +392,40 @@
         return A.pool(big, 6, function (n) {
           return A.api("/level/" + n.a).then(function (l) { n.level = l.level || 0; n.self = A.n(l.selfPower) || n.self; }, function () {});
         }).then(function () {
+          var byAddr = {};
           nodes.forEach(function (n) {
-            var kids = n.kids.sort(function (x, y) { return y.power - x.power || y.team - x.team; });
-            var shown = kids.filter(function (k) { return k.team > 0 || k.level > 0; });
-            n.children = shown;
-            n.more = kids.length - shown.length;
-            shown.forEach(function (k, i) { k.zone = i < 3 && k.power > 0 ? i + 1 : 0; });
+            n.all = n.kids.sort(function (x, y) { return y.power - x.power || y.team - x.team; });
+            n.all.forEach(function (k, i) { k.parent = n; k.zone = n === nodes[0] && i < 3 && k.power > 0 ? i + 1 : 0; });
             n.expanded = false;
+            byAddr[n.a] = n;
             delete n.kids;
           });
           nodes[0].expanded = true;
-          return { root: nodes[0], list: c.list, nodes: nodes, lines: c.lines };
+          var data = { root: nodes[0], list: c.list, nodes: nodes, lines: c.lines, byAddr: byAddr, min: 1 };
+          applyFilter(data);
+          return data;
         });
       });
     });
+  }
+
+  // 筛选：只画团队人数够多、或有等级、或被定位到的人；其他的合并成"还有 N 人"
+  function applyFilter(data) {
+    var min = data.min;
+    data.nodes.forEach(function (n) {
+      n.children = n.all.filter(function (k) { return k.pin || k.level > 0 || (k.team > 0 && k.team >= min); });
+      n.more = n.all.length - n.children.length;
+    });
+  }
+  // 从 root 到这个人的路径
+  function pathTo(n) {
+    var p = [];
+    for (var x = n; x; x = x.parent) p.unshift(x);
+    return p;
+  }
+  // 位置编号：一区第 3 个直推的第 2 个直推 → 1.3.2（按团队算力排序）
+  function posCode(n) {
+    return pathTo(n).slice(1).map(function (x) { return x.parent.all.indexOf(x) + 1; }).join(".");
   }
 
   // 从左到右的树：每个节点占的高度 = 展开后的叶子数
@@ -431,14 +451,15 @@
     if (n.moreOf) {
       return '<g transform="translate(' + n.x + "," + n.y + ')"><rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="none" stroke="' + COLORS.line + '" stroke-dasharray="5 4"/>' +
         '<text x="14" y="28" fill="' + COLORS.muted + '" font-size="13">还有 ' + A.fmt(n.count) + " 个直推</text>" +
-        '<text x="14" y="48" fill="' + COLORS.muted + '" font-size="12">暂无团队或团队较小，未画出</text></g>';
+        '<text x="14" y="48" fill="' + COLORS.muted + '" font-size="12">团队较小，没有画出（可用定位查找）</text></g>';
     }
-    var stroke = n === root ? COLORS.gold : n.level ? COLORS.gold : COLORS.line;
+    var stroke = n.hl ? "#ff7a1a" : n === root ? COLORS.gold : n.level ? COLORS.gold : COLORS.line;
     var badge = n.level ? "P" + n.level : "—";
     var zone = n.zone ? ["一区", "二区", "三区"][n.zone - 1] : "";
     var s = '<g class="node" data-a="' + n.a + '" transform="translate(' + n.x + "," + n.y + ')" style="cursor:' + (n.direct ? "pointer" : "default") + '">' +
       "<title>" + e(n.a) + "\n团队 " + A.fmt(n.team) + " 人 · 团队算力 " + A.fmt(n.power) + " · 直推 " + A.fmt(n.direct) + "</title>" +
-      '<rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="' + COLORS.node + '" stroke="' + stroke + '" stroke-width="' + (n === root ? 2 : 1.2) + '"/>' +
+      (n.hl ? '<rect x="-6" y="-6" width="' + (NODE_W + 12) + '" height="' + (NODE_H + 12) + '" rx="14" fill="rgba(255,122,26,.16)"/>' : "") +
+      '<rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="' + (n.hl ? "#fff7ef" : COLORS.node) + '" stroke="' + stroke + '" stroke-width="' + (n.hl ? 3 : n === root ? 2 : 1.2) + '"/>' +
       '<text x="14" y="23" fill="' + COLORS.text + '" font-size="13" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="600">' + A.short(n.a) + "</text>" +
       '<rect x="' + (NODE_W - 48) + '" y="9" width="36" height="19" rx="5" fill="' + (n.level ? COLORS.gold : COLORS.chip) + '"/>' +
       '<text x="' + (NODE_W - 30) + '" y="23" text-anchor="middle" fill="' + (n.level ? "#fff" : COLORS.muted) + '" font-size="12" font-weight="700">' + badge + "</text>" +
@@ -505,6 +526,10 @@
         ty = h * k < box.clientHeight ? (box.clientHeight - h * k) / 2 : 8;
         apply();
       },
+      center: function (x, y, nk) {
+        k = nk || Math.max(k, 0.9);
+        tx = box.clientWidth / 2 - x * k; ty = box.clientHeight / 2 - y * k; apply();
+      },
       wasDrag: function () { return moved; }
     };
   }
@@ -556,16 +581,23 @@
       g.fillStyle = COLORS.text; g.font = "800 28px " + font; g.textAlign = "left";
       g.fillText("团队完整结构", 32, 52);
       g.font = "500 17px " + font; g.fillStyle = COLORS.muted;
-      g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 人 · 团队算力 " + A.wan(root.power).replace(" ", "") + (pages > 1 ? "　第 " + (p + 1) + "/" + pages + " 张" : ""), 32, 80);
+      g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 人 · 团队算力 " + A.wan(root.power).replace(" ", "") + " · 编号 1.3.2 = 第1条直推线→第3人→第2人" + (pages > 1 ? "　第 " + (p + 1) + "/" + pages + " 张" : ""), 32, 80);
       part.forEach(function (r, i) {
         var y = HEAD + i * ROW, n = r.n, x = 32 + Math.min(r.depth, 24) * 16;
-        if (i % 2) { g.fillStyle = "#f7f5fd"; g.fillRect(0, y, W, ROW); }
+        if (r.depth === 1) { // 每条直推线开头加一条色带
+          g.fillStyle = "#efe8fd"; g.fillRect(0, y, W, ROW);
+          g.fillStyle = COLORS.gold; g.fillRect(0, y, 6, ROW);
+        } else if (i % 2) { g.fillStyle = "#faf9fe"; g.fillRect(0, y, W, ROW); }
         g.fillStyle = "#d8cff2";
         for (var d = 1; d <= Math.min(r.depth, 24); d++) g.fillRect(32 + (d - 1) * 16 + 6, y, 1.5, ROW);
         var cy = y + ROW / 2 + 6;
+        var code = r.depth ? posCode(n) : "你";
+        g.fillStyle = COLORS.gold; g.font = "700 14px " + font;
+        g.fillText(code, x, cy);
+        var cx2 = x + Math.max(g.measureText(code).width + 8, 0);
         g.fillStyle = COLORS.text; g.font = "700 16px " + mono;
-        g.fillText(A.short(n.a), x, cy);
-        var tx = x + g.measureText(A.short(n.a)).width + 10;
+        g.fillText(A.short(n.a), cx2, cy);
+        var tx = cx2 + g.measureText(A.short(n.a)).width + 10;
         if (n.level) {
           g.fillStyle = COLORS.gold; g.fillRect(tx, y + 7, 38, 20);
           g.fillStyle = "#fff"; g.font = "800 13px " + font; g.fillText("P" + n.level, tx + 9, y + 22);
@@ -573,7 +605,7 @@
         }
         if (n.zone && r.depth === 1) { g.fillStyle = COLORS.gold; g.font = "700 14px " + font; g.fillText(["一区", "二区", "三区"][n.zone - 1], tx, cy); tx += 40; }
         g.fillStyle = COLORS.muted; g.font = "500 15px " + font;
-        g.fillText("团队 " + A.fmt(n.team) + " 人 · 算力 " + A.wan(n.power).replace(" ", "") + " · 直推 " + A.fmt(n.direct) + (n.more ? "（" + n.more + " 人无团队）" : ""), tx, cy);
+        g.fillText((r.depth ? "第" + r.depth + "层 · " : "") + "团队 " + A.fmt(n.team) + " 人 · 算力 " + A.wan(n.power).replace(" ", "") + " · 直推 " + A.fmt(n.direct) + (n.more ? "（另 " + n.more + " 人未列出）" : ""), tx, cy);
       });
       g.font = "600 14px " + font; g.fillStyle = "rgba(112, 39, 217, .6)"; g.textAlign = "right";
       g.fillText("AiLGNS 服务站 · ailgns.dev", W - 24, H - 14);
@@ -642,6 +674,9 @@
     return '<div class="tree-bar"><button class="ghost" data-z="1.25">放大</button><button class="ghost" data-z="0.8">缩小</button><button class="ghost" data-fit>适应屏幕</button>' +
       '<button class="ghost" data-expand>展开下一层</button><button class="ghost" data-all>全部展开</button><button class="ghost" data-fold>收起</button>' +
       '<button data-png>导出图片</button><button class="ghost" data-csv hidden>导出完整名单</button><span class="muted" id="tree-status"></span></div>' +
+      '<div class="tree-find" id="tree-find" hidden><input id="find-a" placeholder="输入你团队里的地址（可只输前几位）" autocomplete="off" spellcheck="false"><button id="find-go">定位</button>' +
+      '<select id="tree-min"><option value="1">显示：有团队的人</option><option value="10">团队 ≥ 10 人</option><option value="50">团队 ≥ 50 人</option><option value="200">团队 ≥ 200 人</option></select></div>' +
+      '<div class="tree-path" id="tree-path" hidden></div>' +
       '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
   }
 
@@ -695,6 +730,54 @@
     };
     var csvBtn = app.querySelector("[data-csv]");
     if (data) { csvBtn.hidden = false; csvBtn.onclick = function () { exportCsv(data); }; }
+    if (!data) return;
+
+    // ---- 定位、路径、筛选（完整数据时才有） ----
+    var findBox = document.getElementById("tree-find"), pathEl = document.getElementById("tree-path"), input = document.getElementById("find-a");
+    findBox.hidden = false;
+    function clearMarks() { data.nodes.forEach(function (n) { n.hl = false; n.pin = false; }); }
+    function showPath(n) {
+      var p = pathTo(n);
+      pathEl.hidden = false;
+      pathEl.innerHTML = '<div class="tp-head"><b>' + (n === root ? "你自己" : "第 " + (p.length - 1) + " 层 · 位置 " + posCode(n)) + "</b>" +
+        (n === root ? "" : '<span class="muted">' + (p[1].zone ? ["一区", "二区", "三区"][p[1].zone - 1] + " · " : "") + "属于直推线 " + A.short(p[1].a) + "</span>") + "</div>" +
+        '<div class="tp-chain">' + p.map(function (x, i) {
+          return '<button class="tp-step' + (x === n ? " on" : "") + '" data-go="' + x.a + '"><span>' + (i === 0 ? "你" : "第 " + i + " 层") + '</span><b class="mono">' + A.short(x.a) + "</b><small>团队 " + A.fmt(x.team) + " 人" + (x.level ? " · P" + x.level : "") + "</small></button>";
+        }).join('<i class="tp-arrow">›</i>') + "</div>";
+      pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(data.byAddr[b.getAttribute("data-go")]); }; });
+    }
+    function locate(n) {
+      clearMarks();
+      n.hl = true;
+      var p = pathTo(n);
+      p.forEach(function (x) { x.pin = true; if (x !== n) x.expanded = true; }); // 路径上的人都画出来、展开
+      applyFilter(data);
+      draw();
+      pz.center(n.x + 24 + NODE_W / 2, n.y + 24 + NODE_H / 2, 1);
+      showPath(n);
+      st.textContent = "";
+    }
+    function find() {
+      var q = input.value.trim().toLowerCase();
+      if (!q) return;
+      var hits = data.nodes.filter(function (n) { return n.a === q || (q.length >= 4 && n.a.indexOf(q.replace(/^0x/, "")) >= 0); });
+      if (!hits.length) { st.textContent = "这个地址不在你的团队里"; return; }
+      if (hits.length > 1 && hits[0].a !== q) { st.textContent = "有 " + hits.length + " 个地址匹配，请多输几位"; return; }
+      locate(hits[0]);
+    }
+    document.getElementById("find-go").onclick = find;
+    input.onkeydown = function (e) { if (e.key === "Enter") find(); };
+    document.getElementById("tree-min").onchange = function () {
+      data.min = Number(this.value);
+      applyFilter(data);
+      draw(true);
+    };
+    // 点任意一个人：显示他在团队里的位置
+    inner.addEventListener("click", function (e) {
+      if (pz.wasDrag()) return;
+      var g = e.target.closest(".node");
+      if (g && data.byAddr[g.getAttribute("data-a")]) showPath(data.byAddr[g.getAttribute("data-a")]);
+    });
     app.querySelector("[data-expand]").onclick = function () {
       // 展开当前最外层里所有有直推的节点
       var leaves = [];
