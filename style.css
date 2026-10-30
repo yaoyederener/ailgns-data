@@ -367,3 +367,42 @@ button:active, .btn:active { transform: translateY(1px); }
   .promo-go { margin-left: auto; }
   .foot-in { grid-template-columns: 1fr; gap: 20px; }
 }
+
+/* 资金流向：大总结 */
+.verdict { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; margin: 4px 0 16px; padding: 26px 28px; border-radius: 28px; border: 1px solid; position: relative; overflow: hidden; }
+.verdict.in { background: linear-gradient(135deg, #ffffff 0%, #ecfbf1 70%); border-color: #bfe9cd; box-shadow: 0 18px 44px rgba(22, 163, 74, .12); }
+.verdict.out { background: linear-gradient(135deg, #ffffff 0%, #fff0f3 70%); border-color: #f7c6d1; box-shadow: 0 18px 44px rgba(225, 29, 72, .12); }
+.vd-main { display: flex; gap: 18px; align-items: center; }
+.vd-icon { flex: none; width: 76px; height: 76px; border-radius: 24px; display: grid; place-items: center; color: #fff; }
+.verdict.in .vd-icon { background: linear-gradient(135deg, #22c55e, #15803d); box-shadow: 0 10px 24px rgba(22, 163, 74, .35); }
+.verdict.out .vd-icon { background: linear-gradient(135deg, #f43f5e, #be123c); box-shadow: 0 10px 24px rgba(225, 29, 72, .35); }
+.vd-icon svg { width: 44px; height: 44px; }
+.vd-label { font-size: 14px; color: var(--muted); font-weight: 600; }
+.vd-word { font-size: 44px; font-weight: 900; line-height: 1.1; letter-spacing: 2px; }
+.verdict.in .vd-word, .verdict.in .vd-amt { color: #15803d; }
+.verdict.out .vd-word, .verdict.out .vd-amt { color: #be123c; }
+.vd-amt { font-size: 30px; font-weight: 800; margin-top: 2px; }
+.vd-amt small { font-size: 14px; color: var(--muted); font-weight: 600; }
+.vd-sub { margin-top: 6px; font-size: 13px; color: var(--muted); }
+.vd-side { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: center; }
+.vd-trend { grid-column: 1 / -1; background: rgba(255, 255, 255, .8); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: grid; gap: 2px; }
+.vd-trend b { font-size: 17px; }
+.vd-trend span { font-size: 13px; color: var(--muted); }
+.vd-dots { display: flex; gap: 6px; margin-top: 6px; }
+.vd-dots i { flex: 1; height: 10px; border-radius: 5px; }
+.vd-dots i.in { background: #22c55e; }
+.vd-dots i.out { background: #f43f5e; }
+.vd-mini { background: rgba(255, 255, 255, .8); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; display: grid; gap: 1px; }
+.vd-mini span { font-size: 12px; color: var(--muted); font-weight: 600; }
+.vd-mini b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.vd-mini b small { font-size: 11px; color: var(--muted); }
+.vd-mini em { font-style: normal; font-size: 12px; font-weight: 700; }
+@media (max-width: 860px) { .verdict { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .verdict { padding: 20px 18px; border-radius: 24px; }
+  .vd-icon { width: 60px; height: 60px; border-radius: 18px; }
+  .vd-icon svg { width: 34px; height: 34px; }
+  .vd-word { font-size: 36px; }
+  .vd-amt { font-size: 24px; }
+  .vd-mini b { font-size: 17px; }
+}

@@ -191,6 +191,30 @@
     return s + "</svg>";
   }
 
+  // 大总结：今天是净流入还是净流出，再看近 7 天、30 天
+  function verdict(days, updated) {
+    var today = days[days.length - 1];
+    var last7 = days.slice(-7), last30 = days.slice(-30);
+    var sum = function (l) { return l.reduce(function (t, d) { return t + d.net; }, 0); };
+    var net7 = sum(last7), net30 = sum(last30);
+    var inDays = last7.filter(function (d) { return d.net > 0; }).length;
+    var up = today.net >= 0;
+    var trend = inDays >= 5 ? "资金持续流入" : inDays <= 2 ? "资金持续流出" : "资金进出拉锯";
+    var arrow = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + (up ? "M12 4l8 9h-5v7H9v-7H4z" : "M12 20l8-9h-5V4H9v7H4z") + '" fill="currentColor"/></svg>';
+    var mini = function (label, v, note) {
+      return '<div class="vd-mini"><span>' + label + '</span><b class="' + cls(v) + '">' + signed(v) + ' <small>DAI</small></b><em class="' + cls(v) + '">' + (v >= 0 ? "净流入" : "净流出") + "</em>" + (note ? "<i>" + note + "</i>" : "") + "</div>";
+    };
+    return '<section class="verdict ' + (up ? "in" : "out") + '">' +
+      '<div class="vd-main"><div class="vd-icon">' + arrow + '</div><div>' +
+      '<div class="vd-label">今天 AiLGNS/DAI 主池</div>' +
+      '<div class="vd-word">' + (up ? "净流入" : "净流出") + '</div>' +
+      '<div class="vd-amt num">' + signed(today.net) + ' <small>DAI</small></div>' +
+      '<div class="vd-sub">买单 <b class="up">' + wan(today.buy_dai) + '</b> · 卖单 <b class="down">' + wan(today.sell_dai) + "</b> · 截至 " + timeBJ(updated) + "</div></div></div>" +
+      '<div class="vd-side"><div class="vd-trend"><b>' + trend + '</b><span>近 7 天有 ' + inDays + " 天净流入</span>" +
+      '<div class="vd-dots">' + last7.map(function (d) { return '<i class="' + (d.net >= 0 ? "in" : "out") + '" title="' + d.date + " " + signed(d.net, fmt) + ' DAI"></i>'; }).join("") + "</div></div>" +
+      mini("近 7 天合计", net7) + mini("近 30 天合计", net30) + "</div></section>";
+  }
+
   // ---------- 页面：资金流向 ----------
   function renderFlows(id) {
     app.innerHTML = '<h1>资金流向</h1><p class="sub">AiLGNS/DAI 主池每天的买单、卖单，以及池子是净流入还是净流出（北京时间自然日）</p><div class="loading">正在读取链上数据…</div>';
@@ -209,11 +233,9 @@
       var price = res ? res.dai / res.ail : null;
       var html = '<h1>资金流向</h1><p class="sub">AiLGNS/DAI 主池每天的买单、卖单，以及池子是净流入还是净流出（北京时间自然日）</p>';
 
+      if (today) html += verdict(days, flows.updated);
       html += '<div class="kpis">';
       if (today) {
-        var dir = today.net > 0 ? "in" : today.net < 0 ? "out" : "";
-        html += '<div class="kpi hero ' + dir + '"><div class="k">今天 · 池子' + (today.net >= 0 ? "净流入" : "净流出") + '</div><div class="v num ' + cls(today.net) + '">' + signed(today.net) + "<small>DAI</small></div>" +
-          '<div class="d">截至 ' + timeBJ(flows.updated) + "，每小时更新</div></div>";
         html += '<div class="kpi"><div class="k">今天买单</div><div class="v num up">' + wan(today.buy_dai) + '<small>DAI</small></div><div class="d">' + fmt(today.buy_n) + " 笔 · 最大单笔 " + wan(today.buy_max) + "</div></div>";
         html += '<div class="kpi"><div class="k">今天卖单</div><div class="v num down">' + wan(today.sell_dai) + '<small>DAI</small></div><div class="d">' + fmt(today.sell_n) + " 笔 · 最大单笔 " + wan(today.sell_max) + "</div></div>";
       }
