@@ -1519,7 +1519,7 @@
     if (addr) show(addr);
     function show(a) {
       var out = document.getElementById("up-out");
-      out.innerHTML = '<div class="loading">正在一层层往上查…（第一次查可能要几秒）</div>';
+      out.innerHTML = '<div class="loading">正在一层层往上查…（第一次查一条很长的链可能要 10 秒左右，查过的秒出）</div>';
       fetch("/api/upline?addr=" + a).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(id)) return;
         if (d.error) throw new Error(d.error);
