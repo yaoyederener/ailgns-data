@@ -159,8 +159,8 @@
       if (i % Math.ceil(days.length / 8) === 0 || i === days.length - 1)
         s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle">' + d.date.slice(5).replace("-", "/") + "</text>";
     });
-    s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="#7c3aed" stroke-width="1.5" pointer-events="none"/>';
-    pts.forEach(function (p) { var q = p.split(","); s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="2.6" fill="#7c3aed" pointer-events="none"/>'; });
+    s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="#7027d9" stroke-width="1.5" pointer-events="none"/>';
+    pts.forEach(function (p) { var q = p.split(","); s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="2.6" fill="#7027d9" pointer-events="none"/>'; });
     return s + "</svg>";
   }
 
@@ -180,8 +180,8 @@
       s += '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end">' + wan(v).replace(" ", "") + "</text>";
     });
     var pts = days.map(function (d, i) { return (L + i * bw + bw / 2) + "," + y(d[key]); });
-    s += '<polygon points="' + (L + bw / 2) + "," + (H - B) + " " + pts.join(" ") + " " + (L + (days.length - .5) * bw) + "," + (H - B) + '" fill="rgba(124,58,237,.10)"/>';
-    s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="#7c3aed" stroke-width="2"/>';
+    s += '<polygon points="' + (L + bw / 2) + "," + (H - B) + " " + pts.join(" ") + " " + (L + (days.length - .5) * bw) + "," + (H - B) + '" fill="rgba(112,39,217,.10)"/>';
+    s += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="#7027d9" stroke-width="2"/>';
     days.forEach(function (d, i) {
       var cx = L + i * bw + bw / 2;
       s += '<rect data-tip="' + esc("<b>" + d.date + "</b><br>" + label + " " + fmt(d[key], key === "price_end" ? 2 : 0)) + '" x="' + (L + i * bw) + '" y="' + T + '" width="' + bw + '" height="' + (H - T - B) + '" fill="transparent"/>';
@@ -231,7 +231,7 @@
       if (days.length) {
         var recent = days.slice(-30);
         var sumNet = recent.reduce(function (a, d) { return a + d.net; }, 0);
-        html += '<section class="card"><div class="card-head"><h2>每日买卖</h2><div class="legend"><span><i style="background:#16a34a"></i>买入</span><span><i style="background:#e11d48"></i>卖出</span><span><i style="background:#7c3aed"></i>池子净流入/流出</span></div></div>' +
+        html += '<section class="card"><div class="card-head"><h2>每日买卖</h2><div class="legend"><span><i style="background:#16a34a"></i>买入</span><span><i style="background:#e11d48"></i>卖出</span><span><i style="background:#7027d9"></i>池子净流入/流出</span></div></div>' +
           flowChart(recent) + '<p class="note">近 ' + recent.length + ' 天池子合计 <b class="' + cls(sumNet) + '">' + signed(sumNet) + " DAI</b>。今天的柱子颜色较浅，表示还没收盘。</p></section>";
         html += '<section class="card"><div class="card-head"><h2>主池 DAI 储备</h2><span class="muted">每天收盘时</span></div>' + lineChart(recent, "pool_dai_end", "主池 DAI") + "</section>";
 

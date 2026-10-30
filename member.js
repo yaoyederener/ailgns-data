@@ -91,7 +91,7 @@
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (accs) {
       addr = String(accs[0]).toLowerCase();
-      msg = "局长观测站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
+      msg = "链上观测站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
       status("请在钱包里签名（不花钱、不授权）…");
       return eth.request({ method: "personal_sign", params: [utf8Hex(msg), addr] });
     }).then(function (s) {
@@ -197,7 +197,7 @@
         '<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div>' +
         '<span class="muted">只收 Anubis 链上的 LGNS（合约 ' + A.short(LGNS) + "），转其他币或其他链无法开通，也无法退回。</span></li>" +
         "<li>之后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通。</li></ol></details>" +
-        '<p class="note">局长观测站是加拿大局长独立运营的非官方数据站，会员费由局长观测站收取，与 AWAKE HELIX 项目方无关。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        '<p class="note">本站为独立运营的数据站，会员费由本站收取，与 AWAKE HELIX 项目方无关。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
       document.getElementById("copy").onclick = function () {
         var b = this;
@@ -243,7 +243,7 @@
 
   // ---------- 页面：结构图 ----------
   var NODE_W = 220, NODE_H = 66, GAP_X = 64, GAP_Y = 14, MAX_CHILDREN = 30;
-  var COLORS = { bg: "#faf9fd", node: "#ffffff", line: "#c9c2dc", text: "#1c1a29", muted: "#6e6a85", gold: "#7c3aed", up: "#16a34a", chip: "#efeaf9" };
+  var COLORS = { bg: "#f8f8ff", node: "#ffffff", line: "#cfc4ee", text: "#191839", muted: "#6e6a85", gold: "#7027d9", up: "#16a34a", chip: "#efeaf9" };
 
   function loadNode(a) {
     return Promise.all([A.api("/community/" + a), A.api("/level/" + a).catch(function () { return null; })]).then(function (r) {
@@ -377,13 +377,13 @@
       g.drawImage(img, 0, 0, c.width, c.height);
       // 右下角品牌水印
       g.font = "600 " + 13 * scale + "px -apple-system, PingFang SC, Microsoft YaHei, sans-serif";
-      g.fillStyle = "rgba(124, 58, 237, .55)";
+      g.fillStyle = "rgba(112, 39, 217, .55)";
       g.textAlign = "right";
-      g.fillText("局长观测站 · ailgns.dev", c.width - 16 * scale, c.height - 12 * scale);
+      g.fillText("链上观测站 · ailgns.dev", c.width - 16 * scale, c.height - 12 * scale);
       c.toBlob(function (b) {
         var a = document.createElement("a");
         a.href = URL.createObjectURL(b);
-        a.download = "局长观测站-团队-" + root.a.slice(2, 8) + ".png";
+        a.download = "链上观测站-团队-" + root.a.slice(2, 8) + ".png";
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
       });

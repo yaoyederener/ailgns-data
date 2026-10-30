@@ -1,19 +1,20 @@
 :root {
-  --bg: #f5f4fa;
+  --bg: #f3f4ff;
   --panel: #ffffff;
-  --panel-2: #f6f3fd;
-  --line: #e6e1f2;
-  --text: #1c1a29;
-  --muted: #6e6a85;
-  --gold: #7c3aed;
-  --gold-soft: rgba(124, 58, 237, .09);
-  --grad: linear-gradient(100deg, #3b82f6 0%, #8b2cf5 100%);
+  --panel-2: #f7f4ff;
+  --line: #e5ddfa;
+  --text: #191839;
+  --muted: #6b6a8c;
+  --gold: #7027d9;
+  --gold-soft: rgba(112, 39, 217, .08);
+  --grad: linear-gradient(110deg, #009cff, #4936ff 55%, #a014f8);
+  --grad-dot: linear-gradient(120deg, #8933ff, #5500e8);
   --up: #16a34a;
   --up-soft: rgba(22, 163, 74, .10);
   --down: #e11d48;
   --down-soft: rgba(225, 29, 72, .09);
   --radius: 20px;
-  --shadow: 0 1px 2px rgba(28, 26, 41, .04), 0 4px 16px rgba(76, 52, 160, .06);
+  --shadow: 0 0 0 1px #ece6fb, 0 3px 12px rgba(118, 47, 242, .08);
   color-scheme: light;
 }
 
@@ -39,14 +40,14 @@ a:hover { text-decoration: underline; }
 .top-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; white-space: nowrap; }
 .brand:hover { text-decoration: none; }
-.logo { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 3px 8px rgba(124, 58, 237, .28)); }
+.logo { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 3px 8px rgba(112, 39, 217, .28)); }
 .brand-t { display: grid; line-height: 1.15; }
 .brand-t b { font-size: 16px; letter-spacing: .5px; }
-.brand-t small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.brand-t small { font-size: 11px; font-weight: 500; color: var(--gold); letter-spacing: 1px; }
 .tabs { display: flex; gap: 4px; overflow-x: auto; }
 .tabs a { color: var(--muted); padding: 7px 14px; border-radius: 999px; white-space: nowrap; font-size: 14px; }
 .tabs a:hover { color: var(--text); text-decoration: none; background: var(--panel-2); }
-.tabs a.on { color: #fff; background: var(--gold); font-weight: 600; }
+.tabs a.on { color: #fff; background: var(--grad-dot); font-weight: 600; }
 
 /* 区块 */
 h1 { font-size: 22px; margin: 28px 0 4px; }
@@ -88,9 +89,9 @@ td.l, th.l { text-align: left; }
 .search { display: flex; gap: 8px; margin-bottom: 16px; }
 .search input { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 14px; padding: 12px 16px; font: 14px ui-monospace, SFMono-Regular, Menlo, monospace; }
 .search input:focus { outline: none; border-color: var(--gold); }
-button, .btn { background: var(--grad); color: #fff; border: 0; border-radius: 14px; padding: 0 20px; font: 600 14px inherit; cursor: pointer; white-space: nowrap; }
+button, .btn { background: var(--grad); color: #fff; border: 0; border-radius: 15px; box-shadow: 0 3px 12px rgba(118, 47, 242, .18); padding: 0 20px; font: 600 14px inherit; cursor: pointer; white-space: nowrap; }
 button:hover, .btn:hover { filter: brightness(1.08); text-decoration: none; }
-button.ghost { background: var(--panel); color: var(--gold); border: 1px solid #c9b6f5; }
+button.ghost { background: var(--panel); color: #5920ad; border: 1px solid var(--gold); border-radius: 9px; box-shadow: none; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: -6px 0 16px; }
 .chip { background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
 .chip:hover { color: var(--text); }
@@ -136,7 +137,7 @@ button:disabled { opacity: .5; cursor: default; }
 .node:hover rect:first-of-type { filter: brightness(1.25); }
 .flow { display: grid; gap: 10px; margin-bottom: 16px; }
 .flow-step { display: flex; gap: 12px; align-items: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
-.flow-step > b { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--gold); color: #fff; font-size: 13px; }
+.flow-step > b { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--grad-dot); color: #fff; font-size: 13px; box-shadow: 0 0 0 4px #f8f4ff; }
 .flow-step.ok { border-color: var(--up); }
 .flow-step.ok > b { background: var(--up); color: #fff; }
 .flow-step .muted { font-size: 13px; }
