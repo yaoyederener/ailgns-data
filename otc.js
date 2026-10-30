@@ -10,8 +10,8 @@
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
   var FEE_BPS = 100n;
   var EXPLORER = "https://anubisscan.io";
-  // 手续费分账合约：原收款钱包授权后，到账的手续费按 30% / 40% / 30% 自动分出去（地址、比例写死）
-  var SPLITTER = "0xeee877c1b6285b82890bdcd027d2715f658ecf23";
+  // 收入分账合约（Anubis、Polygon 各一个）：原收款钱包授权后，到账的收入按 30% / 40% / 30% 自动分出去（地址、比例写死）
+  var SPLITTERS = { anubis: "0xeee877c1b6285b82890bdcd027d2715f658ecf23", polygon: "0xcc274e07847a6a86917b6ccd4e67706170d4036f" };
   var PAYEES = [["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], [FEE_RECIPIENT, 30]];
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
   var VERIFY = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md";
@@ -470,47 +470,65 @@
     };
   }
 
-  // 手续费分账：原收款钱包在这里授权分账合约；之后每 5 分钟自动把新到的手续费分出去
+  // 收入分账：原收款钱包在这里授权分账合约；之后每 5 分钟自动把新到的收入分出去
   function renderSplit(id) {
-    var app = A.app, MAX = (1n << 256n) - 1n, TOKS = [["AiLGNS", AILGNS], ["DAI", DAI]];
-    var totalSel = "0x0399205c"; // totalSplit(address)
-    app.innerHTML = '<h1>手续费分账</h1><p class="sub">OTC 手续费照旧进入原收款钱包。原收款钱包授权分账合约后，每 5 分钟检查一次，新到账的手续费自动按比例分出去。地址和比例写死在合约里，任何人都改不了。</p>' +
-      '<section class="card"><div class="card-head"><h2>分账规则</h2><a target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + SPLITTER + '">分账合约 ↗</a></div><dl class="dl">' +
+    var app = A.app, MAX = (1n << 256n) - 1n, totalSel = "0x0399205c"; // totalSplit(address)
+    var TOKS = [
+      { name: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9 },
+      { name: "AiLGNS", chain: "anubis", token: AILGNS, dec: 18 },
+      { name: "DAI", chain: "anubis", token: DAI, dec: 18 },
+      { name: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18 }
+    ];
+    var CH = { anubis: { name: "Anubis", explorer: EXPLORER }, polygon: { name: "Polygon", explorer: "https://polygonscan.com" } };
+    function read(chain, to, data) { return (chain === "anubis" ? A.call(to, data) : W.rpcOn("polygon", "eth_call", [{ to: to, data: data }, "latest"])).then(BigInt); }
+    function amt(v, dec) { return A.fmt(Number(v) / Math.pow(10, dec), 4); }
+    app.innerHTML = '<h1>收入分账</h1><p class="sub">会员费和 OTC 手续费照旧进入原收款钱包。原收款钱包授权分账合约后，每 5 分钟检查一次，新到账的收入自动按比例分出去。地址和比例写死在合约里，任何人都改不了。</p>' +
+      '<section class="card"><div class="card-head"><h2>分账规则</h2></div><dl class="dl">' +
       PAYEES.map(function (p, i) { return "<dt>" + p[1] + "%</dt><dd>" + A.addrLink(p[0]) + (i === 2 ? '　<span class="muted">（原收款钱包，这份留在原地）</span>' : "") + "</dd>"; }).join("") +
-      '<dt>合约</dt><dd class="mono">' + SPLITTER + '</dd><dt>源码</dt><dd><a href="contracts/AilgnsFeeSplitter.sol" target="_blank" rel="noopener">AilgnsFeeSplitter.sol ↗</a></dd></dl>' +
-      '<p class="note">只分「托管合约 → 原收款钱包」的手续费，原收款钱包里其他的钱不会动。分账合约不收任何费用，触发分账的 Gas 由自动退款那个小钱包支付。</p></section>' +
-      '<section class="card"><div class="card-head"><h2>状态</h2></div><div id="sp-state" class="loading">正在读取…</div></section>' +
-      '<section class="card"><div class="card-head"><h2>授权（只需一次）</h2></div>' +
-      '<p class="muted">请用<b>原收款钱包 ' + A.short(FEE_RECIPIENT) + '</b> 连接。授权后分账合约只能把钱按上面的比例转给这三个固定地址，不能转到别处。</p>' +
-      '<div class="form-grid"><label>授权数量（不填 = 不限额）<input id="sp-amt" inputmode="decimal" placeholder="不限额"></label></div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button data-ap="0">授权 AiLGNS</button><button data-ap="1">授权 DAI</button></div><p class="note" id="sp-st"></p></section>';
+      "<dt>分账合约</dt><dd>" + Object.keys(SPLITTERS).map(function (c) { return CH[c].name + '：<a class="mono" target="_blank" rel="noopener" href="' + CH[c].explorer + "/address/" + SPLITTERS[c] + '">' + A.short(SPLITTERS[c]) + " ↗</a>"; }).join("　") +
+      '</dd><dt>源码</dt><dd><a href="contracts/AilgnsFeeSplitter.sol" target="_blank" rel="noopener">AilgnsFeeSplitter.sol ↗</a></dd></dl>' +
+      '<p class="note">分账范围：转进原收款钱包的 Anubis 链 LGNS、AiLGNS、DAI 和 Polygon 链 DAI（会员费 + OTC 手续费，包括任何人转进来的这几种币），只算分账上线之后到账的。分账合约不收任何费用，触发分账的 Gas 由自动退款那个小钱包支付。</p></section>' +
+      '<section class="card"><div class="card-head"><h2>授权状态</h2><span class="muted">请用原收款钱包 ' + A.short(FEE_RECIPIENT) + ' 授权，每种币一次</span></div><div id="sp-state" class="loading">正在读取…</div>' +
+      '<p class="note">授权后分账合约只能把钱按上面的比例转给这三个固定地址，不能转到别处。Polygon 的 DAI 授权需要少量 POL 付 Gas。</p><p class="note" id="sp-st"></p></section>';
     var st = document.getElementById("sp-st");
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
     function load() {
       Promise.all(TOKS.map(function (t) {
-        return Promise.all([A.call(t[1], SEL.allowance + u256(FEE_RECIPIENT) + u256(SPLITTER)).then(BigInt), A.call(SPLITTER, totalSel + u256(t[1])).then(BigInt)]);
+        return Promise.all([read(t.chain, t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(SPLITTERS[t.chain])), read(t.chain, SPLITTERS[t.chain], totalSel + u256(t.token))]).catch(function () { return null; });
       })).then(function (r) {
         if (!A.isCurrent(id)) return;
-        document.getElementById("sp-state").outerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权额度</th><th>累计已分</th></tr></thead><tbody>' +
+        var el = document.getElementById("sp-state");
+        el.className = "";
+        el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th class="l">链</th><th>授权</th><th>累计已分</th><th></th></tr></thead><tbody>' +
           TOKS.map(function (t, i) {
-            var a = r[i][0];
-            return '<tr><td class="l">' + t[0] + "</td><td>" + (a === 0n ? '<span class="down">未授权</span>' : a > MAX / 2n ? '<span class="up">不限额 ✓</span>' : show(a)) + "</td><td>" + show(r[i][1]) + "</td></tr>";
+            var a = r[i] ? r[i][0] : null, ok = a !== null && a > MAX / 2n;
+            return '<tr><td class="l"><b>' + t.name + '</b></td><td class="l">' + CH[t.chain].name + "</td><td>" +
+              (a === null ? "—" : ok ? '<span class="up">已授权 ✓</span>' : a === 0n ? '<span class="down">未授权</span>' : amt(a, t.dec)) + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td>" +
+              '<td>' + (ok ? "" : '<button data-ap="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
           }).join("") + "</tbody></table></div>";
-      }, function () { var el = document.getElementById("sp-state"); if (el) el.textContent = "读取失败，请刷新"; });
+        el.querySelectorAll("[data-ap]").forEach(function (b) { b.onclick = function () { approve(TOKS[+b.getAttribute("data-ap")], b); }; });
+      });
+    }
+    function approve(t, b) {
+      b.disabled = true;
+      var eth, label = "授权分账合约使用 " + t.name + "（" + CH[t.chain].name + "）";
+      Promise.resolve().then(function () { return account ? null : connect(); }).then(function () {
+        if (account !== FEE_RECIPIENT) throw new Error("请切换到原收款钱包 " + A.short(FEE_RECIPIENT) + " 再授权（现在连接的是 " + A.short(account) + "）");
+        eth = W.get();
+        say("正在切换到 " + CH[t.chain].name + " 链…");
+        return W.switchTo(eth, t.chain);
+      }).then(function () {
+        say("请在钱包里确认：" + label + "…");
+        return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: t.token, data: SEL.approve + u256(SPLITTERS[t.chain]) + u256(MAX) }] });
+      }).then(function (hash) {
+        say(label + "已提交，等待链上确认…");
+        return W.waitOn(t.chain, hash);
+      }).then(function () {
+        say("✅ " + t.name + "（" + CH[t.chain].name + "）授权成功，之后新到账的收入会自动分账");
+        load();
+      }, function (e) { say(niceError(e), true); b.disabled = false; });
     }
     load();
-    app.querySelectorAll("[data-ap]").forEach(function (b) {
-      b.onclick = function () {
-        var t = TOKS[+b.getAttribute("data-ap")], v = document.getElementById("sp-amt").value.trim(), amt = v ? toWei(v) : MAX;
-        if (v && !amt) { say("数量格式不对", true); return; }
-        b.disabled = true;
-        ready().then(function () {
-          if (account !== FEE_RECIPIENT) throw new Error("请切换到原收款钱包 " + A.short(FEE_RECIPIENT) + " 再授权（现在连接的是 " + A.short(account) + "）");
-          return send(t[1], SEL.approve + u256(SPLITTER) + u256(amt), say, "授权分账合约使用 " + t[0]);
-        }).then(function () { say("✅ " + t[0] + " 授权成功，之后新到账的手续费会自动分账"); b.disabled = false; load(); },
-          function (e) { say(niceError(e), true); b.disabled = false; });
-      };
-    });
   }
 
   // 其他页面顶部的 AiLGNS OTC 推荐条

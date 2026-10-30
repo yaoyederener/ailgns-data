@@ -1357,5 +1357,5 @@
   A.pages.team = ownOnly("team", renderTeamGate);
   A.pages.growth = ownOnly("growth", renderGrowth);
   // 给 otc.js 用的钱包工具
-  A.wallet = { get: wallet, switchChain: switchChain, waitReceipt: waitReceipt, error: walletError, CHAIN: CHAIN };
+  A.wallet = { get: wallet, switchChain: switchChain, switchTo: switchTo, waitReceipt: waitReceipt, waitOn: waitOn, rpcOn: rpcOn, error: walletError, CHAIN: CHAIN };
 })();
