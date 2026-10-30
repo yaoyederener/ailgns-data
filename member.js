@@ -877,6 +877,24 @@
   var LEGEND_MAP = "整个团队在一张图上：最左边一列是你，往右每一列是下一层；每个地址一根竖条，团队越大竖条越高。点竖条放大到他的团队，「返回上一层」退回；双指缩放、拖动随意看。人少的分支合并成紫色色带（颜色越深人越多），点一下就放大。左边有紫线的是一区、二区、三区（按团队算力估算，以官方等级为准）；P 等级来自官方接口。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的）。";
   var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
 
+  // 示例团队：随机生成约 3000 个地址，给没开通的访客看效果（地址和数据都是假的）
+  function demoData() {
+    var seed = 20261030, N = 3000, list = [], lines = [], depth = [0], lineOf = [-1];
+    function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+    function addr() { var s = "0x"; for (var i = 0; i < 40; i++) s += "0123456789abcdef"[Math.floor(rnd() * 16)]; return s; }
+    var root = addr(), pw = [25000];
+    for (var i = 1; i < N; i++) {
+      var p = Math.floor(Math.pow(rnd(), 1.8) * i), a = addr(); // 偏向挂在早期地址下面：又宽又深
+      depth[i] = depth[p] + 1;
+      if (p === 0) { lineOf[i] = lines.length; lines.push(a); } else lineOf[i] = lineOf[p];
+      list.push([a, lineOf[i], depth[i], p - 1]);
+      pw.push(rnd() < 0.35 ? 0 : Math.round(500 + Math.pow(rnd(), 3) * 60000));
+    }
+    var data = assembleTree(root, list, lines, pw, null, Date.now());
+    data.nodes.forEach(function (n) { n.level = n.power >= 3.75e6 ? 3 : n.power >= 1.1e6 ? 2 : n.power >= 3.8e5 ? 1 : 0; });
+    return data;
+  }
+
   function renderTree(id, addr) {
     var app = A.app, m = member();
     if (!m) {
@@ -885,12 +903,12 @@
         '<div class="demo-cta"><div><b>' + "初级 " + FEE_USD + " 美元永久 · 高级 " + PRO_USD + " 美元终生" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少个地址、多少算力</span></div>' +
-        '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个地址的下级，几十层也能看</span></div>' +
+        '<div class="feature"><b>整个团队一张图</b><span class="muted">点竖条放大到任意一条线，几十层、上万个地址也流畅</span></div>' +
         '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 紫色标记，数据来自官方接口</span></div>' +
-        '<div class="feature"><b>导出图片 · 高级 VIP</b><span class="muted">一键保存高清长图、完整名单，直接发团队群</span></div></div>' +
+        '<div class="feature"><b>导出图片 · 高级 VIP</b><span class="muted">一键保存高清图片、完整名单，直接发团队群</span></div></div>' +
         '<div class="demo-tag">示例效果 · 地址和数据都是随机生成的</div>' +
-        diagramHtml(LEGEND);
-      mountDiagram(id, demoTree(), function () { return Promise.resolve(); });
+        mapHtml();
+      mountMap(id, demoData());
       return;
     }
     var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">你的整个团队在一张图上，点竖条放大、双指缩放、拖动查看，放大到哪里就看到哪里的每个地址；「导出图片」导出当前画面，可保存到相册或发微信。</p>';
