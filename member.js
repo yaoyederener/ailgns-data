@@ -470,16 +470,51 @@
   }
 
   // 完整团队结构：服务器已经算好每个人的上级、算力、等级（/api/tree，存在 KV 里，一般 0.1 秒内返回）
+  // 8 万个地址以上的超大团队：GitHub Actions 生成压缩二进制文件，从 /api/bigtree 下载
   // 服务器暂时不可用时，退回到旧办法：拿团队名单，在浏览器里批量读算力和等级
+  // 结果统一是 A.treeMap.team() 的定长数组结构
   var POWER_OF = "0x4f343040"; // totalPowerOf(address)：已登记算力（含排队中的），和官方「团队算力」口径接近
   function fullTree(root, progress) {
     return fetch("/api/tree?root=" + root + (isPro() ? "&tier=pro" : "")).then(function (r) {
       if (!r.ok) throw new Error("tree " + r.status);
       return r.json();
     }).then(function (t) {
+      if (t.big) return bigTree(root, progress);
       if (t.v !== 3) throw new Error("old tree format");
-      return assembleTree(root, t.list, t.lines, [t.rootPower].concat(t.list.map(function (x) { return x[4]; })), [t.rootLevel].concat(t.list.map(function (x) { return x[5]; })), t.at);
-    }).catch(function () { return fullTreeInBrowser(root, progress); });
+      return fromList(root, t.list, [t.rootPower].concat(t.list.map(function (x) { return x[4]; })), [t.rootLevel].concat(t.list.map(function (x) { return x[5]; })), t.at);
+    }).catch(function (e) { if (e && e.building) throw e; return fullTreeInBrowser(root, progress); });
+  }
+  // 超大团队：边下载边显示进度；还没生成好时抛出 {building: true}
+  function bigTree(root, progress) {
+    if (progress) progress("团队超过 8 万个地址，正在下载完整数据…");
+    return fetch("/api/bigtree?root=" + root).then(function (r) {
+      if (r.status === 404) throw { building: true };
+      if (!r.ok) throw new Error("bigtree " + r.status);
+      if (!r.body || !r.body.getReader) return r.arrayBuffer();
+      var reader = r.body.getReader(), parts = [], got = 0;
+      return (function pump() {
+        return reader.read().then(function (x) {
+          if (x.done) {
+            var out = new Uint8Array(got), o = 0;
+            parts.forEach(function (p) { out.set(p, o); o += p.length; });
+            return out.buffer;
+          }
+          parts.push(x.value); got += x.value.length;
+          if (progress) progress("正在下载团队数据… " + (got / 1048576).toFixed(1) + " MB");
+          return pump();
+        });
+      })();
+    }).then(function (buf) {
+      if (progress) progress("正在整理团队结构…");
+      return A.treeMap.fromBinary(buf);
+    });
+  }
+  // list：[地址, 直推线, 层级, 上级位置(-1=root)]；pw / lv：按 [root].concat(list) 的顺序
+  function fromList(root, list, pw, lv, at) {
+    var n = list.length + 1, parent = new Int32Array(n), self = new Float64Array(n), level = new Uint8Array(n);
+    parent[0] = -1; self[0] = pw[0] || 0; level[0] = lv ? lv[0] || 0 : 0;
+    list.forEach(function (x, i) { parent[i + 1] = x[3] + 1; self[i + 1] = pw[i + 1] || 0; level[i + 1] = lv ? lv[i + 1] || 0 : 0; });
+    return A.treeMap.team({ n: n, addr: A.treeMap.hexBytes([root].concat(list.map(function (x) { return x[0]; }))), parent: parent, self: self, level: level, at: at });
   }
   function fullTreeInBrowser(root, progress) {
     return fetch("/api/team?root=" + root).then(function (r) {
@@ -493,59 +528,17 @@
       for (var i = 0; i < calls.length; i += 300) chunks.push(calls.slice(i, i + 300));
       return A.pool(chunks, 4, batchRpc).then(function (parts) {
         var pw = [].concat.apply([], parts).map(function (h) { return h ? Number(BigInt(h.slice(0, 66))) / 1e18 : 0; });
-        var data = assembleTree(root, c.list, c.lines, pw, null, c.at);
+        var D = fromList(root, c.list, pw, null, c.at);
         // 只给团队算力够大的人查官方等级（P1 至少要三个区各 5 万 DAI）
-        var big = data.nodes.filter(function (n) { return n.power >= 300000; }).slice(0, 120);
+        var big = [];
+        for (var j = 0; j < D.n; j++) if (D.power[j] >= 300000) big.push(j);
+        big = big.sort(function (x, y) { return D.power[y] - D.power[x]; }).slice(0, 120);
         if (progress) progress("正在读取等级…");
-        return A.pool(big, 6, function (n) {
-          return A.api("/level/" + n.a).then(function (l) { n.level = l.level || 0; n.self = A.n(l.selfPower) || n.self; }, function () {});
-        }).then(function () { applyFilter(data); return data; });
+        return A.pool(big, 6, function (j) {
+          return A.api("/level/" + D.addr(j)).then(function (l) { D.level[j] = l.level || 0; }, function () {});
+        }).then(function () { return D; });
       });
     });
-  }
-  // list：[地址, 直推线, 层级, 上级位置(-1=root)]；pw / lv：按 [root].concat(list) 的顺序
-  function assembleTree(root, list, lines, pw, lv, at) {
-    var all = [root].concat(list.map(function (x) { return x[0]; }));
-    var nodes = all.map(function (a, i) { return { a: a, self: pw[i] || 0, team: 0, power: 0, kids: [], level: lv ? lv[i] || 0 : 0, direct: 0 }; });
-    list.forEach(function (x, i) { nodes[x[3] + 1].kids.push(nodes[i + 1]); });
-    // 从最深的一层往上累加团队人数和团队算力
-    var order = list.map(function (x, i) { return i + 1; }).sort(function (a, b) { return list[b - 1][2] - list[a - 1][2]; });
-    order.concat([0]).forEach(function (i) {
-      var n = nodes[i];
-      n.direct = n.kids.length;
-      n.kids.forEach(function (k) { n.team += 1 + k.team; n.power += k.self + k.power; });
-    });
-    var byAddr = {};
-    nodes.forEach(function (n) {
-      n.all = n.kids.sort(function (x, y) { return y.power - x.power || y.team - x.team; });
-      n.all.forEach(function (k, i) { k.parent = n; k.zone = n === nodes[0] && i < 3 && k.power > 0 ? i + 1 : 0; });
-      n.expanded = false;
-      byAddr[n.a] = n;
-      delete n.kids;
-    });
-    nodes[0].expanded = true;
-    var data = { root: nodes[0], list: list, nodes: nodes, lines: lines, byAddr: byAddr, min: 1, at: at };
-    applyFilter(data);
-    return data;
-  }
-
-  // 筛选：只画团队人数够多、或有等级、或被定位到的地址；其他的合并成"还有 N 个"
-  function applyFilter(data) {
-    var min = data.min;
-    data.nodes.forEach(function (n) {
-      n.children = n.all.filter(function (k) { return k.pin || k.level > 0 || (k.team > 0 && k.team >= min); });
-      n.more = n.all.length - n.children.length;
-    });
-  }
-  // 从 root 到这个人的路径
-  function pathTo(n) {
-    var p = [];
-    for (var x = n; x; x = x.parent) p.unshift(x);
-    return p;
-  }
-  // 位置编号：一区第 3 个直推的第 2 个直推 → 1.3.2（按团队算力排序）
-  function posCode(n) {
-    return pathTo(n).slice(1).map(function (x) { return x.parent.all.indexOf(x) + 1; }).join(".");
   }
 
   // 从左到右的树：每个节点占的高度 = 展开后的叶子数
@@ -725,14 +718,17 @@
     }, 30);
   }
   function exportPng(root) { exportModal("AiLGNS团队-" + root.a.slice(2, 8), function () { return renderImages(root); }); }
-  // 完整名单表格：每个人的上级、层级、直推、团队人数和算力
-  function exportCsv(data) {
-    var n = data.nodes, rows = ["地址,上级,第几层,所属直推线,直推地址数,团队地址数,个人算力,团队算力"];
-    data.list.forEach(function (x, i) {
-      var node = n[i + 1], parent = x[3] < 0 ? n[0].a : data.list[x[3]][0];
-      rows.push([x[0], parent, x[2], data.lines ? data.lines[x[1]] : "", node.direct, node.team, Math.round(node.self), Math.round(node.power)].join(","));
-    });
-    var blob = new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv" }), name = "AiLGNS团队名单-" + n[0].a.slice(2, 8) + ".csv";
+  // 完整名单表格：每个地址的上级、层级、所属直推线、直推、团队地址数和算力（大团队分块拼，避免一个超长字符串）
+  function exportCsv(D) {
+    var line = new Int32Array(D.n), parts = ["\ufeff地址,上级,第几层,所属直推线,直推地址数,团队地址数,个人算力,团队算力\n"], buf = [];
+    for (var i = 1; i < D.n; i++) {
+      var p = D.parent[i];
+      line[i] = p === 0 ? i : line[p];
+      buf.push([D.addr(i), D.addr(p), D.depth[i], D.addr(line[i]), D.start[i + 1] - D.start[i], D.team[i], Math.round(D.self[i]), Math.round(D.power[i])].join(","));
+      if (buf.length === 20000) { parts.push(buf.join("\n") + "\n"); buf = []; }
+    }
+    parts.push(buf.join("\n"));
+    var blob = new Blob(parts, { type: "text/csv" }), name = "AiLGNS团队名单-" + D.addr(0).slice(2, 8) + ".csv";
     var file = window.File ? new File([blob], name, { type: "text/csv" }) : null;
     if (file && navigator.canShare && navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: "团队完整名单" }).catch(function () {});
     var a = document.createElement("a");
@@ -826,39 +822,31 @@
       '<div class="tree-path" id="tree-path" hidden></div>' +
       '<div class="tree-box tree-map" id="tree-box"></div><p class="note">' + LEGEND_MAP + "</p>";
   }
-  function mountMap(id, data) {
+  function mountMap(id, D) {
     var app = A.app, st = document.getElementById("tree-status"), pathEl = document.getElementById("tree-path"), input = document.getElementById("find-a");
-    var nodes = data.nodes, root = nodes[0];
-    nodes.forEach(function (n, i) { n.i = i; });
-    var T = A.treeMap.build({
-      n: nodes.length,
-      parent: function (i) { return data.list[i - 1][3] + 1; },
-      kids: function (i) { return nodes[i].all.map(function (k) { return k.i; }); },
-      info: function (i) { return nodes[i]; }
-    });
-    var map = A.treeMap.create(document.getElementById("tree-box"), T, { onTap: function (i) { map.highlight(i); map.focus(i); showPath(nodes[i]); } });
-    function showPath(n) {
-      var p = pathTo(n);
+    var map = A.treeMap.create(document.getElementById("tree-box"), A.treeMap.build(D), { onTap: function (i) { map.highlight(i); map.focus(i); showPath(i); } });
+    function showPath(i) {
+      var p = D.path(i), line = p[1];
       pathEl.hidden = false;
-      pathEl.innerHTML = '<div class="tp-head"><b>' + (n === root ? "你自己" : "第 " + (p.length - 1) + " 层 · 位置 " + posCode(n)) + "</b>" +
-        (n === root ? "" : '<span class="muted">' + (p[1].zone ? ["一区", "二区", "三区"][p[1].zone - 1] + " · " : "") + "属于直推线 " + A.short(p[1].a) + "</span>") + "</div>" +
-        '<div class="tp-chain">' + p.map(function (x, i) {
-          return '<button class="tp-step' + (x === n ? " on" : "") + '" data-go="' + x.i + '"><span>' + (i === 0 ? "你" : "第 " + i + " 层") + '</span><b class="mono">' + A.short(x.a) + "</b><small>团队 " + A.fmt(x.team) + " 个地址" + (x.level ? " · P" + x.level : "") + "</small></button>";
+      pathEl.innerHTML = '<div class="tp-head"><b>' + (i === 0 ? "你自己" : "第 " + (p.length - 1) + " 层 · 位置 " + D.pos(i)) + "</b>" +
+        (i === 0 ? "" : '<span class="muted">' + (D.zone[line] ? ["一区", "二区", "三区"][D.zone[line] - 1] + " · " : "") + "属于直推线 " + A.short(D.addr(line)) + "</span>") + "</div>" +
+        '<div class="tp-chain">' + p.map(function (x, k) {
+          return '<button class="tp-step' + (x === i ? " on" : "") + '" data-go="' + x + '"><span>' + (k === 0 ? "你" : "第 " + k + " 层") + '</span><b class="mono">' + A.short(D.addr(x)) + "</b><small>团队 " + A.fmt(D.team[x]) + " 个地址" + (D.level[x] ? " · P" + D.level[x] : "") + "</small></button>";
         }).join('<i class="tp-arrow">›</i>') + "</div>";
-      pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(nodes[+b.getAttribute("data-go")]); }; });
+      pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(+b.getAttribute("data-go")); }; });
     }
-    function locate(n) {
-      map.highlight(n.i);
-      map.focus(n.i);
-      showPath(n);
+    function locate(i) {
+      map.highlight(i);
+      map.focus(i);
+      showPath(i);
       pathEl.scrollIntoView({ behavior: "smooth", block: "start" }); // 手机上把路径和图滚到眼前
     }
     function search() {
-      var q = input.value.trim().toLowerCase();
+      var q = input.value.trim();
       if (!q) return;
-      var hits = nodes.filter(function (n) { return n.a === q || (q.length >= 4 && n.a.indexOf(q.replace(/^0x/, "")) >= 0); });
-      if (!hits.length) { st.textContent = "这个地址不在你的团队里"; return; }
-      if (hits.length > 1 && hits[0].a !== q) { st.textContent = "有 " + hits.length + " 个地址匹配，请多输几位"; return; }
+      var hits = D.find(q);
+      if (!hits.length) { st.textContent = /^(0x)?[0-9a-f]{4,}$/i.test(q) ? "这个地址不在你的团队里" : "请输入地址的开头或结尾 4 位以上"; return; }
+      if (hits.length > 1) { st.textContent = "有 " + (hits.length >= 20 ? "很多" : hits.length) + " 个地址匹配，请多输几位"; return; }
       st.textContent = "";
       locate(hits[0]);
     }
@@ -868,32 +856,29 @@
     app.querySelector("[data-all]").onclick = function () { map.fitAll(); };
     app.querySelector("[data-up]").onclick = function () { map.up(); };
     var png = app.querySelector("[data-png]"), csv = app.querySelector("[data-csv]");
-    png.onclick = proOnly(function () { exportModal("AiLGNS团队-" + root.a.slice(2, 8), function () { return [map.image(2400)]; }); });
-    csv.onclick = proOnly(function () { exportCsv(data); });
+    png.onclick = proOnly(function () { exportModal("AiLGNS团队-" + D.addr(0).slice(2, 8), function () { return [map.image(2400)]; }); });
+    csv.onclick = proOnly(function () { exportCsv(D); });
     proMark(png); proMark(csv);
     map.fitAll(); // 一开始看全貌：自己一整列，右边按大小排开每条线
   }
 
+  // 示例团队：随机生成 3000 个地址，给没开通的访客看效果（地址和数据都是假的）
+  function demoData() {
+    var seed = 20261030, N = 3000, parent = new Int32Array(N), self = new Float64Array(N), addr = new Uint8Array(N * 20);
+    function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+    for (var b = 0; b < addr.length; b++) addr[b] = Math.floor(rnd() * 256);
+    parent[0] = -1; self[0] = 25000;
+    for (var i = 1; i < N; i++) {
+      parent[i] = Math.floor(Math.pow(rnd(), 1.8) * i); // 偏向挂在早期地址下面：又宽又深
+      self[i] = rnd() < 0.35 ? 0 : Math.round(500 + Math.pow(rnd(), 3) * 60000);
+    }
+    var D = A.treeMap.team({ n: N, addr: addr, parent: parent, self: self, level: new Uint8Array(N), at: Date.now() });
+    for (i = 0; i < N; i++) D.level[i] = D.power[i] >= 3.75e6 ? 3 : D.power[i] >= 1.1e6 ? 2 : D.power[i] >= 3.8e5 ? 1 : 0;
+    return D;
+  }
+
   var LEGEND_MAP = "整个团队在一张图上：最左边一列是你，往右每一列是下一层；每个地址一根竖条，团队越大竖条越高。点竖条放大到他的团队，「返回上一层」退回；双指缩放、拖动随意看。人少的分支合并成紫色色带（颜色越深人越多），点一下就放大。左边有紫线的是一区、二区、三区（按团队算力估算，以官方等级为准）；P 等级来自官方接口。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的）。";
   var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
-
-  // 示例团队：随机生成约 3000 个地址，给没开通的访客看效果（地址和数据都是假的）
-  function demoData() {
-    var seed = 20261030, N = 3000, list = [], lines = [], depth = [0], lineOf = [-1];
-    function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
-    function addr() { var s = "0x"; for (var i = 0; i < 40; i++) s += "0123456789abcdef"[Math.floor(rnd() * 16)]; return s; }
-    var root = addr(), pw = [25000];
-    for (var i = 1; i < N; i++) {
-      var p = Math.floor(Math.pow(rnd(), 1.8) * i), a = addr(); // 偏向挂在早期地址下面：又宽又深
-      depth[i] = depth[p] + 1;
-      if (p === 0) { lineOf[i] = lines.length; lines.push(a); } else lineOf[i] = lineOf[p];
-      list.push([a, lineOf[i], depth[i], p - 1]);
-      pw.push(rnd() < 0.35 ? 0 : Math.round(500 + Math.pow(rnd(), 3) * 60000));
-    }
-    var data = assembleTree(root, list, lines, pw, null, Date.now());
-    data.nodes.forEach(function (n) { n.level = n.power >= 3.75e6 ? 3 : n.power >= 1.1e6 ? 2 : n.power >= 3.8e5 ? 1 : 0; });
-    return data;
-  }
 
   function renderTree(id, addr) {
     var app = A.app, m = member();

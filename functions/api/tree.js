@@ -28,6 +28,14 @@ export async function onRequestGet(ctx) {
   if (!/^0x[0-9a-f]{40}$/.test(root)) return new Response("bad root", { status: 400 });
   const pro = url.searchParams.get("tier") === "pro";
   const kv = ctx.env.TEAM_KV, headers = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+  // 超大团队（8 万个地址以上）：交给 GitHub Actions 慢慢读，网页改读 /api/bigtree 的压缩二进制文件
+  if (kv) {
+    const big = await kv.get("big:" + root, "json");
+    if (big || url.searchParams.get("big") === "1") {
+      await markBig(kv, root, pro, big);
+      return Response.json({ v: 4, big: true, root }, { headers });
+    }
+  }
   if (kv && url.searchParams.get("fresh") !== "1") {
     const { value, metadata } = await kv.getWithMetadata("tree:" + root);
     if (value) {
@@ -40,6 +48,16 @@ export async function onRequestGet(ctx) {
   try {
     return new Response(await rebuild(ctx.env, root, { pro }), { headers: { ...headers, "x-tree-cache": "miss" } });
   } catch (e) {
+    if (kv && /too large/.test(e.message || "")) {
+      await markBig(kv, root, pro, null);
+      return Response.json({ v: 4, big: true, root }, { headers });
+    }
     return new Response(JSON.stringify({ error: String(e.message || e) }), { status: 503, headers });
   }
+}
+
+// 记下这个超大团队最近有人在看（7 天没人看就不再重建）；pro：高级会员，重建更勤
+async function markBig(kv, root, pro, old) {
+  const v = { seen: Date.now(), pro: pro || !!(old && old.pro), since: (old && old.since) || Date.now() };
+  if (!old || Date.now() - old.seen > 600000 || v.pro !== old.pro) await kv.put("big:" + root, JSON.stringify(v), { expirationTtl: 7 * 86400, metadata: v });
 }
