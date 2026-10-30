@@ -479,3 +479,5 @@ a:active, button:active { opacity: .85; }
   .tree-path { padding: 10px 12px; }
   .tree-box { height: 70vh; }
 }
+.tree-path { scroll-margin-top: 84px; }
+@media (max-width: 600px) { .tree-path { scroll-margin-top: 128px; } }
