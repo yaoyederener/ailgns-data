@@ -579,9 +579,11 @@
       (zone ? '<text x="' + (NODE_W - 56) + '" y="23" text-anchor="end" fill="' + COLORS.gold + '" font-size="11">' + zone + "</text>" : "") +
       '<text x="14" y="43" fill="' + COLORS.muted + '" font-size="12">团队 <tspan fill="' + COLORS.text + '">' + A.fmt(n.team) + '</tspan> 个地址 · 算力 <tspan fill="' + COLORS.text + '">' + A.wan(n.power).replace(" ", "") + "</tspan></text>" +
       '<text x="14" y="59" fill="' + COLORS.muted + '" font-size="12">直推 ' + A.fmt(n.direct) + (n.self ? " · 个人 " + A.wan(n.self).replace(" ", "") : "") + "</text>";
-    if (n.direct) {
-      s += '<circle cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="10" fill="' + COLORS.bg + '" stroke="' + COLORS.line + '"/>' +
-        '<text x="' + NODE_W + '" y="' + (NODE_H / 2 + 4.5) + '" text-anchor="middle" fill="' + COLORS.text + '" font-size="14">' + (n.loading ? "…" : n.expanded ? "−" : "+") + "</text>";
+    if (n.direct) { // 右边的 + / −：手机上手指好点，做大一点
+      var open = n.expanded, plusFill = n.coach ? COLORS.gold : open ? COLORS.bg : "#efe8fd";
+      s += (n.coach ? '<circle class="coach-ring" cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="15" fill="none" stroke="' + COLORS.gold + '" stroke-width="3"/>' : "") +
+        '<circle cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="14" fill="' + plusFill + '" stroke="' + (n.coach ? COLORS.gold : "#b9a9ea") + '" stroke-width="1.5"/>' +
+        '<text x="' + NODE_W + '" y="' + (NODE_H / 2 + 6) + '" text-anchor="middle" fill="' + (n.coach ? "#fff" : COLORS.gold) + '" font-size="19" font-weight="700">' + (n.loading ? "…" : open ? "−" : "+") + "</text>";
     }
     return s + "</g>";
   }
@@ -741,7 +743,7 @@
       '<button class="ghost" data-expand>展开下一层</button><button class="ghost" data-all>全部展开</button><button class="ghost" data-fold>收起</button>' +
       '<button data-png>导出图片</button><button class="ghost" data-csv hidden>导出完整名单</button><span class="muted" id="tree-status"></span></div>' +
       '<div class="tree-find" id="tree-find" hidden><input id="find-a" placeholder="输入你团队里的地址（可只输前几位）" autocomplete="off" spellcheck="false"><button id="find-go">定位</button>' +
-      '<select id="tree-min"><option value="1">显示：有团队的地址</option><option value="10">团队 ≥ 10 个地址</option><option value="50">团队 ≥ 50 个地址</option><option value="200">团队 ≥ 200 个地址</option></select></div>' +
+      "</div>" +
       '<div class="tree-path" id="tree-path" hidden></div>' +
       '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
   }
@@ -814,17 +816,125 @@
     };
   }
 
-  // ---------- 地图式结构图（完整数据）：整个团队一张图，缩放查看 ----------
-  function mapHtml() {
-    return '<div class="tree-bar"><button class="ghost" data-z="1.6">放大</button><button class="ghost" data-z="0.6">缩小</button><button class="ghost" data-all>看全部</button><button class="ghost" data-up>返回上一层</button>' +
+  // ---------- 树状结构图（完整数据）：点 + 一层层往下展开，带新手引导 ----------
+  // 数据是 A.treeMap.team() 的定长数组；只给展开过的地址建节点对象，所以百万地址的团队也不卡
+  var SHOW_CAP = window.innerWidth < 600 ? 120 : 400; // 「全部展开」一次最多画多少个框：太大手机会白屏，也看不清
+  var GUIDE_KEY = "ailgns-tree-guide-done";
+  function treeHtml(note) {
+    return '<div class="tree-guide" id="tree-guide"><span><b>1</b>点框右边的 <i class="g-plus">+</i> 展开他的下级</span><span><b>2</b>一层层往下点，直到看到你想找的人</span><span><b>3</b>双指缩放、拖动查看；点「收起」从头再来</span><a href="#" id="guide-again">再看一遍引导</a></div>' +
+      '<div class="tree-bar"><button class="ghost" data-z="1.25">放大</button><button class="ghost" data-z="0.8">缩小</button><button class="ghost" data-fit>适应屏幕</button>' +
+      '<button class="ghost" data-expand>展开下一层</button><button class="ghost" data-all>全部展开</button><button class="ghost" data-fold>收起</button>' +
       '<button data-png>导出图片</button><button class="ghost" data-csv>导出完整名单</button><span class="muted" id="tree-status"></span></div>' +
-      '<div class="tree-find" id="tree-find"><input id="find-a" placeholder="输入你团队里的地址（可只输前几位）" autocomplete="off" spellcheck="false"><button id="find-go">定位</button></div>' +
-      '<div class="tree-path" id="tree-path" hidden></div>' +
-      '<div class="tree-box tree-map" id="tree-box"></div><p class="note">' + LEGEND_MAP + "</p>";
+      '<div class="tree-find" id="tree-find"><input id="find-a" placeholder="定位：输入团队里的地址（开头或结尾 4 位以上）" autocomplete="off" spellcheck="false"><button id="find-go">定位</button></div>' +
+      '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div><div class="coach" id="coach" hidden></div></div>' +
+      '<div class="tree-path" id="tree-path" hidden></div><p class="note">' + note + "</p>";
   }
-  function mountMap(id, D) {
-    var app = A.app, st = document.getElementById("tree-status"), pathEl = document.getElementById("tree-path"), input = document.getElementById("find-a");
-    var map = A.treeMap.create(document.getElementById("tree-box"), A.treeMap.build(D), { onTap: function (i) { map.highlight(i); map.focus(i); showPath(i); } });
+  function mountTree(id, D) {
+    var app = A.app, box = document.getElementById("tree-box"), inner = document.getElementById("tree-inner"), st = document.getElementById("tree-status");
+    var pathEl = document.getElementById("tree-path"), input = document.getElementById("find-a"), coachEl = document.getElementById("coach");
+    var pz = panZoom(box, inner), size, nodes = {}, byAddr = {}, pinned = {};
+    function nodeOf(i) {
+      if (nodes[i]) return nodes[i];
+      var n = nodes[i] = { i: i, a: D.addr(i), team: D.team[i], power: D.power[i], self: D.self[i], level: D.level[i], zone: D.zone[i], direct: D.start[i + 1] - D.start[i], children: null, expanded: false };
+      return (byAddr[n.a] = n);
+    }
+    // 下级：有团队、有等级或被定位到的，按算力最多画 MAX_CHILDREN 个；其余合并成「还有 N 个直推」
+    function kidsOf(n) {
+      var ks = D.kids(n.i), shown = [];
+      for (var t = 0; t < ks.length; t++) {
+        var k = ks[t];
+        if (pinned[k] || ((D.team[k] > 0 || D.level[k] > 0) && shown.length < MAX_CHILDREN)) shown.push(k);
+      }
+      n.children = shown.map(function (k) { var c = nodeOf(k); c.parent = n; return c; });
+      n.more = ks.length - shown.length;
+    }
+    var root = nodeOf(0);
+    kidsOf(root); root.expanded = true;
+    function draw(fit) {
+      var t = treeSvg(root);
+      inner.innerHTML = t.svg;
+      size = t;
+      if (fit) pz.fit(t.w, t.h, root.y + 24 + NODE_H / 2);
+      coach();
+    }
+    // 展开/收起后重新排版：画面跟住点的那个节点，再往左挪一点让下一层露出来
+    function drawKeep(n) {
+      var ox = n.x, oy = n.y;
+      draw();
+      pz.shift(ox - n.x, oy - n.y);
+      if (n.expanded) pz.showRight(n.x + 24, NODE_W * 2 + GAP_X);
+      coach();
+    }
+    function toggle(n) {
+      if (!n.direct) return;
+      if (!n.children) kidsOf(n);
+      n.expanded = !n.expanded;
+      if (n.expanded && guide.target === n) guide.next(n);
+      drawKeep(n);
+    }
+    function shown(n) { var c = 1; if (n.expanded && n.children) { n.children.forEach(function (k) { c += shown(k); }); if (n.more) c++; } return c; }
+
+    // ---- 新手引导：一个气泡指着该点的 +，跟着展开一步步往下 ----
+    var guide = { step: 0, target: null };
+    guide.start = function () {
+      guide.step = 1;
+      guide.point(root.children && root.children[0]);
+    };
+    guide.point = function (n) {
+      if (guide.target) guide.target.coach = false;
+      guide.target = n && n.direct ? n : null;
+      if (!guide.target) return guide.end();
+      n.coach = true;
+      draw();
+      pz.center(n.x + 24 + NODE_W * 0.6, n.y + 24 + NODE_H / 2, Math.max(0.7, Math.min(1, (box.clientWidth - 40) / (NODE_W * 1.6))));
+      coach();
+    };
+    guide.next = function (n) {
+      guide.step++;
+      if (guide.step > 3) return guide.end(true);
+      var nx = (n.children || [])[0];
+      setTimeout(function () { guide.point(nx); }, 60);
+    };
+    guide.end = function (done) {
+      if (guide.target) guide.target.coach = false;
+      guide.target = null; guide.step = 0;
+      coachEl.hidden = true;
+      if (done) { try { localStorage.setItem(GUIDE_KEY, "1"); } catch (e) { /* 忽略 */ } st.textContent = "学会了！接着点任意 + 往下看，点「收起」从头再来"; }
+      draw();
+    };
+    var TIPS = ["", "👆 点这个 <b>+</b>，展开他的下级", "很好！继续点 <b>+</b>，再往下一层", "最后一步：再点一次 <b>+</b>"];
+    function coach() {
+      var n = guide.target;
+      if (!n) { coachEl.hidden = true; return; }
+      var g = inner.querySelector('.node[data-a="' + n.a + '"] circle:last-of-type');
+      if (!g) { coachEl.hidden = true; return; }
+      var r = g.getBoundingClientRect(), b = box.getBoundingClientRect();
+      coachEl.hidden = false;
+      coachEl.innerHTML = '<div class="coach-txt">' + TIPS[guide.step] + '<small>' + A.short(n.a) + " 的团队有 " + A.fmt(n.team) + ' 个地址</small></div><button class="coach-skip" type="button">跳过</button>';
+      var x = r.left - b.left + r.width / 2, y = r.top - b.top;
+      coachEl.style.left = Math.max(8, Math.min(box.clientWidth - 228, x - 200)) + "px";
+      coachEl.style.top = Math.max(8, y - coachEl.offsetHeight - 12) + "px";
+      coachEl.style.setProperty("--arrow", Math.max(16, Math.min(204, x - parseFloat(coachEl.style.left))) + "px");
+      coachEl.querySelector(".coach-skip").onclick = function (e) { e.stopPropagation(); guide.end(true); };
+    }
+    document.getElementById("guide-again").onclick = function (e) {
+      e.preventDefault();
+      (function walk(n) { n.expanded = false; (n.children || []).forEach(walk); })(root);
+      root.expanded = true;
+      draw(true);
+      guide.start();
+    };
+
+    // 点一个地址：展开/收起他的下级，并在图下面显示他在团队里的位置
+    inner.addEventListener("click", function (e) {
+      if (pz.wasDrag()) return;
+      var g = e.target.closest(".node");
+      if (!g) return;
+      var n = byAddr[g.getAttribute("data-a")];
+      if (!n) return;
+      if (n !== root) showPath(n.i);
+      toggle(n);
+    });
     function showPath(i) {
       var p = D.path(i), line = p[1];
       pathEl.hidden = false;
@@ -835,11 +945,18 @@
         }).join('<i class="tp-arrow">›</i>') + "</div>";
       pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(+b.getAttribute("data-go")); }; });
     }
+    // 定位：把从自己到他的路径一层层展开，画出来并高亮
     function locate(i) {
-      map.highlight(i);
-      map.focus(i);
+      Object.keys(nodes).forEach(function (k) { nodes[k].hl = false; });
+      var p = D.path(i);
+      p.forEach(function (x) { pinned[x] = true; });
+      p.slice(0, -1).forEach(function (x) { var n = nodeOf(x); kidsOf(n); n.expanded = true; });
+      var t = nodeOf(i);
+      t.hl = true;
+      draw();
+      pz.center(t.x + 24 + NODE_W / 2, t.y + 24 + NODE_H / 2, 1);
       showPath(i);
-      pathEl.scrollIntoView({ behavior: "smooth", block: "start" }); // 手机上把路径和图滚到眼前
+      box.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     function search() {
       var q = input.value.trim();
@@ -852,14 +969,47 @@
     }
     document.getElementById("find-go").onclick = search;
     input.onkeydown = function (e) { if (e.key === "Enter") search(); };
-    app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { map.zoom(Number(b.getAttribute("data-z"))); }; });
-    app.querySelector("[data-all]").onclick = function () { map.fitAll(); };
-    app.querySelector("[data-up]").onclick = function () { map.up(); };
+
+    app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h, root.y + 24 + NODE_H / 2); };
+    app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
+    // 展开下一层 / 全部展开：一层层来，画的框超过 SHOW_CAP 个就停
+    function expandLevel() {
+      var leaves = [];
+      (function walk(n) { if (n.expanded && n.children) n.children.forEach(walk); else if (n.direct) leaves.push(n); })(root);
+      if (!leaves.length) return 0;
+      var add = 0;
+      leaves.forEach(function (n) { if (!n.children) kidsOf(n); add += n.children.length + (n.more ? 1 : 0); });
+      if (shown(root) + add > SHOW_CAP) return -1;
+      leaves.forEach(function (n) { n.expanded = true; });
+      return 1;
+    }
+    var TOO_BIG = "团队太大，再展开一层画不下了。请点具体某个人右边的 + 往下看，或用上面的定位查找。";
+    app.querySelector("[data-expand]").onclick = function () {
+      var r = expandLevel();
+      st.textContent = r === 0 ? "已经全部展开" : r < 0 ? TOO_BIG : "";
+      if (r > 0) draw(true);
+    };
+    app.querySelector("[data-all]").onclick = function () {
+      var levels = 0, r;
+      while ((r = expandLevel()) > 0) levels++;
+      st.textContent = r < 0 ? "已展开 " + (levels + 1) + " 层（" + A.fmt(shown(root)) + " 个框）。" + TOO_BIG : "已全部展开";
+      draw(true);
+    };
+    app.querySelector("[data-fold]").onclick = function () {
+      (function walk(n) { n.expanded = false; (n.children || []).forEach(walk); })(root);
+      root.expanded = true;
+      st.textContent = "";
+      draw(true);
+    };
     var png = app.querySelector("[data-png]"), csv = app.querySelector("[data-csv]");
-    png.onclick = proOnly(function () { exportModal("AiLGNS团队-" + D.addr(0).slice(2, 8), function () { return [map.image(2400)]; }); });
+    png.onclick = proOnly(function () { exportPng(root); });
     csv.onclick = proOnly(function () { exportCsv(D); });
     proMark(png); proMark(csv);
-    map.fitAll(); // 一开始看全貌：自己一整列，右边按大小排开每条线
+
+    draw(true);
+    var done = false;
+    try { done = localStorage.getItem(GUIDE_KEY) === "1"; } catch (e) { /* 隐私模式 */ }
+    if (!done && root.children && root.children.length) guide.start();
   }
 
   // 示例团队：随机生成 3000 个地址，给没开通的访客看效果（地址和数据都是假的）
@@ -877,7 +1027,7 @@
     return D;
   }
 
-  var LEGEND_MAP = "整个团队在一张图上：最左边一列是你，往右每一列是下一层；每个地址一根竖条，团队越大竖条越高。点竖条放大到他的团队，「返回上一层」退回；双指缩放、拖动随意看。人少的分支合并成紫色色带（颜色越深人越多），点一下就放大。左边有紫线的是一区、二区、三区（按团队算力估算，以官方等级为准）；P 等级来自官方接口。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的）。";
+  var LEGEND_TREE = "紫色边框 = 有 P 等级（来自官方接口）；一区、二区、三区按团队算力从大到小估算，以官方等级为准。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的）。每层最多画出团队算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示，可用定位查找。";
   var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
 
   function renderTree(id, addr) {
@@ -888,15 +1038,15 @@
         '<div class="demo-cta"><div><b>' + "初级 " + FEE_USD + " 美元永久 · 高级 " + PRO_USD + " 美元终生" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少个地址、多少算力</span></div>' +
-        '<div class="feature"><b>整个团队一张图</b><span class="muted">点竖条放大到任意一条线，几十层、上万个地址也流畅</span></div>' +
+        '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个地址的下级，几十层、上万个地址也流畅</span></div>' +
         '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 紫色标记，数据来自官方接口</span></div>' +
         '<div class="feature"><b>导出图片 · 高级 VIP</b><span class="muted">一键保存高清图片、完整名单，直接发团队群</span></div></div>' +
         '<div class="demo-tag">示例效果 · 地址和数据都是随机生成的</div>' +
-        mapHtml();
-      mountMap(id, demoData());
+        treeHtml(LEGEND_TREE);
+      mountTree(id, demoData());
       return;
     }
-    var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">你的整个团队在一张图上，点竖条放大、双指缩放、拖动查看，放大到哪里就看到哪里的每个地址；「导出图片」导出当前画面，可保存到相册或发微信。</p>';
+    var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">你的团队结构：点地址框右边的 + 一层层往下展开；拖动平移，双指缩放；「导出图片」可保存到相册或发微信。</p>';
     var form = ownBar(m);
     if (!addr) {
       app.innerHTML = head + form + '<div class="empty">输入一个地址开始画图，或者 <a href="#/tree/' + m.addr + '">画我自己的团队</a></div>';
@@ -908,11 +1058,15 @@
     var root;
     fullTree(addr, function (t) { var el = document.getElementById("tree-loading"); if (el) el.textContent = t; }).then(function (d) {
       if (!A.isCurrent(id)) return;
-      app.innerHTML = head + form + mapHtml();
-      mountMap(id, d);
+      app.innerHTML = head + form + treeHtml(LEGEND_TREE);
+      mountTree(id, d);
       var st = document.getElementById("tree-status");
       if (st && d.at && !st.textContent) st.textContent = "数据更新于 " + Math.max(1, Math.round((Date.now() - d.at) / 60000)) + " 分钟前 · " + (isPro() ? "高级会员每 5 分钟更新" : "每 30 分钟更新");
-    }).catch(function () {
+    }).catch(function (e) {
+      if (e && e.building) { // 超大团队第一次打开：后台还在整理
+        if (A.isCurrent(id)) app.innerHTML = head + form + '<div class="card"><h2>团队很大，正在后台整理</h2><p class="muted" style="margin-top:8px">你的团队超过 8 万个地址，第一次需要在后台把整个团队读出来，大约需要 10–30 分钟。可以先去别的页面，稍后再回来刷新。</p></div>';
+        return;
+      }
       // 服务器不可用时退回逐个读取
       return loadNode(addr).then(function (r) {
       root = r;

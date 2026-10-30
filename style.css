@@ -611,6 +611,19 @@ a:active, button:active { opacity: .85; }
   .vs-bars div { grid-template-columns: 64px 1fr 44px; gap: 8px; }
 }
 
-/* 地图式结构图：canvas 自己画背景 */
-.tree-map { background: #f8f8ff; background-image: none; cursor: default; }
-.tree-map canvas { border-radius: inherit; }
+/* 结构图新手引导 */
+.tree-guide { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-bottom: 10px; padding: 10px 14px; border-radius: 14px; background: var(--gold-soft); border: 1px solid #e2d6fb; font-size: 13.5px; color: var(--text); }
+.tree-guide span { display: inline-flex; align-items: center; gap: 6px; }
+.tree-guide b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--gold); color: #fff; font-size: 12px; }
+.tree-guide .g-plus { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #efe8fd; border: 1.5px solid #b9a9ea; color: var(--gold); font-style: normal; font-weight: 800; }
+.tree-guide a { margin-left: auto; font-size: 13px; }
+.tree-box { position: relative; }
+.coach { position: absolute; z-index: 5; width: 220px; padding: 12px 12px 10px; border-radius: 14px; background: var(--gold); color: #fff; box-shadow: 0 12px 30px rgba(112, 39, 217, .35); font-size: 14px; line-height: 1.5; pointer-events: auto; }
+.coach::after { content: ""; position: absolute; left: var(--arrow, 190px); bottom: -8px; width: 16px; height: 16px; background: var(--gold); transform: translateX(-50%) rotate(45deg); border-radius: 3px; }
+.coach small { display: block; opacity: .85; font-size: 12px; margin-top: 2px; }
+.coach-skip { position: absolute; top: 6px; right: 8px; background: rgba(255, 255, 255, .2); color: #fff; border: 0; box-shadow: none; padding: 2px 8px; font-size: 12px; border-radius: 8px; }
+.coach-txt { padding-right: 40px; }
+.coach-ring { animation: coachPulse 1.2s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes coachPulse { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
+.tree-path { margin-top: 12px; }
+@media (max-width: 600px) { .tree-guide { font-size: 12.5px; } .tree-guide a { margin-left: 0; } }
