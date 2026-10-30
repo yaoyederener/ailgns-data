@@ -234,3 +234,13 @@ table.book td.act { width: 1%; padding-right: 14px; }
   table.book td.act { width: auto; padding: 0; margin-bottom: 4px; }
   table.book td.act .act-btn { padding: 13px 14px !important; font-size: 17px; }
 }
+
+/* 会员区二级菜单 */
+.subnav { display: flex; gap: 6px; padding-top: 18px; overflow-x: auto; scrollbar-width: none; }
+.subnav[hidden] { display: none; }
+.subnav::-webkit-scrollbar { display: none; }
+.subnav a { flex: none; padding: 8px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 14px; font-weight: 600; }
+.subnav a:hover { color: var(--text); text-decoration: none; }
+.subnav a.on { color: #5920ad; border-color: var(--gold); background: var(--gold-soft); }
+.subnav .lock { font-size: 12px; }
+.subnav:not([hidden]) + main h1 { margin-top: 18px; }

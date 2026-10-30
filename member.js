@@ -6,8 +6,8 @@
   var RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
   var LGNS = "0x4D1D808a081FdAc440703b3765FC61f8028C06B8"; // 9 位小数
   var LGNS_PAIR = "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0"; // token0 = LGNS，token1 = DAI
-  var FEE_DAI = 100;
-  var LGNS_RATE = 0.5; // LGNS 按实时价格的 50% 折算
+  var FEE_DAI = 20; // 会员价：20 美元（DAI）等值的 LGNS
+  var LGNS_RATE = 1; // LGNS 按实时价格折算
   var TOLERANCE = 0.97; // 付款到验证之间价格会动，少 3% 以内也算付够
   var START_BLOCK = 17790000; // 会员功能上线前的转账不算
   var EXPLORER_API = "https://browser.anubispace.org/api";
@@ -170,13 +170,13 @@
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后输入任意地址，就能画出整个团队的结构图。</p>';
+    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查任意地址的「团队与等级」，并画出整个团队的结构图。</p>';
     if (m) {
       app.innerHTML = head + '<section class="card"><div class="card-head"><h2>✓ 你已经是会员</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
         "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + A.fmt(m.paid, 2) + ' LGNS · <a target="_blank" rel="noopener" href="' + EXPLORER + "/tx/" + m.tx + '">查看交易 ↗</a></dd></dl>' +
         '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
         '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
-      document.getElementById("logout").onclick = function () { logout(); renderMember(id); };
+      document.getElementById("logout").onclick = function () { logout(); subnav(); renderMember(id); };
       return;
     }
     app.innerHTML = head + '<div class="loading">正在读取 LGNS 实时价格…</div>';
@@ -184,7 +184,7 @@
       if (!A.isCurrent(id)) return;
       var need = required(p);
       app.innerHTML = head +
-        '<div class="kpis"><div class="kpi hero"><div class="k">开通会员需要</div><div class="v num">' + A.fmt(need) + '<small>LGNS</small></div><div class="d">= ' + FEE_DAI + " DAI · LGNS 按实时价 50% 折算</div></div>" +
+        '<div class="kpis"><div class="kpi hero"><div class="k">开通会员需要</div><div class="v num">' + A.fmt(need) + '<small>LGNS</small></div><div class="d">= ' + FEE_DAI + " 美元等值 · 按 LGNS 实时价格计算</div></div>" +
         '<div class="kpi"><div class="k">LGNS 实时价格</div><div class="v num">' + p.toFixed(5) + '<small>DAI</small></div><div class="d">Anubis 链 LGNS/DAI 池</div></div>' +
         '<div class="kpi"><div class="k">有效期</div><div class="v">永久</div><div class="d">一次付款，绑定你的钱包</div></div></div>' +
         '<section class="card"><div class="card-head"><h2>用钱包开通</h2><a href="#/tree">先看看效果 →</a></div>' +
@@ -528,8 +528,37 @@
     };
   }
 
-  A.pages.member = renderMember;
-  A.pages.tree = renderTree;
+  // 团队与等级：会员专属
+  function renderTeamGate(id, addr) {
+    if (member()) return A.renderTeam(id, addr);
+    A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
+      '<p class="sub">查看任意地址的直推线、每条线的团队人数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
+      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_DAI + ' 美元等值的 LGNS，一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+      '<div class="features">' +
+      '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队人数、团队算力，按算力排序</span></div>' +
+      '<div class="feature"><b>三个区业绩</b><span class="muted">对比下一级门槛，差多少一目了然</span></div>' +
+      '<div class="feature"><b>一层层往下查</b><span class="muted">点任意直推，继续看他的团队</span></div>' +
+      '<div class="feature"><b>全网等级分布</b><span class="muted">P1–P7 各有多少人、门槛多少</span></div></div>' +
+      '<p class="note">开通后同时解锁「团队结构图」。<a href="#/tree">先看看结构图示例 →</a></p>';
+  }
+
+  // 会员区的二级菜单：会员中心 / 团队与等级 / 团队结构图
+  function subnav() {
+    var el = document.getElementById("subnav");
+    if (!el) return;
+    var tab = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "";
+    if (["member", "team", "tree"].indexOf(tab) < 0) { el.hidden = true; return; }
+    var lock = member() ? "" : ' <span class="lock">🔒</span>';
+    el.hidden = false;
+    el.innerHTML = [["member", "会员中心", ""], ["team", "团队与等级", lock], ["tree", "团队结构图", lock]].map(function (t) {
+      return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + ">" + t[1] + t[2] + "</a>";
+    }).join("");
+  }
+  window.addEventListener("hashchange", subnav);
+
+  A.pages.member = function (id, a) { subnav(); renderMember(id, a); };
+  A.pages.tree = function (id, a) { subnav(); renderTree(id, a); };
+  A.pages.team = function (id, a) { subnav(); renderTeamGate(id, a); };
   // 给 otc.js 用的钱包工具
   A.wallet = { get: wallet, switchChain: switchChain, waitReceipt: waitReceipt, error: walletError, CHAIN: CHAIN };
 })();

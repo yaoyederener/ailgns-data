@@ -424,12 +424,14 @@
     var extra = window.AIL.pages;
     if (["flows", "wallet", "team"].indexOf(tab) < 0 && !extra[tab]) tab = "flows";
     if (a && !isAddr(a)) a = "";
-    document.querySelectorAll(".tabs a").forEach(function (el) { el.classList.toggle("on", el.getAttribute("data-tab") === tab); });
+    document.querySelectorAll(".tabs a").forEach(function (el) {
+      el.classList.toggle("on", (el.getAttribute("data-tabs") || el.getAttribute("data-tab")).split(" ").indexOf(tab) >= 0);
+    });
     tip.style.display = "none";
     window.scrollTo(0, 0);
-    if (tab === "wallet") renderWallet(id, a);
+    if (extra[tab]) extra[tab](id, a);
+    else if (tab === "wallet") renderWallet(id, a);
     else if (tab === "team") renderTeam(id, a);
-    else if (extra[tab]) extra[tab](id, a);
     else renderFlows(id);
   }
 
@@ -450,7 +452,7 @@
   window.AIL = {
     pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
-    addrLink: addrLink, searchBox: searchBox, isCurrent: function (id) { return id === renderId; },
+    addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
     start: function () { window.addEventListener("hashchange", route); route(); }
   };
 })();
