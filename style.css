@@ -610,3 +610,7 @@ a:active, button:active { opacity: .85; }
   .vs-num b { font-size: 17px; white-space: nowrap; }
   .vs-bars div { grid-template-columns: 64px 1fr 44px; gap: 8px; }
 }
+
+/* 地图式结构图：canvas 自己画背景 */
+.tree-map { background: #f8f8ff; background-image: none; cursor: default; }
+.tree-map canvas { border-radius: inherit; }

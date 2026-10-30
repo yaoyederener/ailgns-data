@@ -688,86 +688,27 @@
       img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     });
   }
-  // 完整团队长图：一行一个人，按层级缩进，字号正常，几张长图就能装下上千人
-  function renderOutline(root) {
-    var rows = [];
-    (function walk(n, depth) {
-      rows.push({ n: n, depth: depth });
-      (n.children || []).forEach(function (k) { walk(k, depth + 1); });
-    })(root, 0);
-    var W = 1080, ROW = 34, HEAD = 96, PAGE = 12000, perPage = Math.floor((PAGE - HEAD - 40) / ROW);
-    var pages = Math.max(1, Math.ceil(rows.length / perPage)), out = [];
-    var font = "-apple-system, PingFang SC, Microsoft YaHei, sans-serif", mono = "ui-monospace, Menlo, Consolas, monospace";
-    for (var p = 0; p < pages; p++) {
-      var part = rows.slice(p * perPage, (p + 1) * perPage), H = HEAD + part.length * ROW + 40;
-      var c = document.createElement("canvas");
-      c.width = W; c.height = H;
-      var g = c.getContext("2d");
-      g.fillStyle = "#ffffff"; g.fillRect(0, 0, W, H);
-      g.fillStyle = COLORS.gold; g.fillRect(0, 0, W, 6);
-      g.fillStyle = COLORS.text; g.font = "800 28px " + font; g.textAlign = "left";
-      g.fillText("团队完整结构", 32, 52);
-      g.font = "500 17px " + font; g.fillStyle = COLORS.muted;
-      g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 个地址 · 团队算力 " + A.wan(root.power).replace(" ", "") + " · 编号 1.3.2 = 第1条直推线→第3个→第2个" + (pages > 1 ? "　第 " + (p + 1) + "/" + pages + " 张" : ""), 32, 80);
-      part.forEach(function (r, i) {
-        var y = HEAD + i * ROW, n = r.n, x = 32 + Math.min(r.depth, 24) * 16;
-        if (r.depth === 1) { // 每条直推线开头加一条色带
-          g.fillStyle = "#efe8fd"; g.fillRect(0, y, W, ROW);
-          g.fillStyle = COLORS.gold; g.fillRect(0, y, 6, ROW);
-        } else if (i % 2) { g.fillStyle = "#faf9fe"; g.fillRect(0, y, W, ROW); }
-        g.fillStyle = "#d8cff2";
-        for (var d = 1; d <= Math.min(r.depth, 24); d++) g.fillRect(32 + (d - 1) * 16 + 6, y, 1.5, ROW);
-        var cy = y + ROW / 2 + 6;
-        var code = r.depth ? posCode(n) : "你";
-        g.fillStyle = COLORS.gold; g.font = "700 14px " + font;
-        g.fillText(code, x, cy);
-        var cx2 = x + Math.max(g.measureText(code).width + 8, 0);
-        g.fillStyle = COLORS.text; g.font = "700 16px " + mono;
-        g.fillText(A.short(n.a), cx2, cy);
-        var tx = cx2 + g.measureText(A.short(n.a)).width + 10;
-        if (n.level) {
-          g.fillStyle = COLORS.gold; g.fillRect(tx, y + 7, 38, 20);
-          g.fillStyle = "#fff"; g.font = "800 13px " + font; g.fillText("P" + n.level, tx + 9, y + 22);
-          tx += 46;
-        }
-        if (n.zone && r.depth === 1) { g.fillStyle = COLORS.gold; g.font = "700 14px " + font; g.fillText(["一区", "二区", "三区"][n.zone - 1], tx, cy); tx += 40; }
-        g.fillStyle = COLORS.muted; g.font = "500 15px " + font;
-        g.fillText((r.depth ? "第" + r.depth + "层 · " : "") + "团队 " + A.fmt(n.team) + " 个地址 · 算力 " + A.wan(n.power).replace(" ", "") + " · 直推 " + A.fmt(n.direct) + (n.more ? "（另 " + n.more + " 个地址未列出）" : ""), tx, cy);
-      });
-      g.font = "600 14px " + font; g.fillStyle = "rgba(112, 39, 217, .6)"; g.textAlign = "right";
-      g.fillText("AiLGNS 服务站 · ailgns.dev", W - 24, H - 14);
-      out.push(c.toDataURL("image/jpeg", 0.9));
-    }
-    return Promise.resolve(out);
-  }
   function dataUrlFile(url, name) {
     var bin = atob(url.split(",")[1]), arr = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
     return new File([arr], name, { type: "image/jpeg" });
   }
-  function exportPng(root, data) {
-    var mode = data ? "full" : "view";
+  // 导出图片弹窗：make() 返回图片 dataURL 列表；手机长按保存或分享到微信
+  function exportModal(name, make) {
     var box = document.createElement("div");
     box.className = "modal";
     box.innerHTML = '<div class="modal-box export-box"><div class="card-head"><h2>导出图片</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="loading">正在生成图片…</div></div>';
     document.body.appendChild(box);
     box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
-    var name = "AiLGNS团队-" + root.a.slice(2, 8);
-    function make() {
-      box.querySelector(".modal-box").innerHTML = '<div class="card-head"><h2>导出图片</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="loading">正在生成图片…</div>';
-      setTimeout(function () { (mode === "full" ? renderOutline(root) : renderImages(root)).then(show, fail); }, 30);
-    }
     function show(urls) {
       var files = urls.map(function (u, i) { return dataUrlFile(u, name + (urls.length > 1 ? "-" + (i + 1) : "") + ".jpg"); });
       var canShare = navigator.canShare && navigator.canShare({ files: files });
       box.querySelector(".modal-box").innerHTML = '<div class="card-head"><h2>导出图片' + (urls.length > 1 ? "（共 " + urls.length + " 张）" : "") + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        (data ? '<div class="seg" id="ex-mode"><button data-m="full"' + (mode === "full" ? ' class="on"' : "") + '>完整团队（长图）</button><button data-m="view"' + (mode === "view" ? ' class="on"' : "") + ">当前画面</button></div>" : "") +
-        '<div class="export-tip"><b>手机：长按图片</b> → 保存到相册，或发送给微信好友' + (urls.length > 1 ? "（每张都要长按一次）" : "") + "</div>" +
+        '<div class="export-tip"><b>手机：长按图片</b> → 保存到相册，或发送给微信好友。导出的是当前画面：先缩放、拖到想要的位置再导出。</div>' +
         '<div class="export-actions">' + (canShare ? '<button id="ex-share">分享 / 保存到相册</button>' : "") + '<button class="ghost" id="ex-dl">下载到电脑</button></div>' +
         '<div class="export-imgs">' + urls.map(function (u, i) { return '<img src="' + u + '" alt="团队结构图 第 ' + (i + 1) + ' 张">'; }).join("") + "</div>";
       var sh = document.getElementById("ex-share");
       if (sh) sh.onclick = function () { navigator.share({ files: files, title: "团队结构图" }).catch(function () {}); };
-      box.querySelectorAll("#ex-mode button").forEach(function (b) { b.onclick = function () { mode = b.getAttribute("data-m"); make(); }; });
       document.getElementById("ex-dl").onclick = function () {
         urls.forEach(function (u, i) {
           var a = document.createElement("a");
@@ -776,12 +717,14 @@
         });
       };
     }
-    function fail(e) {
-      var l = box.querySelector(".loading");
-      if (l) { l.className = "card err"; l.textContent = (e && e.message) || "图片生成失败"; }
-    }
-    make();
+    setTimeout(function () {
+      Promise.resolve().then(make).then(show, function (e) {
+        var l = box.querySelector(".loading");
+        if (l) { l.className = "card err"; l.textContent = (e && e.message) || "图片生成失败"; }
+      });
+    }, 30);
   }
+  function exportPng(root) { exportModal("AiLGNS团队-" + root.a.slice(2, 8), function () { return renderImages(root); }); }
   // 完整名单表格：每个人的上级、层级、直推、团队人数和算力
   function exportCsv(data) {
     var n = data.nodes, rows = ["地址,上级,第几层,所属直推线,直推地址数,团队地址数,个人算力,团队算力"];
@@ -807,16 +750,8 @@
       '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
   }
 
-  // 页面上一次最多画多少个框：太大手机浏览器会白屏，也看不清
-  var SHOW_CAP = window.innerWidth < 600 ? 120 : 400;
-  function shown(n) { // 当前展开状态下画出来的框数
-    var c = 1;
-    if (n.expanded && n.children) { n.children.forEach(function (k) { c += shown(k); }); if (n.more) c++; }
-    return c;
-  }
-
-  // 把树画进页面，并接上点击展开、缩放、导出；load(n) 负责读取节点的直推
-  function mountDiagram(id, root, load, data) {
+  // 示例图、以及服务器不可用时的备用方式：SVG 树，点 + 逐层展开；load(n) 负责读取节点的直推
+  function mountDiagram(id, root, load) {
     var app = A.app;
     var box = document.getElementById("tree-box"), inner = document.getElementById("tree-inner"), st = document.getElementById("tree-status");
     var pz = panZoom(box, inner), size;
@@ -846,29 +781,9 @@
     });
     app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h, root.y + 24 + NODE_H / 2); };
     app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
-    app.querySelector("[data-png]").onclick = proOnly(function () { exportPng(root, data); });
-    // 全部展开：数据已经齐全时瞬间展开所有有团队的人；示例或旧方式时逐层读取
+    app.querySelector("[data-png]").onclick = proOnly(function () { exportPng(root); });
+    // 全部展开：逐层读取
     app.querySelector("[data-all]").onclick = function () {
-      if (data) {
-        // 一层层展开，画的框超过 SHOW_CAP 个就停：几千人的团队全部画出来，手机浏览器会白屏
-        (function walk(n) { n.expanded = false; (n.children || []).forEach(walk); })(root);
-        root.expanded = true;
-        var frontier = [root], count = shown(root), depth = 0, stopped = false;
-        for (;;) {
-          var next = [];
-          frontier.forEach(function (n) { (n.children || []).forEach(function (k) { if (k.children && k.children.length) next.push(k); }); });
-          if (!next.length) break;
-          var add = next.reduce(function (t, k) { return t + k.children.length + (k.more ? 1 : 0); }, 0);
-          if (count + add > SHOW_CAP) { stopped = true; break; }
-          next.forEach(function (k) { k.expanded = true; });
-          count += add; frontier = next; depth++;
-        }
-        st.textContent = stopped
-          ? "团队有 " + A.fmt(root.team) + " 个地址，全部画出来太大，已展开前 " + (depth + 1) + " 层（" + A.fmt(count) + " 个）。更深的点节点右边的 + 展开，或用上面的定位查找；完整的请用「导出图片」。"
-          : "已全部展开";
-        draw(true);
-        return;
-      }
       var round = 0;
       (function more() {
         var leaves = [];
@@ -884,68 +799,13 @@
       st.textContent = "";
       draw(true);
     };
-    var csvBtn = app.querySelector("[data-csv]");
-    if (data) { csvBtn.hidden = false; csvBtn.onclick = proOnly(function () { exportCsv(data); }); }
-    proMark(app.querySelector("[data-png]")); proMark(csvBtn);
-    if (!data) return;
-
-    // ---- 定位、路径、筛选（完整数据时才有） ----
-    var findBox = document.getElementById("tree-find"), pathEl = document.getElementById("tree-path"), input = document.getElementById("find-a");
-    findBox.hidden = false;
-    function clearMarks() { data.nodes.forEach(function (n) { n.hl = false; n.pin = false; }); }
-    function showPath(n) {
-      var p = pathTo(n);
-      pathEl.hidden = false;
-      pathEl.innerHTML = '<div class="tp-head"><b>' + (n === root ? "你自己" : "第 " + (p.length - 1) + " 层 · 位置 " + posCode(n)) + "</b>" +
-        (n === root ? "" : '<span class="muted">' + (p[1].zone ? ["一区", "二区", "三区"][p[1].zone - 1] + " · " : "") + "属于直推线 " + A.short(p[1].a) + "</span>") + "</div>" +
-        '<div class="tp-chain">' + p.map(function (x, i) {
-          return '<button class="tp-step' + (x === n ? " on" : "") + '" data-go="' + x.a + '"><span>' + (i === 0 ? "你" : "第 " + i + " 层") + '</span><b class="mono">' + A.short(x.a) + "</b><small>团队 " + A.fmt(x.team) + " 个地址" + (x.level ? " · P" + x.level : "") + "</small></button>";
-        }).join('<i class="tp-arrow">›</i>') + "</div>";
-      pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(data.byAddr[b.getAttribute("data-go")]); }; });
-    }
-    function locate(n) {
-      clearMarks();
-      n.hl = true;
-      var p = pathTo(n);
-      p.forEach(function (x) { x.pin = true; if (x !== n) x.expanded = true; }); // 路径上的人都画出来、展开
-      applyFilter(data);
-      draw();
-      pz.center(n.x + 24 + NODE_W / 2, n.y + 24 + NODE_H / 2, 1);
-      showPath(n);
-      pathEl.scrollIntoView({ behavior: "smooth", block: "start" }); // 手机上把路径和图滚到眼前
-      st.textContent = "";
-    }
-    function search() { // 定位输入框（不要叫 find，会盖住外面按地址找节点的 find）
-      var q = input.value.trim().toLowerCase();
-      if (!q) return;
-      var hits = data.nodes.filter(function (n) { return n.a === q || (q.length >= 4 && n.a.indexOf(q.replace(/^0x/, "")) >= 0); });
-      if (!hits.length) { st.textContent = "这个地址不在你的团队里"; return; }
-      if (hits.length > 1 && hits[0].a !== q) { st.textContent = "有 " + hits.length + " 个地址匹配，请多输几位"; return; }
-      locate(hits[0]);
-    }
-    document.getElementById("find-go").onclick = search;
-    input.onkeydown = function (e) { if (e.key === "Enter") search(); };
-    document.getElementById("tree-min").onchange = function () {
-      data.min = Number(this.value);
-      applyFilter(data);
-      draw(true);
-    };
-    // 点任意一个人：显示他在团队里的位置
-    inner.addEventListener("click", function (e) {
-      if (pz.wasDrag()) return;
-      var g = e.target.closest(".node");
-      if (g && data.byAddr[g.getAttribute("data-a")]) showPath(data.byAddr[g.getAttribute("data-a")]);
-    });
+    proMark(app.querySelector("[data-png]"));
     app.querySelector("[data-expand]").onclick = function () {
       // 展开当前最外层里所有有直推的节点
       var leaves = [];
       (function walk(n) { if (n.expanded && n.children) n.children.forEach(walk); else if (n.direct && !n.moreOf) leaves.push(n); })(root);
       if (!leaves.length) { st.textContent = "已经全部展开"; return; }
       leaves = leaves.slice(0, 40);
-      if (data && shown(root) + leaves.reduce(function (t, n) { return t + (n.children ? n.children.length + (n.more ? 1 : 0) : 0); }, 0) > SHOW_CAP) {
-        st.textContent = "再展开一层会画得太大，请点具体节点右边的 + 展开，或用定位查找";
-        return;
-      }
       var done = 0;
       st.textContent = "正在展开 " + leaves.length + " 个节点…";
       A.pool(leaves, 3, function (n) {
@@ -958,7 +818,63 @@
     };
   }
 
-  var LEGEND_FULL = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的，比官方每日快照多出当天新增）；没有团队的直推合并显示，完整名单可导出表格。";
+  // ---------- 地图式结构图（完整数据）：整个团队一张图，缩放查看 ----------
+  function mapHtml() {
+    return '<div class="tree-bar"><button class="ghost" data-z="1.6">放大</button><button class="ghost" data-z="0.6">缩小</button><button class="ghost" data-all>看全部</button><button class="ghost" data-up>返回上一层</button>' +
+      '<button data-png>导出图片</button><button class="ghost" data-csv>导出完整名单</button><span class="muted" id="tree-status"></span></div>' +
+      '<div class="tree-find" id="tree-find"><input id="find-a" placeholder="输入你团队里的地址（可只输前几位）" autocomplete="off" spellcheck="false"><button id="find-go">定位</button></div>' +
+      '<div class="tree-path" id="tree-path" hidden></div>' +
+      '<div class="tree-box tree-map" id="tree-box"></div><p class="note">' + LEGEND_MAP + "</p>";
+  }
+  function mountMap(id, data) {
+    var app = A.app, st = document.getElementById("tree-status"), pathEl = document.getElementById("tree-path"), input = document.getElementById("find-a");
+    var nodes = data.nodes, root = nodes[0];
+    nodes.forEach(function (n, i) { n.i = i; });
+    var T = A.treeMap.build({
+      n: nodes.length,
+      parent: function (i) { return data.list[i - 1][3] + 1; },
+      kids: function (i) { return nodes[i].all.map(function (k) { return k.i; }); },
+      info: function (i) { return nodes[i]; }
+    });
+    var map = A.treeMap.create(document.getElementById("tree-box"), T, { onTap: function (i) { map.highlight(i); map.focus(i); showPath(nodes[i]); } });
+    function showPath(n) {
+      var p = pathTo(n);
+      pathEl.hidden = false;
+      pathEl.innerHTML = '<div class="tp-head"><b>' + (n === root ? "你自己" : "第 " + (p.length - 1) + " 层 · 位置 " + posCode(n)) + "</b>" +
+        (n === root ? "" : '<span class="muted">' + (p[1].zone ? ["一区", "二区", "三区"][p[1].zone - 1] + " · " : "") + "属于直推线 " + A.short(p[1].a) + "</span>") + "</div>" +
+        '<div class="tp-chain">' + p.map(function (x, i) {
+          return '<button class="tp-step' + (x === n ? " on" : "") + '" data-go="' + x.i + '"><span>' + (i === 0 ? "你" : "第 " + i + " 层") + '</span><b class="mono">' + A.short(x.a) + "</b><small>团队 " + A.fmt(x.team) + " 个地址" + (x.level ? " · P" + x.level : "") + "</small></button>";
+        }).join('<i class="tp-arrow">›</i>') + "</div>";
+      pathEl.querySelectorAll("[data-go]").forEach(function (b) { b.onclick = function () { locate(nodes[+b.getAttribute("data-go")]); }; });
+    }
+    function locate(n) {
+      map.highlight(n.i);
+      map.focus(n.i);
+      showPath(n);
+      pathEl.scrollIntoView({ behavior: "smooth", block: "start" }); // 手机上把路径和图滚到眼前
+    }
+    function search() {
+      var q = input.value.trim().toLowerCase();
+      if (!q) return;
+      var hits = nodes.filter(function (n) { return n.a === q || (q.length >= 4 && n.a.indexOf(q.replace(/^0x/, "")) >= 0); });
+      if (!hits.length) { st.textContent = "这个地址不在你的团队里"; return; }
+      if (hits.length > 1 && hits[0].a !== q) { st.textContent = "有 " + hits.length + " 个地址匹配，请多输几位"; return; }
+      st.textContent = "";
+      locate(hits[0]);
+    }
+    document.getElementById("find-go").onclick = search;
+    input.onkeydown = function (e) { if (e.key === "Enter") search(); };
+    app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { map.zoom(Number(b.getAttribute("data-z"))); }; });
+    app.querySelector("[data-all]").onclick = function () { map.fitAll(); };
+    app.querySelector("[data-up]").onclick = function () { map.up(); };
+    var png = app.querySelector("[data-png]"), csv = app.querySelector("[data-csv]");
+    png.onclick = proOnly(function () { exportModal("AiLGNS团队-" + root.a.slice(2, 8), function () { return [map.image(2400)]; }); });
+    csv.onclick = proOnly(function () { exportCsv(data); });
+    proMark(png); proMark(csv);
+    map.fitAll(); // 一开始看全貌：自己一整列，右边按大小排开每条线
+  }
+
+  var LEGEND_MAP = "整个团队在一张图上：最左边一列是你，往右每一列是下一层；每个地址一根竖条，团队越大竖条越高。点竖条放大到他的团队，「返回上一层」退回；双指缩放、拖动随意看。人少的分支合并成紫色色带（颜色越深人越多），点一下就放大。左边有紫线的是一区、二区、三区（按团队算力估算，以官方等级为准）；P 等级来自官方接口。团队算力 = 下级所有地址的已登记算力之和（含排队生效中的）。";
   var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
 
   function renderTree(id, addr) {
@@ -977,7 +893,7 @@
       mountDiagram(id, demoTree(), function () { return Promise.resolve(); });
       return;
     }
-    var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">你的团队结构。点节点右边的 + 展开下一层，或点「全部展开」；拖动平移，双指缩放；「导出图片」可保存到相册或发微信。</p>';
+    var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">你的整个团队在一张图上，点竖条放大、双指缩放、拖动查看，放大到哪里就看到哪里的每个地址；「导出图片」导出当前画面，可保存到相册或发微信。</p>';
     var form = ownBar(m);
     if (!addr) {
       app.innerHTML = head + form + '<div class="empty">输入一个地址开始画图，或者 <a href="#/tree/' + m.addr + '">画我自己的团队</a></div>';
@@ -989,8 +905,8 @@
     var root;
     fullTree(addr, function (t) { var el = document.getElementById("tree-loading"); if (el) el.textContent = t; }).then(function (d) {
       if (!A.isCurrent(id)) return;
-      app.innerHTML = head + form + diagramHtml(LEGEND_FULL);
-      mountDiagram(id, d.root, function () { return Promise.resolve(); }, d);
+      app.innerHTML = head + form + mapHtml();
+      mountMap(id, d);
       var st = document.getElementById("tree-status");
       if (st && d.at && !st.textContent) st.textContent = "数据更新于 " + Math.max(1, Math.round((Date.now() - d.at) / 60000)) + " 分钟前 · " + (isPro() ? "高级会员每 5 分钟更新" : "每 30 分钟更新");
     }).catch(function () {
