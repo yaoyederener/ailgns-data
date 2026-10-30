@@ -640,10 +640,11 @@
     return {
       zoom: function (f) { zoomAt(f, box.clientWidth / 2, box.clientHeight / 2); },
       // 优先看得清：最小缩到 0.5，太高的树从顶部开始，往下拖着看
-      fit: function (w, h) {
+      // focusY：图太高放不下时，把这一行（一般是自己）放在屏幕中间
+      fit: function (w, h, focusY) {
         k = Math.max(0.5, Math.min(1, (box.clientWidth - 16) / w, (box.clientHeight - 16) / h));
         tx = Math.max(8, (box.clientWidth - w * k) / 2);
-        ty = h * k < box.clientHeight ? (box.clientHeight - h * k) / 2 : 8;
+        ty = h * k < box.clientHeight ? (box.clientHeight - h * k) / 2 : focusY ? Math.min(8, Math.max(box.clientHeight - h * k - 8, box.clientHeight / 2 - focusY * k)) : 8;
         apply();
       },
       center: function (x, y, nk) {
@@ -800,6 +801,13 @@
       '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
   }
 
+  var SHOW_CAP = 400; // 页面上一次最多画多少个框（手机浏览器画太大的图会白屏）
+  function shown(n) { // 当前展开状态下画出来的框数
+    var c = 1;
+    if (n.expanded && n.children) { n.children.forEach(function (k) { c += shown(k); }); if (n.more) c++; }
+    return c;
+  }
+
   // 把树画进页面，并接上点击展开、缩放、导出；load(n) 负责读取节点的直推
   function mountDiagram(id, root, load, data) {
     var app = A.app;
@@ -809,7 +817,7 @@
       var t = treeSvg(root);
       inner.innerHTML = t.svg;
       size = t;
-      if (fit) pz.fit(t.w, t.h);
+      if (fit) pz.fit(t.w, t.h, root.y + 24 + NODE_H / 2);
     }
     draw(true);
     inner.addEventListener("click", function (e) {
@@ -822,14 +830,28 @@
       n.loading = true; draw();
       load(n).then(function () { n.loading = false; n.expanded = true; if (A.isCurrent(id)) draw(); }, function () { n.loading = false; draw(); });
     });
-    app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h); };
+    app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h, root.y + 24 + NODE_H / 2); };
     app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
     app.querySelector("[data-png]").onclick = proOnly(function () { exportPng(root, data); });
     // 全部展开：数据已经齐全时瞬间展开所有有团队的人；示例或旧方式时逐层读取
     app.querySelector("[data-all]").onclick = function () {
       if (data) {
-        (function walk(n) { if (n.children && n.children.length) { n.expanded = true; n.children.forEach(walk); } })(root);
-        st.textContent = "已全部展开";
+        // 一层层展开，画的框超过 SHOW_CAP 个就停：几千人的团队全部画出来，手机浏览器会白屏
+        (function walk(n) { n.expanded = false; (n.children || []).forEach(walk); })(root);
+        root.expanded = true;
+        var frontier = [root], count = shown(root), depth = 0, stopped = false;
+        for (;;) {
+          var next = [];
+          frontier.forEach(function (n) { (n.children || []).forEach(function (k) { if (k.children && k.children.length) next.push(k); }); });
+          if (!next.length) break;
+          var add = next.reduce(function (t, k) { return t + k.children.length + (k.more ? 1 : 0); }, 0);
+          if (count + add > SHOW_CAP) { stopped = true; break; }
+          next.forEach(function (k) { k.expanded = true; });
+          count += add; frontier = next; depth++;
+        }
+        st.textContent = stopped
+          ? "团队有 " + A.fmt(root.team) + " 个地址，全部画出来太大，已展开前 " + (depth + 1) + " 层（" + A.fmt(count) + " 个）。更深的点节点右边的 + 展开，或用上面的定位查找；完整的请用「导出图片」。"
+          : "已全部展开";
         draw(true);
         return;
       }
@@ -906,6 +928,10 @@
       (function walk(n) { if (n.expanded && n.children) n.children.forEach(walk); else if (n.direct && !n.moreOf) leaves.push(n); })(root);
       if (!leaves.length) { st.textContent = "已经全部展开"; return; }
       leaves = leaves.slice(0, 40);
+      if (data && shown(root) + leaves.reduce(function (t, n) { return t + (n.children ? n.children.length + (n.more ? 1 : 0) : 0); }, 0) > SHOW_CAP) {
+        st.textContent = "再展开一层会画得太大，请点具体节点右边的 + 展开，或用定位查找";
+        return;
+      }
       var done = 0;
       st.textContent = "正在展开 " + leaves.length + " 个节点…";
       A.pool(leaves, 3, function (n) {
