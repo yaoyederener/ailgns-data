@@ -223,7 +223,10 @@
 
   function activate(reg, p) {
     saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, method: p.method, chain: p.chain, tx: p.tx, block: p.block, paid: p.paid, at: Date.now() });
+    warmTree(reg.addr);
   }
+  // 提前让服务器把结构图算好：会员一打开网站就悄悄预热，等点进结构图时已经是现成的
+  function warmTree(a) { try { fetch("/api/tree?root=" + a.toLowerCase(), { keepalive: true }).catch(function () {}); } catch (e) { /* 忽略 */ } }
 
   // ---------- 页面：会员 ----------
   function renderMember(id) {
@@ -363,9 +366,19 @@
     });
   }
 
-  // 完整团队结构：服务器给出每个人的上级，链上一次批量读出每个人的生效算力，本地算出团队人数和团队算力
+  // 完整团队结构：服务器已经算好每个人的上级、算力、等级（/api/tree，存在 KV 里，一般 0.1 秒内返回）
+  // 服务器暂时不可用时，退回到旧办法：拿团队名单，在浏览器里批量读算力和等级
   var POWER_OF = "0x4f343040"; // totalPowerOf(address)：已登记算力（含排队中的），和官方「团队算力」口径接近
   function fullTree(root, progress) {
+    return fetch("/api/tree?root=" + root).then(function (r) {
+      if (!r.ok) throw new Error("tree " + r.status);
+      return r.json();
+    }).then(function (t) {
+      if (t.v !== 3) throw new Error("old tree format");
+      return assembleTree(root, t.list, t.lines, [t.rootPower].concat(t.list.map(function (x) { return x[4]; })), [t.rootLevel].concat(t.list.map(function (x) { return x[5]; })), t.at);
+    }).catch(function () { return fullTreeInBrowser(root, progress); });
+  }
+  function fullTreeInBrowser(root, progress) {
     return fetch("/api/team?root=" + root).then(function (r) {
       if (!r.ok) throw new Error("team " + r.status);
       return r.json();
@@ -377,36 +390,40 @@
       for (var i = 0; i < calls.length; i += 300) chunks.push(calls.slice(i, i + 300));
       return A.pool(chunks, 4, batchRpc).then(function (parts) {
         var pw = [].concat.apply([], parts).map(function (h) { return h ? Number(BigInt(h.slice(0, 66))) / 1e18 : 0; });
-        var nodes = all.map(function (a, i) { return { a: a, self: pw[i] || 0, team: 0, power: 0, kids: [], level: 0, direct: 0 }; });
-        c.list.forEach(function (x, i) { nodes[x[3] + 1].kids.push(nodes[i + 1]); });
-        // 从最深的一层往上累加团队人数和团队算力
-        var order = c.list.map(function (x, i) { return i + 1; }).sort(function (a, b) { return c.list[b - 1][2] - c.list[a - 1][2]; });
-        order.concat([0]).forEach(function (i) {
-          var n = nodes[i];
-          n.direct = n.kids.length;
-          n.kids.forEach(function (k) { n.team += 1 + k.team; n.power += k.self + k.power; });
-        });
+        var data = assembleTree(root, c.list, c.lines, pw, null, c.at);
         // 只给团队算力够大的人查官方等级（P1 至少要三个区各 5 万 DAI）
-        var big = nodes.filter(function (n) { return n.power >= 300000; }).slice(0, 120);
+        var big = data.nodes.filter(function (n) { return n.power >= 300000; }).slice(0, 120);
         if (progress) progress("正在读取等级…");
         return A.pool(big, 6, function (n) {
           return A.api("/level/" + n.a).then(function (l) { n.level = l.level || 0; n.self = A.n(l.selfPower) || n.self; }, function () {});
-        }).then(function () {
-          var byAddr = {};
-          nodes.forEach(function (n) {
-            n.all = n.kids.sort(function (x, y) { return y.power - x.power || y.team - x.team; });
-            n.all.forEach(function (k, i) { k.parent = n; k.zone = n === nodes[0] && i < 3 && k.power > 0 ? i + 1 : 0; });
-            n.expanded = false;
-            byAddr[n.a] = n;
-            delete n.kids;
-          });
-          nodes[0].expanded = true;
-          var data = { root: nodes[0], list: c.list, nodes: nodes, lines: c.lines, byAddr: byAddr, min: 1 };
-          applyFilter(data);
-          return data;
-        });
+        }).then(function () { applyFilter(data); return data; });
       });
     });
+  }
+  // list：[地址, 直推线, 层级, 上级位置(-1=root)]；pw / lv：按 [root].concat(list) 的顺序
+  function assembleTree(root, list, lines, pw, lv, at) {
+    var all = [root].concat(list.map(function (x) { return x[0]; }));
+    var nodes = all.map(function (a, i) { return { a: a, self: pw[i] || 0, team: 0, power: 0, kids: [], level: lv ? lv[i] || 0 : 0, direct: 0 }; });
+    list.forEach(function (x, i) { nodes[x[3] + 1].kids.push(nodes[i + 1]); });
+    // 从最深的一层往上累加团队人数和团队算力
+    var order = list.map(function (x, i) { return i + 1; }).sort(function (a, b) { return list[b - 1][2] - list[a - 1][2]; });
+    order.concat([0]).forEach(function (i) {
+      var n = nodes[i];
+      n.direct = n.kids.length;
+      n.kids.forEach(function (k) { n.team += 1 + k.team; n.power += k.self + k.power; });
+    });
+    var byAddr = {};
+    nodes.forEach(function (n) {
+      n.all = n.kids.sort(function (x, y) { return y.power - x.power || y.team - x.team; });
+      n.all.forEach(function (k, i) { k.parent = n; k.zone = n === nodes[0] && i < 3 && k.power > 0 ? i + 1 : 0; });
+      n.expanded = false;
+      byAddr[n.a] = n;
+      delete n.kids;
+    });
+    nodes[0].expanded = true;
+    var data = { root: nodes[0], list: list, nodes: nodes, lines: lines, byAddr: byAddr, min: 1, at: at };
+    applyFilter(data);
+    return data;
   }
 
   // 筛选：只画团队人数够多、或有等级、或被定位到的人；其他的合并成"还有 N 人"
@@ -1237,6 +1254,7 @@
     var tab = location.hash.replace(/^#\/?/, "").split("/")[0];
     if (["team", "growth", "tree"].indexOf(tab) < 0) A.ownOnly = null;
   });
+  if (member()) warmTree(member().addr);
   A.pages.tree = ownOnly("tree", renderTree);
   A.pages.team = ownOnly("team", renderTeamGate);
   A.pages.growth = ownOnly("growth", renderGrowth);
