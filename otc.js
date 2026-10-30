@@ -4,7 +4,7 @@
 
   var A = window.AIL, W = A.wallet;
   // 部署后填上合约地址；空着时页面显示"即将上线"
-  var OTC = "";
+  var OTC = "0x4e730be6d46be71223ded5a32dc45799f6d4bc15";
   var AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB";
   var DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14";
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
