@@ -438,3 +438,5 @@ a:active, button:active { opacity: .85; }
 #growth:empty { display: none; }
 #growth .seg { margin: 0; }
 .g-h { font-size: 15px; font-weight: 800; margin: 16px 0 8px; }
+.g-status { margin: -4px 0 10px; }
+.spin { display: inline-block; width: 11px; height: 11px; border: 2px solid var(--muted); border-top-color: transparent; border-radius: 50%; margin-right: 6px; vertical-align: -1px; animation: spin .8s linear infinite; }

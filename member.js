@@ -645,50 +645,73 @@
       }).catch(function (e) { if (k < ANUBIS_RPCS.length - 1) return batchRpc(calls, k + 1); throw e; });
   }
   // 从 root 往下一层层读出整个团队：地址 → { line: 属于哪条直推线, depth: 第几层 }
-  var teamCache = {};
-  function buildTeam(root, progress) {
-    var hit = teamCache[root];
-    if (hit && Date.now() - hit.at < 10 * 60 * 1000) return Promise.resolve(hit.team);
-    var team = {}, frontier = [root], level = 0;
+  // 每一层只问一次链：同时拿"直推人数"和"第一个直推"，人数多的下一轮再补读，往返次数减半
+  // 读完存进浏览器 6 小时，同一个地址再查时秒出
+  var teamCache = {}, TEAM_TTL = 6 * 3600 * 1000;
+  function teamKey(root) { return "ailgns-team-v1-" + root; }
+  function loadTeamCache(root) {
+    if (teamCache[root]) return teamCache[root];
+    try {
+      var c = JSON.parse(localStorage.getItem(teamKey(root)));
+      if (!c) return null;
+      var team = {};
+      team[root] = { line: "self", depth: 0 };
+      c.list.forEach(function (x) { team[x[0]] = { line: c.lines[x[1]], depth: x[2] }; });
+      return (teamCache[root] = { at: c.at, team: team });
+    } catch (e) { return null; }
+  }
+  function saveTeamCache(root, team) {
+    var lines = [], idx = {}, list = [];
+    Object.keys(team).forEach(function (a) {
+      if (a === root) return;
+      var L = team[a].line;
+      if (!(L in idx)) { idx[L] = lines.length; lines.push(L); }
+      list.push([a, idx[L], team[a].depth]);
+    });
+    teamCache[root] = { at: Date.now(), team: team };
+    try { localStorage.setItem(teamKey(root), JSON.stringify({ at: Date.now(), lines: lines, list: list })); } catch (e) { /* 太大存不下就只放内存 */ }
+  }
+  function buildTeam(root, progress, fresh) {
+    var hit = fresh ? null : loadTeamCache(root);
+    if (hit && Date.now() - hit.at < TEAM_TTL) return Promise.resolve(hit.team);
+    var team = {}, jobs = [{ parent: root, off: 0, lim: 1, probe: true }], rounds = 0;
     team[root] = { line: "self", depth: 0 };
     function refCall(a, off, lim) {
       return ["eth_call", [{ to: COMMUNITY, data: "0xc01b35a1" + A.pad(a) + off.toString(16).padStart(64, "0") + lim.toString(16).padStart(64, "0") }, "latest"]];
     }
     function batched(calls) {
       var chunks = [];
-      for (var i = 0; i < calls.length; i += 200) chunks.push(calls.slice(i, i + 200));
-      return A.pool(chunks, 3, batchRpc).then(function (r) { return [].concat.apply([], r); });
+      for (var i = 0; i < calls.length; i += 300) chunks.push(calls.slice(i, i + 300));
+      return A.pool(chunks, 4, batchRpc).then(function (r) { return [].concat.apply([], r); });
+    }
+    function add(parent, h, next) {
+      var len = parseInt(h.slice(2 + 128, 2 + 192), 16), par = team[parent];
+      for (var k = 0; k < len; k++) {
+        var c = "0x" + h.slice(2 + (3 + k) * 64 + 24, 2 + (4 + k) * 64);
+        if (team[c]) continue;
+        team[c] = { line: parent === root ? c : par.line, depth: par.depth + 1 };
+        next.push({ parent: c, off: 0, lim: 1, probe: true }); // 新成员下一轮去探他的直推
+      }
     }
     function step() {
-      if (!frontier.length || level > 200) {
-        teamCache[root] = { at: Date.now(), team: team };
+      if (!jobs.length || ++rounds > 400) {
+        saveTeamCache(root, team);
         return Promise.resolve(team);
       }
-      level++;
-      // 先查每个人有多少直推，再分页读出直推地址（每页最多 100，不能超过剩余数量）
-      return batched(frontier.map(function (a) { return refCall(a, 0, 0); })).then(function (counts) {
-        var pages = [];
-        frontier.forEach(function (a, i) {
-          var h = counts[i], total = h ? parseInt(h.slice(2, 66), 16) : 0;
-          for (var off = 0; off < total; off += 100) pages.push({ parent: a, call: refCall(a, off, Math.min(100, total - off)) });
+      return batched(jobs.map(function (j) { return refCall(j.parent, j.off, j.lim); })).then(function (res) {
+        var next = [];
+        jobs.forEach(function (j, i) {
+          var h = res[i];
+          if (!h) return; // 没有直推时合约会拒绝 limit=1，说明是 0 个
+          if (j.probe) {
+            var total = parseInt(h.slice(2, 66), 16);
+            for (var off = 1; off < total; off += 100) next.push({ parent: j.parent, off: off, lim: Math.min(100, total - off) });
+          }
+          add(j.parent, h, next);
         });
-        return batched(pages.map(function (p) { return p.call; })).then(function (res) {
-          var next = [];
-          pages.forEach(function (p, i) {
-            var h = res[i];
-            if (!h) return;
-            var len = parseInt(h.slice(2 + 128, 2 + 192), 16), par = team[p.parent];
-            for (var k = 0; k < len; k++) {
-              var c = "0x" + h.slice(2 + (3 + k) * 64 + 24, 2 + (4 + k) * 64);
-              if (team[c]) continue;
-              team[c] = { line: p.parent === root ? c : par.line, depth: par.depth + 1 };
-              next.push(c);
-            }
-          });
-          frontier = next;
-          if (progress) progress(Object.keys(team).length - 1);
-          return step();
-        });
+        jobs = next;
+        if (progress) progress(team);
+        return step();
       });
     }
     return step();
@@ -707,14 +730,44 @@
   function depositsBetween(from, to) {
     var ranges = [];
     for (var b = from; b <= to; b += 5000) ranges.push([b, Math.min(to, b + 4999)]);
-    return A.pool(ranges, 4, function (r) {
-      return A.rpc("eth_getLogs", [{ address: POWER, topics: [[DAI_QUEUED, LGNS_BURN]], fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16) }]);
+    var groups = [];
+    for (var i = 0; i < ranges.length; i += 25) groups.push(ranges.slice(i, i + 25)); // 25 段打包成一次请求
+    return A.pool(groups, 3, function (g) {
+      return batchRpc(g.map(function (r) {
+        return ["eth_getLogs", [{ address: POWER, topics: [[DAI_QUEUED, LGNS_BURN]], fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16) }]];
+      })).then(function (res) {
+        if (res.some(function (x) { return x == null; })) throw new Error("部分记录没读到");
+        return [].concat.apply([], res);
+      });
     }).then(function (chunks) {
       return [].concat.apply([], chunks.map(function (c) { return c || []; })).map(function (l) {
         var d = l.data.slice(2), lgns = l.topics[0] === LGNS_BURN, amt = Number(BigInt("0x" + d.slice(0, 64)));
         return { addr: "0x" + l.topics[1].slice(26), kind: lgns ? "LGNS" : "DAI", dai: lgns ? 0 : amt / 1e18, lgns: lgns ? amt / 1e9 : 0,
           power: Number(BigInt("0x" + d.slice(64, 128))) / 1e18, block: parseInt(l.blockNumber, 16), tx: l.transactionHash };
       });
+    });
+  }
+
+  // 每天（北京时间）最后一个区块，资金流向数据里已经有了，直接查表，不用二分查找
+  var dayEnds = null;
+  function loadDayEnds() {
+    if (dayEnds) return Promise.resolve(dayEnds);
+    return A.getJSON("/api/flows").catch(function () {
+      return A.getJSON("https://raw.githubusercontent.com/yaoyederener/monita/main/data/ailgns_flows.json");
+    }).catch(function () { return { days: [] }; }).then(function (f) {
+      dayEnds = {};
+      (f.days || []).forEach(function (d) { if (d.final) dayEnds[d.date] = d.end_block; });
+      return dayEnds;
+    });
+  }
+  function bjDate(ts) { return new Date((ts + 8 * 3600) * 1000).toISOString().slice(0, 10); }
+  function periodBlocks(r, latest) {
+    return loadDayEnds().then(function (ends) {
+      var startEnd = ends[bjDate(r[0] - 1)], stopEnd = r[1] ? ends[bjDate(r[1] - 1)] : null;
+      return Promise.all([
+        startEnd ? startEnd + 1 : blockAt(r[0], latest),
+        r[1] ? (stopEnd || blockAt(r[1], latest).then(function (x) { return x - 1; })) : latest.n
+      ]);
     });
   }
 
@@ -735,36 +788,43 @@
         PERIODS.map(function (p) { return '<button data-p="' + p[0] + '"' + (p[0] === period ? ' class="on"' : "") + ">" + p[1] + "</button>"; }).join("") + "</div></div>" + body;
       el.querySelectorAll("#g-period button").forEach(function (b) { b.onclick = function () { period = b.getAttribute("data-p"); run(); }; });
     }
-    function run() {
-      var my = ++runId, r = periodRange(period);
+    function run(fresh) {
+      var my = ++runId, r = periodRange(period), latest, from, to, deps = null, team = null, teamDone = false, at = null;
       var say = function (t) { if (my === runId && A.isCurrent(id)) shell('<div class="loading">' + t + "</div>"); };
-      say("正在读取这段时间的全部投资记录…");
-      var latest, from, to;
-      // 团队名单和投资记录同时读
-      var teamP = buildTeam(root, function (n) { var el2 = el.querySelector(".loading"); if (el2 && my === runId) el2.textContent = "正在读取团队名单…已读到 " + A.fmt(n) + " 人"; });
-      A.rpc("eth_getBlockByNumber", ["latest", false]).then(function (b) {
-        latest = { n: parseInt(b.number, 16), t: parseInt(b.timestamp, 16) };
-        return Promise.all([blockAt(r[0], latest), r[1] ? blockAt(r[1], latest).then(function (x) { return x - 1; }) : latest.n]);
-      }).then(function (bs) {
-        from = bs[0]; to = bs[1];
-        return depositsBetween(from, to);
-      }).then(function (deps) {
-        say("共 " + A.fmt(deps.length) + " 笔投资，正在读取团队名单…");
-        return teamP.then(function (known) { return { deps: deps, known: known }; });
-      }).then(function (x) {
-        if (my !== runId || !A.isCurrent(id)) return;
+      var cached = !fresh && loadTeamCache(root);
+      say(cached ? "正在读取投资记录…" : "正在读取投资记录和团队名单…");
+      function render() {
+        if (my !== runId || !A.isCurrent(id) || !deps || !team) return;
         var t0 = r[0], t1 = r[1] || latest.t, span = Math.max(1, to - from);
-        var rows = x.deps.filter(function (d) { return x.known[d.addr]; }).map(function (d) {
-          var k = x.known[d.addr];
+        var rows = deps.filter(function (d) { return team[d.addr]; }).map(function (d) {
+          var k = team[d.addr];
           return { addr: d.addr, kind: d.kind, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
         }).sort(function (a, b) { return b.t - a.t; });
         lastRows = rows;
-        draw(rows, x.deps.length);
+        var n = Object.keys(team).length - 1;
+        draw(rows, deps.length, teamDone
+          ? '团队 ' + A.fmt(n) + ' 人 · 名单更新于 ' + (at ? Math.max(1, Math.round((Date.now() - at) / 60000)) + " 分钟前" : "刚刚") + ' · <a href="#" id="g-refresh">重新读取团队</a>'
+          : '<span class="spin"></span>团队名单读取中，已读到 ' + A.fmt(n) + " 人，结果还在补充…");
+      }
+      var teamP = buildTeam(root, function (t) { team = t; render(); }, fresh).then(function (t) {
+        team = t; teamDone = true; at = teamCache[root] ? teamCache[root].at : Date.now(); render();
+      });
+      A.rpc("eth_getBlockByNumber", ["latest", false]).then(function (b) {
+        latest = { n: parseInt(b.number, 16), t: parseInt(b.timestamp, 16) };
+        return periodBlocks(r, latest);
+      }).then(function (bs) {
+        from = bs[0]; to = bs[1];
+        return depositsBetween(from, to);
+      }).then(function (d) {
+        deps = d;
+        if (!team) say("共 " + A.fmt(d.length) + " 笔投资，正在读取团队名单…");
+        render();
+        return teamP;
       }).catch(function () {
         if (my === runId && A.isCurrent(id)) shell('<div class="card err">读取失败，请稍后再试。</div>');
       });
     }
-    function draw(rows, scanned) {
+    function draw(rows, scanned, status) {
       var team = rows.filter(function (r) { return r.line !== "self"; }), self = rows.filter(function (r) { return r.line === "self"; });
       var sum = function (l, k) { return l.reduce(function (t, r) { return t + r[k || "power"]; }, 0); };
       var uniq = function (l) { return Object.keys(l.reduce(function (o, r) { o[r.addr] = 1; return o; }, {})).length; };
@@ -779,9 +839,10 @@
         '<div class="kpi"><div class="k">其中 DAI 投入</div><div class="v num">' + A.fmt(sum(team, "dai"), 2) + '<small>DAI</small></div><div class="d">真实 DAI，P 等级按这个算</div></div>' +
         '<div class="kpi"><div class="k">其中销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">换来的算力也计入新增</div></div>' +
         '<div class="kpi"><div class="k">本人新增</div><div class="v num">' + A.fmt(sum(self)) + '</div><div class="d">' + self.length + " 笔（不计入团队）</div></div></div>";
+      html = '<p class="note g-status">' + status + "</p>" + html;
       if (!rows.length) {
-        el.innerHTML = "";
         shell(html + '<div class="empty">这段时间团队里没有新增投资（全网共 ' + A.fmt(scanned) + " 笔）</div>");
+        bindRefresh();
         return;
       }
       html += '<h3 class="g-h">按直推线</h3><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">直推线</th><th>新增算力</th><th>DAI 投入</th><th>销毁 LGNS</th><th>笔数</th><th>地址数</th></tr></thead><tbody>' +
@@ -798,6 +859,7 @@
         (rows.length > 500 ? '<p class="note">只显示最近 500 笔，导出表格可以拿到全部 ' + rows.length + " 笔。</p>" : "") +
         '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
       shell(html);
+      bindRefresh();
       document.getElementById("g-csv").onclick = function () {
         var csv = "时间,地址,方式,DAI,LGNS,新增算力,所属直推线,第几层,交易\n" + lastRows.map(function (r) {
           return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, r.power, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx].join(",");
@@ -808,6 +870,10 @@
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
       };
+    }
+    function bindRefresh() {
+      var b = document.getElementById("g-refresh");
+      if (b) b.onclick = function (e) { e.preventDefault(); delete teamCache[root]; run(true); };
     }
     run();
   }
