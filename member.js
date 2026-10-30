@@ -71,7 +71,7 @@
     nativeCurrency: { name: "gasDAI", symbol: "DAI", decimals: 18 },
     rpcUrls: ["https://rpc.anubispace.org"], blockExplorerUrls: [EXPLORER]
   };
-  var NO_WALLET = "没有检测到钱包。请在 Bitget Wallet、TokenPocket 或 MetaMask 的 DApp 浏览器里打开 ailgns.dev。";
+  var NO_WALLET = "没有检测到钱包。请在 OKX Wallet、Bitget Wallet、TokenPocket 或 MetaMask 的 DApp 浏览器里打开 ailgns.dev；电脑上请先安装钱包插件。";
 
   function wallet() {
     if (!window.ethereum) throw new Error(NO_WALLET);

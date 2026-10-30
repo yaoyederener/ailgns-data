@@ -187,3 +187,33 @@ label.full .row input { flex: 1; }
 .quote { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.7; }
 .kpi .bal { display: grid; gap: 2px; margin: 4px 0 2px; font-size: 15px; }
 .kpi .bal b { font-size: 20px; font-variant-numeric: tabular-nums; }
+
+/* 手机：订单表变卡片，导航可横滑，表单单列，弹窗贴底 */
+@media (max-width: 600px) {
+  .tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs a { flex: none; padding: 7px 13px; font-size: 14px; }
+  .trust { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .trust > div { padding: 10px 12px; }
+  .trust span { font-size: 12px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid input, .form-grid select, label.full input { font-size: 16px; padding: 13px 14px; }
+  .seg { display: flex; }
+  .seg button { flex: 1; padding: 10px 8px; }
+  #otc-create { width: 100%; padding: 14px 22px !important; font-size: 16px; }
+  .tbl-wrap:has(table.cards) { margin: 0; padding: 0; overflow: visible; }
+  table.cards thead { display: none; }
+  table.cards, table.cards tbody { display: block; }
+  table.cards tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  table.cards td { display: flex; flex-direction: column; padding: 0; border: 0; text-align: left !important; white-space: normal; font-size: 14px; }
+  table.cards td::before { content: attr(data-l); font-size: 11px; color: var(--muted); }
+  table.cards td.price b { font-size: 18px; }
+  table.cards td.act { grid-column: 1 / -1; }
+  table.cards td.act::before { content: none; }
+  table.cards td.act button { width: 100%; padding: 11px 14px !important; font-size: 15px; }
+  tbody tr:hover td { background: none; }
+  .modal { place-items: end center; padding: 0; }
+  .modal-box { max-width: none; border-radius: 22px 22px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); max-height: 92vh; overflow-y: auto; }
+  label.full .row button { padding: 0 16px !important; }
+  .kpi .bal b { font-size: 18px; }
+}

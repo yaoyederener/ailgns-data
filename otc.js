@@ -22,7 +22,8 @@
   // ---------- 数字 ----------
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
   function toWei(str) {
-    str = String(str || "").trim();
+    // 手机键盘可能打出逗号、全角符号或空格
+    str = String(str || "").replace(/[，,．。]/g, ".").replace(/\s/g, "");
     if (!/^\d*\.?\d*$/.test(str) || str === "" || str === ".") return null;
     var parts = str.split("."), frac = (parts[1] || "").slice(0, 18).padEnd(18, "0");
     return BigInt(parts[0] || "0") * WEI + BigInt(frac);
@@ -66,12 +67,19 @@
   function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / num(o.giveTotal) : num(o.giveTotal) / num(o.wantTotal); }
 
   // ---------- 发交易 ----------
+  // 都包在 Promise 里：没有钱包时也会走到失败提示，而不是按钮没反应
   function connect() {
-    var eth = W.get();
-    return eth.request({ method: "eth_requestAccounts" }).then(function (a) {
+    var eth;
+    return Promise.resolve().then(function () {
+      eth = W.get();
+      return eth.request({ method: "eth_requestAccounts" });
+    }).then(function (a) {
       account = String(a[0]).toLowerCase();
       return W.switchChain(eth);
     }).then(function () { return account; });
+  }
+  function ready() {
+    return Promise.resolve().then(function () { return account ? W.switchChain(W.get()) : connect(); });
   }
   // 钱包已经授权过本站时，不弹窗直接拿到地址
   function silentAccount() {
@@ -152,15 +160,15 @@
       function row(o) {
         var p = priceOf(o), ail = o.sellAilgns ? o.giveLeft : (o.giveLeft * o.wantTotal) / o.giveTotal;
         var diff = mkt ? (p / mkt - 1) * 100 : null;
-        return "<tr><td><b>" + A.fmt(p, 2) + "</b></td><td>" + show(ail) + "</td><td>" + A.fmt(num(ail) * p, 2) + "</td>" +
-          "<td class=\"" + (diff === null ? "" : diff >= 0 ? "up" : "down") + "\">" + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
-          "<td>" + left(o.expiry - now) + '</td><td class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td><td>" +
+        return '<tr><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, 2) + '</b></td><td data-l="剩余 AiLGNS">' + show(ail) + '</td><td data-l="总额 DAI">' + A.fmt(num(ail) * p, 2) + "</td>" +
+          '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
+          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td><td class=\"act\">" +
           (o.maker === account ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 14px">撤单</button>'
             : '<button class="' + (o.sellAilgns ? "" : "ghost") + '" data-fill="' + o.id + '" style="padding:6px 14px">' + (o.sellAilgns ? "买入" : "卖出") + "</button>") + "</td></tr>";
       }
       function book(title, list, hint) {
         return '<section class="card"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + hint + "</span></div>" +
-          (list.length ? '<div class="tbl-wrap"><table><thead><tr><th>单价 DAI</th><th>剩余 AiLGNS</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th><th></th></tr></thead><tbody>' +
+          (list.length ? '<div class="tbl-wrap"><table class="cards"><thead><tr><th>单价 DAI</th><th>剩余 AiLGNS</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th><th></th></tr></thead><tbody>' +
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
@@ -200,7 +208,7 @@
       document.getElementById("otc-watch").onclick = function (e) {
         e.preventDefault();
         var link = this;
-        W.get().request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: AILGNS, symbol: "AiLGNS", decimals: 18 } } })
+        Promise.resolve().then(function () { return W.get().request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: AILGNS, symbol: "AiLGNS", decimals: 18 } } }); })
           .then(function () { link.textContent = "已添加 ✓"; }, function () { link.textContent = "钱包不支持自动添加，请手动添加合约 " + A.short(AILGNS); });
       };
     }
@@ -216,21 +224,25 @@
 
     function myOrders(list, now) {
       if (!list.length) return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
-      return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
+      return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var status = !o.open ? (o.giveLeft === 0n ? "已结束" : "已结束") : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
           var remain = o.sellAilgns ? show(o.giveLeft) + " AiLGNS" : show(o.giveLeft, 2) + " DAI";
-          return "<tr><td>" + o.id + '</td><td class="l">' + (o.sellAilgns ? "卖 AiLGNS" : "买 AiLGNS") + "</td><td>" + A.fmt(priceOf(o), 2) + "</td><td>" + remain + '</td><td class="l">' + status + "</td><td>" +
+          return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 AiLGNS" : "买 AiLGNS") + '</td><td data-l="单价">' + A.fmt(priceOf(o), 2) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
         }).join("") + "</tbody></table></div></section>";
     }
 
     function bind(id, orders, mkt) {
       var st = document.getElementById("otc-st");
-      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      function say(t, bad) {
+        st.className = "note" + (bad ? " down" : "");
+        st.textContent = t;
+        if (st.scrollIntoView) st.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
       function reload() { if (A.isCurrent(id)) renderOtc(id); }
       var c = document.getElementById("otc-connect");
-      if (c) c.onclick = function () { connect().then(reload, function (e) { say(W.error(e), true); }); };
+      if (c) c.onclick = function () { connect().then(reload, function (e) { say(niceError(e), true); }); };
 
       // 发布挂单
       var side = "sell";
@@ -259,7 +271,7 @@
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number(document.getElementById("otc-dur").value);
         btn.disabled = true;
-        (account ? W.switchChain(W.get()) : connect()).then(function () {
+        ready().then(function () {
           walletCard();
           return balance(token, account);
         }).then(function (b) {
@@ -277,7 +289,7 @@
       A.app.querySelectorAll("[data-cancel]").forEach(function (b) {
         b.onclick = function () {
           b.disabled = true;
-          W.switchChain(W.get()).then(function () {
+          ready().then(function () {
             return send(OTC, SEL.cancel + u256(b.getAttribute("data-cancel")), say, "撤单");
           }).then(function () { say("已撤单，币已退回你的钱包"); setTimeout(reload, 1200); }, function (e) { say(niceError(e), true); b.disabled = false; });
         };
@@ -336,7 +348,7 @@
         if (!v) { say("请输入数量", true); return; }
         var token = o.sellAilgns ? DAI : AILGNS, name = o.sellAilgns ? "DAI" : "AiLGNS";
         btn.disabled = true;
-        (account ? W.switchChain(W.get()) : connect()).then(function () {
+        ready().then(function () {
           walletCard();
           if (account === o.maker) throw new Error(REASONS.TRANSFER_MISMATCH);
           return balance(token, account);
