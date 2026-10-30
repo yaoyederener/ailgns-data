@@ -646,8 +646,8 @@
   }
   // 从 root 往下一层层读出整个团队：地址 → { line: 属于哪条直推线, depth: 第几层 }
   // 每一层只问一次链：同时拿"直推人数"和"第一个直推"，人数多的下一轮再补读，往返次数减半
-  // 读完存进浏览器 6 小时，同一个地址再查时秒出
-  var teamCache = {}, TEAM_TTL = 6 * 3600 * 1000;
+  // 读完在浏览器里存 30 分钟；服务器那边所有访客共享缓存
+  var teamCache = {}, TEAM_TTL = 30 * 60 * 1000; // 本机缓存 30 分钟；服务器那边共享缓存，过期也很快
   function teamKey(root) { return "ailgns-team-v1-" + root; }
   function loadTeamCache(root) {
     if (teamCache[root]) return teamCache[root];

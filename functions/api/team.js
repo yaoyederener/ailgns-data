@@ -2,7 +2,8 @@
 // 需要 Workers 付费版（一次要发几十个子请求）和 KV 绑定 TEAM_KV；没有时返回 503，网页会自己在浏览器里读
 const RPCS = ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"];
 const COMMUNITY = "0xc9f9a8a2dBf8188AD6610e0239105CAbE67c4993";
-const TTL = 6 * 3600;
+const KEEP = 7 * 86400; // KV 里保留 7 天
+const REFRESH_AFTER = 3600 * 1000; // 超过 1 小时：先返回旧的，后台悄悄更新
 const MAX_MEMBERS = 80000;
 
 const pad = (a) => a.toLowerCase().replace("0x", "").padStart(64, "0");
@@ -68,13 +69,21 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   const fresh = url.searchParams.get("fresh") === "1";
   const headers = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+  const save = async () => {
+    const body = JSON.stringify(await buildTeam(root));
+    if (kv) await kv.put("team:" + root, body, { expirationTtl: KEEP });
+    return body;
+  };
   if (kv && !fresh) {
     const hit = await kv.get("team:" + root);
-    if (hit) return new Response(hit, { headers: { ...headers, "x-team-cache": "hit" } });
+    if (hit) {
+      const age = Date.now() - (JSON.parse(hit).at || 0);
+      if (age > REFRESH_AFTER) ctx.waitUntil(save().catch(() => {}));
+      return new Response(hit, { headers: { ...headers, "x-team-cache": age > REFRESH_AFTER ? "stale" : "hit" } });
+    }
   }
   try {
-    const body = JSON.stringify(await buildTeam(root));
-    if (kv) ctx.waitUntil(kv.put("team:" + root, body, { expirationTtl: TTL }));
+    const body = await save();
     return new Response(body, { headers: { ...headers, "x-team-cache": "miss" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e.message || e) }), { status: 503, headers });
