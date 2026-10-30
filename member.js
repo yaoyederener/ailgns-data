@@ -1010,7 +1010,35 @@
   function buildTeam(root, progress, fresh) {
     var hit = fresh ? null : loadTeamCache(root);
     if (hit && Date.now() - hit.at < TEAM_TTL) return Promise.resolve(hit.team);
-    return serverTeam(root, fresh).catch(function () { return browserTeam(root, progress); });
+    return serverTeam(root, fresh).catch(function () {
+      return bigTeam(root).catch(function () { return browserTeam(root, progress); });
+    });
+  }
+  // 超大团队（8 万个地址以上）：用结构图的压缩数据，做一个按地址查「属于哪条直推线、第几层」的查找表
+  // 不给每个地址建对象：team[地址] 用 Proxy 现查（地址前 6 字节做键，再核对完整地址）
+  function bigTeam(root) {
+    return fetch("/api/tree?root=" + root).then(function (r) { return r.json(); }).then(function (t) {
+      if (!t.big) throw new Error("not big");
+      return bigTree(root);
+    }).then(function (D) {
+      var idx = new Map(), b = D.bytes, line = new Int32Array(D.n);
+      for (var i = 0; i < D.n; i++) {
+        var o = i * 20;
+        idx.set(((b[o] * 256 + b[o + 1]) * 256 + b[o + 2]) * 16777216 + (b[o + 3] * 256 + b[o + 4]) * 256 + b[o + 5], i);
+        if (i > 0) line[i] = D.parent[i] === 0 ? i : line[D.parent[i]];
+      }
+      var team = new Proxy({}, {
+        get: function (_, a) {
+          if (a === "__n") return D.n - 1;
+          if (typeof a !== "string" || !/^0x[0-9a-f]{40}$/.test(a)) return undefined;
+          var j = idx.get(parseInt(a.slice(2, 14), 16));
+          if (j === undefined || D.addr(j) !== a) return undefined;
+          return j === 0 ? { line: "self", depth: 0 } : { line: D.addr(line[j]), depth: D.depth[j] };
+        }
+      });
+      teamCache[root] = { at: D.at, team: team };
+      return team;
+    });
   }
   function browserTeam(root, progress) {
     var team = {}, jobs = [{ parent: root, off: 0, lim: 1, probe: true }], rounds = 0;
@@ -1165,7 +1193,7 @@
           return { addr: d.addr, kind: d.kind, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, block: d.block, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
         }).sort(function (a, b) { return b.t - a.t; });
         lastRows = rows;
-        var n = Object.keys(team).length - 1;
+        var n = team.__n || Object.keys(team).length - 1;
         draw(rows, deps.length, teamDone
           ? '团队 ' + A.fmt(n) + ' 个地址 · 名单更新于 ' + (at ? Math.max(1, Math.round((Date.now() - at) / 60000)) + " 分钟前" : "刚刚") + ' · <a href="#" id="g-refresh">重新读取团队</a>'
           : '<span class="spin"></span>团队名单读取中，已读到 ' + A.fmt(n) + " 个地址，结果还在补充…");

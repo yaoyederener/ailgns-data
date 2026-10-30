@@ -38,7 +38,7 @@
     for (t = start[0]; t < Math.min(start[1], start[0] + 3); t++) if (power[list[t]] > 0) zone[list[t]] = t - start[0] + 1;
     function addr(j) { var s2 = "0x", o = j * 20; for (var q = 0; q < 20; q++) s2 += HEX[addrB[o + q]]; return s2; }
     var D = {
-      n: n, at: src.at, parent: parent, self: self, level: src.level, team: teamN, power: power, depth: depth, start: start, list: list, rank: rank, zone: zone,
+      n: n, at: src.at, bytes: addrB, parent: parent, self: self, level: src.level, team: teamN, power: power, depth: depth, start: start, list: list, rank: rank, zone: zone,
       addr: addr,
       kids: function (j) { return list.subarray(start[j], start[j + 1]); },
       info: function (j) { return { a: addr(j), team: teamN[j], power: power[j], self: self[j], level: src.level[j], zone: zone[j], direct: start[j + 1] - start[j] }; },
