@@ -3,7 +3,9 @@
   "use strict";
 
   var API = "https://awakehelix.io/api/v1";
-  var FLOWS_URL = "https://raw.githubusercontent.com/yaoyederener/monita/main/data/ailgns_flows.json";
+  // 历史数据走本站的 /api/flows（Cloudflare 边缘缓存），国内不用直连 GitHub；失败时再直连
+  var FLOWS_URL = "/api/flows";
+  var FLOWS_FALLBACK = "https://raw.githubusercontent.com/yaoyederener/monita/main/data/ailgns_flows.json";
   var RPCS = ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"];
   var EXPLORER = "https://anubisscan.io";
   var C = {
@@ -216,18 +218,17 @@
   }
 
   // ---------- 页面：资金流向 ----------
+  // 先用上次的数据马上画出来，再分头去取新数据，哪个先回来先更新哪个
+  var FLOWS_CACHE = "ailgns-flows-cache-v1";
   function renderFlows(id) {
-    app.innerHTML = '<h1>资金流向</h1><p class="sub">AiLGNS/DAI 主池每天的买单、卖单，以及池子是净流入还是净流出（北京时间自然日）</p><div class="loading">正在读取链上数据…</div>';
-    Promise.all([
-      getJSON(FLOWS_URL).catch(function () { return null; }),
-      reserves().catch(function () { return null; }),
-      balanceOf(C.DAI, C.RESERVE).catch(function () { return null; }),
-      api("/power").catch(function () { return null; }),
-      api("/overview").catch(function () { return null; })
-    ]).then(function (r) {
+    var st = {}, pending = { flows: true };
+    try { st = JSON.parse(localStorage.getItem(FLOWS_CACHE)) || {}; } catch (e) { st = {}; }
+    var queued = false;
+    function draw() {
+      queued = false;
       if (id !== renderId) return;
-      var flows = r[0], res = r[1], reserveDai = r[2], power = r[3], overview = r[4];
-      var days = flows ? flows.days.map(function (d) { d.net = d.pool_dai_end - d.pool_dai_start; return d; }) : [];
+      var flows = st.flows, res = st.res, reserveDai = st.reserveDai, power = st.power, overview = st.overview;
+      var days = flows ? flows.days.map(function (d) { return Object.assign({ net: d.pool_dai_end - d.pool_dai_start }, d); }) : [];
       var today = days.length ? days[days.length - 1] : null;
       var yday = days.length > 1 ? days[days.length - 2] : null;
       var price = res ? res.dai / res.ail : null;
@@ -265,11 +266,26 @@
         });
         html += "</tbody></table></div></section>";
       } else {
-        html += '<div class="card err">历史数据暂时读不到，稍后刷新再试。</div>';
+        html += pending.flows ? '<div class="loading">正在读取历史数据…</div>' : '<div class="card err">历史数据暂时读不到，稍后刷新再试。</div>';
       }
       app.innerHTML = html;
       app.querySelectorAll("svg.chart").forEach(bindTip);
-    });
+    }
+    function redraw() { if (!queued) { queued = true; setTimeout(draw, 30); } }
+    function load(key, p) {
+      pending[key] = true;
+      p.then(function (v) {
+        if (v == null) return;
+        st[key] = v;
+        try { localStorage.setItem(FLOWS_CACHE, JSON.stringify(st)); } catch (e) { /* 存不下就算了 */ }
+      }, function () {}).then(function () { pending[key] = false; redraw(); });
+    }
+    draw();
+    load("flows", getJSON(FLOWS_URL).catch(function () { return getJSON(FLOWS_FALLBACK); }));
+    load("res", reserves());
+    load("reserveDai", balanceOf(C.DAI, C.RESERVE));
+    load("power", api("/power"));
+    load("overview", api("/overview"));
   }
 
   // ---------- 页面：钱包快查 ----------
