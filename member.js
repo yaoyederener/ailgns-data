@@ -364,7 +364,7 @@
   }
 
   // 完整团队结构：服务器给出每个人的上级，链上一次批量读出每个人的生效算力，本地算出团队人数和团队算力
-  var POWER_OF = "0x6cf2fa36"; // totalActivePowerOf(address)
+  var POWER_OF = "0x4f343040"; // totalPowerOf(address)：已登记算力（含排队中的），和官方「团队算力」口径接近
   function fullTree(root, progress) {
     return fetch("/api/team?root=" + root).then(function (r) {
       if (!r.ok) throw new Error("team " + r.status);
@@ -536,27 +536,79 @@
       img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     });
   }
+  // 完整团队长图：一行一个人，按层级缩进，字号正常，几张长图就能装下上千人
+  function renderOutline(root) {
+    var rows = [];
+    (function walk(n, depth) {
+      rows.push({ n: n, depth: depth });
+      (n.children || []).forEach(function (k) { walk(k, depth + 1); });
+    })(root, 0);
+    var W = 1080, ROW = 34, HEAD = 96, PAGE = 12000, perPage = Math.floor((PAGE - HEAD - 40) / ROW);
+    var pages = Math.max(1, Math.ceil(rows.length / perPage)), out = [];
+    var font = "-apple-system, PingFang SC, Microsoft YaHei, sans-serif", mono = "ui-monospace, Menlo, Consolas, monospace";
+    for (var p = 0; p < pages; p++) {
+      var part = rows.slice(p * perPage, (p + 1) * perPage), H = HEAD + part.length * ROW + 40;
+      var c = document.createElement("canvas");
+      c.width = W; c.height = H;
+      var g = c.getContext("2d");
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, W, H);
+      g.fillStyle = COLORS.gold; g.fillRect(0, 0, W, 6);
+      g.fillStyle = COLORS.text; g.font = "800 28px " + font; g.textAlign = "left";
+      g.fillText("团队完整结构", 32, 52);
+      g.font = "500 17px " + font; g.fillStyle = COLORS.muted;
+      g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 人 · 团队算力 " + A.wan(root.power).replace(" ", "") + (pages > 1 ? "　第 " + (p + 1) + "/" + pages + " 张" : ""), 32, 80);
+      part.forEach(function (r, i) {
+        var y = HEAD + i * ROW, n = r.n, x = 32 + Math.min(r.depth, 24) * 16;
+        if (i % 2) { g.fillStyle = "#f7f5fd"; g.fillRect(0, y, W, ROW); }
+        g.fillStyle = "#d8cff2";
+        for (var d = 1; d <= Math.min(r.depth, 24); d++) g.fillRect(32 + (d - 1) * 16 + 6, y, 1.5, ROW);
+        var cy = y + ROW / 2 + 6;
+        g.fillStyle = COLORS.text; g.font = "700 16px " + mono;
+        g.fillText(A.short(n.a), x, cy);
+        var tx = x + g.measureText(A.short(n.a)).width + 10;
+        if (n.level) {
+          g.fillStyle = COLORS.gold; g.fillRect(tx, y + 7, 38, 20);
+          g.fillStyle = "#fff"; g.font = "800 13px " + font; g.fillText("P" + n.level, tx + 9, y + 22);
+          tx += 46;
+        }
+        if (n.zone && r.depth === 1) { g.fillStyle = COLORS.gold; g.font = "700 14px " + font; g.fillText(["一区", "二区", "三区"][n.zone - 1], tx, cy); tx += 40; }
+        g.fillStyle = COLORS.muted; g.font = "500 15px " + font;
+        g.fillText("团队 " + A.fmt(n.team) + " 人 · 算力 " + A.wan(n.power).replace(" ", "") + " · 直推 " + A.fmt(n.direct) + (n.more ? "（" + n.more + " 人无团队）" : ""), tx, cy);
+      });
+      g.font = "600 14px " + font; g.fillStyle = "rgba(112, 39, 217, .6)"; g.textAlign = "right";
+      g.fillText("AiLGNS 服务站 · ailgns.dev", W - 24, H - 14);
+      out.push(c.toDataURL("image/jpeg", 0.9));
+    }
+    return Promise.resolve(out);
+  }
   function dataUrlFile(url, name) {
     var bin = atob(url.split(",")[1]), arr = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
     return new File([arr], name, { type: "image/jpeg" });
   }
-  function exportPng(root) {
+  function exportPng(root, data) {
+    var mode = data ? "full" : "view";
     var box = document.createElement("div");
     box.className = "modal";
     box.innerHTML = '<div class="modal-box export-box"><div class="card-head"><h2>导出图片</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="loading">正在生成图片…</div></div>';
     document.body.appendChild(box);
     box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
     var name = "AiLGNS团队-" + root.a.slice(2, 8);
-    renderImages(root).then(function (urls) {
+    function make() {
+      box.querySelector(".modal-box").innerHTML = '<div class="card-head"><h2>导出图片</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="loading">正在生成图片…</div>';
+      setTimeout(function () { (mode === "full" ? renderOutline(root) : renderImages(root)).then(show, fail); }, 30);
+    }
+    function show(urls) {
       var files = urls.map(function (u, i) { return dataUrlFile(u, name + (urls.length > 1 ? "-" + (i + 1) : "") + ".jpg"); });
       var canShare = navigator.canShare && navigator.canShare({ files: files });
       box.querySelector(".modal-box").innerHTML = '<div class="card-head"><h2>导出图片' + (urls.length > 1 ? "（共 " + urls.length + " 张）" : "") + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        (data ? '<div class="seg" id="ex-mode"><button data-m="full"' + (mode === "full" ? ' class="on"' : "") + '>完整团队（长图）</button><button data-m="view"' + (mode === "view" ? ' class="on"' : "") + ">当前画面</button></div>" : "") +
         '<div class="export-tip"><b>手机：长按图片</b> → 保存到相册，或发送给微信好友' + (urls.length > 1 ? "（每张都要长按一次）" : "") + "</div>" +
         '<div class="export-actions">' + (canShare ? '<button id="ex-share">分享 / 保存到相册</button>' : "") + '<button class="ghost" id="ex-dl">下载到电脑</button></div>' +
         '<div class="export-imgs">' + urls.map(function (u, i) { return '<img src="' + u + '" alt="团队结构图 第 ' + (i + 1) + ' 张">'; }).join("") + "</div>";
       var sh = document.getElementById("ex-share");
       if (sh) sh.onclick = function () { navigator.share({ files: files, title: "团队结构图" }).catch(function () {}); };
+      box.querySelectorAll("#ex-mode button").forEach(function (b) { b.onclick = function () { mode = b.getAttribute("data-m"); make(); }; });
       document.getElementById("ex-dl").onclick = function () {
         urls.forEach(function (u, i) {
           var a = document.createElement("a");
@@ -564,10 +616,12 @@
           document.body.appendChild(a); a.click(); a.remove();
         });
       };
-    }, function (e) {
-      box.querySelector(".loading").className = "card err";
-      box.querySelector(".err").textContent = e.message || "图片生成失败";
-    });
+    }
+    function fail(e) {
+      var l = box.querySelector(".loading");
+      if (l) { l.className = "card err"; l.textContent = (e && e.message) || "图片生成失败"; }
+    }
+    make();
   }
   // 完整名单表格：每个人的上级、层级、直推、团队人数和算力
   function exportCsv(data) {
@@ -615,7 +669,7 @@
     });
     app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h); };
     app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
-    app.querySelector("[data-png]").onclick = function () { exportPng(root); };
+    app.querySelector("[data-png]").onclick = function () { exportPng(root, data); };
     // 全部展开：数据已经齐全时瞬间展开所有有团队的人；示例或旧方式时逐层读取
     app.querySelector("[data-all]").onclick = function () {
       if (data) {
@@ -659,7 +713,7 @@
     };
   }
 
-  var LEGEND_FULL = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。团队算力 = 下级所有人的生效算力之和；没有团队的直推合并显示，完整名单可导出表格。";
+  var LEGEND_FULL = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。团队算力 = 下级所有人的已登记算力之和（含排队生效中的，比官方每日快照多出当天新增）；没有团队的直推合并显示，完整名单可导出表格。";
   var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
 
   function renderTree(id, addr) {
