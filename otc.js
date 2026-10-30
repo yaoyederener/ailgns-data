@@ -158,15 +158,17 @@
       function row(o) {
         var p = priceOf(o), ail = o.sellAilgns ? o.giveLeft : (o.giveLeft * o.wantTotal) / o.giveTotal;
         var diff = mkt ? (p / mkt - 1) * 100 : null;
-        return '<tr><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, 2) + '</b></td><td data-l="剩余 AiLGNS">' + show(ail) + '</td><td data-l="总额 DAI">' + A.fmt(num(ail) * p, 2) + "</td>" +
+        // 操作按钮放在最前面：买入绿色、卖出红色，自己的单显示撤单
+        var act = o.maker === account
+          ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
+          : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
+        return '<tr><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, 2) + '</b></td><td data-l="剩余 AiLGNS">' + show(ail) + '</td><td data-l="总额 DAI">' + A.fmt(num(ail) * p, 2) + "</td>" +
           '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
-          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td><td class=\"act\">" +
-          (o.maker === account ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 14px">撤单</button>'
-            : '<button class="' + (o.sellAilgns ? "" : "ghost") + '" data-fill="' + o.id + '" style="padding:6px 14px">' + (o.sellAilgns ? "买入" : "卖出") + "</button>") + "</td></tr>";
+          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td></tr>";
       }
       function book(title, list, hint) {
         return '<section class="card"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + hint + "</span></div>" +
-          (list.length ? '<div class="tbl-wrap"><table class="cards"><thead><tr><th>单价 DAI</th><th>剩余 AiLGNS</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th><th></th></tr></thead><tbody>' +
+          (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 AiLGNS</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 

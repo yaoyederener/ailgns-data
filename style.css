@@ -224,3 +224,13 @@ label.full .row input { flex: 1; }
 .wbtn:hover { border-color: var(--gold); text-decoration: none; filter: none; }
 .wbtn img, .wbtn .wicon { width: 30px; height: 30px; border-radius: 9px; flex: none; }
 .wicon { display: grid; place-items: center; background: var(--grad-dot); color: #fff; font-size: 14px; }
+
+/* 订单簿的买入 / 卖出按钮：放最前面，颜色区分 */
+table.book td.act { width: 1%; padding-right: 14px; }
+.act-btn { padding: 9px 22px; font-size: 15px; font-weight: 700; min-width: 86px; }
+.btn-buy { background: linear-gradient(110deg, #16a34a, #22c55e); box-shadow: 0 3px 12px rgba(22, 163, 74, .28); }
+.btn-sell { background: linear-gradient(110deg, #e11d48, #f43f5e); box-shadow: 0 3px 12px rgba(225, 29, 72, .25); }
+@media (max-width: 600px) {
+  table.book td.act { width: auto; padding: 0; margin-bottom: 4px; }
+  table.book td.act .act-btn { padding: 13px 14px !important; font-size: 17px; }
+}
