@@ -530,5 +530,6 @@
 
   A.pages.member = renderMember;
   A.pages.tree = renderTree;
-  A.start();
+  // 给 otc.js 用的钱包工具
+  A.wallet = { get: wallet, switchChain: switchChain, waitReceipt: waitReceipt, error: walletError, CHAIN: CHAIN };
 })();
