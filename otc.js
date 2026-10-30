@@ -73,10 +73,40 @@
       return W.switchChain(eth);
     }).then(function () { return account; });
   }
+  // 钱包已经授权过本站时，不弹窗直接拿到地址
+  function silentAccount() {
+    if (account || !window.ethereum) return Promise.resolve();
+    return window.ethereum.request({ method: "eth_accounts" }).then(function (a) {
+      if (a && a[0]) account = String(a[0]).toLowerCase();
+    }, function () {});
+  }
+  // 合约的失败原因翻译成中文
+  var REASONS = {
+    TRANSFER_MISMATCH: "不能吃自己的挂单：付款钱包和挂单钱包是同一个。想取消请点「撤单」；测试成交需要换另一个钱包",
+    CLOSED: "这张挂单已经成交完或被撤销，请刷新",
+    EXPIRED: "这张挂单已经过期",
+    BAD_AMOUNT: "数量超过了剩余可成交数量，请刷新后重试",
+    PRICE_CHANGED: "应付金额和页面不一致，请刷新后重试",
+    TOKEN_TRANSFER_FAILED: "代币转账失败：余额或授权额度不够",
+    BAD_DURATION: "有效期不在允许范围内",
+    ZERO_AMOUNT: "数量不能为 0",
+    NOT_MAKER: "只有挂单人自己能撤单"
+  };
+  function niceError(e) {
+    var msg = (e && (e.message || e.reason)) || "";
+    for (var k in REASONS) if (msg.indexOf(k) >= 0) return REASONS[k];
+    return W.error(e);
+  }
   function send(to, data, say, label) {
     var eth = W.get();
-    say("请在钱包里确认：" + label + "…");
-    return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }).then(function (hash) {
+    say("正在检查交易能否成功…");
+    // 先模拟一次：会失败的交易直接说明原因，不让钱包弹出一个确认不了的窗口
+    return A.rpc("eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) {
+      throw new Error(niceError(e));
+    }).then(function () {
+      say("请在钱包里确认：" + label + "…");
+      return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] });
+    }).then(function (hash) {
       say(label + "已提交，等待链上确认…");
       return W.waitReceipt(hash);
     });
@@ -105,7 +135,7 @@
       return;
     }
     app.innerHTML = head + TRUST + '<div class="loading">正在读取订单…</div>';
-    Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) {
+    Promise.all([readOrders(), marketPrice().catch(function () { return null; }), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
       draw(id, r[0], r[1]);
     }, function () {
@@ -124,8 +154,9 @@
         var diff = mkt ? (p / mkt - 1) * 100 : null;
         return "<tr><td><b>" + A.fmt(p, 2) + "</b></td><td>" + show(ail) + "</td><td>" + A.fmt(num(ail) * p, 2) + "</td>" +
           "<td class=\"" + (diff === null ? "" : diff >= 0 ? "up" : "down") + "\">" + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
-          "<td>" + left(o.expiry - now) + '</td><td class="l mono">' + A.short(o.maker) + '</td><td><button class="' + (o.sellAilgns ? "" : "ghost") + '" data-fill="' + o.id + '" style="padding:6px 14px">' +
-          (o.sellAilgns ? "买入" : "卖出") + "</button></td></tr>";
+          "<td>" + left(o.expiry - now) + '</td><td class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td><td>" +
+          (o.maker === account ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 14px">撤单</button>'
+            : '<button class="' + (o.sellAilgns ? "" : "ghost") + '" data-fill="' + o.id + '" style="padding:6px 14px">' + (o.sellAilgns ? "买入" : "卖出") + "</button>") + "</td></tr>";
       }
       function book(title, list, hint) {
         return '<section class="card"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + hint + "</span></div>" +
@@ -137,7 +168,7 @@
       html += '<div class="kpis"><div class="kpi"><div class="k">AiLGNS 市价（主池）</div><div class="v num">' + (mkt ? A.fmt(mkt, 2) : "—") + '<small>DAI</small></div><div class="d">挂单价格可以自由设置</div></div>' +
         '<div class="kpi"><div class="k">挂单中</div><div class="v num">' + live.length + '</div><div class="d">卖单 ' + sells.length + " · 买单 " + buys.length + "</div></div>" +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">查看合约源码 ↗</a></div></div>' +
-        '<div class="kpi"><div class="k">我的钱包</div><div class="v" style="font-size:16px">' + (account ? '<span class="mono">' + A.short(account) + "</span>" : '<button id="otc-connect" style="padding:8px 16px">连接钱包</button>') + '</div><div class="d" id="otc-bal">' + (account ? "读取余额…" : "挂单、吃单前先连接") + "</div></div></div>";
+        '<div class="kpi" id="otc-wallet"></div></div>';
       html += book("卖单 · 买入 AiLGNS", sells, "价格从低到高") + book("买单 · 卖出 AiLGNS", buys, "价格从高到低");
       html += createForm();
       if (account) html += myOrders(mine, now);
@@ -145,10 +176,33 @@
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
       bind(id, orders, mkt);
-      if (account) Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) {
-        var el = document.getElementById("otc-bal");
-        if (el) el.textContent = show(b[0]) + " AiLGNS · " + show(b[1], 2) + " DAI";
+      walletCard();
+    }
+
+    // 我的钱包：地址 + AiLGNS / DAI 余额；连接后随时刷新
+    function walletCard() {
+      var el = document.getElementById("otc-wallet");
+      if (!el) return;
+      if (!account) {
+        el.innerHTML = '<div class="k">我的钱包</div><div class="v" style="font-size:16px"><button id="otc-connect" style="padding:8px 16px">连接钱包</button></div><div class="d">连接后显示 AiLGNS 和 DAI 余额</div>';
+        document.getElementById("otc-connect").onclick = function () {
+          connect().then(function () { renderOtc(id); }, function (e) { el.querySelector(".d").textContent = niceError(e); });
+        };
+        return;
+      }
+      el.innerHTML = '<div class="k">我的钱包 <span class="mono">' + A.short(account) + '</span></div><div class="bal"><div><b id="bal-ail">…</b> AiLGNS</div><div><b id="bal-dai">…</b> DAI</div></div>' +
+        '<div class="d"><a href="#" id="otc-watch">把 AiLGNS 添加到钱包</a></div>';
+      Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) {
+        var a = document.getElementById("bal-ail"), d = document.getElementById("bal-dai");
+        if (a) a.textContent = show(b[0]);
+        if (d) d.textContent = show(b[1], 2);
       });
+      document.getElementById("otc-watch").onclick = function (e) {
+        e.preventDefault();
+        var link = this;
+        W.get().request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: AILGNS, symbol: "AiLGNS", decimals: 18 } } })
+          .then(function () { link.textContent = "已添加 ✓"; }, function () { link.textContent = "钱包不支持自动添加，请手动添加合约 " + A.short(AILGNS); });
+      };
     }
 
     function createForm() {
@@ -206,6 +260,7 @@
         var dur = Number(document.getElementById("otc-dur").value);
         btn.disabled = true;
         (account ? W.switchChain(W.get()) : connect()).then(function () {
+          walletCard();
           return balance(token, account);
         }).then(function (b) {
           if (b < give) throw new Error("余额不足：需要 " + show(give, sell ? 4 : 2) + " " + (sell ? "AiLGNS" : "DAI") + "，钱包里有 " + show(b, sell ? 4 : 2));
@@ -215,7 +270,7 @@
         }).then(function () {
           say("挂单成功！");
           setTimeout(reload, 1200);
-        }, function (e) { say(W.error(e), true); btn.disabled = false; });
+        }, function (e) { say(niceError(e), true); btn.disabled = false; });
       };
 
       // 撤单 / 取回
@@ -224,7 +279,7 @@
           b.disabled = true;
           W.switchChain(W.get()).then(function () {
             return send(OTC, SEL.cancel + u256(b.getAttribute("data-cancel")), say, "撤单");
-          }).then(function () { say("已撤单，币已退回你的钱包"); setTimeout(reload, 1200); }, function (e) { say(W.error(e), true); b.disabled = false; });
+          }).then(function () { say("已撤单，币已退回你的钱包"); setTimeout(reload, 1200); }, function (e) { say(niceError(e), true); b.disabled = false; });
         };
       });
 
@@ -245,8 +300,13 @@
       m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (o.sellAilgns ? "买入 AiLGNS" : "卖出 AiLGNS") + ' · #' + o.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
         '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, 4) + " DAI</dd><dt>可成交</dt><dd>" + show(maxAil) + ' AiLGNS</dd><dt>挂单人</dt><dd class="mono">' + A.short(o.maker) + "</dd></dl>" +
         '<label class="full">' + (o.sellAilgns ? "买入数量" : "卖出数量") + '（AiLGNS）<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">全部</button></div></label>' +
-        '<div class="quote" id="f-quote">输入数量后显示</div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
+        '<div class="quote" id="f-quote">输入数量后显示</div><div class="note" id="f-bal" style="margin:0"></div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");
+      var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : "AiLGNS";
+      if (account) balance(payToken, account).then(function (b) {
+        var el = document.getElementById("f-bal");
+        if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4) + " " + payName;
+      });
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function plan() {
         var q = toWei(qty.value);
@@ -277,6 +337,8 @@
         var token = o.sellAilgns ? DAI : AILGNS, name = o.sellAilgns ? "DAI" : "AiLGNS";
         btn.disabled = true;
         (account ? W.switchChain(W.get()) : connect()).then(function () {
+          walletCard();
+          if (account === o.maker) throw new Error(REASONS.TRANSFER_MISMATCH);
           return balance(token, account);
         }).then(function (b) {
           if (b < v.pay) throw new Error("余额不足：需要 " + show(v.pay) + " " + name + "，钱包里有 " + show(b));
@@ -286,7 +348,7 @@
         }).then(function () {
           say("成交成功！币已到你的钱包");
           setTimeout(function () { m.hidden = true; reload(); }, 1500);
-        }, function (e) { say(W.error(e), true); btn.disabled = false; });
+        }, function (e) { say(niceError(e), true); btn.disabled = false; });
       };
     }
   }
@@ -314,12 +376,21 @@
         return W.waitReceipt(hash);
       }).then(function (r) {
         say('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + '</b><br>把这个地址发给我，我把它填进网站就能开放交易。<a target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + r.contractAddress + '">在浏览器查看 ↗</a>');
-      }, function (e) { say(W.error(e), true); btn.disabled = false; });
+      }, function (e) { say(niceError(e), true); btn.disabled = false; });
     };
   }
 
+  // 钱包里切换账户时，页面跟着换
+  var listening = false;
   A.pages.otc = function (id) {
     var sub = location.hash.split("/")[2] || "";
+    if (!listening && window.ethereum && window.ethereum.on) {
+      listening = true;
+      window.ethereum.on("accountsChanged", function (a) {
+        account = a && a[0] ? String(a[0]).toLowerCase() : null;
+        if (location.hash.indexOf("#/otc") === 0) window.dispatchEvent(new HashChangeEvent("hashchange"));
+      });
+    }
     renderOtc(id, sub);
   };
   A.start();
