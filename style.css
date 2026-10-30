@@ -239,10 +239,21 @@ table.book td.act { width: 1%; padding-right: 14px; }
 }
 
 /* 会员区二级菜单 */
-.subnav { display: flex; gap: 6px; padding-top: 18px; overflow-x: auto; scrollbar-width: none; }
+.subnav { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 18px; }
 .subnav[hidden] { display: none; }
-.subnav::-webkit-scrollbar { display: none; }
-.subnav a { flex: none; padding: 8px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 14px; font-weight: 600; }
+.subnav a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 14px; font-weight: 600; box-shadow: var(--shadow); }
+.subnav svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.subnav a.on svg { stroke: var(--gold); }
+@media (max-width: 600px) {
+  /* 手机：两行宫格，每格图标在上、文字在下，不用左右拖 */
+  .subnav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding-top: 14px; }
+  .subnav a { grid-column: span 2; }
+  .subnav a:nth-child(n+4) { grid-column: span 3; } /* 第二行两格平分整行 */
+  .subnav a { flex-direction: column; justify-content: center; gap: 4px; padding: 10px 4px 9px; border-radius: 14px; font-size: 13px; text-align: center; line-height: 1.25; min-height: 64px; }
+  .subnav a span { display: block; }
+  .subnav svg { width: 22px; height: 22px; }
+  .subnav .vip-mini { margin-left: 2px; }
+}
 .subnav a:hover { color: var(--text); text-decoration: none; }
 .subnav a.on { color: #5920ad; border-color: var(--gold); background: var(--gold-soft); }
 .subnav .lock { font-size: 12px; }
