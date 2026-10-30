@@ -421,19 +421,21 @@
     var id = ++renderId;
     var parts = location.hash.replace(/^#\/?/, "").split("/");
     var tab = parts[0] || "flows", a = (parts[1] || "").toLowerCase();
-    if (["flows", "wallet", "team"].indexOf(tab) < 0) tab = "flows";
+    var extra = window.AIL.pages;
+    if (["flows", "wallet", "team"].indexOf(tab) < 0 && !extra[tab]) tab = "flows";
     if (a && !isAddr(a)) a = "";
     document.querySelectorAll(".tabs a").forEach(function (el) { el.classList.toggle("on", el.getAttribute("data-tab") === tab); });
     tip.style.display = "none";
     window.scrollTo(0, 0);
     if (tab === "wallet") renderWallet(id, a);
     else if (tab === "team") renderTeam(id, a);
+    else if (extra[tab]) extra[tab](id, a);
     else renderFlows(id);
   }
 
   document.addEventListener("submit", function (e) {
     var f = e.target.closest("form.search");
-    if (!f) return;
+    if (!f || f.hasAttribute("data-custom")) return;
     e.preventDefault();
     var a = f.a.value.trim();
     if (!isAddr(a)) { f.a.focus(); f.a.style.borderColor = "var(--down)"; return; }
@@ -444,6 +446,11 @@
     if (w) { toggleWatch(w.getAttribute("data-watch")); route(); }
     if (u) { e.preventDefault(); toggleWatch(u.getAttribute("data-unwatch")); route(); }
   });
-  window.addEventListener("hashchange", route);
-  route();
+  // 给 member.js 等扩展页面用的公共工具
+  window.AIL = {
+    pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
+    allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
+    addrLink: addrLink, searchBox: searchBox, isCurrent: function (id) { return id === renderId; },
+    start: function () { window.addEventListener("hashchange", route); route(); }
+  };
 })();

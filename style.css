@@ -117,9 +117,23 @@ button.ghost { background: var(--panel-2); color: var(--text); border: 1px solid
 .foot { color: var(--muted); font-size: 12px; padding-top: 24px; padding-bottom: 40px; border-top: 1px solid var(--line); margin-top: 32px; }
 .foot p { margin: 4px 0; }
 
+/* 会员与结构图 */
+.steps { margin: 0 0 16px; padding-left: 20px; display: grid; gap: 12px; }
+.copy { display: flex; gap: 8px; align-items: center; margin: 8px 0 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 8px 12px; }
+.copy .mono { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.copy button { padding: 6px 12px; }
+button:disabled { opacity: .5; cursor: default; }
+.tree-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.tree-bar button { padding: 7px 14px; }
+.tree-box { position: relative; height: 70vh; min-height: 420px; overflow: hidden; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); touch-action: none; cursor: grab; }
+.tree-box:active { cursor: grabbing; }
+.tree-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.tree-inner svg { display: block; }
+.node:hover rect:first-of-type { filter: brightness(1.25); }
+
 @media (max-width: 600px) {
   .top-in { height: auto; padding: 10px 16px; flex-direction: column; align-items: stretch; gap: 8px; }
-  .tabs a { flex: 1; text-align: center; padding: 6px 4px; }
+  .tabs a { flex: 1; text-align: center; padding: 6px 2px; font-size: 13px; }
   h1 { font-size: 19px; margin-top: 20px; }
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
   .kpi { padding: 12px; }
