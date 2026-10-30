@@ -501,9 +501,9 @@
         el.className = "";
         el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th class="l">链</th><th>授权</th><th>累计已分</th><th></th></tr></thead><tbody>' +
           TOKS.map(function (t, i) {
-            var a = r[i] ? r[i][0] : null, ok = a !== null && a > MAX / 2n;
+            var a = r[i] ? r[i][0] : null, ok = a !== null && a >= 10n ** BigInt(t.dec + 6); // 授权 100 万枚以上就算够用
             return '<tr><td class="l"><b>' + t.name + '</b></td><td class="l">' + CH[t.chain].name + "</td><td>" +
-              (a === null ? "—" : ok ? '<span class="up">已授权 ✓</span>' : a === 0n ? '<span class="down">未授权</span>' : amt(a, t.dec)) + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td>" +
+              (a === null ? "—" : ok ? '<span class="up">已授权 ✓</span>' + (a > MAX / 2n ? "" : '<br><small class="muted">额度 ' + amt(a, t.dec) + "</small>") : a === 0n ? '<span class="down">未授权</span>' : amt(a, t.dec)) + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td>" +
               '<td>' + (ok ? "" : '<button data-ap="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
           }).join("") + "</tbody></table></div>";
         el.querySelectorAll("[data-ap]").forEach(function (b) { b.onclick = function () { approve(TOKS[+b.getAttribute("data-ap")], b); }; });
