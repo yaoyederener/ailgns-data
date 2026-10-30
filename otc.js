@@ -133,11 +133,11 @@
   }
 
   // ---------- 页面 ----------
-  // 和官方 DEX 兑换对比：醒目标识，按成交 1,000 美元算（DEX 手续费区间 3%–28% 由站长提供）
+  // 和官方 DEX 兑换对比：醒目标识，按成交 1,000 美元算（DEX 手续费 3%–28%、滑点容差 0.5%–1% 由站长提供；滑点按「最多」写，实际滑点取决于池子深度）
   var VS = '<section class="vs"><div class="vs-head"><span class="vs-tag">同样买卖 1,000 美元的 AiLGNS</span>' +
     '<h2>官方 DEX 要贵 <em>3–28 倍</em>，在这里每 1,000 美元最多省 <em>270 美元</em></h2></div>' +
     '<div class="vs-nums">' +
-    '<div class="vs-num vs-bad"><span>官方 DEX 扣</span><b>$30–$280</b><small>3%–28%</small></div>' +
+    '<div class="vs-num vs-bad"><span>官方 DEX 扣</span><b>$30–$280</b><small>3%–28%<br>+ 滑点 ≤ $10</small></div>' +
     '<div class="vs-num vs-good"><span>本站只收</span><b>$10</b><small>固定 1%</small></div>' +
     '<div class="vs-num vs-win"><span>你省下</span><b>$20–$270</b><small>每 1,000 美元</small></div></div>' +
     '<div class="vs-bars" aria-hidden="true">' +
@@ -146,11 +146,11 @@
     '<div><span>本站</span><i class="good" style="width:3.6%"></i><b>$10</b></div></div>' +
     '<div class="vs-grid"><div class="vs-col vs-us"><b>AiLGNS OTC（本站）</b><ul>' +
     "<li><i>✓</i><span>手续费固定 <b>1%</b>：1,000 美元只收 <b>10 美元</b></span></li>" +
-    "<li><i>✓</i><span><b>0 滑点</b>：挂单价是多少，就按多少成交</span></li>" +
+    "<li><i>✓</i><span><b>0 滑点</b>：挂单价是多少，就按多少成交，一分不少</span></li>" +
     "<li><i>✓</i><span>挂单、撤单、到期退回全部免费</span></li></ul></div>" +
     '<div class="vs-col vs-them"><b>官方 DEX 兑换</b><ul>' +
     "<li><i>✕</i><span>手续费 <b>3%–28%</b>：1,000 美元被扣 <b>30–280 美元</b></span></li>" +
-    "<li><i>✕</i><span>成交价随池子变动，下单前算不准最终到手多少</span></li>" +
+    "<li><i>✕</i><span>还有滑点：滑点容差一般设 <b>0.5%–1%</b>，1,000 美元最多再少拿 <b>5–10 美元</b></span></li>" +
     "<li><i>✕</i><span>交易越频繁，被扣得越多</span></li></ul></div></div>" +
     '<p class="vs-save">买卖 1 万美元：官方 DEX 扣 <s>$300–$2,800</s>，本站只收 <b>$100</b></p></section>';
   var TRUST = '<div class="trust">' +
