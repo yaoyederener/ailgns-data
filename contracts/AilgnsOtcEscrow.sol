@@ -14,8 +14,6 @@ contract AilgnsOtcEscrow {
     address public immutable DAI;
     /// 成交手续费收款地址（部署时写死，之后不能改）
     address public immutable feeRecipient;
-    /// 单笔挂单上限，按 DAI 计（部署时写死）
-    uint256 public immutable maxDaiPerOrder;
 
     /// 成交手续费 1%，从吃单方拿到的币里扣
     uint256 public constant FEE_BPS = 100;
@@ -46,14 +44,12 @@ contract AilgnsOtcEscrow {
         _lock = 1;
     }
 
-    constructor(address ailgns, address dai, address feeRecipient_, uint256 maxDaiPerOrder_) {
+    constructor(address ailgns, address dai, address feeRecipient_) {
         require(ailgns != address(0) && dai != address(0) && feeRecipient_ != address(0), "ZERO_ADDRESS");
         require(ailgns != dai, "SAME_TOKEN");
-        require(maxDaiPerOrder_ > 0, "ZERO_CAP");
         AILGNS = ailgns;
         DAI = dai;
         feeRecipient = feeRecipient_;
-        maxDaiPerOrder = maxDaiPerOrder_;
     }
 
     // ---------------- 挂单 ----------------
@@ -63,7 +59,6 @@ contract AilgnsOtcEscrow {
     function create(bool sellAilgns, uint256 give, uint256 want, uint64 duration) external nonReentrant returns (uint256 id) {
         require(give > 0 && want > 0, "ZERO_AMOUNT");
         require(duration >= MIN_DURATION && duration <= MAX_DURATION, "BAD_DURATION");
-        require((sellAilgns ? want : give) <= maxDaiPerOrder, "OVER_CAP");
 
         address token = sellAilgns ? AILGNS : DAI;
         _pullExact(token, msg.sender, address(this), give);

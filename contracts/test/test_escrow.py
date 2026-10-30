@@ -49,7 +49,7 @@ def check(name, cond):
 def setup(ailgns_name="MockToken", ailgns_args=(0,)):
     ail = deploy(ailgns_name, *ailgns_args)
     dai = deploy("MockToken", 0)
-    esc = deploy("AilgnsOtcEscrow", ail.address, dai.address, FEE, 5000 * E)
+    esc = deploy("AilgnsOtcEscrow", ail.address, dai.address, FEE)
     for who in (A, B, C):
         send(ail.functions.mint(who, 100 * E), DEPLOYER)
         send(dai.functions.mint(who, 100_000 * E), DEPLOYER)
@@ -132,9 +132,6 @@ send(esc.functions.refundExpired([4]), C)
 check("没到期的单不会被退回", esc.functions.getOrder(4).call()[2] is True)
 
 # ---------- 参数限制 ----------
-reverts(esc.functions.create(False, 5001 * E, 1 * E, 3600), A, "OVER_CAP")
-reverts(esc.functions.create(True, 1 * E, 5001 * E, 3600), A, "OVER_CAP")
-passed.append("单笔超过 5000 DAI 上限被拒绝")
 reverts(esc.functions.create(False, 1 * E, 1 * E, 599), A, "BAD_DURATION")
 reverts(esc.functions.create(False, 1 * E, 1 * E, 30 * 86400 + 1), A, "BAD_DURATION")
 passed.append("过期时间必须在 10 分钟到 30 天之间")
@@ -166,7 +163,7 @@ passed.append("转账收税的代币无法挂单（防止账实不符）")
 # ---------- 重入攻击 ----------
 ail3 = deploy("ReentrantToken")
 dai3 = deploy("MockToken", 0)
-esc3 = deploy("AilgnsOtcEscrow", ail3.address, dai3.address, FEE, 5000 * E)
+esc3 = deploy("AilgnsOtcEscrow", ail3.address, dai3.address, FEE)
 send(ail3.functions.mint(A, 10 * E), DEPLOYER)
 send(ail3.functions.approve(esc3.address, 2**256 - 1), A)
 send(ail3.functions.setEscrow(esc3.address), DEPLOYER)
@@ -175,13 +172,20 @@ passed.append("重入攻击被拦截")
 
 # ---------- 部署参数 ----------
 try:
-    deploy("AilgnsOtcEscrow", ail.address, ail.address, FEE, 1)
+    deploy("AilgnsOtcEscrow", ail.address, ail.address, FEE)
     raise AssertionError("deploy with same token should fail")
 except REVERT as e:
     assert "SAME_TOKEN" in str(e), e
 passed.append("部署参数错误时拒绝部署")
 check("合约常量：手续费 1%", esc.functions.FEE_BPS().call() == 100)
 check("合约常量：收款地址写死", esc.functions.feeRecipient().call() == FEE)
+
+# ---------- 没有单笔上限 ----------
+send(esc.functions.create(False, 50_000 * E, 50 * E, 3600), A)
+big = esc.functions.ordersCount().call() - 1
+check("没有单笔上限：5 万 DAI 大单可以挂", esc.functions.getOrder(big).call()[6] == 50_000 * E)
+send(esc.functions.fill(big, 50_000 * E, 50 * E), B)
+check("没有单笔上限：大单可以一次吃完", esc.functions.getOrder(big).call()[2] is False)
 
 print(f"全部通过：{len(passed)} 项")
 for p in passed:

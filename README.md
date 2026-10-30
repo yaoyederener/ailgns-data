@@ -11,6 +11,6 @@ data.juzhang.org 的源码：资金流向、钱包快查、团队与等级。
 
 - 合约：`contracts/AilgnsOtcEscrow.sol`（Solidity 0.8.24，优化 200 runs，evm paris），编译产物 `contracts/AilgnsOtcEscrow.json`
 - 挂单资金锁在合约；吃单一笔交易内完成交换；挂单人随时撤单；过期后任何人可触发退回给挂单人
-- 无管理员、不可升级；成交手续费 1%（吃单方承担），单笔上限 5000 DAI，均在部署时写死
-- 测试：`contracts/test/test_escrow.py`（py-evm 本地链，35 项）
+- 无管理员、不可升级；成交手续费 1%（吃单方承担），部署时写死；不设单笔上限
+- 测试：`contracts/test/test_escrow.py`（py-evm 本地链，36 项）
 - 部署：打开 `#/otc/deploy` 用钱包部署，再把合约地址填进 `otc.js` 的 `OTC`

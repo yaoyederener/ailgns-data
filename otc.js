@@ -8,7 +8,6 @@
   var AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB";
   var DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14";
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
-  var MAX_DAI = 5000;
   var FEE_BPS = 100n;
   var EXPLORER = "https://anubisscan.io";
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
@@ -142,7 +141,7 @@
       html += book("卖单 · 买入 AiLGNS", sells, "价格从低到高") + book("买单 · 卖出 AiLGNS", buys, "价格从高到低");
       html += createForm();
       if (account) html += myOrders(mine, now);
-      html += '<p class="note">单笔挂单上限 ' + MAX_DAI.toLocaleString() + " DAI。成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的数据站，与 AWAKE HELIX 项目方无关。</p>";
+      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的数据站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
       bind(id, orders, mkt);
@@ -196,15 +195,13 @@
         var total = (q * p) / WEI;
         var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
         sum.innerHTML = (side === "sell" ? "存入 <b>" + show(q) + " AiLGNS</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + show(q) + " AiLGNS</b>") +
-          (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
-          (num(total) > MAX_DAI ? '　<span class="down">超过单笔上限 ' + MAX_DAI + " DAI</span>" : "");
+          (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>");
         return { q: q, total: total };
       }
       qty.oninput = calc; price.oninput = calc;
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
-        if (num(v.total) > MAX_DAI) { say("单笔不能超过 " + MAX_DAI + " DAI", true); return; }
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number(document.getElementById("otc-dur").value);
         btn.disabled = true;
@@ -299,7 +296,7 @@
     var app = A.app;
     app.innerHTML = '<h1>部署托管合约</h1><p class="sub">用你的钱包把 OTC 托管合约部署到 Anubis 链。部署只需要一次，Gas 用 Anubis 链上的 DAI 支付。</p>' +
       '<section class="card"><dl class="dl"><dt>AiLGNS</dt><dd class="mono">' + AILGNS + "</dd><dt>DAI</dt><dd class=\"mono\">" + DAI + "</dd><dt>手续费收款地址</dt><dd class=\"mono\">" + FEE_RECIPIENT +
-      "</dd><dt>手续费</dt><dd>1%（合约里写死）</dd><dt>单笔上限</dt><dd>" + MAX_DAI + " DAI（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
+      "</dd><dt>手续费</dt><dd>1%（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
     var st = document.getElementById("d-st");
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
@@ -309,7 +306,7 @@
       connect().then(function () {
         return A.getJSON("contracts/AilgnsOtcEscrow.json");
       }).then(function (art) {
-        var data = art.bytecode + u256(AILGNS) + u256(DAI) + u256(FEE_RECIPIENT) + u256(BigInt(MAX_DAI) * WEI);
+        var data = art.bytecode + u256(AILGNS) + u256(DAI) + u256(FEE_RECIPIENT);
         say("请在钱包里确认部署…");
         return W.get().request({ method: "eth_sendTransaction", params: [{ from: account, data: data }] });
       }).then(function (hash) {
