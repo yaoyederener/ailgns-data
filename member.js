@@ -88,13 +88,18 @@
     });
   }
   // 找到这个地址的全部付款并算出等级；一笔都没有返回 null
+  // 站长手动开通的会员：赠送，或者付款方式不对但钱已收到；会和链上找到的付款一起累计，之后补差价照样能升级
+  var MANUAL = {
+    "0x6b26fa44754ef4927f0b1aec486ea6bea730a48a": { usd: PRO_USD, note: "赠送" },
+    "0xb23aadf2367746f1a3db36a618c6d6f097e5c6e7": { usd: FEE_USD, note: "手动开通（Anubis 链 DAI 20 枚）", chain: "anubis", tx: "0x384b455267ede4b3e0bfdf89435c6bf0ebf14640776ff39a044580119a1b20cf" }
+  };
   function findPayment(addr) {
-    if (addr.toLowerCase() === "0x6b26fa44754ef4927f0b1aec486ea6bea730a48a") {
-      return Promise.resolve({ gift: true, payments: [], usd: PRO_USD, tier: "pro" });
-    }
+    var manual = MANUAL[addr.toLowerCase()];
     var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { return []; }); });
     return Promise.all(tries).then(function (r) {
-      var t = tally([].concat.apply([], r));
+      var list = [].concat.apply([], r);
+      if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr.toLowerCase(), note: manual.note, paid: 0, usd: manual.usd });
+      var t = tally(list);
       return t.payments.length ? t : null;
     });
   }
@@ -409,6 +414,7 @@
   function memberCard(m) {
     var pays = m.gift ? "赠送" + TIERS[m.tier].name + "（终生）" : (m.payments || []).map(function (p) {
       var pm = method(p.method), pc = CHAINS[p.chain || "anubis"];
+      if (p.method === "manual") return A.esc(p.note) + (/^0x/.test(p.tx) ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>' : "");
       return show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
     }).join("<br>") + (m.payments && m.payments.length > 1 ? "<br><span class=\"muted\">累计约 " + A.fmt(m.usd, 2) + " 美元</span>" : "");
     return '<section class="card"><div class="card-head"><h2>✓ 你已经是 ' + tierBadge(m.tier) + '</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
