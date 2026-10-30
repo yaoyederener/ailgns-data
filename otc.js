@@ -11,6 +11,7 @@
   var FEE_BPS = 100n;
   var EXPLORER = "https://anubisscan.io";
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
+  var VERIFY = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md";
   var SEL = {
     create: "0x9128a740", fill: "0x6fe4a448", cancel: "0x40e58ee5", ordersCount: "0x35daa731", getOrders: "0x8f72fc77",
     approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231"
@@ -195,7 +196,7 @@
 
       var html = hero(mkt, live.length) + TRUST;
       html += '<div class="kpis kpis-2">' +
-        '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">查看合约源码 ↗</a></div></div>' +
+        '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
       html += book("卖单 · 买入 AiLGNS", sells, "价格从低到高") + book("买单 · 卖出 AiLGNS", buys, "价格从高到低");
       html += createForm();
