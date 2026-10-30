@@ -39,7 +39,12 @@
   function isAddr(a) { return /^0x[0-9a-fA-F]{40}$/.test(a || ""); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function lv(level) { return level ? '<span class="lv p' + level + '">P' + level + "</span>" : '<span class="lv">—</span>'; }
-  function addrLink(a, route) { return '<a class="mono" href="#/' + (route || "wallet") + "/" + a.toLowerCase() + '" title="' + a + '">' + short(a) + "</a>"; }
+  function addrLink(a, route) {
+    // 会员功能只能查自己的付款地址：别人的地址只显示，不能点进去查
+    var own = window.AIL && window.AIL.ownOnly;
+    if (own && route && route !== "wallet" && a.toLowerCase() !== own) return '<span class="mono" title="' + a + '">' + short(a) + "</span>";
+    return '<a class="mono" href="#/' + (route || "wallet") + "/" + a.toLowerCase() + '" title="' + a + '">' + short(a) + "</a>";
+  }
   function timeBJ(d) {
     return new Date(d).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
   }
@@ -395,13 +400,14 @@
   var lv_ = lv;
 
   function renderTeam(id, addr) {
-    var head = '<h1>团队与等级</h1><p class="sub">查看任意地址的直推线、每条线的团队人数和算力，以及官方 P 等级。点直推地址可以一层层往下看。</p>';
-    app.innerHTML = head + searchBox("team", addr) + '<div class="loading">正在读取…</div>';
+    var head = '<h1>团队与等级</h1><p class="sub">你的付款地址的直推线、每条线的团队人数和算力，以及官方 P 等级。</p>';
+    var box = function (v) { return window.AIL.ownOnly ? "" : searchBox("team", v); };
+    app.innerHTML = head + box(addr) + '<div class="loading">正在读取…</div>';
     var levelP = api("/level").then(function (l) { THRESHOLDS = l.thresholds; return l; }).catch(function () { return null; });
     if (!addr) {
       levelP.then(function (l) {
         if (id !== renderId) return;
-        app.innerHTML = head + searchBox("team") + (l ? levelOverview(l) : '<div class="card err">官方等级接口暂时读不到</div>');
+        app.innerHTML = head + box() + (l ? levelOverview(l) : '<div class="card err">官方等级接口暂时读不到</div>');
       });
       return;
     }
@@ -409,7 +415,7 @@
       .then(function (r) {
         if (id !== renderId) return;
         var lvAll = r[0], me = r[1], com = r[2], refs = r[3];
-        var html = head + searchBox("team", addr);
+        var html = head + box(addr);
         html += '<div class="crumbs">' + (com && isAddr(com.referrer) && !/^0x0+1?$/.test(com.referrer) ? '<span class="muted">上级</span> ' + addrLink(com.referrer, "team") + ' <span class="muted">›</span> ' : "") +
           '<b class="mono">' + short(addr) + "</b>" + (me ? " " + lv(me.level) : "") + ' <a href="#/wallet/' + addr + '" style="margin-left:auto">钱包详情 →</a></div>';
         html += '<div class="kpis">';

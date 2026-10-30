@@ -228,7 +228,7 @@
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查任意地址的「团队与等级」「团队新增业绩」，并画出整个团队的结构图。</p>';
+    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查看你自己（付款钱包）的「团队与等级」「团队新增业绩」，并画出你的团队结构图。</p>';
     if (m) {
       var pm = method(m.method || "lgns"), pc = CHAINS[m.chain || "anubis"];
       app.innerHTML = head + '<section class="card"><div class="card-head"><h2>✓ 你已经是会员</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
@@ -572,7 +572,7 @@
     var app = A.app, m = member();
     if (!m) {
       app.innerHTML = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
-        '<p class="sub">开通会员后，输入任意钱包地址，就能画出这样的团队结构图。下面是<b>示例效果</b>，可以直接点、拖、缩放试试。</p>' +
+        '<p class="sub">开通会员后，就能画出你自己团队的结构图。下面是<b>示例效果</b>，可以直接点、拖、缩放试试。</p>' +
         '<div class="demo-cta"><div><b>' + "一次付款，永久使用" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少人、多少算力</span></div>' +
@@ -585,7 +585,7 @@
       return;
     }
     var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">输入地址，画出团队结构。点节点右边的 + 展开下一层，拖动平移，滚轮或双指缩放。</p>';
-    var form = '<form class="search" data-custom><input name="a" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="' + A.esc(addr || "") + '"><button>画图</button></form>';
+    var form = ownBar(m);
     if (!addr) {
       app.innerHTML = head + form + '<div class="empty">输入一个地址开始画图，或者 <a href="#/tree/' + m.addr + '">画我自己的团队</a></div>';
       bindForm();
@@ -671,9 +671,29 @@
     teamCache[root] = { at: Date.now(), team: team };
     try { localStorage.setItem(teamKey(root), JSON.stringify({ at: Date.now(), lines: lines, list: list })); } catch (e) { /* 太大存不下就只放内存 */ }
   }
+  // 先问本站服务器（所有访客共享的缓存，一般 1 秒内）；服务器不可用时再在浏览器里自己读
+  function serverTeam(root, fresh) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var timer = ctl && setTimeout(function () { ctl.abort(); }, 90000);
+    return fetch("/api/team?root=" + root + (fresh ? "&fresh=1" : ""), ctl ? { signal: ctl.signal } : {}).then(function (r) {
+      if (!r.ok) throw new Error("server " + r.status);
+      return r.json();
+    }).then(function (c) {
+      if (timer) clearTimeout(timer);
+      var team = {};
+      team[root] = { line: "self", depth: 0 };
+      c.list.forEach(function (x) { team[x[0]] = { line: c.lines[x[1]], depth: x[2] }; });
+      try { localStorage.setItem(teamKey(root), JSON.stringify({ at: c.at, lines: c.lines, list: c.list })); } catch (e) { /* 存不下就只放内存 */ }
+      teamCache[root] = { at: c.at, team: team };
+      return team;
+    });
+  }
   function buildTeam(root, progress, fresh) {
     var hit = fresh ? null : loadTeamCache(root);
     if (hit && Date.now() - hit.at < TEAM_TTL) return Promise.resolve(hit.team);
+    return serverTeam(root, fresh).catch(function () { return browserTeam(root, progress); });
+  }
+  function browserTeam(root, progress) {
     var team = {}, jobs = [{ parent: root, off: 0, lim: 1, probe: true }], rounds = 0;
     team[root] = { line: "self", depth: 0 };
     function refCall(a, off, lim) {
@@ -905,11 +925,16 @@
   var runId = 0;
   A.teamGrowth = teamGrowth;
 
+  // 顶部显示"你的付款地址"，不能输入别的地址
+  function ownBar(m) {
+    return '<div class="ownbar"><span>你的付款地址</span><b class="mono">' + A.short(m.addr) + '</b><span class="muted">会员只能查询自己付款的钱包</span></div>';
+  }
+
   // 团队新增业绩：会员专属的单独页面
   function renderGrowth(id, addr) {
     var app = A.app, m = member();
     var head = '<h1>团队新增业绩 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
-      '<p class="sub">输入地址，查这个团队今天、昨天、近 7 天新增了多少业绩：按直推线汇总，列出每一笔的具体地址，可以导出表格。</p>';
+      '<p class="sub">你的团队今天、昨天、近 7 天新增了多少业绩：按直推线汇总，列出每一笔的具体地址，可以导出表格。</p>';
     if (!m) {
       app.innerHTML = head +
         '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
@@ -920,7 +945,7 @@
         '<div class="feature"><b>导出表格</b><span class="muted">一键下载，Excel 直接打开，带交易哈希可核对</span></div></div>';
       return;
     }
-    var form = '<form class="search" data-custom><input name="a" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="' + A.esc(addr || "") + '"><button>查询</button></form>';
+    var form = ownBar(m);
     if (!addr) {
       app.innerHTML = head + form + '<div class="empty">输入一个地址开始查询，或者 <a href="#/growth/' + m.addr + '">查我自己的团队</a></div>';
       bindForm("growth");
@@ -936,7 +961,7 @@
   function renderTeamGate(id, addr) {
     if (member()) return A.renderTeam(id, addr);
     A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
-      '<p class="sub">查看任意地址的直推线、每条线的团队人数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
+      '<p class="sub">查看你自己（付款钱包）的直推线、每条线的团队人数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
       '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
       '<div class="features">' +
       '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队人数、团队算力，按算力排序</span></div>' +
@@ -961,9 +986,23 @@
   window.addEventListener("hashchange", subnav);
 
   A.pages.member = function (id, a) { subnav(); renderMember(id, a); };
-  A.pages.tree = function (id, a) { subnav(); renderTree(id, a); };
-  A.pages.team = function (id, a) { subnav(); renderTeamGate(id, a); };
-  A.pages.growth = function (id, a) { subnav(); renderGrowth(id, a); };
+  // 会员功能只能查自己的付款地址：地址不是自己的就转回自己的
+  function ownOnly(route, render) {
+    return function (id, a) {
+      var m = member();
+      A.ownOnly = m ? m.addr : null;
+      if (m && a !== m.addr) { location.replace("#/" + route + "/" + m.addr); return; }
+      subnav();
+      render(id, a);
+    };
+  }
+  window.addEventListener("hashchange", function () {
+    var tab = location.hash.replace(/^#\/?/, "").split("/")[0];
+    if (["team", "growth", "tree"].indexOf(tab) < 0) A.ownOnly = null;
+  });
+  A.pages.tree = ownOnly("tree", renderTree);
+  A.pages.team = ownOnly("team", renderTeamGate);
+  A.pages.growth = ownOnly("growth", renderGrowth);
   // 给 otc.js 用的钱包工具
   A.wallet = { get: wallet, switchChain: switchChain, waitReceipt: waitReceipt, error: walletError, CHAIN: CHAIN };
 })();
