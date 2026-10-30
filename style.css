@@ -217,3 +217,10 @@ label.full .row input { flex: 1; }
   label.full .row button { padding: 0 16px !important; }
   .kpi .bal b { font-size: 18px; }
 }
+
+/* 钱包选择 */
+.wlist { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wbtn { display: flex; align-items: center; gap: 10px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; box-shadow: none; font-weight: 600; font-size: 14px; text-align: left; }
+.wbtn:hover { border-color: var(--gold); text-decoration: none; filter: none; }
+.wbtn img, .wbtn .wicon { width: 30px; height: 30px; border-radius: 9px; flex: none; }
+.wicon { display: grid; place-items: center; background: var(--grad-dot); color: #fff; font-size: 14px; }

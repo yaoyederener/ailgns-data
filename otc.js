@@ -70,8 +70,8 @@
   // 都包在 Promise 里：没有钱包时也会走到失败提示，而不是按钮没反应
   function connect() {
     var eth;
-    return Promise.resolve().then(function () {
-      eth = W.get();
+    return A.wallets.choose().then(function (p) {
+      eth = p;
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (a) {
       account = String(a[0]).toLowerCase();
@@ -83,10 +83,8 @@
   }
   // 钱包已经授权过本站时，不弹窗直接拿到地址
   function silentAccount() {
-    if (account || !window.ethereum) return Promise.resolve();
-    return window.ethereum.request({ method: "eth_accounts" }).then(function (a) {
-      if (a && a[0]) account = String(a[0]).toLowerCase();
-    }, function () {});
+    if (account) return Promise.resolve();
+    return A.wallets.silent().then(function (a) { if (a) account = a; });
   }
   // 合约的失败原因翻译成中文
   var REASONS = {
@@ -198,13 +196,19 @@
         };
         return;
       }
-      el.innerHTML = '<div class="k">我的钱包 <span class="mono">' + A.short(account) + '</span></div><div class="bal"><div><b id="bal-ail">…</b> AiLGNS</div><div><b id="bal-dai">…</b> DAI</div></div>' +
+      el.innerHTML = '<div class="k">' + A.esc(A.wallets.name() || "我的钱包") + ' <span class="mono">' + A.short(account) + '</span> · <a href="#" id="otc-switch">换钱包</a></div><div class="bal"><div><b id="bal-ail">…</b> AiLGNS</div><div><b id="bal-dai">…</b> DAI</div></div>' +
         '<div class="d"><a href="#" id="otc-watch">把 AiLGNS 添加到钱包</a></div>';
       Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) {
         var a = document.getElementById("bal-ail"), d = document.getElementById("bal-dai");
         if (a) a.textContent = show(b[0]);
         if (d) d.textContent = show(b[1], 2);
       });
+      document.getElementById("otc-switch").onclick = function (e) {
+        e.preventDefault();
+        A.wallets.forget();
+        account = null;
+        connect().then(function () { renderOtc(id); }, function (err) { renderOtc(id); });
+      };
       document.getElementById("otc-watch").onclick = function (e) {
         e.preventDefault();
         var link = this;
@@ -396,9 +400,9 @@
   var listening = false;
   A.pages.otc = function (id) {
     var sub = location.hash.split("/")[2] || "";
-    if (!listening && window.ethereum && window.ethereum.on) {
+    if (!listening) {
       listening = true;
-      window.ethereum.on("accountsChanged", function (a) {
+      A.wallets.onAccounts(function (a) {
         account = a && a[0] ? String(a[0]).toLowerCase() : null;
         if (location.hash.indexOf("#/otc") === 0) window.dispatchEvent(new HashChangeEvent("hashchange"));
       });

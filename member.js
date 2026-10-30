@@ -71,11 +71,11 @@
     nativeCurrency: { name: "gasDAI", symbol: "DAI", decimals: 18 },
     rpcUrls: ["https://rpc.anubispace.org"], blockExplorerUrls: [EXPLORER]
   };
-  var NO_WALLET = "没有检测到钱包。请在 OKX Wallet、Bitget Wallet、TokenPocket 或 MetaMask 的 DApp 浏览器里打开 ailgns.dev；电脑上请先安装钱包插件。";
-
+  // 当前选中的钱包（由 wallets.js 自动识别、让用户选择）
   function wallet() {
-    if (!window.ethereum) throw new Error(NO_WALLET);
-    return window.ethereum;
+    var p = A.wallets.current();
+    if (!p) throw new Error("请先连接钱包");
+    return p;
   }
   function walletError(e) {
     if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里取消了操作";
@@ -85,9 +85,9 @@
   // 第 1 步：连接钱包并签名，证明这个地址是你的（不花钱、不授权）
   function register(status) {
     var eth, addr, msg, sig;
-    return Promise.resolve().then(function () {
-      eth = wallet();
-      status("请在钱包里确认连接…");
+    return A.wallets.choose().then(function (p) {
+      eth = p;
+      status("请在 " + (A.wallets.name() || "钱包") + " 里确认连接…");
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (accs) {
       addr = String(accs[0]).toLowerCase();
