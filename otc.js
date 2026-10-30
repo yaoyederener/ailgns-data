@@ -16,7 +16,10 @@
     create: "0x9128a740", fill: "0x6fe4a448", cancel: "0x40e58ee5", ordersCount: "0x35daa731", getOrders: "0x8f72fc77",
     approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231"
   };
-  var DURATIONS = [[1800, "30 分钟"], [3600, "1 小时"], [86400, "24 小时"], [7 * 86400, "7 天"]];
+  // 有效期：合约允许 10 分钟到 30 天；用按钮而不是下拉框，钱包内置浏览器里下拉框经常点不动
+  var DURATIONS = [[600, "10 分钟"], [1800, "30 分钟"], [3600, "1 小时"], [7200, "2 小时"], [21600, "6 小时"], [43200, "12 小时"],
+    [86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]];
+  var DUR_MIN = 600, DUR_MAX = 30 * 86400;
   var WEI = 10n ** 18n;
   var account = null;
 
@@ -130,7 +133,7 @@
   var TRUST = '<div class="trust">' +
     '<div><i><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10" fill="none" stroke="currentColor" stroke-width="2"/></svg></i><b>合约托管</b><span>挂单的币锁在智能合约里，平台和任何人都动不了</span></div>' +
     '<div><i><svg viewBox="0 0 24 24"><path d="M13 2 5 13.5h6L10 22l9-12.5h-6z" fill="currentColor"/></svg></i><b>原子成交</b><span>付款和收币在同一笔交易完成，要么都成功、要么都退回，不存在一方跑路</span></div>' +
-    '<div><i><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4.5 12H15a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>过期自动退回</b><span>默认 30 分钟没成交，自动原路退回挂单人；也能随时撤单</span></div>' +
+    '<div><i><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4.5 12H15a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>过期自动退回</b><span>有效期 10 分钟到 30 天自选，到期没成交自动原路退回挂单人；也能随时撤单</span></div>' +
     '<div><i><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>规则公开</b><span>合约无管理员、不可升级，源码公开可查；成交收 1% 手续费</span></div></div>';
 
   // 首页大横幅：AiLGNS OTC 主推
@@ -148,7 +151,7 @@
     return '<section class="otc-hero"><div class="hero-txt">' +
       '<span class="pill">智能合约担保 · 无需信任 · 无需许可</span>' +
       '<h1>AiLGNS <span class="grad">OTC</span></h1>' +
-      '<p>AiLGNS ⇄ DAI 场外交易。币锁在合约里，付款和收币一笔完成，30 分钟没成交自动退回。</p>' +
+      '<p>AiLGNS ⇄ DAI 场外交易。币锁在合约里，付款和收币一笔完成，到期没成交自动退回（有效期 10 分钟到 30 天自选）。</p>' +
       '<div class="hero-cta"><button data-go="sell">我要卖 AiLGNS</button><button class="ghost" data-go="buy">我要买 AiLGNS</button></div>' +
       '<div class="hero-stats"><div><span>AiLGNS 市价</span><b>' + (mkt ? A.fmt(mkt, 2) : "—") + ' <small>DAI</small></b></div>' +
       "<div><span>挂单中</span><b>" + (live === null ? "—" : live) + " <small>张</small></b></div><div><span>成交手续费</span><b>1%</b></div></div></div>" + HERO_ART + "</section>";
@@ -245,7 +248,12 @@
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 AiLGNS</button><button data-side="buy">我要买 AiLGNS</button></div>' +
         '<div class="form-grid"><label>数量（AiLGNS）<input id="otc-qty" inputmode="decimal" placeholder="例如 5"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 800"></label>' +
-        '<label>有效期<select id="otc-dur">' + DURATIONS.map(function (d, i) { return '<option value="' + d[0] + '"' + (i === 0 ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></label></div>" +
+        "</div>" +
+        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="1800">' +
+        '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === 1800 ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
+        '<button type="button" data-d="custom">自定义</button></div>' +
+        '<div class="dur-custom" id="otc-dur-custom" hidden><input id="otc-dur-n" inputmode="numeric" placeholder="数字"><div class="seg" id="otc-dur-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div>' +
+        '<p class="note" id="otc-dur-st">有效期 30 分钟</p></div>' +
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
@@ -302,11 +310,40 @@
         return { q: q, total: total };
       }
       qty.oninput = calc; price.oninput = calc;
+      // 有效期按钮
+      var durIn = document.getElementById("otc-dur"), durSt = document.getElementById("otc-dur-st"), custom = document.getElementById("otc-dur-custom");
+      var durN = document.getElementById("otc-dur-n"), unit = 3600;
+      function durText(sec) {
+        return sec % 86400 === 0 ? sec / 86400 + " 天" : sec % 3600 === 0 ? sec / 3600 + " 小时" : sec >= 3600 ? Math.floor(sec / 3600) + " 小时 " + Math.round(sec % 3600 / 60) + " 分钟" : Math.round(sec / 60) + " 分钟";
+      }
+      function setDur(sec) {
+        if (!(sec >= DUR_MIN && sec <= DUR_MAX)) { durIn.value = ""; durSt.innerHTML = '<span class="down">有效期要在 10 分钟到 30 天之间</span>'; return; }
+        durIn.value = String(sec);
+        durSt.textContent = "有效期 " + durText(sec) + "，约 " + new Date(Date.now() + sec * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " 到期";
+      }
+      function customDur() { var n = Number(durN.value); setDur(n > 0 ? Math.round(n * unit) : NaN); }
+      document.querySelectorAll("#otc-durs button").forEach(function (b) {
+        b.onclick = function () {
+          document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); });
+          var d = b.getAttribute("data-d");
+          custom.hidden = d !== "custom";
+          if (d === "custom") { customDur(); durN.focus(); } else setDur(Number(d));
+        };
+      });
+      document.querySelectorAll("#otc-dur-u button").forEach(function (b) {
+        b.onclick = function () {
+          document.querySelectorAll("#otc-dur-u button").forEach(function (x) { x.classList.toggle("on", x === b); });
+          unit = Number(b.getAttribute("data-u")); customDur();
+        };
+      });
+      durN.oninput = customDur;
+      setDur(1800);
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number(document.getElementById("otc-dur").value);
+        if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
         btn.disabled = true;
         ready().then(function () {
           walletCard();
@@ -434,7 +471,7 @@
     var el = document.getElementById("promo");
     if (!el) return;
     var tab = location.hash.replace(/^#\/?/, "").split("/")[0] || "otc";
-    el.innerHTML = tab === "otc" ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">智能合约担保交易 · 一笔成交 · 30 分钟不成交自动退回</span><span class="promo-go">去交易 →</span></a>';
+    el.innerHTML = tab === "otc" ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">智能合约担保交易 · 一笔成交 · 到期不成交自动退回</span><span class="promo-go">去交易 →</span></a>';
   }
   window.addEventListener("hashchange", promo);
   promo();

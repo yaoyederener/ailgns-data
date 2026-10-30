@@ -481,3 +481,17 @@ a:active, button:active { opacity: .85; }
 }
 .tree-path { scroll-margin-top: 84px; }
 @media (max-width: 600px) { .tree-path { scroll-margin-top: 128px; } }
+
+/* OTC 有效期按钮 */
+.dur { margin: 4px 0 6px; }
+.dur-t { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.dur-t small { margin-left: 6px; }
+.dur-opts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.dur-opts button { background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: none; padding: 10px 4px; border-radius: 10px; font-size: 14px; min-height: 42px; touch-action: manipulation; }
+.dur-opts button.on { background: var(--grad-dot); color: #fff; border-color: transparent; }
+.dur-custom { display: flex; gap: 8px; margin-top: 10px; align-items: stretch; }
+.dur-custom input { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 12px; padding: 11px 14px; font-size: 16px; font-family: inherit; }
+.dur-custom .seg { margin: 0; display: inline-flex; flex: none; }
+.dur-custom .seg button { padding: 8px 12px; flex: none; }
+.dur .note { margin: 8px 0 0; }
+@media (max-width: 600px) { .dur-opts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
