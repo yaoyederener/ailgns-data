@@ -197,7 +197,7 @@
         '<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div>' +
         '<span class="muted">只收 Anubis 链上的 LGNS（合约 ' + A.short(LGNS) + "），转其他币或其他链无法开通，也无法退回。</span></li>" +
         "<li>之后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通。</li></ol></details>" +
-        '<p class="note">本站不会向你索取私钥或助记词。除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        '<p class="note">本站是个人开发的非官方数据站，会员费由本站收取，与 AWAKE HELIX 项目方无关。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
       document.getElementById("copy").onclick = function () {
         var b = this;
@@ -243,7 +243,7 @@
 
   // ---------- 页面：结构图 ----------
   var NODE_W = 220, NODE_H = 66, GAP_X = 64, GAP_Y = 14, MAX_CHILDREN = 30;
-  var COLORS = { bg: "#0d0f12", node: "#15181d", line: "#3a4049", text: "#e8e6e1", muted: "#8d939c", gold: "#d4af37", up: "#2fbf71" };
+  var COLORS = { bg: "#faf9fd", node: "#ffffff", line: "#c9c2dc", text: "#1c1a29", muted: "#6e6a85", gold: "#7c3aed", up: "#16a34a", chip: "#efeaf9" };
 
   function loadNode(a) {
     return Promise.all([A.api("/community/" + a), A.api("/level/" + a).catch(function () { return null; })]).then(function (r) {
@@ -296,8 +296,8 @@
       "<title>" + e(n.a) + "\n团队 " + A.fmt(n.team) + " 人 · 团队算力 " + A.fmt(n.power) + " · 直推 " + A.fmt(n.direct) + "</title>" +
       '<rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="' + COLORS.node + '" stroke="' + stroke + '" stroke-width="' + (n === root ? 2 : 1.2) + '"/>' +
       '<text x="14" y="23" fill="' + COLORS.text + '" font-size="13" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="600">' + A.short(n.a) + "</text>" +
-      '<rect x="' + (NODE_W - 48) + '" y="9" width="36" height="19" rx="5" fill="' + (n.level ? COLORS.gold : "#262b33") + '"/>' +
-      '<text x="' + (NODE_W - 30) + '" y="23" text-anchor="middle" fill="' + (n.level ? "#111" : COLORS.muted) + '" font-size="12" font-weight="700">' + badge + "</text>" +
+      '<rect x="' + (NODE_W - 48) + '" y="9" width="36" height="19" rx="5" fill="' + (n.level ? COLORS.gold : COLORS.chip) + '"/>' +
+      '<text x="' + (NODE_W - 30) + '" y="23" text-anchor="middle" fill="' + (n.level ? "#fff" : COLORS.muted) + '" font-size="12" font-weight="700">' + badge + "</text>" +
       (zone ? '<text x="' + (NODE_W - 56) + '" y="23" text-anchor="end" fill="' + COLORS.gold + '" font-size="11">' + zone + "</text>" : "") +
       '<text x="14" y="43" fill="' + COLORS.muted + '" font-size="12">团队 <tspan fill="' + COLORS.text + '">' + A.fmt(n.team) + '</tspan> 人 · 算力 <tspan fill="' + COLORS.text + '">' + A.wan(n.power).replace(" ", "") + "</tspan></text>" +
       '<text x="14" y="59" fill="' + COLORS.muted + '" font-size="12">直推 ' + A.fmt(n.direct) + (n.self ? " · 个人 " + A.wan(n.self).replace(" ", "") : "") + "</text>";
@@ -462,7 +462,7 @@
     };
   }
 
-  var LEGEND = "金色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
+  var LEGEND = "紫色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
 
   function renderTree(id, addr) {
     var app = A.app, m = member();
@@ -473,7 +473,7 @@
         '<div class="features">' +
         '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少人、多少算力</span></div>' +
         '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个人的下级，几十层也能看</span></div>' +
-        '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 金色标记，数据来自官方接口</span></div>' +
+        '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 紫色标记，数据来自官方接口</span></div>' +
         '<div class="feature"><b>导出图片</b><span class="muted">一键保存高清 PNG，直接发团队群</span></div></div>' +
         '<div class="demo-tag">示例效果 · 地址和数据都是随机生成的</div>' +
         diagramHtml(LEGEND);
