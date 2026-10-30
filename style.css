@@ -445,3 +445,11 @@ a:active, button:active { opacity: .85; }
 .ownbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 16px; padding: 12px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 14px; }
 .ownbar b { font-size: 15px; color: var(--gold); }
 .ownbar .muted { margin-left: auto; font-size: 12px; }
+
+/* 导出图片窗口 */
+.export-box { max-width: 560px; max-height: 92vh; overflow-y: auto; }
+.export-tip { background: var(--gold-soft); color: #5920ad; border-radius: 12px; padding: 10px 14px; font-size: 14px; }
+.export-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.export-actions button { padding: 10px 16px; }
+.export-imgs { display: grid; gap: 10px; }
+.export-imgs img { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); -webkit-touch-callout: default; user-select: auto; }
