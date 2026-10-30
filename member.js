@@ -1,12 +1,12 @@
-// 会员：用钱包签名注册，付 Anubis LGNS / Anubis AiLGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（大师级）1000 美元终生，多出导出数据和结构图优先刷新
+// 会员：用钱包签名注册，付 Anubis LGNS / Anubis AiLGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（尊享级）1000 美元终生，多出导出数据和结构图优先刷新
 (function () {
   "use strict";
 
   var A = window.AIL;
   var RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 两条链都收到这个地址
   var FEE_USD = 20; // 初级 VIP：20 美元等值，永久
-  var PRO_USD = 1000; // 高级 VIP（大师级）：1000 美元等值，终生；初级补 980 升级
-  var TIERS = { basic: { name: "初级 VIP", short: "初级" }, pro: { name: "高级 VIP · 大师级", short: "高级" } };
+  var PRO_USD = 1000; // 高级 VIP（尊享级）：1000 美元等值，终生；初级补 980 升级
+  var TIERS = { basic: { name: "初级 VIP", short: "初级" }, pro: { name: "高级 VIP · 尊享级", short: "高级" } };
   var START_BLOCK = 17790000; // Anubis：会员功能上线前的转账不算
   var POLY_START = 96420000; // Polygon：多付款方式上线前的转账不算
   var POLY_LOOKBACK = 14 * 43200; // Polygon 按地址找付款时最多往回查 14 天（约 2 秒一个块）
@@ -253,7 +253,7 @@
   // 两个等级各自有什么
   var PERKS = {
     basic: ["团队与等级（你自己的付款地址）", "团队新增业绩：今天、昨天、近 7 天", "团队结构图：定位、筛选、逐层展开", "结构图每 30 分钟更新"],
-    pro: ["包含初级 VIP 全部功能", "导出全部数据：结构图长图、完整名单 CSV、新增业绩表格", "结构图优先刷新：每 5 分钟更新", "大师级标识，一次付款终生有效"]
+    pro: ["包含初级 VIP 全部功能", "导出全部数据：结构图长图、完整名单 CSV、新增业绩表格", "结构图优先刷新：每 5 分钟更新", "尊享级标识，一次付款终生有效"]
   };
   function perkList(t) { return '<ul class="perks">' + PERKS[t].map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>"; }
   function tierBadge(t) { return '<span class="vip vip-' + t + '">' + TIERS[t].name + "</span>"; }
@@ -282,7 +282,7 @@
           '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
         : '<div class="plans">' +
           '<button class="plan on" data-plan="basic"><span class="plan-name">' + TIERS.basic.name + '</span><span class="plan-price"><b class="num">' + FEE_USD + '</b><small>美元等值 · 永久</small></span>' + perkList("basic") + "</button>" +
-          '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">大师级专用</span><span class="plan-name">' + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
+          '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">尊享级专用</span><span class="plan-name">' + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
           '<p class="note">先开初级也可以，以后补 ' + (PRO_USD - FEE_USD) + " 美元差价升级高级。</p>";
 
       app.innerHTML = head + (upgrade ? memberCard(m) : "") + plans +
