@@ -19,7 +19,10 @@
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+/* 手机上双击不缩放（双指缩放仍然可以），点击也不再有 300ms 延迟 */
+* { touch-action: manipulation; }
+.tree-box, .tree-box * { touch-action: none; }
 body {
   margin: 0;
   background: var(--bg);
@@ -177,7 +180,7 @@ details.manual[open] summary { color: var(--text); }
 .seg button.on { background: var(--grad-dot); color: #fff; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .form-grid label, label.full { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-.form-grid input, .form-grid select, label.full input { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 12px; padding: 11px 14px; font: 15px inherit; min-width: 0; }
+.form-grid input, .form-grid select, label.full input { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 12px; padding: 11px 14px; font-size: 15px; font-family: inherit; min-width: 0; }
 .form-grid input:focus, label.full input:focus { outline: none; border-color: var(--gold); }
 label.full .row { display: flex; gap: 8px; }
 label.full .row input { flex: 1; }
@@ -423,3 +426,10 @@ button:active, .btn:active { transform: translateY(1px); }
   .payopt b { margin: 0; grid-row: span 2; font-size: 20px; }
   .payopt small { grid-column: 1 / 3; }
 }
+
+/* 手机：输入框至少 16px，iPhone 点进去不会自动放大页面 */
+@media (max-width: 860px) {
+  input, select, textarea, .search input, .copy input { font-size: 16px !important; }
+}
+/* 按钮按下时的轻微反馈，代替系统的灰色高亮 */
+a:active, button:active { opacity: .85; }
