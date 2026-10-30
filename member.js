@@ -656,30 +656,36 @@
     };
   }
 
-  var SLICE = 3600; // 每张图最多 3600 像素高，手机相册和微信都能正常打开
+  // 导出一张完整长图：当前展开的整棵树画在一张图上。
+  // 手机浏览器一张画布最多约 1600 万像素（iPhone 的上限），边长最多 3.2 万像素，超出就整体缩小；缩得太小时提示字会偏小
+  var MAX_AREA = 16000000, MAX_SIDE = 32000, HEAD = 72;
   function renderImages(root) {
-    var t = treeSvg(root);
-    var scale = Math.min(2, 2400 / t.w); // 宽度不超过 2400 像素
+    var t = treeSvg(root), count = 0;
+    (function walk(n) { count++; if (n.expanded && n.children) n.children.forEach(walk); })(root);
+    var w = t.w, h = t.h + HEAD;
+    var scale = Math.min(2, 2400 / w, MAX_SIDE / h, Math.sqrt(MAX_AREA / (w * h)));
     var svg = t.svg.replace("<svg ", '<svg style="background:' + COLORS.bg + '" ');
     return new Promise(function (ok, fail) {
       var img = new Image();
       img.onload = function () {
-        var W = Math.round(t.w * scale), H = Math.round(t.h * scale), pages = Math.max(1, Math.ceil(H / SLICE)), out = [];
-        for (var p = 0; p < pages; p++) {
-          var y = p * SLICE, h = Math.min(SLICE, H - y), c = document.createElement("canvas");
-          c.width = W; c.height = h;
-          var g = c.getContext("2d");
-          g.fillStyle = COLORS.bg; g.fillRect(0, 0, W, h);
-          g.drawImage(img, 0, y / scale, t.w, h / scale, 0, 0, W, h);
-          g.font = "600 " + Math.round(13 * Math.max(scale, 1)) + "px -apple-system, PingFang SC, Microsoft YaHei, sans-serif";
-          g.fillStyle = "rgba(112, 39, 217, .6)";
-          g.textAlign = "right";
-          g.fillText("AiLGNS 服务站 · ailgns.dev" + (pages > 1 ? "  ·  第 " + (p + 1) + "/" + pages + " 张" : ""), W - 16, h - 14);
-          out.push(c.toDataURL("image/jpeg", 0.92));
-        }
-        ok(out);
+        var W = Math.round(w * scale), H = Math.round(h * scale), c = document.createElement("canvas");
+        c.width = W; c.height = H;
+        var g = c.getContext("2d"), font = "-apple-system, PingFang SC, Microsoft YaHei, sans-serif";
+        g.fillStyle = COLORS.bg; g.fillRect(0, 0, W, H);
+        g.save(); g.scale(scale, scale);
+        // 顶部标题
+        g.fillStyle = COLORS.gold; g.fillRect(0, 0, w, 5);
+        g.fillStyle = COLORS.text; g.font = "800 22px " + font; g.fillText("团队结构图", 24, 38);
+        g.fillStyle = COLORS.muted; g.font = "500 14px " + font;
+        g.fillText(A.short(root.a) + " · 团队 " + A.fmt(root.team) + " 个地址 · 团队算力 " + A.wan(root.power).replace(" ", "") + " · 图中展开了 " + A.fmt(count) + " 个地址", 24, 60);
+        g.drawImage(img, 0, HEAD, t.w, t.h);
+        g.restore();
+        g.font = "600 " + Math.max(11, Math.round(13 * scale)) + "px " + font; g.fillStyle = "rgba(112, 39, 217, .6)"; g.textAlign = "right";
+        g.fillText("AiLGNS 服务站 · ailgns.dev", W - 16, H - 14);
+        var url = c.toDataURL("image/jpeg", 0.9);
+        ok({ urls: [url], note: scale < 0.45 ? "展开的内容很多，为了放进一张图整体缩小了，图里的字会偏小，放大看。想要字更清楚，可以先「收起」一部分再导出。" : "" });
       };
-      img.onerror = function () { fail(new Error("图片生成失败")); };
+      img.onerror = function () { fail(new Error("图片生成失败：展开的内容太多，请先收起一部分再导出")); };
       img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     });
   }
@@ -695,11 +701,12 @@
     box.innerHTML = '<div class="modal-box export-box"><div class="card-head"><h2>导出图片</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="loading">正在生成图片…</div></div>';
     document.body.appendChild(box);
     box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
-    function show(urls) {
+    function show(res) {
+      var urls = res.urls || res, note = res.note || "";
       var files = urls.map(function (u, i) { return dataUrlFile(u, name + (urls.length > 1 ? "-" + (i + 1) : "") + ".jpg"); });
       var canShare = navigator.canShare && navigator.canShare({ files: files });
       box.querySelector(".modal-box").innerHTML = '<div class="card-head"><h2>导出图片' + (urls.length > 1 ? "（共 " + urls.length + " 张）" : "") + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<div class="export-tip"><b>手机：长按图片</b> → 保存到相册，或发送给微信好友。导出的是当前画面：先缩放、拖到想要的位置再导出。</div>' +
+        '<div class="export-tip"><b>手机：长按图片</b> → 保存到相册，或发送给微信好友。导出的是当前展开的整棵树：想导出哪些人，先展开到哪里。' + (note ? '<br><span class="down">' + A.esc(note) + "</span>" : "") + "</div>" +
         '<div class="export-actions">' + (canShare ? '<button id="ex-share">分享 / 保存到相册</button>' : "") + '<button class="ghost" id="ex-dl">下载到电脑</button></div>' +
         '<div class="export-imgs">' + urls.map(function (u, i) { return '<img src="' + u + '" alt="团队结构图 第 ' + (i + 1) + ' 张">'; }).join("") + "</div>";
       var sh = document.getElementById("ex-share");
@@ -818,7 +825,7 @@
 
   // ---------- 树状结构图（完整数据）：点 + 一层层往下展开，带新手引导 ----------
   // 数据是 A.treeMap.team() 的定长数组；只给展开过的地址建节点对象，所以百万地址的团队也不卡
-  var SHOW_CAP = window.innerWidth < 600 ? 120 : 400; // 「全部展开」一次最多画多少个框：太大手机会白屏，也看不清
+  var SHOW_CAP = window.innerWidth < 600 ? 300 : 600; // 「全部展开」一次最多画多少个框：太大手机会白屏，也看不清
   var GUIDE_KEY = "ailgns-tree-guide-done";
   function treeHtml(note) {
     return '<div class="tree-guide" id="tree-guide"><span><b>1</b>点框右边的 <i class="g-plus">+</i> 展开他的下级</span><span><b>2</b>一层层往下点，直到看到你想找的人</span><span><b>3</b>双指缩放、拖动查看；点「收起」从头再来</span><a href="#" id="guide-again">再看一遍引导</a></div>' +
@@ -977,22 +984,28 @@
       var leaves = [];
       (function walk(n) { if (n.expanded && n.children) n.children.forEach(walk); else if (n.direct) leaves.push(n); })(root);
       if (!leaves.length) return 0;
-      var add = 0;
-      leaves.forEach(function (n) { if (!n.children) kidsOf(n); add += n.children.length + (n.more ? 1 : 0); });
-      if (shown(root) + add > SHOW_CAP) return -1;
-      leaves.forEach(function (n) { n.expanded = true; });
-      return 1;
+      // 团队大的先展开，加到上限为止
+      leaves.sort(function (x, y) { return y.team - x.team; });
+      var total = shown(root), opened = 0;
+      for (var k = 0; k < leaves.length; k++) {
+        var n = leaves[k];
+        if (!n.children) kidsOf(n);
+        var add = n.children.length + (n.more ? 1 : 0);
+        if (total + add > SHOW_CAP) break;
+        n.expanded = true; total += add; opened++;
+      }
+      return opened === leaves.length ? 1 : opened ? -2 : -1; // 1 整层展开；-2 展开了一部分；-1 一个都放不下
     }
     var TOO_BIG = "团队太大，再展开一层画不下了。请点具体某个人右边的 + 往下看，或用上面的定位查找。";
     app.querySelector("[data-expand]").onclick = function () {
       var r = expandLevel();
-      st.textContent = r === 0 ? "已经全部展开" : r < 0 ? TOO_BIG : "";
-      if (r > 0) draw(true);
+      st.textContent = r === 0 ? "已经全部展开" : r === -1 ? TOO_BIG : r === -2 ? "这一层太多，先展开了团队最大的几个。" + TOO_BIG : "";
+      if (r !== 0 && r !== -1) draw(true);
     };
     app.querySelector("[data-all]").onclick = function () {
-      var levels = 0, r;
-      while ((r = expandLevel()) > 0) levels++;
-      st.textContent = r < 0 ? "已展开 " + (levels + 1) + " 层（" + A.fmt(shown(root)) + " 个框）。" + TOO_BIG : "已全部展开";
+      var r;
+      while ((r = expandLevel()) > 0) { /* 一层层展开 */ }
+      st.textContent = r === 0 ? "已全部展开" : "已展开 " + A.fmt(shown(root)) + " 个框（团队大的优先）。" + TOO_BIG;
       draw(true);
     };
     app.querySelector("[data-fold]").onclick = function () {
