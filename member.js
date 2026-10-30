@@ -270,13 +270,11 @@
     var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款开通，绑定你的钱包。开通后可以查看你自己（付款钱包）的「团队与等级」「团队新增业绩」，并画出你的团队结构图。</p>';
     if (m && m.tier === "pro") {
       app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
-      bindMemberCard(id);
       return;
     }
     // 未开通：选等级再付款；初级会员：补差价升级
     var upgrade = !!m, plan = upgrade ? "pro" : "basic";
     app.innerHTML = head + (upgrade ? memberCard(m) : "") + '<div class="loading">正在读取实时价格…</div>';
-    if (upgrade) bindMemberCard(id);
     Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
       function usdNow() { return upgrade ? PRO_USD - FEE_USD : plan === "pro" ? PRO_USD : FEE_USD; }
@@ -423,10 +421,15 @@
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
       '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
   }
-  function bindMemberCard(id) {
-    var b = document.getElementById("logout");
-    if (b) b.onclick = function () { logout(); subnav(); renderMember(id); };
-  }
+  // 退出按钮：页面会重画（比如价格读完后），所以在 document 上统一监听，按钮换了也照样有效
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest("#logout")) return;
+    e.preventDefault();
+    logout();
+    A.ownOnly = null;
+    subnav();
+    window.dispatchEvent(new HashChangeEvent("hashchange")); // 重新渲染当前页面
+  });
   // 初级会员看到的高级功能按钮上加个小标记
   function proMark(b) { if (b && member() && !isPro() && !b.querySelector(".vip-mini")) b.insertAdjacentHTML("beforeend", ' <span class="vip-mini">高级</span>'); }
   // 高级专属：初级会员点导出时弹出升级提示
