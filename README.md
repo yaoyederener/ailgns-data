@@ -1,4 +1,4 @@
-# AiLGNS 数据站
+# 局长观测站（AiLGNS 链上数据）
 
 data.juzhang.org 的源码：资金流向、钱包快查、团队与等级。
 

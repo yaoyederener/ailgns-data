@@ -91,7 +91,7 @@
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (accs) {
       addr = String(accs[0]).toLowerCase();
-      msg = "AiLGNS 数据站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
+      msg = "局长观测站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
       status("请在钱包里签名（不花钱、不授权）…");
       return eth.request({ method: "personal_sign", params: [utf8Hex(msg), addr] });
     }).then(function (s) {
@@ -197,7 +197,7 @@
         '<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div>' +
         '<span class="muted">只收 Anubis 链上的 LGNS（合约 ' + A.short(LGNS) + "），转其他币或其他链无法开通，也无法退回。</span></li>" +
         "<li>之后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通。</li></ol></details>" +
-        '<p class="note">本站是个人开发的非官方数据站，会员费由本站收取，与 AWAKE HELIX 项目方无关。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        '<p class="note">局长观测站是加拿大局长独立运营的非官方数据站，会员费由局长观测站收取，与 AWAKE HELIX 项目方无关。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
       document.getElementById("copy").onclick = function () {
         var b = this;
@@ -375,10 +375,15 @@
       var g = c.getContext("2d");
       g.fillStyle = COLORS.bg; g.fillRect(0, 0, c.width, c.height);
       g.drawImage(img, 0, 0, c.width, c.height);
+      // 右下角品牌水印
+      g.font = "600 " + 13 * scale + "px -apple-system, PingFang SC, Microsoft YaHei, sans-serif";
+      g.fillStyle = "rgba(124, 58, 237, .55)";
+      g.textAlign = "right";
+      g.fillText("局长观测站 · ailgns.dev", c.width - 16 * scale, c.height - 12 * scale);
       c.toBlob(function (b) {
         var a = document.createElement("a");
         a.href = URL.createObjectURL(b);
-        a.download = "ailgns-team-" + root.a.slice(2, 8) + ".png";
+        a.download = "局长观测站-团队-" + root.a.slice(2, 8) + ".png";
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
       });

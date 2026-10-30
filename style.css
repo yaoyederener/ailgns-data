@@ -37,11 +37,12 @@ a:hover { text-decoration: underline; }
 /* 顶栏 */
 .top { position: sticky; top: 0; z-index: 10; background: rgba(255, 255, 255, .92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .top-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; }
-.brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 700; white-space: nowrap; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 700; white-space: nowrap; }
 .brand:hover { text-decoration: none; }
-.unofficial { font-size: 11px; font-weight: 600; color: var(--gold); background: var(--gold-soft); border-radius: 999px; padding: 1px 8px; margin-left: 2px; }
-.logo { width: 24px; height: 24px; border-radius: 7px; background: var(--grad); position: relative; }
-.logo::after { content: ""; position: absolute; inset: 6px 5px 5px; border-left: 3px solid #fff; border-bottom: 3px solid #fff; transform: skewX(-12deg); }
+.logo { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 3px 8px rgba(124, 58, 237, .28)); }
+.brand-t { display: grid; line-height: 1.15; }
+.brand-t b { font-size: 16px; letter-spacing: .5px; }
+.brand-t small { font-size: 11px; font-weight: 500; color: var(--muted); }
 .tabs { display: flex; gap: 4px; overflow-x: auto; }
 .tabs a { color: var(--muted); padding: 7px 14px; border-radius: 999px; white-space: nowrap; font-size: 14px; }
 .tabs a:hover { color: var(--text); text-decoration: none; background: var(--panel-2); }
