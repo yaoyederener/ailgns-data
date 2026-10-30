@@ -15,7 +15,7 @@
     create: "0x9128a740", fill: "0x6fe4a448", cancel: "0x40e58ee5", ordersCount: "0x35daa731", getOrders: "0x8f72fc77",
     approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231"
   };
-  var DURATIONS = [[3600, "1 小时"], [86400, "24 小时"], [7 * 86400, "7 天"]];
+  var DURATIONS = [[1800, "30 分钟"], [3600, "1 小时"], [86400, "24 小时"], [7 * 86400, "7 天"]];
   var WEI = 10n ** 18n;
   var account = null;
 
@@ -93,7 +93,7 @@
   var TRUST = '<div class="trust">' +
     '<div><b>🔒 合约托管</b><span>挂单的币锁在智能合约里，平台和任何人都动不了</span></div>' +
     '<div><b>⚡ 原子成交</b><span>付款和收币在同一笔交易完成，要么都成功、要么都退回，不存在一方跑路</span></div>' +
-    '<div><b>↩️ 过期自动退回</b><span>没人成交就原路退回挂单人，挂单人也能随时撤单</span></div>' +
+    '<div><b>↩️ 过期自动退回</b><span>默认 30 分钟没成交，自动原路退回挂单人；也能随时撤单</span></div>' +
     '<div><b>🧾 规则公开</b><span>合约无管理员、不可升级，源码公开可查；成交收 1% 手续费</span></div></div>';
 
   function renderOtc(id, sub) {
@@ -156,7 +156,7 @@
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 AiLGNS</button><button data-side="buy">我要买 AiLGNS</button></div>' +
         '<div class="form-grid"><label>数量（AiLGNS）<input id="otc-qty" inputmode="decimal" placeholder="例如 5"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 800"></label>' +
-        '<label>有效期<select id="otc-dur">' + DURATIONS.map(function (d, i) { return '<option value="' + d[0] + '"' + (i === 1 ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></label></div>" +
+        '<label>有效期<select id="otc-dur">' + DURATIONS.map(function (d, i) { return '<option value="' + d[0] + '"' + (i === 0 ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></label></div>" +
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
