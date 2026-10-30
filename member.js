@@ -1486,16 +1486,76 @@
       '<p class="note">开通后同时解锁「团队新增业绩」和「团队结构图」。<a href="#/tree">先看看结构图示例 →</a></p>';
   }
 
+  // ---------- 页面：上级查询（高级 VIP）：输入任意地址（比如卖币的地址），列出他的所有上级，一直到最顶层 ----------
+  function copyText(text, btn) {
+    function ok() { var t = btn.textContent; btn.textContent = "已复制 ✓"; setTimeout(function () { btn.textContent = t; }, 1500); }
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(ok, fallback);
+    fallback();
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); ok(); } catch (e) { btn.textContent = "请长按地址复制"; }
+      ta.remove();
+    }
+  }
+  function renderUpline(id, addr) {
+    var app = A.app, head = '<h1>上级查询 <span class="vip vip-pro" style="font-size:.5em">高级 VIP</span></h1>' +
+      '<p class="sub">输入任意地址（比如在 DEX 卖币的地址），列出他的上级、上级的上级……一直到最顶层，每个地址都能一键复制，用来锁定他所在的整条线。</p>';
+    if (!isPro()) {
+      app.innerHTML = head + '<div class="demo-cta"><div><b>高级 VIP · 尊享级专属</b><span class="muted">' + (member() ? "你已是初级 VIP，补 " + (PRO_USD - FEE_USD) + " 美元差价即可升级" : PRO_USD + " 美元等值，一次付款终生使用") + '</span></div><a class="btn" href="#/member">' + (member() ? "去升级 →" : "开通会员 →") + "</a></div>" +
+        '<div class="features"><div class="feature"><b>卖币地址锁定上级</b><span class="muted">输入卖币地址，立刻看到他的上级、上级的上级，一直到最顶层</span></div>' +
+        '<div class="feature"><b>一键复制</b><span class="muted">单个复制，或整条链一次复制，直接发给团队长</span></div>' +
+        '<div class="feature"><b>标出 P 等级</b><span class="muted">链上哪个上级有官方 P 等级，一眼看到</span></div></div>';
+      return;
+    }
+    app.innerHTML = head + '<form class="search" id="up-form"><input id="up-a" placeholder="输入要查的地址 0x…" value="' + (addr || "") + '" autocomplete="off" spellcheck="false"><button>查询上级</button></form><div id="up-out"></div>';
+    document.getElementById("up-form").onsubmit = function (e) {
+      e.preventDefault();
+      var a = document.getElementById("up-a").value.trim().toLowerCase();
+      if (!/^0x[0-9a-f]{40}$/.test(a)) { document.getElementById("up-out").innerHTML = '<div class="card err">地址格式不对，应该是 0x 开头的 42 位</div>'; return; }
+      if (a !== addr) location.hash = "#/upline/" + a; else show(a);
+    };
+    if (addr) show(addr);
+    function show(a) {
+      var out = document.getElementById("up-out");
+      out.innerHTML = '<div class="loading">正在一层层往上查…（第一次查可能要几秒）</div>';
+      fetch("/api/upline?addr=" + a).then(function (r) { return r.json(); }).then(function (d) {
+        if (!A.isCurrent(id)) return;
+        if (d.error) throw new Error(d.error);
+        if (!d.chain.length) { out.innerHTML = '<div class="card">' + (d.bound ? "这个地址已经是最顶层，没有上级。" : "这个地址还没有绑定推荐人，查不到上级。") + "</div>"; return; }
+        var rows = d.chain.map(function (x, i) {
+          return '<div class="up-row"><span class="up-n">上 ' + (i + 1) + ' 级</span><span class="mono up-a">' + x.a + "</span>" +
+            (x.level ? '<span class="lv p' + Math.min(x.level, 7) + '">P' + x.level + "</span>" : "") +
+            '<span class="up-act"><button class="ghost" data-copy="' + x.a + '">复制</button><a href="#/wallet/' + x.a + '">查看</a></span></div>';
+        }).join("");
+        var plain = d.chain.map(function (x) { return x.a; }).join("\n");
+        var labeled = "查询地址：" + a + "\n" + d.chain.map(function (x, i) { return "上" + (i + 1) + "级：" + x.a + (x.level ? "（P" + x.level + "）" : ""); }).join("\n");
+        var leaders = d.chain.filter(function (x) { return x.level; }).length;
+        out.innerHTML = '<section class="card"><div class="card-head"><h2>共 ' + d.chain.length + " 层上级</h2>" + '<span class="muted">' + (leaders ? "其中 " + leaders + " 个有 P 等级" : "") + "</span></div>" +
+          '<div class="up-row up-self"><span class="up-n">查询地址</span><span class="mono up-a">' + a + '</span><span class="up-act"><button class="ghost" data-copy="' + a + '">复制</button></span></div>' +
+          '<div class="up-list">' + rows + "</div>" +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button id="up-copy-all">复制全部上级地址</button><button class="ghost" id="up-copy-lab">复制带层级的列表</button></div>' +
+          '<p class="note">上 1 级是他的直接推荐人，往下数字越大越靠近最顶层。数据来自 Anubis 链上推荐关系，绑定后不会改变。</p></section>';
+        out.querySelectorAll("[data-copy]").forEach(function (b) { b.onclick = function () { copyText(b.getAttribute("data-copy"), b); }; });
+        document.getElementById("up-copy-all").onclick = function () { copyText(plain, this); };
+        document.getElementById("up-copy-lab").onclick = function () { copyText(labeled, this); };
+      }).catch(function (e) {
+        if (A.isCurrent(id)) out.innerHTML = '<div class="card err">' + A.esc((e && e.message) || "查询失败，请稍后重试") + "</div>";
+      });
+    }
+  }
+
   // 会员区的二级菜单：会员中心 / 团队与等级 / 团队结构图
   function subnav() {
     var el = document.getElementById("subnav");
     if (!el) return;
     var tab = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "";
-    if (["member", "team", "growth", "tree"].indexOf(tab) < 0) { el.hidden = true; return; }
+    if (["member", "team", "growth", "tree", "upline"].indexOf(tab) < 0) { el.hidden = true; return; }
     var lock = member() ? "" : ' <span class="lock">🔒</span>';
     el.hidden = false;
     var mm = member();
-    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini' + (mm.tier === "pro" ? " on" : "") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock]].map(function (t) {
+    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini' + (mm.tier === "pro" ? " on" : "") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>']].map(function (t) {
       return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + ">" + t[1] + t[2] + "</a>";
     }).join("");
   }
@@ -1520,6 +1580,7 @@
   A.pages.tree = ownOnly("tree", renderTree);
   A.pages.team = ownOnly("team", renderTeamGate);
   A.pages.growth = ownOnly("growth", renderGrowth);
+  A.pages.upline = function (id, a) { A.ownOnly = null; subnav(); renderUpline(id, a); };
   // 给 otc.js 用的钱包工具
   A.wallet = { get: wallet, switchChain: switchChain, switchTo: switchTo, waitReceipt: waitReceipt, waitOn: waitOn, rpcOn: rpcOn, error: walletError, CHAIN: CHAIN };
 })();

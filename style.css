@@ -627,3 +627,18 @@ a:active, button:active { opacity: .85; }
 @keyframes coachPulse { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
 .tree-path { margin-top: 12px; }
 @media (max-width: 600px) { .tree-guide { font-size: 12.5px; } .tree-guide a { margin-left: 0; } }
+
+/* 上级查询 */
+.up-list { display: grid; gap: 0; }
+.up-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.up-self { background: var(--gold-soft); border-radius: 10px; padding: 10px; border-bottom: 0; margin-bottom: 6px; }
+.up-n { flex: none; width: 64px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.up-a { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.up-act { flex: none; display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.up-act button { padding: 5px 12px; }
+@media (max-width: 600px) {
+  .up-row { flex-wrap: wrap; gap: 4px 8px; }
+  .up-n { width: auto; }
+  .up-a { flex-basis: 100%; order: 3; font-size: 12.5px; }
+  .up-act { margin-left: auto; }
+}

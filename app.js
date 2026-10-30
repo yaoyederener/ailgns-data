@@ -335,7 +335,7 @@
       if (lvl) html += zonesCard(lvl);
       if (com) {
         html += '<section class="card"><div class="card-head"><h2>推荐关系</h2></div><dl class="dl">' +
-          "<dt>推荐人</dt><dd>" + (com.referrer && isAddr(com.referrer) && !/^0x0+1?$/.test(com.referrer) ? addrLink(com.referrer) : "—") + "</dd>" +
+          "<dt>推荐人</dt><dd>" + (com.referrer && isAddr(com.referrer) && !/^0x0+1?$/.test(com.referrer) ? addrLink(com.referrer) + '　<a href="#/upline/' + addr + '">查所有上级 →</a> <span class="vip-mini">高级</span>' : "—") + "</dd>" +
           "<dt>绑定时间</dt><dd>" + (com.boundAt ? timeBJ(com.boundAt) : "—") + "</dd>" +
           "<dt>所在层级</dt><dd>第 " + fmt(com.level) + " 层</dd>" +
           "<dt>直推地址数</dt><dd>" + fmt(com.direct) + "</dd>" +
