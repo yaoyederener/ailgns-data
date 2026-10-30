@@ -423,10 +423,9 @@
         if (me) html += zonesCard(me);
         html += '<section class="card"><div class="card-head"><h2>直推线</h2><span class="muted" id="lines-status"></span></div><div id="lines"><div class="loading">正在读取每条线…</div></div>' +
           '<p class="note">按整条线的团队算力从大到小排列，前三条通常就是官方的三个区（官方未公开分区规则，以官方等级为准）。</p></section>';
-        html += '<section class="card" id="growth"></section>';
+        html += '<a class="promo" href="#/growth/' + addr + '" style="margin-bottom:16px"><span class="promo-tag">会员</span><b>团队新增业绩</b><span class="promo-txt">这个团队今天、昨天、近 7 天新增了多少，具体到每个地址</span><span class="promo-go">去查看 →</span></a>';
         if (lvAll) html += levelOverview(lvAll);
         app.innerHTML = html;
-        if (window.AIL.teamGrowth) window.AIL.teamGrowth(id, addr, document.getElementById("growth"));
 
         var list = refs ? refs.list : [];
         if (!list.length) { document.getElementById("lines").innerHTML = '<div class="empty">链上没有读到直推地址</div>'; return; }

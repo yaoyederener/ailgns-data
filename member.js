@@ -228,7 +228,7 @@
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查任意地址的「团队与等级」，并画出整个团队的结构图。</p>';
+    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查任意地址的「团队与等级」「团队新增业绩」，并画出整个团队的结构图。</p>';
     if (m) {
       var pm = method(m.method || "lgns"), pc = CHAINS[m.chain || "anubis"];
       app.innerHTML = head + '<section class="card"><div class="card-head"><h2>✓ 你已经是会员</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
@@ -616,14 +616,14 @@
     for (var i = 0; i < kids.length; i++) { var r = find(kids[i], a); if (r) return r; }
     return null;
   }
-  function bindForm() {
+  function bindForm(route) {
     var f = A.app.querySelector("form[data-custom]");
     if (!f) return;
     f.onsubmit = function (e) {
       e.preventDefault();
       var a = f.a.value.trim();
       if (!A.isAddr(a)) { f.a.style.borderColor = "var(--down)"; f.a.focus(); return; }
-      location.hash = "#/tree/" + a.toLowerCase();
+      location.hash = "#/" + (route || "tree") + "/" + a.toLowerCase();
     };
   }
 
@@ -814,6 +814,33 @@
   var runId = 0;
   A.teamGrowth = teamGrowth;
 
+  // 团队新增业绩：会员专属的单独页面
+  function renderGrowth(id, addr) {
+    var app = A.app, m = member();
+    var head = '<h1>团队新增业绩 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
+      '<p class="sub">输入地址，查这个团队今天、昨天、近 7 天新增了多少业绩：按直推线汇总，列出每一笔的具体地址，可以导出表格。</p>';
+    if (!m) {
+      app.innerHTML = head +
+        '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+        '<div class="features">' +
+        '<div class="feature"><b>团队新增算力</b><span class="muted">今天 / 昨天 / 近 7 天，一眼看到团队涨了多少</span></div>' +
+        '<div class="feature"><b>按直推线汇总</b><span class="muted">哪条线在增长、增长了多少，按多少排序</span></div>' +
+        '<div class="feature"><b>具体到每个地址</b><span class="muted">谁、什么时候、投了多少 DAI 或销毁多少 LGNS</span></div>' +
+        '<div class="feature"><b>导出表格</b><span class="muted">一键下载，Excel 直接打开，带交易哈希可核对</span></div></div>';
+      return;
+    }
+    var form = '<form class="search" data-custom><input name="a" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="' + A.esc(addr || "") + '"><button>查询</button></form>';
+    if (!addr) {
+      app.innerHTML = head + form + '<div class="empty">输入一个地址开始查询，或者 <a href="#/growth/' + m.addr + '">查我自己的团队</a></div>';
+      bindForm("growth");
+      return;
+    }
+    app.innerHTML = head + form + '<div class="crumbs"><b class="mono">' + A.short(addr) + '</b><a href="#/team/' + addr + '" style="margin-left:auto">团队与等级 →</a><a href="#/tree/' + addr + '">结构图 →</a></div>' +
+      '<section class="card" id="growth"></section>';
+    bindForm("growth");
+    teamGrowth(id, addr, document.getElementById("growth"));
+  }
+
   // 团队与等级：会员专属
   function renderTeamGate(id, addr) {
     if (member()) return A.renderTeam(id, addr);
@@ -825,7 +852,7 @@
       '<div class="feature"><b>三个区业绩</b><span class="muted">对比下一级门槛，差多少一目了然</span></div>' +
       '<div class="feature"><b>一层层往下查</b><span class="muted">点任意直推，继续看他的团队</span></div>' +
       '<div class="feature"><b>全网等级分布</b><span class="muted">P1–P7 各有多少人、门槛多少</span></div></div>' +
-      '<p class="note">开通后同时解锁「团队结构图」。<a href="#/tree">先看看结构图示例 →</a></p>';
+      '<p class="note">开通后同时解锁「团队新增业绩」和「团队结构图」。<a href="#/tree">先看看结构图示例 →</a></p>';
   }
 
   // 会员区的二级菜单：会员中心 / 团队与等级 / 团队结构图
@@ -833,10 +860,10 @@
     var el = document.getElementById("subnav");
     if (!el) return;
     var tab = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "";
-    if (["member", "team", "tree"].indexOf(tab) < 0) { el.hidden = true; return; }
+    if (["member", "team", "growth", "tree"].indexOf(tab) < 0) { el.hidden = true; return; }
     var lock = member() ? "" : ' <span class="lock">🔒</span>';
     el.hidden = false;
-    el.innerHTML = [["member", "会员中心", ""], ["team", "团队与等级", lock], ["tree", "团队结构图", lock]].map(function (t) {
+    el.innerHTML = [["member", "会员中心", ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock]].map(function (t) {
       return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + ">" + t[1] + t[2] + "</a>";
     }).join("");
   }
@@ -845,6 +872,7 @@
   A.pages.member = function (id, a) { subnav(); renderMember(id, a); };
   A.pages.tree = function (id, a) { subnav(); renderTree(id, a); };
   A.pages.team = function (id, a) { subnav(); renderTeamGate(id, a); };
+  A.pages.growth = function (id, a) { subnav(); renderGrowth(id, a); };
   // 给 otc.js 用的钱包工具
   A.wallet = { get: wallet, switchChain: switchChain, waitReceipt: waitReceipt, error: walletError, CHAIN: CHAIN };
 })();
