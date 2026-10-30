@@ -652,6 +652,11 @@
         tx = box.clientWidth / 2 - x * k; ty = box.clientHeight / 2 - y * k; apply();
       },
       shift: function (dx, dy) { tx += dx * k; ty += dy * k; apply(); }, // 画布坐标里移动 (dx, dy)
+      // 从画布 x 开始、宽 w 的一段如果右边超出屏幕，就往左挪，但 x 不移出左边
+      showRight: function (x, w) {
+        var right = tx + (x + w) * k, over = right - (box.clientWidth - 8);
+        if (over > 0) { tx -= Math.min(over, tx + x * k - 8); apply(); }
+      },
       wasDrag: function () { return moved; }
     };
   }
@@ -826,6 +831,7 @@
       var ox = n.x, oy = n.y;
       draw();
       pz.shift(ox - n.x, oy - n.y);
+      if (n.expanded) pz.showRight(n.x + 24, NODE_W * 2 + GAP_X); // 展开后让下一层露出来（手机屏幕窄）
     }
     draw(true);
     inner.addEventListener("click", function (e) {
