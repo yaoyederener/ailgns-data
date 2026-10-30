@@ -909,7 +909,7 @@
       pathEl.scrollIntoView({ behavior: "smooth", block: "start" }); // 手机上把路径和图滚到眼前
       st.textContent = "";
     }
-    function find() {
+    function search() { // 定位输入框（不要叫 find，会盖住外面按地址找节点的 find）
       var q = input.value.trim().toLowerCase();
       if (!q) return;
       var hits = data.nodes.filter(function (n) { return n.a === q || (q.length >= 4 && n.a.indexOf(q.replace(/^0x/, "")) >= 0); });
@@ -917,8 +917,8 @@
       if (hits.length > 1 && hits[0].a !== q) { st.textContent = "有 " + hits.length + " 个地址匹配，请多输几位"; return; }
       locate(hits[0]);
     }
-    document.getElementById("find-go").onclick = find;
-    input.onkeydown = function (e) { if (e.key === "Enter") find(); };
+    document.getElementById("find-go").onclick = search;
+    input.onkeydown = function (e) { if (e.key === "Enter") search(); };
     document.getElementById("tree-min").onchange = function () {
       data.min = Number(this.value);
       applyFilter(data);
