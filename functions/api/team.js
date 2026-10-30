@@ -30,7 +30,7 @@ async function batch(calls) {
 }
 
 async function buildTeam(root) {
-  const team = new Map([[root, { line: "self", depth: 0 }]]);
+  const team = new Map([[root, { line: "self", depth: 0, parent: null }]]);
   let jobs = [{ parent: root, off: 0, lim: 1, probe: true }];
   for (let round = 0; jobs.length && round < 400; round++) {
     const res = await batch(jobs.map((j) => refCall(j.parent, j.off, j.lim)));
@@ -46,20 +46,22 @@ async function buildTeam(root) {
       for (let k = 0; k < len; k++) {
         const c = "0x" + h.slice(2 + (3 + k) * 64 + 24, 2 + (4 + k) * 64);
         if (team.has(c)) continue;
-        team.set(c, { line: j.parent === root ? c : par.line, depth: par.depth + 1 });
+        team.set(c, { line: j.parent === root ? c : par.line, depth: par.depth + 1, parent: j.parent });
         next.push({ parent: c, off: 0, lim: 1, probe: true });
       }
     });
     if (team.size > MAX_MEMBERS) throw new Error("team too large");
     jobs = next;
   }
-  const lines = [], idx = new Map(), list = [];
+  // list：[地址, 直推线编号, 第几层, 上级在 list 里的位置（-1 = root）]
+  const lines = [], idx = new Map(), list = [], pos = new Map();
   for (const [a, v] of team) {
     if (a === root) continue;
     if (!idx.has(v.line)) { idx.set(v.line, lines.length); lines.push(v.line); }
-    list.push([a, idx.get(v.line), v.depth]);
+    pos.set(a, list.length);
+    list.push([a, idx.get(v.line), v.depth, v.parent === root ? -1 : pos.get(v.parent)]);
   }
-  return { root, at: Date.now(), lines, list };
+  return { v: 2, root, at: Date.now(), lines, list };
 }
 
 export async function onRequestGet(ctx) {
@@ -77,9 +79,12 @@ export async function onRequestGet(ctx) {
   if (kv && !fresh) {
     const hit = await kv.get("team:" + root);
     if (hit) {
-      const age = Date.now() - (JSON.parse(hit).at || 0);
+      const parsed = JSON.parse(hit);
+      if (parsed.v === 2) {
+      const age = Date.now() - (parsed.at || 0);
       if (age > REFRESH_AFTER) ctx.waitUntil(save().catch(() => {}));
       return new Response(hit, { headers: { ...headers, "x-team-cache": age > REFRESH_AFTER ? "stale" : "hit" } });
+      }
     }
   }
   try {
