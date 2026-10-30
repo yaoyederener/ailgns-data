@@ -495,3 +495,28 @@ a:active, button:active { opacity: .85; }
 .dur-custom .seg button { padding: 8px 12px; flex: none; }
 .dur .note { margin: 8px 0 0; }
 @media (max-width: 600px) { .dur-opts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* 会员等级 */
+.plans { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 6px; }
+.plan { position: relative; display: grid; align-content: start; justify-items: start; gap: 6px; text-align: left; background: var(--panel); color: var(--text); border: 1.5px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); font-weight: 500; }
+.plan:hover { filter: none; border-color: #c9b6f5; }
+.plan.on { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(112, 39, 217, .14), var(--shadow); }
+.plan-pro { background: linear-gradient(160deg, #fbf7ff, #fff 60%); }
+.plan-pro.on { border-color: #a014f8; }
+.plan-name { font-size: 16px; font-weight: 700; }
+.plan-pro .plan-name { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.plan-tag { position: absolute; top: -10px; right: 14px; background: var(--grad); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.plan-price { display: flex; align-items: baseline; gap: 6px; }
+.plan-price b { font-size: 30px; line-height: 1.1; }
+.plan-price small { color: var(--muted); font-size: 13px; }
+.plan-up .plan-price { margin-bottom: 6px; }
+.perks { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 6px; font-size: 13.5px; color: var(--text); }
+.perks li { position: relative; padding-left: 20px; line-height: 1.45; }
+.perks li::before { content: "✓"; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
+.vip { display: inline-block; font-size: .8em; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: 2px; background: var(--gold-soft); color: var(--gold); }
+.vip-pro { background: var(--grad); color: #fff; }
+.vip-mini { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 6px; line-height: 17px; background: var(--gold-soft); color: var(--gold); vertical-align: 1px; }
+.vip-mini.on, button:not(.ghost) .vip-mini { background: rgba(255, 255, 255, .25); color: inherit; }
+.subnav .vip-mini.on { background: var(--grad); color: #fff; }
+#txh { flex: 1; min-width: 0; resize: vertical; font-size: 13px; }
+@media (max-width: 600px) { .plans { grid-template-columns: 1fr; } }

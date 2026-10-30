@@ -1,10 +1,12 @@
-// 会员：用钱包签名注册，付 20 美元等值的 Anubis LGNS / Anubis AiLGNS / Polygon DAI 开通（一次付款永久），开通后可以画团队结构图；未开通时展示示例结构图
+// 会员：用钱包签名注册，付 Anubis LGNS / Anubis AiLGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（大师级）1000 美元终生，多出导出数据和结构图优先刷新
 (function () {
   "use strict";
 
   var A = window.AIL;
   var RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 两条链都收到这个地址
-  var FEE_USD = 20; // 会员价：20 美元等值
+  var FEE_USD = 20; // 初级 VIP：20 美元等值，永久
+  var PRO_USD = 1000; // 高级 VIP（大师级）：1000 美元等值，终生；初级补 980 升级
+  var TIERS = { basic: { name: "初级 VIP", short: "初级" }, pro: { name: "高级 VIP · 大师级", short: "高级" } };
   var START_BLOCK = 17790000; // Anubis：会员功能上线前的转账不算
   var POLY_START = 96420000; // Polygon：多付款方式上线前的转账不算
   var POLY_LOOKBACK = 14 * 43200; // Polygon 按地址找付款时最多往回查 14 天（约 2 秒一个块）
@@ -25,7 +27,7 @@
     }
   };
 
-  // 三种付款方式：都按 20 美元等值折算
+  // 三种付款方式：都按美元等值、实时价格折算
   var METHODS = [
     { id: "lgns", symbol: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, digits: 0, tol: 0.97, price: function (b) { return pairPrice("0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", 9, b); } },
     { id: "ailgns", symbol: "AiLGNS", chain: "anubis", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, digits: 4, tol: 0.97, price: function (b) { return pairPrice("0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", 18, b); } },
@@ -45,17 +47,24 @@
       return (Number(A.word(h, 1)) / 1e18) / (Number(A.word(h, 0)) / Math.pow(10, dec0));
     });
   }
-  // 20 美元需要多少枚（向上取整到这个币的显示精度）
-  function need(m, price) { var k = Math.pow(10, m.digits); return Math.ceil(FEE_USD / price * k) / k; }
+  // 需要多少枚（向上取整到这个币的显示精度）
+  function need(m, price, usd) { var k = Math.pow(10, m.digits); return Math.ceil((usd || FEE_USD) / price * k) / k; }
   function units(m, amount) { return BigInt(Math.round(amount * Math.pow(10, m.digits))) * 10n ** BigInt(m.dec - m.digits); }
   function show(m, amount) { return A.fmt(amount, m.digits) + " " + m.symbol; }
 
-  // 一笔转账够不够：按付款那个区块之前的价格算
-  function judge(m, amount, block, tx) {
+  // 一笔转账值多少美元：按付款那个区块之前的价格算（价格容差记在付款方一边）
+  function value(m, amount, block, tx) {
     return m.price(m.chain === "anubis" ? block - 1 : null).then(function (p) {
-      var n = need(m, p);
-      return amount >= n * m.tol ? { method: m.id, chain: m.chain, tx: tx, block: block, paid: amount, need: n } : null;
+      return { method: m.id, chain: m.chain, tx: tx, block: block, paid: amount, usd: amount * p / m.tol };
     });
+  }
+  // 累计付款决定等级：满 20 美元初级，满 1000 美元高级（初级补 980 即可升级）
+  function tierOf(usd) { return usd >= PRO_USD ? "pro" : usd >= FEE_USD ? "basic" : null; }
+  function tally(list) {
+    var seen = {}, payments = [];
+    list.forEach(function (p) { if (p && !seen[p.tx]) { seen[p.tx] = 1; payments.push(p); } });
+    var usd = payments.reduce(function (t, p) { return t + p.usd; }, 0);
+    return { payments: payments, usd: usd, tier: tierOf(usd) };
   }
 
   // 按地址找以前的付款：Anubis 用浏览器接口，Polygon 用节点分段查日志
@@ -63,14 +72,7 @@
     var url = EXPLORER_API + "?module=account&action=tokentx&address=" + addr + "&contractaddress=" + m.token + "&startblock=" + START_BLOCK + "&page=1&offset=200&sort=asc";
     return A.getJSON(url).then(function (r) {
       var txs = (r.result || []).filter(function (t) { return t.from.toLowerCase() === addr && t.to.toLowerCase() === RECEIVER; });
-      var sum = 0, i = 0;
-      function next() {
-        if (i >= txs.length) return null;
-        var t = txs[i++];
-        sum += Number(t.value) / Math.pow(10, m.dec); // 分几笔付也算，累计够数就开通
-        return judge(m, sum, Number(t.blockNumber), t.hash).then(function (ok) { return ok || next(); });
-      }
-      return next();
+      return A.pool(txs, 4, function (t) { return value(m, Number(t.value) / Math.pow(10, m.dec), Number(t.blockNumber), t.hash); });
     });
   }
   function findPolygon(addr, m) {
@@ -82,28 +84,29 @@
       });
     }).then(function (chunks) {
       var logs = [].concat.apply([], chunks.filter(Boolean));
-      var sum = logs.reduce(function (t, l) { return t + Number(BigInt(l.data)) / 1e18; }, 0);
-      if (!logs.length) return null;
-      var last = logs[logs.length - 1];
-      return judge(m, sum, parseInt(last.blockNumber, 16), last.transactionHash);
+      return Promise.all(logs.map(function (l) { return value(m, Number(BigInt(l.data)) / 1e18, parseInt(l.blockNumber, 16), l.transactionHash); }));
     });
   }
+  // 找到这个地址的全部付款并算出等级；一笔都没有返回 null
   function findPayment(addr) {
     if (addr.toLowerCase() === "0x6b26fa44754ef4927f0b1aec486ea6bea730a48a") {
-      return Promise.resolve({ method: "gift", chain: "anubis", paid: 0 });
+      return Promise.resolve({ gift: true, payments: [], usd: PRO_USD, tier: "pro" });
     }
-    var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { return null; }); });
-    return Promise.all(tries).then(function (r) { return r.filter(Boolean)[0] || null; });
+    var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { return []; }); });
+    return Promise.all(tries).then(function (r) {
+      var t = tally([].concat.apply([], r));
+      return t.payments.length ? t : null;
+    });
   }
 
-  // 从交易回执里直接确认付款（钱包付款、或者用户填交易哈希）
+  // 从交易回执里直接确认一笔付款（钱包付款、或者用户填交易哈希）
   function paymentFromReceipt(chain, r, addr) {
     var checks = METHODS.filter(function (m) { return m.chain === chain; }).map(function (m) {
       var log = (r.logs || []).filter(function (l) {
         return l.address.toLowerCase() === m.token.toLowerCase() && l.topics[0] === TRANSFER &&
           "0x" + l.topics[1].slice(26) === addr && "0x" + l.topics[2].slice(26) === RECEIVER;
       })[0];
-      return log ? judge(m, Number(BigInt(log.data)) / Math.pow(10, m.dec), parseInt(r.blockNumber, 16), r.transactionHash) : null;
+      return log ? value(m, Number(BigInt(log.data)) / Math.pow(10, m.dec), parseInt(r.blockNumber, 16), r.transactionHash) : null;
     });
     return Promise.all(checks).then(function (x) { return x.filter(Boolean)[0] || null; });
   }
@@ -120,7 +123,19 @@
   }
 
   // ---------- 会员状态（存在本浏览器） ----------
-  function member() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+  function member() {
+    try {
+      var m = JSON.parse(localStorage.getItem(KEY));
+      if (m && !m.tier) { // 分级之前开通的会员：按初级 20 美元记
+        m.tier = m.method === "gift" ? "pro" : "basic";
+        m.payments = m.tx ? [{ method: m.method, chain: m.chain, tx: m.tx, block: m.block, paid: m.paid, usd: FEE_USD }] : [];
+        m.usd = m.method === "gift" ? PRO_USD : FEE_USD;
+        if (m.method === "gift") m.gift = true;
+      }
+      return m;
+    } catch (e) { return null; }
+  }
+  function isPro() { var m = member(); return !!(m && m.tier === "pro"); }
   function saveMember(m) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) { /* 隐私模式不保存 */ } }
   function logout() { try { localStorage.removeItem(KEY); } catch (e) { /* 忽略 */ } }
 
@@ -197,16 +212,16 @@
   }
   function waitReceipt(hash) { return waitOn("anubis", hash); }
 
-  // 第 2 步：用钱包直接付款（切到对应的链 → 转账 → 等确认）
-  function pay(reg, m, status) {
+  // 第 2 步：用钱包直接付款（切到对应的链 → 转账 → 等确认）；usd：这次要付多少美元
+  function pay(reg, m, status, usd) {
     var eth = wallet(), n, chain = CHAINS[m.chain];
     status("正在切换到 " + chain.name + " 链…");
     return switchTo(eth, m.chain).then(function () {
       return Promise.all([m.price(), rpcOn(m.chain, "eth_call", [{ to: m.token, data: "0x70a08231" + A.pad(reg.addr) }, "latest"])]);
     }).then(function (r) {
-      n = need(m, r[0]);
+      n = need(m, r[0], usd);
       var bal = Number(BigInt(r[1])) / Math.pow(10, m.dec);
-      if (bal < n) throw new Error(chain.name + " 链上的钱包里只有 " + show(m, bal) + "，开通需要 " + show(m, n));
+      if (bal < n) throw new Error(chain.name + " 链上的钱包里只有 " + show(m, bal) + "，需要 " + show(m, n));
       status("请在钱包里确认转账 " + show(m, n) + "（Gas 用 " + chain.gas + "）…");
       var data = "0xa9059cbb" + A.pad(RECEIVER) + units(m, n).toString(16).padStart(64, "0");
       return eth.request({ method: "eth_sendTransaction", params: [{ from: reg.addr, to: m.token, data: data }] });
@@ -216,71 +231,101 @@
     }).then(function (r) {
       return paymentFromReceipt(m.chain, r, reg.addr);
     }).then(function (p) {
-      if (!p) throw new Error("转账已确认，但金额不够。请联系站长核对");
+      if (!p) throw new Error("转账已确认，但没找到这笔付款。请联系站长核对");
       return p;
     });
   }
 
-  function activate(reg, p) {
-    saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, method: p.method, chain: p.chain, tx: p.tx, block: p.block, paid: p.paid, at: Date.now() });
+  // 把新付款合进已有付款，重新算等级后保存
+  function activate(reg, sum) {
+    var old = member(), prev = old && old.addr === reg.addr ? old.payments || [] : [];
+    var t = sum.gift ? sum : tally(prev.concat(sum.payments || []));
+    if (!t.tier) return null;
+    saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, tier: t.tier, usd: t.usd, payments: t.payments, gift: !!sum.gift, at: Date.now() });
     warmTree(reg.addr);
+    return t;
   }
-  // 提前让服务器把结构图算好：会员一打开网站就悄悄预热，等点进结构图时已经是现成的
-  function warmTree(a) { try { fetch("/api/tree?root=" + a.toLowerCase(), { keepalive: true }).catch(function () {}); } catch (e) { /* 忽略 */ } }
+  // 提前让服务器把结构图算好：会员一打开网站就悄悄预热，等点进结构图时已经是现成的；高级会员优先刷新
+  function warmTree(a) {
+    try { fetch("/api/tree?root=" + a.toLowerCase() + (isPro() ? "&tier=pro" : ""), { keepalive: true }).catch(function () {}); } catch (e) { /* 忽略 */ }
+  }
+
+  // 两个等级各自有什么
+  var PERKS = {
+    basic: ["团队与等级（你自己的付款地址）", "团队新增业绩：今天、昨天、近 7 天", "团队结构图：定位、筛选、逐层展开", "结构图每 30 分钟更新"],
+    pro: ["包含初级 VIP 全部功能", "导出全部数据：结构图长图、完整名单 CSV、新增业绩表格", "结构图优先刷新：每 5 分钟更新", "大师级标识，一次付款终生有效"]
+  };
+  function perkList(t) { return '<ul class="perks">' + PERKS[t].map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>"; }
+  function tierBadge(t) { return '<span class="vip vip-' + t + '">' + TIERS[t].name + "</span>"; }
 
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后可以查看你自己（付款钱包）的「团队与等级」「团队新增业绩」，并画出你的团队结构图。</p>';
-    if (m) {
-      var pm = method(m.method || "lgns"), pc = CHAINS[m.chain || "anubis"];
-      app.innerHTML = head + '<section class="card"><div class="card-head"><h2>✓ 你已经是会员</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
-        "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + (m.method === "gift" ? "赠送会员（永久）" : show(pm, m.paid) + "（" + pc.name + '） · <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + m.tx + '">查看交易 ↗</a>') + "</dd></dl>" +
-        '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
-        '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
-      document.getElementById("logout").onclick = function () { logout(); subnav(); renderMember(id); };
+    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款开通，绑定你的钱包。开通后可以查看你自己（付款钱包）的「团队与等级」「团队新增业绩」，并画出你的团队结构图。</p>';
+    if (m && m.tier === "pro") {
+      app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
+      bindMemberCard(id);
       return;
     }
-    app.innerHTML = head + '<div class="loading">正在读取实时价格…</div>';
+    // 未开通：选等级再付款；初级会员：补差价升级
+    var upgrade = !!m, plan = upgrade ? "pro" : "basic";
+    app.innerHTML = head + (upgrade ? memberCard(m) : "") + '<div class="loading">正在读取实时价格…</div>';
+    if (upgrade) bindMemberCard(id);
     Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
-      var needs = {};
-      METHODS.forEach(function (x, i) { needs[x.id] = prices[i] ? need(x, prices[i]) : null; });
-      var pick = METHODS.filter(function (x) { return needs[x.id]; })[0] || METHODS[0];
+      function usdNow() { return upgrade ? PRO_USD - FEE_USD : plan === "pro" ? PRO_USD : FEE_USD; }
+      var pick = METHODS.filter(function (x, i) { return prices[i]; })[0] || METHODS[0];
+      function needOf(x) { var i = METHODS.indexOf(x); return prices[i] ? need(x, prices[i], usdNow()) : null; }
 
-      app.innerHTML = head +
-        '<div class="kpis"><div class="kpi hero"><div class="k">会员价</div><div class="v num">' + FEE_USD + '<small>美元等值</small></div><div class="d">三种币任选一种，按实时价格折算</div></div>' +
-        '<div class="kpi"><div class="k">有效期</div><div class="v">永久</div><div class="d">一次付款，绑定你的钱包</div></div></div>' +
-        '<section class="card"><div class="card-head"><h2>选择付款方式</h2><span class="muted">金额已按实时价格折算成 ' + FEE_USD + ' 美元</span></div><div class="paylist">' +
+      var plans = upgrade
+        ? '<section class="card plan-up"><div class="card-head"><h2>升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
+          '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
+        : '<div class="plans">' +
+          '<button class="plan on" data-plan="basic"><span class="plan-name">' + TIERS.basic.name + '</span><span class="plan-price"><b class="num">' + FEE_USD + '</b><small>美元等值 · 永久</small></span>' + perkList("basic") + "</button>" +
+          '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">大师级专用</span><span class="plan-name">' + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
+          '<p class="note">先开初级也可以，以后补 ' + (PRO_USD - FEE_USD) + " 美元差价升级高级。</p>";
+
+      app.innerHTML = head + (upgrade ? memberCard(m) : "") + plans +
+        '<section class="card"><div class="card-head"><h2>选择付款方式</h2><span class="muted" id="pay-usd"></span></div><div class="paylist">' +
         METHODS.map(function (x, i) {
           var c = CHAINS[x.chain];
-          return '<button class="payopt' + (x === pick ? " on" : "") + '" data-m="' + x.id + '"' + (needs[x.id] ? "" : " disabled") + '>' +
+          return '<button class="payopt' + (x === pick ? " on" : "") + '" data-m="' + x.id + '"' + (prices[i] ? "" : " disabled") + '>' +
             '<span class="payopt-tok">' + x.symbol + '</span><span class="payopt-chain">' + c.name + ' 链</span>' +
-            '<b class="num">' + (needs[x.id] ? A.fmt(needs[x.id], x.digits) : "—") + '</b><small>' + (x.id === "dai" ? "稳定币，固定 20" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
+            '<b class="num" data-amt="' + x.id + '">—</b><small>' + (x.id === "dai" ? "稳定币，1 DAI = 1 美元" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
         }).join("") + "</div></section>" +
-        '<section class="card"><div class="card-head"><h2>用钱包开通</h2><a href="#/tree">先看看效果 →</a></div>' +
-        '<div class="flow"><div class="flow-step" id="s1"><b>1</b><div><div class="flow-t">连接钱包，签名注册</div><div class="muted">证明钱包是你的。只是签一段文字：<b>不花钱、不授权、不发交易</b>。已经付过款的，签完直接开通。</div></div></div>' +
+        '<section class="card"><div class="card-head"><h2>' + (upgrade ? "用钱包升级" : "用钱包开通") + "</h2>" + (upgrade ? "" : '<a href="#/tree">先看看效果 →</a>') + "</div>" +
+        '<div class="flow"><div class="flow-step" id="s1"><b>1</b><div><div class="flow-t">连接钱包，签名' + (upgrade ? "确认身份" : "注册") + '</div><div class="muted">证明钱包是你的。只是签一段文字：<b>不花钱、不授权、不发交易</b>。已经付过款的，签完直接' + (upgrade ? "升级" : "开通") + "。</div></div></div>" +
         '<div class="flow-step" id="s2"><b>2</b><div><div class="flow-t" id="s2t"></div><div class="muted" id="s2d"></div></div></div></div>' +
         '<button id="go" style="padding:12px 22px;margin-top:4px">连接钱包</button><p class="note" id="st"></p>' +
         '<p class="note">手机上请在 <b>OKX、Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b>。电脑上需要装浏览器插件钱包。</p></section>' +
         '<details class="card manual"><summary>不方便用 DApp 浏览器？手动转账也可以</summary><ol class="steps" style="margin-top:12px">' +
         '<li id="man1"></li>' +
         '<li>收款地址（Anubis 和 Polygon 都是这个）：<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div></li>' +
-        "<li>转完后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通（Polygon 付款自动查找最近 14 天）。</li>" +
-        '<li>找不到的话，把付款的交易哈希贴在这里验证：<div class="copy"><input id="txh" class="mono" placeholder="0x…" spellcheck="false"><button class="ghost" id="txgo">验证</button></div></li></ol></details>' +
-        '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面三种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词；除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        "<li>转完后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的全部付款并按累计金额开通（Polygon 付款自动查找最近 14 天）。</li>" +
+        '<li>找不到的话，把付款的交易哈希贴在这里验证，分几笔付的可以一次贴多个（用空格或换行隔开）：<div class="copy"><textarea id="txh" class="mono" rows="2" placeholder="0x…" spellcheck="false"></textarea><button class="ghost" id="txgo">验证</button></div></li></ol></details>' +
+        '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面三种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
       var st = document.getElementById("st"), go = document.getElementById("go"), reg = null;
+      if (upgrade && m.sig) reg = { addr: m.addr, msg: m.msg, sig: m.sig };
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
-      function done(step) { document.getElementById(step).classList.add("ok"); }
+      function done(step) { var el = document.getElementById(step); if (el) el.classList.add("ok"); }
       function describe() {
-        var c = CHAINS[pick.chain], amt = show(pick, needs[pick.id]);
+        METHODS.forEach(function (x) { var n = needOf(x), el = app.querySelector('[data-amt="' + x.id + '"]'); if (el) el.textContent = n ? A.fmt(n, x.digits) : "—"; });
+        document.getElementById("pay-usd").textContent = "已按实时价格折算成 " + usdNow() + " 美元";
+        var c = CHAINS[pick.chain], amt = show(pick, needOf(pick));
         document.getElementById("s2t").textContent = "钱包付款 " + amt + "（" + c.name + " 链）";
-        document.getElementById("s2d").textContent = "自动切到 " + c.name + " 链，在钱包里确认一笔 " + pick.symbol + " 转账，Gas 用 " + c.gas + "。确认后几秒钟自动开通。";
+        document.getElementById("s2d").textContent = "自动切到 " + c.name + " 链，在钱包里确认一笔 " + pick.symbol + " 转账，Gas 用 " + c.gas + "。确认后几秒钟自动" + (upgrade ? "升级" : "开通") + "。";
         document.getElementById("man1").innerHTML = "在 <b>" + c.name + " 链</b>上转 <b>" + amt + "</b>（合约 " + A.short(pick.token) + "）";
         if (reg) go.textContent = "付款 " + amt;
       }
       describe();
+      app.querySelectorAll(".plan").forEach(function (b) {
+        b.onclick = function () {
+          plan = b.getAttribute("data-plan");
+          app.querySelectorAll(".plan").forEach(function (x) { x.classList.toggle("on", x === b); });
+          describe();
+        };
+      });
       app.querySelectorAll(".payopt").forEach(function (b) {
         b.onclick = function () {
           pick = method(b.getAttribute("data-m"));
@@ -298,17 +343,31 @@
       function ensureReg() {
         return reg ? Promise.resolve(reg) : register(say).then(function (r) { reg = r; done("s1"); return r; });
       }
-      // 用交易哈希验证
+      // 开通或升级成功：达到想要的等级就跳走，否则说明还差多少
+      function finish(r, sum) {
+        var t = activate(r, sum);
+        if (!t) { say("已找到你的付款，累计约 " + A.fmt(sum.usd || 0, 2) + " 美元，还不够开通初级 VIP（" + FEE_USD + " 美元）", true); return false; }
+        var want = upgrade || plan === "pro" ? "pro" : "basic";
+        if (want === "pro" && t.tier !== "pro") {
+          say("已开通" + TIERS[t.tier].name + "（累计约 " + A.fmt(t.usd, 2) + " 美元）。升级高级还差约 " + A.fmt(PRO_USD - t.usd, 2) + " 美元。");
+          setTimeout(function () { renderMember(id); subnav(); }, 1500);
+          return true;
+        }
+        say(TIERS[t.tier].name + " 已开通！");
+        subnav();
+        setTimeout(function () { location.hash = "#/tree"; }, 800);
+        return true;
+      }
       document.getElementById("txgo").onclick = function () {
-        var h = document.getElementById("txh").value.trim(), btn = this;
-        if (!/^0x[0-9a-fA-F]{64}$/.test(h)) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
+        var hs = (document.getElementById("txh").value.match(/0x[0-9a-fA-F]{64}/g) || []), btn = this;
+        if (!hs.length) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
         btn.disabled = true;
         ensureReg().then(function (r) {
-          say("正在核对这笔交易…");
-          return verifyHash(r.addr, h.toLowerCase()).then(function (p) {
-            if (!p) throw new Error("这笔交易不是从你的钱包转给收款地址的，或者金额不够 20 美元");
-            activate(r, p); say("验证成功，会员已开通！");
-            setTimeout(function () { location.hash = "#/tree"; }, 800);
+          say("正在核对 " + hs.length + " 笔交易…");
+          return Promise.all(hs.map(function (h) { return verifyHash(r.addr, h.toLowerCase()); })).then(function (ps) {
+            ps = ps.filter(Boolean);
+            if (!ps.length) throw new Error("这些交易不是从你的钱包转给收款地址的");
+            if (!finish(r, tally(ps))) btn.disabled = false;
           });
         }).catch(function (e) { say(walletError(e), true); btn.disabled = false; });
       };
@@ -316,21 +375,26 @@
         go.disabled = true;
         var step = reg ? Promise.resolve(reg) : ensureReg().then(function (r) {
           say("签名成功，正在查找你之前的付款…");
-          return findPayment(r.addr).catch(function () { return null; }).then(function (p) {
-            if (p) { activate(r, p); location.hash = "#/tree"; throw null; }
+          return findPayment(r.addr).catch(function () { return null; }).then(function (sum) {
+            if (sum && sum.tier) {
+              var want = upgrade || plan === "pro" ? "pro" : "basic";
+              activate(r, sum);
+              if (sum.tier === "pro" || want === "basic") { finish(r, sum); throw null; }
+              upgrade = true; // 已是初级，接着补差价
+              say("你已经是初级 VIP，继续付款补差价升级高级。");
+            }
             return r;
           });
         });
         step.then(function (r) {
           describe();
-          say("已注册 " + A.short(r.addr) + "。确认上面选的付款方式，点按钮用钱包付款。");
+          if (!st.textContent) say("已确认 " + A.short(r.addr) + "。确认上面选的付款方式，点按钮用钱包付款。");
           go.disabled = false;
           go.onclick = function () {
             go.disabled = true;
-            pay(r, pick, say).then(function (p) {
-              done("s2"); activate(r, p);
-              say("付款成功，会员已开通！");
-              setTimeout(function () { location.hash = "#/tree"; }, 800);
+            pay(r, pick, say, usdNow()).then(function (p) {
+              done("s2");
+              if (!finish(r, { payments: [p] })) go.disabled = false;
             }, function (e) { say(walletError(e), true); go.disabled = false; });
           };
         }, function (e) {
@@ -341,6 +405,35 @@
     }, function () {
       if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">价格暂时读不到，请稍后刷新。</div>';
     });
+  }
+  function memberCard(m) {
+    var pays = m.gift ? "赠送" + TIERS[m.tier].name + "（终生）" : (m.payments || []).map(function (p) {
+      var pm = method(p.method), pc = CHAINS[p.chain || "anubis"];
+      return show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
+    }).join("<br>") + (m.payments && m.payments.length > 1 ? "<br><span class=\"muted\">累计约 " + A.fmt(m.usd, 2) + " 美元</span>" : "");
+    return '<section class="card"><div class="card-head"><h2>✓ 你已经是 ' + tierBadge(m.tier) + '</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
+      "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + pays + "</dd></dl>" +
+      '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
+      '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
+  }
+  function bindMemberCard(id) {
+    var b = document.getElementById("logout");
+    if (b) b.onclick = function () { logout(); subnav(); renderMember(id); };
+  }
+  // 初级会员看到的高级功能按钮上加个小标记
+  function proMark(b) { if (b && member() && !isPro() && !b.querySelector(".vip-mini")) b.insertAdjacentHTML("beforeend", ' <span class="vip-mini">高级</span>'); }
+  // 高级专属：初级会员点导出时弹出升级提示
+  function proOnly(fn) {
+    return function () {
+      if (!member() || isPro()) return fn.apply(this, arguments);
+      var box = document.createElement("div");
+      box.className = "modal";
+      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>高级 VIP 专属</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        "<p>导出图片、完整名单和表格是 " + TIERS.pro.name + " 的功能。你已付 " + FEE_USD + " 美元，补 <b>" + (PRO_USD - FEE_USD) + " 美元</b>差价即可终生升级。</p>" + perkList("pro") +
+        '<a class="btn" href="#/member" data-close style="padding:12px 18px;text-align:center">去升级 →</a></div>';
+      document.body.appendChild(box);
+      box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+    };
   }
 
   // ---------- 页面：结构图 ----------
@@ -370,7 +463,7 @@
   // 服务器暂时不可用时，退回到旧办法：拿团队名单，在浏览器里批量读算力和等级
   var POWER_OF = "0x4f343040"; // totalPowerOf(address)：已登记算力（含排队中的），和官方「团队算力」口径接近
   function fullTree(root, progress) {
-    return fetch("/api/tree?root=" + root).then(function (r) {
+    return fetch("/api/tree?root=" + root + (isPro() ? "&tier=pro" : "")).then(function (r) {
       if (!r.ok) throw new Error("tree " + r.status);
       return r.json();
     }).then(function (t) {
@@ -721,7 +814,7 @@
     });
     app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h); };
     app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
-    app.querySelector("[data-png]").onclick = function () { exportPng(root, data); };
+    app.querySelector("[data-png]").onclick = proOnly(function () { exportPng(root, data); });
     // 全部展开：数据已经齐全时瞬间展开所有有团队的人；示例或旧方式时逐层读取
     app.querySelector("[data-all]").onclick = function () {
       if (data) {
@@ -746,7 +839,8 @@
       draw(true);
     };
     var csvBtn = app.querySelector("[data-csv]");
-    if (data) { csvBtn.hidden = false; csvBtn.onclick = function () { exportCsv(data); }; }
+    if (data) { csvBtn.hidden = false; csvBtn.onclick = proOnly(function () { exportCsv(data); }); }
+    proMark(app.querySelector("[data-png]")); proMark(csvBtn);
     if (!data) return;
 
     // ---- 定位、路径、筛选（完整数据时才有） ----
@@ -822,12 +916,12 @@
     if (!m) {
       app.innerHTML = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
         '<p class="sub">开通会员后，就能画出你自己团队的结构图。下面是<b>示例效果</b>，可以直接点、拖、缩放试试。</p>' +
-        '<div class="demo-cta"><div><b>' + "一次付款，永久使用" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+        '<div class="demo-cta"><div><b>' + "初级 " + FEE_USD + " 美元永久 · 高级 " + PRO_USD + " 美元终生" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少个地址、多少算力</span></div>' +
         '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个地址的下级，几十层也能看</span></div>' +
         '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 紫色标记，数据来自官方接口</span></div>' +
-        '<div class="feature"><b>导出图片</b><span class="muted">一键保存高清 PNG，直接发团队群</span></div></div>' +
+        '<div class="feature"><b>导出图片 · 高级 VIP</b><span class="muted">一键保存高清长图、完整名单，直接发团队群</span></div></div>' +
         '<div class="demo-tag">示例效果 · 地址和数据都是随机生成的</div>' +
         diagramHtml(LEGEND);
       mountDiagram(id, demoTree(), function () { return Promise.resolve(); });
@@ -847,6 +941,8 @@
       if (!A.isCurrent(id)) return;
       app.innerHTML = head + form + diagramHtml(LEGEND_FULL);
       mountDiagram(id, d.root, function () { return Promise.resolve(); }, d);
+      var st = document.getElementById("tree-status");
+      if (st && d.at && !st.textContent) st.textContent = "数据更新于 " + Math.max(1, Math.round((Date.now() - d.at) / 60000)) + " 分钟前 · " + (isPro() ? "高级会员每 5 分钟更新" : "每 30 分钟更新");
     }).catch(function () {
       // 服务器不可用时退回逐个读取
       return loadNode(addr).then(function (r) {
@@ -1159,7 +1255,7 @@
         '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
       shell(html);
       bindRefresh();
-      document.getElementById("g-csv").onclick = function () {
+      document.getElementById("g-csv").onclick = proOnly(function () {
         var csv = "时间,地址,方式,DAI,LGNS,新增算力,所属直推线,第几层,交易或区块\n" + lastRows.map(function (r) {
           return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, r.power, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx || "区块 " + r.block].join(",");
         }).join("\n");
@@ -1168,7 +1264,8 @@
         a.download = "团队新增业绩-" + root.slice(2, 8) + "-" + period + ".csv";
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
-      };
+      });
+      proMark(document.getElementById("g-csv"));
     }
     function bindRefresh() {
       var b = document.getElementById("g-refresh");
@@ -1188,15 +1285,15 @@
   function renderGrowth(id, addr) {
     var app = A.app, m = member();
     var head = '<h1>团队新增业绩 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
-      '<p class="sub">你的团队今天、昨天、近 7 天新增了多少业绩：按直推线汇总，列出每一笔的具体地址，可以导出表格。</p>';
+      '<p class="sub">你的团队今天、昨天、近 7 天新增了多少业绩：按直推线汇总，列出每一笔的具体地址（高级 VIP 可导出表格）。</p>';
     if (!m) {
       app.innerHTML = head +
-        '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+        '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / Polygon DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>团队新增算力</b><span class="muted">今天 / 昨天 / 近 7 天，一眼看到团队涨了多少</span></div>' +
         '<div class="feature"><b>按直推线汇总</b><span class="muted">哪条线在增长、增长了多少，按多少排序</span></div>' +
         '<div class="feature"><b>具体到每个地址</b><span class="muted">谁、什么时候、投了多少 DAI 或销毁多少 LGNS</span></div>' +
-        '<div class="feature"><b>导出表格</b><span class="muted">一键下载，Excel 直接打开，带交易哈希可核对</span></div></div>';
+        '<div class="feature"><b>导出表格 · 高级 VIP</b><span class="muted">一键下载，Excel 直接打开，带交易哈希可核对</span></div></div>';
       return;
     }
     var form = ownBar(m);
@@ -1216,7 +1313,7 @@
     if (member()) return A.renderTeam(id, addr);
     A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
       '<p class="sub">查看你自己（付款钱包）的直推线、每条线的团队地址数和算力、三个区业绩，以及官方 P1–P7 等级。</p>' +
-      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元等值（LGNS / AiLGNS / Polygon DAI 任选），一次付款永久使用</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+      '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / Polygon DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
       '<div class="features">' +
       '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队地址数、团队算力，按算力排序</span></div>' +
       '<div class="feature"><b>三个区业绩</b><span class="muted">对比下一级门槛，差多少一目了然</span></div>' +
@@ -1233,7 +1330,8 @@
     if (["member", "team", "growth", "tree"].indexOf(tab) < 0) { el.hidden = true; return; }
     var lock = member() ? "" : ' <span class="lock">🔒</span>';
     el.hidden = false;
-    el.innerHTML = [["member", "会员中心", ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock]].map(function (t) {
+    var mm = member();
+    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini' + (mm.tier === "pro" ? " on" : "") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock]].map(function (t) {
       return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + ">" + t[1] + t[2] + "</a>";
     }).join("");
   }
