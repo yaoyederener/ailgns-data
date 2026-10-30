@@ -755,6 +755,7 @@
       draw();
       pz.center(n.x + 24 + NODE_W / 2, n.y + 24 + NODE_H / 2, 1);
       showPath(n);
+      pathEl.scrollIntoView({ behavior: "smooth", block: "start" }); // 手机上把路径和图滚到眼前
       st.textContent = "";
     }
     function find() {

@@ -472,3 +472,10 @@ a:active, button:active { opacity: .85; }
 .tp-step.on { border-color: #ff7a1a; background: #fff7ef; }
 .tp-arrow { font-style: normal; color: var(--muted); flex: none; }
 @media (max-width: 600px) { .tree-find select { flex: 1; } .tree-find button { flex: none; } }
+@media (max-width: 600px) {
+  .tree-bar { gap: 6px; }
+  .tree-bar [data-z] { display: none; } /* 手机用双指缩放 */
+  .tree-bar button { padding: 7px 11px; font-size: 13px; }
+  .tree-path { padding: 10px 12px; }
+  .tree-box { height: 70vh; }
+}
