@@ -651,6 +651,7 @@
         k = nk || Math.max(k, 0.9);
         tx = box.clientWidth / 2 - x * k; ty = box.clientHeight / 2 - y * k; apply();
       },
+      shift: function (dx, dy) { tx += dx * k; ty += dy * k; apply(); }, // 画布坐标里移动 (dx, dy)
       wasDrag: function () { return moved; }
     };
   }
@@ -801,7 +802,8 @@
       '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
   }
 
-  var SHOW_CAP = 400; // 页面上一次最多画多少个框（手机浏览器画太大的图会白屏）
+  // 页面上一次最多画多少个框：太大手机浏览器会白屏，也看不清
+  var SHOW_CAP = window.innerWidth < 600 ? 120 : 400;
   function shown(n) { // 当前展开状态下画出来的框数
     var c = 1;
     if (n.expanded && n.children) { n.children.forEach(function (k) { c += shown(k); }); if (n.more) c++; }
@@ -819,6 +821,12 @@
       size = t;
       if (fit) pz.fit(t.w, t.h, root.y + 24 + NODE_H / 2);
     }
+    // 展开/收起后重新排版，点的那个节点会挪位置；把画面跟着挪回来，让它留在原来的位置上
+    function drawKeep(n) {
+      var ox = n.x, oy = n.y;
+      draw();
+      pz.shift(ox - n.x, oy - n.y);
+    }
     draw(true);
     inner.addEventListener("click", function (e) {
       if (pz.wasDrag()) return;
@@ -826,9 +834,9 @@
       if (!g) return;
       var n = find(root, g.getAttribute("data-a"));
       if (!n || !n.direct || n.loading || n === root && !n.children) return;
-      if (n.children) { n.expanded = !n.expanded; draw(); return; }
-      n.loading = true; draw();
-      load(n).then(function () { n.loading = false; n.expanded = true; if (A.isCurrent(id)) draw(); }, function () { n.loading = false; draw(); });
+      if (n.children) { n.expanded = !n.expanded; drawKeep(n); return; }
+      n.loading = true; drawKeep(n);
+      load(n).then(function () { n.loading = false; n.expanded = true; if (A.isCurrent(id)) drawKeep(n); }, function () { n.loading = false; drawKeep(n); });
     });
     app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h, root.y + 24 + NODE_H / 2); };
     app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
