@@ -45,6 +45,9 @@
     if (own && route && route !== "wallet" && a.toLowerCase() !== own) return '<span class="mono" title="' + a + '">' + short(a) + "</span>";
     return '<a class="mono" href="#/' + (route || "wallet") + "/" + a.toLowerCase() + '" title="' + a + '">' + short(a) + "</a>";
   }
+  // 算力折算成真实入金：算力 ÷ 2.5 = 入金 DAI
+  var POWER_PER_DAI = 2.5;
+  function toDai(power) { return Number(power || 0) / POWER_PER_DAI; }
   function timeBJ(d) {
     return new Date(d).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
   }
@@ -327,7 +330,7 @@
       html += '<div class="kpi hero"><div class="k">官方等级</div><div class="v">' + (lvl && lvl.level ? "P" + lvl.level : "无等级") + '</div><div class="d">' + (lvl ? "官方第 " + lvl.day + " 天评估" : "暂无评估") + "</div></div>";
       if (pw && pw.summary) html += '<div class="kpi"><div class="k">生效算力</div><div class="v num">' + wan(pw.summary.activePower) + '</div><div class="d">投入 ' + wan(pw.summary.totalDai) + " DAI · " + pw.summary.records + " 笔</div></div>";
       if (lvl) html += '<div class="kpi"><div class="k">ve 锁仓价值</div><div class="v num">' + wan(lvl.veUsd) + '<small>DAI</small></div><div class="d">个人业绩 ' + wan(lvl.selfPower) + "</div></div>";
-      if (com) html += '<div class="kpi"><div class="k">团队</div><div class="v num">' + fmt(com.team) + '<small>个地址</small></div><div class="d">直推 ' + fmt(com.direct) + " · 团队算力 " + wan(com.teamActivePower) + "</div></div>";
+      if (com) html += '<div class="kpi"><div class="k">团队</div><div class="v num">' + fmt(com.team) + '<small>个地址</small></div><div class="d">直推 ' + fmt(com.direct) + " · 团队入金 " + wan(toDai(com.teamActivePower)) + " DAI</div></div>";
       html += '<div class="kpi"><div class="k">钱包余额</div><div class="v num">' + (dai != null ? wan(dai) : "—") + '<small>DAI</small></div><div class="d">' + (ail != null ? fmt(ail, 4) : "—") + " AiLGNS</div></div>";
       html += "</div>";
 
@@ -340,7 +343,7 @@
           "<dt>所在层级</dt><dd>第 " + fmt(com.level) + " 层</dd>" +
           "<dt>直推地址数</dt><dd>" + fmt(com.direct) + "</dd>" +
           "<dt>团队地址数</dt><dd>" + fmt(com.team) + "</dd>" +
-          "<dt>团队生效算力</dt><dd>" + fmt(com.teamActivePower) + "</dd></dl></section>";
+          "<dt>团队入金</dt><dd>" + fmt(toDai(com.teamActivePower)) + " DAI <span class=\"muted\">（团队算力 ÷ 2.5）</span></dd></dl></section>";
       }
       html += "</div>";
 
@@ -400,7 +403,7 @@
   var lv_ = lv;
 
   function renderTeam(id, addr) {
-    var head = '<h1>团队与等级</h1><p class="sub">你的付款地址的直推线、每条线的团队地址数和算力，以及官方 P 等级。</p>';
+    var head = '<h1>团队与等级</h1><p class="sub">你的付款地址的直推线、每条线的团队地址数和入金（DAI），以及官方 P 等级。</p>';
     var box = function (v) { return window.AIL.ownOnly ? "" : searchBox("team", v); };
     app.innerHTML = head + box(addr) + '<div class="loading">正在读取…</div>';
     var levelP = api("/level").then(function (l) { THRESHOLDS = l.thresholds; return l; }).catch(function () { return null; });
@@ -423,12 +426,12 @@
         if (com) {
           html += '<div class="kpi"><div class="k">直推</div><div class="v num">' + fmt(com.direct) + '<small>个地址</small></div><div class="d">链上可读 ' + (refs ? fmt(refs.total) : "—") + " 个</div></div>";
           html += '<div class="kpi"><div class="k">团队地址数</div><div class="v num">' + fmt(com.team) + '<small>个地址</small></div><div class="d">所在第 ' + fmt(com.level) + " 层</div></div>";
-          html += '<div class="kpi"><div class="k">团队生效算力</div><div class="v num">' + wan(com.teamActivePower) + "</div><div class=\"d\">官方统计</div></div>";
+          html += '<div class="kpi"><div class="k">团队入金</div><div class="v num">' + wan(toDai(com.teamActivePower)) + '<small>DAI</small></div><div class="d">官方团队算力 ÷ 2.5</div></div>';
         }
         html += "</div>";
         if (me) html += zonesCard(me);
         html += '<section class="card"><div class="card-head"><h2>直推线</h2><span class="muted" id="lines-status"></span></div><div id="lines"><div class="loading">正在读取每条线…</div></div>' +
-          '<p class="note">按整条线的团队算力从大到小排列，前三条通常就是官方的三个区（官方未公开分区规则，以官方等级为准）。</p></section>';
+          '<p class="note">按整条线的团队入金从大到小排列，前三条通常就是官方的三个区（官方未公开分区规则，以官方等级为准）。</p></section>';
         html += '<a class="promo" href="#/growth/' + addr + '" style="margin-bottom:16px"><span class="promo-tag">会员</span><b>团队新增业绩</b><span class="promo-txt">这个团队今天、昨天、近 7 天新增了多少，具体到每个地址</span><span class="promo-go">去查看 →</span></a>';
         if (lvAll) html += levelOverview(lvAll);
         app.innerHTML = html;
@@ -439,10 +442,10 @@
         var rows = [];
         function draw() {
           var sorted = rows.filter(Boolean).sort(function (a, b) { return b.total - a.total; });
-          var s = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th class="l">直推地址</th><th class="l">等级</th><th>个人业绩</th><th>团队地址数</th><th>团队算力</th><th>直推</th></tr></thead><tbody>';
+          var s = '<div class="tbl-wrap"><table><thead><tr><th>#</th><th class="l">直推地址</th><th class="l">等级</th><th>个人业绩</th><th>团队地址数</th><th>团队入金 DAI</th><th>直推</th></tr></thead><tbody>';
           sorted.forEach(function (x, i) {
             s += "<tr><td>" + (i < 3 ? '<b style="color:var(--gold)">' + ["一区", "二区", "三区"][i] + "</b>" : i + 1) + '</td><td class="l">' + addrLink(x.a, "team") + '</td><td class="l">' + lv(x.level) + "</td><td>" + wan(x.self) + "</td><td>" + fmt(x.team) +
-              "</td><td><b>" + wan(x.teamPower) + "</b></td><td>" + fmt(x.direct) + "</td></tr>";
+              "</td><td><b>" + wan(toDai(x.teamPower)) + "</b></td><td>" + fmt(x.direct) + "</td></tr>";
           });
           document.getElementById("lines").innerHTML = s + "</tbody></table></div>";
         }
@@ -494,7 +497,7 @@
     if (u) { e.preventDefault(); toggleWatch(u.getAttribute("data-unwatch")); route(); }
   });
   // 给 member.js 等扩展页面用的公共工具
-  window.AIL = {
+  window.AIL = { toDai: toDai,
     pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
