@@ -130,6 +130,23 @@ button:disabled { opacity: .5; cursor: default; }
 .tree-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .tree-inner svg { display: block; }
 .node:hover rect:first-of-type { filter: brightness(1.25); }
+.flow { display: grid; gap: 10px; margin-bottom: 16px; }
+.flow-step { display: flex; gap: 12px; align-items: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.flow-step > b { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--line); font-size: 13px; }
+.flow-step.ok { border-color: var(--up); }
+.flow-step.ok > b { background: var(--up); color: #111; }
+.flow-step .muted { font-size: 13px; }
+.flow-t { font-weight: 600; margin-bottom: 2px; }
+details.manual summary { cursor: pointer; color: var(--muted); }
+details.manual[open] summary { color: var(--text); }
+.demo-cta { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: linear-gradient(90deg, var(--gold-soft), var(--panel)); border: 1px solid var(--gold); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 14px; }
+.demo-cta div { display: grid; }
+.demo-cta .muted { font-size: 13px; }
+.demo-cta .btn { padding: 10px 20px; flex: none; }
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.feature { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+.feature .muted { font-size: 13px; }
+.demo-tag { display: inline-block; font-size: 12px; color: var(--gold); background: var(--gold-soft); border-radius: 6px; padding: 2px 8px; margin-bottom: 8px; }
 
 @media (max-width: 600px) {
   .top-in { height: auto; padding: 10px 16px; flex-direction: column; align-items: stretch; gap: 8px; }
@@ -142,4 +159,6 @@ button:disabled { opacity: .5; cursor: default; }
   .tbl-wrap { margin: 0 -14px; padding: 0 14px; }
   .chart { height: 200px; }
   .grid2 { grid-template-columns: 1fr; }
+  .demo-cta { flex-direction: column; align-items: stretch; text-align: center; }
+  .tree-box { height: 62vh; }
 }

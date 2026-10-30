@@ -1,4 +1,4 @@
-// 会员：用 Anubis 链 LGNS 付款开通（一次付款永久），开通后可以画团队结构图
+// 会员：用钱包签名注册、用 Anubis 链 LGNS 付款开通（一次付款永久），开通后可以画团队结构图；未开通时展示示例结构图
 (function () {
   "use strict";
 
@@ -65,15 +65,33 @@
     return "0x" + Array.from(new TextEncoder().encode(str)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
   }
 
-  // 连接钱包 → 签名证明是本人 → 查链上付款
-  function verify(status) {
-    var eth = window.ethereum;
-    if (!eth) return Promise.reject(new Error("没有检测到钱包。请在 Bitget Wallet、TokenPocket 或 MetaMask 的 DApp 浏览器里打开 ailgns.dev 再点验证。"));
-    var addr, msg, sig;
-    status("请在钱包里确认连接…");
-    return eth.request({ method: "eth_requestAccounts" }).then(function (accs) {
+  // ---------- 钱包：注册（签名）与付款 ----------
+  var CHAIN = {
+    chainId: "0x1a3a", chainName: "Anubis Chain",
+    nativeCurrency: { name: "gasDAI", symbol: "DAI", decimals: 18 },
+    rpcUrls: ["https://rpc.anubispace.org"], blockExplorerUrls: [EXPLORER]
+  };
+  var NO_WALLET = "没有检测到钱包。请在 Bitget Wallet、TokenPocket 或 MetaMask 的 DApp 浏览器里打开 ailgns.dev。";
+
+  function wallet() {
+    if (!window.ethereum) throw new Error(NO_WALLET);
+    return window.ethereum;
+  }
+  function walletError(e) {
+    if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里取消了操作";
+    return (e && (e.message || e.reason)) || "操作失败，请重试";
+  }
+
+  // 第 1 步：连接钱包并签名，证明这个地址是你的（不花钱、不授权）
+  function register(status) {
+    var eth, addr, msg, sig;
+    return Promise.resolve().then(function () {
+      eth = wallet();
+      status("请在钱包里确认连接…");
+      return eth.request({ method: "eth_requestAccounts" });
+    }).then(function (accs) {
       addr = String(accs[0]).toLowerCase();
-      msg = "AiLGNS 数据站会员验证\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
+      msg = "AiLGNS 数据站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
       status("请在钱包里签名（不花钱、不授权）…");
       return eth.request({ method: "personal_sign", params: [utf8Hex(msg), addr] });
     }).then(function (s) {
@@ -82,28 +100,82 @@
       return loadEthers();
     }).then(function (ethers) {
       if (ethers.verifyMessage(msg, sig).toLowerCase() !== addr) throw new Error("签名和地址对不上，请重试");
-      status("正在查找链上付款记录…");
-      return findPayment(addr);
-    }).then(function (pay) {
-      if (!pay) {
-        var e = new Error("签名成功，但没有找到 " + A.short(addr) + " 转给收款地址的 LGNS。付款后等 1 分钟左右再点验证。");
-        e.addr = addr;
-        throw e;
-      }
-      saveMember({ addr: addr, msg: msg, sig: sig, tx: pay.tx, block: pay.block, paid: pay.paid, at: Date.now() });
-      return pay;
+      return { addr: addr, msg: msg, sig: sig };
     });
+  }
+
+  function switchChain(eth) {
+    return eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN.chainId }] }).catch(function (e) {
+      if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
+        return eth.request({ method: "wallet_addEthereumChain", params: [CHAIN] });
+      }
+      throw e;
+    });
+  }
+  function waitReceipt(hash) {
+    var tries = 0;
+    return new Promise(function (ok, fail) {
+      (function poll() {
+        A.rpc("eth_getTransactionReceipt", [hash]).then(function (r) {
+          if (r) return r.status === "0x1" ? ok(r) : fail(new Error("转账失败（交易被链上拒绝）"));
+          if (++tries > 90) return fail(new Error("等了 3 分钟还没确认，请稍后到会员页点「验证」"));
+          setTimeout(poll, 2000);
+        }, function () { setTimeout(poll, 3000); });
+      })();
+    });
+  }
+  // 直接从交易回执里确认这笔 LGNS 转账，不用等浏览器索引
+  function paymentFromReceipt(r, addr) {
+    var topic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+    var log = (r.logs || []).filter(function (l) {
+      return l.address.toLowerCase() === LGNS.toLowerCase() && l.topics[0] === topic &&
+        "0x" + l.topics[1].slice(26) === addr && "0x" + l.topics[2].slice(26) === RECEIVER;
+    })[0];
+    if (!log) return Promise.resolve(null);
+    var amount = Number(BigInt(log.data)) / 1e9, block = parseInt(r.blockNumber, 16);
+    return lgnsPrice(block - 1).then(function (p) {
+      var need = required(p);
+      return amount >= need * TOLERANCE ? { tx: r.transactionHash, block: block, paid: amount, need: need } : null;
+    });
+  }
+
+  // 第 2 步：用钱包直接付款（切到 Anubis 链 → 转 LGNS → 等确认）
+  function pay(reg, status) {
+    var eth = wallet(), need;
+    status("正在切换到 Anubis 链…");
+    return switchChain(eth).then(function () {
+      return Promise.all([lgnsPrice(), A.call(LGNS, "0x70a08231" + A.pad(reg.addr))]);
+    }).then(function (r) {
+      need = required(r[0]);
+      var bal = Number(A.word(r[1], 0)) / 1e9;
+      if (bal < need) throw new Error("钱包里只有 " + A.fmt(bal, 2) + " LGNS，开通需要 " + A.fmt(need) + " LGNS");
+      status("请在钱包里确认转账 " + A.fmt(need) + " LGNS…");
+      var data = "0xa9059cbb" + A.pad(RECEIVER) + (BigInt(need) * 1000000000n).toString(16).padStart(64, "0");
+      return eth.request({ method: "eth_sendTransaction", params: [{ from: reg.addr, to: LGNS, data: data }] });
+    }).then(function (hash) {
+      status("已提交，等待链上确认…（通常几秒钟）");
+      return waitReceipt(hash);
+    }).then(function (r) {
+      return paymentFromReceipt(r, reg.addr);
+    }).then(function (p) {
+      if (!p) throw new Error("转账已确认，但金额不够。请到会员页点「验证」重新核对，或联系站长");
+      return p;
+    });
+  }
+
+  function activate(reg, p) {
+    saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, tx: p.tx, block: p.block, paid: p.paid, at: Date.now() });
   }
 
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">一次付款，永久使用。开通后可以输入任意地址，画出整个团队的结构图。</p>';
+    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款，一次付款永久使用。开通后输入任意地址，就能画出整个团队的结构图。</p>';
     if (m) {
       app.innerHTML = head + '<section class="card"><div class="card-head"><h2>✓ 你已经是会员</h2><span class="muted">本浏览器已验证</span></div><dl class="dl">' +
-        "<dt>会员地址</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + A.fmt(m.paid, 2) + ' LGNS · <a target="_blank" rel="noopener" href="' + EXPLORER + "/tx/" + m.tx + '">查看交易 ↗</a></dd></dl>' +
-        '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出会员</button></div>' +
-        '<p class="note">换浏览器或换手机时，用同一个钱包再点一次「验证」就行，不用重复付款。</p></section>';
+        "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + A.fmt(m.paid, 2) + ' LGNS · <a target="_blank" rel="noopener" href="' + EXPLORER + "/tx/" + m.tx + '">查看交易 ↗</a></dd></dl>' +
+        '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
+        '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
       document.getElementById("logout").onclick = function () { logout(); renderMember(id); };
       return;
     }
@@ -114,17 +186,19 @@
       app.innerHTML = head +
         '<div class="kpis"><div class="kpi hero"><div class="k">开通会员需要</div><div class="v num">' + A.fmt(need) + '<small>LGNS</small></div><div class="d">= ' + FEE_DAI + " DAI · LGNS 按实时价 50% 折算</div></div>" +
         '<div class="kpi"><div class="k">LGNS 实时价格</div><div class="v num">' + p.toFixed(5) + '<small>DAI</small></div><div class="d">Anubis 链 LGNS/DAI 池</div></div>' +
-        '<div class="kpi"><div class="k">有效期</div><div class="v">永久</div><div class="d">一次付款，绑定付款钱包</div></div></div>' +
-        '<section class="card"><div class="card-head"><h2>开通步骤</h2></div><ol class="steps">' +
-        "<li>用你自己的钱包，在 <b>Anubis 链</b>上转 <b>" + A.fmt(need) + " LGNS</b> 到下面的收款地址：" +
+        '<div class="kpi"><div class="k">有效期</div><div class="v">永久</div><div class="d">一次付款，绑定你的钱包</div></div></div>' +
+        '<section class="card"><div class="card-head"><h2>用钱包开通</h2><a href="#/tree">先看看效果 →</a></div>' +
+        '<div class="flow"><div class="flow-step" id="s1"><b>1</b><div><div class="flow-t">连接钱包，签名注册</div><div class="muted">证明钱包是你的。只是签一段文字：<b>不花钱、不授权、不发交易</b>。已经付过款的，签完直接开通。</div></div></div>' +
+        '<div class="flow-step" id="s2"><b>2</b><div><div class="flow-t">钱包付款 ' + A.fmt(need) + ' LGNS</div><div class="muted">自动切到 Anubis 链，在钱包里确认一笔 LGNS 转账。确认后几秒钟自动开通。</div></div></div></div>' +
+        '<button id="go" style="padding:12px 22px;margin-top:4px">连接钱包</button><p class="note" id="st"></p>' +
+        '<p class="note">手机上请在 <b>Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b>。电脑上需要装 MetaMask 等浏览器插件钱包。</p></section>' +
+        '<details class="card manual"><summary>不方便用 DApp 浏览器？手动转账也可以</summary><ol class="steps" style="margin-top:12px">' +
+        "<li>在 <b>Anubis 链</b>上转 <b>" + A.fmt(need) + " LGNS</b> 到收款地址：" +
         '<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div>' +
         '<span class="muted">只收 Anubis 链上的 LGNS（合约 ' + A.short(LGNS) + "），转其他币或其他链无法开通，也无法退回。</span></li>" +
-        "<li>转账成功后，在钱包的 DApp 浏览器里打开 <b>ailgns.dev</b>，进入本页，点下面的按钮。钱包会让你签一段文字，用来证明是本人，<b>不花钱、不授权、不发交易</b>。</li>" +
-        "<li>验证通过后，这个浏览器就是会员了。换设备时再验证一次即可。</li></ol>" +
-        '<button id="verify" style="padding:12px 22px;margin-top:6px">我已付款，连接钱包验证</button><p class="note" id="vstatus"></p></section>' +
-        '<section class="card"><div class="card-head"><h2>会员能做什么</h2></div><p style="margin:0">输入任意钱包地址，画出它的<b>团队结构图</b>：每个人的等级、团队人数、团队算力一目了然，可以一层层点开、缩放拖动，也能导出图片发给团队。</p>' +
-        '<p class="note"><a href="#/tree">先看看结构图页面 →</a></p></section>' +
-        '<p class="note">本站只读，不会向你索取私钥或助记词。除了上面这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        "<li>之后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的付款并开通。</li></ol></details>" +
+        '<p class="note">本站不会向你索取私钥或助记词。除了这一笔自愿付款，任何以本站名义要求转账、授权的都是诈骗。</p>';
+
       document.getElementById("copy").onclick = function () {
         var b = this;
         (navigator.clipboard ? navigator.clipboard.writeText(RECEIVER) : Promise.reject()).then(function () { b.textContent = "已复制"; }, function () {
@@ -132,17 +206,34 @@
           var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = "已选中，请复制";
         });
       };
-      var st = document.getElementById("vstatus");
-      document.getElementById("verify").onclick = function () {
-        var btn = this;
-        btn.disabled = true;
-        st.className = "note";
-        verify(function (t) { st.textContent = t; }).then(function () {
-          location.hash = "#/tree";
+      var st = document.getElementById("st"), go = document.getElementById("go"), reg = null;
+      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      function done(step) { document.getElementById(step).classList.add("ok"); }
+      go.onclick = function () {
+        go.disabled = true;
+        var step = reg ? Promise.resolve(reg) : register(say).then(function (r) {
+          reg = r; done("s1");
+          say("签名成功，正在查找你之前的付款…");
+          return findPayment(r.addr).catch(function () { return null; }).then(function (p) {
+            if (p) { activate(r, p); location.hash = "#/tree"; throw null; }
+            return r;
+          });
+        });
+        step.then(function (r) {
+          go.textContent = "付款 " + A.fmt(need) + " LGNS";
+          say("已注册 " + A.short(r.addr) + "。点上面的按钮用钱包付款。");
+          go.disabled = false;
+          go.onclick = function () {
+            go.disabled = true;
+            pay(r, say).then(function (p) {
+              done("s2"); activate(r, p);
+              say("付款成功，会员已开通！");
+              setTimeout(function () { location.hash = "#/tree"; }, 800);
+            }, function (e) { say(walletError(e), true); go.disabled = false; });
+          };
         }, function (e) {
-          st.className = "note down";
-          st.textContent = (e && (e.message || e.reason)) || "验证失败，请重试";
-          btn.disabled = false;
+          if (e === null) return; // 已经付过款，直接跳转
+          say(walletError(e), true); go.disabled = false;
         });
       };
     }, function () {
@@ -295,19 +386,104 @@
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
 
+  // 示例数据：随机生成一个团队，只用来展示效果
+  function demoTree() {
+    var seed = 20261030;
+    function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+    function addr() { var s = "0x"; for (var i = 0; i < 40; i++) s += "0123456789abcdef"[Math.floor(rnd() * 16)]; return s; }
+    function levelOf(p) { return p >= 3.75e6 ? 3 : p >= 1.1e6 ? 2 : p >= 3.8e5 ? 1 : 0; }
+    function node(power, depth) {
+      var team = Math.max(0, Math.round(power / (2000 + rnd() * 3000)));
+      var n = { a: addr(), power: Math.round(power), team: team, self: Math.round(5000 + rnd() * 40000), level: levelOf(power / 3), direct: 0, children: null, expanded: false, demo: true };
+      if (team > 0 && depth < 5) {
+        var k = Math.min(6, 2 + Math.floor(rnd() * 5)), left = power * 0.85, kids = [];
+        for (var i = 0; i < k; i++) { var share = i === k - 1 ? left : left * (0.35 + rnd() * 0.4); left -= share; kids.push(node(share, depth + 1)); }
+        kids.sort(function (x, y) { return y.power - x.power; });
+        kids.forEach(function (c, i) { c.zone = i < 3 && c.power > 0 ? i + 1 : 0; });
+        n.children = kids;
+        n.more = Math.floor(rnd() * 9);
+        n.direct = kids.length + n.more;
+      }
+      return n;
+    }
+    var root = node(2.9e7, 0);
+    root.level = 4;
+    root.expanded = true;
+    root.children.slice(0, 3).forEach(function (c) { c.expanded = true; });
+    return root;
+  }
+
+  function diagramHtml(note) {
+    return '<div class="tree-bar"><button class="ghost" data-z="1.25">放大</button><button class="ghost" data-z="0.8">缩小</button><button class="ghost" data-fit>适应屏幕</button>' +
+      '<button class="ghost" data-expand>展开下一层</button><button data-png>导出图片</button><span class="muted" id="tree-status"></span></div>' +
+      '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div><p class="note">' + note + "</p>";
+  }
+
+  // 把树画进页面，并接上点击展开、缩放、导出；load(n) 负责读取节点的直推
+  function mountDiagram(id, root, load) {
+    var app = A.app;
+    var box = document.getElementById("tree-box"), inner = document.getElementById("tree-inner"), st = document.getElementById("tree-status");
+    var pz = panZoom(box, inner), size;
+    function draw(fit) {
+      var t = treeSvg(root);
+      inner.innerHTML = t.svg;
+      size = t;
+      if (fit) pz.fit(t.w, t.h);
+    }
+    draw(true);
+    inner.addEventListener("click", function (e) {
+      if (pz.wasDrag()) return;
+      var g = e.target.closest(".node");
+      if (!g) return;
+      var n = find(root, g.getAttribute("data-a"));
+      if (!n || !n.direct || n.loading || n === root && !n.children) return;
+      if (n.children) { n.expanded = !n.expanded; draw(); return; }
+      n.loading = true; draw();
+      load(n).then(function () { n.loading = false; n.expanded = true; if (A.isCurrent(id)) draw(); }, function () { n.loading = false; draw(); });
+    });
+    app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h); };
+    app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
+    app.querySelector("[data-png]").onclick = function () { exportPng(root); };
+    app.querySelector("[data-expand]").onclick = function () {
+      // 展开当前最外层里所有有直推的节点
+      var leaves = [];
+      (function walk(n) { if (n.expanded && n.children) n.children.forEach(walk); else if (n.direct && !n.moreOf) leaves.push(n); })(root);
+      if (!leaves.length) { st.textContent = "已经全部展开"; return; }
+      leaves = leaves.slice(0, 40);
+      var done = 0;
+      st.textContent = "正在展开 " + leaves.length + " 个节点…";
+      A.pool(leaves, 3, function (n) {
+        if (n.children) { n.expanded = true; return Promise.resolve(); }
+        return load(n).then(function () { n.expanded = true; });
+      }, function () { done++; st.textContent = "正在展开 " + done + " / " + leaves.length; }).then(function () {
+        st.textContent = "";
+        if (A.isCurrent(id)) draw(true);
+      });
+    };
+  }
+
+  var LEGEND = "金色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 " + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。";
+
   function renderTree(id, addr) {
     var app = A.app, m = member();
-    var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">输入地址，画出团队结构。点节点右边的 + 展开下一层，拖动平移，滚轮或双指缩放。</p>';
     if (!m) {
-      app.innerHTML = head + '<section class="card" style="text-align:center;padding:36px 18px"><h2 style="margin-bottom:8px">这是会员功能</h2>' +
-        '<p class="muted" style="margin:0 0 18px">用 LGNS 一次付款，永久使用。输入任意地址就能画出整个团队的结构图，导出图片发给团队。</p>' +
-        '<a class="btn" style="padding:12px 22px;display:inline-block" href="#/member">开通会员 →</a>' +
-        '<p class="note">已经付过款？在钱包 DApp 浏览器里打开会员页，点「验证」即可。</p></section>';
+      app.innerHTML = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
+        '<p class="sub">开通会员后，输入任意钱包地址，就能画出这样的团队结构图。下面是<b>示例效果</b>，可以直接点、拖、缩放试试。</p>' +
+        '<div class="demo-cta"><div><b>' + "一次付款，永久使用" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+        '<div class="features">' +
+        '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少人、多少算力</span></div>' +
+        '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个人的下级，几十层也能看</span></div>' +
+        '<div class="feature"><b>等级标得清清楚楚</b><span class="muted">P1–P7 金色标记，数据来自官方接口</span></div>' +
+        '<div class="feature"><b>导出图片</b><span class="muted">一键保存高清 PNG，直接发团队群</span></div></div>' +
+        '<div class="demo-tag">示例效果 · 地址和数据都是随机生成的</div>' +
+        diagramHtml(LEGEND);
+      mountDiagram(id, demoTree(), function () { return Promise.resolve(); });
       return;
     }
+    var head = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1><p class="sub">输入地址，画出团队结构。点节点右边的 + 展开下一层，拖动平移，滚轮或双指缩放。</p>';
     var form = '<form class="search" data-custom><input name="a" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="' + A.esc(addr || "") + '"><button>画图</button></form>';
     if (!addr) {
-      app.innerHTML = head + form + '<div class="empty">输入一个地址开始画图。会员地址：' + A.addrLink(m.addr, "tree") + "</div>";
+      app.innerHTML = head + form + '<div class="empty">输入一个地址开始画图，或者 <a href="#/tree/' + m.addr + '">画我自己的团队</a></div>';
       bindForm();
       return;
     }
@@ -321,50 +497,9 @@
       return loadChildren(root);
     }).then(function () {
       if (!A.isCurrent(id)) return;
-      app.innerHTML = head + form +
-        '<div class="tree-bar"><button class="ghost" data-z="1.25">放大</button><button class="ghost" data-z="0.8">缩小</button><button class="ghost" data-fit>适应屏幕</button>' +
-        '<button class="ghost" data-expand>展开下一层</button><button data-png>导出图片</button><span class="muted" id="tree-status"></span></div>' +
-        '<div class="tree-box" id="tree-box"><div class="tree-inner" id="tree-inner"></div></div>' +
-        '<p class="note">金色边框 = 有 P 等级；一区、二区、三区按团队算力从大到小估算，以官方等级为准。每层最多画出算力最大的 ' + MAX_CHILDREN + " 个直推，没有团队的直推合并显示。</p>";
+      app.innerHTML = head + form + diagramHtml(LEGEND);
       bindForm();
-      var box = document.getElementById("tree-box"), inner = document.getElementById("tree-inner"), st = document.getElementById("tree-status");
-      var pz = panZoom(box, inner), size;
-      function draw(fit) {
-        var t = treeSvg(root);
-        inner.innerHTML = t.svg;
-        size = t;
-        if (fit) pz.fit(t.w, t.h);
-      }
-      draw(true);
-      inner.addEventListener("click", function (e) {
-        if (pz.wasDrag()) return;
-        var g = e.target.closest(".node");
-        if (!g) return;
-        var n = find(root, g.getAttribute("data-a"));
-        if (!n || !n.direct || n.loading || n === root && !n.children) return;
-        if (n.children) { n.expanded = !n.expanded; draw(); return; }
-        n.loading = true; draw();
-        loadChildren(n).then(function () { n.loading = false; n.expanded = true; if (A.isCurrent(id)) draw(); }, function () { n.loading = false; draw(); });
-      });
-      app.querySelector("[data-fit]").onclick = function () { pz.fit(size.w, size.h); };
-      app.querySelectorAll("[data-z]").forEach(function (b) { b.onclick = function () { pz.zoom(Number(b.getAttribute("data-z"))); }; });
-      app.querySelector("[data-png]").onclick = function () { exportPng(root); };
-      app.querySelector("[data-expand]").onclick = function () {
-        // 展开当前最外层里所有有直推的节点
-        var leaves = [];
-        (function walk(n) { if (n.expanded && n.children) n.children.forEach(walk); else if (n.direct && !n.moreOf) leaves.push(n); })(root);
-        if (!leaves.length) { st.textContent = "已经全部展开"; return; }
-        leaves = leaves.slice(0, 40);
-        var done = 0;
-        st.textContent = "正在展开 " + leaves.length + " 个节点…";
-        A.pool(leaves, 3, function (n) {
-          if (n.children) { n.expanded = true; return Promise.resolve(); }
-          return loadChildren(n).then(function () { n.expanded = true; });
-        }, function () { done++; st.textContent = "正在展开 " + done + " / " + leaves.length; }).then(function () {
-          st.textContent = "";
-          if (A.isCurrent(id)) draw(true);
-        });
-      };
+      mountDiagram(id, root, loadChildren);
     }, function () {
       if (A.isCurrent(id)) app.innerHTML = head + form + '<div class="card err">读取失败，请确认地址正确，稍后再试。</div>';
       bindForm();
