@@ -1394,34 +1394,34 @@
       });
       var lineList = Object.keys(lines).map(function (k) { return lines[k]; }).sort(function (a, b) { return b.power - a.power; });
       var fmtT = function (t) { return new Date(t * 1000).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }); };
-      var html = '<div class="kpis" style="margin-top:4px"><div class="kpi hero"><div class="k">团队新增算力</div><div class="v num">' + A.fmt(sum(team)) + '</div><div class="d">' + team.length + " 笔 · " + uniq(team) + " 个地址</div></div>" +
+      var html = '<div class="kpis" style="margin-top:4px"><div class="kpi hero"><div class="k">团队新增入金</div><div class="v num">' + A.fmt(A.toDai(sum(team)), 2) + '<small>DAI</small></div><div class="d">' + team.length + " 笔 · " + uniq(team) + " 个地址</div></div>" +
         '<div class="kpi"><div class="k">其中 DAI 投入</div><div class="v num">' + A.fmt(sum(team, "dai"), 2) + '<small>DAI</small></div><div class="d">真实 DAI，P 等级按这个算</div></div>' +
-        '<div class="kpi"><div class="k">其中销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">换来的算力也计入新增</div></div>' +
-        '<div class="kpi"><div class="k">本人新增</div><div class="v num">' + A.fmt(sum(self)) + '</div><div class="d">' + self.length + " 笔（不计入团队）</div></div></div>";
+        '<div class="kpi"><div class="k">其中销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">按换来的算力 ÷ 2.5 计入新增入金</div></div>' +
+        '<div class="kpi"><div class="k">本人新增入金</div><div class="v num">' + A.fmt(A.toDai(sum(self)), 2) + '<small>DAI</small></div><div class="d">' + self.length + " 笔（不计入团队）</div></div></div>";
       html = '<p class="note g-status">' + status + "</p>" + html;
       if (!rows.length) {
         shell(html + '<div class="empty">这段时间团队里没有新增投资（全网共 ' + A.fmt(scanned) + " 笔）</div>");
         bindRefresh();
         return;
       }
-      html += '<h3 class="g-h">按直推线</h3><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">直推线</th><th>新增算力</th><th>DAI 投入</th><th>销毁 LGNS</th><th>笔数</th><th>地址数</th></tr></thead><tbody>' +
+      html += '<h3 class="g-h">按直推线</h3><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">直推线</th><th>新增入金 DAI</th><th>DAI 投入</th><th>销毁 LGNS</th><th>笔数</th><th>地址数</th></tr></thead><tbody>' +
         lineList.map(function (L) {
-          return '<tr><td data-l="直推线" class="l">' + A.addrLink(L.line, "team") + '</td><td data-l="新增算力"><b>' + A.fmt(L.power) + '</b></td><td data-l="DAI 投入">' + A.fmt(L.dai, 2) + '</td><td data-l="销毁 LGNS">' + A.fmt(L.lgns, 2) +
+          return '<tr><td data-l="直推线" class="l">' + A.addrLink(L.line, "team") + '</td><td data-l="新增入金 DAI"><b>' + A.fmt(A.toDai(L.power), 2) + '</b></td><td data-l="DAI 投入">' + A.fmt(L.dai, 2) + '</td><td data-l="销毁 LGNS">' + A.fmt(L.lgns, 2) +
             '</td><td data-l="笔数">' + L.n + '</td><td data-l="地址数">' + Object.keys(L.who).length + "</td></tr>";
         }).join("") + "</tbody></table></div>";
-      html += '<div class="card-head" style="margin-top:18px"><h3 class="g-h" style="margin:0">具体地址</h3><button class="ghost" id="g-csv" style="padding:6px 14px">导出表格</button></div><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">时间</th><th class="l">地址</th><th class="l">方式</th><th>投入</th><th>新增算力</th><th class="l">所属直推线</th><th>第几层</th></tr></thead><tbody>' +
+      html += '<div class="card-head" style="margin-top:18px"><h3 class="g-h" style="margin:0">具体地址</h3><button class="ghost" id="g-csv" style="padding:6px 14px">导出表格</button></div><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">时间</th><th class="l">地址</th><th class="l">方式</th><th>投入</th><th>新增入金 DAI</th><th class="l">所属直推线</th><th>第几层</th></tr></thead><tbody>' +
         rows.slice(0, 500).map(function (r) {
           return '<tr><td data-l="时间" class="l">' + fmtT(r.t) + '</td><td data-l="地址" class="l">' + A.addrLink(r.addr, "team") + '</td><td data-l="方式" class="l">' + (r.kind === "LGNS" ? "销毁 LGNS" : "DAI 买入") +
-            '</td><td data-l="投入">' + (r.kind === "LGNS" ? A.fmt(r.lgns, 2) + " LGNS" : A.fmt(r.dai, 2) + " DAI") + '</td><td data-l="新增算力"><b>' + A.fmt(r.power) + "</b>" +
+            '</td><td data-l="投入">' + (r.kind === "LGNS" ? A.fmt(r.lgns, 2) + " LGNS" : A.fmt(r.dai, 2) + " DAI") + '</td><td data-l="新增入金 DAI"><b>' + A.fmt(A.toDai(r.power), 2) + "</b>" +
             '</td><td data-l="所属直推线" class="l">' + (r.line === "self" ? "本人" : A.addrLink(r.line, "team")) + '</td><td data-l="第几层">' + (r.line === "self" ? "—" : r.depth) + "</td></tr>";
         }).join("") + "</tbody></table></div>" +
         (rows.length > 500 ? '<p class="note">只显示最近 500 笔，导出表格可以拿到全部 ' + rows.length + " 笔。</p>" : "") +
-        '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
+        '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。新增入金 = 新增算力 ÷ 2.5，折算成真实投入的 DAI。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
       shell(html);
       bindRefresh();
       document.getElementById("g-csv").onclick = proOnly(function () {
-        var csv = "时间,地址,方式,DAI,LGNS,新增算力,所属直推线,第几层,交易或区块\n" + lastRows.map(function (r) {
-          return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, r.power, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx || "区块 " + r.block].join(",");
+        var csv = "时间,地址,方式,DAI,LGNS,新增入金DAI,所属直推线,第几层,交易或区块\n" + lastRows.map(function (r) {
+          return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, Math.round(A.toDai(r.power) * 100) / 100, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx || "区块 " + r.block].join(",");
         }).join("\n");
         var a = document.createElement("a");
         a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
@@ -1454,7 +1454,7 @@
       app.innerHTML = head +
         '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / Polygon DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
-        '<div class="feature"><b>团队新增算力</b><span class="muted">今天 / 昨天 / 近 7 天，一眼看到团队涨了多少</span></div>' +
+        '<div class="feature"><b>团队新增入金</b><span class="muted">今天 / 昨天 / 近 7 天，团队新增了多少 DAI 一眼看到</span></div>' +
         '<div class="feature"><b>按直推线汇总</b><span class="muted">哪条线在增长、增长了多少，按多少排序</span></div>' +
         '<div class="feature"><b>具体到每个地址</b><span class="muted">谁、什么时候、投了多少 DAI 或销毁多少 LGNS</span></div>' +
         '<div class="feature"><b>导出表格 · 高级 VIP</b><span class="muted">一键下载，Excel 直接打开，带交易哈希可核对</span></div></div>';
