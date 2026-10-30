@@ -133,6 +133,18 @@
   }
 
   // ---------- 页面 ----------
+  // 和 DEX 兑换对比：醒目标识（DEX 手续费区间 3%–28% 由站长提供）
+  var VS = '<section class="vs"><div class="vs-head"><span class="vs-tag">为什么在这里交易</span>' +
+    '<h2>比官方 DEX 兑换更省：<em>0 滑点</em>，手续费只要 <em>1%</em></h2></div>' +
+    '<div class="vs-grid"><div class="vs-col vs-us"><b>AiLGNS OTC（本站）</b><ul>' +
+    "<li><i>✓</i><span><b>0 滑点</b>：挂单价是多少，就按多少成交</span></li>" +
+    "<li><i>✓</i><span>手续费固定 <b>1%</b>，挂单、撤单、到期退回都免费</span></li>" +
+    "<li><i>✓</i><span>大额买卖也不推高、不砸低价格</span></li></ul></div>" +
+    '<div class="vs-col vs-them"><b>官方 DEX 兑换</b><ul>' +
+    "<li><i>✕</i><span>有滑点：买得越多越贵，卖得越多越便宜</span></li>" +
+    "<li><i>✕</i><span>手续费 <b>3%–28%</b></span></li>" +
+    "<li><i>✕</i><span>大额交易冲击价格，成交价难预料</span></li></ul></div></div>" +
+    '<p class="vs-save">以成交 1,000 DAI 为例：DEX 手续费 <s>30–280 DAI</s>，这里只要 <b>10 DAI</b></p></section>';
   var TRUST = '<div class="trust">' +
     '<div><i><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10" fill="none" stroke="currentColor" stroke-width="2"/></svg></i><b>合约托管</b><span>挂单的币锁在智能合约里，平台和任何人都动不了</span></div>' +
     '<div><i><svg viewBox="0 0 24 24"><path d="M13 2 5 13.5h6L10 22l9-12.5h-6z" fill="currentColor"/></svg></i><b>原子成交</b><span>付款和收币在同一笔交易完成，要么都成功、要么都退回，不存在一方跑路</span></div>' +
@@ -166,10 +178,10 @@
     if (sub === "deploy") return renderDeploy(id);
     if (sub === "split") return renderSplit(id);
     if (!OTC) {
-      app.innerHTML = head + TRUST + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
+      app.innerHTML = head + VS + TRUST + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
-    app.innerHTML = head + TRUST + '<div class="loading">正在读取订单…</div>';
+    app.innerHTML = head + VS + TRUST + '<div class="loading">正在读取订单…</div>';
     Promise.all([readOrders(), marketPrice().catch(function () { return null; }), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
       draw(id, r[0], r[1]);
@@ -201,7 +213,7 @@
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
-      var html = hero(mkt, live.length) + TRUST;
+      var html = hero(mkt, live.length) + VS + TRUST;
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
@@ -536,7 +548,7 @@
     var el = document.getElementById("promo");
     if (!el) return;
     var tab = location.hash.replace(/^#\/?/, "").split("/")[0] || "otc";
-    el.innerHTML = tab === "otc" ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">智能合约担保交易 · 一笔成交 · 到期不成交自动退回</span><span class="promo-go">去交易 →</span></a>';
+    el.innerHTML = tab === "otc" ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">0 滑点 · 手续费仅 1%（DEX 要 3%–28%）· 智能合约担保</span><span class="promo-go">去交易 →</span></a>';
   }
   window.addEventListener("hashchange", promo);
   promo();

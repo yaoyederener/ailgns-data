@@ -561,3 +561,30 @@ a:active, button:active { opacity: .85; }
   .cb-head { padding-top: calc(14px + env(safe-area-inset-top)); }
   .cb-form { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
+
+/* OTC 对比 DEX 的醒目标识 */
+.vs { margin: 0 0 16px; padding: 22px; border-radius: 24px; background: linear-gradient(135deg, #2a1172, #4936ff 55%, #a014f8); color: #fff; box-shadow: 0 18px 44px rgba(73, 54, 255, .28); }
+.vs-head { display: grid; gap: 8px; margin-bottom: 16px; }
+.vs-tag { justify-self: start; font-size: 12px; font-weight: 800; letter-spacing: .04em; background: rgba(255, 255, 255, .18); border-radius: 999px; padding: 3px 12px; }
+.vs h2 { margin: 0; font-size: 26px; line-height: 1.3; color: #fff; }
+.vs h2 em { font-style: normal; color: #ffe066; }
+.vs-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; }
+.vs-col { border-radius: 18px; padding: 16px; }
+.vs-col > b { display: block; font-size: 15px; margin-bottom: 8px; }
+.vs-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; }
+.vs-col li { display: flex; gap: 8px; }
+.vs-col li i { flex: none; font-style: normal; font-weight: 800; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; margin-top: 1px; }
+.vs-us { background: #fff; color: var(--text); }
+.vs-us > b { color: var(--gold); }
+.vs-us li i { background: var(--up); color: #fff; }
+.vs-them { background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .22); color: rgba(255, 255, 255, .88); }
+.vs-them li i { background: rgba(255, 255, 255, .2); color: #ffb4b4; }
+.vs-save { margin: 14px 0 0; font-size: 14.5px; text-align: center; color: rgba(255, 255, 255, .92); }
+.vs-save s, .vs-save b { white-space: nowrap; }
+.vs-save s { opacity: .75; }
+.vs-save b { color: #ffe066; font-size: 17px; }
+@media (max-width: 600px) {
+  .vs { padding: 18px 14px; border-radius: 20px; }
+  .vs h2 { font-size: 21px; }
+  .vs-grid { grid-template-columns: 1fr; }
+}
