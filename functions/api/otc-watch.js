@@ -72,8 +72,8 @@ async function order(id) {
 // 只推「真的有差价可赚」的单：按官方 DEX 池子实际能换到多少算（含滑点），扣掉 OTC 1% 手续费和 DEX 手续费后还有利润才推
 // DEX 卖出手续费按最低档 3% 算（另加池子 0.3%），推送里写明「按最低档估算」；每张单只推一次
 const DEX_TAX = 0.03, POOL_FEE = 0.003, TAKER_FEE = 0.01;
-const MIN_PROFIT = 1, MIN_PROFIT_PCT = 0.01; 
-const PP_ON = false; // 文案确认前先不发 // 至少赚 1 DAI，且至少是本金的 1%，才算「有利润」
+const MIN_PROFIT = 1, MIN_PROFIT_PCT = 0.01; // 至少赚 1 DAI，且至少是本金的 1%，才算「有利润」
+const PP_ON = false; // 文案确认前先不发
 async function reserves() {
   const w = words(await rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]));
   return { ail: num(w[0]), dai: num(w[1]) };
