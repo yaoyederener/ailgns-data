@@ -153,11 +153,6 @@
     "<li><i>✕</i><span>还有滑点：滑点容差一般设 <b>0.5%–1%</b>，1,000 美元最多再少拿 <b>5–10 美元</b></span></li>" +
     "<li><i>✕</i><span>交易越频繁，被扣得越多</span></li></ul></div></div>" +
     '<p class="vs-save">买卖 1 万美元：官方 DEX 扣 <s>$300–$2,800</s>，本站只收 <b>$100</b></p></section>';
-  var TRUST = '<div class="trust">' +
-    '<div><i><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10" fill="none" stroke="currentColor" stroke-width="2"/></svg></i><b>合约托管</b><span>挂单的币锁在智能合约里，平台和任何人都动不了</span></div>' +
-    '<div><i><svg viewBox="0 0 24 24"><path d="M13 2 5 13.5h6L10 22l9-12.5h-6z" fill="currentColor"/></svg></i><b>原子成交</b><span>付款和收币在同一笔交易完成，要么都成功、要么都退回，不存在一方跑路</span></div>' +
-    '<div><i><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M4.5 12H15a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>过期自动退回</b><span>有效期 10 分钟到 30 天自选，到期没成交自动原路退回挂单人；也能随时撤单</span></div>' +
-    '<div><i><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i><b>规则公开</b><span>合约无管理员、不可升级，源码公开可查；成交收 1% 手续费</span></div></div>';
 
   // 首页大横幅：AiLGNS OTC 主推
   var HERO_ART = '<svg class="hero-art" viewBox="0 0 220 180" aria-hidden="true"><defs>' +
@@ -186,15 +181,15 @@
     if (sub === "deploy") return renderDeploy(id);
     if (sub === "split") return renderSplit(id);
     if (!OTC) {
-      app.innerHTML = head + VS + TRUST + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
+      app.innerHTML = head + VS + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
-    app.innerHTML = head + VS + TRUST + '<div class="loading">正在读取订单…</div>';
+    app.innerHTML = head + VS + '<div class="loading">正在读取订单…</div>';
     Promise.all([readOrders(), marketPrice().catch(function () { return null; }), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
       draw(id, r[0], r[1]);
     }, function () {
-      if (A.isCurrent(id)) app.innerHTML = head + TRUST + '<div class="card err">订单读取失败，请稍后刷新。</div>';
+      if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">订单读取失败，请稍后刷新。</div>';
     });
 
     function draw(id, orders, mkt) {
@@ -221,7 +216,7 @@
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
-      var html = hero(mkt, live.length) + VS + TRUST;
+      var html = hero(mkt, live.length) + VS;
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
