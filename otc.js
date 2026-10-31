@@ -599,7 +599,7 @@
       function plan() {
         var q = toWei(qty.value);
         if (!q) { quote.textContent = o.sellAilgns ? "输入付多少 DAI 后显示" : "输入数量后显示"; return null; }
-        var amount, pay, get, fee;
+        var amount, pay, get, fee, capped = o.sellAilgns ? q > maxPay : q > maxAil;
         if (o.sellAilgns) { // 付 q 个 DAI，按单价换成能拿走的 AiLGNS（往下取，实际付的不会超过 q）
           if (q > maxPay) q = maxPay;
           amount = (q * o.giveTotal) / o.wantTotal;
@@ -616,6 +616,7 @@
         quote.innerHTML = o.sellAilgns
           ? "你付 <b>" + show(pay, 4) + " DAI</b>，收到 <b>" + show(get) + " AiLGNS</b><br><span class=\"muted\">手续费 1%：" + show(fee) + " AiLGNS</span>"
           : "你付 <b>" + show(pay) + " AiLGNS</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
+        if (capped) quote.innerHTML += '<br><span class="muted">这张单只剩这么多，已按剩下的全部算</span>';
         return { amount: amount, pay: pay };
       }
       qty.oninput = plan;
