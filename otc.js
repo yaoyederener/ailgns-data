@@ -14,7 +14,7 @@
     lgns: { sym: "LGNS", chain: "anubis", chainName: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dai: ANUBIS_DAI, dec: 9, pd: 4,
       pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.947, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.075],
       dexNote: "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，最少 5%，最高约 50%；这里按最少的 5% 算，实际在 DEX 卖往往扣得更多。" },
-    plgns: { sym: "LGNS", chain: "polygon", chainName: "Polygon", otc: "", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dai: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 9, pd: 4,
+    plgns: { sym: "LGNS", chain: "polygon", chainName: "Polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dai: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 9, pd: 4,
       pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, explorer: "https://polygonscan.com", gas: "POL", dexSell: 0.947, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.15],
       dexNote: "Polygon 链 DEX 卖出 LGNS 固定扣 5% 手续费，买入不扣。" }
   };
