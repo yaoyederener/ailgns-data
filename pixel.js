@@ -348,7 +348,7 @@
         sayD("已提交，等待链上确认…");
         return W.waitOn(ch, hash);
       }).then(function (r) {
-        sayD('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + "</b><br>把这个地址发给我，我填进网站，' + C.name + ' 链的付款就改成 80% 销毁、20% 运营。");
+        sayD('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + "</b><br>把这个地址发给我，我填进网站，" + C.name + " 链的付款就改成 80% 销毁、20% 运营。");
       }, function (e) { sayD(A.esc(W.error(e)), true); btn.disabled = false; });
     };
   }
