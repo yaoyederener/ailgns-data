@@ -1653,6 +1653,7 @@
     }).join("");
   }
   window.addEventListener("hashchange", subnav);
+  subnav(); // 直接打开 #/wallet 这类不是 member.js 渲染的页面，也要显示二级菜单
 
   A.pages.member = function (id, a) { subnav(); renderMember(id, a); };
   // 会员功能只能查会员地址：地址不是会员地址就转回会员地址
