@@ -66,25 +66,76 @@ async function order(id) {
   return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n };
 }
 
-const dai = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); // DAI 金额、单价保留 2 位
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-// 群播报的文字：全部用真实数据制造紧迫感和士气（刚成交、低于市价、快到期、24 小时成交量），不预测价格、不承诺收益
-// 结构：标题 + 恭贺 / 催单 + 链接（放最前面，DeBox 长消息会折叠后半段）→ 成交明细 → 求购（鼓励卖给他们）→ 在售 → 数据
-const LINK = "👉 立即成交：https://ailgns.dev/#/otc";
-const PROMO = "🎁 交易就送会员！任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP";
-// 群播报只在有成交时发，内容精简：庆祝成交 + 成交明细 + 成交送会员 + 网址（不报求购、在售、行情，避免太长被折叠）
-function groupText(fills) {
-  const qty = fills.reduce((t, f) => t + f.qty, 0), total = fills.reduce((t, f) => t + f.qty * f.price, 0);
-  const lines = [pick([
-    `🎉🎉🎉 恭喜恭喜！又有人在 OTC 拿下 ${fmt(qty)} 枚 AiLGNS！`,
-    `🎊🎊🎊 成交啦！${fmt(qty)} 枚 AiLGNS 刚刚成交！`,
-    `🔥🔥🔥 又一笔！${fmt(qty)} 枚 AiLGNS 成交，筹码到手！`,
-  ]), pick(["💎 恭喜这位老板！0 滑点、合约秒到账！", "🥳 这一单买得漂亮，又省下了 DEX 的高额手续费！", "👏 又一位聪明人选择了 OTC！"])];
-  fills.slice(0, 3).forEach((f) => lines.push(`💰 ${fmt(f.qty)} 枚 × ${dai(f.price)} DAI = ${dai(f.qty * f.price)} DAI ✅`));
-  if (fills.length > 3) lines.push(`  合计 ${fills.length} 笔、${fmt(qty)} 枚，约 ${dai(total)} DAI`);
-  lines.push(PROMO, LINK);
-  return lines.join("\n");
+// 群播报模板（站长给的）：成交数量 / 金额 / 单价 + 一句随机的庆祝或宣传 + 钱包打开链接
+// 随机句子从下面的池子里抽，最近用过的 30 句不再抽（记在 KV otcw:phr），群里看着不重样
+// 只说真实的东西（0 滑点、1% 手续费、合约担保、成交送会员），不预测价格、不承诺收益
+const PHRASES = [
+  "🎉 恭喜恭喜！又一笔大单落袋，0 滑点就是这么爽！",
+  "🥳 又成交一笔！合约担保，一笔交易钱货两清。",
+  "🔥 成交一笔接一笔，OTC 越来越热闹了！",
+  "💎 恭喜这位老板，筹码稳稳到手！",
+  "👏 又一位聪明人选择了 OTC，省下了 DEX 的高额滑点！",
+  "🚀 交易就送会员！这一单成交，会员已经自动到账。",
+  "🎁 交易就送会员：任意金额成交送初级 VIP，累计满 1 万 DAI 送高级 VIP！",
+  "🎁 成交一笔就是会员，累计满 1 万 DAI 直接升高级 VIP，越交易越划算！",
+  "🏆 恭喜成交！你离高级 VIP（累计 1 万 DAI）又近了一步。",
+  "💰 只收 1% 手续费，买卖 1 万 DAI 比 DEX 省下几百上千 DAI！",
+  "⚡ 合约秒到账，不用等、不用信任任何人，代码说了算。",
+  "🔐 币锁在合约里，付款收币一笔完成，比私下转账安全得多。",
+  "🤝 买卖双方都满意，这才是好交易！",
+  "🌟 越来越多人选择在 OTC 交易，省钱又安全！",
+  "💪 大家一起建设，AiLGNS 社区越来越热闹！",
+  "🤝 每一笔成交都是社区共识的一部分！",
+  "🏗️ 社区在建设，交易在增长，一起加油！",
+  "🎊 又是漂亮的一单！想买想卖的，挂单就有人接。",
+  "📈 交易越活跃，市场越有深度，大家都受益！",
+  "😎 0 滑点成交的感觉，用过就回不去了。",
+  "🧧 恭喜发财！这一单成交得干脆利落。",
+  "🎯 看准价格挂个单，到价自动成交，省心省力。",
+  "⏰ 挂单 10 分钟到 30 天自选，到期没成交自动退回，零风险挂单。",
+  "🙌 不用盯盘不用抢，挂好单子等人来吃就行。",
+  "💡 小技巧：挂单价格贴近指导价，成交更快！",
+  "💡 想卖 AiLGNS？在 OTC 挂单，0 滑点卖出，不用被池子吃差价。",
+  "💡 想买 AiLGNS？直接吃 OTC 的单，价格一目了然，没有滑点。",
+  "🛡️ 智能合约担保，无需信任、无需许可，安全看得见。",
+  "🔥 恭喜成交！下一笔庆祝的就是你！",
+  "🥂 干杯！又一位老板在 OTC 完成交易。",
+  "🌈 成交顺利，皆大欢喜！",
+  "✨ 小额也能成交，任意金额都送会员，快来试试！",
+  "📣 交易就送会员，不限金额，成交即送！",
+  "💎 大单小单都欢迎，一视同仁，合约自动结算。",
+  "🚀 OTC 成交量稳步增长，感谢每一位支持的朋友！",
+  "🤑 省下的滑点就是赚到的钱！",
+  "🧮 算一算：DEX 滑点 3%–28%，这里固定 1%，差距一目了然。",
+  "🎉 又一单！大家的信任就是我们最大的动力。",
+  "👍 交易透明可查，每一笔都在链上。",
+  "🔗 每笔成交都在链上，随时可以查验，公开透明。",
+  "🥳 恭喜！成交完成，币已经在钱包里了。",
+  "🌟 好的交易平台，就是让买卖变得简单。",
+  "🎁 还没开会员的朋友，来 OTC 成交一笔就送！",
+  "🏅 累计成交满 1 万 DAI 送高级 VIP，大户朋友们冲！",
+  "💬 有任何问题，网站右下角找客服。",
+  "📲 用钱包 App 打开链接，一键挂单、一键成交。",
+  "🙏 感谢每一位在 OTC 交易的朋友，一起把社区做大！",
+  "🎊 成交！又是愉快的一笔交易。",
+  "🔥 热度持续，OTC 天天有成交！",
+  "🌙 不管白天黑夜，合约 24 小时自动撮合结算。",
+];
+// 从池子里抽一句最近没用过的
+async function phrase(kv, dry) {
+  const recent = (await kv.get("otcw:phr", "json")) || [];
+  const fresh = PHRASES.map((_, i) => i).filter((i) => !recent.includes(i));
+  const i = fresh[Math.floor(Math.random() * fresh.length)];
+  if (!dry) await kv.put("otcw:phr", JSON.stringify([...recent, i].slice(-30)));
+  return PHRASES[i];
 }
+const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP";
+function groupText(fills, line) {
+  const out = fills.slice(0, 5).map((f) => `🤝 已成交：${f.qty.toFixed(5)} 个 AiLGNS，\n金额：${dai2(f.qty * f.price)} DAI，\n单价：${dai2(f.price)} DAI/AiLGNS`);
+  if (fills.length > 5) out.push(`……共 ${fills.length} 笔成交`);
+  return out.join("\n\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🔗 https://ailgns.dev/#/otc";
+}
+const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
@@ -120,7 +171,7 @@ export async function onRequestGet(ctx) {
   }
   // 群播报：只在有成交时发
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
-  const group = fills.length ? groupText(fills) : null;
+  const group = fills.length ? groupText(fills, await phrase(kv, dry)) : null;
   if (dry) return Response.json({ from, latest, events: logs.length, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if (group) {
