@@ -228,11 +228,34 @@
       html += book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高") + book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低");
       html += createForm();
       if (account) html += myOrders(mine, now);
+      html += '<div id="dbx-card"></div>';
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
       bind(id, orders, mkt);
       walletCard();
+      deboxCard(id);
+    }
+
+    // DeBox 通知：客户关注机器人、发钱包地址绑定，之后挂单成交 / 撤单 / 到期退回都会私信通知
+    function deboxCard(id) {
+      fetch("/api/debox-bot" + (account ? "?addr=" + account : "")).then(function (r) { return r.json(); }).then(function (d) {
+        var el = document.getElementById("dbx-card");
+        if (!el || !A.isCurrent(id) || !d.ready) return; // 机器人还没配置好时不显示
+        var link = "https://m.debox.pro/user/chat?id=" + encodeURIComponent(d.bot.uid);
+        el.innerHTML = '<section class="card dbx"><div class="card-head"><h2>🔔 挂单动态，DeBox 私信通知你</h2>' +
+          (d.bound === true ? '<span class="up">当前钱包已绑定 ✓</span>' : d.bound === false ? '<span class="muted">当前钱包未绑定</span>' : "") + "</div>" +
+          '<ol class="steps"><li>打开通知机器人' + (d.bot.name ? "「" + A.esc(d.bot.name) + "」" : "") + '，点<b>关注</b></li>' +
+          "<li>把你挂单用的钱包地址发给它" + (account ? '：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" id="dbx-copy">复制</button></div>' : "（0x 开头）") + "</li>" +
+          "<li>收到「✅ 已绑定」就好了。之后挂单<b>成交、撤单、到期退回</b>都会私信你，吃单成功也会通知</li></ol>" +
+          '<a class="btn" href="' + link + '" target="_blank" rel="noopener" style="padding:11px 20px">打开 DeBox 通知机器人 →</a>' +
+          '<p class="note">只需要绑定一次；可以绑定多个钱包，发「我的绑定」查看，发「解绑 0x…」取消。</p></section>';
+        var c = document.getElementById("dbx-copy");
+        if (c) c.onclick = function () {
+          var b = this;
+          (navigator.clipboard ? navigator.clipboard.writeText(account) : Promise.reject()).then(function () { b.textContent = "已复制 ✓"; }, function () { b.textContent = "请长按地址复制"; });
+        };
+      }).catch(function () { /* 通知功能不可用时不显示 */ });
     }
 
     // 我的钱包：地址 + AiLGNS / DAI 余额；连接后随时刷新

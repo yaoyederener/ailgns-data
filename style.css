@@ -690,3 +690,7 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .plan-up .plan-price small { color: #cdb98a; }
 .plan-up .perks { color: #eadcb3; }
 .plan-up .perks li::before { color: #f3cf63; }
+
+/* OTC：DeBox 通知卡片 */
+.dbx { border-color: #d9ccfb; background: linear-gradient(165deg, #f6f1ff, #fff 60%); }
+.dbx .steps { margin: 4px 0 14px; padding-left: 20px; display: grid; gap: 8px; font-size: 14px; }
