@@ -95,7 +95,8 @@ const d2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumF
 // 比市价好多少（正数 = 对客户有利）：卖单比市价低多少，买单比市价高多少
 const better = (o, mkt) => (o.sell ? 1 - o.price / mkt : o.price / mkt - 1);
 function dealText(list, mkt) {
-  const lines = ["🔥 低于市场价的 AiLGNS 好单！"];
+  const ns = list.filter((o) => o.sell).length;
+  const lines = [ns === list.length ? "🔥 低于市场价的 AiLGNS 好单！" : ns ? "🔥 OTC 好单：低于市价买、高于市价卖！" : "🔥 高于市场价求购 AiLGNS！"];
   for (const o of list) {
     const pct = (better(o, mkt) * 100).toFixed(1);
     lines.push("", o.sell
