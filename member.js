@@ -80,8 +80,23 @@
   function findAnubis(addr, m) {
     var url = EXPLORER_API + "?module=account&action=tokentx&address=" + addr + "&contractaddress=" + m.token + "&startblock=" + START_BLOCK + "&page=1&offset=200&sort=asc";
     return A.getJSON(url).then(function (r) {
-      var txs = (r.result || []).filter(function (t) { return t.from.toLowerCase() === addr && t.to.toLowerCase() === RECEIVER; });
-      return A.pool(txs, 4, function (t) { return value(m, Number(t.value) / Math.pow(10, m.dec), Number(t.blockNumber), t.hash); });
+      if (!r || !Array.isArray(r.result)) throw new Error("浏览器接口没返回数据");
+      return r.result.filter(function (t) { return t.from.toLowerCase() === addr && t.to.toLowerCase() === RECEIVER; }).map(function (t) { return [Number(t.value) / Math.pow(10, m.dec), Number(t.blockNumber), t.hash]; });
+    }).catch(function () { // 区块浏览器接口连不上时，直接用节点查转账日志
+      return rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
+        var latest = parseInt(h, 16), ranges = [];
+        for (var b = START_BLOCK; b <= latest; b += 5000) ranges.push([b, Math.min(latest, b + 4999)]);
+        return A.pool(ranges, 4, function (r) {
+          return rpcOn("anubis", "eth_getLogs", [{ address: m.token, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [TRANSFER, "0x" + A.pad(addr), "0x" + A.pad(RECEIVER)] }]);
+        });
+      }).then(function (chunks) {
+        return [].concat.apply([], chunks.map(function (c) { if (!c) throw new Error("Anubis 节点查询失败"); return c; })).map(function (l) { return [Number(BigInt(l.data)) / Math.pow(10, m.dec), parseInt(l.blockNumber, 16), l.transactionHash]; });
+      });
+    }).then(function (txs) {
+      return A.pool(txs, 4, function (t) { return value(m, t[0], t[1], t[2]); });
+    }).then(function (ps) {
+      if (ps.some(function (p) { return !p; })) throw new Error("付款当时的价格读不到"); // 读失败不能当成没付款
+      return ps;
     });
   }
   function findPolygon(addr, m) {
@@ -92,7 +107,8 @@
         return rpcOn("polygon", "eth_getLogs", [{ address: m.token, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [TRANSFER, "0x" + A.pad(addr), "0x" + A.pad(RECEIVER)] }]);
       });
     }).then(function (chunks) {
-      var logs = [].concat.apply([], chunks.filter(Boolean));
+      if (chunks.some(function (c) { return !c; })) throw new Error("Polygon 节点查询失败");
+      var logs = [].concat.apply([], chunks);
       return Promise.all(logs.map(function (l) { return value(m, Number(BigInt(l.data)) / 1e18, parseInt(l.blockNumber, 16), l.transactionHash); }));
     });
   }
@@ -107,7 +123,8 @@
   };
   // 这个地址自己转给收款地址的全部付款（没下单直接转的，算付款地址自己的）
   function ownPayments(addr) {
-    var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { return []; }); });
+    // 任何一条链查失败都报错，免得把已开通的会员当成没开通
+    var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { throw new Error("付款记录暂时查不到（网络不稳），请稍后再点一次「查询」"); }); });
     return Promise.all(tries).then(function (r) { return [].concat.apply([], r); });
   }
   function memberApi(addr, txs) {
@@ -432,7 +449,7 @@
         }
         btn.disabled = true;
         say(upgrade || checked === a ? "正在生成订单…" : "正在核对这个地址有没有开通过…");
-        (upgrade || checked === a ? Promise.resolve(null) : lookup(a).catch(function () { return null; })).then(function (t) {
+        (upgrade || checked === a ? Promise.resolve(null) : lookup(a)).then(function (t) {
           if (t && t.tier && (t.tier === "pro" || w === "basic")) { finish(a, t, w); throw null; }
           if (t && t.tier) { activate(a, t); upgrade = true; m = member(); describe(); } // 已是初级：接着补差价
           var n = needOf(pick);
