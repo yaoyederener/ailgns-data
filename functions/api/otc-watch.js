@@ -81,7 +81,7 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // 群播报的文字：全部用真实数据制造紧迫感（刚成交、低于市价、快到期、24 小时成交量），不承诺涨价
 function groupText(created, fills, orders, mkt, st) {
   const sells = orders.filter((o) => o.sell).sort((a, b) => a.price - b.price), buys = orders.filter((o) => !o.sell).sort((a, b) => b.price - a.price);
-  const cheap = sells.filter((o) => o.price < mkt), soon = sells.filter((o) => o.left < 3600).sort((a, b) => a.left - b.left);
+  const cheap = sells.filter((o) => o.price < mkt), soon = sells.filter((o) => o.left < 3600 && o.price <= mkt * 1.01) /* 只催接近或低于市价的 */.sort((a, b) => a.left - b.left);
   const boughtQty = fills.reduce((t, f) => t + f.qty, 0);
   const head = fills.length ? `🔥🔥 又成交了！刚刚有人在 OTC 拿走 ${fmt(boughtQty)} 枚 AiLGNS` :
     cheap.length ? `🚨 低于市价的 AiLGNS 正在出售！${cheap.length} 张，先到先得` :
