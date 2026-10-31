@@ -974,3 +974,16 @@ button.ghost { color: var(--purple-ink); border-color: var(--gold); }
   .top-in .debox { padding: 0; width: 36px; height: 36px; justify-content: center; }
   .top-in .debox span { display: none; }
 }
+
+/* 导航栏放不下时换行，不再横向滑动 */
+@media (max-width: 1100px) {
+  .top-in { flex-wrap: wrap; height: auto; padding-top: 10px; padding-bottom: 0; row-gap: 8px; }
+  .top-r { margin-left: auto; }
+  .tabs { order: 3; flex: 1 1 100%; width: 100%; margin: 0; padding: 2px 0 10px; flex-wrap: wrap; justify-content: center; overflow: visible; gap: 4px; }
+}
+@media (max-width: 600px) {
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .tabs a { padding: 8px 2px; font-size: 13px; text-align: center; background: var(--soft); }
+  .tabs a.feat { background-color: var(--soft); }
+  .tabs a.feat i { top: -6px; right: -2px; }
+}
