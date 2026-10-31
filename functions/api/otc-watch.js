@@ -89,7 +89,7 @@ const CHEAP_HYPE = ["💥 低于市场价！买到就是赚到！", "🏃 赶紧
 const MORALE = ["💪 大家一起建设，AiLGNS 社区越来越热闹！", "🔥 交易越活跃，市场越有信心！", "🤝 每一笔成交都是社区共识的一部分！", "🌟 越来越多人选择在 OTC 交易，省钱又安全！", "🏗️ 社区在建设，交易在增长，一起加油！"];
 function groupText(created, fills, orders, mkt, st) {
   const sells = orders.filter((o) => o.sell).sort((a, b) => a.price - b.price), buys = orders.filter((o) => !o.sell).sort((a, b) => b.price - a.price);
-  const cheap = sells.filter((o) => o.price < mkt), soon = sells.filter((o) => o.left < 3600 && o.price <= mkt * 1.01) /* 只催接近或低于市价的 */.sort((a, b) => a.left - b.left);
+  const cheap = sells.filter((o) => o.price < mkt);
   const boughtQty = fills.reduce((t, f) => t + f.qty, 0), boughtDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
   const lines = [];
   // ① 开头：标题 + 恭贺 / 催单 + 链接
@@ -119,22 +119,23 @@ function groupText(created, fills, orders, mkt, st) {
     fills.slice(0, 6).forEach((f) => lines.push(`· ${fmt(f.qty)} 枚 × ${dai(f.price)} DAI = ${dai(f.qty * f.price)} DAI ✅`));
     if (fills.length > 1) lines.push(`  合计 ${fmt(boughtQty)} 枚，约 ${dai(boughtDai)} DAI`);
   }
-  if (created.length) {
-    lines.push("", "🆕 新挂单：");
-    created.slice(0, 6).forEach((c) => lines.push(`· ${c.sell ? "出售" : "求购"} ${fmt(c.qty)} 枚 × ${dai(c.price)} DAI，${pct(c.price, mkt)}，` + (c.left > 0 ? `有效 ${dur(c.left)}` : "已到期")));
+  if (created.length) { // 新挂单只报最优的一张（卖单最便宜、求购出价最高），其余只给数量，避免消息太长被折叠
+    const live = created.filter((c) => c.left > 0), pool = live.length ? live : created;
+    const ns = pool.filter((c) => c.sell).sort((a, b) => a.price - b.price), nb = pool.filter((c) => !c.sell).sort((a, b) => b.price - a.price);
+    const top = ns[0] || nb[0];
+    lines.push("", `🆕 新挂单 ${created.length} 张，最优：${top.sell ? "出售" : "求购"} ${fmt(top.qty)} 枚 × ${dai(top.price)} DAI，${pct(top.price, mkt)}，` + (top.left > 0 ? `有效 ${dur(top.left)}` : "已到期"));
   }
   // ③ 挂单和价格
   lines.push("", `📊 市价 ${dai(mkt)} DAI`);
+  // 只报最优的一张：求购出价最高的、在售最便宜的
   if (buys.length) {
-    lines.push(`📥 求购 ${buys.length} 张，共 ${fmt(buys.reduce((t, o) => t + o.qty, 0))} 枚，最高出价 ${dai(buys[0].price)} DAI（${pct(buys[0].price, mkt)}）`);
-    buys.slice(0, 3).forEach((o) => lines.push(`  · 收 ${fmt(o.qty)} 枚 × ${dai(o.price)} DAI，剩 ${dur(o.left)}`));
+    const b0 = buys[0];
+    lines.push(`📥 求购 ${buys.length} 张，最高出价：收 ${fmt(b0.qty)} 枚 × ${dai(b0.price)} DAI（${pct(b0.price, mkt)}），剩 ${dur(b0.left)}`);
     lines.push("  👉 手里有 AiLGNS？直接卖给求购单，0 滑点秒到 DAI");
   } else lines.push("📥 现在没有求购单——想买就挂个求购单，卖家马上来！");
   if (sells.length) {
     const best = sells[0];
-    lines.push(`📤 在售 ${sells.length} 张，共 ${fmt(sells.reduce((t, o) => t + o.qty, 0))} 枚`);
-    lines.push(`  🎯 最划算：${fmt(best.qty)} 枚 × ${dai(best.price)} DAI（${pct(best.price, mkt)}），⏳ 还剩 ${dur(best.left)}`);
-    if (soon.length && soon[0] !== best) lines.push(`  ⏰ 快到期：${fmt(soon[0].qty)} 枚 × ${dai(soon[0].price)} DAI，只剩 ${dur(soon[0].left)}`);
+    lines.push(`📤 在售 ${sells.length} 张，最划算：${fmt(best.qty)} 枚 × ${dai(best.price)} DAI（${pct(best.price, mkt)}），⏳ 还剩 ${dur(best.left)}`);
   } else lines.push("📤 现在没有卖单——谁先挂单，谁先成交！");
   if (st && st.n) lines.push(`📈 24 小时成交 ${st.n} 笔、${fmt(st.qty)} 枚，约 ${dai(st.vol)} DAI`);
   lines.push("💸 买卖 1 万 DAI：DEX 扣 300–2,800 DAI，这里只收 100 DAI · 0 滑点 · 合约担保秒到账");
