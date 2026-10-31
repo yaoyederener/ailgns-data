@@ -362,6 +362,8 @@ button:active, .btn:active { transform: translateY(1px); }
   .debox { margin-left: auto; padding: 7px 12px 7px 9px; font-size: 12px; }
   .tabs { order: 3; width: calc(100% + 32px); margin: 0 -16px; padding: 4px 16px 10px; }
   .tabs a.feat i { top: 0; right: 0; }
+  .tabs { gap: 0; }
+  .tabs a { padding: 7px 7px; font-size: 13px; } /* 5 个栏目尽量一屏放下 */
   h1 { font-size: 22px; }
   .otc-hero { margin-top: 16px; padding: 22px 18px; border-radius: 24px; }
   .otc-hero h1 { font-size: 36px; }
@@ -716,3 +718,15 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .dbx-qr img { width: 220px; max-width: 70vw; height: auto; border-radius: 14px; border: 1px solid var(--line); -webkit-touch-callout: default; user-select: auto; }
 .dbx-alt summary { cursor: pointer; color: var(--gold); font-size: 13.5px; }
 .dbx-alt .dbx-link { margin-top: 8px; font-size: 13px; }
+
+/* 私人定制 · 商户合作 */
+.custom-hero { margin: 24px 0 16px; padding: 30px 28px; border-radius: 26px; background: linear-gradient(135deg, #ffffff 0%, #f6f1ff 60%, #eef4ff 100%); border: 1px solid #e2d8fb; box-shadow: 0 18px 44px rgba(118, 47, 242, .1); }
+.custom-hero h1 { margin: 12px 0 8px; font-size: 30px; line-height: 1.3; }
+.custom-hero .sub { margin-bottom: 18px; }
+.custom-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.custom-card { display: grid; gap: 6px; align-content: start; padding: 18px; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.custom-card b { font-size: 16px; }
+.custom-card span:last-child { color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.custom-ico { font-size: 26px; }
+@media (max-width: 760px) { .custom-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .custom-hero { padding: 22px 18px; } .custom-hero h1 { font-size: 24px; } .custom-grid { grid-template-columns: 1fr; } }
