@@ -253,13 +253,20 @@
   }
 
   // 把新付款合进已有付款，重新算等级后保存
-  function activate(reg, sum) {
-    var old = member(), prev = old && old.addr === reg.addr ? old.payments || [] : [];
+  // reg.addr 是付款 / 登录的钱包；target 是会员地址（代开时是别人的大号，不填就是自己）
+  function activate(reg, sum, target) {
+    var old = member(), payer = reg.addr, same = old && (old.payer || old.addr) === payer, prev = same ? old.payments || [] : [];
     var t = sum.gift ? sum : tally(prev.concat(sum.payments || []));
     if (!t.tier) return null;
-    saveMember({ addr: reg.addr, msg: reg.msg, sig: reg.sig, tier: t.tier, usd: t.usd, payments: t.payments, gift: !!sum.gift, at: Date.now() });
-    warmTree(reg.addr);
+    var addr = (target || (same && old.addr) || payer).toLowerCase();
+    saveMember({ addr: addr, payer: payer, msg: reg.msg, sig: reg.sig, tier: t.tier, usd: t.usd, payments: t.payments, gift: !!sum.gift, at: Date.now() });
+    if (addr !== payer) fetch("/api/gift", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payer: payer, target: addr }) }).catch(function () {});
+    warmTree(addr);
     return t;
+  }
+  // 这个付款钱包以前代开过谁（换设备登录时恢复）
+  function giftOf(payer) {
+    return fetch("/api/gift?payer=" + payer).then(function (r) { return r.json(); }).then(function (d) { return d.target || null; }, function () { return null; });
   }
   // 提前让服务器把结构图算好：会员一打开网站就悄悄预热，等点进结构图时已经是现成的；高级会员优先刷新
   function warmTree(a) {
@@ -318,7 +325,11 @@
           '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">尊享级专用</span><span class="plan-name">' + vipEmblem("pro", 26) + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
           '<p class="note">先开初级也可以，以后补 ' + (PRO_USD - FEE_USD) + " 美元差价升级高级。</p>";
 
-      app.innerHTML = head + (upgrade ? memberCard(m) : "") + plans +
+      var forWho = upgrade ? "" : '<section class="card"><div class="card-head"><h2>开通给谁</h2><span class="muted">小号付款，可以给大号开通</span></div>' +
+        '<div class="seg" id="for-seg"><button type="button" data-for="self" class="on">给我自己（付款钱包）</button><button type="button" data-for="other">代开：给其他地址</button></div>' +
+        '<div id="for-other" hidden><label class="full">会员地址（要开通的大号）<input id="for-addr" class="mono" placeholder="0x…" autocomplete="off" spellcheck="false"></label>' +
+        '<p class="note">用现在这个钱包付款，会员开在上面这个地址上：团队、业绩、结构图都按这个地址查。大号<b>不用连接钱包、不用授权</b>。以后用<b>付款的小号</b>登录即可。一个付款钱包只能代开一个地址，开通后不能更改。</p></div></section>';
+      app.innerHTML = head + (upgrade ? memberCard(m) : "") + plans + forWho +
         '<section class="card"><div class="card-head"><h2>选择付款方式</h2><span class="muted" id="pay-usd"></span></div><div class="paylist">' +
         METHODS.map(function (x, i) {
           var c = CHAINS[x.chain];
@@ -338,8 +349,22 @@
         '<li>找不到的话，把付款的交易哈希贴在这里验证，分几笔付的可以一次贴多个（用空格或换行隔开）：<div class="copy"><textarea id="txh" class="mono" rows="2" placeholder="0x…" spellcheck="false"></textarea><button class="ghost" id="txgo">验证</button></div></li></ol></details>' +
         '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面三种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
-      var st = document.getElementById("st"), go = document.getElementById("go"), reg = null;
-      if (upgrade && m.sig) reg = { addr: m.addr, msg: m.msg, sig: m.sig };
+      var st = document.getElementById("st"), go = document.getElementById("go"), reg = null, forOther = false;
+      app.querySelectorAll("#for-seg button").forEach(function (b) {
+        b.onclick = function () {
+          forOther = b.getAttribute("data-for") === "other";
+          app.querySelectorAll("#for-seg button").forEach(function (x) { x.classList.toggle("on", x === b); });
+          document.getElementById("for-other").hidden = !forOther;
+        };
+      });
+      // 代开的目标地址：没选代开返回 null；填错返回 false
+      function wantTarget() {
+        if (upgrade || !forOther) return null;
+        var v = (document.getElementById("for-addr").value || "").trim().toLowerCase();
+        return /^0x[0-9a-f]{40}$/.test(v) ? v : false;
+      }
+      var target = null; // 最终的会员地址（代开时）
+      if (upgrade && m.sig) reg = { addr: m.payer || m.addr, msg: m.msg, sig: m.sig };
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function done(step) { var el = document.getElementById(step); if (el) el.classList.add("ok"); }
       function describe() {
@@ -378,7 +403,7 @@
       }
       // 开通或升级成功：达到想要的等级就跳走，否则说明还差多少
       function finish(r, sum) {
-        var t = activate(r, sum);
+        var t = activate(r, sum, target);
         if (!t) { say("已找到你的付款，累计约 " + A.fmt(sum.usd || 0, 2) + " 美元，还不够开通初级 VIP（" + FEE_USD + " 美元）", true); return false; }
         var want = upgrade || plan === "pro" ? "pro" : "basic";
         if (want === "pro" && t.tier !== "pro") {
@@ -394,8 +419,17 @@
       document.getElementById("txgo").onclick = function () {
         var hs = (document.getElementById("txh").value.match(/0x[0-9a-fA-F]{64}/g) || []), btn = this;
         if (!hs.length) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
+        var wt = wantTarget();
+        if (wt === false) { say("请填写正确的会员地址（0x 开头的 42 位）", true); return; }
         btn.disabled = true;
         ensureReg().then(function (r) {
+          return giftOf(r.addr).then(function (bound) {
+            if (wt && wt === r.addr) wt = null;
+            if (bound && wt && bound !== wt) throw new Error("这个付款钱包已经给 " + A.short(bound) + " 代开过会员，不能再给别的地址开通");
+            target = wt || bound || null;
+            return r;
+          });
+        }).then(function (r) {
           say("正在核对 " + hs.length + " 笔交易…");
           return Promise.all(hs.map(function (h) { return verifyHash(r.addr, h.toLowerCase()); })).then(function (ps) {
             ps = ps.filter(Boolean);
@@ -405,13 +439,20 @@
         }).catch(function (e) { say(walletError(e), true); btn.disabled = false; });
       };
       go.onclick = function () {
+        var wt = wantTarget();
+        if (wt === false) { say("请填写正确的会员地址（0x 开头的 42 位）", true); return; }
         go.disabled = true;
         var step = reg ? Promise.resolve(reg) : ensureReg().then(function (r) {
           say("签名成功，正在查找你之前的付款…");
-          return findPayment(r.addr).catch(function () { return null; }).then(function (sum) {
+          return giftOf(r.addr).then(function (bound) {
+            if (wt && wt === r.addr) wt = null; // 填的就是自己
+            if (bound && wt && bound !== wt) throw new Error("这个付款钱包已经给 " + A.short(bound) + " 代开过会员，不能再给别的地址开通");
+            target = wt || bound || null;
+            return findPayment(r.addr).catch(function () { return null; });
+          }).then(function (sum) {
             if (sum && sum.tier) {
               var want = upgrade || plan === "pro" ? "pro" : "basic";
-              activate(r, sum);
+              activate(r, sum, target);
               if (sum.tier === "pro" || want === "basic") { finish(r, sum); throw null; }
               upgrade = true; // 已是初级，接着补差价
               say("你已经是初级 VIP，继续付款补差价升级高级。");
@@ -421,7 +462,7 @@
         });
         step.then(function (r) {
           describe();
-          if (!st.textContent) say("已确认 " + A.short(r.addr) + "。确认上面选的付款方式，点按钮用钱包付款。");
+          if (!st.textContent) say("已确认 " + A.short(r.addr) + (target ? "，会员将开在 " + A.short(target) + " 上" : "") + "。确认上面选的付款方式，点按钮用钱包付款。");
           go.disabled = false;
           go.onclick = function () {
             go.disabled = true;
@@ -452,7 +493,7 @@
       '<div class="mcard-sub">' + (t === "pro" ? "尊享级 · 终生会员" : "永久会员") + "</div></div></div>" +
       '<div class="mcard-foot"><span class="mono">' + A.short(m.addr) + "</span><span>" + (t === "pro" ? "终生有效" : "永久有效") + "</span></div></div>";
     return '<section class="card">' + mcard + '<dl class="dl" style="margin-top:16px">' +
-      "<dt>会员钱包</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + pays + "</dd></dl>" +
+      "<dt>会员地址</dt><dd>" + A.addrLink(m.addr) + "</dd>" + (m.payer && m.payer !== m.addr ? "<dt>代开</dt><dd>由付款钱包 " + A.addrLink(m.payer) + " 代开，用这个钱包登录</dd>" : "") + "<dt>付款</dt><dd>" + pays + "</dd></dl>" +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
       '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
   }
@@ -1475,9 +1516,11 @@
   var runId = 0;
   A.teamGrowth = teamGrowth;
 
-  // 顶部显示"你的付款地址"，不能输入别的地址
+  // 顶部显示会员地址（自己付款的就是付款钱包；代开的是大号），不能输入别的地址
   function ownBar(m) {
-    return '<div class="ownbar"><span>你的付款地址</span><b class="mono">' + A.short(m.addr) + '</b><span class="muted">会员只能查询自己付款的钱包</span></div>';
+    var gifted = m.payer && m.payer !== m.addr;
+    return '<div class="ownbar"><span>' + (gifted ? "会员地址（代开）" : "你的付款地址") + '</span><b class="mono">' + A.short(m.addr) + '</b><span class="muted">' +
+      (gifted ? "由 " + A.short(m.payer) + " 代开，只能查询这个地址" : "会员只能查询自己付款的钱包") + "</span></div>";
   }
 
   // 团队新增业绩：会员专属的单独页面
