@@ -84,7 +84,12 @@ export async function onRequestGet(ctx) {
     await scan(c, from, latest, fresh);
     if (!dry) await kv.put("opsw:" + key, String(latest));
   }
-  for (const it of fresh) if (!seen.has(it.link)) { seen.add(it.link); pending.push(it); }
+  // 改成 8 小时汇总的那天：把这一段（北京 0 点起）已经单独发过的发放也补进来，让第一条汇总和今日累计是完整的
+  if (!dry && !(await kv.get("opsw:v2"))) {
+    for (const [key, c] of Object.entries(CHAINS)) await scan(c, ranges[key][1] - (key === "polygon" ? 16000 : 8000), ranges[key][0] - 1, fresh);
+    await kv.put("opsw:v2", "1");
+  }
+  for (const it of fresh) if (!seen.has(it.link) && (it.time >= slot - SLOT || dry)) { seen.add(it.link); pending.push(it); }
   pending.sort((a, b) => a.time - b.time);
   if (!dry) { await kv.put("opsw:pending", JSON.stringify(pending)); if (retry.length) await kv.put("opsw:retry", "[]"); }
 
