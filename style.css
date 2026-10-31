@@ -255,7 +255,7 @@ table.book td.act { width: 1%; padding-right: 14px; }
   /* 手机：两行宫格，每格图标在上、文字在下，不用左右拖 */
   .subnav { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; padding-top: 14px; }
   .subnav a { grid-column: span 2; }
-  .subnav a:nth-child(n+4) { grid-column: span 3; } /* 第二行两格平分整行 */
+  /* 6 项：两行各 3 格 */
   .subnav a { flex-direction: column; justify-content: center; gap: 4px; padding: 10px 4px 9px; border-radius: 14px; font-size: 13px; text-align: center; line-height: 1.25; min-height: 64px; }
   .subnav a span { display: block; }
   .subnav svg { width: 22px; height: 22px; }
