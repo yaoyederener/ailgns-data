@@ -84,6 +84,8 @@ const LINK = "👉 立即成交：https://ailgns.dev/#/otc";
 const PUSH_FILL = ["⚡ 别人已经下手了，你还在等什么？", "⚡ 下一笔庆祝的就是你！", "⚡ 成交一笔接一笔，晚了只能看别人抢！", "⚡ 好单不等人，看准了就上！", "⚡ 动作快的已经拿到了，轮到你了！", "⚡ 一单接一单，市场在动，你也该动了！"];
 const PUSH_CHEAP = ["⚡ 低于市价的单子随时被吃掉，手慢无！", "⚡ 比市价还便宜，犹豫一秒就没了！", "⚡ 捡便宜的机会不等人，现在就下单！", "⚡ 便宜单就这几张，抢到就是赚到手续费差价！"];
 const PUSH_IDLE = ["⚡ 看准就上，合约担保秒到账！", "⚡ 0 滑点、只收 1%，越早成交越划算！", "⚡ 挂单随时可能被吃掉，先到先得！", "⚡ 想卖的挂单、想买的吃单，机会都在这里！"];
+const DEX_SELL_FEE = 0.03; // 在 DEX 池子卖出要扣的手续费（站长给的最低档）；OTC 便宜超过这个数，才说可以去池子卖出套利
+const CHEAP_HYPE = ["💥 低于市场价！买到就是赚到！", "🏃 赶紧冲呀！赶紧买呀！晚了就被别人抢走了！", "🤑 比市价还便宜，这种单子不抢等什么？", "🚀 冲冲冲！低价筹码就这几张！"];
 const MORALE = ["💪 大家一起建设，AiLGNS 社区越来越热闹！", "🔥 交易越活跃，市场越有信心！", "🤝 每一笔成交都是社区共识的一部分！", "🌟 越来越多人选择在 OTC 交易，省钱又安全！", "🏗️ 社区在建设，交易在增长，一起加油！"];
 function groupText(created, fills, orders, mkt, st) {
   const sells = orders.filter((o) => o.sell).sort((a, b) => a.price - b.price), buys = orders.filter((o) => !o.sell).sort((a, b) => b.price - a.price);
@@ -102,6 +104,13 @@ function groupText(created, fills, orders, mkt, st) {
   } else {
     lines.push(cheap.length ? `🚨 低于市价的 AiLGNS 正在出售！${cheap.length} 张，先到先得` : created.length ? "🆕 新单上架！AiLGNS OTC 先到先得" : "📢 AiLGNS OTC 实时行情");
     lines.push(pick(cheap.length ? PUSH_CHEAP : PUSH_IDLE), pick(MORALE));
+  }
+  // 有低于市价的卖单：再加几句猛的
+  if (cheap.length) {
+    const best = cheap[0], off = 1 - best.price / mkt;
+    lines.push(`💥 现在有 ${cheap.length} 张低于市场价！最低 ${dai(best.price)} DAI，比市价便宜 ${(off * 100).toFixed(1)}%，买到就是赚到！`);
+    lines.push(pick(CHEAP_HYPE.slice(1)));
+    if (off > DEX_SELL_FEE) lines.push(`💰 便宜幅度超过 DEX 卖出手续费（${(DEX_SELL_FEE * 100).toFixed(0)}%），买到后卖进池子还有差价可赚！`);
   }
   lines.push(LINK);
   // ② 成交明细、新挂单
