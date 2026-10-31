@@ -570,14 +570,25 @@
       m.hidden = false;
       m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (o.sellAilgns ? "买入 AiLGNS" : "卖出 AiLGNS") + ' · #' + o.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
         '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, 4) + " DAI</dd><dt>可成交</dt><dd>" + show(maxAil) + ' AiLGNS</dd><dt>挂单人</dt><dd class="mono">' + A.short(o.maker) + "</dd></dl>" +
-        '<label class="full">' + (o.sellAilgns ? "买入数量" : "卖出数量") + '（AiLGNS）<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">全部</button></div></label>' +
+        '<label class="full">' + (o.sellAilgns ? "买入数量" : "卖出数量") + '（AiLGNS）<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
         '<div class="quote" id="f-quote">输入数量后显示</div><div class="note" id="f-bal" style="margin:0"></div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");
       var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : "AiLGNS";
-      if (account) balance(payToken, account).then(function (b) {
-        var el = document.getElementById("f-bal");
-        if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4) + " " + payName;
-      });
+      var bal = null; // 钱包里能付的币（BigInt）
+      function loadBal() {
+        return balance(payToken, account).then(function (b) {
+          bal = b;
+          var el = document.getElementById("f-bal");
+          if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4) + " " + payName;
+          return b;
+        });
+      }
+      if (account) loadBal();
+      // 「最大」= 你钱包余额最多能成交多少，和这张单剩下的取小的
+      function maxByWallet(b) {
+        var afford = o.sellAilgns ? (b * o.giveTotal) / o.wantTotal : b; // 买：DAI 余额能买多少 AiLGNS；卖：AiLGNS 余额
+        return afford < maxAil ? afford : maxAil;
+      }
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function plan() {
         var q = toWei(qty.value);
@@ -599,7 +610,16 @@
         return { amount: amount, pay: pay };
       }
       qty.oninput = plan;
-      document.getElementById("f-max").onclick = function () { qty.value = String(num(maxAil)); plan(); };
+      document.getElementById("f-max").onclick = function () {
+        (account ? (bal !== null ? Promise.resolve(bal) : loadBal()) : ready().then(function () { walletCard(); return loadBal(); })).then(function (b) {
+          var q = maxByWallet(b);
+          if (q <= 0n) { qty.value = ""; plan(); say("钱包里没有 " + payName + "，没法" + (o.sellAilgns ? "买入" : "卖出"), true); return; }
+          var k = 10n ** 12n, v = q / k * k; // 往下取到 6 位小数，免得超过余额
+          qty.value = (Number(v / k) / 1e6).toFixed(6).replace(/\.?0+$/, "");
+          plan();
+          say(q < maxAil ? "已按你的钱包余额填入最大数量" : "这张单剩下的全部（你的余额够）");
+        }, function (e) { say(niceError(e), true); });
+      };
       m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
       m.onclick = function (e) { if (e.target === m) m.hidden = true; };
       document.getElementById("f-go").onclick = function () {
