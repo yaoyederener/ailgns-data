@@ -275,10 +275,15 @@
       var pick = METHODS.filter(function (x, i) { return prices[i]; })[0] || METHODS[0];
       function needOf(x) { var i = METHODS.indexOf(x); return prices[i] ? need(x, prices[i], usdNow()) : null; }
 
-      var who = upgrade ? "" : '<section class="card"><div class="card-head"><h2>会员地址</h2><span class="muted">开在哪个地址，就查哪个地址</span></div>' +
-        '<div class="copy"><input id="mem-addr" class="mono" placeholder="要开通的地址 0x…" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button class="ghost" id="mem-q">查询</button></div>' +
+      var who = upgrade ? "" : '<section class="card"><div class="card-head"><h2>第 1 步：输入要开通会员的地址</h2></div>' +
+        '<p class="addr-help">请在下面输入<b>要开通会员的钱包地址</b>（0x 开头的 42 位）。会员就开在这个地址上，以后「团队与等级」「团队新增业绩」「团队结构图」查的都是<b>这个地址的团队</b>。</p>' +
+        '<label class="addr-lab" for="mem-addr">要开通会员的地址</label>' +
+        '<div class="copy"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址 0x…" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button class="ghost" id="mem-q">查询</button></div>' +
         '<div id="q-out"></div>' +
-        '<p class="note">填你要查团队的那个地址（比如大号）。付款用哪个钱包都行，大号<b>什么都不用做</b>。以前开通过的，填地址点「查询」就能恢复。</p></section>';
+        '<ul class="addr-tips"><li>想查哪个地址的团队，就填哪个地址，比如你的<b>大号</b>。</li>' +
+        "<li>付款用哪个钱包都行，可以用小号付。大号<b>什么都不用做</b>：不连接、不签名、不授权。</li>" +
+        "<li>填好后点「查询」：已经是会员就直接恢复；还不是会员，下面会出现付款按钮。</li>" +
+        "<li>请仔细核对地址，开通后<b>不能改到别的地址</b>。</li></ul></section>";
       var plans = upgrade
         ? '<section class="card plan-up"><div class="card-head"><h2>' + vipEmblem("pro", 26) + ' 升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
           '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
