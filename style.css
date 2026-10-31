@@ -709,3 +709,4 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .dbx-steps button, .dbx-bar small button { padding: 1px 9px; font-size: 12px; margin-left: 2px; }
 .dbx-steps b { display: inline; font-size: inherit; }
 .dbx-chip { display: inline-block; padding: 0 8px; border-radius: 6px; background: #fff; border: 1px solid #d9ccfb; color: var(--gold); font-weight: 700; }
+.dbx-steps li > button:not(.ghost), .modal .steps li > button:not(.ghost) { padding: 7px 14px; font-size: 13px; margin: 2px 0; }
