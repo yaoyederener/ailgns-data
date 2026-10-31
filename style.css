@@ -838,3 +838,9 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .mk-home small { font-size: 10px; font-weight: 700; color: #191839; }
 /* 从桌面图标打开时，顶部留出刘海 / 状态栏 */
 @media (display-mode: standalone) { .top { padding-top: env(safe-area-inset-top); } }
+.mk-sheet { width: 100%; max-width: 300px; display: grid; gap: 8px; }
+.mk-apps { display: flex; gap: 10px; justify-content: center; padding: 8px; border-radius: 12px; background: #fff; border: 1px solid var(--line); }
+.mk-apps i { width: 36px; height: 36px; border-radius: 9px; background: var(--panel-2); border: 1px solid var(--line); }
+.mk-dlg-t { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); font-size: 13px; }
+.mk-switch { width: 36px; height: 22px; border-radius: 11px; background: #22c55e; position: relative; }
+.mk-switch::after { content: ""; position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; }

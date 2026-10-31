@@ -186,7 +186,8 @@
     }).join("") + "</div>";
   }
   var ICON = '<img src="icons/icon-180.png" alt="">';
-  var DIALOG = '<div class="mk-dlg"><div class="mk-dlg-h"><span>取消</span><b>添加到主屏幕</b><span class="hl">添加</span></div><div class="mk-dlg-b">' + ICON + "<div><b>AiLGNS</b><small>https://ailgns.dev</small></div></div></div>";
+  var DIALOG = '<div class="mk-dlg"><div class="mk-dlg-h"><span>取消</span><b>添加到主屏幕</b><span class="hl">添加</span></div><div class="mk-dlg-b">' + ICON + "<div><b>AiLGNS</b><small>https://ailgns.dev</small></div></div>" +
+    '<div class="mk-dlg-t"><span>作为网页 App 打开</span><i class="mk-switch"></i></div></div>';
   var HOME = '<div class="mk-home"><i></i><i></i><i></i><span>' + ICON + "<small>AiLGNS</small></span><i></i><i></i><i></i><i></i></div>";
   var OPEN_BROWSER = menu([["↗", "在浏览器打开", true], ["⎘", "复制链接"], ["✉", "发送给朋友"]]);
 
@@ -194,10 +195,10 @@
     iphone: {
       tab: "iPhone", note: "请用<b>Safari 浏览器</b>（iPhone 自带的指南针图标）打开 ailgns.dev 再操作。",
       steps: [
-        ["点屏幕<b>最下面中间的「分享」按钮</b>（方框加向上的箭头）。<br><small>新版 iOS 如果底部只有地址栏，先点右下角「···」，再点「分享」。</small>", bar([["‹"], ["›"], [I.share, 1], ["▢"], ["⧉"]])],
-        ["弹出菜单后<b>往上滑</b>，找到并点<b>「添加到主屏幕」</b>。<br><small>没看到的话滑到最下面点「编辑操作」把它加上。</small>", menu([["⎘", "拷贝"], ["☆", "添加到个人收藏"], [I.plus, "添加到主屏幕", 1], ["⌕", "在页面上查找"]])],
-        ["点右上角的<b>「添加」</b>。", DIALOG],
-        ["回到手机桌面，就有 <b>AiLGNS</b> 图标了，以后点它直接打开。", HOME]
+        ["点屏幕下方的<b>「分享」按钮</b>（方框加向上的箭头）。<br><small>新版 iOS 底部只有地址栏的：先点右下角<b>「···」</b>，再点「分享」。</small>", bar([["‹"], ["ailgns.dev"], [I.share, 1], [I.dots]])],
+        ["弹出分享面板后，点<b>「查看更多」</b>（英文是 View More）。<br><small>没有「查看更多」的旧版 iOS：直接往上滑找下一步的「添加到主屏幕」。</small>", '<div class="mk-sheet"><div class="mk-apps"><i></i><i></i><i></i><i></i></div>' + menu([["⎘", "拷贝"], ["☆", "添加到个人收藏"], ["⋯", "查看更多", 1]]) + "</div>"],
+        ["在展开的列表里，点<b>「添加到主屏幕」</b>。", menu([["⌕", "在页面上查找"], [I.plus, "添加到主屏幕", 1], ["▤", "打印"]])],
+        ["确认<b>「作为网页 App 打开」</b>是打开的，再点右上角<b>「添加」</b>。回到桌面就有 AiLGNS 图标了。", DIALOG]
       ]
     },
     iphoneChrome: {
