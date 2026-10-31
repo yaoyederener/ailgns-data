@@ -14,6 +14,31 @@ const PAIR = "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0"; // AiLGNS/DAI 池，�
 const SUMMARY_EVERY = 3600 * 1000; // 没动静时每小时一次行情速报
 const GROUPS = ["oes8etcm", "fvg4wksw"]; // 站长的两个 DeBox 群（机器人要先被拉进群才发得出去）
 const TX = "https://anubisscan.io/tx/";
+const OTC_DEPLOY = 17798035; // 托管合约部署的区块：从这里开始补记以前成交过的地址
+const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），几轮就补完
+
+// 在 OTC 成交过的地址（挂单被吃的挂单人 + 吃单人）记下来：只要成交过一笔就送初级 VIP（会员查询时读 otct:<地址>）
+async function markTraders(kv, logs, cache) {
+  for (const l of logs) {
+    if (l.topics[0] !== FILLED) continue;
+    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(id));
+    const rec = JSON.stringify({ id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16) });
+    for (const a of [o.maker, "0x" + l.topics[2].slice(26)]) {
+      if (!(await kv.get("otct:" + a))) await kv.put("otct:" + a, rec);
+    }
+  }
+}
+// 以前的成交一点点补记：每次 otc-watch 运行时往前补几段，补到和正常进度接上为止
+async function backfillTraders(kv, upto, cache) {
+  let b = parseInt((await kv.get("otct:scan")) || String(OTC_DEPLOY - 1), 10) + 1;
+  if (b > upto) return;
+  for (let i = 0; i < BACKFILL_STEPS && b <= upto; i++) {
+    const to = Math.min(upto, b + 4999);
+    await markTraders(kv, await rpc("eth_getLogs", [{ address: OTC, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED] }]), cache);
+    await kv.put("otct:scan", String(to));
+    b = to + 1;
+  }
+}
 
 async function rpc(method, params) {
   for (let k = 0; k < RPCS.length * 2; k++) {
@@ -207,6 +232,8 @@ export async function onRequestGet(ctx) {
       try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; }
     }
   }
+  await markTraders(kv, logs, cache).catch(() => {});
+  await backfillTraders(kv, from - 1, cache).catch(() => {});
   await kv.put("otcw:block", String(latest));
-  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent });
+  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, backfilledTo: await kv.get("otct:scan") });
 }

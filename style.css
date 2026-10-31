@@ -851,3 +851,4 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .qp-bal b { font-size: 14px; }
 .qp-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .qp-btns button { padding: 8px 0; font-weight: 700; border-radius: 10px; }
+.otc-gift { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(120deg, rgba(0, 156, 255, .1), rgba(160, 20, 248, .1)); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.6; }

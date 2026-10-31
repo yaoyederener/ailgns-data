@@ -133,10 +133,12 @@
       return r.json();
     });
   }
-  // 查一个地址是不是会员：按订单认到它名下的付款 + 它自己直接转的付款 + 以前小号代开给它的付款 + 站长手动开通；一笔都没有返回 null
+  // 查一个地址是不是会员：按订单认到它名下的付款 + 它自己直接转的付款 + 以前小号代开给它的付款 + 站长手动开通 + 在 OTC 成交过（送初级）；一笔都没有返回 null
   function lookup(addr) {
     addr = addr.toLowerCase();
+    var trade = null;
     return memberApi(addr).then(function (srv) {
+      trade = srv.otcTrader;
       var own = srv.giftedTo ? Promise.resolve([]) : ownPayments(addr); // 以前给别人代开过的小号：它的付款算大号的
       var gift = srv.giftPayer ? ownPayments(srv.giftPayer) : Promise.resolve([]);
       var orders = Promise.all((srv.payments || []).map(function (p) { return value(method(p.method), p.paid, p.block, p.tx); }));
@@ -147,6 +149,7 @@
       return (txs.length ? memberApi(addr, txs).then(function (d) { return d.claimed || []; }) : Promise.resolve([])).then(function (claimed) {
         var list = direct.filter(function (p) { return claimed.indexOf(p.tx) < 0; }).concat(r[2]), manual = MANUAL[addr];
         if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr, note: manual.note, paid: 0, usd: manual.usd });
+        if (trade) list.push({ method: "otc", chain: "anubis", tx: "otc:" + addr, ref: trade.tx, note: "OTC 成交赠送（订单 #" + trade.id + "）", paid: 0, usd: FEE_USD });
         var t = tally(list);
         return t.payments.length ? t : null;
       });
@@ -296,7 +299,7 @@
         '<p class="addr-help">会员开在这个地址上，团队、业绩、结构图都查这个地址。</p>' +
         '<div class="addr-box"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button id="mem-q">查询</button></div>' +
         '<div id="q-out"></div>' +
-        '<ul class="addr-tips"><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
+        '<ul class="addr-tips"><li><b>在本站 OTC 成交过一笔（挂单被吃或吃过单），这个地址自动送初级 VIP</b>，点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
         "<li>已开通的点「查询」直接恢复；未开通的会出现付款按钮。</li>" +
         "<li>开通后不能更改地址，请核对清楚。</li></ul></section>";
       var plans = upgrade
@@ -477,7 +480,7 @@
   function memberCard(m) {
     var pays = (m.payments || []).map(function (p) {
       var pm = method(p.method), pc = CHAINS[p.chain || "anubis"];
-      if (p.method === "manual" || p.method === "gift") return A.esc(p.note || "赠送") + (/^0x/.test(p.tx || "") ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>' : "");
+      if (p.method === "manual" || p.method === "gift" || p.method === "otc") { var ref = p.ref || p.tx || ""; return A.esc(p.note || "赠送") + (/^0x/.test(ref) ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + ref + '">交易 ↗</a>' : ""); }
       return show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
     }).join("<br>") + (m.payments && m.payments.length > 1 ? "<br><span class=\"muted\">累计约 " + A.fmt(m.usd, 2) + " 美元</span>" : "");
     var t = m.tier;
