@@ -374,7 +374,7 @@
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 AiLGNS</button><button data-side="buy">我要买 AiLGNS</button></div>' +
         '<div class="form-grid"><label>数量（AiLGNS）<input id="otc-qty" inputmode="decimal" placeholder="例如 5"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 800"></label>' +
-        "</div>" + '<div class="guide" id="otc-guide"></div>' +
+        "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
         '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="1800">' +
         '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === 1800 ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
         '<button type="button" data-d="custom">自定义</button></div>' +
@@ -425,6 +425,7 @@
           document.querySelectorAll("#otc-side button").forEach(function (x) { x.classList.toggle("on", x === b); });
           guide();
           calc();
+          pick();
         };
       });
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
@@ -441,7 +442,7 @@
               '<p class="muted">合理区间 ' + A.fmt(lo, 2) + "–" + A.fmt(hi, 2) + "。高于 " + A.fmt(hi, 2) + " 买家直接去 DEX 买更划算，基本卖不掉。</p>"
             : "<p>卖家扣 1% 手续费后每枚到手 " + A.fmt(g * TAKER, 2) + "，比在 DEX 卖（约 " + A.fmt(dexSell, 2) + "）多，容易成交；你比去 DEX 买（约 " + A.fmt(dexBuy, 2) + "）每枚省约 <b>" + A.fmt(dexBuy - g, 2) + " DAI</b>。</p>" +
               '<p class="muted">合理区间 ' + A.fmt(lo, 2) + "–" + A.fmt(hi, 2) + "。低于 " + A.fmt(lo, 2) + " 卖家去 DEX 卖更划算，基本买不到。</p>");
-        document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(2); auto = true; calc(); };
+        document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(2); auto = true; calc(); pick(); };
         if (auto || !price.value) { price.value = g.toFixed(2); auto = true; }
       }
       function calc() {
@@ -459,8 +460,36 @@
           (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ 价格合理，比官方 DEX 划算，容易成交</span>') : "");
         return { q: q, total: total };
       }
-      qty.oninput = calc; price.oninput = function () { auto = false; calc(); };
+      qty.oninput = calc; price.oninput = function () { auto = false; calc(); pick(); };
       guide();
+      // 可用余额 + 25% / 50% / 75% / 最大：卖单按 AiLGNS 余额，买单按 DAI 余额 ÷ 单价换成能买多少枚
+      var bal = null;
+      function floorStr(wei, d) { var k = 10n ** BigInt(18 - d), v = wei / k * k, s = (Number(v / 10n ** 12n) / 1e6).toFixed(d); return s.replace(/\.?0+$/, ""); }
+      function maxQty() {
+        if (!bal) return null;
+        if (side === "sell") return bal.ail;
+        var p = toWei(price.value);
+        return p ? bal.dai * WEI / p : null;
+      }
+      function pick() {
+        var el = document.getElementById("otc-pick");
+        if (!account) { el.innerHTML = '<span class="muted">可用余额：</span><a href="#" id="otc-pick-c">连接钱包后显示</a>'; document.getElementById("otc-pick-c").onclick = function (e) { e.preventDefault(); var c = document.getElementById("otc-connect"); if (c) c.click(); }; return; }
+        if (!bal) { el.innerHTML = '<span class="muted">可用余额读取中…</span>'; return; }
+        var m = maxQty();
+        el.innerHTML = '<div class="qp-bal"><span class="muted">可用</span><b>' + (side === "sell" ? show(bal.ail) + " AiLGNS" : show(bal.dai, 2) + " DAI") + "</b>" +
+          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + show(m) + " 枚" : "先填单价，算能买多少枚") + "</span>" : "") + "</div>" +
+          '<div class="qp-btns">' + [[25, "25%"], [50, "50%"], [75, "75%"], [100, "最大"]].map(function (x) { return '<button type="button" class="ghost" data-pct="' + x[0] + '"' + (m ? "" : " disabled") + ">" + x[1] + "</button>"; }).join("") + "</div>";
+        el.querySelectorAll("[data-pct]").forEach(function (b) {
+          b.onclick = function () {
+            var mq = maxQty();
+            if (!mq) return;
+            qty.value = floorStr(mq * BigInt(b.getAttribute("data-pct")) / 100n, 6);
+            calc();
+          };
+        });
+      }
+      pick();
+      if (account) Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) { bal = { ail: b[0], dai: b[1] }; pick(); }, function () { bal = null; });
       // 有效期按钮
       var durIn = document.getElementById("otc-dur"), durSt = document.getElementById("otc-dur-st"), custom = document.getElementById("otc-dur-custom");
       var durN = document.getElementById("otc-dur-n"), unit = 3600;

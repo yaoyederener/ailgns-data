@@ -844,3 +844,10 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .mk-dlg-t { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); font-size: 13px; }
 .mk-switch { width: 36px; height: 22px; border-radius: 11px; background: #22c55e; position: relative; }
 .mk-switch::after { content: ""; position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+
+/* OTC 挂单：可用余额 + 比例按钮 */
+.qty-pick { margin: -2px 0 12px; display: grid; gap: 8px; font-size: 13px; }
+.qp-bal { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.qp-bal b { font-size: 14px; }
+.qp-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.qp-btns button { padding: 8px 0; font-weight: 700; border-radius: 10px; }
