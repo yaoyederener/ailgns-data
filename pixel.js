@@ -1,5 +1,6 @@
-// LGNS 像素墙：100×100 格子，花 LGNS 涂色；花掉的 LGNS 直接转进销毁地址。只消耗、不赢币
-// 付款：钱包把 LGNS 转到销毁地址，转账数据末尾附上「PX + 这批格子的 sha256」，后台核对后涂上（见 lib/pixel.js）
+// LGNS 像素墙：100×100 格子，花 LGNS 涂色。只消耗、不赢币
+// 付款转进收款合约（80% 销毁、20% 运营）；收款合约部署前直接转进销毁地址。收款地址以后台 /api/pixel 返回的 payTo 为准
+// 付款：钱包把 LGNS 转到收款地址，转账数据末尾附上「PX + 这批格子的 sha256」，后台核对后涂上（见 lib/pixel.js）
 (function () {
   "use strict";
 
@@ -36,6 +37,7 @@
   function colorAt(i) { return sel[i] !== undefined ? COLORS[sel[i]] : board.c[i] === "." ? EMPTY : COLORS[parseInt(board.c[i], 16)]; }
 
   A.pages.pixel = function (id) {
+    if (location.hash.split("/")[2] === "deploy") return renderDeploy(id);
     A.app.innerHTML = '<div class="loading">正在加载像素墙…</div>';
     Promise.all([
       fetch("/api/pixel").then(function (r) { return r.json(); }),
@@ -51,11 +53,16 @@
     });
   };
 
+  function burnText() {
+    return board.sink
+      ? '🔥 花掉的 LGNS 进<a target="_blank" rel="noopener" href="https://anubisscan.io/address/' + board.sink + '">收款合约 ↗</a>：<b>80% 永久销毁</b>，20% 用于服务器和运营，比例写死在合约里，链上可查'
+      : '🔥 花掉的 LGNS 全部转进<a target="_blank" rel="noopener" href="https://anubisscan.io/address/' + BURN + '">销毁地址 ↗</a>，链上可查，谁也拿不回来';
+  }
   function draw(id) {
     var s = board.s;
     A.app.innerHTML = '<section class="px-hero"><h1>🧱 LGNS 像素墙</h1>' +
       "<p>花 LGNS 给格子涂色，画出你的图案、名字、社区标志。别人可以花更多 LGNS 盖掉你的格子，守住你的地盘！</p>" +
-      '<p class="px-burn">🔥 花掉的 LGNS 全部转进<a target="_blank" rel="noopener" href="https://anubisscan.io/address/' + BURN + '">销毁地址 ↗</a>，链上可查，谁也拿不回来</p></section>' +
+      '<p class="px-burn">' + burnText() + "</p></section>" +
       '<div class="kpis px-kpis"><div class="kpi"><div class="k">已销毁</div><div class="v">' + A.fmt(s.burned) + ' <small>LGNS</small></div></div>' +
       '<div class="kpi"><div class="k">已涂</div><div class="v">' + A.fmt(s.paints) + ' <small>次</small></div></div>' +
       '<div class="kpi"><div class="k">参与</div><div class="v">' + A.fmt(s.txs) + ' <small>笔</small></div></div></div>' +
@@ -67,12 +74,12 @@
       '<div class="px-colors" id="px-colors">' + COLORS.map(function (c, i) { return '<button type="button" data-c="' + i + '" style="background:' + c + '"' + (i === color ? ' class="on"' : "") + ' aria-label="颜色 ' + (i + 1) + '"></button>'; }).join("") + "</div>" +
       '<p class="note" id="px-info">点一个格子看它的信息</p>' +
       '<div class="px-bar"><div class="px-sum" id="px-sum"></div><button type="button" class="ghost" id="px-clear">清空</button><button type="button" id="px-pay">支付并涂色</button></div><p class="note" id="px-st"></p></section>' +
-      '<section class="card"><div class="card-head"><h2>🏆 销毁排行榜</h2><span class="muted">累计花掉的 LGNS</span></div>' + topHtml() + "</section>" +
+      '<section class="card"><div class="card-head"><h2>🏆 排行榜</h2><span class="muted">累计花掉的 LGNS</span></div>' + topHtml() + "</section>" +
       '<section class="card"><div class="card-head"><h2>玩法</h2></div><ol class="steps">' +
       "<li>选颜色，点格子（一次最多 " + MAX_PX + " 格），可以拼字、画图</li>" +
       "<li>空格子 <b>" + UNIT + " LGNS</b> 一格；被涂过的格子更贵：第 k 次涂要 <b>" + UNIT + "×k LGNS</b>（10、15、20…）</li>" +
       "<li>点「支付并涂色」，在钱包里确认一笔 LGNS 转账（Anubis 链，Gas 用 DAI），几秒后就涂上</li>" +
-      "<li>花掉的 LGNS 全部销毁，只换来墙上的格子和排行榜名次，不返还任何币</li></ol>" +
+      "<li>" + (board.sink ? "花掉的 LGNS 80% 永久销毁、20% 用于服务器和运营" : "花掉的 LGNS 全部销毁") + "，只换来墙上的格子和排行榜名次，不返还任何币</li></ol>" +
       '<p class="note">付款转账里附带了这次所选格子的校验码，后台核对链上转账后才涂上，付款不会被别人冒用。同一时间有人抢先涂了同一格，你付款前 10 分钟内被涂的照样给你涂上。</p></section>';
     bind(id);
     paintAll();
@@ -207,11 +214,11 @@
     }).then(function (r) {
       if (r[0] < amount) throw new Error("LGNS 不够：需要 " + A.fmt(t) + " LGNS，钱包里有 " + A.fmt(Number(r[0]) / 1e9, 2) + "（Anubis 链）");
       if (r[1] < 10n ** 16n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够）");
-      data = "0xa9059cbb" + A.pad(BURN) + u256(amount) + "5058" + r[2];
+      data = "0xa9059cbb" + A.pad(board.payTo || BURN) + u256(amount) + "5058" + r[2];
       say("正在检查交易能否成功…");
       return A.rpc("eth_call", [{ from: account, to: LGNS, data: data }, "latest"]);
     }).then(function () {
-      say("请在钱包里确认：销毁 " + A.fmt(t) + " LGNS 涂 " + px.length + " 格…");
+      say("请在钱包里确认：支付 " + A.fmt(t) + " LGNS 涂 " + px.length + " 格…");
       return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: LGNS, data: data }] });
     }).then(function (tx) {
       store(PENDING, { tx: tx, px: px });
@@ -237,6 +244,43 @@
       throw e;
     });
   }
+  // ---------- 部署收款合约（只给站长用，不在导航里）：#/pixel/deploy ----------
+  function renderDeploy(id) {
+    A.app.innerHTML = '<h1>部署像素墙收款合约</h1><p class="sub">用你的钱包把收款合约部署到 Anubis 链，Gas 用 DAI 支付，只需要部署一次。合约收到的 LGNS 任何人都能触发分出去：80% 销毁、20% 转原收款钱包（再按 30/40/30 分账）。地址和比例写死，没有管理员。</p>' +
+      '<section class="card"><dl class="dl"><dt>LGNS</dt><dd class="mono">' + LGNS + '</dd><dt>80% 销毁到</dt><dd class="mono">' + BURN + '</dd><dt>20% 转到</dt><dd class="mono">0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6</dd>' +
+      '<dt>源码</dt><dd><a target="_blank" rel="noopener" href="contracts/LgnsPixelSink.sol">LgnsPixelSink.sol ↗</a></dd></dl>' +
+      '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
+    var st = document.getElementById("d-st"), eth, from, data;
+    function sayD(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    document.getElementById("d-go").onclick = function () {
+      var btn = this;
+      btn.disabled = true;
+      A.wallets.choose().then(function (p) {
+        eth = p;
+        return eth.request({ method: "eth_requestAccounts" });
+      }).then(function (a) {
+        from = String(a[0]).toLowerCase();
+        return W.switchTo(eth, "anubis");
+      }).then(function () {
+        return eth.request({ method: "eth_chainId" });
+      }).then(function (cid) {
+        if (Number(cid) !== 6714) throw new Error("钱包现在不在 Anubis 链上：请在钱包里手动切换到 Anubis 再点部署");
+        return A.getJSON("contracts/LgnsPixelSink.json");
+      }).then(function (art) {
+        data = art.bytecode;
+        return A.rpc("eth_estimateGas", [{ from: from, data: data }]);
+      }).then(function (g) {
+        sayD("请在钱包里确认部署…");
+        return eth.request({ method: "eth_sendTransaction", params: [{ from: from, data: data, gas: "0x" + (BigInt(g) * 13n / 10n).toString(16) }] });
+      }).then(function (hash) {
+        sayD("已提交，等待链上确认…");
+        return W.waitOn("anubis", hash);
+      }).then(function (r) {
+        sayD('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + "</b><br>把这个地址发给我，我填进网站，像素墙就改成 80% 销毁、20% 运营。");
+      }, function (e) { sayD(A.esc(W.error(e)), true); btn.disabled = false; });
+    };
+  }
+
   function retryPending(id) {
     var p = load(PENDING);
     if (!p || !p.tx) return;
