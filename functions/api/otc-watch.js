@@ -1,12 +1,17 @@
-// OTC 挂单动态通知：定时任务每 5 分钟调用一次，读托管合约新的成交 / 撤单 / 到期退回事件，
-// 按钱包地址找到在 DeBox 机器人里绑定过的用户，私信通知挂单人（成交时也通知吃单人）
+// OTC 挂单动态通知：定时任务每 5 分钟调用一次，读托管合约新的挂单 / 成交 / 撤单 / 到期退回事件。
+// ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
+// ② 群播报：有新挂单或成交时发到 DeBox 群（Cloudflare 环境变量 DEBOX_GROUP_ID = 群 gid）；没动静时每 2 小时发一次挂单速报
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 
 const OTC = "0x4e730be6d46be71223ded5a32dc45799f6d4bc15";
 const FILLED = "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d"; // Filled(id, taker, amount, paid, fee, giveLeft)
 const CLOSED = "0xec091cd14d8a8ba29bf6a14340c9c648295a414a131bd9ad694b621358842776"; // Closed(id, maker, refunded, expired)
-const GET_ORDERS = "0x8f72fc77";
+const CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff"; // Created(id, maker, sellAilgns, give, want, expiry)
+const GET_ORDERS = "0x8f72fc77", COUNT = "0x35daa731";
+const PAIR = "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0"; // AiLGNS/DAI 池，算市价
+const SUMMARY_EVERY = 2 * 3600 * 1000;
+const URGE = ["⚡ 好价不等人，手慢无！", "⚡ 低价单一出就被抢，先到先得！", "⚡ 0 滑点、手续费仅 1%，比 DEX 省得多，抓紧下单！", "⚡ 挂单随时可能被吃掉，看准就上！"];
 const TX = "https://anubisscan.io/tx/";
 
 async function rpc(method, params) {
@@ -31,6 +36,48 @@ async function order(id) {
   return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n };
 }
 
+const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
+async function market() {
+  const w = words(await rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]));
+  return num(w[1]) / num(w[0]);
+}
+// 当前在挂的单子（没过期、还有剩余）
+async function book(now) {
+  const count = Number(BigInt(await rpc("eth_call", [{ to: OTC, data: COUNT }, "latest"]))), from = Math.max(0, count - 500), out = [];
+  if (!count) return out;
+  const w = words(await rpc("eth_call", [{ to: OTC, data: GET_ORDERS + u256(from) + u256(count - from) }, "latest"]));
+  const n = Number(BigInt("0x" + w[1]));
+  for (let i = 0; i < n; i++) {
+    const o = w.slice(2 + i * 7, 9 + i * 7), sell = BigInt("0x" + o[1]) === 1n, open = BigInt("0x" + o[2]) === 1n, exp = Number(BigInt("0x" + o[3]));
+    const give = num(o[4]), want = num(o[5]), gl = num(o[6]);
+    if (!open || exp <= now || gl <= 0) continue;
+    out.push({ id: from + i, sell, price: sell ? want / give : give / want, qty: sell ? gl : gl * want / give, left: exp - now });
+  }
+  return out;
+}
+const pct = (p, mkt) => { const d = (p / mkt - 1) * 100; return `比市价${d >= 0 ? "高" : "低"} ${Math.abs(d).toFixed(1)}%`; };
+// 群播报的文字：新挂单、刚成交、当前在售概况、催单
+function groupText(created, fills, orders, mkt) {
+  const sells = orders.filter((o) => o.sell).sort((a, b) => a.price - b.price), buys = orders.filter((o) => !o.sell).sort((a, b) => b.price - a.price);
+  const lines = [fills.length ? "🔥 AiLGNS OTC 刚刚成交！" : created.length ? "🆕 AiLGNS OTC 新挂单！" : "📢 AiLGNS OTC 挂单速报"];
+  if (fills.length) {
+    lines.push("", "✅ 刚刚成交：");
+    fills.slice(0, 6).forEach((f) => lines.push(`· ${fmt(f.qty)} 枚 × ${fmt(f.price)} DAI = ${fmt(f.qty * f.price)} DAI`));
+  }
+  if (created.length) {
+    lines.push("", "🆕 新挂单：");
+    created.slice(0, 6).forEach((c) => lines.push(`· ${c.sell ? "出售" : "求购"} ${fmt(c.qty)} 枚 × ${fmt(c.price)} DAI，${pct(c.price, mkt)}，有效 ${dur(c.left)}`));
+  }
+  lines.push("", `📊 市价 ${fmt(mkt)} DAI`);
+  if (sells.length) {
+    lines.push(`📤 在售 ${sells.length} 张，共 ${fmt(sells.reduce((t, o) => t + o.qty, 0))} 枚，最低 ${fmt(sells[0].price)} DAI（${pct(sells[0].price, mkt)}）`);
+    sells.slice(0, 3).forEach((o) => lines.push(`  · ${fmt(o.qty)} 枚 × ${fmt(o.price)} DAI，剩 ${dur(o.left)}`));
+  } else lines.push("📤 目前没有卖单，挂单出售正是时候");
+  if (buys.length) lines.push(`📥 求购 ${buys.length} 张，最高出价 ${fmt(buys[0].price)} DAI`);
+  lines.push("", "✅ 合约担保 · 0 滑点 · 手续费 1%", URGE[Math.floor(Math.random() * URGE.length)], "👉 立即成交：https://ailgns.dev/#/otc");
+  return lines.join("\n");
+}
+
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
@@ -43,17 +90,25 @@ export async function onRequestGet(ctx) {
   const logs = [];
   for (let b = from; b <= latest; b += 5000) {
     const to = Math.min(latest, b + 4999);
-    logs.push(...(await rpc("eth_getLogs", [{ address: OTC, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[FILLED, CLOSED]] }])));
+    logs.push(...(await rpc("eth_getLogs", [{ address: OTC, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[FILLED, CLOSED, CREATED]] }])));
   }
-  const cache = {}, msgs = []; // [地址, 文字]
+  const cache = {}, msgs = [], created = [], fills = []; // msgs：[地址, 文字]
+  const blockTime = parseInt((await rpc("eth_getBlockByNumber", ["0x" + latest.toString(16), false])).timestamp, 16);
   for (const l of logs) {
-    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(id)), d = words(l.data);
+    const id = parseInt(l.topics[1], 16), d = words(l.data);
+    if (l.topics[0] === CREATED) { // 新挂单：只用于群播报
+      const sell = BigInt("0x" + d[0]) === 1n, give = num(d[1]), want = num(d[2]), exp = Number(BigInt("0x" + d[3]));
+      created.push({ id, sell, qty: sell ? give : want, price: sell ? want / give : give / want, left: Math.max(0, exp - blockTime) });
+      continue;
+    }
+    const o = cache[id] || (cache[id] = await order(id));
     const giveSym = o.sell ? "AiLGNS" : "DAI", wantSym = o.sell ? "DAI" : "AiLGNS", side = o.sell ? "卖单" : "买单";
     const link = "\n🔗 " + TX + l.transactionHash + "\n👉 https://ailgns.dev/#/otc";
     if (l.topics[0] === FILLED) {
       const taker = "0x" + l.topics[2].slice(26), amount = num(d[0]), paid = num(d[1]), fee = num(d[2]), left = num(d[3]);
       msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
         (left > 0 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交") + link]);
+      fills.push({ qty: o.sell ? amount : paid, price: o.sell ? paid / amount : amount / paid });
       msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（已扣 1% 手续费 ${fmt(fee)}）` + link]);
     } else {
       const refunded = num(d[0]), expired = BigInt("0x" + d[1]) === 1n;
@@ -61,7 +116,19 @@ export async function onRequestGet(ctx) {
       msgs.push([o.maker, (expired ? `⏰ 你的${side} #${id} 到期未成交，已自动退回 ` : `↩️ 你的${side} #${id} 已撤单，退回 `) + `${fmt(refunded)} ${giveSym} 到你的钱包` + link]);
     }
   }
-  if (dry) return Response.json({ from, latest, events: logs.length, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
+  // 群播报：有新挂单或成交就发；没动静时每 2 小时发一次速报（有挂单才发）
+  const gid = ctx.env.DEBOX_GROUP_ID, lastSum = parseInt((await kv.get("otcw:sum")) || "0", 10);
+  let group = null;
+  if (created.length || fills.length || Date.now() - lastSum > SUMMARY_EVERY) {
+    const orders = await book(blockTime);
+    if (created.length || fills.length || orders.length) group = groupText(created, fills, orders, await market());
+  }
+  if (dry) return Response.json({ from, latest, events: logs.length, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
+  let groupSent = false;
+  if (group && gid) {
+    try { await sendDebox(ctx.env, gid, group, "group"); groupSent = true; await kv.put("otcw:sum", String(Date.now())); }
+    catch (e) { await kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: "group: " + String(e.message || e) }), { expirationTtl: 86400 }); }
+  }
   let sent = 0, failed = 0;
   for (const [addr, text] of msgs) {
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
@@ -70,5 +137,5 @@ export async function onRequestGet(ctx) {
     }
   }
   await kv.put("otcw:block", String(latest));
-  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed });
+  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, hasGroup: !!gid });
 }
