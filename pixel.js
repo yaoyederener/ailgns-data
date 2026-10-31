@@ -1,16 +1,24 @@
 // LGNS 像素墙：100×100 格子，花 LGNS 涂色。只消耗、不赢币
 // 付款转进收款合约（80% 销毁、20% 运营）；收款合约部署前直接转进销毁地址。收款地址以后台 /api/pixel 返回的 payTo 为准
+// Anubis 链、Polygon 链的 LGNS 都能付（价格一样，涂在同一面墙上），每条链的收款地址以 /api/pixel 返回的 chains 为准
 // 付款：钱包把 LGNS 转到收款地址，转账数据末尾附上「PX + 这批格子的 sha256」，后台核对后涂上（见 lib/pixel.js）
 (function () {
   "use strict";
 
   var A = window.AIL, W = A.wallet;
-  var LGNS = "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", BURN = "0x000000000000000000000000000000000000dEaD";
-  var PAIR = "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0"; // Anubis LGNS/DAI 池（token0 = LGNS，token1 = DAI），算大约多少 DAI
+  var BURN = "0x000000000000000000000000000000000000dEaD";
+  // pair：LGNS/DAI 池，算大约多少 DAI（daiFirst：token0 是 DAI）；minGas：钱包里至少要有多少 Gas 币
+  var CH = {
+    anubis: { name: "Anubis", lgns: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", daiFirst: false,
+      gas: "DAI", minGas: 10n ** 16n, minGasText: "0.01 DAI", explorer: "https://anubisscan.io", artifact: "LgnsPixelSink" },
+    polygon: { name: "Polygon", lgns: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", daiFirst: true,
+      gas: "POL", minGas: 2n * 10n ** 16n, minGasText: "0.02 POL", explorer: "https://polygonscan.com", artifact: "LgnsPixelSinkPolygon" }
+  };
   var SIZE = 100, UNIT = 5, MAX_PX = 200, EMPTY = "#f6f5fb";
   var COLORS = ["#ffffff", "#d9d6e4", "#848298", "#191839", "#ef4444", "#ff8a3d", "#facc15", "#16a34a",
     "#22d3ee", "#009cff", "#2865fc", "#4936ff", "#7027d9", "#a014f8", "#ff6fb5", "#8b5a2b"];
   var PENDING = "px:pending"; // 付了款但还没涂上的（网络断了等），下次打开自动补交
+  var CHAIN_KEY = "px:chain"; // 上次用哪条链付款
   var VIEWS = [10, 20, 40];
 
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
@@ -26,7 +34,8 @@
       .then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); return j; });
   }
 
-  var board = null, mkt = null, account = null;
+  var board = null, mkt = {}, account = null;
+  var payChain = CH[load(CHAIN_KEY)] ? load(CHAIN_KEY) : "anubis";
   var sel = {}; // 选中的格子：编号 → 颜色
   var color = 12, view = 20, cx = 40, cy = 40; // 当前颜色、放大窗口大小、放大窗口左上角
 
@@ -41,11 +50,16 @@
     A.app.innerHTML = '<div class="loading">正在加载像素墙…</div>';
     Promise.all([
       fetch("/api/pixel").then(function (r) { return r.json(); }),
-      A.call(PAIR, "0x0902f1ac").then(function (h) { return (Number(A.word(h, 1)) / 1e18) / (Number(A.word(h, 0)) / 1e9); }).catch(function () { return null; }),
+      Promise.all(Object.keys(CH).map(function (k) {
+        return W.rpcOn(k, "eth_call", [{ to: CH[k].pair, data: "0x0902f1ac" }, "latest"]).then(function (h) {
+          var d = Number(A.word(h, CH[k].daiFirst ? 0 : 1)) / 1e18, l = Number(A.word(h, CH[k].daiFirst ? 1 : 0)) / 1e9;
+          mkt[k] = d / l;
+        }).catch(function () {});
+      })),
       A.wallets.silent().then(function (a) { if (a) account = String(a).toLowerCase(); }).catch(function () {})
     ]).then(function (r) {
       if (!A.isCurrent(id)) return;
-      board = r[0]; mkt = r[1];
+      board = r[0];
       draw(id);
       retryPending(id);
     }, function () {
@@ -53,10 +67,23 @@
     });
   };
 
+  // 每条链的付款去向：有收款合约就 80% 销毁、20% 运营；还没有就直接转进销毁地址
+  function chainsOf() { return board.chains || { anubis: { sink: board.sink, payTo: board.payTo || BURN } }; }
+  function payToOf(k) { var c = chainsOf()[k]; return (c && c.payTo) || BURN; }
   function burnText() {
-    return board.sink
-      ? '🔥 花掉的 LGNS 进<a target="_blank" rel="noopener" href="https://anubisscan.io/address/' + board.sink + '">收款合约 ↗</a>：<b>80% 永久销毁</b>，20% 用于服务器和运营，比例写死在合约里，链上可查'
-      : '🔥 花掉的 LGNS 全部转进<a target="_blank" rel="noopener" href="https://anubisscan.io/address/' + BURN + '">销毁地址 ↗</a>，链上可查，谁也拿不回来';
+    var cs = chainsOf(), ks = Object.keys(cs);
+    if (ks.every(function (k) { return cs[k].sink; })) return '🔥 花掉的 LGNS 进收款合约（' + ks.map(function (k) { return '<a target="_blank" rel="noopener" href="' + CH[k].explorer + "/address/" + cs[k].sink + '">' + CH[k].name + " ↗</a>"; }).join("、") +
+      '）：<b>80% 永久销毁</b>，20% 用于服务器和运营，比例写死在合约里，链上可查';
+    return "🔥 " + ks.map(function (k) {
+      var c = cs[k], a = '<a target="_blank" rel="noopener" href="' + CH[k].explorer + "/address/" + c.payTo + '">';
+      return "<b>" + CH[k].name + " 链</b>付的 LGNS " + (c.sink ? "进" + a + "收款合约 ↗</a>：<b>80% 永久销毁</b>，20% 用于服务器和运营" : "全部转进" + a + "销毁地址 ↗</a>：<b>100% 销毁</b>");
+    }).join("；") + "。链上可查，谁也拿不回来";
+  }
+  function burnShort() {
+    var cs = chainsOf(), ks = Object.keys(cs);
+    if (ks.every(function (k) { return cs[k].sink; })) return "花掉的 LGNS 80% 永久销毁、20% 用于服务器和运营";
+    if (ks.every(function (k) { return !cs[k].sink; })) return "花掉的 LGNS 全部销毁";
+    return ks.map(function (k) { return CH[k].name + " 链付的 " + (cs[k].sink ? "80% 销毁、20% 运营" : "100% 销毁"); }).join("，");
   }
   function draw(id) {
     var s = board.s;
@@ -73,13 +100,14 @@
       '<canvas id="px-zoom"></canvas></div>' +
       '<div class="px-colors" id="px-colors">' + COLORS.map(function (c, i) { return '<button type="button" data-c="' + i + '" style="background:' + c + '"' + (i === color ? ' class="on"' : "") + ' aria-label="颜色 ' + (i + 1) + '"></button>'; }).join("") + "</div>" +
       '<p class="note" id="px-info">点一个格子看它的信息</p>' +
+      '<div class="px-chain"><span class="muted">用哪条链的 LGNS 付：</span><div class="seg" id="px-chain">' + Object.keys(CH).map(function (k) { return '<button type="button" data-ch="' + k + '"' + (k === payChain ? ' class="on"' : "") + ">" + CH[k].name + "</button>"; }).join("") + "</div></div>" +
       '<div class="px-bar"><div class="px-sum" id="px-sum"></div><button type="button" class="ghost" id="px-clear">清空</button><button type="button" id="px-pay">支付并涂色</button></div><p class="note" id="px-st"></p></section>' +
       '<section class="card"><div class="card-head"><h2>🏆 排行榜</h2><span class="muted">累计花掉的 LGNS</span></div>' + topHtml() + "</section>" +
       '<section class="card"><div class="card-head"><h2>玩法</h2></div><ol class="steps">' +
       "<li>选颜色，点格子（一次最多 " + MAX_PX + " 格），可以拼字、画图</li>" +
       "<li>空格子 <b>" + UNIT + " LGNS</b> 一格；被涂过的格子更贵：第 k 次涂要 <b>" + UNIT + "×k LGNS</b>（10、15、20…）</li>" +
-      "<li>点「支付并涂色」，在钱包里确认一笔 LGNS 转账（Anubis 链，Gas 用 DAI），几秒后就涂上</li>" +
-      "<li>" + (board.sink ? "花掉的 LGNS 80% 永久销毁、20% 用于服务器和运营" : "花掉的 LGNS 全部销毁") + "，只换来墙上的格子和排行榜名次，不返还任何币</li></ol>" +
+      "<li>选 Anubis 链或 Polygon 链的 LGNS（价格一样，涂在同一面墙上），点「支付并涂色」，在钱包里确认一笔 LGNS 转账（Anubis 链 Gas 用 DAI，Polygon 链 Gas 用 POL），几秒后就涂上</li>" +
+      "<li>" + burnShort() + "，只换来墙上的格子和排行榜名次，不返还任何币</li></ol>" +
       '<p class="note">付款转账里附带了这次所选格子的校验码，后台核对链上转账后才涂上，付款不会被别人冒用。同一时间有人抢先涂了同一格，你付款前 10 分钟内被涂的照样给你涂上。</p></section>';
     bind(id);
     paintAll();
@@ -175,6 +203,14 @@
         document.querySelectorAll("#px-colors button").forEach(function (x) { x.classList.toggle("on", x === b); });
       };
     });
+    document.querySelectorAll("#px-chain button").forEach(function (b) {
+      b.onclick = function () {
+        payChain = b.getAttribute("data-ch");
+        store(CHAIN_KEY, payChain);
+        document.querySelectorAll("#px-chain button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        summary();
+      };
+    });
     document.getElementById("px-clear").onclick = function () { sel = {}; paintAll(); summary(); };
     document.getElementById("px-pay").onclick = function () { pay(id, this); };
     window.onresize = function () { if (document.getElementById("px-zoom")) paintZoom(); };
@@ -186,7 +222,7 @@
   }
   function summary() {
     var k = selList().length, t = total(), el = document.getElementById("px-sum");
-    el.innerHTML = k ? "已选 <b>" + k + "</b> 格 · 共 <b>" + A.fmt(t) + " LGNS</b>" + (mkt ? '<small>约 ' + (t * mkt).toFixed(2) + " DAI</small>" : "") : '<span class="muted">还没选格子</span>';
+    el.innerHTML = k ? "已选 <b>" + k + "</b> 格 · 共 <b>" + A.fmt(t) + " LGNS</b>（" + CH[payChain].name + "）" + (mkt[payChain] ? '<small>约 ' + (t * mkt[payChain]).toFixed(2) + " DAI</small>" : "") : '<span class="muted">还没选格子</span>';
     document.getElementById("px-pay").disabled = !k;
   }
   function say(t, bad) {
@@ -201,32 +237,36 @@
     var list = selList();
     if (!list.length) return;
     var px = list.map(function (i) { return [i, sel[i], nOf(i)]; }), t = total(), amount = BigInt(t) * 10n ** 9n, eth, data;
+    var ch = payChain, C = CH[ch];
     btn.disabled = true;
     A.wallets.choose().then(function (p) {
       eth = p;
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (a) {
       account = String(a[0]).toLowerCase();
-      say("正在切换到 Anubis 链…");
-      return W.switchTo(eth, "anubis");
+      say("正在切换到 " + C.name + " 链…");
+      return W.switchTo(eth, ch);
     }).then(function () {
-      return Promise.all([A.call(LGNS, "0x70a08231" + A.pad(account)).then(BigInt), A.rpc("eth_getBalance", [account, "latest"]).then(BigInt), sha256(JSON.stringify(px))]);
+      return eth.request({ method: "eth_chainId" });
+    }).then(function (cid) {
+      if (Number(cid) !== Number(W.CHAINS[ch].params.chainId)) throw new Error("钱包现在不在 " + C.name + " 链上：请在钱包里手动切换到 " + C.name + " 再点支付");
+      return Promise.all([W.rpcOn(ch, "eth_call", [{ to: C.lgns, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt), W.rpcOn(ch, "eth_getBalance", [account, "latest"]).then(BigInt), sha256(JSON.stringify(px))]);
     }).then(function (r) {
-      if (r[0] < amount) throw new Error("LGNS 不够：需要 " + A.fmt(t) + " LGNS，钱包里有 " + A.fmt(Number(r[0]) / 1e9, 2) + "（Anubis 链）");
-      if (r[1] < 10n ** 16n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够）");
-      data = "0xa9059cbb" + A.pad(board.payTo || BURN) + u256(amount) + "5058" + r[2];
+      if (r[0] < amount) throw new Error("LGNS 不够：需要 " + A.fmt(t) + " LGNS，钱包里有 " + A.fmt(Number(r[0]) / 1e9, 2) + "（" + C.name + " 链）");
+      if (r[1] < C.minGas) throw new Error("钱包里要有一点 " + C.gas + " 付 Gas（" + C.minGasText + " 就够）");
+      data = "0xa9059cbb" + A.pad(payToOf(ch)) + u256(amount) + "5058" + r[2];
       say("正在检查交易能否成功…");
-      return A.rpc("eth_call", [{ from: account, to: LGNS, data: data }, "latest"]);
+      return W.rpcOn(ch, "eth_call", [{ from: account, to: C.lgns, data: data }, "latest"]);
     }).then(function () {
       say("请在钱包里确认：支付 " + A.fmt(t) + " LGNS 涂 " + px.length + " 格…");
-      return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: LGNS, data: data }] });
+      return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: C.lgns, data: data }] });
     }).then(function (tx) {
-      store(PENDING, { tx: tx, px: px });
+      store(PENDING, { tx: tx, px: px, chain: ch });
       say("已提交，等待链上确认…");
-      return W.waitOn("anubis", tx).then(function () { return tx; });
+      return W.waitOn(ch, tx).then(function () { return tx; });
     }).then(function (tx) {
       say("正在涂色…");
-      return submitPaid(tx, px);
+      return submitPaid(tx, px, ch);
     }).then(function (r) {
       sel = {};
       say("✅ 涂好了 " + r.applied + " 格！" + (r.skipped ? "（" + r.skipped + " 格被别人抢先涂了）" : ""));
@@ -237,16 +277,16 @@
     });
   }
   // 链上刚确认时，后台的节点可能还没同步到：多试几次
-  function submitPaid(tx, px, tries) {
+  function submitPaid(tx, px, chain, tries) {
     tries = tries || 0;
-    return post({ tx: tx, px: px }).then(function (r) { store(PENDING); return r; }, function (e) {
-      if (tries < 5 && /查不到/.test(e.message)) return new Promise(function (ok) { setTimeout(ok, 3000); }).then(function () { return submitPaid(tx, px, tries + 1); });
+    return post({ tx: tx, px: px, chain: chain }).then(function (r) { store(PENDING); return r; }, function (e) {
+      if (tries < 5 && /查不到/.test(e.message)) return new Promise(function (ok) { setTimeout(ok, 3000); }).then(function () { return submitPaid(tx, px, chain, tries + 1); });
       throw e;
     });
   }
-  // ---------- 销毁乐园：小游戏大厅（#/play）。所有游戏花的 LGNS 都进同一个收款合约：80% 销毁、20% 运营 ----------
+  // ---------- 销毁乐园：小游戏大厅（#/play）。所有游戏花的 LGNS 都进各链的收款合约：80% 销毁、20% 运营 ----------
   var GAMES = [
-    { id: "pixel", icon: "🧱", name: "LGNS 像素墙", desc: "花 LGNS 给格子涂色，画图案、写名字、抢地盘", live: true },
+    { id: "pixel", icon: "🧱", name: "LGNS 像素墙", desc: "花 LGNS 给格子涂色，画图案、写名字、抢地盘（Anubis / Polygon 链都能付）", live: true },
     { id: "merge", icon: "🧬", name: "DNA 合成", desc: "合成更高级的 DNA，冲击排行榜（免费玩，道具用 LGNS）" },
     { id: "pet", icon: "🌱", name: "HELIX 宠物", desc: "每天喂养你的 DNA 宠物，升级解锁皮肤" }
   ];
@@ -269,17 +309,18 @@
         }).join("") + "</div>" +
         '<section class="card"><div class="card-head"><h2>🏆 燃烧排行榜</h2><span class="muted">累计花掉的 LGNS</span></div>' + topHtml() + "</section>" +
         '<p class="note">只消耗、不赢币：花掉的 LGNS 只换来游戏里的格子、道具和排行榜名次，不返还任何币，也没有抽奖、开盒。' +
-        (b.sink ? "80% 永久销毁、20% 用于服务器和运营，比例写死在收款合约里。" : "") + "</p>";
+        burnShort() + "。Anubis 链和 Polygon 链的 LGNS 都能用。</p>";
     }, function () {
       if (A.isCurrent(id)) A.app.innerHTML = '<div class="card err">读取失败，请稍后刷新。</div>';
     });
   };
 
-  // ---------- 部署收款合约（只给站长用，不在导航里）：#/pixel/deploy ----------
+  // ---------- 部署收款合约（只给站长用，不在导航里）：#/pixel/deploy（Anubis）、#/pixel/deploy/polygon ----------
   function renderDeploy(id) {
-    A.app.innerHTML = '<h1>部署像素墙收款合约</h1><p class="sub">用你的钱包把收款合约部署到 Anubis 链，Gas 用 DAI 支付，只需要部署一次。合约收到的 LGNS 任何人都能触发分出去：80% 销毁、20% 转原收款钱包（再按 30/40/30 分账）。地址和比例写死，没有管理员。</p>' +
-      '<section class="card"><dl class="dl"><dt>LGNS</dt><dd class="mono">' + LGNS + '</dd><dt>80% 销毁到</dt><dd class="mono">' + BURN + '</dd><dt>20% 转到</dt><dd class="mono">0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6</dd>' +
-      '<dt>源码</dt><dd><a target="_blank" rel="noopener" href="contracts/LgnsPixelSink.sol">LgnsPixelSink.sol ↗</a></dd></dl>' +
+    var ch = CH[location.hash.split("/")[3]] ? location.hash.split("/")[3] : "anubis", C = CH[ch];
+    A.app.innerHTML = '<h1>部署像素墙收款合约（' + C.name + ' 链）</h1><p class="sub">用你的钱包把收款合约部署到 ' + C.name + ' 链，Gas 用 ' + C.gas + ' 支付，只需要部署一次。合约收到的 LGNS 任何人都能触发分出去：80% 销毁、20% 转原收款钱包（再按 30/40/30 分账）。地址和比例写死，没有管理员。</p>' +
+      '<section class="card"><dl class="dl"><dt>LGNS</dt><dd class="mono">' + C.lgns + '</dd><dt>80% 销毁到</dt><dd class="mono">' + BURN + '</dd><dt>20% 转到</dt><dd class="mono">0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6</dd>' +
+      '<dt>源码</dt><dd><a target="_blank" rel="noopener" href="contracts/' + C.artifact + '.sol">' + C.artifact + '.sol ↗</a></dd></dl>' +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
     var st = document.getElementById("d-st"), eth, from, data;
     function sayD(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
@@ -291,23 +332,23 @@
         return eth.request({ method: "eth_requestAccounts" });
       }).then(function (a) {
         from = String(a[0]).toLowerCase();
-        return W.switchTo(eth, "anubis");
+        return W.switchTo(eth, ch);
       }).then(function () {
         return eth.request({ method: "eth_chainId" });
       }).then(function (cid) {
-        if (Number(cid) !== 6714) throw new Error("钱包现在不在 Anubis 链上：请在钱包里手动切换到 Anubis 再点部署");
-        return A.getJSON("contracts/LgnsPixelSink.json");
+        if (Number(cid) !== Number(W.CHAINS[ch].params.chainId)) throw new Error("钱包现在不在 " + C.name + " 链上：请在钱包里手动切换到 " + C.name + " 再点部署");
+        return A.getJSON("contracts/" + C.artifact + ".json");
       }).then(function (art) {
         data = art.bytecode;
-        return A.rpc("eth_estimateGas", [{ from: from, data: data }]);
+        return W.rpcOn(ch, "eth_estimateGas", [{ from: from, data: data }]);
       }).then(function (g) {
         sayD("请在钱包里确认部署…");
         return eth.request({ method: "eth_sendTransaction", params: [{ from: from, data: data, gas: "0x" + (BigInt(g) * 13n / 10n).toString(16) }] });
       }).then(function (hash) {
         sayD("已提交，等待链上确认…");
-        return W.waitOn("anubis", hash);
+        return W.waitOn(ch, hash);
       }).then(function (r) {
-        sayD('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + "</b><br>把这个地址发给我，我填进网站，像素墙就改成 80% 销毁、20% 运营。");
+        sayD('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + "</b><br>把这个地址发给我，我填进网站，' + C.name + ' 链的付款就改成 80% 销毁、20% 运营。");
       }, function (e) { sayD(A.esc(W.error(e)), true); btn.disabled = false; });
     };
   }
@@ -316,7 +357,7 @@
     var p = load(PENDING);
     if (!p || !p.tx) return;
     say("发现一笔已付款还没涂上的，正在补交…");
-    submitPaid(p.tx, p.px).then(function (r) {
+    submitPaid(p.tx, p.px, p.chain || "anubis").then(function (r) {
       say("✅ 补交成功，涂好了 " + r.applied + " 格");
       setTimeout(function () { if (A.isCurrent(id)) A.pages.pixel(id); }, 1500);
     }, function (e) {

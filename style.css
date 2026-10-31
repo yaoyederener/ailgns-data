@@ -1018,6 +1018,8 @@ button.ghost { color: var(--purple-ink); border-color: var(--gold); }
 .px-colors { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 12px 0 4px; }
 .px-colors button { aspect-ratio: 1; padding: 0; border-radius: 10px; border: 2px solid var(--border); min-height: 0; }
 .px-colors button.on { border-color: #7027d9; box-shadow: 0 0 0 3px rgba(112, 39, 217, .25); transform: scale(1.06); }
+.px-chain { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; }
+.px-chain .seg { margin-bottom: 0; }
 .px-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .px-sum { flex: 1 1 180px; }
 .px-sum small { margin-left: 6px; color: var(--muted); }

@@ -41,3 +41,10 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 - 收到的 LGNS 任何人都可以调用 `flush()` 分出去：80% → 销毁地址 `0x000000000000000000000000000000000000dEaD`，20% → 原收款钱包 `0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6`（再由分账合约按 30/40/30 分）
 
 2026-10-31 核对：链上运行代码和用上面的标准输入编译出来的结果逐字节一致；`TOKEN()`、`BURN()`、`REVENUE()`、`BURN_BPS()`（8000 = 80%）读出来都和源码一致。部署前在 Anubis 链的本地分叉上用真实 LGNS 测试过：转入 100 LGNS 后 flush，销毁地址 +80、原收款钱包 +20、合约清零。
+
+### Polygon 链版 LgnsPixelSinkPolygon
+
+- 源码：[`LgnsPixelSinkPolygon.sol`](LgnsPixelSinkPolygon.sol)，标准输入 [`LgnsPixelSinkPolygon.standard-input.json`](LgnsPixelSinkPolygon.standard-input.json)（同样的编译设置），无构造参数
+- 和 Anubis 版只差写死的 `TOKEN`（→ Polygon LGNS `0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01`）；销毁地址、原收款钱包、80% 比例都一样
+- 2026-10-31 在 Polygon 链的本地分叉上用真实 LGNS 测试过：转入 100 LGNS 后 flush，销毁地址 +80、原收款钱包 +20、合约清零
+- 部署前，Polygon 链的像素墙付款直接转进销毁地址（100% 销毁）
