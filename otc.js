@@ -228,7 +228,6 @@
       html += book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高") + book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低");
       html += createForm();
       if (account) html += myOrders(mine, now);
-      html += '<div id="dbx-card"></div>';
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
@@ -237,25 +236,41 @@
       deboxCard(id);
     }
 
-    // DeBox 通知：客户关注机器人、发钱包地址绑定，之后挂单成交 / 撤单 / 到期退回都会私信通知
+    // DeBox 通知：放在「发布挂单」按钮上方，挂单时顺手绑定；之后成交 / 撤单 / 到期退回都会私信通知
+    var dbx = null; // { ready, bot, bound }
+    function dbxLink() { return "https://m.debox.pro/card?id=" + encodeURIComponent(dbx.bot.uid); } // 机器人名片页：打开后点「关注」/「发消息」
+    function copyAddr(btn) {
+      (navigator.clipboard ? navigator.clipboard.writeText(account) : Promise.reject()).then(function () { btn.textContent = "已复制 ✓"; }, function () { btn.textContent = "请长按地址复制"; });
+    }
+    function dbxHtml() {
+      if (dbx.bound) return '<div class="dbx-bar dbx-on"><span class="dbx-bell">🔔</span><div><b>已开启 DeBox 通知</b><small>这个钱包的挂单成交、撤单、到期退回会私信到你的 DeBox</small></div></div>';
+      return '<div class="dbx-bar"><span class="dbx-bell">🔔</span><div class="dbx-txt"><b>挂单成交 / 退回，DeBox 私信秒通知</b>' +
+        "<small>" + (account ? '① 点右边打开机器人并关注　② 把钱包地址发给它：<span class="dbx-addr"><span class="mono">' + A.short(account) + '</span><button type="button" class="ghost" id="dbx-copy">复制地址</button></span>' : "连接钱包后，把钱包地址发给机器人即可绑定") + "</small></div>" +
+        '<a class="btn dbx-go" href="' + dbxLink() + '" target="_blank" rel="noopener">开启通知 →</a></div>';
+    }
     function deboxCard(id) {
       fetch("/api/debox-bot" + (account ? "?addr=" + account : "")).then(function (r) { return r.json(); }).then(function (d) {
-        var el = document.getElementById("dbx-card");
+        dbx = d;
+        var el = document.getElementById("dbx-slot");
         if (!el || !A.isCurrent(id) || !d.ready) return; // 机器人还没配置好时不显示
-        var link = "https://m.debox.pro/user/chat?id=" + encodeURIComponent(d.bot.uid);
-        el.innerHTML = '<section class="card dbx"><div class="card-head"><h2>🔔 挂单动态，DeBox 私信通知你</h2>' +
-          (d.bound === true ? '<span class="up">当前钱包已绑定 ✓</span>' : d.bound === false ? '<span class="muted">当前钱包未绑定</span>' : "") + "</div>" +
-          '<ol class="steps"><li>打开通知机器人' + (d.bot.name ? "「" + A.esc(d.bot.name) + "」" : "") + '，点<b>关注</b></li>' +
-          "<li>把你挂单用的钱包地址发给它" + (account ? '：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" id="dbx-copy">复制</button></div>' : "（0x 开头）") + "</li>" +
-          "<li>收到「✅ 已绑定」就好了。之后挂单<b>成交、撤单、到期退回</b>都会私信你，吃单成功也会通知</li></ol>" +
-          '<a class="btn" href="' + link + '" target="_blank" rel="noopener" style="padding:11px 20px">打开 DeBox 通知机器人 →</a>' +
-          '<p class="note">只需要绑定一次；可以绑定多个钱包，发「我的绑定」查看，发「解绑 0x…」取消。</p></section>';
+        el.innerHTML = dbxHtml();
         var c = document.getElementById("dbx-copy");
-        if (c) c.onclick = function () {
-          var b = this;
-          (navigator.clipboard ? navigator.clipboard.writeText(account) : Promise.reject()).then(function () { b.textContent = "已复制 ✓"; }, function () { b.textContent = "请长按地址复制"; });
-        };
+        if (c) c.onclick = function () { copyAddr(this); };
       }).catch(function () { /* 通知功能不可用时不显示 */ });
+    }
+    // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
+    function dbxAfterCreate() {
+      if (!dbx || !dbx.ready || dbx.bound || !account) return false;
+      var box = document.createElement("div");
+      box.className = "modal";
+      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        '<p><b>开启 DeBox 通知</b>，有人成交、到期退回，第一时间私信告诉你，不用一直盯着网页。</p>' +
+        '<ol class="steps"><li>点下面按钮打开机器人「' + A.esc(dbx.bot.name || "通知机器人") + '」，点关注</li><li>把钱包地址发给它：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" id="dbx-copy2">复制</button></div></li><li>收到「✅ 已绑定」就好了</li></ol>' +
+        '<a class="btn" href="' + dbxLink() + '" target="_blank" rel="noopener" style="padding:12px 18px;text-align:center">打开 DeBox 通知机器人 →</a></div>';
+      document.body.appendChild(box);
+      box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+      document.getElementById("dbx-copy2").onclick = function () { copyAddr(this); };
+      return true;
     }
 
     // 我的钱包：地址 + AiLGNS / DAI 余额；连接后随时刷新
@@ -301,7 +316,7 @@
         '<button type="button" data-d="custom">自定义</button></div>' +
         '<div class="dur-custom" id="otc-dur-custom" hidden><input id="otc-dur-n" inputmode="numeric" placeholder="数字"><div class="seg" id="otc-dur-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div>' +
         '<p class="note" id="otc-dur-st">有效期 30 分钟</p></div>' +
-        '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
+        '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
     function myOrders(list, now) {
@@ -402,6 +417,7 @@
           return send(OTC, SEL.create + u256(sell ? 1 : 0) + u256(give) + u256(want) + u256(dur), say, "发布挂单");
         }).then(function () {
           say("挂单成功！");
+          dbxAfterCreate();
           setTimeout(reload, 1200);
         }, function (e) { say(niceError(e), true); btn.disabled = false; });
       };
