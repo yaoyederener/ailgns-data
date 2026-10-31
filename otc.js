@@ -45,6 +45,7 @@
   var DURATIONS = [[600, "10 分钟"], [1800, "30 分钟"], [3600, "1 小时"], [7200, "2 小时"], [21600, "6 小时"], [43200, "12 小时"],
     [86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]];
   var DUR_MIN = 600, DUR_MAX = 30 * 86400;
+  var DUR_DEFAULT = 7 * 86400; // 默认挂 7 天：订单簿上挂单多，看着热闹
   var account = null;
   // 指导价：要比 DEX 对买卖双方都划算，才容易成交（DEX 到手价 / 成本见上面各市场的 dexSell、dexBuy）
   // 吃单方付 1% 手续费，所以：卖单价 ≤ 市价 × dexBuy × 99% 买家才划算；买单价 ≥ 市价 × dexSell ÷ 99% 卖家才划算
@@ -432,11 +433,11 @@
         '<div class="form-grid"><label>数量（' + SYM + '）<input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
-        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="1800">' +
-        '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === 1800 ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
+        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="' + DUR_DEFAULT + '">' +
+        '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
         '<button type="button" data-d="custom">自定义</button></div>' +
         '<div class="dur-custom" id="otc-dur-custom" hidden><input id="otc-dur-n" inputmode="numeric" placeholder="数字"><div class="seg" id="otc-dur-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div>' +
-        '<p class="note" id="otc-dur-st">有效期 30 分钟</p></div>' +
+        '<p class="note" id="otc-dur-st">有效期 7 天</p></div>' +
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
@@ -573,7 +574,7 @@
         };
       });
       durN.oninput = customDur;
-      setDur(1800);
+      setDur(DUR_DEFAULT);
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
