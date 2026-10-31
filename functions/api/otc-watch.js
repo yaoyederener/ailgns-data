@@ -104,7 +104,7 @@ function dealText(list, mkt) {
       : `📥 高价求购 ${o.qty.toFixed(4)} AiLGNS\n出价 ${d2(o.price)} DAI，比市价高 ${pct}%，手里有币可以直接卖`);
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
-  lines.push("", `📊 现在市价 ${d2(mkt)} DAI`, "⚡ 先到先得，被别人吃掉就没了！", "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP", "👉 https://ailgns.dev/#/otc");
+  lines.push("", `📊 现在市价 ${d2(mkt)} DAI`, "⚡ 先到先得，被别人吃掉就没了！", "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP", "🧬 https://ailgns.dev/#/otc");
   return lines.join("\n");
 }
 // 找出还没推送过的低于市价的单；send=false 时只返回文字（预览）
@@ -188,7 +188,7 @@ const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高�
 function groupText(fills, line) {
   const out = fills.slice(0, 5).map((f) => `🤝 已成交：${f.qty.toFixed(5)} 个 AiLGNS，\n金额：${dai2(f.qty * f.price)} DAI，\n单价：${dai2(f.price)} DAI/AiLGNS`);
   if (fills.length > 5) out.push(`……共 ${fills.length} 笔成交`);
-  return out.join("\n\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🔗 https://ailgns.dev/#/otc";
+  return out.join("\n\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 https://ailgns.dev/#/otc";
 }
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -203,7 +203,7 @@ export async function onRequestGet(ctx) {
     const lastTest = parseInt((await kv.get("otcw:fanstest")) || "0", 10);
     if (Date.now() - lastTest < 3600000) return Response.json({ fans: await kv.get("otcw:fans", "json"), note: "1 小时内测过了" });
     await kv.put("otcw:fanstest", String(Date.now()));
-    const r = await sendDeboxFans(ctx.env, GROUPS[0], "📢 已关注 AiLGNS OTC 机器人：以后每笔 OTC 成交都会第一时间推送给你。\n🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP\n👉 https://ailgns.dev/#/otc")
+    const r = await sendDeboxFans(ctx.env, GROUPS[0], "📢 已关注 AiLGNS OTC 机器人：以后每笔 OTC 成交都会第一时间推送给你。\n🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP\n🧬 https://ailgns.dev/#/otc")
       .then((x) => ({ ok: true, result: x }), (e) => ({ ok: false, err: String(e.message || e).slice(0, 300) }));
     await kv.put("otcw:fans", JSON.stringify({ ...r, at: Date.now() }));
     return Response.json({ fans: r });
@@ -223,7 +223,7 @@ export async function onRequestGet(ctx) {
     const id = parseInt(l.topics[1], 16), d = words(l.data);
     const o = cache[id] || (cache[id] = await order(id));
     const giveSym = o.sell ? "AiLGNS" : "DAI", wantSym = o.sell ? "DAI" : "AiLGNS", side = o.sell ? "卖单" : "买单";
-    const link = "\n🔗 " + TX + l.transactionHash + "\n👉 https://ailgns.dev/#/otc";
+    const link = "\n🔗 " + TX + l.transactionHash + "\n🧬 https://ailgns.dev/#/otc";
     if (l.topics[0] === FILLED) {
       const taker = "0x" + l.topics[2].slice(26), amount = num(d[0]), paid = num(d[1]), fee = num(d[2]), left = num(d[3]);
       msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
