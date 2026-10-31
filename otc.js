@@ -25,6 +25,12 @@
   var DUR_MIN = 600, DUR_MAX = 30 * 86400;
   var WEI = 10n ** 18n;
   var account = null;
+  // 指导价：要比官方 DEX 对买卖双方都划算，才容易成交
+  // 官方 DEX 卖 1 枚实际到手 ≈ 市价 × 96.7%（3% 手续费 + 滑点，按 DEX 实际报价）；买入实际成本 ≈ 市价 × 100.5%（滑点）
+  // 吃单方付 1% 手续费，所以：卖单价 ≤ 市价 × 100.5% × 99% 买家才划算；买单价 ≥ 市价 × 96.7% ÷ 99% 卖家才划算
+  var DEX_SELL = 0.967, DEX_BUY = 1.005, TAKER = 0.99;
+  var GUIDE = { sell: 0.985, buy: 0.99 }; // 挂卖单建议市价 -1.5%，挂买单建议市价 -1%
+  var RANGE = { sell: [DEX_SELL, DEX_BUY * TAKER], buy: [DEX_SELL / TAKER, DEX_BUY] };
 
   // ---------- 数字 ----------
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
@@ -222,7 +228,7 @@
         '<div class="kpi" id="otc-wallet"></div></div>';
       html += book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低") + book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖 AiLGNS
       html += createForm();
-      if (account) html += myOrders(mine, now);
+      if (account) html += myOrders(mine, now, mkt);
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
@@ -367,7 +373,7 @@
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 AiLGNS</button><button data-side="buy">我要买 AiLGNS</button></div>' +
         '<div class="form-grid"><label>数量（AiLGNS）<input id="otc-qty" inputmode="decimal" placeholder="例如 5"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 800"></label>' +
-        "</div>" +
+        "</div>" + '<div class="guide" id="otc-guide"></div>' +
         '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="1800">' +
         '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === 1800 ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
         '<button type="button" data-d="custom">自定义</button></div>' +
@@ -376,11 +382,13 @@
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
-    function myOrders(list, now) {
+    function myOrders(list, now, mkt) {
       if (!list.length) return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
       return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var status = !o.open ? (o.giveLeft === 0n ? "已结束" : "已结束") : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
+          var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
+          if (r && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], 2) + " 重挂</span>";
           var remain = o.sellAilgns ? show(o.giveLeft) + " AiLGNS" : show(o.giveLeft, 2) + " DAI";
           return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 AiLGNS" : "买 AiLGNS") + '</td><td data-l="单价">' + A.fmt(priceOf(o), 2) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
@@ -414,21 +422,44 @@
         b.onclick = function () {
           side = b.getAttribute("data-side");
           document.querySelectorAll("#otc-side button").forEach(function (x) { x.classList.toggle("on", x === b); });
+          guide();
           calc();
         };
       });
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
       if (mkt) price.placeholder = "市价约 " + mkt.toFixed(2);
+      // 指导价：默认自动填进单价；客户自己改过就不再覆盖
+      var auto = true;
+      function guide() {
+        var el = document.getElementById("otc-guide");
+        if (!mkt) { el.hidden = true; return; }
+        var g = mkt * GUIDE[side], lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
+        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, 2) + '</b><small>DAI / 枚 · 比市价低 ' + ((1 - GUIDE[side]) * 100).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
+          (side === "sell"
+            ? "<p>买家比去官方 DEX 买便宜；你比在 DEX 卖（每枚到手约 " + A.fmt(dexSell, 2) + "）多拿约 <b>" + A.fmt(g - dexSell, 2) + " DAI</b>，挂出去容易被吃掉。</p>" +
+              '<p class="muted">合理区间 ' + A.fmt(lo, 2) + "–" + A.fmt(hi, 2) + "。高于 " + A.fmt(hi, 2) + " 买家直接去 DEX 买更划算，基本卖不掉。</p>"
+            : "<p>卖家扣 1% 手续费后每枚到手 " + A.fmt(g * TAKER, 2) + "，比在 DEX 卖（约 " + A.fmt(dexSell, 2) + "）多，容易成交；你比去 DEX 买（约 " + A.fmt(dexBuy, 2) + "）每枚省约 <b>" + A.fmt(dexBuy - g, 2) + " DAI</b>。</p>" +
+              '<p class="muted">合理区间 ' + A.fmt(lo, 2) + "–" + A.fmt(hi, 2) + "。低于 " + A.fmt(lo, 2) + " 卖家去 DEX 卖更划算，基本买不到。</p>");
+        document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(2); auto = true; calc(); };
+        if (auto || !price.value) { price.value = g.toFixed(2); auto = true; }
+      }
       function calc() {
         var q = toWei(qty.value), p = toWei(price.value);
-        if (!q || !p) { sum.textContent = "填好数量和单价后显示总额"; return null; }
+        if (!q || !p) { sum.textContent = "填好数量后显示总额"; return null; }
         var total = (q * p) / WEI;
         var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
+        var r = mkt ? num(p) / mkt : null, verdict = "";
+        if (r) {
+          if (side === "sell") verdict = r > RANGE.sell[1] ? "⚠️ 价格偏高：买家去官方 DEX 买更划算，很难成交，建议不高于 " + A.fmt(mkt * RANGE.sell[1], 2) : r < DEX_SELL ? "⚠️ 低于官方 DEX 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, 2) + "），你会少拿 DAI" : "";
+          else verdict = r < RANGE.buy[0] ? "⚠️ 价格偏低：卖家去官方 DEX 卖更划算，很难成交，建议不低于 " + A.fmt(mkt * RANGE.buy[0], 2) : r > DEX_BUY ? "⚠️ 高于官方 DEX 买入价（约 " + A.fmt(mkt * DEX_BUY, 2) + "），你会多花 DAI" : "";
+        }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + show(q) + " AiLGNS</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + show(q) + " AiLGNS</b>") +
-          (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>");
+          (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
+          (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ 价格合理，比官方 DEX 划算，容易成交</span>') : "");
         return { q: q, total: total };
       }
-      qty.oninput = calc; price.oninput = calc;
+      qty.oninput = calc; price.oninput = function () { auto = false; calc(); };
+      guide();
       // 有效期按钮
       var durIn = document.getElementById("otc-dur"), durSt = document.getElementById("otc-dur-st"), custom = document.getElementById("otc-dur-custom");
       var durN = document.getElementById("otc-dur-n"), unit = 3600;

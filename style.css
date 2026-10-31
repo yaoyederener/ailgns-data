@@ -772,3 +772,12 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .addr-box button { padding: 10px 18px; font-size: 15px; font-weight: 700; border-radius: 10px; }
 .addr-box:focus-within { box-shadow: 0 0 0 5px rgba(112, 39, 217, .18); }
 .addr-tips { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* OTC 指导价 */
+.guide { margin: 4px 0 12px; padding: 12px 14px; border-radius: 14px; background: var(--gold-soft); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.6; }
+.guide p { margin: 6px 0 0; }
+.guide .muted { font-size: 12.5px; }
+.guide-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; }
+.guide-tag { padding: 2px 8px; border-radius: 999px; background: var(--gold); color: #fff; font-size: 12px; font-weight: 700; }
+.guide-head b { font-size: 22px; color: var(--gold); }
+.guide-head button { margin-left: auto; padding: 5px 12px; align-self: center; }
