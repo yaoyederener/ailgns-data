@@ -707,4 +707,5 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 @media (max-width: 600px) { .dbx-bar { align-items: flex-start; } }
 .dbx-steps { margin: 6px 0 4px; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; color: var(--text); line-height: 1.6; }
 .dbx-steps button, .dbx-bar small button { padding: 1px 9px; font-size: 12px; margin-left: 2px; }
+.dbx-steps b { display: inline; font-size: inherit; }
 .dbx-chip { display: inline-block; padding: 0 8px; border-radius: 6px; background: #fff; border: 1px solid #d9ccfb; color: var(--gold); font-weight: 700; }
