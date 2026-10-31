@@ -184,14 +184,13 @@
 
   function renderOtc(id, sub) {
     var app = A.app;
-    var head = hero(null, null);
     if (sub === "deploy") return renderDeploy(id);
     if (sub === "split") return renderSplit(id);
     if (!OTC) {
-      app.innerHTML = head + VS + '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
+      app.innerHTML = '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
-    app.innerHTML = head + VS + '<div class="loading">正在读取订单…</div>';
+    app.innerHTML = '<div class="loading">正在读取订单…</div>';
     Promise.all([readOrders(), marketPrice().catch(function () { return null; }), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
       draw(id, r[0], r[1]);
@@ -223,18 +222,16 @@
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
-      // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、合约、钱包余额、DEX 对比都放到下面
+      // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">任意金额成交送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低") + book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖 AiLGNS
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
-      html += hero(mkt, live.length);
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
-      html += VS;
-      html += '<div class="otc-gift">🎁 <b>交易就送会员</b>：任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP（挂单被吃、吃别人的单都算）。成交后到「会员」页填这个钱包地址点「查询」就能用。</div>';
+      html += '<p class="note">🎁 成交后到「会员」页填这个钱包地址点「查询」，会员就能用。<a href="#/promo">为什么在这里交易更划算 →</a></p>';
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
@@ -415,15 +412,14 @@
       var c = document.getElementById("otc-connect");
       if (c) c.onclick = function () { connect().then(reload, function (e) { say(niceError(e), true); }); };
 
-      A.app.querySelectorAll("[data-go]").forEach(function (b) {
-        b.onclick = function () {
-          var t = document.querySelector('#otc-side [data-side="' + b.getAttribute("data-go") + '"]');
-          if (t) t.click();
-          var f = document.getElementById("otc-form");
-          if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
-          setTimeout(function () { var q = document.getElementById("otc-qty"); if (q) q.focus({ preventScroll: true }); }, 500);
-        };
-      });
+      // 从「营销广告」点「我要卖 / 我要买」进来（#/otc/sell、#/otc/buy）：切到对应方向，滚到挂单表单
+      var go = location.hash.split("/")[2];
+      if (go === "sell" || go === "buy") setTimeout(function () {
+        var t = document.querySelector('#otc-side [data-side="' + go + '"]');
+        if (t) t.click();
+        var f = document.getElementById("otc-form");
+        if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
 
       // 发布挂单
       var side = "sell";
@@ -739,6 +735,26 @@
       });
     }
     renderOtc(id, sub);
+  };
+  // 营销广告：OTC 介绍、和官方 DEX 的费用对比、交易送会员
+  A.pages.promo = function (id) {
+    var gift = '<section class="card promo-gift"><div class="card-head"><h2>🎁 交易就送会员</h2></div>' +
+      '<div class="pg-row"><div class="pg-item"><b>初级 VIP</b><span>在本站 OTC 成交任意金额</span></div><div class="pg-item pro"><b>高级 VIP</b><span>累计成交满 1 万 DAI</span></div></div>' +
+      '<p class="note">挂单被吃、吃别人的单都算，按钱包地址自动累计。成交后到<a href="#/member">「会员」</a>页填这个钱包地址点「查询」就能用。</p>' +
+      '<button data-go="otc" style="padding:12px 22px">去 OTC 交易 →</button></section>';
+    function draw(mkt, live) {
+      A.app.innerHTML = hero(mkt, live) + gift + VS + '<p class="note">本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。智能合约未经第三方审计，请先小额试用。</p>';
+      A.app.querySelectorAll("[data-go]").forEach(function (b) {
+        b.onclick = function () { var g = b.getAttribute("data-go"); location.hash = "#/otc" + (g === "otc" ? "" : "/" + g); };
+      });
+    }
+    draw(null, null);
+    if (!OTC) return;
+    Promise.all([marketPrice().catch(function () { return null; }), readOrders().catch(function () { return null; })]).then(function (r) {
+      if (!A.isCurrent(id)) return;
+      var now = Date.now() / 1000;
+      draw(r[0], r[1] ? r[1].filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0; }).length : null);
+    });
   };
   A.start();
 })();
