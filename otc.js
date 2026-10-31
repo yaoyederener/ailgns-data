@@ -223,13 +223,14 @@
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
-      var html = hero(mkt, live.length) + VS;
+      var html = hero(mkt, live.length); // 打开就是交易：挂单簿、挂单表单在前，和 DEX 的对比放到下面
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
       html += book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低") + book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖 AiLGNS
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
+      html += VS;
       html += '<div class="otc-gift">🎁 <b>交易就送会员</b>：任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP（挂单被吃、吃别人的单都算）。成交后到「会员」页填这个钱包地址点「查询」就能用。</div>';
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
