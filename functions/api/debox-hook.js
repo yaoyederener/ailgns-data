@@ -10,10 +10,8 @@ async function getList(kv, key) { return (await kv.get(key, "json")) || []; }
 
 export async function onRequestPost(ctx) {
   const kv = ctx.env.TEAM_KV;
-  let u, raw = "";
-  try { raw = await ctx.request.text(); u = JSON.parse(raw); } catch (e) { u = null; }
-  // 排查用：记下最近一次收到的内容（1 天后自动删）
-  if (kv) ctx.waitUntil(kv.put("dbx:lasthook", JSON.stringify({ at: Date.now(), ct: ctx.request.headers.get("content-type"), raw: raw.slice(0, 2000) }), { expirationTtl: 86400 }));
+  let u;
+  try { u = await ctx.request.json(); } catch (e) { u = null; }
   if (!u) return new Response("ok");
   // DeBox 实际推送的格式：{ from_user_id, to_user_id, group_id（私聊为空）, message: "文字", message_raw, address, name }
   // 也兼容 SDK 文档里那种 { message: { text, chat: {id, type}, from: {user_id} } }
@@ -68,7 +66,7 @@ export async function onRequestPost(ctx) {
 // 浏览器打开这个地址时给个提示（DeBox 后台填 Webhook 时也可能先访问一下）
 export async function onRequestGet(ctx) {
   if (new URL(ctx.request.url).searchParams.get("debug") === "1" && ctx.env.TEAM_KV) {
-    return Response.json({ last: await ctx.env.TEAM_KV.get("dbx:lasthook", "json"), err: await ctx.env.TEAM_KV.get("dbx:lasterr", "json") });
+    return Response.json({ err: await ctx.env.TEAM_KV.get("dbx:lasterr", "json") }); // 最近一次回复失败的原因
   }
   return new Response("AiLGNS DeBox webhook ok");
 }
