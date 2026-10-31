@@ -7,6 +7,8 @@
   var OTC = "0x4e730be6d46be71223ded5a32dc45799f6d4bc15";
   var AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB";
   var DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14";
+  // Anubis 链的 Gas 就是用 DAI 付的（DAI 余额就是 Gas 余额），用 DAI 的「最大」要留一点当 Gas
+  var GAS_RESERVE = 10n ** 17n; // 0.1 DAI，够授权 + 成交好几次
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
   var FEE_BPS = 100n;
   var EXPLORER = "https://anubisscan.io";
@@ -473,7 +475,7 @@
         if (!bal) return null;
         if (side === "sell") return bal.ail;
         var p = toWei(price.value);
-        return p ? bal.dai * WEI / p : null;
+        return p ? (bal.dai > GAS_RESERVE ? bal.dai - GAS_RESERVE : 0n) * WEI / p : null; // 留 0.1 DAI 付 Gas
       }
       function pick() {
         var el = document.getElementById("otc-pick");
@@ -563,14 +565,14 @@
       });
     }
 
-    // 吃单弹窗：数量一律按 AiLGNS 填
+    // 吃单弹窗：买入按付多少 DAI 填，卖出按卖多少 AiLGNS 填
     function openFill(o, reload) {
       var m = document.getElementById("otc-modal"), p = priceOf(o);
       var maxAil = o.sellAilgns ? o.giveLeft : ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal);
       m.hidden = false;
       m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (o.sellAilgns ? "买入 AiLGNS" : "卖出 AiLGNS") + ' · #' + o.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
         '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, 4) + " DAI</dd><dt>可成交</dt><dd>" + show(maxAil) + ' AiLGNS</dd><dt>挂单人</dt><dd class="mono">' + A.short(o.maker) + "</dd></dl>" +
-        '<label class="full">' + (o.sellAilgns ? "买入数量" : "卖出数量") + '（AiLGNS）<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
+        '<label class="full">' + (o.sellAilgns ? "付款金额（DAI）" : "卖出数量（AiLGNS）") + '<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
         '<div class="quote" id="f-quote">输入数量后显示</div><div class="note" id="f-bal" style="margin:0"></div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");
       var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : "AiLGNS";
@@ -585,19 +587,26 @@
       }
       if (account) loadBal();
       // 「最大」= 你钱包余额最多能成交多少，和这张单剩下的取小的
+      var maxPay = ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal); // 买下这张单剩下的全部要付多少 DAI
       function maxByWallet(b) {
-        var afford = o.sellAilgns ? (b * o.giveTotal) / o.wantTotal : b; // 买：DAI 余额能买多少 AiLGNS；卖：AiLGNS 余额
-        return afford < maxAil ? afford : maxAil;
+        if (o.sellAilgns) { // 买：能付的 DAI = 余额 - Gas 预留，和吃完这张单要的 DAI 取小的
+          var can = b > GAS_RESERVE ? b - GAS_RESERVE : 0n;
+          return can < maxPay ? can : maxPay;
+        }
+        return b < maxAil ? b : maxAil; // 卖：AiLGNS 余额（Gas 用 DAI 付，不用留 AiLGNS）
       }
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function plan() {
         var q = toWei(qty.value);
-        if (!q) { quote.textContent = "输入数量后显示"; return null; }
-        if (q > maxAil) q = maxAil;
+        if (!q) { quote.textContent = o.sellAilgns ? "输入付多少 DAI 后显示" : "输入数量后显示"; return null; }
         var amount, pay, get, fee;
-        if (o.sellAilgns) { // 拿走 q 个 AILGNS，付 DAI
-          amount = q; pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
-        } else { // 付 AILGNS，拿走 DAI
+        if (o.sellAilgns) { // 付 q 个 DAI，按单价换成能拿走的 AiLGNS（往下取，实际付的不会超过 q）
+          if (q > maxPay) q = maxPay;
+          amount = (q * o.giveTotal) / o.wantTotal;
+          if (amount > o.giveLeft) amount = o.giveLeft;
+          pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+        } else {
+          if (q > maxAil) q = maxAil; // 付 AILGNS，拿走 DAI
           amount = (q * o.giveTotal) / o.wantTotal;
           if (amount > o.giveLeft) amount = o.giveLeft;
           pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
@@ -614,10 +623,11 @@
         (account ? (bal !== null ? Promise.resolve(bal) : loadBal()) : ready().then(function () { walletCard(); return loadBal(); })).then(function (b) {
           var q = maxByWallet(b);
           if (q <= 0n) { qty.value = ""; plan(); say("钱包里没有 " + payName + "，没法" + (o.sellAilgns ? "买入" : "卖出"), true); return; }
-          var k = 10n ** 12n, v = q / k * k; // 往下取到 6 位小数，免得超过余额
-          qty.value = (Number(v / k) / 1e6).toFixed(6).replace(/\.?0+$/, "");
+          var d = o.sellAilgns ? 4 : 6, k = 10n ** BigInt(18 - d), v = q / k * k; // 往下取（DAI 4 位、AiLGNS 6 位小数），免得超过余额
+          qty.value = (Number(v / 10n ** 12n) / 1e6).toFixed(d).replace(/\.?0+$/, "");
           plan();
-          say(q < maxAil ? "已按你的钱包余额填入最大数量" : "这张单剩下的全部（你的余额够）");
+          var full = o.sellAilgns ? q >= maxPay : q >= maxAil;
+          say(full ? "这张单剩下的全部（你的余额够）" : o.sellAilgns ? "已按你的 DAI 余额填入最大金额，留了 0.1 DAI 付 Gas" : "已按你的钱包余额填入最大数量");
         }, function (e) { say(niceError(e), true); });
       };
       m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
@@ -633,6 +643,13 @@
           return balance(token, account);
         }).then(function (b) {
           if (b < v.pay) throw new Error("余额不足：需要 " + show(v.pay) + " " + name + "，钱包里有 " + show(b));
+          if (o.sellAilgns && b - v.pay < GAS_RESERVE / 10n) throw new Error("要留一点 DAI 付 Gas：请把金额改小一点（或点「最大」自动留 0.1 DAI）");
+          if (!o.sellAilgns) return balance(DAI, account).then(function (g) {
+            if (g < GAS_RESERVE / 10n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够），现在只有 " + show(g, 4) + " DAI");
+            return b;
+          });
+          return b;
+        }).then(function (b) {
           return ensureAllowance(token, v.pay, say, name);
         }).then(function () {
           return send(OTC, SEL.fill + u256(o.id) + u256(v.amount) + u256(v.pay), say, "成交");
