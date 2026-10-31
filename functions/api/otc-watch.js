@@ -72,7 +72,8 @@ async function order(id) {
 // 只推「真的有差价可赚」的单：按官方 DEX 池子实际能换到多少算（含滑点），扣掉 OTC 1% 手续费和 DEX 手续费后还有利润才推
 // DEX 卖出手续费按最低档 3% 算（另加池子 0.3%），推送里写明「按最低档估算」；每张单只推一次
 const DEX_TAX = 0.03, POOL_FEE = 0.003, TAKER_FEE = 0.01;
-const MIN_PROFIT = 1, MIN_PROFIT_PCT = 0.01; // 至少赚 1 DAI，且至少是本金的 1%，才算「有利润」
+const MIN_PROFIT = 1, MIN_PROFIT_PCT = 0.01; 
+const PP_ON = false; // 文案确认前先不发 // 至少赚 1 DAI，且至少是本金的 1%，才算「有利润」
 async function reserves() {
   const w = words(await rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]));
   return { ail: num(w[0]), dai: num(w[1]) };
@@ -261,9 +262,9 @@ export async function onRequestGet(ctx) {
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，下次再试
     }
   }
-  // 有利润的挂单推送给关注机器人的人（站长确认文案后，KV 里 otcw:pp-on 设为 1 才真的发）
+  // 有利润的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
   let fans = null;
-  if ((await kv.get("otcw:pp-on")) === "1") {
+  if (PP_ON) {
     fans = await pushProfit(ctx.env, kv, true).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
     if (fans && fans.err) await kv.put("otcw:fans", JSON.stringify({ ok: false, err: fans.err, at: Date.now() }));
   }
