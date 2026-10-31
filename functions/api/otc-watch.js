@@ -17,25 +17,32 @@ const TX = "https://anubisscan.io/tx/";
 const OTC_DEPLOY = 17798035; // 托管合约部署的区块：从这里开始补记以前成交过的地址
 const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），几轮就补完
 
-// 在 OTC 成交过的地址（挂单被吃的挂单人 + 吃单人）记下来：只要成交过一笔就送初级 VIP（会员查询时读 otct:<地址>）
+// 在 OTC 成交过的地址（挂单被吃的挂单人 + 吃单人）记下来，并累计成交额（DAI）：
+// 成交过一笔送初级 VIP，累计满 1 万 DAI 送高级 VIP（会员查询时读 otct:<地址>）
 async function markTraders(kv, logs, cache) {
   for (const l of logs) {
     if (l.topics[0] !== FILLED) continue;
-    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(id));
-    const rec = JSON.stringify({ id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16) });
-    for (const a of [o.maker, "0x" + l.topics[2].slice(26)]) {
-      if (!(await kv.get("otct:" + a))) await kv.put("otct:" + a, rec);
+    const key = "otcf:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
+    if (await kv.get(key)) continue; // 记过了（补记和正常进度会有重叠）
+    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(id)), d = words(l.data);
+    const vol = o.sell ? num(d[1]) : num(d[0]); // 卖单：吃单人付的 DAI；买单：吃单人拿走的 DAI
+    for (const a of new Set([o.maker, "0x" + l.topics[2].slice(26)])) {
+      const r = (await kv.get("otct:" + a, "json")) || { id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16) };
+      r.vol = (r.vol || 0) + vol;
+      r.n = (r.n || 0) + 1;
+      await kv.put("otct:" + a, JSON.stringify(r));
     }
+    await kv.put(key, "1");
   }
 }
 // 以前的成交一点点补记：每次 otc-watch 运行时往前补几段，补到和正常进度接上为止
 async function backfillTraders(kv, upto, cache) {
-  let b = parseInt((await kv.get("otct:scan")) || String(OTC_DEPLOY - 1), 10) + 1;
+  let b = parseInt((await kv.get("otct2:scan")) || String(OTC_DEPLOY - 1), 10) + 1; // otct2：加了成交额统计后从头重新补记一遍
   if (b > upto) return;
   for (let i = 0; i < BACKFILL_STEPS && b <= upto; i++) {
     const to = Math.min(upto, b + 4999);
     await markTraders(kv, await rpc("eth_getLogs", [{ address: OTC, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED] }]), cache);
-    await kv.put("otct:scan", String(to));
+    await kv.put("otct2:scan", String(to));
     b = to + 1;
   }
 }
@@ -106,6 +113,7 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 // 群播报的文字：全部用真实数据制造紧迫感和士气（刚成交、低于市价、快到期、24 小时成交量），不预测价格、不承诺收益
 // 结构：标题 + 恭贺 / 催单 + 链接（放最前面，DeBox 长消息会折叠后半段）→ 成交明细 → 求购（鼓励卖给他们）→ 在售 → 数据
 const LINK = "👉 立即成交：https://ailgns.dev/#/otc";
+const PROMO = "🎁 交易就送会员！任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP";
 const PUSH_FILL = ["⚡ 别人已经下手了，你还在等什么？", "⚡ 下一笔庆祝的就是你！", "⚡ 成交一笔接一笔，晚了只能看别人抢！", "⚡ 好单不等人，看准了就上！", "⚡ 动作快的已经拿到了，轮到你了！", "⚡ 一单接一单，市场在动，你也该动了！"];
 const PUSH_CHEAP = ["⚡ 低于市价的单子随时被吃掉，手慢无！", "⚡ 比市价还便宜，犹豫一秒就没了！", "⚡ 捡便宜的机会不等人，现在就下单！", "⚡ 便宜单就这几张，抢到就是赚到手续费差价！"];
 const PUSH_IDLE = ["⚡ 看准就上，合约担保秒到账！", "⚡ 0 滑点、只收 1%，越早成交越划算！", "⚡ 挂单随时可能被吃掉，先到先得！", "⚡ 想卖的挂单、想买的吃单，机会都在这里！"];
@@ -137,7 +145,7 @@ function groupText(created, fills, orders, mkt, st) {
     lines.push(pick(CHEAP_HYPE.slice(1)));
     if (off > DEX_SELL_FEE) lines.push(`💰 便宜幅度超过 DEX 卖出手续费（${(DEX_SELL_FEE * 100).toFixed(0)}%），买到后卖进池子还有差价可赚！`);
   }
-  lines.push(LINK);
+  lines.push(PROMO, LINK);
   // ② 成交明细、新挂单
   if (fills.length) {
     lines.push("", "💰 刚刚成交：");
@@ -235,5 +243,5 @@ export async function onRequestGet(ctx) {
   await markTraders(kv, logs, cache).catch(() => {});
   await backfillTraders(kv, from - 1, cache).catch(() => {});
   await kv.put("otcw:block", String(latest));
-  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, backfilledTo: await kv.get("otct:scan") });
+  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, backfilledTo: await kv.get("otct2:scan") });
 }

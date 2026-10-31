@@ -852,3 +852,6 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .qp-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .qp-btns button { padding: 8px 0; font-weight: 700; border-radius: 10px; }
 .otc-gift { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(120deg, rgba(0, 156, 255, .1), rgba(160, 20, 248, .1)); border: 1px solid var(--line); font-size: 13.5px; line-height: 1.6; }
+.hero-promo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 2px 0 16px; padding: 10px 14px; border-radius: 14px; background: linear-gradient(120deg, #fff7d6, #ffe7b3); border: 1px solid #f3cf63; color: #5b3d00; font-size: 14.5px; line-height: 1.5; box-shadow: 0 6px 18px rgba(214, 160, 30, .18); }
+.hero-promo b { color: #b45309; }
+.hp-tag { padding: 3px 10px; border-radius: 999px; background: linear-gradient(120deg, #f59e0b, #ef4444); color: #fff; font-weight: 800; font-size: 13px; white-space: nowrap; }

@@ -176,6 +176,7 @@
       '<span class="pill">智能合约担保 · 无需信任 · 无需许可</span>' +
       '<h1>AiLGNS <span class="grad">OTC</span></h1>' +
       '<p>AiLGNS ⇄ DAI 场外交易。币锁在合约里，付款和收币一笔完成，到期没成交自动退回（有效期 10 分钟到 30 天自选）。</p>' +
+      '<div class="hero-promo"><span class="hp-tag">🎁 交易就送会员</span><span>任意金额成交送<b>初级 VIP</b> · 累计成交满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span></div>' +
       '<div class="hero-cta"><button data-go="sell">我要卖 AiLGNS</button><button class="ghost" data-go="buy">我要买 AiLGNS</button></div>' +
       '<div class="hero-stats"><div><span>AiLGNS 市价</span><b>' + (mkt ? A.fmt(mkt, 2) : "—") + ' <small>DAI</small></b></div>' +
       "<div><span>挂单中</span><b>" + (live === null ? "—" : live) + " <small>张</small></b></div><div><span>成交手续费</span><b>1%</b></div></div></div>" + HERO_ART + "</section>";
@@ -229,7 +230,7 @@
       html += book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低") + book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖 AiLGNS
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
-      html += '<div class="otc-gift">🎁 <b>在本站 OTC 成交一笔就送初级 VIP</b>（挂单被吃、或吃别人的单都算，不限金额）。成交后到「会员」页填这个钱包地址点「查询」就能用。</div>';
+      html += '<div class="otc-gift">🎁 <b>交易就送会员</b>：任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP（挂单被吃、吃别人的单都算）。成交后到「会员」页填这个钱包地址点「查询」就能用。</div>';
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;

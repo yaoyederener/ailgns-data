@@ -5,6 +5,7 @@
   var A = window.AIL;
   var RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 两条链都收到这个地址
   var FEE_USD = 20; // 初级 VIP：20 美元等值，永久
+  var OTC_PRO_VOL = 10000; // OTC 累计成交满 1 万 DAI 送高级 VIP
   var PRO_USD = 1000; // 高级 VIP（尊享级）：1000 美元等值，终生；初级补 980 升级
   var TIERS = { basic: { name: "初级 VIP", short: "初级" }, pro: { name: "高级 VIP · 尊享级", short: "高级" } };
   var START_BLOCK = 17790000; // Anubis：会员功能上线前的转账不算
@@ -149,7 +150,12 @@
       return (txs.length ? memberApi(addr, txs).then(function (d) { return d.claimed || []; }) : Promise.resolve([])).then(function (claimed) {
         var list = direct.filter(function (p) { return claimed.indexOf(p.tx) < 0; }).concat(r[2]), manual = MANUAL[addr];
         if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr, note: manual.note, paid: 0, usd: manual.usd });
-        if (trade) list.push({ method: "otc", chain: "anubis", tx: "otc:" + addr, ref: trade.tx, note: "OTC 成交赠送（订单 #" + trade.id + "）", paid: 0, usd: FEE_USD });
+        // OTC 成交送会员：成交过一笔送初级，累计成交满 1 万 DAI 送高级
+        if (trade) {
+          var vol = trade.vol || 0, big = vol >= OTC_PRO_VOL;
+          list.push({ method: "otc", chain: "anubis", tx: "otc:" + addr, ref: trade.tx, paid: 0, usd: big ? PRO_USD : FEE_USD,
+            note: "OTC 成交赠送" + (big ? "高级" : "初级") + " VIP（累计成交 " + A.fmt(vol, 2) + " DAI" + (big ? "" : "，满 " + A.fmt(OTC_PRO_VOL) + " DAI 送高级") + "）" });
+        }
         var t = tally(list);
         return t.payments.length ? t : null;
       });
@@ -299,7 +305,7 @@
         '<p class="addr-help">会员开在这个地址上，团队、业绩、结构图都查这个地址。</p>' +
         '<div class="addr-box"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button id="mem-q">查询</button></div>' +
         '<div id="q-out"></div>' +
-        '<ul class="addr-tips"><li><b>在本站 OTC 成交过一笔（挂单被吃或吃过单），这个地址自动送初级 VIP</b>，点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
+        '<ul class="addr-tips"><li><b>在本站 OTC 交易就送会员：任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP</b>，填交易的地址点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
         "<li>已开通的点「查询」直接恢复；未开通的会出现付款按钮。</li>" +
         "<li>开通后不能更改地址，请核对清楚。</li></ul></section>";
       var plans = upgrade
