@@ -71,7 +71,7 @@ async function order(id) {
 // 卖单单价低于市价（客户能低于市价买到）、买单出价高于市价（客户能高于市价卖出），就推送；每张单只推一次
 // 只说比市价低 / 高多少，不说能赚多少、不承诺收益
 const PAIR = "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0"; // 官方 DEX 的 AiLGNS/DAI 池，算市价
-const PP_ON = false; // 文案确认前先不发
+const PP_ON = true; // 站长 2026-11-01 确认文案后开启
 async function market() {
   const w = words(await rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]));
   return num(w[1]) / num(w[0]);
