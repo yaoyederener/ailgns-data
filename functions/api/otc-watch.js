@@ -6,6 +6,7 @@
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
+import { rebuildIfNeeded } from "../../lib/pixel.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -298,5 +299,6 @@ export async function onRequestGet(ctx) {
     if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
     await kv.put(m.kv + "block", String(latest));
   }
-  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, backfilledTo: await kv.get("otct2:scan") });
+  const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
+  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, pixel, backfilledTo: await kv.get("otct2:scan") });
 }
