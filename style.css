@@ -692,7 +692,7 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .plan-up .perks li::before { color: #f3cf63; }
 
 /* OTC：DeBox 通知（在「发布挂单」按钮上方） */
-.dbx-bar { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; padding: 12px 14px; border-radius: 16px; background: linear-gradient(110deg, #f1ebff, #e6f0ff); border: 1.5px solid #c9b6f5; box-shadow: 0 6px 18px rgba(112, 39, 217, .12); }
+.dbx-bar { display: flex; align-items: flex-start; gap: 12px; margin: 4px 0 14px; padding: 12px 14px; border-radius: 16px; background: linear-gradient(110deg, #f1ebff, #e6f0ff); border: 1.5px solid #c9b6f5; box-shadow: 0 6px 18px rgba(112, 39, 217, .12); }
 .dbx-bell { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--grad); font-size: 20px; box-shadow: 0 6px 14px rgba(73, 54, 255, .3); animation: dbxRing 2.4s ease-in-out infinite; }
 @keyframes dbxRing { 0%, 70%, 100% { transform: rotate(0); } 75% { transform: rotate(-14deg); } 82% { transform: rotate(12deg); } 89% { transform: rotate(-8deg); } }
 .dbx-bar b { display: block; font-size: 15px; color: var(--text); }
@@ -704,7 +704,7 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .dbx-go { flex: none; padding: 10px 16px; white-space: nowrap; }
 .dbx-on { background: linear-gradient(110deg, #e9f9f0, #eef7ff); border-color: #a8e6c3; }
 .dbx-on .dbx-bell { background: linear-gradient(135deg, #22b86c, #0b7d47); animation: none; }
-@media (max-width: 600px) {
-  .dbx-bar { flex-wrap: wrap; }
-  .dbx-go { width: 100%; text-align: center; }
-}
+@media (max-width: 600px) { .dbx-bar { align-items: flex-start; } }
+.dbx-steps { margin: 6px 0 4px; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; color: var(--text); line-height: 1.6; }
+.dbx-steps button, .dbx-bar small button { padding: 1px 9px; font-size: 12px; margin-left: 2px; }
+.dbx-chip { display: inline-block; padding: 0 8px; border-radius: 6px; background: #fff; border: 1px solid #d9ccfb; color: var(--gold); font-weight: 700; }

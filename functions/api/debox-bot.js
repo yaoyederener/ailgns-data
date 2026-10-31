@@ -4,13 +4,13 @@ import { deboxCall } from "../../lib/debox.js";
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, addr = (new URL(ctx.request.url).searchParams.get("addr") || "").toLowerCase();
   const debug = new URL(ctx.request.url).searchParams.get("debug") === "1";
-  let bot = kv && !debug ? await kv.get("dbx:bot", "json") : null, err = null;
+  let bot = kv && !debug ? await kv.get("dbx:bot2", "json") : null, err = null;
   if (!bot && ctx.env.DEBOX_API_KEY) {
     for (const method of ["POST", "GET"]) { // getMe 实测要用 POST，GET 留作备用
       try {
         const r = await deboxCall(ctx.env, "bot/getMe", {}, method);
-        bot = { uid: r.user_id || r.id || r.uid || r.bot_id, name: r.name || r.first_name || r.username || r.nickname || "" };
-        if (kv && bot.uid) await kv.put("dbx:bot", JSON.stringify(bot), { expirationTtl: 86400 });
+        bot = { uid: r.user_id || r.id || r.uid || r.bot_id, name: r.name || r.first_name || r.username || r.nickname || "", address: r.address || "" };
+        if (kv && bot.uid) await kv.put("dbx:bot2", JSON.stringify(bot), { expirationTtl: 86400 });
         break;
       } catch (e) { bot = null; err = String(e.message || e); }
     }
