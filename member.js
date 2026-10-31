@@ -1674,5 +1674,5 @@
   A.pages.growth = ownOnly("growth", renderGrowth);
   A.pages.upline = function (id, a) { A.ownOnly = null; subnav(); renderUpline(id, a); };
   // 给 otc.js 用的钱包工具
-  A.wallet = { get: wallet, switchChain: switchChain, switchTo: switchTo, waitReceipt: waitReceipt, waitOn: waitOn, rpcOn: rpcOn, error: walletError, CHAIN: CHAIN };
+  A.wallet = { get: wallet, switchChain: switchChain, switchTo: switchTo, waitReceipt: waitReceipt, waitOn: waitOn, rpcOn: rpcOn, error: walletError, CHAIN: CHAIN, CHAINS: CHAINS };
 })();

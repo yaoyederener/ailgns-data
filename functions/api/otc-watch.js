@@ -14,8 +14,8 @@ const POLYGON_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon
 const MARKETS = [
   { key: "ailgns", sym: "AiLGNS", chain: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
     pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, pd: 2, kv: "otcw:", deploy: 17798035, backfill: true, dex: true, link: "https://ailgns.dev/#/otc" },
-  { key: "lgns", sym: "LGNS", chain: "Anubis", otc: "", dec: 9, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
-    pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, pd: 4, kv: "otcw:lgns:", deploy: 0, sellTax: "5%～50%", link: "https://ailgns.dev/#/otc/lgns" },
+  { key: "lgns", sym: "LGNS", chain: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", dec: 9, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
+    pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, pd: 4, kv: "otcw:lgns:", deploy: 17936478, sellTax: "5%～50%", link: "https://ailgns.dev/#/otc/lgns" },
   { key: "plgns", sym: "LGNS", chain: "Polygon", otc: "", dec: 9, rpcs: POLYGON_RPCS, tx: "https://polygonscan.com/tx/",
     pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, pd: 4, kv: "otcw:plgns:", deploy: 0, sellTax: "5%", link: "https://ailgns.dev/#/otc/plgns" },
 ].filter((m) => m.otc);

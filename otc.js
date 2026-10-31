@@ -11,7 +11,7 @@
   var MARKETS = {
     ailgns: { sym: "AiLGNS", chain: "anubis", chainName: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", token: ANUBIS_AILGNS, dai: ANUBIS_DAI, dec: 18, pd: 2,
       pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.967, dexBuy: 1.005, dexName: "官方 DEX", eg: [5, 800] },
-    lgns: { sym: "LGNS", chain: "anubis", chainName: "Anubis", otc: "", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dai: ANUBIS_DAI, dec: 9, pd: 4,
+    lgns: { sym: "LGNS", chain: "anubis", chainName: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dai: ANUBIS_DAI, dec: 9, pd: 4,
       pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.947, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.075],
       dexNote: "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，最少 5%，最高约 50%；这里按最少的 5% 算，实际在 DEX 卖往往扣得更多。" },
     plgns: { sym: "LGNS", chain: "polygon", chainName: "Polygon", otc: "", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dai: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 9, pd: 4,
@@ -728,12 +728,24 @@
     document.getElementById("d-go").onclick = function () {
       var btn = this;
       btn.disabled = true;
+      var data, gas;
       connect().then(function () {
+        // 有的钱包切链会"假成功"，确认钱包真的在目标链上，不然手续费估算会失败
+        return W.get().request({ method: "eth_chainId" });
+      }).then(function (cid) {
+        if (Number(cid) !== Number(W.CHAINS[M.chain].params.chainId)) throw new Error("钱包现在不在 " + M.chainName + " 链上：请在钱包里手动切换到 " + M.chainName + " 再点部署");
         return A.getJSON("contracts/AilgnsOtcEscrow.json");
       }).then(function (art) {
-        var data = art.bytecode + u256(AILGNS) + u256(DAI) + u256(FEE_RECIPIENT);
-        say("请在钱包里确认部署…");
-        return W.get().request({ method: "eth_sendTransaction", params: [{ from: account, data: data }] });
+        data = art.bytecode + u256(AILGNS) + u256(DAI) + u256(FEE_RECIPIENT);
+        say("正在估算部署手续费…");
+        // 用本站的节点先估算 Gas，再直接告诉钱包，钱包不用自己估算（有的钱包在 Polygon 上估算会失败）
+        return Promise.all([W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, data: data }]), W.rpcOn(M.chain, "eth_gasPrice", []), gasBalance(account)]);
+      }).then(function (r) {
+        gas = BigInt(r[0]) * 13n / 10n; // 多留 30%
+        var cost = gas * BigInt(r[1]);
+        if (BigInt(r[2]) < cost) throw new Error("钱包里的 " + M.gas + " 不够付部署手续费：大约需要 " + show(cost, 3) + " " + M.gas + "，现在有 " + show(BigInt(r[2]), 3));
+        say("请在钱包里确认部署（手续费约 " + show(cost, 3) + " " + M.gas + "）…");
+        return W.get().request({ method: "eth_sendTransaction", params: [{ from: account, data: data, gas: "0x" + gas.toString(16) }] });
       }).then(function (hash) {
         say("已提交，等待链上确认…");
         return W.waitOn(M.chain, hash);
