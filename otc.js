@@ -341,7 +341,8 @@
       var el = document.getElementById("otc-wallet");
       if (!el) return;
       if (!account) {
-        el.innerHTML = '<div class="k">我的钱包</div><div class="v" style="font-size:16px"><button id="otc-connect" style="padding:8px 16px">连接钱包</button></div><div class="d">连接后显示 AiLGNS 和 DAI 余额</div>';
+        var jump = !A.wallets.list().length && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); // 手机上没有钱包（桌面图标、普通浏览器）：直接跳到钱包 App 里打开
+        el.innerHTML = '<div class="k">我的钱包</div><div class="v" style="font-size:16px"><button id="otc-connect" style="padding:8px 16px">' + (jump ? "在钱包 App 里打开" : "连接钱包") + '</button></div><div class="d">' + (jump ? "挂单、买卖要在钱包 App 里操作，点一下自动跳过去" : "连接后显示 AiLGNS 和 DAI 余额") + "</div>";
         document.getElementById("otc-connect").onclick = function () {
           connect().then(function () { renderOtc(id); }, function (e) { el.querySelector(".d").textContent = niceError(e); });
         };

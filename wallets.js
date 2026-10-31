@@ -113,6 +113,9 @@
     });
   }
 
+  // 是不是从手机桌面图标打开的（添加到主屏幕）
+  function standalone() { return !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone); }
+
   // 没有钱包：手机给"在钱包 App 里打开"，电脑给安装链接
   function noWallet() {
     var url = location.href, bare = url.replace(/^https?:\/\//, "");
@@ -126,8 +129,8 @@
       ["imToken", "imtokenv2://navigate/DappView?url=" + encodeURIComponent(url)]
     ];
     var installs = [["MetaMask", "https://metamask.io/download/"], ["OKX Wallet", "https://www.okx.com/web3"], ["Bitget Wallet", "https://web3.bitget.com/"]];
-    var s = sheet('<div class="card-head"><h2>' + (mobile ? "在钱包 App 里打开" : "没有检测到钱包") + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-      '<p class="note" style="margin:-6px 0 0">' + (mobile ? "普通浏览器连不了钱包。点你手机上装的钱包，会自动在它的 DApp 浏览器里打开本页：" : "请先安装一个浏览器钱包插件，装好后刷新本页：") + "</p>" +
+    var s = sheet('<div class="card-head"><h2>' + (mobile ? "到钱包 App 里操作" : "没有检测到钱包") + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+      '<p class="note" style="margin:-6px 0 0">' + (mobile ? "这里连不了钱包（桌面图标和普通浏览器都一样）。点你手机上装的钱包，会自动跳过去并打开<b>当前这一页</b>，在那里连接、确认就行：" : "请先安装一个浏览器钱包插件，装好后刷新本页：") + "</p>" +
       '<div class="wlist">' + (mobile ? apps : installs).map(function (a) {
         return '<a class="wbtn" href="' + a[1] + '"' + (mobile ? "" : ' target="_blank" rel="noopener"') + '><span class="wicon">' + a[0].slice(0, 1) + "</span><span>" + a[0] + "</span></a>";
       }).join("") + "</div>" +
@@ -142,10 +145,41 @@
   A.wallets = {
     list: list,
     choose: choose,
+    openIn: noWallet, // 弹出「在钱包 App 里打开」
+    standalone: standalone,
     silent: silent,
     current: function () { return current && current.provider; },
     name: function () { return current && current.name; },
     forget: function () { current = null; try { localStorage.removeItem(KEY); } catch (e) { /* 忽略 */ } },
     onAccounts: function (fn) { listeners.push(fn); }
   };
+
+  // 「添加到主屏幕」提示：只在手机的普通浏览器里出现；钱包 App 里、已经从桌面图标打开的、关掉过的都不出现
+  (function installTip() {
+    var el = document.getElementById("a2hs"), ua = navigator.userAgent, off = null, prompt = null, shown = false;
+    try { off = localStorage.getItem("ailgns-a2hs-off"); } catch (e) { /* 忽略 */ }
+    var ios = /iPhone|iPad|iPod/i.test(ua), android = /Android/i.test(ua), inApp = /MicroMessenger|QQ\/|DingTalk|Weibo/i.test(ua);
+    if (!el || off || standalone() || !(ios || android)) return;
+    var SHARE = '<svg class="a2hs-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 10H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    function show(text, btn) {
+      if (shown) return;
+      shown = true;
+      el.innerHTML = '<div class="a2hs"><img src="icons/icon-180.png" alt="" width="44" height="44"><div class="a2hs-t"><b>把 AiLGNS 服务站放到手机桌面</b><span>' + text + "</span></div>" +
+        (btn ? '<button id="a2hs-go">' + btn + "</button>" : "") + '<button class="a2hs-x" id="a2hs-x" aria-label="关闭">×</button></div>';
+      document.getElementById("a2hs-x").onclick = function () { el.innerHTML = ""; try { localStorage.setItem("ailgns-a2hs-off", "1"); } catch (e) { /* 忽略 */ } };
+      var go = document.getElementById("a2hs-go");
+      if (go) go.onclick = function () { prompt.prompt(); prompt.userChoice.then(function () { el.innerHTML = ""; }); };
+    }
+    window.addEventListener("beforeinstallprompt", function (e) { // 安卓 Chrome：可以直接一键安装
+      e.preventDefault();
+      prompt = e;
+      if (!list().length) show("像 App 一样从桌面一点就开，看数据、查团队更方便", "安装");
+    });
+    setTimeout(function () {
+      if (list().length || prompt) return; // 钱包 App 里不提示
+      if (inApp) show("先点右上角「···」，选「在浏览器打开」，再添加到主屏幕");
+      else if (ios) show("点浏览器的分享按钮 " + SHARE + "，再点「添加到主屏幕」");
+      else show("点浏览器右上角的菜单「⋮」，选「添加到主屏幕」或「安装应用」");
+    }, 2500);
+  })();
 })();

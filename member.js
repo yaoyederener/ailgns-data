@@ -396,13 +396,14 @@
           '<dl class="dl"><dt>会员地址</dt><dd>' + A.addrLink(o.target) + "</dd><dt>开通</dt><dd>" + (o.plan === "pro" || upgrade ? TIERS.pro.name : TIERS.basic.name) + "</dd><dt>金额</dt><dd><b>" + o.amount + " " + x.symbol + "</b>（" + c.name + " 链）</dd><dt>有效期</dt><dd>" + hm + " 前付款</dd></dl>" +
           (hasWallet ? '<button class="paybtn" id="ob-pay">用钱包付款 ' + o.amount + " " + x.symbol + "</button>" +
             '<details class="ob-tx"><summary>不想在这里付？用其他钱包手动转账</summary>' + manual + "</details>"
-            : '<p class="note">这个浏览器里没有钱包，请按下面的金额手动转账（任何钱包都行），或者在钱包 App 的 DApp 浏览器里打开 ailgns.dev 一键付款。</p>' + manual) +
+            : '<button class="paybtn" id="ob-open">在钱包 App 里打开，一键付款</button><p class="note">这里连不了钱包，点上面的按钮会跳到你的钱包 App 并打开这一页，订单会保留。也可以按下面的金额，用任何钱包手动转账：</p>' + manual) +
           '<details class="ob-tx"><summary>已经转了，但一直没到账？</summary><div class="copy" style="margin-top:8px"><input id="ob-h" class="mono" placeholder="贴交易哈希 0x…" spellcheck="false"><button class="ghost" id="ob-hgo">核对</button></div></details>' +
           '<button class="ghost" id="ob-new" style="margin-top:12px;padding:8px 14px">换等级 / 换币种，重新下单</button></div>';
         document.getElementById("ob-ca").onclick = function () { copyText(o.amount, this); };
         document.getElementById("ob-cr").onclick = function () { copyText(RECEIVER, this); };
         document.getElementById("ob-new").onclick = function () { saveOrder(null); stop(); renderMember(id); };
-        var pb = document.getElementById("ob-pay");
+        var pb = document.getElementById("ob-pay"), ob = document.getElementById("ob-open");
+        if (ob) ob.onclick = function () { A.wallets.openIn(); };
         function walletPay() {
           pb.disabled = true;
           payOrder(o, say).then(function (hash) { say("已确认，正在开通…"); return poll(hash); }).catch(function (e) { say(walletError(e), true); pb.disabled = false; pb.textContent = "重新付款 " + o.amount + " " + x.symbol; });
