@@ -187,7 +187,8 @@ export async function onRequestGet(ctx) {
   const force = url.searchParams.get("force") === "1" && Date.now() - lastSum > 300000;
   if (created.length || fills.length || force || Date.now() - lastSum > SUMMARY_EVERY) {
     const orders = await book(blockTime);
-    if (created.length || fills.length || orders.length) group = groupText(created, fills, orders, await market(), await stats24(kv, latest, blockTime).catch(() => null));
+    const mktTest = dry && parseFloat(url.searchParams.get("mkt") || ""); // 预览用：假设市价是多少，看低于市价时的文案
+    if (created.length || fills.length || orders.length) group = groupText(created, fills, orders, mktTest || await market(), await stats24(kv, latest, blockTime).catch(() => null));
   }
   if (dry) return Response.json({ from, latest, events: logs.length, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
