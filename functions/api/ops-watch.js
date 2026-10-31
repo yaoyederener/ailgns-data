@@ -36,32 +36,53 @@ function notice(items) {
   return lines.join("\n");
 }
 
+// 2026-10-31 16:16 那次发放因为 DeBox 限流（429）没发出去，部署后补发一次
+const BACKFILL = { flag: "opsw:backfill-20261031", ranges: [{ key: "anubis", from: 17899804, to: 17900127 }, { key: "polygon", from: 96485885, to: 96486100 }] };
+const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+async function scan(c, from, latest, items) {
+  for (let b = from; b <= latest; b += c.span) {
+    const to = Math.min(latest, b + c.span - 1);
+    const logs = await rpc(c, "eth_getLogs", [{ address: c.contract, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [SPLIT] }]);
+    for (const l of logs) {
+      const tok = "0x" + l.topics[1].slice(26), [sym, dec] = TOKENS[tok] || ["?", 18], d = l.data.slice(2).match(/.{64}/g);
+      const out = (Number(BigInt("0x" + d[1])) + Number(BigInt("0x" + d[2]))) / 10 ** dec; // 实际转出去的部分（留在原钱包的不算）
+      const blk = await rpc(c, "eth_getBlockByNumber", [l.blockNumber, false]);
+      items.push({ chain: c.name, sym, out, link: c.tx + l.transactionHash, time: parseInt(blk.timestamp, 16) });
+    }
+  }
+}
+
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&anubisFrom=区块：只看文字，不发、不记进度
   const items = [], ranges = {};
+  // 上次没发出去的区块段（发送失败会记下来），这次一起补发
+  let retry = dry ? [] : (await kv.get("opsw:retry", "json")) || [];
+  if (!dry && !(await kv.get(BACKFILL.flag))) { retry = retry.concat(BACKFILL.ranges); await kv.put(BACKFILL.flag, "1"); }
+  for (const r of retry) await scan(CHAINS[r.key], r.from, r.to, items);
+  const fresh = [];
   for (const [key, c] of Object.entries(CHAINS)) {
     const latest = parseInt(await rpc(c, "eth_blockNumber", []), 16);
     let from = dry ? parseInt(url.searchParams.get(key + "From") || String(latest - 2000), 10) : parseInt((await kv.get("opsw:" + key)) || "0", 10) + 1;
     if (!dry && from <= 1) from = latest - 50; // 第一次运行：从现在开始，不补发以前的
     ranges[key] = [from, latest];
-    for (let b = from; b <= latest; b += c.span) {
-      const to = Math.min(latest, b + c.span - 1);
-      const logs = await rpc(c, "eth_getLogs", [{ address: c.contract, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [SPLIT] }]);
-      for (const l of logs) {
-        const tok = "0x" + l.topics[1].slice(26), [sym, dec] = TOKENS[tok] || ["?", 18], d = l.data.slice(2).match(/.{64}/g);
-        const out = (Number(BigInt("0x" + d[1])) + Number(BigInt("0x" + d[2]))) / 10 ** dec; // 实际转出去的部分（留在原钱包的不算）
-        const blk = await rpc(c, "eth_getBlockByNumber", [l.blockNumber, false]);
-        items.push({ chain: c.name, sym, out, link: c.tx + l.transactionHash, time: parseInt(blk.timestamp, 16) });
-      }
-    }
+    const n = items.length;
+    await scan(c, from, latest, items);
+    if (items.length > n) fresh.push({ key, from, to: latest });
     if (!dry) await kv.put("opsw:" + key, String(latest));
   }
-  if (!items.length) return Response.json({ ranges, items: 0 });
+  if (!items.length) { if (retry.length) await kv.put("opsw:retry", "[]"); return Response.json({ ranges, items: 0 }); }
+  items.sort((a, b) => a.time - b.time);
   const text = notice(items);
   if (dry) return Response.json({ ranges, items: items.length, text });
+  // DeBox 限流（同一轮里行情群刚发过）时等几秒再试；还不行就记下区块段，下一轮（5 分钟后）补发
   let sent = false, err = null;
-  try { await sendDebox(ctx.env, OPS_GROUP, text, "group"); sent = true; } catch (e) { err = String(e.message || e).slice(0, 200); }
-  return Response.json({ ranges, items: items.length, sent, err });
+  for (let k = 0; k < 3 && !sent; k++) {
+    if (k) await sleep(4000 * k);
+    try { await sendDebox(ctx.env, OPS_GROUP, text, "group"); sent = true; } catch (e) { err = String(e.message || e).slice(0, 200); }
+  }
+  await kv.put("opsw:retry", JSON.stringify(sent ? [] : retry.concat(fresh).slice(-50)));
+  return Response.json({ ranges, items: items.length, sent, err: sent ? null : err, retried: retry.length });
 }
