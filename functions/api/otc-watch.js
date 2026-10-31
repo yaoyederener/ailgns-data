@@ -8,15 +8,16 @@ import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
-// pd：单价显示几位小数；dex：AiLGNS 官方 DEX 卖出有 3% 手续费，才说「比官方 DEX 买更便宜」
+// pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
+// sellTax：LGNS 在 DEX 卖出扣的手续费（Polygon 固定 5%，Anubis 动态 5%–约 50%），求购单推送时提一句
 const POLYGON_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
 const MARKETS = [
   { key: "ailgns", sym: "AiLGNS", chain: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
     pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, pd: 2, kv: "otcw:", deploy: 17798035, backfill: true, dex: true, link: "https://ailgns.dev/#/otc" },
   { key: "lgns", sym: "LGNS", chain: "Anubis", otc: "", dec: 9, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
-    pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, pd: 4, kv: "otcw:lgns:", deploy: 0, link: "https://ailgns.dev/#/otc/lgns" },
+    pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, pd: 4, kv: "otcw:lgns:", deploy: 0, sellTax: "5%～50%", link: "https://ailgns.dev/#/otc/lgns" },
   { key: "plgns", sym: "LGNS", chain: "Polygon", otc: "", dec: 9, rpcs: POLYGON_RPCS, tx: "https://polygonscan.com/tx/",
-    pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, pd: 4, kv: "otcw:plgns:", deploy: 0, link: "https://ailgns.dev/#/otc/plgns" },
+    pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, pd: 4, kv: "otcw:plgns:", deploy: 0, sellTax: "5%", link: "https://ailgns.dev/#/otc/plgns" },
 ].filter((m) => m.otc);
 const SITE = "https://ailgns.dev/#/otc";
 // 币名：LGNS 两条链都有，带上链名
@@ -118,10 +119,10 @@ function dealText(m, list, mkt) {
     const pct = (better(o, mkt) * 100).toFixed(1);
     lines.push("", o.sell
       ? `📤 低价出售 ${qtyStr(m, o.qty)} ${m.sym}\n单价 ${d2(o.price, m.pd)} DAI，比市价低 ${pct}%` + (m.dex ? "，比官方 DEX 买更便宜" : "")
-      : `📥 高价求购 ${qtyStr(m, o.qty)} ${m.sym}\n出价 ${d2(o.price, m.pd)} DAI，比市价高 ${pct}%，手里有币可以直接卖`);
+      : `📥 高价求购 ${qtyStr(m, o.qty)} ${m.sym}\n出价 ${d2(o.price, m.pd)} DAI，比市价高 ${pct}%，手里有币可以直接卖` + (m.sellTax ? `\n（在 DEX 卖要扣 ${m.sellTax} 手续费，这里只收 1%）` : ""));
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
-  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"}市价 ${d2(mkt, m.pd)} DAI` + (m.dex ? "" : "（吃单手续费 1%）"), "⚡ 先到先得，被别人吃掉就没了！", "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP", "🧬 " + m.link);
+  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"}市价 ${d2(mkt, m.pd)} DAI`, "⚡ 先到先得，被别人吃掉就没了！", "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP", "🧬 " + m.link);
   return lines.join("\n");
 }
 // 找出还没推送过的低于市价的单；send=false 时只返回文字（预览）
