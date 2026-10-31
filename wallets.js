@@ -262,21 +262,35 @@
     draw(cur);
   }
 
-  // 顶部横幅：手机普通浏览器里每次都显示（关掉后 3 天内不再出现）；钱包 App 里、已经从桌面图标打开的不显示
+  // 顶部横幅：自动识别手机和浏览器，直接把对应的步骤和示意图展开在页面上，不用再点
+  // 关掉后 3 天内不再出现；收起后只留一行，点一下再展开。钱包 App 里、已经从桌面图标打开的不显示
   (function installBanner() {
-    var el = document.getElementById("a2hs"), off = 0;
-    try { off = Number(localStorage.getItem("ailgns-a2hs-off")) || 0; } catch (e) { /* 忽略 */ }
+    var el = document.getElementById("a2hs"), off = 0, small = false;
+    try { off = Number(localStorage.getItem("ailgns-a2hs-off")) || 0; small = localStorage.getItem("ailgns-a2hs-small") === "1"; } catch (e) { /* 忽略 */ }
     if (!el || standalone() || !(ENV.ios || ENV.android) || Date.now() - off < 3 * 86400000) return;
+    function save(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } }
+    function draw() {
+      var k = defaultGuide(), g = GUIDES[k];
+      var head = '<div class="a2hs-head"><img src="icons/icon-180.png" alt="" width="44" height="44"><div class="a2hs-t"><b>把 AiLGNS 放到手机桌面</b><span>' +
+        (installPrompt ? "点右边按钮，一键装到桌面" : "已识别：" + g.tab + "，照下面 " + g.steps.length + " 步做") + "</span></div>" +
+        (installPrompt ? '<button id="a2hs-go">一键安装</button>' : small ? '<button id="a2hs-open">看步骤</button>' : "") +
+        '<button class="a2hs-x" id="a2hs-x" aria-label="关闭">×</button></div>';
+      var body = installPrompt || small ? "" : '<div class="a2hs-body">' + (k === "iphone" || k === "inapp" ? '<p class="a2hs-note">' + g.note + "</p>" : "") +
+        '<ol class="a2hs-steps">' + g.steps.map(function (st, i) { return '<li><div class="g-num">' + (i + 1) + '</div><div class="g-txt">' + st[0] + '</div><div class="g-pic">' + st[1] + "</div></li>"; }).join("") + "</ol>" +
+        '<div class="a2hs-foot"><button class="ghost" id="a2hs-min">收起</button><a href="#" data-a2hs>不是这个手机 / 浏览器？</a></div></div>';
+      el.innerHTML = '<div class="a2hs' + (body ? " open" : "") + '">' + head + body + "</div>";
+      document.getElementById("a2hs-x").onclick = function () { el.innerHTML = ""; save("ailgns-a2hs-off", String(Date.now())); };
+      var go = document.getElementById("a2hs-go"), op = document.getElementById("a2hs-open"), mn = document.getElementById("a2hs-min");
+      if (go) go.onclick = function () { installPrompt.prompt(); installPrompt.userChoice.then(function (c) { if (c && c.outcome === "accepted") el.innerHTML = ""; }); };
+      if (op) op.onclick = function () { small = false; save("ailgns-a2hs-small", "0"); draw(); };
+      if (mn) mn.onclick = function () { small = true; save("ailgns-a2hs-small", "1"); draw(); };
+    }
+    var drawn = false;
+    window.addEventListener("beforeinstallprompt", function () { if (drawn) draw(); }); // 安卓 Chrome 稍后才告诉我们能一键安装
     setTimeout(function () {
       if (list().length) return; // 钱包 App 里不提示
-      var sub = ENV.inApp ? "先换到浏览器打开，再放到桌面，以后一点就开" : ENV.ios ? "Safari 里点「分享」→「添加到主屏幕」，一点就开" : "像 App 一样放在桌面，一点就开";
-      el.innerHTML = '<div class="a2hs"><img src="icons/icon-180.png" alt="" width="48" height="48"><div class="a2hs-t"><b>把 AiLGNS 放到手机桌面</b><span>' + sub + "</span></div>" +
-        '<button id="a2hs-go">' + (installPrompt ? "一键安装" : "看图教程") + '</button><button class="a2hs-x" id="a2hs-x" aria-label="关闭">×</button></div>';
-      document.getElementById("a2hs-x").onclick = function () { el.innerHTML = ""; try { localStorage.setItem("ailgns-a2hs-off", String(Date.now())); } catch (e) { /* 忽略 */ } };
-      document.getElementById("a2hs-go").onclick = function () {
-        if (installPrompt) installPrompt.prompt();
-        else installGuide();
-      };
+      drawn = true;
+      draw();
     }, 1200);
   })();
   // 页脚等地方的「添加到桌面」入口
