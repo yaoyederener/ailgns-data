@@ -270,6 +270,7 @@
     var el = document.getElementById("a2hs"), off = 0, small = false;
     try { off = Number(localStorage.getItem("ailgns-a2hs-off")) || 0; small = localStorage.getItem("ailgns-a2hs-small") === "1"; } catch (e) { /* 忽略 */ }
     if (!el || standalone() || !(ENV.ios || ENV.android) || Date.now() - off < 3 * 86400000) return;
+    if (location.hash.indexOf("#/app") === 0) return; // 下载 App 页本身就是教程
     function save(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } }
     function draw() {
       var k = defaultGuide(), g = GUIDES[k];
@@ -301,4 +302,49 @@
     if (a) { e.preventDefault(); installGuide(); }
   });
   A.installGuide = installGuide;
+
+  // ---------- 页面：下载 App（其实是把网站装到手机桌面，打开和 App 一样）----------
+  // 自动识别手机和浏览器：安卓 Chrome 一键安装；iPhone 给图解步骤；微信 / QQ / 钱包里先复制网址换浏览器
+  function steps(g) {
+    return '<ol class="g-steps">' + g.steps.map(function (st, i) { return '<li><div class="g-num">' + (i + 1) + '</div><div class="g-txt">' + st[0] + '</div><div class="g-pic">' + st[1] + "</div></li>"; }).join("") + "</ol>";
+  }
+  A.pages.app = function () {
+    var k = defaultGuide(), g = GUIDES[k], inWallet = list().length > 0, url = "https://ailgns.dev";
+    var html = '<section class="app-hero"><img src="/favicon.png?v=hx2" alt="" width="88" height="88">' +
+      '<div><h1>AiLGNS OTC App</h1><p>官方授权 AiLGNS OTC 服务站 · 装到手机桌面，和 App 一样用</p>' +
+      '<div class="app-feats"><span>📲 桌面一点就开</span><span>🔎 不用再找网址</span><span>🖥️ 全屏像 App</span><span>⚡ 自动更新</span></div></div></section>';
+    var main;
+    if (standalone()) {
+      main = '<div class="app-done">✅ 你已经是从桌面图标打开的，App 已经装好了。</div>';
+    } else if (installPrompt) {
+      main = '<p class="g-note">已识别：安卓 Chrome，可以一键安装。</p><button class="paybtn" id="app-install">一键安装到桌面</button>' +
+        '<p class="g-note" style="text-align:center">点了没反应？按下面的步骤手动添加：</p>' + steps(GUIDES.android);
+    } else if (ENV.inApp || inWallet) {
+      main = '<p class="g-note">' + (inWallet ? "你现在在<b>钱包 App</b> 里，钱包里不能装到桌面。" : "你现在在<b>微信 / QQ</b> 里，这里不能装到桌面。") +
+        "先复制网址，再用手机浏览器（iPhone 用 <b>Safari</b>，安卓用 <b>Chrome</b>）打开，然后回到这一页照着做。</p>" +
+        '<div class="app-copy"><span class="mono">' + url + '/#/app</span><button id="app-copy">复制网址</button></div>' +
+        (ENV.inApp ? "<p class=\"g-note\">也可以直接点右上角「···」→「在浏览器打开」：</p>" + steps(GUIDES.inapp) : "");
+    } else {
+      main = '<div class="g-you">✓ 已识别你现在用的是：' + g.tab + "，照着做就行</div>" + '<p class="g-note">' + g.note + "</p>" + steps(g);
+    }
+    var others = ["iphone", "iphoneChrome", "android", "vendor", "inapp"].filter(function (x) { return x !== k; });
+    html += '<section class="card"><div class="card-head"><h2>安装到手机桌面</h2><span class="muted">不用下载安装包，不要任何权限</span></div>' + main + "</section>";
+    html += '<section class="card"><div class="card-head"><h2>换个手机 / 浏览器的步骤</h2></div>' + others.map(function (x) {
+      return '<details class="app-more"><summary>' + GUIDES[x].tab + "</summary><p class=\"g-note\">" + GUIDES[x].note + "</p>" + steps(GUIDES[x]) + "</details>";
+    }).join("") + "</section>";
+    html += '<section class="card"><div class="card-head"><h2>装好后怎么交易</h2></div><p class="g-note" style="margin:0">从桌面图标打开后，点「连接钱包」或「在钱包 App 里打开」，会自动跳到你的钱包（OKX、TokenPocket、MetaMask 等）里签名交易。</p></section>';
+    html += '<section class="card"><div class="card-head"><h2>常见问题</h2></div><dl class="app-faq">' +
+      "<dt>安全吗？</dt><dd>就是官方授权网站 ailgns.dev 本身，不下载任何安装包，不要任何手机权限，也不会索取私钥或助记词。</dd>" +
+      "<dt>怎么删除？</dt><dd>和删 App 一样：长按桌面图标 → 删除 / 移除。</dd>" +
+      "<dt>要更新吗？</dt><dd>不用。每次打开都是最新版，自动更新。</dd>" +
+      "<dt>为什么苹果商店搜不到？</dt><dd>这是网页版 App，直接从网站装到桌面，不经过应用商店，打开和 App 一样。</dd></dl></section>";
+    A.app.innerHTML = html;
+    var bi = document.getElementById("app-install");
+    if (bi) bi.onclick = function () { installPrompt.prompt(); installPrompt.userChoice.then(function () { A.pages.app(); }); };
+    var bc = document.getElementById("app-copy");
+    if (bc) bc.onclick = function () {
+      (navigator.clipboard ? navigator.clipboard.writeText(url + "/#/app") : Promise.reject()).then(function () { bc.textContent = "已复制 ✓"; }, function () { bc.textContent = "请长按网址复制"; });
+    };
+  };
+  window.addEventListener("beforeinstallprompt", function () { if (location.hash.indexOf("#/app") === 0) setTimeout(A.pages.app, 0); });
 })();

@@ -947,3 +947,25 @@ button.ghost { color: var(--purple-ink); border-color: var(--gold); }
 .tree-path { border-color: var(--soft-line); }
 .a2hs { border: 0; box-shadow: var(--shadow); }
 .a2hs-head { background: var(--grad-hero); }
+/* 下载 App */
+.top-r { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+.app-btn { display: inline-flex; align-items: center; padding: 8px 12px; border-radius: 999px; background: var(--soft); border: 1px solid var(--soft-line); color: var(--purple-ink); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.app-btn:hover { text-decoration: none; background: #ece0fc; }
+.app-hero { display: flex; align-items: center; gap: 18px; margin: 24px 0 16px; padding: 24px; border-radius: 24px; background: var(--grad-hero); color: #fff; box-shadow: 0 14px 30px rgba(50, 123, 237, .11); }
+.app-hero img { flex: none; border-radius: 22px; background: #fff; padding: 8px; box-shadow: 0 8px 22px rgba(24, 17, 44, .18); }
+.app-hero h1 { margin: 0 0 4px; font-size: 26px; color: #fff; }
+.app-hero p { margin: 0 0 12px; color: #deebff; font-size: 14px; }
+.app-feats { display: flex; flex-wrap: wrap; gap: 8px; }
+.app-feats span { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .18); font-size: 12.5px; font-weight: 600; }
+.app-done { padding: 14px; border-radius: 15px; background: var(--up-soft); color: var(--up); font-weight: 600; }
+.app-copy { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 15px; background: var(--soft); border: 1px solid var(--soft-line); margin: 10px 0; }
+.app-copy .mono { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--purple-ink); }
+.app-copy button { padding: 8px 14px; }
+.app-more { border: 1px solid var(--line); border-radius: 15px; margin-top: 10px; background: var(--panel); }
+.app-more summary { padding: 12px 14px; cursor: pointer; font-weight: 650; color: var(--purple-ink); background: var(--soft); border-radius: 15px; }
+.app-more[open] summary { border-radius: 15px 15px 0 0; }
+.app-more > *:not(summary) { margin-left: 14px; margin-right: 14px; }
+.app-faq { margin: 0; display: grid; gap: 4px; }
+.app-faq dt { font-weight: 700; margin-top: 8px; }
+.app-faq dd { margin: 0; color: var(--muted); font-size: 14px; }
+@media (max-width: 520px) { .app-hero { flex-direction: column; text-align: center; padding: 22px 16px; } .app-feats { justify-content: center; } .app-btn { padding: 7px 10px; font-size: 12.5px; } }
