@@ -225,7 +225,7 @@
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
-      html += book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高") + book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低");
+      html += book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低") + book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖 AiLGNS
       html += createForm();
       if (account) html += myOrders(mine, now);
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
