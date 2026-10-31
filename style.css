@@ -1029,3 +1029,16 @@ button.ghost { color: var(--purple-ink); border-color: var(--gold); }
 .px-kpis .kpi .v { font-size: 20px; white-space: nowrap; }
 .px-kpis .kpi .v small { font-size: 12px; }
 @media (max-width: 520px) { .px-kpis { gap: 8px; } .px-kpis .kpi { padding: 12px 10px; } .px-kpis .kpi .v { font-size: 17px; } .px-kpis .kpi .v small { display: block; margin-top: 2px; } }
+
+/* 销毁乐园：小游戏大厅 */
+.px-back { display: inline-block; margin-top: 14px; font-weight: 600; color: var(--purple-ink); }
+.play-hero { background: linear-gradient(110deg, #ff8a3d, #ef4444 45%, #a014f8); }
+.play-games { display: grid; gap: 10px; margin: 14px 0; }
+.play-game { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 18px; background: var(--panel); border: 1px solid var(--border); box-shadow: var(--shadow); color: var(--text); }
+a.play-game:hover { text-decoration: none; border-color: var(--soft-line); background: var(--soft); }
+.play-game.soon { opacity: .6; }
+.pg-icon { font-size: 34px; line-height: 1; }
+.pg-t { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.pg-t small { color: var(--muted); font-size: 13px; }
+.pg-go { font-weight: 700; color: #fff; background: var(--grad-dot); padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
+.pg-soon { font-size: 12px; color: var(--muted); background: var(--pill, #ebe7f7); padding: 6px 10px; border-radius: 999px; white-space: nowrap; }

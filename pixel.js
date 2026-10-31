@@ -60,7 +60,7 @@
   }
   function draw(id) {
     var s = board.s;
-    A.app.innerHTML = '<section class="px-hero"><h1>🧱 LGNS 像素墙</h1>' +
+    A.app.innerHTML = '<a class="px-back" href="#/play">← 销毁乐园</a><section class="px-hero"><h1>🧱 LGNS 像素墙</h1>' +
       "<p>花 LGNS 给格子涂色，画出你的图案、名字、社区标志。别人可以花更多 LGNS 盖掉你的格子，守住你的地盘！</p>" +
       '<p class="px-burn">' + burnText() + "</p></section>" +
       '<div class="kpis px-kpis"><div class="kpi"><div class="k">已销毁</div><div class="v">' + A.fmt(s.burned) + ' <small>LGNS</small></div></div>' +
@@ -244,6 +244,37 @@
       throw e;
     });
   }
+  // ---------- 销毁乐园：小游戏大厅（#/play）。所有游戏花的 LGNS 都进同一个收款合约：80% 销毁、20% 运营 ----------
+  var GAMES = [
+    { id: "pixel", icon: "🧱", name: "LGNS 像素墙", desc: "花 LGNS 给格子涂色，画图案、写名字、抢地盘", live: true },
+    { id: "merge", icon: "🧬", name: "DNA 合成", desc: "合成更高级的 DNA，冲击排行榜（免费玩，道具用 LGNS）" },
+    { id: "pet", icon: "🌱", name: "HELIX 宠物", desc: "每天喂养你的 DNA 宠物，升级解锁皮肤" }
+  ];
+  A.pages.play = function (id) {
+    A.app.innerHTML = '<div class="loading">正在加载销毁乐园…</div>';
+    fetch("/api/pixel").then(function (r) { return r.json(); }).then(function (b) {
+      if (!A.isCurrent(id)) return;
+      board = b;
+      var s = b.s;
+      A.app.innerHTML = '<section class="px-hero play-hero"><h1>🔥 销毁乐园</h1>' +
+        "<p>玩小游戏，销毁 LGNS，为社区做贡献！每一枚花出去的 LGNS 都有去处，链上可查。</p>" +
+        '<p class="px-burn">' + burnText() + "</p></section>" +
+        '<div class="kpis px-kpis"><div class="kpi"><div class="k">累计销毁</div><div class="v">' + A.fmt(s.burned) + ' <small>LGNS</small></div></div>' +
+        '<div class="kpi"><div class="k">玩家花费</div><div class="v">' + A.fmt(s.spent || 0) + ' <small>LGNS</small></div></div>' +
+        '<div class="kpi"><div class="k">参与</div><div class="v">' + A.fmt(s.txs) + ' <small>笔</small></div></div></div>' +
+        '<div class="play-games">' + GAMES.map(function (g) {
+          var inner = '<span class="pg-icon">' + g.icon + '</span><span class="pg-t"><b>' + g.name + "</b><small>" + g.desc + "</small></span>" +
+            (g.live ? '<span class="pg-go">去玩 →</span>' : '<span class="pg-soon">即将上线</span>');
+          return g.live ? '<a class="play-game" href="#/' + g.id + '">' + inner + "</a>" : '<div class="play-game soon">' + inner + "</div>";
+        }).join("") + "</div>" +
+        '<section class="card"><div class="card-head"><h2>🏆 燃烧排行榜</h2><span class="muted">累计花掉的 LGNS</span></div>' + topHtml() + "</section>" +
+        '<p class="note">只消耗、不赢币：花掉的 LGNS 只换来游戏里的格子、道具和排行榜名次，不返还任何币，也没有抽奖、开盒。' +
+        (b.sink ? "80% 永久销毁、20% 用于服务器和运营，比例写死在收款合约里。" : "") + "</p>";
+    }, function () {
+      if (A.isCurrent(id)) A.app.innerHTML = '<div class="card err">读取失败，请稍后刷新。</div>';
+    });
+  };
+
   // ---------- 部署收款合约（只给站长用，不在导航里）：#/pixel/deploy ----------
   function renderDeploy(id) {
     A.app.innerHTML = '<h1>部署像素墙收款合约</h1><p class="sub">用你的钱包把收款合约部署到 Anubis 链，Gas 用 DAI 支付，只需要部署一次。合约收到的 LGNS 任何人都能触发分出去：80% 销毁、20% 转原收款钱包（再按 30/40/30 分账）。地址和比例写死，没有管理员。</p>' +
