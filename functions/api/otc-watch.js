@@ -3,7 +3,7 @@
 // ② 群播报：有成交时发到 DeBox 群（庆祝成交 + 成交送会员 + 网址）
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
-import { sendDebox } from "../../lib/debox.js";
+import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 
 const OTC = "0x4e730be6d46be71223ded5a32dc45799f6d4bc15";
 const FILLED = "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d"; // Filled(id, taker, amount, paid, fee, giveLeft)
@@ -141,6 +141,16 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&from=区块：只看消息内容，不发送、不记进度（测试用）
+  // fanstest=1：发一条测试推送给机器人的关注者，看 DeBox 有没有开通权限（1 小时最多一次）
+  if (url.searchParams.get("fanstest") === "1") {
+    const lastTest = parseInt((await kv.get("otcw:fanstest")) || "0", 10);
+    if (Date.now() - lastTest < 3600000) return Response.json({ fans: await kv.get("otcw:fans", "json"), note: "1 小时内测过了" });
+    await kv.put("otcw:fanstest", String(Date.now()));
+    const r = await sendDeboxFans(ctx.env, GROUPS[0], "📢 已关注 AiLGNS OTC 机器人：以后每笔 OTC 成交都会第一时间推送给你。\n🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP\n👉 https://ailgns.dev/#/otc")
+      .then((x) => ({ ok: true, result: x }), (e) => ({ ok: false, err: String(e.message || e).slice(0, 300) }));
+    await kv.put("otcw:fans", JSON.stringify({ ...r, at: Date.now() }));
+    return Response.json({ fans: r });
+  }
   const latest = parseInt(await rpc("eth_blockNumber", []), 16);
   let from = dry ? parseInt(url.searchParams.get("from") || "0", 10) - 1 : parseInt((await kv.get("otcw:block")) || "0", 10);
   if (!from) from = latest - 100; // 第一次运行：只看最近一会儿，不补发老消息
@@ -180,6 +190,12 @@ export async function onRequestGet(ctx) {
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，下次再试
     }
   }
+  // 成交播报也推送给关注机器人的人（DeBox 没开通订阅号权限时会失败，不影响群播报）
+  let fans = null;
+  if (group) {
+    fans = await sendDeboxFans(ctx.env, GROUPS[0], group).then(() => true, (e) => String(e.message || e).slice(0, 200));
+    await kv.put("otcw:fans", JSON.stringify({ ok: fans === true, err: fans === true ? null : fans, at: Date.now() }));
+  }
   let sent = 0, failed = 0;
   for (const [addr, text] of msgs) {
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
@@ -190,5 +206,5 @@ export async function onRequestGet(ctx) {
   await markTraders(kv, logs, cache).catch(() => {});
   await backfillTraders(kv, from - 1, cache).catch(() => {});
   await kv.put("otcw:block", String(latest));
-  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, backfilledTo: await kv.get("otct2:scan") });
+  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, fans, backfilledTo: await kv.get("otct2:scan") });
 }
