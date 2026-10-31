@@ -22,7 +22,7 @@ async function rpc(method, params) {
 const u256 = (v) => BigInt(v).toString(16).padStart(64, "0");
 const words = (h) => (h.startsWith("0x") ? h.slice(2) : h).match(/.{64}/g) || [];
 const num = (h, dec = 18) => Number(BigInt("0x" + h)) / 10 ** dec;
-const fmt = (v, d = 4) => v.toLocaleString("en-US", { maximumFractionDigits: d });
+const fmt = (v) => v.toLocaleString("en-US", { maximumFractionDigits: v !== 0 && Math.abs(v) < 0.01 ? 8 : 4 }); // 很小的数多保留几位，别显示成 0
 const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 
 async function order(id) {
@@ -54,7 +54,7 @@ export async function onRequestGet(ctx) {
       const taker = "0x" + l.topics[2].slice(26), amount = num(d[0]), paid = num(d[1]), fee = num(d[2]), left = num(d[3]);
       msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
         (left > 0 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交") + link]);
-      msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（含 1% 手续费 ${fmt(fee)}）` + link]);
+      msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（已扣 1% 手续费 ${fmt(fee)}）` + link]);
     } else {
       const refunded = num(d[0]), expired = BigInt("0x" + d[1]) === 1n;
       if (refunded <= 0) continue; // 全部成交时的关闭，上面已经通知过
