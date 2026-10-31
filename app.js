@@ -471,24 +471,22 @@
     team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作"
   };
 
-  // ---------- 页面：私人定制 · 商户合作 ----------
-  var CUSTOM = [
-    ["📡", "专属数据监测", "盯住你指定的钱包、团队或资金池：大额买卖、净流入异动、团队新增，第一时间推送到你的 DeBox 或邮箱"],
-    ["📊", "团队分析报告", "团队业绩、各条线增长、P 等级进度和三个区差距，定期整理成报告，方便团队长复盘"],
-    ["🤖", "社群通知机器人", "为你的 DeBox 社群配置挂单、成交、行情播报机器人，自动活跃群氛围"],
-    ["🏪", "商户 OTC 合作", "商户批量收购或出售 AiLGNS，专属挂单展示、成交播报和对接服务"],
-    ["🔍", "链上数据定制", "任意地址、合约的链上数据查询、统计和导出，按你的格式交付"],
-    ["🛠️", "页面与工具定制", "为你的团队定制专属看板、查询页面或小工具"]
-  ];
+  // ---------- 页面：私人定制 · 商户合作（海报） ----------
   function renderCustom() {
     var debox = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
-    app.innerHTML = '<section class="custom-hero"><span class="pill">私人定制 · 商户合作</span><h1>围绕 AiLGNS，<span class="grad">按你的需求定制</span></h1>' +
-      '<p class="sub">数据监测、团队分析、社群机器人、商户 OTC 对接……标准功能不够用？告诉站长你想要什么，一对一定制。</p>' +
-      '<a class="btn" href="' + debox + '" target="_blank" rel="noopener" style="padding:12px 22px">联系站长 DeBox，说说你的需求 →</a></section>' +
-      '<div class="custom-grid">' + CUSTOM.map(function (c) { return '<div class="custom-card"><span class="custom-ico">' + c[0] + "</span><b>" + c[1] + "</b><span>" + c[2] + "</span></div>"; }).join("") + "</div>" +
-      '<section class="card"><div class="card-head"><h2>怎么合作</h2></div><ol class="steps"><li>点上面的按钮加站长 DeBox，说明你的需求（要监测什么、多大团队、通知发到哪里）</li>' +
-      "<li>站长评估后给出方案和报价，价格按需求面议</li><li>确认后开始做，做好交付给你，后续可以继续调整</li></ol>" +
-      '<p class="note">本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。本站不会索取你的私钥或助记词，任何以本站名义要私钥的都是诈骗。</p></section>';
+    var tags = ["数据监测", "团队分析", "社群机器人", "商户 OTC", "链上数据", "专属工具"];
+    app.innerHTML = '<section class="poster">' +
+      '<div class="poster-glow"></div><div class="poster-grid"></div>' +
+      '<div class="poster-in">' +
+      '<div class="poster-top"><span class="poster-brand">AiLGNS 服务站</span><span class="poster-line"></span><span class="poster-sub">PRIVATE CUSTOM</span></div>' +
+      '<div class="poster-kicker">私人定制 · 商户合作</div>' +
+      '<h1 class="poster-title">你要的<br>都能做！</h1>' +
+      '<div class="poster-en">WHATEVER YOU NEED, WE BUILD IT.</div>' +
+      '<div class="poster-tags">' + tags.map(function (t) { return "<span>" + t + "</span>"; }).join("") + "</div>" +
+      '<a class="poster-cta" href="' + debox + '" target="_blank" rel="noopener">联系站长 DeBox　→</a>' +
+      '<div class="poster-foot">一对一沟通 · 方案报价面议 · 交付后持续调整</div>' +
+      "</div></section>" +
+      '<p class="note" style="text-align:center">本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。本站不会索取私钥或助记词。</p>';
   }
 
   function route() {
