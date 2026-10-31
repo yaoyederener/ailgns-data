@@ -1,4 +1,4 @@
-// 运营费用发放公告：定时任务每 5 分钟调用一次，读 Anubis、Polygon 两个发放合约的新发放记录，
+// 运营费用发放公告：定时任务每 5 分钟调用一次，读 Anubis、Polygon 两个发放合约的新发放记录，攒起来每 8 小时汇总发一次，
 // 发到「运营费用」专用 DeBox 群（只发这个群，和行情播报群分开）。文字只写运营费用发放，不写比例和收款人。
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
@@ -28,16 +28,28 @@ async function rpc(c, method, params) {
 const amt = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 6 : 2 });
 const bjTime = (sec) => new Date(sec * 1000).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 
-// 版本 A：只写「运营费用发放」，附转账链接
-function notice(items) {
-  const lines = ["📋 AiLGNS 运营费用发放公告", "", "本次运营费用已发放："];
-  for (const it of items) lines.push(`· ${amt(it.out)} ${it.sym}（${it.chain}）`, `  转账：${it.link}`);
-  lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费，用于服务站的日常运营。", "", `🕒 ${bjTime(items[items.length - 1].time)}（北京时间）`, "—— AiLGNS 服务站");
+// 一天发 3 次汇总（北京时间 0 点、8 点、16 点），每次统计前 8 小时发放的运营费用，并附当天累计
+const SLOT = 8 * 3600; // 8 小时一段；北京时间和 UTC 差 8 小时，正好对齐北京 0/8/16 点
+const bjDate = (sec) => new Date(sec * 1000).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric" });
+const bjHour = (sec) => new Date(sec * 1000).toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false });
+const dayKey = (sec) => new Date((sec + 8 * 3600) * 1000).toISOString().slice(0, 10); // 北京时间的日期
+// 按「币种（链）」加总
+function sum(items) {
+  const m = {};
+  for (const it of items) { const k = it.sym + "（" + it.chain + "）"; m[k] = (m[k] || 0) + it.out; }
+  return m;
+}
+const listSum = (m) => Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `· ${amt(v)} ${k}`);
+function notice(items, start, end, day) {
+  const lines = ["📋 AiLGNS 运营费用发放公告", "", `⏱ 统计时段：${bjDate(start)} ${bjHour(start)}–${end % 86400 === 16 * 3600 ? "24:00" : bjHour(end)}（北京时间）`, "", `本时段发放 ${items.length} 笔，合计：`, ...listSum(sum(items))];
+  lines.push("", `📊 ${bjDate(start)} 今日累计：`, ...listSum(day));
+  lines.push("", "🔗 转账记录：");
+  items.slice(-5).forEach((it) => lines.push(`· ${amt(it.out)} ${it.sym}：${it.link}`));
+  if (items.length > 5) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
+  lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费，用于服务站的日常运营。", "—— AiLGNS 服务站");
   return lines.join("\n");
 }
 
-// 2026-10-31 16:16 那次发放因为 DeBox 限流（429）没发出去，部署后补发一次
-const BACKFILL = { flag: "opsw:backfill-20261031", ranges: [{ key: "anubis", from: 17899804, to: 17900127 }, { key: "polygon", from: 96485885, to: 96486100 }] };
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 
 async function scan(c, from, latest, items) {
@@ -53,36 +65,51 @@ async function scan(c, from, latest, items) {
   }
 }
 
+// 每 5 分钟：把新的发放记录攒进 opsw:pending；到了北京 0/8/16 点，把上一段 8 小时的汇总发到运营群
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
-  const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&anubisFrom=区块：只看文字，不发、不记进度
-  const items = [], ranges = {};
-  // 上次没发出去的区块段（发送失败会记下来），这次一起补发
-  let retry = dry ? [] : (await kv.get("opsw:retry", "json")) || [];
-  if (!dry && !(await kv.get(BACKFILL.flag))) { retry = retry.concat(BACKFILL.ranges); await kv.put(BACKFILL.flag, "1"); }
-  for (const r of retry) await scan(CHAINS[r.key], r.from, r.to, items);
-  const fresh = [];
+  const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
+  const now = Math.floor(Date.now() / 1000), slot = Math.floor(now / SLOT) * SLOT; // 当前这段的开始
+  const pending = (await kv.get("opsw:pending", "json")) || [], seen = new Set(pending.map((x) => x.link)), fresh = [];
+  // 以前发送失败留下的区块段（旧版逻辑），并进来
+  const retry = dry ? [] : (await kv.get("opsw:retry", "json")) || [];
+  for (const r of retry) await scan(CHAINS[r.key], r.from, r.to, fresh);
+  const ranges = {};
   for (const [key, c] of Object.entries(CHAINS)) {
     const latest = parseInt(await rpc(c, "eth_blockNumber", []), 16);
-    let from = dry ? parseInt(url.searchParams.get(key + "From") || String(latest - 2000), 10) : parseInt((await kv.get("opsw:" + key)) || "0", 10) + 1;
-    if (!dry && from <= 1) from = latest - 50; // 第一次运行：从现在开始，不补发以前的
+    let from = dry && url.searchParams.get(key + "From") ? parseInt(url.searchParams.get(key + "From"), 10) : parseInt((await kv.get("opsw:" + key)) || "0", 10) + 1; // 预览可指定起始区块
+    if (from <= 1) from = latest - 50;
     ranges[key] = [from, latest];
-    const n = items.length;
-    await scan(c, from, latest, items);
-    if (items.length > n) fresh.push({ key, from, to: latest });
+    await scan(c, from, latest, fresh);
     if (!dry) await kv.put("opsw:" + key, String(latest));
   }
-  if (!items.length) { if (retry.length) await kv.put("opsw:retry", "[]"); return Response.json({ ranges, items: 0 }); }
-  items.sort((a, b) => a.time - b.time);
-  const text = notice(items);
-  if (dry) return Response.json({ ranges, items: items.length, text });
-  // DeBox 限流（同一轮里行情群刚发过）时等几秒再试；还不行就记下区块段，下一轮（5 分钟后）补发
+  for (const it of fresh) if (!seen.has(it.link)) { seen.add(it.link); pending.push(it); }
+  pending.sort((a, b) => a.time - b.time);
+  if (!dry) { await kv.put("opsw:pending", JSON.stringify(pending)); if (retry.length) await kv.put("opsw:retry", "[]"); }
+
+  let last = parseInt((await kv.get("opsw:slot")) || "0", 10);
+  if (!last) { last = slot; if (!dry) await kv.put("opsw:slot", String(slot)); } // 第一次运行：从这一段开始攒
+  const due = pending.filter((x) => x.time < slot); // 已经结束的时段里的发放
+  if (!dry && (slot <= last || !due.length)) {
+    if (slot > last) await kv.put("opsw:slot", String(slot)); // 这段没有发放：不发公告
+    return Response.json({ ranges, pending: pending.length, next: slot + SLOT });
+  }
+  // 预览：把攒着的全部当作一段来看
+  const batch = dry ? pending : due, start = dry ? slot : slot - SLOT, end = dry ? slot + SLOT : slot;
+  if (!batch.length) return Response.json({ ranges, pending: 0, text: null });
+  const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out })));
+  const text = notice(batch, start, end, sum(dry ? dayItems.concat(batch) : dayItems));
+  if (dry) return Response.json({ ranges, pending: pending.length, text });
   let sent = false, err = null;
-  for (let k = 0; k < 3 && !sent; k++) {
+  for (let k = 0; k < 3 && !sent; k++) { // DeBox 限流时等几秒再试；还不行就下一轮（5 分钟后）再发
     if (k) await sleep(4000 * k);
     try { await sendDebox(ctx.env, OPS_GROUP, text, "group"); sent = true; } catch (e) { err = String(e.message || e).slice(0, 200); }
   }
-  await kv.put("opsw:retry", JSON.stringify(sent ? [] : retry.concat(fresh).slice(-50)));
-  return Response.json({ ranges, items: items.length, sent, err: sent ? null : err, retried: retry.length });
+  if (sent) {
+    await kv.put("opsw:day:" + day, JSON.stringify(dayItems), { expirationTtl: 3 * 86400 });
+    await kv.put("opsw:pending", JSON.stringify(pending.filter((x) => x.time >= slot)));
+    await kv.put("opsw:slot", String(slot));
+  }
+  return Response.json({ ranges, items: batch.length, sent, err: sent ? null : err });
 }
