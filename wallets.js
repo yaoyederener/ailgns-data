@@ -185,7 +185,7 @@
       return '<div class="mk-item' + (x[2] ? " hl" : "") + '"><i>' + x[0] + "</i><span>" + x[1] + "</span></div>";
     }).join("") + "</div>";
   }
-  var ICON = '<img src="icons/icon-180.png" alt="">';
+  var ICON = '<img src="/favicon.png?v=hx2" alt="">';
   var DIALOG = '<div class="mk-dlg"><div class="mk-dlg-h"><span>取消</span><b>添加到主屏幕</b><span class="hl">添加</span></div><div class="mk-dlg-b">' + ICON + "<div><b>AiLGNS</b><small>https://ailgns.dev</small></div></div>" +
     '<div class="mk-dlg-t"><span>作为网页 App 打开</span><i class="mk-switch"></i></div></div>';
   var HOME = '<div class="mk-home"><i></i><i></i><i></i><span>' + ICON + "<small>AiLGNS</small></span><i></i><i></i><i></i><i></i></div>";
@@ -273,7 +273,7 @@
     function save(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } }
     function draw() {
       var k = defaultGuide(), g = GUIDES[k];
-      var head = '<div class="a2hs-head"><img src="icons/icon-180.png" alt="" width="44" height="44"><div class="a2hs-t"><b>把 AiLGNS 放到手机桌面</b><span>' +
+      var head = '<div class="a2hs-head"><img src="/favicon.png?v=hx2" alt="" width="44" height="44"><div class="a2hs-t"><b>把 AiLGNS 放到手机桌面</b><span>' +
         (installPrompt ? "点右边按钮，一键装到桌面" : "已识别：" + g.tab + "，照下面 " + g.steps.length + " 步做") + "</span></div>" +
         (installPrompt ? '<button id="a2hs-go">一键安装</button>' : small ? '<button id="a2hs-open">看步骤</button>' : "") +
         '<button class="a2hs-x" id="a2hs-x" aria-label="关闭">×</button></div>';
