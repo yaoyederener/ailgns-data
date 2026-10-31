@@ -3,15 +3,31 @@
   "use strict";
 
   var A = window.AIL, W = A.wallet;
-  // 部署后填上合约地址；空着时页面显示"即将上线"
-  var OTC = "0x4e730be6d46be71223ded5a32dc45799f6d4bc15";
-  var AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB";
-  var DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14";
-  // Anubis 链的 Gas 就是用 DAI 付的（DAI 余额就是 Gas 余额），用 DAI 的「最大」要留一点当 Gas
-  var GAS_RESERVE = 10n ** 17n; // 0.1 DAI，够授权 + 成交好几次
+  var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", ANUBIS_AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", ANUBIS_EXPLORER = "https://anubisscan.io";
+  // 三个市场用同一份托管合约代码（AilgnsOtcEscrow.sol），各自部署一份，构造参数换成对应的币和 DAI
+  // otc 空着时页面显示"即将上线"；pairDai：DEX 交易对里 DAI 是 token0 还是 token1；pd：单价显示几位小数
+  // dex：AiLGNS 官方 DEX 卖出有 3% 手续费，才有「比 DEX 划算」的指导价；LGNS 是普通 DEX，只给市价参考
+  var MARKETS = {
+    ailgns: { sym: "AiLGNS", chain: "anubis", chainName: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", token: ANUBIS_AILGNS, dai: ANUBIS_DAI, dec: 18, pd: 2,
+      pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dex: true, eg: [5, 800] },
+    lgns: { sym: "LGNS", chain: "anubis", chainName: "Anubis", otc: "", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dai: ANUBIS_DAI, dec: 9, pd: 4,
+      pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [10000, 0.075] },
+    plgns: { sym: "LGNS", chain: "polygon", chainName: "Polygon", otc: "", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dai: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 9, pd: 4,
+      pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, explorer: "https://polygonscan.com", gas: "POL", eg: [10000, 0.15] }
+  };
+  var MKEYS = ["ailgns", "lgns", "plgns"];
+  // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
+  var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE;
+  function useMarket(k) {
+    MK = MARKETS[k] ? k : "ailgns"; M = MARKETS[MK];
+    OTC = M.otc; AILGNS = M.token; DAI = M.dai; SYM = M.sym; TD = M.dec; TUNIT = 10n ** BigInt(TD); PD = M.pd; EXPLORER = M.explorer;
+    // Anubis 链的 Gas 就是用 DAI 付的（DAI 余额就是 Gas 余额），用 DAI 的「最大」要留一点当 Gas；Polygon 用 POL 付 Gas，不用留 DAI
+    GAS_RESERVE = M.gas === "DAI" ? 10n ** 17n : 0n; // 0.1 DAI，够授权 + 成交好几次
+  }
+  useMarket("ailgns");
+  var POL_MIN = 2n * 10n ** 16n; // Polygon 上至少留 0.02 POL 付 Gas
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
   var FEE_BPS = 100n;
-  var EXPLORER = "https://anubisscan.io";
   // 收入分账合约（Anubis、Polygon 各一个）：原收款钱包授权后，到账的收入按 30% / 40% / 30% 自动分出去（地址、比例写死）
   var SPLITTERS = { anubis: "0xeee877c1b6285b82890bdcd027d2715f658ecf23", polygon: "0xcc274e07847a6a86917b6ccd4e67706170d4036f" };
   var PAYEES = [["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], [FEE_RECIPIENT, 30]];
@@ -25,7 +41,6 @@
   var DURATIONS = [[600, "10 分钟"], [1800, "30 分钟"], [3600, "1 小时"], [7200, "2 小时"], [21600, "6 小时"], [43200, "12 小时"],
     [86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]];
   var DUR_MIN = 600, DUR_MAX = 30 * 86400;
-  var WEI = 10n ** 18n;
   var account = null;
   // 指导价：要比官方 DEX 对买卖双方都划算，才容易成交
   // 官方 DEX 卖 1 枚实际到手 ≈ 市价 × 96.7%（3% 手续费 + 滑点，按 DEX 实际报价）；买入实际成本 ≈ 市价 × 100.5%（滑点）
@@ -36,15 +51,25 @@
 
   // ---------- 数字 ----------
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
-  function toWei(str) {
+  // dec：小数位数，默认 18（DAI）；挂单的币用 tWei / tNum / tShow（AiLGNS 18 位，LGNS 9 位）
+  function toWei(str, dec) {
+    dec = dec || 18;
     // 手机键盘可能打出逗号、全角符号或空格
     str = String(str || "").replace(/[，,．。]/g, ".").replace(/\s/g, "");
     if (!/^\d*\.?\d*$/.test(str) || str === "" || str === ".") return null;
-    var parts = str.split("."), frac = (parts[1] || "").slice(0, 18).padEnd(18, "0");
-    return BigInt(parts[0] || "0") * WEI + BigInt(frac);
+    var parts = str.split("."), frac = (parts[1] || "").slice(0, dec).padEnd(dec, "0");
+    return BigInt(parts[0] || "0") * 10n ** BigInt(dec) + BigInt(frac);
   }
-  function num(wei) { return Number(wei) / 1e18; }
-  function show(wei, d) { return A.fmt(num(wei), d === undefined ? 4 : d); }
+  function num(wei, dec) { return Number(wei) / Math.pow(10, dec || 18); }
+  function show(wei, d, dec) { return A.fmt(num(wei, dec), d === undefined ? 4 : d); }
+  function tWei(str) { return toWei(str, TD); }
+  function tNum(v) { return num(v, TD); }
+  function tShow(v, d) { return show(v, d, TD); }
+  // 往下取到 d 位小数的字符串（填进输入框用，不会超过余额）
+  function floorStr(v, d, dec) {
+    var s = (v / 10n ** BigInt(dec - d)).toString().padStart(d + 1, "0");
+    return (s.slice(0, -d) + "." + s.slice(-d)).replace(/\.?0+$/, "");
+  }
   function ceilDiv(a, b) { return (a + b - 1n) / b; }
   function left(sec) {
     if (sec <= 0) return "已过期";
@@ -55,10 +80,10 @@
   // ---------- 读链 ----------
   function words(h) { var out = []; for (var i = 2; i < h.length; i += 64) out.push(h.slice(i, i + 64)); return out; }
   function readOrders() {
-    return A.call(OTC, SEL.ordersCount).then(function (h) {
+    return read(OTC, SEL.ordersCount).then(function (h) {
       var count = Number(BigInt(h)), from = Math.max(0, count - 1000);
       if (!count) return [];
-      return A.call(OTC, SEL.getOrders + u256(from) + u256(count - from)).then(function (r) {
+      return read(OTC, SEL.getOrders + u256(from) + u256(count - from)).then(function (r) {
         var w = words(r), n = Number(BigInt("0x" + w[1])), list = [];
         for (var i = 0; i < n; i++) {
           var o = w.slice(2 + i * 7, 9 + i * 7);
@@ -71,15 +96,27 @@
       });
     });
   }
-  function balance(token, who) { return A.call(token, SEL.balanceOf + u256(who)).then(BigInt); }
-  function allowance(token, who) { return A.call(token, SEL.allowance + u256(who) + u256(OTC)).then(BigInt); }
-  function marketPrice() {
-    return A.call("0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", "0x0902f1ac").then(function (h) {
-      return Number(A.word(h, 1)) / Number(A.word(h, 0));
+  // 读当前市场所在的链
+  function read(to, data) { return W.rpcOn(M.chain, "eth_call", [{ to: to, data: data }, "latest"]); }
+  function balance(token, who) { return read(token, SEL.balanceOf + u256(who)).then(BigInt); }
+  function allowance(token, who) { return read(token, SEL.allowance + u256(who) + u256(OTC)).then(BigInt); }
+  function gasBalance(who) { return W.rpcOn(M.chain, "eth_getBalance", [who, "latest"]).then(BigInt); }
+  // Polygon 上 Gas 用 POL 付：钱包里没有 POL 的话，交易发不出去，提前说清楚
+  function checkPol() {
+    if (M.gas !== "POL") return Promise.resolve();
+    return gasBalance(account).then(function (g) {
+      if (g < POL_MIN) throw new Error("Polygon 链的 Gas 用 POL 支付：钱包里至少要有 0.02 POL，现在只有 " + show(g, 4) + " POL");
     });
   }
-  // 每枚 AILGNS 的 DAI 价格
-  function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / num(o.giveTotal) : num(o.giveTotal) / num(o.wantTotal); }
+  // DEX 市价：每枚挂单币值多少 DAI
+  function marketPrice() {
+    return read(M.pair, "0x0902f1ac").then(function (h) {
+      var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
+      return dai / tok;
+    });
+  }
+  // 每枚挂单币的 DAI 价格
+  function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / tNum(o.giveTotal) : num(o.giveTotal) / tNum(o.wantTotal); }
 
   // ---------- 发交易 ----------
   // 都包在 Promise 里：没有钱包时也会走到失败提示，而不是按钮没反应
@@ -90,11 +127,11 @@
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (a) {
       account = String(a[0]).toLowerCase();
-      return W.switchChain(eth);
+      return W.switchTo(eth, M.chain);
     }).then(function () { return account; });
   }
   function ready() {
-    return Promise.resolve().then(function () { return account ? W.switchChain(W.get()) : connect(); });
+    return Promise.resolve().then(function () { return account ? W.switchTo(W.get(), M.chain) : connect(); });
   }
   // 钱包已经授权过本站时，不弹窗直接拿到地址
   function silentAccount() {
@@ -122,21 +159,21 @@
     var eth = W.get();
     say("正在检查交易能否成功…");
     // 先模拟一次：会失败的交易直接说明原因，不让钱包弹出一个确认不了的窗口
-    return A.rpc("eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) {
+    return W.rpcOn(M.chain, "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) {
       throw new Error(niceError(e));
     }).then(function () {
       say("请在钱包里确认：" + label + "…");
       return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] });
     }).then(function (hash) {
       say(label + "已提交，等待链上确认…");
-      return W.waitReceipt(hash);
+      return W.waitOn(M.chain, hash);
     });
   }
   // 授权额度不够时先授权本次需要的数量（不做无限授权）
   function ensureAllowance(token, amount, say, name) {
     return allowance(token, account).then(function (a) {
       if (a >= amount) return;
-      return send(token, SEL.approve + u256(OTC) + u256(amount), say, "授权 " + show(amount) + " " + name + " 给托管合约");
+      return send(token, SEL.approve + u256(OTC) + u256(amount), say, "授权 " + show(amount, 4, token === DAI ? 18 : TD) + " " + name + " 给托管合约");
     });
   }
 
@@ -184,20 +221,29 @@
       "<div><span>挂单中</span><b>" + (live === null ? "—" : live) + " <small>张</small></b></div><div><span>成交手续费</span><b>1%</b></div></div></div>" + HERO_ART + "</section>";
   }
 
+  // 市场切换：AiLGNS · LGNS（Anubis）· LGNS（Polygon）
+  function marketTabs() {
+    return '<nav class="mkt-tabs" aria-label="选择交易币种">' + MKEYS.map(function (k) {
+      var m = MARKETS[k];
+      return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + "><b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>";
+    }).join("") + "</nav>";
+  }
+
   function renderOtc(id, sub) {
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
     if (sub === "split") return renderSplit(id);
     if (!OTC) {
-      app.innerHTML = '<section class="card" style="text-align:center;padding:36px 18px"><h2>即将上线</h2><p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
+      app.innerHTML = marketTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
+        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
-    app.innerHTML = '<div class="loading">正在读取订单…</div>';
+    app.innerHTML = marketTabs() + '<div class="loading">正在读取订单…</div>';
     Promise.all([readOrders(), marketPrice().catch(function () { return null; }), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
       draw(id, r[0], r[1]);
     }, function () {
-      if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">订单读取失败，请稍后刷新。</div>';
+      if (A.isCurrent(id)) app.innerHTML = marketTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
     });
 
     function draw(id, orders, mkt) {
@@ -208,33 +254,33 @@
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
 
       function row(o) {
-        var p = priceOf(o), ail = o.sellAilgns ? o.giveLeft : (o.giveLeft * o.wantTotal) / o.giveTotal;
+        var p = priceOf(o), ail = o.sellAilgns ? o.giveLeft : (o.giveLeft * o.wantTotal) / o.giveTotal; // 剩余的挂单币数量
         var diff = mkt ? (p / mkt - 1) * 100 : null;
         // 操作按钮放在最前面：买入绿色、卖出红色，自己的单显示撤单
         var act = o.maker === account
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
-        return '<tr><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, 2) + '</b></td><td data-l="剩余 AiLGNS">' + show(ail) + '</td><td data-l="总额 DAI">' + A.fmt(num(ail) * p, 2) + "</td>" +
+        return '<tr><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
           '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td></tr>";
       }
       function book(title, list, hint) {
         return '<section class="card"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + hint + "</span></div>" +
-          (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 AiLGNS</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
+          (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
             list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">任意金额成交送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
+      var html = marketTabs() + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">任意金额成交送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
-      html += book("卖出 AiLGNS", buys, "卖成 DAI · 价格从高到低") + book("买入 AiLGNS", sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖 AiLGNS
+      html += book("卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
       html += '<p class="note">🎁 成交后到「会员」页填这个钱包地址点「查询」，会员就能用。<a href="#/promo">为什么在这里交易更划算 →</a></p>';
-      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为 AWAKE HELIX 官方授权的 AiLGNS OTC 服务站。</p>';
+      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。' + (M.gas === "POL" ? "Polygon 链的 Gas 用 POL 支付，钱包里要留一点 POL。" : "") + '智能合约未经第三方审计，请先小额试用。本站为 AWAKE HELIX 官方授权的 AiLGNS OTC 服务站。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
       bind(id, orders, mkt);
@@ -349,18 +395,19 @@
       if (!el) return;
       if (!account) {
         var jump = !A.wallets.list().length && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); // 手机上没有钱包（桌面图标、普通浏览器）：直接跳到钱包 App 里打开
-        el.innerHTML = '<div class="k">我的钱包</div><div class="v" style="font-size:16px"><button id="otc-connect" style="padding:8px 16px">' + (jump ? "在钱包 App 里打开" : "连接钱包") + '</button></div><div class="d">' + (jump ? "挂单、买卖要在钱包 App 里操作，点一下自动跳过去" : "连接后显示 AiLGNS 和 DAI 余额") + "</div>";
+        el.innerHTML = '<div class="k">我的钱包</div><div class="v" style="font-size:16px"><button id="otc-connect" style="padding:8px 16px">' + (jump ? "在钱包 App 里打开" : "连接钱包") + '</button></div><div class="d">' + (jump ? "挂单、买卖要在钱包 App 里操作，点一下自动跳过去" : "连接后显示 " + SYM + " 和 DAI 余额") + "</div>";
         document.getElementById("otc-connect").onclick = function () {
           connect().then(function () { renderOtc(id); }, function (e) { el.querySelector(".d").textContent = niceError(e); });
         };
         return;
       }
-      el.innerHTML = '<div class="k">' + A.esc(A.wallets.name() || "我的钱包") + ' <span class="mono">' + A.short(account) + '</span> · <a href="#" id="otc-switch">换钱包</a></div><div class="bal"><div><b id="bal-ail">…</b> AiLGNS</div><div><b id="bal-dai">…</b> DAI</div></div>' +
-        '<div class="d"><a href="#" id="otc-watch">把 AiLGNS 添加到钱包</a></div>';
-      Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) {
-        var a = document.getElementById("bal-ail"), d = document.getElementById("bal-dai");
-        if (a) a.textContent = show(b[0]);
+      el.innerHTML = '<div class="k">' + A.esc(A.wallets.name() || "我的钱包") + ' <span class="mono">' + A.short(account) + '</span> · <a href="#" id="otc-switch">换钱包</a></div><div class="bal"><div><b id="bal-ail">…</b> ' + SYM + '</div><div><b id="bal-dai">…</b> DAI</div>' + (M.gas === "POL" ? '<div><b id="bal-gas">…</b> POL</div>' : "") + "</div>" +
+        '<div class="d">' + M.chainName + ' 链 · <a href="#" id="otc-watch">把 ' + SYM + " 添加到钱包</a></div>";
+      Promise.all([balance(AILGNS, account), balance(DAI, account), M.gas === "POL" ? gasBalance(account) : null]).then(function (b) {
+        var a = document.getElementById("bal-ail"), d = document.getElementById("bal-dai"), g = document.getElementById("bal-gas");
+        if (a) a.textContent = tShow(b[0]);
         if (d) d.textContent = show(b[1], 2);
+        if (g) g.textContent = show(b[2], 3);
       });
       document.getElementById("otc-switch").onclick = function (e) {
         e.preventDefault();
@@ -371,16 +418,16 @@
       document.getElementById("otc-watch").onclick = function (e) {
         e.preventDefault();
         var link = this;
-        Promise.resolve().then(function () { return W.get().request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: AILGNS, symbol: "AiLGNS", decimals: 18 } } }); })
+        Promise.resolve().then(function () { return W.get().request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: AILGNS, symbol: SYM, decimals: TD } } }); })
           .then(function () { link.textContent = "已添加 ✓"; }, function () { link.textContent = "钱包不支持自动添加，请手动添加合约 " + A.short(AILGNS); });
       };
     }
 
     function createForm() {
       return '<section class="card" id="otc-form"><div class="card-head"><h2>发布挂单</h2><span class="muted">币先存进托管合约，成交前随时可撤</span></div>' +
-        '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 AiLGNS</button><button data-side="buy">我要买 AiLGNS</button></div>' +
-        '<div class="form-grid"><label>数量（AiLGNS）<input id="otc-qty" inputmode="decimal" placeholder="例如 5"></label>' +
-        '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 800"></label>' +
+        '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 ' + SYM + '</button><button data-side="buy">我要买 ' + SYM + "</button></div>" +
+        '<div class="form-grid"><label>数量（' + SYM + '）<input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
+        '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
         '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="1800">' +
         '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === 1800 ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
@@ -395,10 +442,10 @@
       return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var status = !o.open ? (o.giveLeft === 0n ? "已结束" : "已结束") : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
-          var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
+          var r = M.dex && mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
           if (r && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], 2) + " 重挂</span>";
-          var remain = o.sellAilgns ? show(o.giveLeft) + " AiLGNS" : show(o.giveLeft, 2) + " DAI";
-          return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 AiLGNS" : "买 AiLGNS") + '</td><td data-l="单价">' + A.fmt(priceOf(o), 2) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
+          var remain = o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
+          return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
         }).join("") + "</tbody></table></div></section>";
     }
@@ -415,7 +462,7 @@
       if (c) c.onclick = function () { connect().then(reload, function (e) { say(niceError(e), true); }); };
 
       // 从「营销广告」点「我要卖 / 我要买」进来（#/otc/sell、#/otc/buy）：切到对应方向，滚到挂单表单
-      var go = location.hash.split("/")[2];
+      var hp = location.hash.split("/"), go = MARKETS[hp[2]] ? hp[3] : hp[2]; // #/otc/sell 或 #/otc/plgns/sell
       if (go === "sell" || go === "buy") setTimeout(function () {
         var t = document.querySelector('#otc-side [data-side="' + go + '"]');
         if (t) t.click();
@@ -435,12 +482,20 @@
         };
       });
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
-      if (mkt) price.placeholder = "市价约 " + mkt.toFixed(2);
+      if (mkt) price.placeholder = "市价约 " + mkt.toFixed(PD);
       // 指导价：默认自动填进单价；客户自己改过就不再覆盖
       var auto = true;
       function guide() {
         var el = document.getElementById("otc-guide");
         if (!mkt) { el.hidden = true; return; }
+        if (!M.dex) { // LGNS：普通 DEX，只给市价参考，不说比 DEX 划算
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">参考价</span><b class="num">' + A.fmt(mkt, PD) + '</b><small>DAI / 枚 · ' + M.chainName + ' 链 DEX 现价</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
+            "<p>单价自己定。" + (side === "sell" ? "卖价越低" : "买价越高") + "，越容易被别人吃单；成交手续费 1% 由吃单方承担。</p>" +
+            '<p class="muted">LGNS 在 Anubis 链和 Polygon 链上各有一个市场，价格各自独立，这里按 ' + M.chainName + " 链的 DEX 价格参考。</p>";
+          document.getElementById("otc-guse").onclick = function () { price.value = String(+mkt.toFixed(PD + 2)); auto = false; calc(); pick(); };
+          if (!price.value) { price.value = String(+mkt.toFixed(PD + 2)); auto = false; }
+          return;
+        }
         var g = mkt * GUIDE[side], lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
         el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, 2) + '</b><small>DAI / 枚 · 比市价低 ' + ((1 - GUIDE[side]) * 100).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
           (side === "sell"
@@ -452,16 +507,16 @@
         if (auto || !price.value) { price.value = g.toFixed(2); auto = true; }
       }
       function calc() {
-        var q = toWei(qty.value), p = toWei(price.value);
+        var q = tWei(qty.value), p = toWei(price.value);
         if (!q || !p) { sum.textContent = "填好数量后显示总额"; return null; }
-        var total = (q * p) / WEI;
+        var total = (q * p) / TUNIT; // DAI
         var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
-        var r = mkt ? num(p) / mkt : null, verdict = "";
+        var r = M.dex && mkt ? num(p) / mkt : null, verdict = "";
         if (r) {
           if (side === "sell") verdict = r > RANGE.sell[1] ? "⚠️ 价格偏高：买家去官方 DEX 买更划算，很难成交，建议不高于 " + A.fmt(mkt * RANGE.sell[1], 2) : r < DEX_SELL ? "⚠️ 低于官方 DEX 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, 2) + "），你会少拿 DAI" : "";
           else verdict = r < RANGE.buy[0] ? "⚠️ 价格偏低：卖家去官方 DEX 卖更划算，很难成交，建议不低于 " + A.fmt(mkt * RANGE.buy[0], 2) : r > DEX_BUY ? "⚠️ 高于官方 DEX 买入价（约 " + A.fmt(mkt * DEX_BUY, 2) + "），你会多花 DAI" : "";
         }
-        sum.innerHTML = (side === "sell" ? "存入 <b>" + show(q) + " AiLGNS</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + show(q) + " AiLGNS</b>") +
+        sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
           (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ 价格合理，比官方 DEX 划算，容易成交</span>') : "");
         return { q: q, total: total };
@@ -470,26 +525,25 @@
       guide();
       // 可用余额 + 25% / 50% / 75% / 最大：卖单按 AiLGNS 余额，买单按 DAI 余额 ÷ 单价换成能买多少枚
       var bal = null;
-      function floorStr(wei, d) { var k = 10n ** BigInt(18 - d), v = wei / k * k, s = (Number(v / 10n ** 12n) / 1e6).toFixed(d); return s.replace(/\.?0+$/, ""); }
       function maxQty() {
         if (!bal) return null;
         if (side === "sell") return bal.ail;
         var p = toWei(price.value);
-        return p ? (bal.dai > GAS_RESERVE ? bal.dai - GAS_RESERVE : 0n) * WEI / p : null; // 留 0.1 DAI 付 Gas
+        return p ? (bal.dai > GAS_RESERVE ? bal.dai - GAS_RESERVE : 0n) * TUNIT / p : null; // Anubis 留 0.1 DAI 付 Gas
       }
       function pick() {
         var el = document.getElementById("otc-pick");
         if (!account) { el.innerHTML = '<span class="muted">可用余额：</span><a href="#" id="otc-pick-c">连接钱包后显示</a>'; document.getElementById("otc-pick-c").onclick = function (e) { e.preventDefault(); var c = document.getElementById("otc-connect"); if (c) c.click(); }; return; }
         if (!bal) { el.innerHTML = '<span class="muted">可用余额读取中…</span>'; return; }
         var m = maxQty();
-        el.innerHTML = '<div class="qp-bal"><span class="muted">可用</span><b>' + (side === "sell" ? show(bal.ail) + " AiLGNS" : show(bal.dai, 2) + " DAI") + "</b>" +
-          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + show(m) + " 枚" : "先填单价，算能买多少枚") + "</span>" : "") + "</div>" +
+        el.innerHTML = '<div class="qp-bal"><span class="muted">可用</span><b>' + (side === "sell" ? tShow(bal.ail) + " " + SYM : show(bal.dai, 2) + " DAI") + "</b>" +
+          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + tShow(m) + " 枚" : "先填单价，算能买多少枚") + "</span>" : "") + "</div>" +
           '<div class="qp-btns">' + [[25, "25%"], [50, "50%"], [75, "75%"], [100, "最大"]].map(function (x) { return '<button type="button" class="ghost" data-pct="' + x[0] + '"' + (m ? "" : " disabled") + ">" + x[1] + "</button>"; }).join("") + "</div>";
         el.querySelectorAll("[data-pct]").forEach(function (b) {
           b.onclick = function () {
             var mq = maxQty();
             if (!mq) return;
-            qty.value = floorStr(mq * BigInt(b.getAttribute("data-pct")) / 100n, 6);
+            qty.value = floorStr(mq * BigInt(b.getAttribute("data-pct")) / 100n, TD === 18 ? 6 : 4, TD);
             calc();
           };
         });
@@ -535,8 +589,10 @@
           walletCard();
           return balance(token, account);
         }).then(function (b) {
-          if (b < give) throw new Error("余额不足：需要 " + show(give, sell ? 4 : 2) + " " + (sell ? "AiLGNS" : "DAI") + "，钱包里有 " + show(b, sell ? 4 : 2));
-          return ensureAllowance(token, give, say, sell ? "AiLGNS" : "DAI");
+          if (b < give) throw new Error("余额不足：需要 " + (sell ? tShow(give) : show(give, 2)) + " " + (sell ? SYM : "DAI") + "，钱包里有 " + (sell ? tShow(b) : show(b, 2)));
+          return checkPol();
+        }).then(function () {
+          return ensureAllowance(token, give, say, sell ? SYM : "DAI");
         }).then(function () {
           return send(OTC, SEL.create + u256(sell ? 1 : 0) + u256(give) + u256(want) + u256(dur), say, "发布挂单");
         }).then(function () {
@@ -570,18 +626,18 @@
       var m = document.getElementById("otc-modal"), p = priceOf(o);
       var maxAil = o.sellAilgns ? o.giveLeft : ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal);
       m.hidden = false;
-      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (o.sellAilgns ? "买入 AiLGNS" : "卖出 AiLGNS") + ' · #' + o.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, 4) + " DAI</dd><dt>可成交</dt><dd>" + show(maxAil) + ' AiLGNS</dd><dt>挂单人</dt><dd class="mono">' + A.short(o.maker) + "</dd></dl>" +
-        '<label class="full">' + (o.sellAilgns ? "付款金额（DAI）" : "卖出数量（AiLGNS）") + '<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
+      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (o.sellAilgns ? "买入 " : "卖出 ") + SYM + " · #" + o.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, PD + 2) + " DAI</dd><dt>可成交</dt><dd>" + tShow(maxAil) + " " + SYM + '</dd><dt>挂单人</dt><dd class="mono">' + A.short(o.maker) + "</dd></dl>" +
+        '<label class="full">' + (o.sellAilgns ? "付款金额（DAI）" : "卖出数量（" + SYM + "）") + '<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
         '<div class="quote" id="f-quote">输入数量后显示</div><div class="note" id="f-bal" style="margin:0"></div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");
-      var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : "AiLGNS";
+      var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : SYM, payDec = o.sellAilgns ? 18 : TD;
       var bal = null; // 钱包里能付的币（BigInt）
       function loadBal() {
         return balance(payToken, account).then(function (b) {
           bal = b;
           var el = document.getElementById("f-bal");
-          if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4) + " " + payName;
+          if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4, payDec) + " " + payName;
           return b;
         });
       }
@@ -593,11 +649,11 @@
           var can = b > GAS_RESERVE ? b - GAS_RESERVE : 0n;
           return can < maxPay ? can : maxPay;
         }
-        return b < maxAil ? b : maxAil; // 卖：AiLGNS 余额（Gas 用 DAI 付，不用留 AiLGNS）
+        return b < maxAil ? b : maxAil; // 卖：挂单币余额（Gas 用 DAI / POL 付，不用留）
       }
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function plan() {
-        var q = toWei(qty.value);
+        var q = toWei(qty.value, payDec);
         if (!q) { quote.textContent = o.sellAilgns ? "输入付多少 DAI 后显示" : "输入数量后显示"; return null; }
         var amount, pay, get, fee, capped = o.sellAilgns ? q > maxPay : q > maxAil;
         if (o.sellAilgns) { // 付 q 个 DAI，按单价换成能拿走的 AiLGNS（往下取，实际付的不会超过 q）
@@ -614,8 +670,8 @@
         fee = (amount * FEE_BPS) / 10000n; get = amount - fee;
         if (amount === 0n) { quote.textContent = "数量太小"; return null; }
         quote.innerHTML = o.sellAilgns
-          ? "你付 <b>" + show(pay, 4) + " DAI</b>，收到 <b>" + show(get) + " AiLGNS</b><br><span class=\"muted\">手续费 1%：" + show(fee) + " AiLGNS</span>"
-          : "你付 <b>" + show(pay) + " AiLGNS</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
+          ? "你付 <b>" + show(pay, 4) + " DAI</b>，收到 <b>" + tShow(get) + " " + SYM + "</b><br><span class=\"muted\">手续费 1%：" + tShow(fee) + " " + SYM + "</span>"
+          : "你付 <b>" + tShow(pay) + " " + SYM + "</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
         if (capped) quote.innerHTML += '<br><span class="muted">这张单只剩这么多，已按剩下的全部算</span>';
         return { amount: amount, pay: pay };
       }
@@ -624,8 +680,7 @@
         (account ? (bal !== null ? Promise.resolve(bal) : loadBal()) : ready().then(function () { walletCard(); return loadBal(); })).then(function (b) {
           var q = maxByWallet(b);
           if (q <= 0n) { qty.value = ""; plan(); say("钱包里没有 " + payName + "，没法" + (o.sellAilgns ? "买入" : "卖出"), true); return; }
-          var d = o.sellAilgns ? 4 : 6, k = 10n ** BigInt(18 - d), v = q / k * k; // 往下取（DAI 4 位、AiLGNS 6 位小数），免得超过余额
-          qty.value = (Number(v / 10n ** 12n) / 1e6).toFixed(d).replace(/\.?0+$/, "");
+          qty.value = floorStr(q, o.sellAilgns || TD < 18 ? 4 : 6, payDec); // 往下取（DAI、LGNS 4 位，AiLGNS 6 位小数），免得超过余额
           plan();
           var full = o.sellAilgns ? q >= maxPay : q >= maxAil;
           say(full ? "这张单剩下的全部（你的余额够）" : o.sellAilgns ? "已按你的 DAI 余额填入最大金额，留了 0.1 DAI 付 Gas" : "已按你的钱包余额填入最大数量");
@@ -636,14 +691,15 @@
       document.getElementById("f-go").onclick = function () {
         var btn = this, v = plan();
         if (!v) { say("请输入数量", true); return; }
-        var token = o.sellAilgns ? DAI : AILGNS, name = o.sellAilgns ? "DAI" : "AiLGNS";
+        var token = o.sellAilgns ? DAI : AILGNS, name = payName;
         btn.disabled = true;
         ready().then(function () {
           walletCard();
           if (account === o.maker) throw new Error(REASONS.TRANSFER_MISMATCH);
           return balance(token, account);
         }).then(function (b) {
-          if (b < v.pay) throw new Error("余额不足：需要 " + show(v.pay) + " " + name + "，钱包里有 " + show(b));
+          if (b < v.pay) throw new Error("余额不足：需要 " + show(v.pay, 4, payDec) + " " + name + "，钱包里有 " + show(b, 4, payDec));
+          if (M.gas === "POL") return checkPol();
           if (o.sellAilgns && b - v.pay < GAS_RESERVE / 10n) throw new Error("要留一点 DAI 付 Gas：请把金额改小一点（或点「最大」自动留 0.1 DAI）");
           if (!o.sellAilgns) return balance(DAI, account).then(function (g) {
             if (g < GAS_RESERVE / 10n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够），现在只有 " + show(g, 4) + " DAI");
@@ -665,8 +721,10 @@
   // ---------- 部署页（只给站长用，不在导航里） ----------
   function renderDeploy(id) {
     var app = A.app;
-    app.innerHTML = '<h1>部署托管合约</h1><p class="sub">用你的钱包把 OTC 托管合约部署到 Anubis 链。部署只需要一次，Gas 用 Anubis 链上的 DAI 支付。</p>' +
-      '<section class="card"><dl class="dl"><dt>AiLGNS</dt><dd class="mono">' + AILGNS + "</dd><dt>DAI</dt><dd class=\"mono\">" + DAI + "</dd><dt>手续费收款地址</dt><dd class=\"mono\">" + FEE_RECIPIENT +
+    app.innerHTML = '<h1>部署托管合约 · ' + SYM + "（" + M.chainName + ' 链）</h1><p class="sub">用你的钱包把 OTC 托管合约部署到 ' + M.chainName + " 链。部署只需要一次，Gas 用 " + M.chainName + " 链上的 " + M.gas + " 支付。合约代码和 AiLGNS OTC 完全相同，只是构造参数换成下面的币。</p>" +
+      '<nav class="mkt-tabs">' + MKEYS.map(function (k) { return '<a href="#/otc/deploy/' + k + '"' + (k === MK ? ' class="on"' : "") + "><b>" + MARKETS[k].sym + "</b><small>" + MARKETS[k].chainName + " 链</small></a>"; }).join("") + "</nav>" +
+      (OTC ? '<section class="card"><p>这个市场已经部署：<a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + OTC + " ↗</a>，不用再部署。</p></section>" : "") +
+      '<section class="card"><dl class="dl"><dt>挂单币 ' + SYM + '</dt><dd class="mono">' + AILGNS + "</dd><dt>DAI</dt><dd class=\"mono\">" + DAI + "</dd><dt>手续费收款地址</dt><dd class=\"mono\">" + FEE_RECIPIENT +
       "</dd><dt>手续费</dt><dd>1%（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
     var st = document.getElementById("d-st");
@@ -682,7 +740,7 @@
         return W.get().request({ method: "eth_sendTransaction", params: [{ from: account, data: data }] });
       }).then(function (hash) {
         say("已提交，等待链上确认…");
-        return W.waitReceipt(hash);
+        return W.waitOn(M.chain, hash);
       }).then(function (r) {
         say('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + '</b><br>把这个地址发给我，我把它填进网站就能开放交易。<a target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + r.contractAddress + '">在浏览器查看 ↗</a>');
       }, function (e) { say(niceError(e), true); btn.disabled = false; });
@@ -694,12 +752,12 @@
     var app = A.app, MAX = (1n << 256n) - 1n, totalSel = "0x0399205c"; // totalSplit(address)
     var TOKS = [
       { name: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9 },
-      { name: "AiLGNS", chain: "anubis", token: AILGNS, dec: 18 },
-      { name: "DAI", chain: "anubis", token: DAI, dec: 18 },
+      { name: "AiLGNS", chain: "anubis", token: ANUBIS_AILGNS, dec: 18 },
+      { name: "DAI", chain: "anubis", token: ANUBIS_DAI, dec: 18 },
       { name: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18 },
       { name: "LGNS", chain: "polygon", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dec: 9 }
     ];
-    var CH = { anubis: { name: "Anubis", explorer: EXPLORER }, polygon: { name: "Polygon", explorer: "https://polygonscan.com" } };
+    var CH = { anubis: { name: "Anubis", explorer: ANUBIS_EXPLORER }, polygon: { name: "Polygon", explorer: "https://polygonscan.com" } };
     function read(chain, to, data) { return (chain === "anubis" ? A.call(to, data) : W.rpcOn("polygon", "eth_call", [{ to: to, data: data }, "latest"])).then(BigInt); }
     function amt(v, dec) { return A.fmt(Number(v) / Math.pow(10, dec), 4); }
     app.innerHTML = '<h1>收入分账</h1><p class="sub">会员费和 OTC 手续费照旧进入原收款钱包。原收款钱包授权分账合约后，每 5 分钟检查一次，新到账的收入自动按比例分出去。地址和比例写死在合约里，任何人都改不了。</p>' +
@@ -764,7 +822,9 @@
   // 钱包里切换账户时，页面跟着换
   var listening = false;
   A.pages.otc = function (id) {
-    var sub = location.hash.split("/")[2] || "";
+    // #/otc · #/otc/lgns · #/otc/plgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
+    var parts = location.hash.split("/"), sub = parts[2] || "";
+    useMarket(sub === "deploy" ? parts[3] : sub);
     if (!listening) {
       listening = true;
       A.wallets.onAccounts(function (a) {
@@ -776,6 +836,7 @@
   };
   // 营销广告：OTC 介绍、和官方 DEX 的费用对比、交易送会员
   A.pages.promo = function (id) {
+    useMarket("ailgns"); // 营销广告讲的是 AiLGNS
     var gift = '<section class="card promo-gift"><div class="card-head"><h2>🎁 交易就送会员</h2></div>' +
       '<div class="pg-row"><div class="pg-item"><b>初级 VIP</b><span>在本站 OTC 成交任意金额</span></div><div class="pg-item pro"><b>高级 VIP</b><span>累计成交满 1 万 DAI</span></div></div>' +
       '<p class="note">挂单被吃、吃别人的单都算，按钱包地址自动累计。成交后到<a href="#/member">「会员」</a>页填这个钱包地址点「查询」就能用。</p>' +

@@ -153,7 +153,7 @@
         // OTC 成交送会员：成交过一笔送初级，累计成交满 1 万 DAI 送高级
         if (trade) {
           var vol = trade.vol || 0, big = vol >= OTC_PRO_VOL;
-          list.push({ method: "otc", chain: "anubis", tx: "otc:" + addr, ref: trade.tx, paid: 0, usd: big ? PRO_USD : FEE_USD,
+          list.push({ method: "otc", chain: trade.chain || "anubis", tx: "otc:" + addr, ref: trade.tx, paid: 0, usd: big ? PRO_USD : FEE_USD,
             note: "OTC 成交赠送" + (big ? "高级" : "初级") + " VIP（累计成交 " + A.fmt(vol, 2) + " DAI" + (big ? "" : "，满 " + A.fmt(OTC_PRO_VOL) + " DAI 送高级") + "）" });
         }
         var t = tally(list);
