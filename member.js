@@ -276,14 +276,12 @@
       function needOf(x) { var i = METHODS.indexOf(x); return prices[i] ? need(x, prices[i], usdNow()) : null; }
 
       var who = upgrade ? "" : '<section class="card"><div class="card-head"><h2>第 1 步：输入要开通会员的地址</h2></div>' +
-        '<p class="addr-help">请在下面输入<b>要开通会员的钱包地址</b>（0x 开头的 42 位）。会员就开在这个地址上，以后「团队与等级」「团队新增业绩」「团队结构图」查的都是<b>这个地址的团队</b>。</p>' +
-        '<label class="addr-lab" for="mem-addr">要开通会员的地址</label>' +
-        '<div class="copy"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址 0x…" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button class="ghost" id="mem-q">查询</button></div>' +
+        '<p class="addr-help">会员开在这个地址上，团队、业绩、结构图都查这个地址。</p>' +
+        '<div class="addr-box"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button id="mem-q">查询</button></div>' +
         '<div id="q-out"></div>' +
-        '<ul class="addr-tips"><li>想查哪个地址的团队，就填哪个地址，比如你的<b>大号</b>。</li>' +
-        "<li>付款用哪个钱包都行，可以用小号付。大号<b>什么都不用做</b>：不连接、不签名、不授权。</li>" +
-        "<li>填好后点「查询」：已经是会员就直接恢复；还不是会员，下面会出现付款按钮。</li>" +
-        "<li>请仔细核对地址，开通后<b>不能改到别的地址</b>。</li></ul></section>";
+        '<ul class="addr-tips"><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
+        "<li>已开通的点「查询」直接恢复；未开通的会出现付款按钮。</li>" +
+        "<li>开通后不能更改地址，请核对清楚。</li></ul></section>";
       var plans = upgrade
         ? '<section class="card plan-up"><div class="card-head"><h2>' + vipEmblem("pro", 26) + ' 升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
           '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
@@ -354,7 +352,7 @@
       var q = document.getElementById("mem-q"), qOut = document.getElementById("q-out");
       if (q) q.onclick = function () {
         var a = addrNow();
-        if (!a) { qOut.innerHTML = '<p class="note down">请填写正确的地址（0x 开头的 42 位）</p>'; return; }
+        if (!a) { qOut.innerHTML = '<p class="note down">地址格式不对</p>'; return; }
         q.disabled = true;
         qOut.innerHTML = '<p class="note">正在查这个地址的会员记录…（要查两条链，几秒钟）</p>';
         lookup(a).then(function (t) {
@@ -395,7 +393,7 @@
         if (pb) pb.onclick = walletPay;
         document.getElementById("ob-hgo").onclick = function () {
           var h = (document.getElementById("ob-h").value.match(/0x[0-9a-fA-F]{64}/) || [])[0];
-          if (!h) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
+          if (!h) { say("交易哈希格式不对", true); return; }
           say("正在核对…");
           poll(h.toLowerCase()).then(function (paid) { if (!paid) say("这笔交易对不上：要在 " + c.name + " 链上转 " + o.amount + " " + x.symbol + " 到收款地址", true); });
         };
@@ -427,7 +425,7 @@
       function start(btn) {
         var a = addrNow(), w = want();
         if (!a) {
-          say("请先在上面填写会员地址（0x 开头的 42 位）", true);
+          say("请先填写要开通会员的地址", true);
           var el = document.getElementById("mem-addr");
           if (el) { el.focus(); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
           return;
@@ -1567,7 +1565,7 @@
     document.getElementById("up-form").onsubmit = function (e) {
       e.preventDefault();
       var a = document.getElementById("up-a").value.trim().toLowerCase();
-      if (!/^0x[0-9a-f]{40}$/.test(a)) { document.getElementById("up-out").innerHTML = '<div class="card err">地址格式不对，应该是 0x 开头的 42 位</div>'; return; }
+      if (!/^0x[0-9a-f]{40}$/.test(a)) { document.getElementById("up-out").innerHTML = '<div class="card err">地址格式不对</div>'; return; }
       if (a !== addr) location.hash = "#/upline/" + a; else show(a);
     };
     if (addr) show(addr);

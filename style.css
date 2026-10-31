@@ -767,5 +767,8 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .q-pay .muted { margin-top: 8px; font-size: 13px; }
 .order-box .dl { margin: 0; }
 .addr-help { margin: 0 0 12px; font-size: 14px; line-height: 1.65; }
-.addr-lab { display: block; font-weight: 700; font-size: 14px; color: var(--gold); }
+.addr-box { display: flex; gap: 8px; align-items: stretch; padding: 6px; border: 2px solid var(--gold); border-radius: 14px; background: #fff; box-shadow: 0 0 0 4px var(--gold-soft); }
+.addr-box input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 16px; padding: 10px 8px; box-shadow: none; }
+.addr-box button { padding: 10px 18px; font-size: 15px; font-weight: 700; border-radius: 10px; }
+.addr-box:focus-within { box-shadow: 0 0 0 5px rgba(112, 39, 217, .18); }
 .addr-tips { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); line-height: 1.6; }
