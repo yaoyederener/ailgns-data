@@ -33,3 +33,11 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 | LGNS · Polygon 链（部署区块 96510526） | `0x4060f38d3e837843b69014d9f85ecfb3e29fa2db` | LGNS `0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01`，DAI `0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063`，手续费收款同上 |
 
 2026-10-31 核对：Anubis 链 LGNS OTC 合约的链上运行代码，和 AiLGNS OTC 合约逐字节相同，唯一差别是 5 处写死的挂单币地址（AiLGNS → LGNS）；`DAI()`、`feeRecipient()`、`FEE_BPS()`（100 = 1%）读出来都和上表一致。Polygon 链 LGNS OTC 合约同样核对过：和 AiLGNS OTC 合约逐字节相同，差别只有写死的挂单币地址（→ Polygon LGNS）和 DAI 地址（→ Polygon DAI）。
+
+## 像素墙收款合约 LgnsPixelSink
+
+- 合约地址（Anubis 链，部署区块 17937871）：`0xf1fb8f098979dc29a3020070ac93ef24f1b2ca4c`
+- 源码：[`LgnsPixelSink.sol`](LgnsPixelSink.sol)，标准输入 [`LgnsPixelSink.standard-input.json`](LgnsPixelSink.standard-input.json)（solc v0.8.24，优化 200 runs，EVM paris），无构造参数
+- 收到的 LGNS 任何人都可以调用 `flush()` 分出去：80% → 销毁地址 `0x000000000000000000000000000000000000dEaD`，20% → 原收款钱包 `0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6`（再由分账合约按 30/40/30 分）
+
+2026-10-31 核对：链上运行代码和用上面的标准输入编译出来的结果逐字节一致；`TOKEN()`、`BURN()`、`REVENUE()`、`BURN_BPS()`（8000 = 80%）读出来都和源码一致。部署前在 Anubis 链的本地分叉上用真实 LGNS 测试过：转入 100 LGNS 后 flush，销毁地址 +80、原收款钱包 +20、合约清零。
