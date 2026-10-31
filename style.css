@@ -761,4 +761,8 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .ob-tx { margin-top: 12px; font-size: 13px; }
 .ob-tx summary { cursor: pointer; color: var(--muted); }
 #mem-addr { flex: 1; min-width: 0; }
-.order-box #ob-pay, .order-box #ob-new { padding: 10px 16px; }
+.paybtn { display: block; width: 100%; padding: 14px 18px; margin-top: 12px; font-size: 16px; font-weight: 700; border-radius: 14px; white-space: normal; line-height: 1.4; }
+.q-pay { margin-top: 12px; padding: 14px; border-radius: 14px; background: var(--gold-soft); border: 1px solid var(--line); }
+.q-pay p { margin: 0; }
+.q-pay .muted { margin-top: 8px; font-size: 13px; }
+.order-box .dl { margin: 0; }

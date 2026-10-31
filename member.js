@@ -259,7 +259,7 @@
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">会员开在<b>地址</b>上：填要开通的地址，用任何钱包转一笔专属金额，到账自动开通，<b>不用连接钱包、不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
+    var head = '<h1>会员</h1><p class="sub">会员开在<b>地址</b>上：填要开通的地址，点付款，在钱包里确认一笔转账就开通，<b>不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
     if (m && m.tier === "pro") {
       app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
       return;
@@ -270,12 +270,14 @@
     Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
       function usdNow() { return upgrade ? PRO_USD - FEE_USD : plan === "pro" ? PRO_USD : FEE_USD; }
+      function want() { return upgrade || plan === "pro" ? "pro" : "basic"; }
       var pick = METHODS.filter(function (x, i) { return prices[i]; })[0] || METHODS[0];
       function needOf(x) { var i = METHODS.indexOf(x); return prices[i] ? need(x, prices[i], usdNow()) : null; }
 
       var who = upgrade ? "" : '<section class="card"><div class="card-head"><h2>会员地址</h2><span class="muted">开在哪个地址，就查哪个地址</span></div>' +
         '<div class="copy"><input id="mem-addr" class="mono" placeholder="要开通的地址 0x…" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button class="ghost" id="mem-q">查询</button></div>' +
-        '<p class="note">填你要查团队的那个地址（比如大号）。付款用任何钱包都行，大号<b>什么都不用做</b>。以前开通过的，填地址点「查询」就能恢复。</p></section>';
+        '<div id="q-out"></div>' +
+        '<p class="note">填你要查团队的那个地址（比如大号）。付款用哪个钱包都行，大号<b>什么都不用做</b>。以前开通过的，填地址点「查询」就能恢复。</p></section>';
       var plans = upgrade
         ? '<section class="card plan-up"><div class="card-head"><h2>' + vipEmblem("pro", 26) + ' 升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
           '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
@@ -293,21 +295,27 @@
             '<b class="num" data-amt="' + x.id + '">—</b><small>' + (x.id === "dai" ? "稳定币，1 DAI = 1 美元" : x.haircut ? "按市价 " + x.haircut * 100 + "% 计：" + A.fmt(prices[i], 5) + " DAI（卖出扣 " + (100 - x.haircut * 100) + "%）" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
         }).join("") + "</div></section>" +
         '<section class="card" id="pay-card"><div class="card-head"><h2>' + (upgrade ? "付款升级" : "付款开通") + "</h2>" + (upgrade ? "" : '<a href="#/tree">先看看效果 →</a>') + "</div>" +
-        '<div id="order-box"><button id="go" style="padding:12px 22px">生成付款金额</button>' +
-        '<p class="note">点了之后会给你一个<b>带零头的专属金额</b>，用任何钱包转这个金额到收款地址，到账自动开通' + (upgrade ? "高级" : "") + "。</p></div>" +
+        '<div id="order-box"><button class="paybtn" id="go"></button>' +
+        '<p class="note">点按钮后在钱包里确认一笔转账就行（只是转账，<b>不签名、不授权</b>），到账几秒钟自动开通' + (upgrade ? "高级" : "") + "。</p></div>" +
         '<p class="note" id="st"></p></section>' +
+        '<p class="note">手机上请在 <b>OKX、Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b> 付款；没有钱包浏览器也可以按页面给的金额手动转账。</p>' +
         '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面几种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词，开通会员也不需要签名或授权；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
-      var st = document.getElementById("st"), go = document.getElementById("go"), polling = null;
+      var st = document.getElementById("st"), go = document.getElementById("go"), polling = null, checked = null;
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function addrNow() {
         if (upgrade) return m.addr;
         var v = (document.getElementById("mem-addr").value || "").trim().toLowerCase();
         return /^0x[0-9a-f]{40}$/.test(v) ? v : null;
       }
+      function payLabel() {
+        var n = needOf(pick);
+        return n ? "付款 " + A.fmt(n, pick.digits) + " " + pick.symbol + "（" + CHAINS[pick.chain].name + "），" + (upgrade ? "升级高级 VIP" : "开通" + TIERS[want()].short + " VIP") : "这种币的价格暂时读不到";
+      }
       function describe() {
         METHODS.forEach(function (x) { var n = needOf(x), el = app.querySelector('[data-amt="' + x.id + '"]'); if (el) el.textContent = n ? A.fmt(n, x.digits) : "—"; });
         document.getElementById("pay-usd").textContent = "已按实时价格折算成 " + usdNow() + " 美元";
+        app.querySelectorAll(".paybtn").forEach(function (b) { if (b.id === "go" || b.id === "q-pay") b.textContent = payLabel(); });
       }
       describe();
       app.querySelectorAll(".plan").forEach(function (b) {
@@ -325,10 +333,10 @@
         };
       });
       // 开通或升级成功：达到想要的等级就跳走，否则说明还差多少
-      function finish(addr, t, want) {
+      function finish(addr, t, w) {
         activate(addr, t);
         subnav();
-        if (want === "pro" && t.tier !== "pro") {
+        if (w === "pro" && t.tier !== "pro") {
           say("已开通" + TIERS[t.tier].name + "（累计约 " + A.fmt(t.usd, 2) + " 美元）。升级高级还差约 " + A.fmt(PRO_USD - t.usd, 2) + " 美元。");
           setTimeout(function () { renderMember(id); }, 1500);
           return;
@@ -336,95 +344,110 @@
         say(TIERS[t.tier].name + " 已开通！");
         setTimeout(function () { location.hash = "#/tree"; }, 800);
       }
-      var q = document.getElementById("mem-q");
+      // 查询：是会员就直接恢复；不是会员就在输入框下面直接给付款按钮
+      var q = document.getElementById("mem-q"), qOut = document.getElementById("q-out");
       if (q) q.onclick = function () {
         var a = addrNow();
-        if (!a) { say("请填写正确的地址（0x 开头的 42 位）", true); return; }
+        if (!a) { qOut.innerHTML = '<p class="note down">请填写正确的地址（0x 开头的 42 位）</p>'; return; }
         q.disabled = true;
-        say("正在查这个地址的会员记录…（要查两条链，几秒钟）");
+        qOut.innerHTML = '<p class="note">正在查这个地址的会员记录…（要查两条链，几秒钟）</p>';
         lookup(a).then(function (t) {
           q.disabled = false;
-          if (t && t.tier) return finish(a, t, t.tier);
-          say("这个地址还不是会员。选好等级和付款方式，点「生成付款金额」。", true);
-        }, function (e) { q.disabled = false; say(walletError(e), true); });
+          if (t && t.tier) { qOut.innerHTML = '<p class="note up">这个地址已经是' + TIERS[t.tier].name + "，正在恢复…</p>"; return finish(a, t, t.tier); }
+          checked = a;
+          qOut.innerHTML = '<div class="q-pay"><p>这个地址<b>还不是会员</b>，可以直接付款开通：</p><button class="paybtn" id="q-pay"></button>' +
+            '<p class="muted">想换等级或换币种，在下面选好再点付款。</p></div>';
+          describe();
+          document.getElementById("q-pay").onclick = function () { start(this); };
+        }, function (e) { q.disabled = false; qOut.innerHTML = '<p class="note down">' + A.esc(walletError(e)) + "</p>"; });
       };
 
-      // 订单：显示专属金额，自动等到账
-      function showOrder(o) {
-        var x = method(o.method), c = CHAINS[x.chain], box = document.getElementById("order-box");
+      // 订单：一般直接弹钱包付款；没有钱包时显示手动转账的金额和地址
+      function stop() { if (polling) clearInterval(polling); polling = null; }
+      function showOrder(o, autoPay) {
+        var x = method(o.method), c = CHAINS[x.chain], box = document.getElementById("order-box"), hasWallet = A.wallets.list().length > 0;
         var until = new Date(o.expires), hm = until.getMonth() + 1 + "月" + until.getDate() + "日 " + String(until.getHours()).padStart(2, "0") + ":" + String(until.getMinutes()).padStart(2, "0");
-        box.innerHTML = '<div class="order-box">' +
-          '<div class="ob-line"><span class="muted">在</span><b>' + c.name + ' 链</b><span class="muted">转</span><b>' + x.symbol + '</b><span class="muted">（合约 ' + A.short(x.token) + "）</span></div>" +
+        var manual = '<div class="ob-line"><span class="muted">在</span><b>' + c.name + ' 链</b><span class="muted">转</span><b>' + x.symbol + '</b><span class="muted">（合约 ' + A.short(x.token) + "）</span></div>" +
           '<div class="ob-amt"><b class="num">' + o.amount + "</b><span>" + x.symbol + '</span><button class="ghost" id="ob-ca">复制金额</button></div>' +
-          '<div class="ob-warn">金额必须<b>一模一样</b>，最后几位小数是这笔订单的识别码，多一位少一位都认不到</div>' +
-          '<div class="muted" style="margin-top:10px">收款地址</div><div class="copy"><span class="mono">' + RECEIVER + '</span><button class="ghost" id="ob-cr">复制</button></div>' +
-          '<dl class="dl" style="margin-top:12px"><dt>会员地址</dt><dd>' + A.addrLink(o.target) + "</dd><dt>有效期</dt><dd>" + hm + " 前付款</dd></dl>" +
-          '<ul class="ob-tips"><li>用<b>任何钱包</b>转都行（小号、大号都可以），会员都开在上面的会员地址上</li>' +
-          "<li>不要从交易所直接提币：交易所会扣手续费，到账金额对不上</li>" +
-          "<li>到账后一分钟内自动开通，可以先关掉页面，回来再看</li></ul>" +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="ob-pay">用当前浏览器里的钱包直接付</button><button class="ghost" id="ob-new">重新下单</button></div>' +
-          '<details class="ob-tx"><summary>已经转了，但一直没到账？</summary><div class="copy" style="margin-top:8px"><input id="ob-h" class="mono" placeholder="贴交易哈希 0x…" spellcheck="false"><button class="ghost" id="ob-hgo">核对</button></div></details></div>';
+          '<div class="ob-warn">金额必须<b>一模一样</b>，最后几位小数是这笔订单的识别码，多一位少一位都认不到；不要从交易所直接提币（会扣手续费）</div>' +
+          '<div class="muted" style="margin-top:10px">收款地址</div><div class="copy"><span class="mono">' + RECEIVER + '</span><button class="ghost" id="ob-cr">复制</button></div>';
+        box.innerHTML = '<div class="order-box">' +
+          '<dl class="dl"><dt>会员地址</dt><dd>' + A.addrLink(o.target) + "</dd><dt>开通</dt><dd>" + (o.plan === "pro" || upgrade ? TIERS.pro.name : TIERS.basic.name) + "</dd><dt>金额</dt><dd><b>" + o.amount + " " + x.symbol + "</b>（" + c.name + " 链）</dd><dt>有效期</dt><dd>" + hm + " 前付款</dd></dl>" +
+          (hasWallet ? '<button class="paybtn" id="ob-pay">用钱包付款 ' + o.amount + " " + x.symbol + "</button>" +
+            '<details class="ob-tx"><summary>不想在这里付？用其他钱包手动转账</summary>' + manual + "</details>"
+            : '<p class="note">这个浏览器里没有钱包，请按下面的金额手动转账（任何钱包都行），或者在钱包 App 的 DApp 浏览器里打开 ailgns.dev 一键付款。</p>' + manual) +
+          '<details class="ob-tx"><summary>已经转了，但一直没到账？</summary><div class="copy" style="margin-top:8px"><input id="ob-h" class="mono" placeholder="贴交易哈希 0x…" spellcheck="false"><button class="ghost" id="ob-hgo">核对</button></div></details>' +
+          '<button class="ghost" id="ob-new" style="margin-top:12px;padding:8px 14px">换等级 / 换币种，重新下单</button></div>';
         document.getElementById("ob-ca").onclick = function () { copyText(o.amount, this); };
         document.getElementById("ob-cr").onclick = function () { copyText(RECEIVER, this); };
         document.getElementById("ob-new").onclick = function () { saveOrder(null); stop(); renderMember(id); };
-        document.getElementById("ob-pay").onclick = function () {
-          var b = this;
-          b.disabled = true;
-          payOrder(o, say).then(function (hash) { say("已确认，正在开通…"); return poll(hash); }).catch(function (e) { say(walletError(e), true); b.disabled = false; });
-        };
+        var pb = document.getElementById("ob-pay");
+        function walletPay() {
+          pb.disabled = true;
+          payOrder(o, say).then(function (hash) { say("已确认，正在开通…"); return poll(hash); }).catch(function (e) { say(walletError(e), true); pb.disabled = false; pb.textContent = "重新付款 " + o.amount + " " + x.symbol; });
+        }
+        if (pb) pb.onclick = walletPay;
         document.getElementById("ob-hgo").onclick = function () {
           var h = (document.getElementById("ob-h").value.match(/0x[0-9a-fA-F]{64}/) || [])[0];
           if (!h) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
           say("正在核对…");
           poll(h.toLowerCase()).then(function (paid) { if (!paid) say("这笔交易对不上：要在 " + c.name + " 链上转 " + o.amount + " " + x.symbol + " 到收款地址", true); });
         };
-        var want = upgrade || o.plan === "pro" ? "pro" : "basic";
-        function stop() { if (polling) clearInterval(polling); polling = null; }
+        var w = upgrade || o.plan === "pro" ? "pro" : "basic";
         function poll(tx) {
           if (!A.isCurrent(id)) { stop(); return Promise.resolve(false); }
           return checkOrder(o, tx).then(function (d) {
             if (d.error) throw new Error(d.error);
-            if (!d.paid) { if (!tx && !st.textContent) say("等待到账…（每 10 秒自动查一次）"); return false; }
+            if (!d.paid) return false;
             stop();
             saveOrder(null);
             say("已收到 " + o.amount + " " + x.symbol + "，正在开通…");
             return lookup(o.target).then(function (t) {
               if (!t || !t.tier) throw new Error("已收到付款，但累计金额还不够开通，请联系站长");
-              finish(o.target, t, want);
+              finish(o.target, t, w);
               return true;
             });
           }).catch(function (e) { say(walletError(e), true); return false; });
         }
         stop();
         polling = setInterval(function () { poll(); }, 10000);
-        poll();
+        document.getElementById("pay-card").scrollIntoView({ behavior: "smooth", block: "start" });
+        if (pb && autoPay) walletPay();
+        else poll();
       }
-      if (po && (!upgrade || po.target === m.addr)) { plan = po.plan || plan; showOrder(po); say("你有一笔还没到账的订单，转账后会自动开通。"); }
+      if (po && (!upgrade || po.target === m.addr)) { plan = po.plan || plan; showOrder(po, false); say("你有一笔还没付完的订单，点按钮付款，或者按金额手动转账。"); }
 
-      go.onclick = function () {
-        var a = addrNow(), want = upgrade || plan === "pro" ? "pro" : "basic";
-        if (!a) { say("请先在上面填写会员地址（0x 开头的 42 位）", true); var el = document.getElementById("mem-addr"); if (el) el.focus(); return; }
-        go.disabled = true;
-        say("正在核对这个地址有没有开通过…");
-        (upgrade ? Promise.resolve(null) : lookup(a).catch(function () { return null; })).then(function (t) {
-          if (t && t.tier && (t.tier === "pro" || want === "basic")) { finish(a, t, want); throw null; }
+      // 点付款：核对地址 → 下单（拿到专属金额）→ 直接弹钱包付款
+      function start(btn) {
+        var a = addrNow(), w = want();
+        if (!a) {
+          say("请先在上面填写会员地址（0x 开头的 42 位）", true);
+          var el = document.getElementById("mem-addr");
+          if (el) { el.focus(); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+          return;
+        }
+        btn.disabled = true;
+        say(upgrade || checked === a ? "正在生成订单…" : "正在核对这个地址有没有开通过…");
+        (upgrade || checked === a ? Promise.resolve(null) : lookup(a).catch(function () { return null; })).then(function (t) {
+          if (t && t.tier && (t.tier === "pro" || w === "basic")) { finish(a, t, w); throw null; }
           if (t && t.tier) { activate(a, t); upgrade = true; m = member(); describe(); } // 已是初级：接着补差价
           var n = needOf(pick);
           if (!n) throw new Error("这种币的价格暂时读不到，换一种付款方式");
-          say("正在生成付款金额…");
+          var old = pendingOrder();
+          if (old && old.target === a && old.method === pick.id && old.plan === w && old.expires - Date.now() > 3600000) return old; // 同样的订单接着用
           return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "order", target: a, method: pick.id, amount: n.toFixed(pick.digits) }) }).then(function (r) { return r.json(); });
         }).then(function (o) {
           if (o.error) throw new Error(o.error);
-          o.plan = want;
+          o.plan = w;
           saveOrder(o);
           say("");
-          showOrder(o);
-          document.getElementById("pay-card").scrollIntoView({ behavior: "smooth", block: "start" });
+          showOrder(o, true);
         }).catch(function (e) {
           if (e === null) return; // 已经开通，直接跳转
-          say(walletError(e), true); go.disabled = false;
+          say(walletError(e), true); btn.disabled = false;
         });
-      };
+      }
+      go.onclick = function () { start(go); };
     }, function () {
       if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">价格暂时读不到，请稍后刷新。</div>';
     });
