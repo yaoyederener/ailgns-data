@@ -267,16 +267,16 @@
     var s = size || 22;
     if (t === "pro") {
       return '<svg class="vip-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
-        '<linearGradient id="vgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff4c8"/><stop offset=".3" stop-color="#f3cf63"/><stop offset=".55" stop-color="#b8862b"/><stop offset=".8" stop-color="#f1d27a"/><stop offset="1" stop-color="#9c6d1c"/></linearGradient>' +
-        '<linearGradient id="vgD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2010"/><stop offset="1" stop-color="#120c04"/></linearGradient></defs>' +
-        '<circle cx="32" cy="32" r="31" fill="url(#vgG)"/><circle cx="32" cy="32" r="27.5" fill="none" stroke="#7a5512" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="1.6 2.4"/>' +
-        '<circle cx="32" cy="32" r="23.5" fill="url(#vgD)" stroke="#f3cf63" stroke-width="1.5"/>' +
-        '<path d="M18.5 40.5l-2.6-15.2 8.6 6.4L32 19.5l7.5 12.2 8.6-6.4-2.6 15.2z" fill="url(#vgG)"/>' +
-        '<rect x="18.5" y="42.5" width="27" height="4.2" rx="1.6" fill="url(#vgG)"/>' +
-        '<circle cx="15.9" cy="24.6" r="2.2" fill="#f7dc8b"/><circle cx="32" cy="18" r="2.4" fill="#f7dc8b"/><circle cx="48.1" cy="24.6" r="2.2" fill="#f7dc8b"/></svg>';
+        '<linearGradient id="vgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a8ff"/><stop offset=".3" stop-color="#8933ff"/><stop offset=".55" stop-color="#5500e8"/><stop offset=".8" stop-color="#a014f8"/><stop offset="1" stop-color="#4936ff"/></linearGradient>' +
+        '<linearGradient id="vgD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6927db"/><stop offset="1" stop-color="#9828dc"/></linearGradient></defs>' +
+        '<circle cx="32" cy="32" r="31" fill="url(#vgG)"/><circle cx="32" cy="32" r="27.5" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="1.6 2.4"/>' +
+        '<circle cx="32" cy="32" r="23.5" fill="url(#vgD)" stroke="#ffffff" stroke-width="1.5"/>' +
+        '<path d="M18.5 40.5l-2.6-15.2 8.6 6.4L32 19.5l7.5 12.2 8.6-6.4-2.6 15.2z" fill="#ffffff"/>' +
+        '<rect x="18.5" y="42.5" width="27" height="4.2" rx="1.6" fill="#ffffff"/>' +
+        '<circle cx="15.9" cy="24.6" r="2.2" fill="#ffffff"/><circle cx="32" cy="18" r="2.4" fill="#ffffff"/><circle cx="48.1" cy="24.6" r="2.2" fill="#ffffff"/></svg>';
     }
     return '<svg class="vip-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
-      '<linearGradient id="vgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8f5c6"/><stop offset=".45" stop-color="#22b86c"/><stop offset="1" stop-color="#0b7d47"/></linearGradient></defs>' +
+      '<linearGradient id="vgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86efac"/><stop offset=".45" stop-color="#16a34a"/><stop offset="1" stop-color="#15803d"/></linearGradient></defs>' +
       '<path d="M32 4l22 8v17c0 15.5-9.4 26.6-22 31-12.6-4.4-22-15.5-22-31V12z" fill="url(#vgE)"/>' +
       '<path d="M32 9.5l17 6.2V29c0 12.3-7.2 21.3-17 25.2-9.8-3.9-17-12.9-17-25.2V15.7z" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.6"/>' +
       '<path d="M32 19.5l3.6 7.4 8.1 1.2-5.9 5.7 1.4 8.1L32 38.1l-7.2 3.8 1.4-8.1-5.9-5.7 8.1-1.2z" fill="#fff"/></svg>';
@@ -527,7 +527,7 @@
 
   // ---------- 页面：结构图 ----------
   var NODE_W = 220, NODE_H = 66, GAP_X = 64, GAP_Y = 14, MAX_CHILDREN = 30;
-  var COLORS = { bg: "#f8f8ff", node: "#ffffff", line: "#cfc4ee", text: "#191839", muted: "#6e6a85", gold: "#7027d9", up: "#16a34a", chip: "#efeaf9" };
+  var COLORS = { bg: "#f8f7fc", node: "#ffffff", line: "#d5b9f5", text: "#191839", muted: "#848298", gold: "#7027d9", up: "#16a34a", chip: "#f3ebff" };
 
   function loadNode(a) {
     return Promise.all([A.api("/community/" + a), A.api("/level/" + a).catch(function () { return null; })]).then(function (r) {
@@ -645,13 +645,13 @@
         '<text x="14" y="28" fill="' + COLORS.muted + '" font-size="13">还有 ' + A.fmt(n.count) + " 个直推</text>" +
         '<text x="14" y="48" fill="' + COLORS.muted + '" font-size="12">团队较小，没有画出（可用定位查找）</text></g>';
     }
-    var stroke = n.hl ? "#ff7a1a" : n === root ? COLORS.gold : n.level ? COLORS.gold : COLORS.line;
+    var stroke = n.hl ? "#a014f8" : n === root ? COLORS.gold : n.level ? COLORS.gold : COLORS.line;
     var badge = n.level ? "P" + n.level : "—";
     var zone = n.zone ? ["一区", "二区", "三区"][n.zone - 1] : "";
     var s = '<g class="node" data-a="' + n.a + '" transform="translate(' + n.x + "," + n.y + ')" style="cursor:' + (n.direct ? "pointer" : "default") + '">' +
       "<title>" + e(n.a) + "\n团队 " + A.fmt(n.team) + " 个地址 · 团队入金 " + A.fmt(A.toDai(n.power)) + " DAI · 直推 " + A.fmt(n.direct) + "</title>" +
       (n.hl ? '<rect x="-6" y="-6" width="' + (NODE_W + 12) + '" height="' + (NODE_H + 12) + '" rx="14" fill="rgba(255,122,26,.16)"/>' : "") +
-      '<rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="' + (n.hl ? "#fff7ef" : COLORS.node) + '" stroke="' + stroke + '" stroke-width="' + (n.hl ? 3 : n === root ? 2 : 1.2) + '"/>' +
+      '<rect width="' + NODE_W + '" height="' + NODE_H + '" rx="10" fill="' + (n.hl ? "#f3ebff" : COLORS.node) + '" stroke="' + stroke + '" stroke-width="' + (n.hl ? 3 : n === root ? 2 : 1.2) + '"/>' +
       '<text x="14" y="23" fill="' + COLORS.text + '" font-size="13" font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="600">' + A.short(n.a) + "</text>" +
       '<rect x="' + (NODE_W - 48) + '" y="9" width="36" height="19" rx="5" fill="' + (n.level ? COLORS.gold : COLORS.chip) + '"/>' +
       '<text x="' + (NODE_W - 30) + '" y="23" text-anchor="middle" fill="' + (n.level ? "#fff" : COLORS.muted) + '" font-size="12" font-weight="700">' + badge + "</text>" +
@@ -659,9 +659,9 @@
       '<text x="14" y="43" fill="' + COLORS.muted + '" font-size="12">团队 <tspan fill="' + COLORS.text + '">' + A.fmt(n.team) + '</tspan> 个地址 · 入金 <tspan fill="' + COLORS.text + '">' + A.wan(A.toDai(n.power)).replace(" ", "") + "</tspan> DAI</text>" +
       '<text x="14" y="59" fill="' + COLORS.muted + '" font-size="12">直推 ' + A.fmt(n.direct) + (n.self ? " · 个人入金 " + A.wan(A.toDai(n.self)).replace(" ", "") : "") + "</text>";
     if (n.direct) { // 右边的 + / −：手机上手指好点，做大一点
-      var open = n.expanded, plusFill = n.coach ? COLORS.gold : open ? COLORS.bg : "#efe8fd";
+      var open = n.expanded, plusFill = n.coach ? COLORS.gold : open ? COLORS.bg : "#f3ebff";
       s += (n.coach ? '<circle class="coach-ring" cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="15" fill="none" stroke="' + COLORS.gold + '" stroke-width="3"/>' : "") +
-        '<circle cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="14" fill="' + plusFill + '" stroke="' + (n.coach ? COLORS.gold : "#b9a9ea") + '" stroke-width="1.5"/>' +
+        '<circle cx="' + NODE_W + '" cy="' + NODE_H / 2 + '" r="14" fill="' + plusFill + '" stroke="' + (n.coach ? COLORS.gold : "#d5b9f5") + '" stroke-width="1.5"/>' +
         '<text x="' + NODE_W + '" y="' + (NODE_H / 2 + 6) + '" text-anchor="middle" fill="' + (n.coach ? "#fff" : COLORS.gold) + '" font-size="19" font-weight="700">' + (n.loading ? "…" : open ? "−" : "+") + "</text>";
     }
     return s + "</g>";

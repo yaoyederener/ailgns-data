@@ -162,15 +162,15 @@
 
   // 首页大横幅：AiLGNS OTC 主推
   var HERO_ART = '<svg class="hero-art" viewBox="0 0 220 180" aria-hidden="true"><defs>' +
-    '<linearGradient id="ha" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1930f7"/><stop offset=".55" stop-color="#6c1ef1"/><stop offset="1" stop-color="#c00bea"/></linearGradient>' +
+    '<linearGradient id="ha" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#009cff"/><stop offset=".55" stop-color="#4936ff"/><stop offset="1" stop-color="#a014f8"/></linearGradient>' +
     '<linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity=".7"/></linearGradient></defs>' +
     '<circle cx="110" cy="90" r="78" fill="url(#ha)" opacity=".12"/><circle cx="110" cy="90" r="56" fill="url(#ha)" opacity=".16"/>' +
     '<path d="M110 40l34 13v26c0 23-15 40-34 47-19-7-34-24-34-47V53z" fill="url(#ha)"/>' +
     '<path d="M95 88l11 11 20-22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<g><circle cx="38" cy="58" r="24" fill="url(#hb)" stroke="#d9cdfa" stroke-width="2"/><text x="38" y="64" text-anchor="middle" font-size="15" font-weight="800" fill="#6c1ef1">AiL</text></g>' +
-    '<g><circle cx="182" cy="122" r="24" fill="url(#hb)" stroke="#d9cdfa" stroke-width="2"/><text x="182" y="128" text-anchor="middle" font-size="14" font-weight="800" fill="#c00bea">DAI</text></g>' +
-    '<path d="M62 50c22-18 48-22 66-16" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="4 5"/>' +
-    '<path d="M158 130c-22 18-48 22-66 16" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="4 5"/></svg>';
+    '<g><circle cx="38" cy="58" r="24" fill="url(#hb)" stroke="#d5b9f5" stroke-width="2"/><text x="38" y="64" text-anchor="middle" font-size="15" font-weight="800" fill="#7027d9">AiL</text></g>' +
+    '<g><circle cx="182" cy="122" r="24" fill="url(#hb)" stroke="#d5b9f5" stroke-width="2"/><text x="182" y="128" text-anchor="middle" font-size="14" font-weight="800" fill="#a014f8">DAI</text></g>' +
+    '<path d="M62 50c22-18 48-22 66-16" fill="none" stroke="#9828dc" stroke-width="2.5" stroke-dasharray="4 5"/>' +
+    '<path d="M158 130c-22 18-48 22-66 16" fill="none" stroke="#9828dc" stroke-width="2.5" stroke-dasharray="4 5"/></svg>';
   function hero(mkt, live) {
     return '<section class="otc-hero"><div class="hero-txt">' +
       '<span class="pill">智能合约担保 · 无需信任 · 无需许可</span>' +

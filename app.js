@@ -154,7 +154,7 @@
     var s = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" role="img" aria-label="每日买卖金额">';
     [1, .5, 0, -.5, -1].forEach(function (f) {
       var yy = mid - f * half;
-      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#ece8f5"' + (f === 0 ? "" : ' stroke-dasharray="3 4"') + "/>";
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#e7e4ef"' + (f === 0 ? "" : ' stroke-dasharray="3 4"') + "/>";
       s += '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end">' + (f === 0 ? "0" : (f < 0 ? "−" : "") + wan(Math.abs(f) * max).replace(" ", "")) + "</text>";
     });
     var pts = [];
@@ -164,7 +164,7 @@
         fmt(d.sell_dai) + " DAI · " + fmt(d.sell_n) + ' 笔<br>池子 <span class="' + cls(d.net) + '">' + signed(d.net, fmt) + " DAI</span>";
       s += '<g data-tip="' + esc(t) + '"><rect x="' + x + '" y="' + T + '" width="' + bw + '" height="' + (H - T - B) + '" fill="transparent"/>';
       s += '<rect x="' + (cx - w / 2) + '" y="' + y(d.buy_dai) + '" width="' + w + '" height="' + (mid - y(d.buy_dai)) + '" rx="2" fill="#16a34a" opacity="' + (d.final ? .85 : .5) + '"/>';
-      s += '<rect x="' + (cx - w / 2) + '" y="' + mid + '" width="' + w + '" height="' + (y(-d.sell_dai) - mid) + '" rx="2" fill="#e11d48" opacity="' + (d.final ? .85 : .5) + '"/></g>';
+      s += '<rect x="' + (cx - w / 2) + '" y="' + mid + '" width="' + w + '" height="' + (y(-d.sell_dai) - mid) + '" rx="2" fill="#ef4444" opacity="' + (d.final ? .85 : .5) + '"/></g>';
       pts.push(cx + "," + y(d.net));
       if (i % Math.ceil(days.length / 8) === 0 || i === days.length - 1)
         s += '<text x="' + cx + '" y="' + (H - 8) + '" text-anchor="middle">' + d.date.slice(5).replace("-", "/") + "</text>";
@@ -186,7 +186,7 @@
     var s = '<svg class="chart" style="height:200px" viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" role="img" aria-label="' + label + '">';
     [0, .5, 1].forEach(function (f) {
       var v = lo + (hi - lo) * f, yy = y(v);
-      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#ece8f5" stroke-dasharray="3 4"/>';
+      s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '" stroke="#e7e4ef" stroke-dasharray="3 4"/>';
       s += '<text x="' + (L - 6) + '" y="' + (yy + 4) + '" text-anchor="end">' + wan(v).replace(" ", "") + "</text>";
     });
     var pts = days.map(function (d, i) { return (L + i * bw + bw / 2) + "," + y(d[key]); });
@@ -262,7 +262,7 @@
       if (days.length) {
         var recent = days.slice(-30);
         var sumNet = recent.reduce(function (a, d) { return a + d.net; }, 0);
-        html += '<section class="card"><div class="card-head"><h2>每日买卖</h2><div class="legend"><span><i style="background:#16a34a"></i>买入</span><span><i style="background:#e11d48"></i>卖出</span><span><i style="background:#7027d9"></i>池子净流入/流出</span></div></div>' +
+        html += '<section class="card"><div class="card-head"><h2>每日买卖</h2><div class="legend"><span><i style="background:#16a34a"></i>买入</span><span><i style="background:#ef4444"></i>卖出</span><span><i style="background:#7027d9"></i>池子净流入/流出</span></div></div>' +
           flowChart(recent) + '<p class="note">近 ' + recent.length + ' 天池子合计 <b class="' + cls(sumNet) + '">' + signed(sumNet) + " DAI</b>。今天的柱子颜色较浅，表示还没收盘。</p></section>";
         html += '<section class="card"><div class="card-head"><h2>主池 DAI 储备</h2><span class="muted">每天收盘时</span></div>' + lineChart(recent, "pool_dai_end", "主池 DAI") + "</section>";
 
