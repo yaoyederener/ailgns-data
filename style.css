@@ -712,3 +712,7 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .dbx-steps li > button:not(.ghost), .modal .steps li > button:not(.ghost) { padding: 7px 14px; font-size: 13px; margin: 2px 0; }
 .dbx-link { padding: 12px 14px; border-radius: 12px; background: var(--panel-2); border: 1.5px dashed #c9b6f5; color: var(--gold); font-size: 15px; font-weight: 700; word-break: break-all; user-select: all; -webkit-user-select: all; text-align: center; }
 .modal .steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14px; line-height: 1.55; }
+.dbx-qr { display: grid; place-items: center; }
+.dbx-qr img { width: 220px; max-width: 70vw; height: auto; border-radius: 14px; border: 1px solid var(--line); -webkit-touch-callout: default; user-select: auto; }
+.dbx-alt summary { cursor: pointer; color: var(--gold); font-size: 13.5px; }
+.dbx-alt .dbx-link { margin-top: 8px; font-size: 13px; }

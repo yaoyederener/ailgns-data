@@ -254,31 +254,60 @@
       root.querySelectorAll("[data-dbx-copy]").forEach(function (b) { b.onclick = function () { copyTo(b.getAttribute("data-dbx-copy"), b); }; });
       root.querySelectorAll("[data-dbx-link]").forEach(function (b) { b.onclick = showLink; });
     }
-    // 弹出机器人链接：自动复制，教客户在 DeBox 里发给自己再点开
+    // 弹出机器人二维码：客户长按保存（或截图），到 DeBox「扫一扫」从相册选图，直接打开机器人关注
+    var QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+    function loadQr() {
+      if (window.qrcode) return Promise.resolve(window.qrcode);
+      return new Promise(function (ok, fail) {
+        var sc = document.createElement("script"); sc.src = QR_LIB;
+        sc.onload = function () { ok(window.qrcode); }; sc.onerror = fail;
+        document.head.appendChild(sc);
+      });
+    }
+    // 二维码画成一张带白边和说明文字的图片，方便长按保存到相册
+    function qrImage(text, caption) {
+      return loadQr().then(function (qrcode) {
+        var q = qrcode(0, "M"); q.addData(text); q.make();
+        var n = q.getModuleCount(), cell = 8, pad = 32, size = n * cell + pad * 2, c = document.createElement("canvas");
+        c.width = size; c.height = size + 56;
+        var g = c.getContext("2d");
+        g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+        g.fillStyle = "#191839";
+        for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(pad + k * cell, pad + r * cell, cell, cell);
+        g.font = "700 22px -apple-system, PingFang SC, Microsoft YaHei, sans-serif"; g.textAlign = "center"; g.fillStyle = "#7027d9";
+        g.fillText(caption, size / 2, size + 26);
+        return c.toDataURL("image/png");
+      });
+    }
     function showLink() {
-      var link = dbxLink(), box = document.createElement("div");
+      var link = dbxLink(), name = dbx.bot.name || "机器人", box = document.createElement("div");
       box.className = "modal";
-      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔔 机器人链接</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<div class="dbx-link mono" id="dbx-link-text">' + link + "</div>" +
-        '<button id="dbx-link-copy" style="padding:12px 18px">复制链接</button>' +
-        '<ol class="steps"><li>打开 <b>DeBox App</b>，进入和<b>自己</b>的聊天（或「文件传输 / 收藏」）</li>' +
-        "<li>粘贴链接，发给自己</li>" +
-        "<li>点开这条链接 → 点<b>关注</b>「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
-        "<li>回到这里，复制钱包地址发给机器人，收到「✅ 已绑定」就完成了</li></ol></div>";
+      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔔 扫码关注「' + A.esc(name) + '」</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        '<div class="dbx-qr" id="dbx-qr"><div class="loading">正在生成二维码…</div></div>' +
+        '<ol class="steps"><li><b>长按二维码保存到相册</b>（或截图）</li>' +
+        "<li>打开 <b>DeBox App</b> →「扫一扫」→ 从<b>相册</b>选这张图</li>" +
+        "<li>进入机器人页面，点<b>关注</b></li>" +
+        "<li>回到这里，复制钱包地址发给机器人，收到「✅ 已绑定」就完成了</li></ol>" +
+        '<details class="dbx-alt"><summary>扫码不方便？复制链接</summary><div class="dbx-link mono">' + link + '</div><button class="ghost" id="dbx-link-copy" style="padding:8px 14px;margin-top:8px">复制链接</button><p class="note">把链接粘贴发到 DeBox 任意聊天里点开，也能进入机器人页面。</p></details></div>';
       document.body.appendChild(box);
       box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
       var btn = document.getElementById("dbx-link-copy");
       btn.onclick = function () { copyTo(link, btn); };
-      copyTo(link, btn); // 打开时先自动复制一次
-      var t = document.getElementById("dbx-link-text"); // 也方便长按手动复制
-      t.onclick = function () { var r = document.createRange(); r.selectNodeContents(t); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+      qrImage(link, "DeBox 扫码关注 " + name).then(function (url) {
+        var el = document.getElementById("dbx-qr");
+        if (el) el.innerHTML = '<img src="' + url + '" alt="机器人二维码">';
+      }, function () {
+        var el = document.getElementById("dbx-qr");
+        if (el) el.innerHTML = '<p class="note">二维码加载失败，请用下面「复制链接」。</p>';
+        box.querySelector(".dbx-alt").open = true;
+      });
     }
     // 客户大多在钱包的 DApp 浏览器里，那里跳不到 DeBox App：所以给出机器人名字 / ID 让他复制，到 DeBox 里搜
     function dbxHtml() {
       if (dbx.bound) return '<div class="dbx-bar dbx-on"><span class="dbx-bell">🔔</span><div><b>已开启 DeBox 通知</b><small>这个钱包的挂单成交、撤单、到期退回会私信到你的 DeBox</small></div></div>';
       return '<div class="dbx-bar"><span class="dbx-bell">🔔</span><div class="dbx-txt"><b>挂单成交 / 退回，DeBox 私信秒通知</b>' +
-        '<ol class="dbx-steps"><li><button type="button" data-dbx-link>获取机器人链接</button>，复制后在 DeBox 里<b>发给自己</b></li>' +
-        "<li>点开发给自己的链接 → 关注「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
+        '<ol class="dbx-steps"><li><button type="button" data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
+        "<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
         "<li>把你的钱包地址发给机器人" + (account ? '：<span class="mono">' + A.short(account) + '</span> <button type="button" class="ghost" data-dbx-copy="' + account + '">复制地址</button>' : "（连接钱包后这里显示）") + "，收到「✅ 已绑定」就好了</li></ol></div></div>";
     }
     function deboxCard(id) {
@@ -297,8 +326,8 @@
       box.className = "modal";
       box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
         '<p><b>开启 DeBox 通知</b>，有人成交、到期退回，第一时间私信告诉你，不用一直盯着网页。</p>' +
-        '<ol class="steps"><li><button data-dbx-link>获取机器人链接</button>，复制后在 DeBox 里<b>发给自己</b></li>' +
-        '<li>点开发给自己的链接 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
+        '<ol class="steps"><li><button data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
+        '<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
         '<li>把钱包地址发给机器人：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" data-dbx-copy="' + account + '">复制</button></div>收到「✅ 已绑定」就好了</li></ol></div>';
       document.body.appendChild(box);
       box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
