@@ -1,7 +1,7 @@
 // OTC 挂单动态通知：定时任务每 5 分钟调用一次，读托管合约新的挂单 / 成交 / 撤单 / 到期退回事件。
 // ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
 // ② 群播报：有成交时发到 DeBox 群（庆祝成交 + 成交送会员 + 网址）
-// ③ 订阅号推送：有利润的挂单推送给关注机器人的人（每张单只推一次）
+// ③ 订阅号推送：低于市价买 / 高于市价卖的挂单推送给关注机器人的人（每张单只推一次）
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
@@ -10,7 +10,6 @@ const OTC = "0x4e730be6d46be71223ded5a32dc45799f6d4bc15";
 const FILLED = "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d"; // Filled(id, taker, amount, paid, fee, giveLeft)
 const CLOSED = "0xec091cd14d8a8ba29bf6a14340c9c648295a414a131bd9ad694b621358842776"; // Closed(id, maker, refunded, expired)
 const GET_ORDERS = "0x8f72fc77", COUNT = "0x35daa731";
-const PAIR = "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0"; // 官方 DEX 的 AiLGNS/DAI 池
 const GROUPS = ["oes8etcm", "fvg4wksw"]; // 站长的两个 DeBox 群（机器人要先被拉进群才发得出去）
 const TX = "https://anubisscan.io/tx/";
 const OTC_DEPLOY = 17798035; // 托管合约部署的区块：从这里开始补记以前成交过的地址
@@ -68,15 +67,14 @@ async function order(id) {
   return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n };
 }
 
-// ---------- 有利润的挂单：推送给关注机器人的人（订阅号）----------
-// 只推「真的有差价可赚」的单：按官方 DEX 池子实际能换到多少算（含滑点），扣掉 OTC 1% 手续费和 DEX 手续费后还有利润才推
-// DEX 卖出手续费按最低档 3% 算（另加池子 0.3%），推送里写明「按最低档估算」；每张单只推一次
-const DEX_TAX = 0.03, POOL_FEE = 0.003, TAKER_FEE = 0.01;
-const MIN_PROFIT = 1, MIN_PROFIT_PCT = 0.01; // 至少赚 1 DAI，且至少是本金的 1%，才算「有利润」
+// ---------- 低于市价的好单：推送给关注机器人的人（订阅号）----------
+// 卖单单价低于市价（客户能低于市价买到）、买单出价高于市价（客户能高于市价卖出），就推送；每张单只推一次
+// 只说比市价低 / 高多少，不说能赚多少、不承诺收益
+const PAIR = "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0"; // 官方 DEX 的 AiLGNS/DAI 池，算市价
 const PP_ON = false; // 文案确认前先不发
-async function reserves() {
+async function market() {
   const w = words(await rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]));
-  return { ail: num(w[0]), dai: num(w[1]) };
+  return num(w[1]) / num(w[0]);
 }
 // 当前在挂的单子（没过期、还有剩余）
 async function book(now) {
@@ -92,47 +90,33 @@ async function book(now) {
   }
   return out;
 }
-// 算一张单全部吃下来能赚多少 DAI（用池子储备算真实滑点）
-function profitOf(o, r) {
-  if (o.sell) { // 在 OTC 买 AiLGNS（扣 1%），拿去 DEX 卖成 DAI
-    const cost = o.qty * o.price, x = o.qty * (1 - TAKER_FEE) * (1 - DEX_TAX) * (1 - POOL_FEE);
-    const got = r.dai * x / (r.ail + x);
-    return { cost, got, profit: got - cost };
-  }
-  // 买单：去 DEX 买 AiLGNS，卖给这张单（收到的 DAI 扣 1%）
-  const q = o.qty; if (q >= r.ail * 0.5) return { cost: Infinity, got: 0, profit: -Infinity };
-  const cost = r.dai * q / (r.ail - q) / (1 - POOL_FEE), got = q * o.price * (1 - TAKER_FEE);
-  return { cost, got, profit: got - cost };
-}
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-function profitText(list, mkt) {
-  const lines = ["💰 发现有利润的挂单！"];
-  for (const { o, p } of list) {
-    const off = (o.price / mkt - 1) * 100;
+// 比市价好多少（正数 = 对客户有利）：卖单比市价低多少，买单比市价高多少
+const better = (o, mkt) => (o.sell ? 1 - o.price / mkt : o.price / mkt - 1);
+function dealText(list, mkt) {
+  const lines = ["🔥 低于市场价的 AiLGNS 好单！"];
+  for (const o of list) {
+    const pct = (better(o, mkt) * 100).toFixed(1);
     lines.push("", o.sell
-      ? `📤 出售 ${o.qty.toFixed(4)} AiLGNS，单价 ${d2(o.price)} DAI（比市价低 ${Math.abs(off).toFixed(1)}%）\n在 OTC 买下，到官方 DEX 卖出，全部吃下约赚 ${d2(p.profit)} DAI`
-      : `📥 求购 ${o.qty.toFixed(4)} AiLGNS，出价 ${d2(o.price)} DAI（比市价高 ${off.toFixed(1)}%）\n在官方 DEX 买入再卖给这张单，全部成交约赚 ${d2(p.profit)} DAI`);
+      ? `📤 低价出售 ${o.qty.toFixed(4)} AiLGNS\n单价 ${d2(o.price)} DAI，比市价低 ${pct}%，比官方 DEX 买更便宜`
+      : `📥 高价求购 ${o.qty.toFixed(4)} AiLGNS\n出价 ${d2(o.price)} DAI，比市价高 ${pct}%，手里有币可以直接卖`);
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
-  lines.push("", `📊 现在市价 ${d2(mkt)} DAI`, "ℹ️ 利润按官方 DEX 最低档手续费 3% 和池子实时滑点估算，已扣 OTC 1% 手续费；实际以成交为准，先到先得。", "👉 https://ailgns.dev/#/otc");
+  lines.push("", `📊 现在市价 ${d2(mkt)} DAI`, "⚡ 先到先得，被别人吃掉就没了！", "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP", "👉 https://ailgns.dev/#/otc");
   return lines.join("\n");
 }
-// 找出还没推送过的有利润的单；send=false 时只返回文字（预览）
-async function pushProfit(env, kv, send, all) { // all=true：预览时不管有没有利润，取利润最高的几张看文案
-  const now = Math.floor(Date.now() / 1000), [orders, r] = await Promise.all([book(now), reserves()]), mkt = r.dai / r.ail;
-  const hits = [];
-  for (const o of orders) {
-    const p = profitOf(o, r);
-    if (all || (p.profit >= MIN_PROFIT && p.profit >= p.cost * MIN_PROFIT_PCT)) hits.push({ o, p });
-  }
+// 找出还没推送过的低于市价的单；send=false 时只返回文字（预览）
+async function pushDeals(env, kv, send) {
+  const now = Math.floor(Date.now() / 1000), [orders, mkt] = await Promise.all([book(now), market()]);
+  const hits = orders.filter((o) => better(o, mkt) > 0);
   const fresh = [];
-  for (const h of hits) if (!send || !(await kv.get("otcw:pp:" + h.o.id))) fresh.push(h);
-  fresh.sort((a, b) => b.p.profit - a.p.profit);
-  const pick = fresh.slice(0, 3), text = pick.length ? profitText(pick, mkt) : null;
-  if (!send || !text) return { hits: hits.length, mkt, top: fresh.slice(0, 5).map((h) => ({ id: h.o.id, sell: h.o.sell, price: h.o.price, qty: h.o.qty, profit: +h.p.profit.toFixed(2) })), text };
+  for (const o of hits) if (!send || !(await kv.get("otcw:pp:" + o.id))) fresh.push(o);
+  fresh.sort((a, b) => better(b, mkt) - better(a, mkt));
+  const pick = fresh.slice(0, 3), text = pick.length ? dealText(pick, mkt) : null;
+  if (!send || !text) return { hits: hits.length, mkt, text };
   await sendDeboxFans(env, GROUPS[0], text);
-  for (const h of pick) await kv.put("otcw:pp:" + h.o.id, "1", { expirationTtl: Math.max(60, Math.ceil(h.o.left) + 3600) }); // 每张单只推一次
+  for (const o of pick) await kv.put("otcw:pp:" + o.id, "1", { expirationTtl: Math.max(60, Math.ceil(o.left) + 3600) }); // 每张单只推一次
   return { hits: hits.length, sent: pick.length };
 }
 
@@ -211,8 +195,8 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&from=区块：只看消息内容，不发送、不记进度（测试用）
-  // ppdry=1：预览现在有哪些有利润的挂单、推送文字长什么样（不发送）
-  if (url.searchParams.get("ppdry") === "1") return Response.json(await pushProfit(ctx.env, kv, false, url.searchParams.get("all") === "1"));
+  // ppdry=1：预览现在有哪些低于市价的挂单、推送文字长什么样（不发送）
+  if (url.searchParams.get("ppdry") === "1") return Response.json(await pushDeals(ctx.env, kv, false));
   // fanstest=1：发一条测试推送给机器人的关注者，看 DeBox 有没有开通权限（1 小时最多一次）
   if (url.searchParams.get("fanstest") === "1") {
     const lastTest = parseInt((await kv.get("otcw:fanstest")) || "0", 10);
@@ -262,10 +246,10 @@ export async function onRequestGet(ctx) {
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，下次再试
     }
   }
-  // 有利润的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
+  // 低于市价的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
   let fans = null;
   if (PP_ON) {
-    fans = await pushProfit(ctx.env, kv, true).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
+    fans = await pushDeals(ctx.env, kv, true).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
     if (fans && fans.err) await kv.put("otcw:fans", JSON.stringify({ ok: false, err: fans.err, at: Date.now() }));
   }
   let sent = 0, failed = 0;
