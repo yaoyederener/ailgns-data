@@ -89,19 +89,19 @@ export async function onRequestGet(ctx) {
     for (const [key, c] of Object.entries(CHAINS)) await scan(c, ranges[key][1] - (key === "polygon" ? 16000 : 8000), ranges[key][0] - 1, fresh);
     await kv.put("opsw:v2", "1");
   }
-  for (const it of fresh) if (!seen.has(it.link) && (it.time >= slot - SLOT || dry)) { seen.add(it.link); pending.push(it); }
+  for (const it of fresh) if (!seen.has(it.link) && (it.time >= slot || dry)) { seen.add(it.link); pending.push(it); }
   pending.sort((a, b) => a.time - b.time);
   if (!dry) { await kv.put("opsw:pending", JSON.stringify(pending)); if (retry.length) await kv.put("opsw:retry", "[]"); }
 
   let last = parseInt((await kv.get("opsw:slot")) || "0", 10);
   if (!last) { last = slot; if (!dry) await kv.put("opsw:slot", String(slot)); } // 第一次运行：从这一段开始攒
-  const due = pending.filter((x) => x.time < slot); // 已经结束的时段里的发放
+  const due = pending.filter((x) => x.time < slot && x.time >= slot - SLOT); // 刚结束的那 8 小时里的发放（更早的不算进这一段）
   if (!dry && (slot <= last || !due.length)) {
-    if (slot > last) await kv.put("opsw:slot", String(slot)); // 这段没有发放：不发公告
+    if (slot > last) { await kv.put("opsw:slot", String(slot)); await kv.put("opsw:pending", JSON.stringify(pending.filter((x) => x.time >= slot))); } // 这段没有发放：不发公告
     return Response.json({ ranges, pending: pending.length, next: slot + SLOT });
   }
   // 预览：把攒着的全部当作一段来看
-  const batch = dry ? pending : due, start = dry ? slot : slot - SLOT, end = dry ? slot + SLOT : slot;
+  const batch = dry ? pending.filter((x) => x.time >= slot) : due, start = dry ? slot : slot - SLOT, end = dry ? slot + SLOT : slot;
   if (!batch.length) return Response.json({ ranges, pending: 0, text: null });
   const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out })));
   const text = notice(batch, start, end, sum(dry ? dayItems.concat(batch) : dayItems));
