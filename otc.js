@@ -250,13 +250,35 @@
         ta.remove();
       }
     }
-    function bindCopies(root) { root.querySelectorAll("[data-dbx-copy]").forEach(function (b) { b.onclick = function () { copyTo(b.getAttribute("data-dbx-copy"), b); }; }); }
+    function bindCopies(root) {
+      root.querySelectorAll("[data-dbx-copy]").forEach(function (b) { b.onclick = function () { copyTo(b.getAttribute("data-dbx-copy"), b); }; });
+      root.querySelectorAll("[data-dbx-link]").forEach(function (b) { b.onclick = showLink; });
+    }
+    // 弹出机器人链接：自动复制，教客户在 DeBox 里发给自己再点开
+    function showLink() {
+      var link = dbxLink(), box = document.createElement("div");
+      box.className = "modal";
+      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔔 机器人链接</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        '<div class="dbx-link mono" id="dbx-link-text">' + link + "</div>" +
+        '<button id="dbx-link-copy" style="padding:12px 18px">复制链接</button>' +
+        '<ol class="steps"><li>打开 <b>DeBox App</b>，进入和<b>自己</b>的聊天（或「文件传输 / 收藏」）</li>' +
+        "<li>粘贴链接，发给自己</li>" +
+        "<li>点开这条链接 → 点<b>关注</b>「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
+        "<li>回到这里，复制钱包地址发给机器人，收到「✅ 已绑定」就完成了</li></ol></div>";
+      document.body.appendChild(box);
+      box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+      var btn = document.getElementById("dbx-link-copy");
+      btn.onclick = function () { copyTo(link, btn); };
+      copyTo(link, btn); // 打开时先自动复制一次
+      var t = document.getElementById("dbx-link-text"); // 也方便长按手动复制
+      t.onclick = function () { var r = document.createRange(); r.selectNodeContents(t); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+    }
     // 客户大多在钱包的 DApp 浏览器里，那里跳不到 DeBox App：所以给出机器人名字 / ID 让他复制，到 DeBox 里搜
     function dbxHtml() {
       if (dbx.bound) return '<div class="dbx-bar dbx-on"><span class="dbx-bell">🔔</span><div><b>已开启 DeBox 通知</b><small>这个钱包的挂单成交、撤单、到期退回会私信到你的 DeBox</small></div></div>';
       return '<div class="dbx-bar"><span class="dbx-bell">🔔</span><div class="dbx-txt"><b>挂单成交 / 退回，DeBox 私信秒通知</b>' +
-        '<ol class="dbx-steps"><li><button type="button" data-dbx-copy="' + dbxLink() + '">复制机器人链接</button></li>' +
-        "<li>打开 <b>DeBox App</b>，把链接粘贴到任意聊天发出去（比如发给自己），点开链接 → 关注「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
+        '<ol class="dbx-steps"><li><button type="button" data-dbx-link>获取机器人链接</button>，复制后在 DeBox 里<b>发给自己</b></li>' +
+        "<li>点开发给自己的链接 → 关注「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
         "<li>把你的钱包地址发给机器人" + (account ? '：<span class="mono">' + A.short(account) + '</span> <button type="button" class="ghost" data-dbx-copy="' + account + '">复制地址</button>' : "（连接钱包后这里显示）") + "，收到「✅ 已绑定」就好了</li></ol></div></div>";
     }
     function deboxCard(id) {
@@ -275,8 +297,8 @@
       box.className = "modal";
       box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
         '<p><b>开启 DeBox 通知</b>，有人成交、到期退回，第一时间私信告诉你，不用一直盯着网页。</p>' +
-        '<ol class="steps"><li><button data-dbx-copy="' + dbxLink() + '">复制机器人链接</button></li>' +
-        '<li>打开 <b>DeBox App</b>，把链接粘贴到任意聊天发出去（比如发给自己），点开 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
+        '<ol class="steps"><li><button data-dbx-link>获取机器人链接</button>，复制后在 DeBox 里<b>发给自己</b></li>' +
+        '<li>点开发给自己的链接 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
         '<li>把钱包地址发给机器人：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" data-dbx-copy="' + account + '">复制</button></div>收到「✅ 已绑定」就好了</li></ol></div>';
       document.body.appendChild(box);
       box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
