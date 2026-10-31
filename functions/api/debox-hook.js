@@ -10,16 +10,19 @@ async function getList(kv, key) { return (await kv.get(key, "json")) || []; }
 
 export async function onRequestPost(ctx) {
   const kv = ctx.env.TEAM_KV;
-  let u;
-  try { u = await ctx.request.json(); } catch (e) { return new Response("ok"); }
+  let u, raw = "";
+  try { raw = await ctx.request.text(); u = JSON.parse(raw); } catch (e) { u = null; }
+  // 排查用：记下最近一次收到的内容（1 天后自动删）
+  if (kv) ctx.waitUntil(kv.put("dbx:lasthook", JSON.stringify({ at: Date.now(), ct: ctx.request.headers.get("content-type"), raw: raw.slice(0, 2000) }), { expirationTtl: 86400 }));
+  if (!u) return new Response("ok");
   const m = u.message || (u.callback_query && u.callback_query.message) || u;
   const text = String(m.text || m.text_raw || m.content || "").trim();
   const chat = m.chat || {}, from = m.from || {};
   const user = String(from.user_id || from.id || chat.id || "");
   const chatType = chat.type || "private";
   if (!user || !kv) return new Response("ok");
-  if (chatType !== "private") return new Response("ok"); // 只处理私聊，群里的消息不管
-  const reply = (t) => sendDebox(ctx.env, chat.id || user, t, "private").catch(() => {});
+  if (/group/i.test(chatType)) return new Response("ok"); // 只处理私聊，群里的消息不管
+  const reply = (t) => sendDebox(ctx.env, chat.id || user, t, "private").catch((e) => kv && kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
 
   const addrs = [...new Set((text.match(/0x[0-9a-fA-F]{40}/g) || []).map((a) => a.toLowerCase()))];
   const mine = await getList(kv, "dbx:u:" + user);
@@ -53,6 +56,11 @@ export async function onRequestPost(ctx) {
 }
 
 // 浏览器打开这个地址时给个提示（DeBox 后台填 Webhook 时也可能先访问一下）
-export function onRequestGet() { return new Response("AiLGNS DeBox webhook ok"); }
+export async function onRequestGet(ctx) {
+  if (new URL(ctx.request.url).searchParams.get("debug") === "1" && ctx.env.TEAM_KV) {
+    return Response.json({ last: await ctx.env.TEAM_KV.get("dbx:lasthook", "json"), err: await ctx.env.TEAM_KV.get("dbx:lasterr", "json") });
+  }
+  return new Response("AiLGNS DeBox webhook ok");
+}
 
 function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
