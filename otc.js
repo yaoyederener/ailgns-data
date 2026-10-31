@@ -232,7 +232,7 @@
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
       html += '<p class="note">🎁 成交后到「会员」页填这个钱包地址点「查询」，会员就能用。<a href="#/promo">为什么在这里交易更划算 →</a></p>';
-      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。</p>';
+      html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。智能合约未经第三方审计，请先小额试用。本站为 AWAKE HELIX 官方授权的 AiLGNS OTC 服务站。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
       bind(id, orders, mkt);
@@ -743,7 +743,7 @@
       '<p class="note">挂单被吃、吃别人的单都算，按钱包地址自动累计。成交后到<a href="#/member">「会员」</a>页填这个钱包地址点「查询」就能用。</p>' +
       '<button data-go="otc" style="padding:12px 22px">去 OTC 交易 →</button></section>';
     function draw(mkt, live) {
-      A.app.innerHTML = hero(mkt, live) + gift + VS + '<p class="note">本站为独立运营的服务站，与 AWAKE HELIX 项目方无关。智能合约未经第三方审计，请先小额试用。</p>';
+      A.app.innerHTML = hero(mkt, live) + gift + VS + '<p class="note">本站为 AWAKE HELIX 官方授权的 AiLGNS OTC 服务站。智能合约未经第三方审计，请先小额试用。</p>';
       A.app.querySelectorAll("[data-go]").forEach(function (b) {
         b.onclick = function () { var g = b.getAttribute("data-go"); location.hash = "#/otc" + (g === "otc" ? "" : "/" + g); };
       });

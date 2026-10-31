@@ -329,7 +329,7 @@
         '<p class="note">点按钮后在钱包里确认一笔转账就行（只是转账，<b>不签名、不授权</b>），到账几秒钟自动开通' + (upgrade ? "高级" : "") + "。</p></div>" +
         '<p class="note" id="st"></p></section>' +
         '<p class="note">手机上请在 <b>OKX、Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b> 付款；没有钱包浏览器也可以按页面给的金额手动转账。</p>' +
-        '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面几种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词，开通会员也不需要签名或授权；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        '<p class="note">本站为 AWAKE HELIX 官方授权的 AiLGNS OTC 服务站，会员费由本站收取。只收上面几种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词，开通会员也不需要签名或授权；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
       var st = document.getElementById("st"), go = document.getElementById("go"), polling = null, checked = null;
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
