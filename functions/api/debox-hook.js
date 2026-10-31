@@ -15,14 +15,24 @@ export async function onRequestPost(ctx) {
   // 排查用：记下最近一次收到的内容（1 天后自动删）
   if (kv) ctx.waitUntil(kv.put("dbx:lasthook", JSON.stringify({ at: Date.now(), ct: ctx.request.headers.get("content-type"), raw: raw.slice(0, 2000) }), { expirationTtl: 86400 }));
   if (!u) return new Response("ok");
-  const m = u.message || (u.callback_query && u.callback_query.message) || u;
-  const text = String(m.text || m.text_raw || m.content || "").trim();
-  const chat = m.chat || {}, from = m.from || {};
-  const user = String(from.user_id || from.id || chat.id || "");
-  const chatType = chat.type || "private";
+  // DeBox 实际推送的格式：{ from_user_id, to_user_id, group_id（私聊为空）, message: "文字", message_raw, address, name }
+  // 也兼容 SDK 文档里那种 { message: { text, chat: {id, type}, from: {user_id} } }
+  let text, user, chatType, chatId;
+  if (typeof u.message === "string" || u.from_user_id) {
+    text = String(u.message_raw || u.message || "").trim();
+    user = String(u.from_user_id || "");
+    chatType = u.group_id ? "group" : "private";
+    chatId = user;
+  } else {
+    const m = u.message || (u.callback_query && u.callback_query.message) || u, chat = m.chat || {}, from = m.from || {};
+    text = String(m.text || m.text_raw || m.content || "").trim();
+    user = String(from.user_id || from.id || chat.id || "");
+    chatType = chat.type || "private";
+    chatId = chat.id || user;
+  }
   if (!user || !kv) return new Response("ok");
   if (/group/i.test(chatType)) return new Response("ok"); // 只处理私聊，群里的消息不管
-  const reply = (t) => sendDebox(ctx.env, chat.id || user, t, "private").catch((e) => kv && kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
+  const reply = (t) => sendDebox(ctx.env, chatId, t, "private").catch((e) => kv && kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
 
   const addrs = [...new Set((text.match(/0x[0-9a-fA-F]{40}/g) || []).map((a) => a.toLowerCase()))];
   const mine = await getList(kv, "dbx:u:" + user);
