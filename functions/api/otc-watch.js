@@ -153,7 +153,9 @@ export async function onRequestGet(ctx) {
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
   const lastSum = parseInt((await kv.get("otcw:sum")) || "0", 10);
   let group = null;
-  if (created.length || fills.length || Date.now() - lastSum > SUMMARY_EVERY) {
+  // force=1：立刻发一条速报（测试用；为防刷屏，距上一条不足 5 分钟时不发）
+  const force = url.searchParams.get("force") === "1" && Date.now() - lastSum > 300000;
+  if (created.length || fills.length || force || Date.now() - lastSum > SUMMARY_EVERY) {
     const orders = await book(blockTime);
     if (created.length || fills.length || orders.length) group = groupText(created, fills, orders, await market(), await stats24(kv, latest, blockTime).catch(() => null));
   }
