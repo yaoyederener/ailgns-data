@@ -55,6 +55,7 @@ async function book(now) {
   }
   return out;
 }
+const dai = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); // DAI 金额、单价保留 2 位
 const pct = (p, mkt) => { const d = (p / mkt - 1) * 100; return `比市价${d >= 0 ? "高" : "低"} ${Math.abs(d).toFixed(1)}%`; };
 // 群播报的文字：新挂单、刚成交、当前在售概况、催单
 function groupText(created, fills, orders, mkt) {
@@ -62,18 +63,18 @@ function groupText(created, fills, orders, mkt) {
   const lines = [fills.length ? "🔥 AiLGNS OTC 刚刚成交！" : created.length ? "🆕 AiLGNS OTC 新挂单！" : "📢 AiLGNS OTC 挂单速报"];
   if (fills.length) {
     lines.push("", "✅ 刚刚成交：");
-    fills.slice(0, 6).forEach((f) => lines.push(`· ${fmt(f.qty)} 枚 × ${fmt(f.price)} DAI = ${fmt(f.qty * f.price)} DAI`));
+    fills.slice(0, 6).forEach((f) => lines.push(`· ${fmt(f.qty)} 枚 × ${dai(f.price)} DAI = ${dai(f.qty * f.price)} DAI`));
   }
   if (created.length) {
     lines.push("", "🆕 新挂单：");
-    created.slice(0, 6).forEach((c) => lines.push(`· ${c.sell ? "出售" : "求购"} ${fmt(c.qty)} 枚 × ${fmt(c.price)} DAI，${pct(c.price, mkt)}，有效 ${dur(c.left)}`));
+    created.slice(0, 6).forEach((c) => lines.push(`· ${c.sell ? "出售" : "求购"} ${fmt(c.qty)} 枚 × ${dai(c.price)} DAI，${pct(c.price, mkt)}，` + (c.left > 0 ? `有效 ${dur(c.left)}` : "已到期")));
   }
-  lines.push("", `📊 市价 ${fmt(mkt)} DAI`);
+  lines.push("", `📊 市价 ${dai(mkt)} DAI`);
   if (sells.length) {
-    lines.push(`📤 在售 ${sells.length} 张，共 ${fmt(sells.reduce((t, o) => t + o.qty, 0))} 枚，最低 ${fmt(sells[0].price)} DAI（${pct(sells[0].price, mkt)}）`);
-    sells.slice(0, 3).forEach((o) => lines.push(`  · ${fmt(o.qty)} 枚 × ${fmt(o.price)} DAI，剩 ${dur(o.left)}`));
+    lines.push(`📤 在售 ${sells.length} 张，共 ${fmt(sells.reduce((t, o) => t + o.qty, 0))} 枚，最低 ${dai(sells[0].price)} DAI（${pct(sells[0].price, mkt)}）`);
+    sells.slice(0, 3).forEach((o) => lines.push(`  · ${fmt(o.qty)} 枚 × ${dai(o.price)} DAI，剩 ${dur(o.left)}`));
   } else lines.push("📤 目前没有卖单，挂单出售正是时候");
-  if (buys.length) lines.push(`📥 求购 ${buys.length} 张，最高出价 ${fmt(buys[0].price)} DAI`);
+  if (buys.length) lines.push(`📥 求购 ${buys.length} 张，最高出价 ${dai(buys[0].price)} DAI`);
   lines.push("", "✅ 合约担保 · 0 滑点 · 手续费 1%", URGE[Math.floor(Math.random() * URGE.length)], "👉 立即成交：https://ailgns.dev/#/otc");
   return lines.join("\n");
 }
