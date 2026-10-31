@@ -1,6 +1,7 @@
 // OTC 挂单动态通知：定时任务每 5 分钟调用一次，读托管合约新的挂单 / 成交 / 撤单 / 到期退回事件。
 // ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
-// ② 群播报：有新挂单或成交时发到 DeBox 群（Cloudflare 环境变量 DEBOX_GROUP_ID = 群 gid）；没动静时每 2 小时发一次挂单速报
+// ② 群播报：有新挂单或成交时发到 DeBox 群；没动静时每 2 小时发一次挂单速报
+//    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 
@@ -11,6 +12,7 @@ const CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149
 const GET_ORDERS = "0x8f72fc77", COUNT = "0x35daa731";
 const PAIR = "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0"; // AiLGNS/DAI 池，算市价
 const SUMMARY_EVERY = 2 * 3600 * 1000;
+const GROUPS = ["oes8etcm", "fvg4wksw"]; // 站长的两个 DeBox 群（机器人要先被拉进群才发得出去）
 const URGE = ["⚡ 好价不等人，手慢无！", "⚡ 低价单一出就被抢，先到先得！", "⚡ 0 滑点、手续费仅 1%，比 DEX 省得多，抓紧下单！", "⚡ 挂单随时可能被吃掉，看准就上！"];
 const TX = "https://anubisscan.io/tx/";
 
@@ -118,17 +120,21 @@ export async function onRequestGet(ctx) {
     }
   }
   // 群播报：有新挂单或成交就发；没动静时每 2 小时发一次速报（有挂单才发）
-  const gid = ctx.env.DEBOX_GROUP_ID, lastSum = parseInt((await kv.get("otcw:sum")) || "0", 10);
+  const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
+  const lastSum = parseInt((await kv.get("otcw:sum")) || "0", 10);
   let group = null;
   if (created.length || fills.length || Date.now() - lastSum > SUMMARY_EVERY) {
     const orders = await book(blockTime);
     if (created.length || fills.length || orders.length) group = groupText(created, fills, orders, await market());
   }
   if (dry) return Response.json({ from, latest, events: logs.length, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
-  let groupSent = false;
-  if (group && gid) {
-    try { await sendDebox(ctx.env, gid, group, "group"); groupSent = true; await kv.put("otcw:sum", String(Date.now())); }
-    catch (e) { await kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: "group: " + String(e.message || e) }), { expirationTtl: 86400 }); }
+  const groupSent = {};
+  if (group) {
+    for (const g of gids) {
+      try { await sendDebox(ctx.env, g, group, "group"); groupSent[g] = true; }
+      catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，下次再试
+    }
+    if (Object.values(groupSent).some((v) => v === true)) await kv.put("otcw:sum", String(Date.now()));
   }
   let sent = 0, failed = 0;
   for (const [addr, text] of msgs) {
@@ -138,5 +144,5 @@ export async function onRequestGet(ctx) {
     }
   }
   await kv.put("otcw:block", String(latest));
-  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent, hasGroup: !!gid });
+  return Response.json({ from, latest, events: logs.length, messages: msgs.length, sent, failed, groupSent });
 }
