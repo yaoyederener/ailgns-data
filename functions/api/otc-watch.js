@@ -78,33 +78,45 @@ async function stats24(kv, latest, blockTime) {
   return out;
 }
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-// 群播报的文字：全部用真实数据制造紧迫感（刚成交、低于市价、快到期、24 小时成交量），不承诺涨价
+// 群播报的文字：全部用真实数据制造紧迫感（刚成交、低于市价、快到期、24 小时成交量），不承诺涨价或收益
+// 顺序：先求购（买单，鼓励大家卖给他们），再在售（卖单）
 function groupText(created, fills, orders, mkt, st) {
   const sells = orders.filter((o) => o.sell).sort((a, b) => a.price - b.price), buys = orders.filter((o) => !o.sell).sort((a, b) => b.price - a.price);
   const cheap = sells.filter((o) => o.price < mkt), soon = sells.filter((o) => o.left < 3600 && o.price <= mkt * 1.01) /* 只催接近或低于市价的 */.sort((a, b) => a.left - b.left);
-  const boughtQty = fills.reduce((t, f) => t + f.qty, 0);
-  const head = fills.length ? `🔥🔥 又成交了！刚刚有人在 OTC 拿走 ${fmt(boughtQty)} 枚 AiLGNS` :
-    cheap.length ? `🚨 低于市价的 AiLGNS 正在出售！${cheap.length} 张，先到先得` :
-    created.length ? "🆕 新单上架！AiLGNS OTC 先到先得" : "📢 AiLGNS OTC 实时行情";
-  const lines = [head];
-  if (fills.length) {
+  const boughtQty = fills.reduce((t, f) => t + f.qty, 0), boughtDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
+  const lines = [];
+  if (fills.length) { // 有成交：热烈庆祝
+    lines.push(pick([
+      `🎉🎉🎉 恭喜恭喜！又有人在 OTC 拿下 ${fmt(boughtQty)} 枚 AiLGNS！`,
+      `🎊🎊🎊 成交啦！${fmt(boughtQty)} 枚 AiLGNS 被抢走，手快有手慢无！`,
+      `🔥🔥🔥 又一笔！${fmt(boughtQty)} 枚 AiLGNS 刚刚成交，筹码到手！`,
+    ]));
+    lines.push(pick(["💎 筹码到手，恭喜这位老板！", "🥳 0 滑点、合约秒到账，这一单买得漂亮！", "👏 又一位聪明人用 OTC 省下了 DEX 的高额手续费！"]));
     lines.push("", "💰 刚刚成交：");
     fills.slice(0, 6).forEach((f) => lines.push(`· ${fmt(f.qty)} 枚 × ${dai(f.price)} DAI = ${dai(f.qty * f.price)} DAI ✅`));
+    if (fills.length > 1) lines.push(`  合计 ${fmt(boughtQty)} 枚，约 ${dai(boughtDai)} DAI`);
+  } else {
+    lines.push(cheap.length ? `🚨 低于市价的 AiLGNS 正在出售！${cheap.length} 张，先到先得` : created.length ? "🆕 新单上架！AiLGNS OTC 先到先得" : "📢 AiLGNS OTC 实时行情");
   }
   if (created.length) {
     lines.push("", "🆕 新挂单：");
     created.slice(0, 6).forEach((c) => lines.push(`· ${c.sell ? "出售" : "求购"} ${fmt(c.qty)} 枚 × ${dai(c.price)} DAI，${pct(c.price, mkt)}，` + (c.left > 0 ? `有效 ${dur(c.left)}` : "已到期")));
   }
+  lines.push("", `📊 市价 ${dai(mkt)} DAI`);
+  if (buys.length) {
+    lines.push(`📥 求购 ${buys.length} 张，共 ${fmt(buys.reduce((t, o) => t + o.qty, 0))} 枚，最高出价 ${dai(buys[0].price)} DAI（${pct(buys[0].price, mkt)}）`);
+    buys.slice(0, 3).forEach((o) => lines.push(`  · 收 ${fmt(o.qty)} 枚 × ${dai(o.price)} DAI，剩 ${dur(o.left)}`));
+    lines.push("  👉 手里有 AiLGNS？直接卖给求购单，0 滑点秒到 DAI");
+  } else lines.push("📥 现在没有求购单——想买就挂个求购单，卖家马上来！");
   if (sells.length) {
     const best = sells[0];
-    lines.push("", `🎯 现在最划算：${fmt(best.qty)} 枚 × ${dai(best.price)} DAI（${pct(best.price, mkt)}），⏳ 还剩 ${dur(best.left)}`);
-    if (soon.length && soon[0] !== best) lines.push(`⏰ 快到期：${fmt(soon[0].qty)} 枚 × ${dai(soon[0].price)} DAI，只剩 ${dur(soon[0].left)}`);
-  }
+    lines.push(`📤 在售 ${sells.length} 张，共 ${fmt(sells.reduce((t, o) => t + o.qty, 0))} 枚`);
+    lines.push(`  🎯 最划算：${fmt(best.qty)} 枚 × ${dai(best.price)} DAI（${pct(best.price, mkt)}），⏳ 还剩 ${dur(best.left)}`);
+    if (soon.length && soon[0] !== best) lines.push(`  ⏰ 快到期：${fmt(soon[0].qty)} 枚 × ${dai(soon[0].price)} DAI，只剩 ${dur(soon[0].left)}`);
+  } else lines.push("📤 现在没有卖单——谁先挂单，谁先成交！");
   if (st && st.n) lines.push(`📈 24 小时成交 ${st.n} 笔、${fmt(st.qty)} 枚，约 ${dai(st.vol)} DAI`);
-  lines.push(`📊 市价 ${dai(mkt)} DAI｜在售 ${sells.length} 张` + (sells.length ? `，共 ${fmt(sells.reduce((t, o) => t + o.qty, 0))} 枚` : "") + (buys.length ? `｜求购 ${buys.length} 张，最高出价 ${dai(buys[0].price)} DAI` : ""));
-  if (!sells.length) lines.push("📤 现在没有卖单——谁先挂单，谁先成交！");
   lines.push("", "💸 买卖 1 万 DAI：DEX 扣 300–2,800 DAI，这里只收 100 DAI · 0 滑点 · 合约担保秒到账");
-  lines.push(pick(fills.length ? ["⚡ 别人已经下手了，你还在等什么？", "⚡ 好价一出就被抢，下一笔就是你！", "⚡ 成交一笔接一笔，晚了就只能看别人赚！"] :
+  lines.push(pick(fills.length ? ["⚡ 别人已经下手了，你还在等什么？", "⚡ 下一笔庆祝的就是你！", "⚡ 成交一笔接一笔，晚了只能看别人抢！"] :
     cheap.length ? ["⚡ 低于市价的单子随时被吃掉，手慢无！", "⚡ 比市价还便宜，犹豫一秒就没了！", "⚡ 捡便宜的机会不等人，现在就下单！"] :
     ["⚡ 看准就上，合约担保秒到账！", "⚡ 0 滑点、只收 1%，越早成交越划算！", "⚡ 挂单随时可能被吃掉，先到先得！"]));
   lines.push("👉 立即成交：https://ailgns.dev/#/otc");
