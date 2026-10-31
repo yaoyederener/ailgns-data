@@ -969,3 +969,8 @@ button.ghost { color: var(--purple-ink); border-color: var(--gold); }
 .app-faq dt { font-weight: 700; margin-top: 8px; }
 .app-faq dd { margin: 0; color: var(--muted); font-size: 14px; }
 @media (max-width: 520px) { .app-hero { flex-direction: column; text-align: center; padding: 22px 16px; } .app-feats { justify-content: center; } .app-btn { padding: 7px 10px; font-size: 12.5px; } }
+@media (max-width: 520px) {
+  .top-r { margin-left: auto; gap: 6px; }
+  .top-in .debox { padding: 0; width: 36px; height: 36px; justify-content: center; }
+  .top-in .debox span { display: none; }
+}
