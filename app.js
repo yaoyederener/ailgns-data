@@ -40,7 +40,7 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function lv(level) { return level ? '<span class="lv p' + level + '">P' + level + "</span>" : '<span class="lv">—</span>'; }
   function addrLink(a, route) {
-    // 会员功能只能查自己的付款地址：别人的地址只显示，不能点进去查
+    // 会员功能只能查会员地址：别人的地址只显示，不能点进去查
     var own = window.AIL && window.AIL.ownOnly;
     if (own && route && route !== "wallet" && a.toLowerCase() !== own) return '<span class="mono" title="' + a + '">' + short(a) + "</span>";
     return '<a class="mono" href="#/' + (route || "wallet") + "/" + a.toLowerCase() + '" title="' + a + '">' + short(a) + "</a>";
@@ -403,7 +403,7 @@
   var lv_ = lv;
 
   function renderTeam(id, addr) {
-    var head = '<h1>团队与等级</h1><p class="sub">你的付款地址的直推线、每条线的团队地址数和入金（DAI），以及官方 P 等级。</p>';
+    var head = '<h1>团队与等级</h1><p class="sub">会员地址的直推线、每条线的团队地址数和入金（DAI），以及官方 P 等级。</p>';
     var box = function (v) { return window.AIL.ownOnly ? "" : searchBox("team", v); };
     app.innerHTML = head + box(addr) + '<div class="loading">正在读取…</div>';
     var levelP = api("/level").then(function (l) { THRESHOLDS = l.thresholds; return l; }).catch(function () { return null; });

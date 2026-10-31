@@ -1,4 +1,4 @@
-// 会员：用钱包签名注册，付 Anubis LGNS（按市价 50% 计）/ Anubis AiLGNS / Polygon LGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（尊享级）1000 美元终生，多出导出数据和结构图优先刷新
+// 会员：按地址开通（不连钱包、不签名），填会员地址下单，用任何钱包转专属金额，付 Anubis LGNS（按市价 50% 计）/ Anubis AiLGNS / Polygon LGNS / Polygon DAI 开通。初级 VIP 20 美元永久；高级 VIP（尊享级）1000 美元终生，多出导出数据和结构图优先刷新
 (function () {
   "use strict";
 
@@ -12,7 +12,6 @@
   var POLY_LOOKBACK = 14 * 43200; // Polygon 按地址找付款时最多往回查 14 天（约 2 秒一个块）
   var EXPLORER_API = "https://browser.anubispace.org/api";
   var EXPLORER = "https://anubisscan.io";
-  var ETHERS = "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js";
   var KEY = "ailgns-member-v1";
   var TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
@@ -105,41 +104,38 @@
     "0xb80e42e9eef4410a5ad48bdd070806b969029dce": { usd: FEE_USD, note: "赠送" },
     "0xb23aadf2367746f1a3db36a618c6d6f097e5c6e7": { usd: FEE_USD, note: "手动开通（Anubis 链 DAI 20 枚）", chain: "anubis", tx: "0x384b455267ede4b3e0bfdf89435c6bf0ebf14640776ff39a044580119a1b20cf" }
   };
-  function findPayment(addr) {
-    var manual = MANUAL[addr.toLowerCase()];
+  // 这个地址自己转给收款地址的全部付款（没下单直接转的，算付款地址自己的）
+  function ownPayments(addr) {
     var tries = METHODS.map(function (m) { return (m.chain === "anubis" ? findAnubis(addr, m) : findPolygon(addr, m)).catch(function () { return []; }); });
-    return Promise.all(tries).then(function (r) {
-      var list = [].concat.apply([], r);
-      if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr.toLowerCase(), note: manual.note, paid: 0, usd: manual.usd });
-      var t = tally(list);
-      return t.payments.length ? t : null;
+    return Promise.all(tries).then(function (r) { return [].concat.apply([], r); });
+  }
+  function memberApi(addr, txs) {
+    return fetch("/api/member?addr=" + addr + (txs && txs.length ? "&txs=" + txs.join(",") : "")).then(function (r) {
+      if (!r.ok) throw new Error("会员查询暂时不可用，请稍后再试");
+      return r.json();
+    });
+  }
+  // 查一个地址是不是会员：按订单认到它名下的付款 + 它自己直接转的付款 + 以前小号代开给它的付款 + 站长手动开通；一笔都没有返回 null
+  function lookup(addr) {
+    addr = addr.toLowerCase();
+    return memberApi(addr).then(function (srv) {
+      var own = srv.giftedTo ? Promise.resolve([]) : ownPayments(addr); // 以前给别人代开过的小号：它的付款算大号的
+      var gift = srv.giftPayer ? ownPayments(srv.giftPayer) : Promise.resolve([]);
+      var orders = Promise.all((srv.payments || []).map(function (p) { return value(method(p.method), p.paid, p.block, p.tx); }));
+      return Promise.all([own, gift, orders]);
+    }).then(function (r) {
+      var direct = r[0].concat(r[1]), txs = direct.map(function (p) { return p.tx; }).filter(function (t) { return /^0x[0-9a-f]{64}$/.test(t); });
+      // 自己转出去、但其实是给别的地址下单付的款，不算自己的
+      return (txs.length ? memberApi(addr, txs).then(function (d) { return d.claimed || []; }) : Promise.resolve([])).then(function (claimed) {
+        var list = direct.filter(function (p) { return claimed.indexOf(p.tx) < 0; }).concat(r[2]), manual = MANUAL[addr];
+        if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr, note: manual.note, paid: 0, usd: manual.usd });
+        var t = tally(list);
+        return t.payments.length ? t : null;
+      });
     });
   }
 
-  // 从交易回执里直接确认一笔付款（钱包付款、或者用户填交易哈希）
-  function paymentFromReceipt(chain, r, addr) {
-    var checks = METHODS.filter(function (m) { return m.chain === chain; }).map(function (m) {
-      var log = (r.logs || []).filter(function (l) {
-        return l.address.toLowerCase() === m.token.toLowerCase() && l.topics[0] === TRANSFER &&
-          "0x" + l.topics[1].slice(26) === addr && "0x" + l.topics[2].slice(26) === RECEIVER;
-      })[0];
-      return log ? value(m, Number(BigInt(log.data)) / Math.pow(10, m.dec), parseInt(r.blockNumber, 16), r.transactionHash) : null;
-    });
-    return Promise.all(checks).then(function (x) { return x.filter(Boolean)[0] || null; });
-  }
-  function verifyHash(addr, hash) {
-    var chains = ["anubis", "polygon"], i = 0;
-    function next() {
-      if (i >= chains.length) return Promise.resolve(null);
-      var c = chains[i++];
-      return rpcOn(c, "eth_getTransactionReceipt", [hash]).then(function (r) {
-        return r && r.status === "0x1" ? paymentFromReceipt(c, r, addr) : null;
-      }, function () { return null; }).then(function (p) { return p || next(); });
-    }
-    return next();
-  }
-
-  // ---------- 会员状态（存在本浏览器） ----------
+  // ---------- 会员状态（存在本浏览器：只记会员地址和等级，不用签名） ----------
   function member() {
     try {
       var m = JSON.parse(localStorage.getItem(KEY));
@@ -147,7 +143,6 @@
         m.tier = m.method === "gift" ? "pro" : "basic";
         m.payments = m.tx ? [{ method: m.method, chain: m.chain, tx: m.tx, block: m.block, paid: m.paid, usd: FEE_USD }] : [];
         m.usd = m.method === "gift" ? PRO_USD : FEE_USD;
-        if (m.method === "gift") m.gift = true;
       }
       return m;
     } catch (e) { return null; }
@@ -155,22 +150,18 @@
   function isPro() { var m = member(); return !!(m && m.tier === "pro"); }
   function saveMember(m) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch (e) { /* 隐私模式不保存 */ } }
   function logout() { try { localStorage.removeItem(KEY); } catch (e) { /* 忽略 */ } }
-
-  function loadEthers() {
-    if (window.ethers) return Promise.resolve(window.ethers);
-    return new Promise(function (ok, fail) {
-      var s = document.createElement("script");
-      s.src = ETHERS;
-      s.onload = function () { ok(window.ethers); };
-      s.onerror = function () { fail(new Error("签名校验组件加载失败")); };
-      document.head.appendChild(s);
-    });
+  function activate(addr, t) {
+    saveMember({ addr: addr.toLowerCase(), tier: t.tier, usd: t.usd, payments: t.payments, at: Date.now() });
+    warmTree(addr);
   }
-  function utf8Hex(str) {
-    return "0x" + Array.from(new TextEncoder().encode(str)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  // 还没到账的订单记在本浏览器，关掉页面回来接着等
+  var ORDER_KEY = "ailgns-member-order";
+  function pendingOrder() {
+    try { var o = JSON.parse(localStorage.getItem(ORDER_KEY)); return o && o.expires > Date.now() ? o : null; } catch (e) { return null; }
   }
+  function saveOrder(o) { try { if (o) localStorage.setItem(ORDER_KEY, JSON.stringify(o)); else localStorage.removeItem(ORDER_KEY); } catch (e) { /* 忽略 */ } }
 
-  // ---------- 钱包：注册（签名）与付款 ----------
+  // ---------- 钱包：只用来付款（OTC 也用），不签名 ----------
   var CHAIN = CHAINS.anubis.params; // otc.js 用的是 Anubis 链
   // 当前选中的钱包（由 wallets.js 自动识别、让用户选择）
   function wallet() {
@@ -182,29 +173,6 @@
     if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里取消了操作";
     return (e && (e.message || e.reason)) || "操作失败，请重试";
   }
-
-  // 第 1 步：连接钱包并签名，证明这个地址是你的（不花钱、不授权）
-  function register(status) {
-    var eth, addr, msg, sig;
-    return A.wallets.choose().then(function (p) {
-      eth = p;
-      status("请在 " + (A.wallets.name() || "钱包") + " 里确认连接…");
-      return eth.request({ method: "eth_requestAccounts" });
-    }).then(function (accs) {
-      addr = String(accs[0]).toLowerCase();
-      msg = "AiLGNS 服务站会员注册\n地址：" + addr + "\n时间：" + new Date().toISOString() + "\n此签名只用于确认身份，不会发起交易，也不会授权任何代币。";
-      status("请在钱包里签名（不花钱、不授权）…");
-      return eth.request({ method: "personal_sign", params: [utf8Hex(msg), addr] });
-    }).then(function (s) {
-      sig = s;
-      status("正在校验签名…");
-      return loadEthers();
-    }).then(function (ethers) {
-      if (ethers.verifyMessage(msg, sig).toLowerCase() !== addr) throw new Error("签名和地址对不上，请重试");
-      return { addr: addr, msg: msg, sig: sig };
-    });
-  }
-
   function switchTo(eth, chain) {
     var params = CHAINS[chain || "anubis"].params;
     return eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
@@ -221,7 +189,7 @@
       (function poll() {
         rpcOn(chain, "eth_getTransactionReceipt", [hash]).then(function (r) {
           if (r) return r.status === "0x1" ? ok(r) : fail(new Error("转账失败（交易被链上拒绝）"));
-          if (++tries > 90) return fail(new Error("等了 3 分钟还没确认，请稍后用交易哈希验证"));
+          if (++tries > 90) return fail(new Error("等了 3 分钟还没确认，到账后这里会自动开通"));
           setTimeout(poll, 2000);
         }, function () { setTimeout(poll, 3000); });
       })();
@@ -229,46 +197,33 @@
   }
   function waitReceipt(hash) { return waitOn("anubis", hash); }
 
-  // 第 2 步：用钱包直接付款（切到对应的链 → 转账 → 等确认）；usd：这次要付多少美元
-  function pay(reg, m, status, usd) {
-    var eth = wallet(), n, chain = CHAINS[m.chain];
-    status("正在切换到 " + chain.name + " 链…");
-    return switchTo(eth, m.chain).then(function () {
-      return Promise.all([m.price(), rpcOn(m.chain, "eth_call", [{ to: m.token, data: "0x70a08231" + A.pad(reg.addr) }, "latest"])]);
-    }).then(function (r) {
-      n = need(m, r[0], usd);
-      var bal = Number(BigInt(r[1])) / Math.pow(10, m.dec);
-      if (bal < n) throw new Error(chain.name + " 链上的钱包里只有 " + show(m, bal) + "，需要 " + show(m, n));
-      status("请在钱包里确认转账 " + show(m, n) + "（Gas 用 " + chain.gas + "）…");
-      var data = "0xa9059cbb" + A.pad(RECEIVER) + units(m, n).toString(16).padStart(64, "0");
-      return eth.request({ method: "eth_sendTransaction", params: [{ from: reg.addr, to: m.token, data: data }] });
+  // 用网页里的钱包直接付订单金额（任何钱包都行，付完返回交易哈希）
+  function payOrder(o, status) {
+    var m = method(o.method), chain = CHAINS[m.chain], eth, from, units = BigInt(o.units);
+    return A.wallets.choose().then(function (p) {
+      eth = p;
+      status("请在钱包里确认连接…");
+      return eth.request({ method: "eth_requestAccounts" });
+    }).then(function (accs) {
+      from = String(accs[0]).toLowerCase();
+      status("正在切换到 " + chain.name + " 链…");
+      return switchTo(eth, m.chain);
+    }).then(function () {
+      return rpcOn(m.chain, "eth_call", [{ to: m.token, data: "0x70a08231" + A.pad(from) }, "latest"]);
+    }).then(function (bal) {
+      if (BigInt(bal) < units) throw new Error(chain.name + " 链上的这个钱包里只有 " + A.fmt(Number(BigInt(bal)) / Math.pow(10, m.dec), m.digits + 4) + " " + m.symbol + "，需要 " + o.amount);
+      status("请在钱包里确认转账 " + o.amount + " " + m.symbol + "（Gas 用 " + chain.gas + "）…");
+      var data = "0xa9059cbb" + A.pad(RECEIVER) + units.toString(16).padStart(64, "0");
+      return eth.request({ method: "eth_sendTransaction", params: [{ from: from, to: m.token, data: data }] });
     }).then(function (hash) {
       status("已提交，等待 " + chain.name + " 链确认…（通常几秒钟）");
-      return waitOn(m.chain, hash);
-    }).then(function (r) {
-      return paymentFromReceipt(m.chain, r, reg.addr);
-    }).then(function (p) {
-      if (!p) throw new Error("转账已确认，但没找到这笔付款。请联系站长核对");
-      return p;
+      return waitOn(m.chain, hash).then(function () { return hash; });
     });
   }
+  function checkOrder(o, tx) {
+    return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "check", id: o.id, tx: tx || "" }) }).then(function (r) { return r.json(); });
+  }
 
-  // 把新付款合进已有付款，重新算等级后保存
-  // reg.addr 是付款 / 登录的钱包；target 是会员地址（代开时是别人的大号，不填就是自己）
-  function activate(reg, sum, target) {
-    var old = member(), payer = reg.addr, same = old && (old.payer || old.addr) === payer, prev = same ? old.payments || [] : [];
-    var t = sum.gift ? sum : tally(prev.concat(sum.payments || []));
-    if (!t.tier) return null;
-    var addr = (target || (same && old.addr) || payer).toLowerCase();
-    saveMember({ addr: addr, payer: payer, msg: reg.msg, sig: reg.sig, tier: t.tier, usd: t.usd, payments: t.payments, gift: !!sum.gift, at: Date.now() });
-    if (addr !== payer) fetch("/api/gift", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payer: payer, target: addr }) }).catch(function () {});
-    warmTree(addr);
-    return t;
-  }
-  // 这个付款钱包以前代开过谁（换设备登录时恢复）
-  function giftOf(payer) {
-    return fetch("/api/gift?payer=" + payer).then(function (r) { return r.json(); }).then(function (d) { return d.target || null; }, function () { return null; });
-  }
   // 提前让服务器把结构图算好：会员一打开网站就悄悄预热，等点进结构图时已经是现成的；高级会员优先刷新
   function warmTree(a) {
     try { fetch("/api/tree?root=" + a.toLowerCase() + (isPro() ? "&tier=pro" : ""), { keepalive: true }).catch(function () {}); } catch (e) { /* 忽略 */ }
@@ -276,8 +231,8 @@
 
   // 两个等级各自有什么
   var PERKS = {
-    basic: ["团队与等级（你自己的付款地址）", "团队新增业绩：今天、昨天、近 7 天", "团队结构图：定位、筛选、逐层展开", "结构图每 30 分钟更新"],
-    pro: ["包含初级 VIP 全部功能", "导出全部数据：结构图长图、完整名单 CSV、新增业绩表格", "结构图优先刷新：每 5 分钟更新", "尊享级标识，一次付款终生有效"]
+    basic: ["团队与等级（会员地址）", "团队新增业绩：今天、昨天、近 7 天", "团队结构图：定位、筛选、逐层展开", "结构图每 30 分钟更新"],
+    pro: ["包含初级 VIP 全部功能", "上级查询：查自己团队里任意地址（比如卖币地址）的整条上级线", "导出全部数据：结构图长图、完整名单 CSV、新增业绩表格", "结构图优先刷新：每 5 分钟更新", "尊享级标识，一次付款终生有效"]
   };
   function perkList(t) { return '<ul class="perks">' + PERKS[t].map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>"; }
   // 会员标志：高级 VIP 是金色皇冠勋章，初级 VIP 是绿色盾牌
@@ -304,13 +259,13 @@
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">用自己的钱包注册、付款开通，绑定你的钱包。开通后可以查看你自己（付款钱包）的「团队与等级」「团队新增业绩」，并画出你的团队结构图。</p>';
+    var head = '<h1>会员</h1><p class="sub">会员开在<b>地址</b>上：填要开通的地址，用任何钱包转一笔专属金额，到账自动开通，<b>不用连接钱包、不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
     if (m && m.tier === "pro") {
       app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
       return;
     }
-    // 未开通：选等级再付款；初级会员：补差价升级
-    var upgrade = !!m, plan = upgrade ? "pro" : "basic";
+    // 未开通：填地址、选等级再付款；初级会员：补差价升级
+    var upgrade = !!m, plan = upgrade ? "pro" : "basic", po = pendingOrder();
     app.innerHTML = head + (upgrade ? memberCard(m) : "") + '<div class="loading">正在读取实时价格…</div>';
     Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
@@ -318,6 +273,9 @@
       var pick = METHODS.filter(function (x, i) { return prices[i]; })[0] || METHODS[0];
       function needOf(x) { var i = METHODS.indexOf(x); return prices[i] ? need(x, prices[i], usdNow()) : null; }
 
+      var who = upgrade ? "" : '<section class="card"><div class="card-head"><h2>会员地址</h2><span class="muted">开在哪个地址，就查哪个地址</span></div>' +
+        '<div class="copy"><input id="mem-addr" class="mono" placeholder="要开通的地址 0x…" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button class="ghost" id="mem-q">查询</button></div>' +
+        '<p class="note">填你要查团队的那个地址（比如大号）。付款用任何钱包都行，大号<b>什么都不用做</b>。以前开通过的，填地址点「查询」就能恢复。</p></section>';
       var plans = upgrade
         ? '<section class="card plan-up"><div class="card-head"><h2>' + vipEmblem("pro", 26) + ' 升级 ' + TIERS.pro.name + '</h2><span class="muted">你已付 ' + FEE_USD + " 美元，补差价即可</span></div>" +
           '<div class="plan-price"><b class="num">' + (PRO_USD - FEE_USD) + '</b><small>美元等值 · 终生</small></div>' + perkList("pro") + "</section>"
@@ -326,11 +284,7 @@
           '<button class="plan plan-pro" data-plan="pro"><span class="plan-tag">尊享级专用</span><span class="plan-name">' + vipEmblem("pro", 26) + TIERS.pro.name + '</span><span class="plan-price"><b class="num">' + PRO_USD + '</b><small>美元等值 · 终生</small></span>' + perkList("pro") + "</button></div>" +
           '<p class="note">先开初级也可以，以后补 ' + (PRO_USD - FEE_USD) + " 美元差价升级高级。</p>";
 
-      var forWho = upgrade ? "" : '<section class="card"><div class="card-head"><h2>开通给谁</h2><span class="muted">小号付款，可以给大号开通</span></div>' +
-        '<div class="seg" id="for-seg"><button type="button" data-for="self" class="on">给我自己（付款钱包）</button><button type="button" data-for="other">代开：给其他地址</button></div>' +
-        '<div id="for-other" hidden><label class="full">会员地址（要开通的大号）<input id="for-addr" class="mono" placeholder="0x…" autocomplete="off" spellcheck="false"></label>' +
-        '<p class="note">用现在这个钱包付款，会员开在上面这个地址上：团队、业绩、结构图都按这个地址查。大号<b>不用连接钱包、不用授权</b>。以后用<b>付款的小号</b>登录即可。一个付款钱包只能代开一个地址，开通后不能更改。</p></div></section>';
-      app.innerHTML = head + (upgrade ? memberCard(m) : "") + plans + forWho +
+      app.innerHTML = head + (upgrade ? memberCard(m) : "") + who + plans +
         '<section class="card"><div class="card-head"><h2>选择付款方式</h2><span class="muted" id="pay-usd"></span></div><div class="paylist">' +
         METHODS.map(function (x, i) {
           var c = CHAINS[x.chain];
@@ -338,44 +292,22 @@
             '<span class="payopt-tok">' + x.symbol + '</span><span class="payopt-chain">' + c.name + ' 链</span>' +
             '<b class="num" data-amt="' + x.id + '">—</b><small>' + (x.id === "dai" ? "稳定币，1 DAI = 1 美元" : x.haircut ? "按市价 " + x.haircut * 100 + "% 计：" + A.fmt(prices[i], 5) + " DAI（卖出扣 " + (100 - x.haircut * 100) + "%）" : "单价 " + A.fmt(prices[i], x.digits ? 2 : 5) + " DAI") + "</small></button>";
         }).join("") + "</div></section>" +
-        '<section class="card"><div class="card-head"><h2>' + (upgrade ? "用钱包升级" : "用钱包开通") + "</h2>" + (upgrade ? "" : '<a href="#/tree">先看看效果 →</a>') + "</div>" +
-        '<div class="flow"><div class="flow-step" id="s1"><b>1</b><div><div class="flow-t">连接钱包，签名' + (upgrade ? "确认身份" : "注册") + '</div><div class="muted">证明钱包是你的。只是签一段文字：<b>不花钱、不授权、不发交易</b>。已经付过款的，签完直接' + (upgrade ? "升级" : "开通") + "。</div></div></div>" +
-        '<div class="flow-step" id="s2"><b>2</b><div><div class="flow-t" id="s2t"></div><div class="muted" id="s2d"></div></div></div></div>' +
-        '<button id="go" style="padding:12px 22px;margin-top:4px">连接钱包</button><p class="note" id="st"></p>' +
-        '<p class="note">手机上请在 <b>OKX、Bitget Wallet、TokenPocket、MetaMask</b> 等钱包的「DApp 浏览器 / 发现」里打开 <b>ailgns.dev</b>。电脑上需要装浏览器插件钱包。</p></section>' +
-        '<details class="card manual"><summary>不方便用 DApp 浏览器？手动转账也可以</summary><ol class="steps" style="margin-top:12px">' +
-        '<li id="man1"></li>' +
-        '<li>收款地址（Anubis 和 Polygon 都是这个）：<div class="copy"><span class="mono" id="recv">' + RECEIVER + '</span><button class="ghost" id="copy">复制</button></div></li>' +
-        "<li>转完后用<b>付款的那个钱包</b>打开本页，点「连接钱包」签名，会自动找到你的全部付款并按累计金额开通（Polygon 付款自动查找最近 14 天）。</li>" +
-        '<li>找不到的话，把付款的交易哈希贴在这里验证，分几笔付的可以一次贴多个（用空格或换行隔开）：<div class="copy"><textarea id="txh" class="mono" rows="2" placeholder="0x…" spellcheck="false"></textarea><button class="ghost" id="txgo">验证</button></div></li></ol></details>' +
-        '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面三种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
+        '<section class="card" id="pay-card"><div class="card-head"><h2>' + (upgrade ? "付款升级" : "付款开通") + "</h2>" + (upgrade ? "" : '<a href="#/tree">先看看效果 →</a>') + "</div>" +
+        '<div id="order-box"><button id="go" style="padding:12px 22px">生成付款金额</button>' +
+        '<p class="note">点了之后会给你一个<b>带零头的专属金额</b>，用任何钱包转这个金额到收款地址，到账自动开通' + (upgrade ? "高级" : "") + "。</p></div>" +
+        '<p class="note" id="st"></p></section>' +
+        '<p class="note">本站为独立运营的服务站，会员费由本站收取，与 AWAKE HELIX 项目方无关。只收上面几种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词，开通会员也不需要签名或授权；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
-      var st = document.getElementById("st"), go = document.getElementById("go"), reg = null, forOther = false;
-      app.querySelectorAll("#for-seg button").forEach(function (b) {
-        b.onclick = function () {
-          forOther = b.getAttribute("data-for") === "other";
-          app.querySelectorAll("#for-seg button").forEach(function (x) { x.classList.toggle("on", x === b); });
-          document.getElementById("for-other").hidden = !forOther;
-        };
-      });
-      // 代开的目标地址：没选代开返回 null；填错返回 false
-      function wantTarget() {
-        if (upgrade || !forOther) return null;
-        var v = (document.getElementById("for-addr").value || "").trim().toLowerCase();
-        return /^0x[0-9a-f]{40}$/.test(v) ? v : false;
-      }
-      var target = null; // 最终的会员地址（代开时）
-      if (upgrade && m.sig) reg = { addr: m.payer || m.addr, msg: m.msg, sig: m.sig };
+      var st = document.getElementById("st"), go = document.getElementById("go"), polling = null;
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
-      function done(step) { var el = document.getElementById(step); if (el) el.classList.add("ok"); }
+      function addrNow() {
+        if (upgrade) return m.addr;
+        var v = (document.getElementById("mem-addr").value || "").trim().toLowerCase();
+        return /^0x[0-9a-f]{40}$/.test(v) ? v : null;
+      }
       function describe() {
         METHODS.forEach(function (x) { var n = needOf(x), el = app.querySelector('[data-amt="' + x.id + '"]'); if (el) el.textContent = n ? A.fmt(n, x.digits) : "—"; });
         document.getElementById("pay-usd").textContent = "已按实时价格折算成 " + usdNow() + " 美元";
-        var c = CHAINS[pick.chain], amt = show(pick, needOf(pick));
-        document.getElementById("s2t").textContent = "钱包付款 " + amt + "（" + c.name + " 链）";
-        document.getElementById("s2d").textContent = "自动切到 " + c.name + " 链，在钱包里确认一笔 " + pick.symbol + " 转账，Gas 用 " + c.gas + "。确认后几秒钟自动" + (upgrade ? "升级" : "开通") + "。";
-        document.getElementById("man1").innerHTML = "在 <b>" + c.name + " 链</b>上转 <b>" + amt + "</b>（合约 " + A.short(pick.token) + "）";
-        if (reg) go.textContent = "付款 " + amt;
       }
       describe();
       app.querySelectorAll(".plan").forEach(function (b) {
@@ -392,88 +324,104 @@
           describe();
         };
       });
-      document.getElementById("copy").onclick = function () {
-        var b = this;
-        (navigator.clipboard ? navigator.clipboard.writeText(RECEIVER) : Promise.reject()).then(function () { b.textContent = "已复制"; }, function () {
-          var r = document.createRange(); r.selectNodeContents(document.getElementById("recv"));
-          var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = "已选中，请复制";
-        });
-      };
-      function ensureReg() {
-        return reg ? Promise.resolve(reg) : register(say).then(function (r) { reg = r; done("s1"); return r; });
-      }
       // 开通或升级成功：达到想要的等级就跳走，否则说明还差多少
-      function finish(r, sum) {
-        var t = activate(r, sum, target);
-        if (!t) { say("已找到你的付款，累计约 " + A.fmt(sum.usd || 0, 2) + " 美元，还不够开通初级 VIP（" + FEE_USD + " 美元）", true); return false; }
-        var want = upgrade || plan === "pro" ? "pro" : "basic";
+      function finish(addr, t, want) {
+        activate(addr, t);
+        subnav();
         if (want === "pro" && t.tier !== "pro") {
           say("已开通" + TIERS[t.tier].name + "（累计约 " + A.fmt(t.usd, 2) + " 美元）。升级高级还差约 " + A.fmt(PRO_USD - t.usd, 2) + " 美元。");
-          setTimeout(function () { renderMember(id); subnav(); }, 1500);
-          return true;
+          setTimeout(function () { renderMember(id); }, 1500);
+          return;
         }
         say(TIERS[t.tier].name + " 已开通！");
-        subnav();
         setTimeout(function () { location.hash = "#/tree"; }, 800);
-        return true;
       }
-      document.getElementById("txgo").onclick = function () {
-        var hs = (document.getElementById("txh").value.match(/0x[0-9a-fA-F]{64}/g) || []), btn = this;
-        if (!hs.length) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
-        var wt = wantTarget();
-        if (wt === false) { say("请填写正确的会员地址（0x 开头的 42 位）", true); return; }
-        btn.disabled = true;
-        ensureReg().then(function (r) {
-          return giftOf(r.addr).then(function (bound) {
-            if (wt && wt === r.addr) wt = null;
-            if (bound && wt && bound !== wt) throw new Error("这个付款钱包已经给 " + A.short(bound) + " 代开过会员，不能再给别的地址开通");
-            target = wt || bound || null;
-            return r;
-          });
-        }).then(function (r) {
-          say("正在核对 " + hs.length + " 笔交易…");
-          return Promise.all(hs.map(function (h) { return verifyHash(r.addr, h.toLowerCase()); })).then(function (ps) {
-            ps = ps.filter(Boolean);
-            if (!ps.length) throw new Error("这些交易不是从你的钱包转给收款地址的");
-            if (!finish(r, tally(ps))) btn.disabled = false;
-          });
-        }).catch(function (e) { say(walletError(e), true); btn.disabled = false; });
+      var q = document.getElementById("mem-q");
+      if (q) q.onclick = function () {
+        var a = addrNow();
+        if (!a) { say("请填写正确的地址（0x 开头的 42 位）", true); return; }
+        q.disabled = true;
+        say("正在查这个地址的会员记录…（要查两条链，几秒钟）");
+        lookup(a).then(function (t) {
+          q.disabled = false;
+          if (t && t.tier) return finish(a, t, t.tier);
+          say("这个地址还不是会员。选好等级和付款方式，点「生成付款金额」。", true);
+        }, function (e) { q.disabled = false; say(walletError(e), true); });
       };
+
+      // 订单：显示专属金额，自动等到账
+      function showOrder(o) {
+        var x = method(o.method), c = CHAINS[x.chain], box = document.getElementById("order-box");
+        var until = new Date(o.expires), hm = until.getMonth() + 1 + "月" + until.getDate() + "日 " + String(until.getHours()).padStart(2, "0") + ":" + String(until.getMinutes()).padStart(2, "0");
+        box.innerHTML = '<div class="order-box">' +
+          '<div class="ob-line"><span class="muted">在</span><b>' + c.name + ' 链</b><span class="muted">转</span><b>' + x.symbol + '</b><span class="muted">（合约 ' + A.short(x.token) + "）</span></div>" +
+          '<div class="ob-amt"><b class="num">' + o.amount + "</b><span>" + x.symbol + '</span><button class="ghost" id="ob-ca">复制金额</button></div>' +
+          '<div class="ob-warn">金额必须<b>一模一样</b>，最后几位小数是这笔订单的识别码，多一位少一位都认不到</div>' +
+          '<div class="muted" style="margin-top:10px">收款地址</div><div class="copy"><span class="mono">' + RECEIVER + '</span><button class="ghost" id="ob-cr">复制</button></div>' +
+          '<dl class="dl" style="margin-top:12px"><dt>会员地址</dt><dd>' + A.addrLink(o.target) + "</dd><dt>有效期</dt><dd>" + hm + " 前付款</dd></dl>" +
+          '<ul class="ob-tips"><li>用<b>任何钱包</b>转都行（小号、大号都可以），会员都开在上面的会员地址上</li>' +
+          "<li>不要从交易所直接提币：交易所会扣手续费，到账金额对不上</li>" +
+          "<li>到账后一分钟内自动开通，可以先关掉页面，回来再看</li></ul>" +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button id="ob-pay">用当前浏览器里的钱包直接付</button><button class="ghost" id="ob-new">重新下单</button></div>' +
+          '<details class="ob-tx"><summary>已经转了，但一直没到账？</summary><div class="copy" style="margin-top:8px"><input id="ob-h" class="mono" placeholder="贴交易哈希 0x…" spellcheck="false"><button class="ghost" id="ob-hgo">核对</button></div></details></div>';
+        document.getElementById("ob-ca").onclick = function () { copyText(o.amount, this); };
+        document.getElementById("ob-cr").onclick = function () { copyText(RECEIVER, this); };
+        document.getElementById("ob-new").onclick = function () { saveOrder(null); stop(); renderMember(id); };
+        document.getElementById("ob-pay").onclick = function () {
+          var b = this;
+          b.disabled = true;
+          payOrder(o, say).then(function (hash) { say("已确认，正在开通…"); return poll(hash); }).catch(function (e) { say(walletError(e), true); b.disabled = false; });
+        };
+        document.getElementById("ob-hgo").onclick = function () {
+          var h = (document.getElementById("ob-h").value.match(/0x[0-9a-fA-F]{64}/) || [])[0];
+          if (!h) { say("交易哈希格式不对，应该是 0x 开头的 66 位", true); return; }
+          say("正在核对…");
+          poll(h.toLowerCase()).then(function (paid) { if (!paid) say("这笔交易对不上：要在 " + c.name + " 链上转 " + o.amount + " " + x.symbol + " 到收款地址", true); });
+        };
+        var want = upgrade || o.plan === "pro" ? "pro" : "basic";
+        function stop() { if (polling) clearInterval(polling); polling = null; }
+        function poll(tx) {
+          if (!A.isCurrent(id)) { stop(); return Promise.resolve(false); }
+          return checkOrder(o, tx).then(function (d) {
+            if (d.error) throw new Error(d.error);
+            if (!d.paid) { if (!tx && !st.textContent) say("等待到账…（每 10 秒自动查一次）"); return false; }
+            stop();
+            saveOrder(null);
+            say("已收到 " + o.amount + " " + x.symbol + "，正在开通…");
+            return lookup(o.target).then(function (t) {
+              if (!t || !t.tier) throw new Error("已收到付款，但累计金额还不够开通，请联系站长");
+              finish(o.target, t, want);
+              return true;
+            });
+          }).catch(function (e) { say(walletError(e), true); return false; });
+        }
+        stop();
+        polling = setInterval(function () { poll(); }, 10000);
+        poll();
+      }
+      if (po && (!upgrade || po.target === m.addr)) { plan = po.plan || plan; showOrder(po); say("你有一笔还没到账的订单，转账后会自动开通。"); }
+
       go.onclick = function () {
-        var wt = wantTarget();
-        if (wt === false) { say("请填写正确的会员地址（0x 开头的 42 位）", true); return; }
+        var a = addrNow(), want = upgrade || plan === "pro" ? "pro" : "basic";
+        if (!a) { say("请先在上面填写会员地址（0x 开头的 42 位）", true); var el = document.getElementById("mem-addr"); if (el) el.focus(); return; }
         go.disabled = true;
-        var step = reg ? Promise.resolve(reg) : ensureReg().then(function (r) {
-          say("签名成功，正在查找你之前的付款…");
-          return giftOf(r.addr).then(function (bound) {
-            if (wt && wt === r.addr) wt = null; // 填的就是自己
-            if (bound && wt && bound !== wt) throw new Error("这个付款钱包已经给 " + A.short(bound) + " 代开过会员，不能再给别的地址开通");
-            target = wt || bound || null;
-            return findPayment(r.addr).catch(function () { return null; });
-          }).then(function (sum) {
-            if (sum && sum.tier) {
-              var want = upgrade || plan === "pro" ? "pro" : "basic";
-              activate(r, sum, target);
-              if (sum.tier === "pro" || want === "basic") { finish(r, sum); throw null; }
-              upgrade = true; // 已是初级，接着补差价
-              say("你已经是初级 VIP，继续付款补差价升级高级。");
-            }
-            return r;
-          });
-        });
-        step.then(function (r) {
-          describe();
-          if (!st.textContent) say("已确认 " + A.short(r.addr) + (target ? "，会员将开在 " + A.short(target) + " 上" : "") + "。确认上面选的付款方式，点按钮用钱包付款。");
-          go.disabled = false;
-          go.onclick = function () {
-            go.disabled = true;
-            pay(r, pick, say, usdNow()).then(function (p) {
-              done("s2");
-              if (!finish(r, { payments: [p] })) go.disabled = false;
-            }, function (e) { say(walletError(e), true); go.disabled = false; });
-          };
-        }, function (e) {
-          if (e === null) return; // 已经付过款，直接跳转
+        say("正在核对这个地址有没有开通过…");
+        (upgrade ? Promise.resolve(null) : lookup(a).catch(function () { return null; })).then(function (t) {
+          if (t && t.tier && (t.tier === "pro" || want === "basic")) { finish(a, t, want); throw null; }
+          if (t && t.tier) { activate(a, t); upgrade = true; m = member(); describe(); } // 已是初级：接着补差价
+          var n = needOf(pick);
+          if (!n) throw new Error("这种币的价格暂时读不到，换一种付款方式");
+          say("正在生成付款金额…");
+          return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "order", target: a, method: pick.id, amount: n.toFixed(pick.digits) }) }).then(function (r) { return r.json(); });
+        }).then(function (o) {
+          if (o.error) throw new Error(o.error);
+          o.plan = want;
+          saveOrder(o);
+          say("");
+          showOrder(o);
+          document.getElementById("pay-card").scrollIntoView({ behavior: "smooth", block: "start" });
+        }).catch(function (e) {
+          if (e === null) return; // 已经开通，直接跳转
           say(walletError(e), true); go.disabled = false;
         });
       };
@@ -482,9 +430,9 @@
     });
   }
   function memberCard(m) {
-    var pays = m.gift ? "赠送" + TIERS[m.tier].name + "（终生）" : (m.payments || []).map(function (p) {
+    var pays = (m.payments || []).map(function (p) {
       var pm = method(p.method), pc = CHAINS[p.chain || "anubis"];
-      if (p.method === "manual") return A.esc(p.note) + (/^0x/.test(p.tx) ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>' : "");
+      if (p.method === "manual" || p.method === "gift") return A.esc(p.note || "赠送") + (/^0x/.test(p.tx || "") ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>' : "");
       return show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
     }).join("<br>") + (m.payments && m.payments.length > 1 ? "<br><span class=\"muted\">累计约 " + A.fmt(m.usd, 2) + " 美元</span>" : "");
     var t = m.tier;
@@ -494,9 +442,9 @@
       '<div class="mcard-sub">' + (t === "pro" ? "尊享级 · 终生会员" : "永久会员") + "</div></div></div>" +
       '<div class="mcard-foot"><span class="mono">' + A.short(m.addr) + "</span><span>" + (t === "pro" ? "终生有效" : "永久有效") + "</span></div></div>";
     return '<section class="card">' + mcard + '<dl class="dl" style="margin-top:16px">' +
-      "<dt>会员地址</dt><dd>" + A.addrLink(m.addr) + "</dd>" + (m.payer && m.payer !== m.addr ? "<dt>代开</dt><dd>由付款钱包 " + A.addrLink(m.payer) + " 代开，用这个钱包登录</dd>" : "") + "<dt>付款</dt><dd>" + pays + "</dd></dl>" +
-      '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">退出</button></div>' +
-      '<p class="note">换浏览器或换手机时，用同一个钱包点「连接钱包」再登录一次就行，不用重复付款。</p></section>';
+      "<dt>会员地址</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + (pays || "—") + "</dd></dl>" +
+      '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">换个地址</button></div>' +
+      '<p class="note">换手机、换浏览器时，在会员中心填会员地址点「查询」就能恢复，不用重复付款，也不用连接钱包。</p></section>';
   }
   // 退出按钮：页面会重画（比如价格读完后），所以在 document 上统一监听，按钮换了也照样有效
   document.addEventListener("click", function (e) {
@@ -1125,7 +1073,7 @@
     if (!m) {
       app.innerHTML = '<h1>团队结构图 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
         '<p class="sub">开通会员后，就能画出你自己团队的结构图。下面是<b>示例效果</b>，可以直接点、拖、缩放试试。</p>' +
-        '<div class="demo-cta"><div><b>' + "初级 " + FEE_USD + " 美元永久 · 高级 " + PRO_USD + " 美元终生" + '</b><span class="muted">用钱包注册、付款，几秒钟开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
+        '<div class="demo-cta"><div><b>' + "初级 " + FEE_USD + " 美元永久 · 高级 " + PRO_USD + " 美元终生" + '</b><span class="muted">填地址、转账，到账自动开通</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
         '<div class="features">' +
         '<div class="feature"><b>整条线一目了然</b><span class="muted">谁是一区、二区、三区，每条线多少个地址、入金多少 DAI</span></div>' +
         '<div class="feature"><b>一层层往下点</b><span class="muted">点 + 展开任意一个地址的下级，几十层、上万个地址也流畅</span></div>' +
@@ -1517,11 +1465,9 @@
   var runId = 0;
   A.teamGrowth = teamGrowth;
 
-  // 顶部显示会员地址（自己付款的就是付款钱包；代开的是大号），不能输入别的地址
+  // 顶部显示会员地址，不能输入别的地址；要查别的会员地址就去会员中心换
   function ownBar(m) {
-    var gifted = m.payer && m.payer !== m.addr;
-    return '<div class="ownbar"><span>' + (gifted ? "会员地址（代开）" : "你的付款地址") + '</span><b class="mono">' + A.short(m.addr) + '</b><span class="muted">' +
-      (gifted ? "由 " + A.short(m.payer) + " 代开，只能查询这个地址" : "会员只能查询自己付款的钱包") + "</span></div>";
+    return '<div class="ownbar"><span>会员地址</span><b class="mono">' + A.short(m.addr) + '</b><span class="muted">只能查询这个地址 · <a href="#/member">换地址</a></span></div>';
   }
 
   // 团队新增业绩：会员专属的单独页面
@@ -1555,7 +1501,7 @@
   function renderTeamGate(id, addr) {
     if (member()) return A.renderTeam(id, addr);
     A.app.innerHTML = '<h1>团队与等级 <span class="lv p1" style="vertical-align:4px">会员</span></h1>' +
-      '<p class="sub">查看你自己（付款钱包）的直推线、每条线的团队地址数和入金（DAI）、三个区业绩，以及官方 P1–P7 等级。</p>' +
+      '<p class="sub">查看会员地址的直推线、每条线的团队地址数和入金（DAI）、三个区业绩，以及官方 P1–P7 等级。</p>' +
       '<div class="demo-cta"><div><b>会员专属功能</b><span class="muted">' + FEE_USD + ' 美元起（LGNS / AiLGNS / DAI 任选），初级永久、高级终生</span></div><a class="btn" href="#/member">开通会员 →</a></div>' +
       '<div class="features">' +
       '<div class="feature"><b>直推线一览</b><span class="muted">每条线的等级、团队地址数、团队入金，按入金排序</span></div>' +
@@ -1580,10 +1526,10 @@
   }
   function renderUpline(id, addr) {
     var app = A.app, head = '<h1>上级查询 <span class="vip vip-pro" style="font-size:.5em">' + vipEmblem("pro", 18) + '高级 VIP</span></h1>' +
-      '<p class="sub">输入任意地址（比如在 DEX 卖币的地址），列出他的上级、上级的上级……一直到最顶层，每个地址都能一键复制，用来锁定他所在的整条线。</p>';
+      '<p class="sub">输入你团队里的任意地址（比如在 DEX 卖币的地址），列出他的上级、上级的上级……一直到最顶层，每个地址都能一键复制，用来锁定他在你团队里的哪条线。</p>';
     if (!isPro()) {
       app.innerHTML = head + '<div class="demo-cta"><div><b>高级 VIP · 尊享级专属</b><span class="muted">' + (member() ? "你已是初级 VIP，补 " + (PRO_USD - FEE_USD) + " 美元差价即可升级" : PRO_USD + " 美元等值，一次付款终生使用") + '</span></div><a class="btn" href="#/member">' + (member() ? "去升级 →" : "开通会员 →") + "</a></div>" +
-        '<div class="features"><div class="feature"><b>卖币地址锁定上级</b><span class="muted">输入卖币地址，立刻看到他的上级、上级的上级，一直到最顶层</span></div>' +
+        '<div class="features"><div class="feature"><b>卖币地址锁定上级</b><span class="muted">输入团队里的卖币地址，立刻看到他的上级、上级的上级，一直到最顶层</span></div>' +
         '<div class="feature"><b>一键复制</b><span class="muted">单个复制，或整条链一次复制，直接发给团队长</span></div>' +
         '<div class="feature"><b>标出 P 等级</b><span class="muted">链上哪个上级有官方 P 等级，一眼看到</span></div></div>';
       return;
@@ -1602,6 +1548,11 @@
       fetch("/api/upline?addr=" + a).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(id)) return;
         if (d.error) throw new Error(d.error);
+        var me = member().addr;
+        if (a !== me && !d.chain.some(function (x) { return String(x.a).toLowerCase() === me; })) {
+          out.innerHTML = '<div class="card err">这个地址不在你的团队里（会员地址 ' + A.short(me) + ' 不是他的上级）。上级查询只能查自己团队里的地址。</div>';
+          return;
+        }
         if (!d.chain.length) { out.innerHTML = '<div class="card">' + (d.bound ? "这个地址已经是最顶层，没有上级。" : "这个地址还没有绑定推荐人，查不到上级。") + "</div>"; return; }
         var rows = d.chain.map(function (x, i) {
           return '<div class="up-row"><span class="up-n">上 ' + (i + 1) + ' 级</span><span class="mono up-a">' + x.a + "</span>" +
@@ -1649,7 +1600,7 @@
   window.addEventListener("hashchange", subnav);
 
   A.pages.member = function (id, a) { subnav(); renderMember(id, a); };
-  // 会员功能只能查自己的付款地址：地址不是自己的就转回自己的
+  // 会员功能只能查会员地址：地址不是会员地址就转回会员地址
   function ownOnly(route, render) {
     return function (id, a) {
       var m = member();

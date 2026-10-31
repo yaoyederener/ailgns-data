@@ -749,3 +749,16 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
   .poster-en { font-size: 10.5px; letter-spacing: .2em; }
   .poster-tags span { font-size: 13.5px; padding: 7px 13px; }
 }
+
+/* 会员订单：专属金额 */
+.order-box { padding: 16px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+.ob-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 14px; }
+.ob-amt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 10px; }
+.ob-amt b { font-size: 30px; line-height: 1.15; word-break: break-all; color: var(--gold); }
+.ob-amt button { padding: 6px 12px; align-self: center; }
+.ob-warn { margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: rgba(229, 72, 77, .1); color: var(--down); font-size: 13px; }
+.ob-tips { margin: 12px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.ob-tx { margin-top: 12px; font-size: 13px; }
+.ob-tx summary { cursor: pointer; color: var(--muted); }
+#mem-addr { flex: 1; min-width: 0; }
+.order-box #ob-pay, .order-box #ob-new { padding: 10px 16px; }
