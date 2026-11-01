@@ -60,6 +60,8 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 - 编译参数和 AiLGNS OTC 一样：solc `v0.8.24+commit.e11b9ed9`，优化开启 200 runs，EVM 版本 paris；标准输入 [`AwakeNftEscrow.standard-input.json`](AwakeNftEscrow.standard-input.json)，部署用的字节码在 [`AwakeNftEscrow.json`](AwakeNftEscrow.json)
 - 构造参数：卡牌合约 `0x58839f46bd0E3F4494E2BEB8ca93Da9352208615`（Awake Governance NFT），DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`，手续费收款 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`
 - 规则（都写死在合约里）：整张成交；手续费 `FEE_BPS = 300`（成交价的 3%），由买家在成交价之外另付，卖家拿完整标价；求购单预存「价格 + 手续费」的 DAI；没有管理员、不能升级
-- 合约地址：待部署（部署后在这里补上地址和部署区块，并核对链上代码）
+- 合约地址（Anubis 链，部署区块 18008025）：`0x8c67912b3ed44f4512c2f22b7b2263f6659396ed`
+
+2026-11-01 核对：链上运行代码和上述参数编译出的运行代码逐字节相同，唯一差别是三个 immutable 参数（卡牌合约、DAI、手续费收款地址）被填成上表的值；`NFT()`、`DAI()`、`feeRecipient()`、`FEE_BPS()`（300 = 3%）读出来都和上表一致。
 
 运行测试：把 `AwakeNftEscrow.sol` 放进 forge 项目的 `src/`、把 `test/AwakeNftEscrow.t.sol` 放进 `test/`（import 路径改成 `../src/AwakeNftEscrow.sol`），`foundry.toml` 里 `solc_version = "0.8.24"`、`optimizer_runs = 200`、`evm_version = "paris"`，然后 `forge test`。

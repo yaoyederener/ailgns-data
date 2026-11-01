@@ -9,7 +9,7 @@ const MARKETS = {
   lgns: { otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", rpcs: RPCS },
   plgns: { otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", rpcs: POLYGON_RPCS },
   glgns: { otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", rpcs: RPCS },
-  nft: { otc: "", pair: null, rpcs: RPCS } // AWAKE NFT 卡牌托管（AwakeNftEscrow，订单结构不同但同样用 ordersCount/getOrders 读）；没有 DEX 池子
+  nft: { otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", pair: null, rpcs: RPCS } // AWAKE NFT 卡牌托管（AwakeNftEscrow，订单结构不同但同样用 ordersCount/getOrders 读）；没有 DEX 池子
 };
 const COUNT = "0x35daa731", GET_ORDERS = "0x8f72fc77", RESERVES = "0x0902f1ac";
 const MAX = 1000; // 和前端一样只读最近 1000 张

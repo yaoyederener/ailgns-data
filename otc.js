@@ -22,7 +22,7 @@
       pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.997, dexBuy: 1.003, dexName: " DEX", eg: [0.1, 83000],
       flat: true }, // DEX 不扣税、价差不到 1%：指导价就是市价，不算「比 DEX 多拿多少」
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
-    nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
+    nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
   var MKEYS = ["ailgns", "lgns", "plgns", "glgns", "nft"];

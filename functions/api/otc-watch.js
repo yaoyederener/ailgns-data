@@ -23,8 +23,8 @@ const MARKETS = [
   // gLGNS（Anubis，18 位）：DEX 买卖不扣税
   { key: "glgns", sym: "gLGNS", chain: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
     pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 18004618, link: "https://ailgns.dev/#/otc/glgns" },
-  // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」；托管合约部署后填 otc 和 deploy
-  { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nft:", deploy: 0, link: "https://ailgns.dev/#/otc/nft" },
+  // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」
+  { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nft:", deploy: 18008025, link: "https://ailgns.dev/#/otc/nft" },
 ].filter((m) => m.otc);
 const SITE = "https://ailgns.dev/#/otc";
 // 币名：LGNS 两条链都有，带上链名
