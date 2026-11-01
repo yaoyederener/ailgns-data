@@ -94,21 +94,39 @@
 
   // ---------- 读链 ----------
   function words(h) { var out = []; for (var i = 2; i < h.length; i += 64) out.push(h.slice(i, i + 64)); return out; }
+  function parseOrders(r, from) {
+    if (!r || r === "0x") return [];
+    var w = words(r), n = Number(BigInt("0x" + w[1])), list = [];
+    for (var i = 0; i < n; i++) {
+      var o = w.slice(2 + i * 7, 9 + i * 7);
+      list.push({
+        id: from + i, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n,
+        expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6])
+      });
+    }
+    return list;
+  }
   function readOrders() {
     return read(OTC, SEL.ordersCount).then(function (h) {
       var count = Number(BigInt(h)), from = Math.max(0, count - 1000);
       if (!count) return [];
-      return read(OTC, SEL.getOrders + u256(from) + u256(count - from)).then(function (r) {
-        var w = words(r), n = Number(BigInt("0x" + w[1])), list = [];
-        for (var i = 0; i < n; i++) {
-          var o = w.slice(2 + i * 7, 9 + i * 7);
-          list.push({
-            id: from + i, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n,
-            expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6])
-          });
-        }
-        return list;
-      });
+      return read(OTC, SEL.getOrders + u256(from) + u256(count - from)).then(function (r) { return parseOrders(r, from); });
+    });
+  }
+  // ---------- 秒开：订单簿先用上次打开时存下的，再用后台缓存（/api/book，边缘缓存、毫秒级）刷新；后台出错才直接读链 ----------
+  var BOOK_KEY = "otc:book:";
+  function bookOf(j) { return { orders: parseOrders(j.orders, j.from), mkt: j.reserves ? priceFromReserves(j.reserves) : null, raw: j.orders }; }
+  function savedBook() {
+    try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"); return j && j.orders ? bookOf(j) : null; } catch (e) { return null; }
+  }
+  function loadBook(fresh) {
+    var mk = MK;
+    return fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || j.error || !j.orders) throw new Error("book");
+      try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
+      return bookOf(j);
+    }).catch(function () {
+      return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
     });
   }
   // 读当前市场所在的链
@@ -124,11 +142,10 @@
     });
   }
   // DEX 市价：每枚挂单币值多少 DAI
-  function marketPrice() {
-    return read(M.pair, "0x0902f1ac").then(function (h) {
-      var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
-      return dai / tok;
-    });
+  function marketPrice() { return read(M.pair, "0x0902f1ac").then(priceFromReserves); }
+  function priceFromReserves(h) {
+    var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
+    return dai / tok;
   }
   // 每枚挂单币的 DAI 价格
   function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / tNum(o.giveTotal) : num(o.giveTotal) / tNum(o.wantTotal); }
@@ -249,6 +266,7 @@
     }).join("") + "</nav>";
   }
 
+  var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
   function renderOtc(id, sub) {
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
@@ -258,13 +276,26 @@
         '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
-    app.innerHTML = marketTabs() + '<div class="loading">正在读取订单…</div>';
-    Promise.all([readOrders(), marketPrice().catch(function () { return null; }), silentAccount()]).then(function (r) {
+    // 有上次存下的订单簿就先画出来（秒开），拿到最新的再换；用户已经在填表或开着吃单弹窗时不打断
+    var snap = savedBook(), shown = null, fresh = freshNext;
+    freshNext = false;
+    if (snap) { draw(id, snap.orders, snap.mkt); shown = snap.raw; }
+    else app.innerHTML = marketTabs() + '<div class="loading">正在读取订单…</div>';
+    var acct0 = account;
+    Promise.all([loadBook(fresh), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
-      draw(id, r[0], r[1]);
+      var b = r[0];
+      if (shown !== null && b.raw === shown && account === acct0) return; // 没变化
+      if (shown !== null && busy()) return;
+      draw(id, b.orders, b.mkt);
     }, function () {
-      if (A.isCurrent(id)) app.innerHTML = marketTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
+      if (A.isCurrent(id) && shown === null) app.innerHTML = marketTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
     });
+    function busy() {
+      var m = document.getElementById("otc-modal");
+      if (m && !m.hidden) return true;
+      return Array.prototype.some.call(app.querySelectorAll("input"), function (i) { return i === document.activeElement || (i.value && i.type !== "hidden" && i.type !== "radio" && i.type !== "checkbox"); });
+    }
 
     function draw(id, orders, mkt) {
       var now = Date.now() / 1000;
@@ -478,7 +509,7 @@
         st.textContent = t;
         if (st.scrollIntoView) st.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
-      function reload() { if (A.isCurrent(id)) renderOtc(id); }
+      function reload() { if (A.isCurrent(id)) { freshNext = true; renderOtc(id); } }
       var c = document.getElementById("otc-connect");
       if (c) c.onclick = function () { connect().then(reload, function (e) { say(niceError(e), true); }); };
 
@@ -880,11 +911,12 @@
     }
     draw(null, null);
     if (!OTC) return;
-    Promise.all([marketPrice().catch(function () { return null; }), readOrders().catch(function () { return null; })]).then(function (r) {
-      if (!A.isCurrent(id)) return;
-      var now = Date.now() / 1000;
-      draw(r[0], r[1] ? r[1].filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); }).length : null);
-    });
+    var liveCount = function (b) { var now = Date.now() / 1000; return b.orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); }).length; };
+    var snap = savedBook();
+    if (snap) draw(snap.mkt, liveCount(snap));
+    loadBook(false).then(function (b) {
+      if (A.isCurrent(id)) draw(b.mkt, liveCount(b));
+    }, function () {});
   };
   A.start();
 })();
