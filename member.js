@@ -1572,12 +1572,12 @@
         bindRefresh();
         return;
       }
-      // 💰 谁在充钱（高级 VIP）：这段时间伞下入金的地址去重列出来，点一下复制，不用导出
+      // 💰 谁在入金（高级 VIP）：这段时间伞下入金的地址去重列出来，点一下复制，不用导出
       var byAddr = {};
       team.forEach(function (r) { var x = byAddr[r.addr] || (byAddr[r.addr] = { addr: r.addr, power: 0, n: 0, line: r.line, depth: r.depth, t: r.t }); x.power += r.power; x.n++; if (r.t > x.t) x.t = r.t; });
       var radar = Object.keys(byAddr).map(function (k) { return byAddr[k]; }).sort(function (a, b) { return b.power - a.power; });
       var plabel = (PERIODS.filter(function (p) { return p[0] === period; })[0] || ["", "这段时间"])[1];
-      html += '<section class="radar"><div class="card-head"><h3 class="g-h" style="margin:0">💰 谁在充钱 <span class="vip vip-pro" style="font-size:12px;vertical-align:2px">' + vipEmblem("pro", 14) + '高级 VIP</span></h3><span class="muted">' + plabel + "伞下入金 " + radar.length + " 个地址 · 点「复制」直接拿地址，不用导出</span></div>" +
+      html += '<section class="radar"><div class="card-head"><h3 class="g-h" style="margin:0">💰 谁在入金 <span class="vip vip-pro" style="font-size:12px;vertical-align:2px">' + vipEmblem("pro", 14) + '高级 VIP</span></h3><span class="muted">' + plabel + "伞下入金 " + radar.length + " 个地址 · 点「复制」直接拿地址，不用导出</span></div>" +
         (isPro()
           ? '<div class="radar-acts"><button class="ghost" id="rd-all">复制全部地址（' + radar.length + '）</button><button class="ghost" id="rd-all2">复制地址 + 金额</button></div>' +
             '<div class="radar-list">' + radar.map(function (x) {
@@ -1610,7 +1610,7 @@
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
       });
       proMark(document.getElementById("g-csv"));
-      // 谁在充钱：复制
+      // 谁在入金：复制
       el.querySelectorAll(".rd-copy").forEach(function (b) { b.onclick = function () { copyText(b.getAttribute("data-a"), b); }; });
       var ra = document.getElementById("rd-all"), ra2 = document.getElementById("rd-all2"), ru = document.getElementById("rd-unlock");
       if (ra) ra.onclick = function () { copyText(radar.map(function (x) { return x.addr; }).join("\n"), ra); };

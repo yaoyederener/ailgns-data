@@ -1178,7 +1178,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 /* 借贷表单：出借方先填 DAI 金额，再填要求抵押 */
 #ln-grid.lend-first #ln-p-l { order: -1; }
 
-/* 团队新增业绩 · 谁在充钱（高级 VIP）：伞下入金地址一键复制 */
+/* 团队新增业绩 · 谁在入金（高级 VIP）：伞下入金地址一键复制 */
 .radar { margin: 16px 0 4px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(180deg, #fff8e6, var(--panel) 60%); border: 1px solid #f3d98a; }
 .radar-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; }
 .radar-acts button { padding: 7px 14px; font-size: 13px; }
