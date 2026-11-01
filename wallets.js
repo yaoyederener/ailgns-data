@@ -92,7 +92,8 @@
     var letter = '<span class="wicon">' + A.esc(String(name).slice(0, 1)) + "</span>";
     var src = icon || (LOGOS[name] ? "icons/wallets/" + LOGOS[name] + ".png?v=1" : "");
     if (!src) return letter;
-    return '<img class="wlogo" src="' + A.esc(src) + '" alt="" onerror="this.outerHTML=\'' + letter.replace(/'/g, "&#39;") + '\'">';
+    // 图片加载失败就换成首字母（onerror 里只能用单引号，别的写法会把属性截断）
+    return '<img class="wlogo" src="' + A.esc(src) + '" alt="" data-l="' + A.esc(String(name).slice(0, 1)) + '" onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'wicon\',textContent:this.dataset.l}))">';
   }
   function iconHtml(w) { return logoHtml(w.name, w.icon); }
 
