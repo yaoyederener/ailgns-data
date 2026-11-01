@@ -242,7 +242,7 @@
       g = guideRepay(pr, term);
       if (autoRepay || !rIn.value) { rIn.value = floorDai(g); autoRepay = true; }
       guideEl.hidden = false;
-      guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? tok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
+      guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? floorTok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
         (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(GUIDE_OVER * 100) + "%" : "可借 · 抵押品现值的 " + Math.round(100 / GUIDE_OVER) + "%（抵押率 " + Math.round(GUIDE_OVER * 100) + "%）") +
         " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "%，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
         '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、还多少都由挂单人自己定；利息高接单快，抵押多出借人更放心。</p>';
