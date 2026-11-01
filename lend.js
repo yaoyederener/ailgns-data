@@ -14,12 +14,12 @@
   };
   var MKEYS = ["ailgns", "lgns", "glgns"];
   var SEL = { request: "0x2fedd319", fund: "0xa65e2cfd", offer: "0x992001bd", take: "0x4fd9efc4", repay: "0x371fd8e6", claim: "0x379607f5", cancel: "0x40e58ee5", count: "0x9d11ed75", get: "0x86b20104", approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231" };
-  var FEE_BPS = 100n, MAX_PRINCIPAL = 2000n * 10n ** 18n, BOOK_SHOW = 8;
+  var FEE_BPS = 100n, BOOK_SHOW = 8;
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
   var STATUS = ["挂单中", "借款中", "已还清", "已违约", "已撤单 / 已退回"];
   var REASONS = {
-    OVER_MAX: "单笔借款上限 2,000 DAI", REPAY_LT_PRINCIPAL: "到期还款金额不能少于本金", BAD_TERM: "借款期限要在 1 天到 90 天之间",
+    REPAY_LT_PRINCIPAL: "到期还款金额不能少于本金", BAD_TERM: "借款期限要在 1 天到 90 天之间",
     NOT_OPEN: "这张借款单已经被接走或撤销，请刷新", OWN_LOAN: "不能接自己的借款单", NOT_ACTIVE: "这笔借款不在借款中状态，请刷新",
     NOT_DUE: "还没到还款截止时间，不能领取抵押品", NOT_MAKER: "只有挂单人自己能撤单", NO_LOAN: "没有这张单", ZERO_AMOUNT: "数量不能为 0",
     NOT_OFFER: "这不是出借单，请刷新", NOT_REQUEST: "这不是借款单，请刷新"
@@ -170,7 +170,7 @@
     html += form(k);
     if (mine.length) html += myLoans(mine, now);
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">借款合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + A.short(LOAN) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsLoanEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
-      '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">单笔本金 ≤ 2,000 DAI · 期限 1–90 天</div><div class="d">利息由借款人自己填（可以为 0）· 没有管理员，部署后任何人改不了</div></div></div>';
+      '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">金额不限 · 期限 1–90 天</div><div class="d">借多少、还多少由挂单人自己填（利息可以为 0）· 没有管理员，部署后任何人改不了</div></div></div>';
     html += '<p class="note"><b>出借前请自己判断风险：</b>合约不会清算。抵押币跌了借款人可能不还，到期你拿到的只是那些抵押币，可能不值借出去的钱。「抵押率参考」按 DEX 市价换算，只是参考。<b>借款人请记好还款截止时间：</b>到期没还抵押币直接归出借人，没有宽限期。本站只提供链上托管撮合，不参与借贷、不承诺收益；智能合约未经第三方审计，请先小额试用。</p>';
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
@@ -194,7 +194,7 @@
     return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">发布挂单</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
       '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我要借 DAI</button><button data-side="lend">我要出借 DAI</button></div>' +
       '<div class="form-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
-      '<label id="ln-p-l">借款金额（DAI，最多 2,000）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
+      '<label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
       '<div class="qty-pick" id="ln-pick"></div>' +
       '<div class="dur"><span class="dur-t">借款期限 <small class="muted">从接单那一刻起算</small></span><input type="hidden" id="ln-term" value="' + TERM_DEFAULT + '">' +
@@ -234,7 +234,7 @@
       document.getElementById("ln-title").textContent = lend ? "我要出借 DAI" : "我要借 DAI";
       document.getElementById("ln-hint").textContent = lend ? "本金 + 1% 手续费先存进合约，没人借前随时可撤" : "抵押币先存进合约，没人接单前随时可撤";
       document.getElementById("ln-col-l").firstChild.textContent = lend ? "要求借款人抵押（" + M.sym + "）" : "抵押数量（" + M.sym + "）";
-      document.getElementById("ln-p-l").firstChild.textContent = lend ? "出借金额（DAI，最多 2,000）" : "借款金额（DAI，最多 2,000）";
+      document.getElementById("ln-p-l").firstChild.textContent = lend ? "出借金额（DAI）" : "借款金额（DAI）";
       document.getElementById("ln-r-l").firstChild.textContent = lend ? "到期收回（DAI，含利息）" : "到期还款（DAI，含利息）";
       document.getElementById("otc-create").textContent = lend ? "发布出借单" : "发布借款单";
       showPick(); calc();
@@ -260,13 +260,13 @@
       var c = toTokWei(col.value), p = k.toWei(pIn.value), r = k.toWei(rIn.value);
       if (!c || !p || !r || c <= 0n || p <= 0n) { sum.textContent = "填好三个数字后显示明细"; return null; }
       var term = Number(document.getElementById("ln-term").value), l = { collateral: c, principal: p, repayAmount: r, term: term }, it = interest(l), ra = ratio(l);
-      var warn = r < p ? '<br><span class="down">到期还款不能少于本金</span>' : p > MAX_PRINCIPAL ? '<br><span class="down">单笔借款上限 2,000 DAI</span>' : ra !== null && ra < 100 ? '<br><span class="down">抵押品现值低于借款金额，很难有人接单</span>' : "";
+      var warn = r < p ? '<br><span class="down">到期还款不能少于本金</span>' : ra !== null && ra < 100 ? '<br><span class="down">抵押品现值低于借款金额，很难有人接单</span>' : "";
       sum.innerHTML = (side === "lend"
         ? "借款人押 <b>" + tok(c) + " " + M.sym + "</b> 就能借走 <b>" + dai(p) + " DAI</b>，" + days(term) + "后还你 <b>" + dai(r) + " DAI</b>（利息 " + A.fmt(it.i, 2) + " DAI，" + it.pct.toFixed(1) + "%，年化约 " + it.apr.toFixed(0) + "%）" +
           (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。你现在需存入 <b>" + dai(p + fee(p)) + " DAI</b>（含 1% 手续费 " + dai(fee(p)) + "），没人借撤单全额退回。"
         : "押 <b>" + tok(c) + " " + M.sym + "</b>，借 <b>" + dai(p) + " DAI</b>，" + days(term) + "后还 <b>" + dai(r) + " DAI</b>（利息 " + A.fmt(it.i, 2) + " DAI，" + it.pct.toFixed(1) + "%，年化约 " + it.apr.toFixed(0) + "%）" +
           (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。出借人实付 " + dai(p + fee(p)) + " DAI（含 1% 手续费），你到手 " + dai(p) + " DAI。") + warn;
-      return r < p || p > MAX_PRINCIPAL ? null : { c: c, p: p, r: r, term: term };
+      return r < p ? null : { c: c, p: p, r: r, term: term };
     }
     col.oninput = pIn.oninput = rIn.oninput = calc;
     document.querySelectorAll("#ln-terms button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#ln-terms button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("ln-term").value = b.getAttribute("data-d"); calc(); }; });
@@ -366,7 +366,7 @@
   // ---------- 部署页：#/lend/deploy/<市场> ----------
   function renderDeploy(id) {
     var k = K(), app = A.app;
-    app.innerHTML = '<h1>部署借款合约 · ' + M.sym + ' 抵押（Anubis 链）</h1><p class="sub">用你的钱包把点对点借款合约 AilgnsLoanEscrow 部署到 Anubis 链，Gas 用 DAI。构造参数是下面的抵押币、DAI 和手续费收款地址；手续费 1%、单笔上限 2,000 DAI、期限 1–90 天都写死在合约里。</p>' + marketTabs("#/lend/deploy") +
+    app.innerHTML = '<h1>部署借款合约 · ' + M.sym + ' 抵押（Anubis 链）</h1><p class="sub">用你的钱包把点对点借款合约 AilgnsLoanEscrow 部署到 Anubis 链，Gas 用 DAI。构造参数是下面的抵押币、DAI 和手续费收款地址；手续费 1%、期限 1–90 天都写死在合约里，金额不限。</p>' + marketTabs("#/lend/deploy") +
       (LOAN ? '<section class="card"><p>这个市场已经部署：<a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + LOAN + " ↗</a>，不用再部署。</p></section>" : "") +
       '<section class="card"><dl class="dl"><dt>抵押币 ' + M.sym + '</dt><dd class="mono">' + M.token + '</dd><dt>DAI</dt><dd class="mono">' + ANUBIS_DAI + '</dd><dt>手续费收款地址</dt><dd class="mono">' + FEE_RECIPIENT + "</dd><dt>手续费</dt><dd>本金的 1%，出借人另付（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';

@@ -78,7 +78,7 @@ contract AilgnsLoanEscrowTest is Test {
     function test_constructor_and_constants() public {
         vm.expectRevert(bytes("ZERO_ADDRESS")); new AilgnsLoanEscrow(address(0), address(dai), FEE);
         vm.expectRevert(bytes("SAME_TOKEN")); new AilgnsLoanEscrow(address(dai), address(dai), FEE);
-        assertEq(esc.FEE_BPS(), 100); assertEq(esc.MAX_PRINCIPAL(), 2000 * E); assertEq(esc.feeOf(500 * E), 5 * E);
+        assertEq(esc.FEE_BPS(), 100); assertEq(esc.feeOf(500 * E), 5 * E);
     }
 
     // ---------- 挂单 ----------
@@ -108,7 +108,6 @@ contract AilgnsLoanEscrowTest is Test {
 
     function test_offer_rejects_bad_params() public {
         vm.startPrank(LENDER);
-        vm.expectRevert(bytes("OVER_MAX")); esc.offer(1 * E, 2001 * E, 2100 * E, 30 days, 7 days);
         vm.expectRevert(bytes("REPAY_LT_PRINCIPAL")); esc.offer(1 * E, 500 * E, 499 * E, 30 days, 7 days);
         vm.expectRevert(bytes("BAD_TERM")); esc.offer(1 * E, 500 * E, 520 * E, 1 hours, 7 days);
         vm.expectRevert(bytes("ZERO_AMOUNT")); esc.offer(0, 500 * E, 520 * E, 30 days, 7 days);
@@ -176,13 +175,12 @@ contract AilgnsLoanEscrowTest is Test {
         vm.startPrank(BORROWER);
         vm.expectRevert(bytes("ZERO_AMOUNT")); esc.request(0, 500 * E, 520 * E, 30 days, 7 days);
         vm.expectRevert(bytes("ZERO_AMOUNT")); esc.request(1 * E, 0, 0, 30 days, 7 days);
-        vm.expectRevert(bytes("OVER_MAX")); esc.request(1 * E, 2001 * E, 2100 * E, 30 days, 7 days);
         vm.expectRevert(bytes("REPAY_LT_PRINCIPAL")); esc.request(1 * E, 500 * E, 499 * E, 30 days, 7 days);
         vm.expectRevert(bytes("BAD_TERM")); esc.request(1 * E, 500 * E, 520 * E, 23 hours, 7 days);
         vm.expectRevert(bytes("BAD_TERM")); esc.request(1 * E, 500 * E, 520 * E, 91 days, 7 days);
         vm.expectRevert(bytes("BAD_DURATION")); esc.request(1 * E, 500 * E, 520 * E, 30 days, 9 minutes);
         vm.expectRevert(bytes("BAD_DURATION")); esc.request(1 * E, 500 * E, 520 * E, 30 days, 31 days);
-        esc.request(1 * E, 2000 * E, 2000 * E, 1 days, 10 minutes); // 边界值都允许：上限本金、0 利息、最短期限
+        esc.request(1 * E, 50_000 * E, 50_000 * E, 1 days, 10 minutes); // 边界值都允许：大额本金、0 利息、最短期限
         vm.stopPrank();
     }
 

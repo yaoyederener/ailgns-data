@@ -20,8 +20,6 @@ contract AilgnsLoanEscrow {
 
     /// 手续费：借款本金的 1%，出借人接单时另付
     uint256 public constant FEE_BPS = 100;
-    /// 单笔借款本金上限（DAI，18 位）：运行一段时间再决定放不放开
-    uint256 public constant MAX_PRINCIPAL = 2000e18;
     uint256 public constant MIN_LIST = 10 minutes;
     uint256 public constant MAX_LIST = 30 days;
     uint256 public constant MIN_TERM = 1 days;
@@ -87,7 +85,6 @@ contract AilgnsLoanEscrow {
     /// @param listDuration 挂单多少秒没人接就退回（10 分钟到 30 天）
     function request(uint256 collateral, uint256 principal, uint256 repayAmount, uint64 term, uint64 listDuration) external nonReentrant returns (uint256 id) {
         require(collateral > 0 && principal > 0, "ZERO_AMOUNT");
-        require(principal <= MAX_PRINCIPAL, "OVER_MAX");
         require(repayAmount >= principal, "REPAY_LT_PRINCIPAL");
         require(term >= MIN_TERM && term <= MAX_TERM, "BAD_TERM");
         require(listDuration >= MIN_LIST && listDuration <= MAX_LIST, "BAD_DURATION");
@@ -103,7 +100,6 @@ contract AilgnsLoanEscrow {
     /// @notice 出借人挂单：存入 principal + 手续费 的 DAI，要求借款人押 collateral 个币，到期还 repayAmount，借 term 秒
     function offer(uint256 collateral, uint256 principal, uint256 repayAmount, uint64 term, uint64 listDuration) external nonReentrant returns (uint256 id) {
         require(collateral > 0 && principal > 0, "ZERO_AMOUNT");
-        require(principal <= MAX_PRINCIPAL, "OVER_MAX");
         require(repayAmount >= principal, "REPAY_LT_PRINCIPAL");
         require(term >= MIN_TERM && term <= MAX_TERM, "BAD_TERM");
         require(listDuration >= MIN_LIST && listDuration <= MAX_LIST, "BAD_DURATION");
