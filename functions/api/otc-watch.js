@@ -103,7 +103,7 @@ async function book(m, now) {
     const o = w.slice(2 + i * 7, 9 + i * 7), sell = BigInt("0x" + o[1]) === 1n, open = BigInt("0x" + o[2]) === 1n, exp = Number(BigInt("0x" + o[3]));
     const gd = sell ? m.dec : 18, wd = sell ? 18 : m.dec; // 挂单存入的币 / 想换回的币各自的小数位
     const give = num(o[4], gd), want = num(o[5], wd), gl = num(o[6], gd);
-    if (!open || exp <= now || gl <= 0) continue;
+    if (!open || exp <= now || gl < 1e-4 || gl * want / give < 1e-4) continue; // 只剩零头的当作已成交
     out.push({ id: from + i, sell, price: sell ? want / give : give / want, qty: sell ? gl : gl * want / give, left: exp - now });
   }
   return out;
@@ -254,7 +254,7 @@ export async function onRequestGet(ctx) {
         if (l.topics[0] === FILLED) {
           const taker = "0x" + l.topics[2].slice(26), amount = num(d[0], gd), paid = num(d[1], wd), fee = num(d[2], gd), left = num(d[3], gd);
           msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
-            (left > 0 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交") + link]);
+            (left >= 1e-4 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交" + (left > 0 ? "（剩一点零头，可在网站「我的挂单」点取回）" : "")) + link]);
           fills.push({ m, qty: o.sell ? amount : paid, price: o.sell ? paid / amount : amount / paid });
           msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（已扣 1% 手续费 ${fmt(fee)}）` + link]);
         } else {

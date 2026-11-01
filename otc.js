@@ -75,6 +75,12 @@
     return (s.slice(0, -d) + "." + s.slice(-d)).replace(/\.?0+$/, "");
   }
   function ceilDiv(a, b) { return (a + b - 1n) / b; }
+  // 零头：剩下的不到 0.0001 个（挂单币或换回的币）。吃单按 4 位小数往下取时可能剩一点点，当作已成交，挂单人点「取回」就行
+  function isDustLeft(o, left) {
+    var gd = o.sellAilgns ? TD : 18, wd = o.sellAilgns ? 18 : TD;
+    return left < 10n ** BigInt(gd - 4) || ceilDiv(left * o.wantTotal, o.giveTotal) < 10n ** BigInt(wd - 4);
+  }
+  function isDust(o) { return o.giveLeft > 0n && isDustLeft(o, o.giveLeft); }
   function left(sec) {
     if (sec <= 0) return "已过期";
     var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
@@ -166,8 +172,13 @@
     return W.rpcOn(M.chain, "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) {
       throw new Error(niceError(e));
     }).then(function () {
+      // 用本站节点估好 Gas（多留 30%）一起交给钱包，有些钱包自己估算会失败（报「手续费估算失败」）
+      return W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: to, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; });
+    }).then(function (gas) {
+      var tx = { from: account, to: to, data: data };
+      if (gas) tx.gas = gas;
       say("请在钱包里确认：" + label + "…");
-      return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] });
+      return eth.request({ method: "eth_sendTransaction", params: [tx] });
     }).then(function (hash) {
       say(label + "已提交，等待链上确认…");
       return W.waitOn(M.chain, hash);
@@ -252,7 +263,7 @@
 
     function draw(id, orders, mkt) {
       var now = Date.now() / 1000;
-      var live = orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n; });
+      var live = orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); });
       var sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (a, b) { return priceOf(a) - priceOf(b); });
       var buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
@@ -445,12 +456,13 @@
       if (!list.length) return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
       return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
-          var status = !o.open ? (o.giveLeft === 0n ? "已结束" : "已结束") : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
+          var dust = o.open && isDust(o);
+          var status = !o.open ? "已结束" : dust ? "已成交，剩一点零头，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
-          if (r && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
-          var remain = o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
+          if (r && !dust && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
+          var remain = dust ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
           return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
-            (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
+            (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
         }).join("") + "</tbody></table></div></section>";
     }
 
@@ -657,13 +669,14 @@
           if (q > maxPay) q = maxPay;
           amount = (q * o.giveTotal) / o.wantTotal;
           if (amount > o.giveLeft) amount = o.giveLeft;
-          pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
         } else {
           if (q > maxAil) q = maxAil; // 付 AILGNS，拿走 DAI
           amount = (q * o.giveTotal) / o.wantTotal;
           if (amount > o.giveLeft) amount = o.giveLeft;
-          pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
         }
+        // 吃完后只剩零头的，连零头一起吃掉（多付不到 0.0001），不给挂单留下撤不掉的尾巴
+        if (amount < o.giveLeft && isDustLeft(o, o.giveLeft - amount)) amount = o.giveLeft;
+        pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
         fee = (amount * FEE_BPS) / 10000n; get = amount - fee;
         if (amount === 0n) { quote.textContent = "数量太小"; return null; }
         quote.innerHTML = o.sellAilgns
@@ -861,7 +874,7 @@
     Promise.all([marketPrice().catch(function () { return null; }), readOrders().catch(function () { return null; })]).then(function (r) {
       if (!A.isCurrent(id)) return;
       var now = Date.now() / 1000;
-      draw(r[0], r[1] ? r[1].filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0; }).length : null);
+      draw(r[0], r[1] ? r[1].filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); }).length : null);
     });
   };
   A.start();
