@@ -62,11 +62,22 @@ async function allLoans(m) {
   return out;
 }
 
+const groupText = (m, id, L) => `🤝 借贷成交 #${id}\n押 ${fmt(L.collateral)} ${m.sym}，借 ${dai2(L.principal)} DAI\n期限 ${days(L.term)}，到期还 ${dai2(L.repay)} DAI\n链上托管，不看币价、不清算，手续费只收出借人 1%\n🧬 ${LINK}`;
+
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1";
-  if (url.searchParams.get("log") === "1") return Response.json({ groupLog: (await kv.get("lnw:grouplog", "json")) || [] });
+  if (url.searchParams.get("log") === "1") return Response.json({ groupLog: (await kv.get("lnw:grouplog", "json")) || [], queue: (await kv.get("lnw:gq", "json")) || [] });
+  // ?repost=<借款编号>：把某笔已接单借款的成交播报重新排进发送队列（比如上次被 DeBox 限流吃掉了）
+  if (url.searchParams.get("repost")) {
+    const m = LOANS[0], id = parseInt(url.searchParams.get("repost"), 10), L = await loan(m, id);
+    if (!(L.status === 1 || L.status === 2 || L.status === 3)) return Response.json({ error: "这笔借款还没接单" }, { status: 400 });
+    const q = (await kv.get("lnw:gq", "json")) || [];
+    q.push({ text: groupText(m, id, L), tries: 0 });
+    await kv.put("lnw:gq", JSON.stringify(q));
+    return Response.json({ queued: id, queue: q.length });
+  }
   const msgs = [], groupPosts = [], status = {};
   const latest = parseInt(await rpc("eth_blockNumber", []), 16);
   for (const m of LOANS) {
@@ -87,7 +98,7 @@ export async function onRequestGet(ctx) {
           const due = Number(BigInt("0x" + d[2]));
           msgs.push([L.borrower, `💰 借款 #${id} 已成交，本金 ${dai2(L.principal)} DAI 已到你的钱包\n${terms}\n⏰ 还款截止：${bj(due)}（北京时间）。不会自动扣款，请到期前到「借贷 → 我的借贷」点「还款」，可以提前还；逾期抵押币归出借人` + link]);
           msgs.push([L.lender, `🤝 你的出借 #${id} 已成交\n${terms}\n⏰ 借款人应在 ${bj(due)}（北京时间）前还 ${dai2(L.repay)} DAI 到你钱包；逾期抵押币自动划给你` + link]);
-          groupPosts.push(`🤝 借贷成交 #${id}\n押 ${fmt(L.collateral)} ${m.sym}，借 ${dai2(L.principal)} DAI\n期限 ${days(L.term)}，到期还 ${dai2(L.repay)} DAI\n链上托管，不看币价、不清算，手续费只收出借人 1%\n🧬 ${LINK}`);
+          groupPosts.push(groupText(m, id, L));
         } else if (l.topics[0] === T.Repaid) {
           msgs.push([L.borrower, `✅ 借款 #${id} 已还清 ${dai2(L.repay)} DAI，抵押的 ${fmt(L.collateral)} ${m.sym} 已退回你的钱包` + link]);
           msgs.push([L.lender, `✅ 借款 #${id} 已还款：${dai2(L.repay)} DAI 已到你的钱包` + link]);
@@ -128,14 +139,23 @@ export async function onRequestGet(ctx) {
   let sent = 0, failed = 0;
   const groupSent = {};
   const glog = (await kv.get("lnw:grouplog", "json")) || [];
-  for (const text of groupPosts) {
-    for (const g of (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((x) => x.trim()).filter(Boolean)) {
+  const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((x) => x.trim()).filter(Boolean);
+  // 待发队列：上次发失败的（DeBox 限流等）+ 这次新的；每条记录发给哪些群还没成功
+  const queue = ((await kv.get("lnw:gq", "json")) || []).concat(groupPosts.map((text) => ({ text, tries: 0 })));
+  const left = [];
+  for (const item of queue) {
+    item.pending = item.pending || gids.slice();
+    const still = [];
+    for (const g of item.pending) {
       let ok = true, err = null;
-      try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = (groupSent[g] || 0) + 1; } catch (e) { ok = false; err = String(e.message || e).slice(0, 120); groupSent[g] = err; }
-      glog.unshift({ at: new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ") + " 北京", group: g, ok, err, head: text.split("\n")[0] });
+      try { await sendDebox(ctx.env, g, item.text, "group"); groupSent[g] = (groupSent[g] || 0) + 1; } catch (e) { ok = false; err = String(e.message || e).slice(0, 120); groupSent[g] = err; still.push(g); }
+      glog.unshift({ at: new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ") + " 北京", group: g, ok, err, head: item.text.split("\n")[0], tries: item.tries });
+      await new Promise((r) => setTimeout(r, 1200)); // 两条之间歇一下，避开 DeBox 的发送频率限制
     }
+    if (still.length && item.tries < 12) left.push({ text: item.text, tries: item.tries + 1, pending: still });
   }
-  if (groupPosts.length) await kv.put("lnw:grouplog", JSON.stringify(glog.slice(0, 50)));
+  await kv.put("lnw:gq", JSON.stringify(left));
+  if (queue.length) await kv.put("lnw:grouplog", JSON.stringify(glog.slice(0, 50)));
   for (const [addr, text] of msgs) {
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
     for (const u of users) {
