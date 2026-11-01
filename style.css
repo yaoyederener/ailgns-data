@@ -1044,3 +1044,59 @@ a.play-game:hover { text-decoration: none; border-color: var(--soft-line); backg
 .pg-t small { color: var(--muted); font-size: 13px; }
 .pg-go { font-weight: 700; color: #fff; background: var(--grad-dot); padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
 .pg-soon { font-size: 12px; color: var(--muted); background: var(--pill, #ebe7f7); padding: 6px 10px; border-radius: 999px; white-space: nowrap; }
+
+/* ---------- 顶部只留「AiLGNS OTC」「会员」，其它栏目收进左侧抽屉菜单（仿 awakehelix.io 官方菜单） ---------- */
+.menu-btn { flex: none; width: 40px; height: 40px; padding: 0; display: grid; place-items: center; background: transparent; color: var(--text); box-shadow: none; border-radius: 12px; margin-left: -8px; }
+.menu-btn:hover { background: var(--soft); }
+.menu-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.top-in .brand { margin-right: auto; }
+@media (max-width: 1100px) {
+  .top-in { flex-wrap: nowrap; height: 66px; padding-top: 0; padding-bottom: 0; }
+  .tabs { order: 0; flex: none; width: auto; padding: 0; flex-wrap: nowrap; }
+  .top-r { margin-left: 0; }
+}
+@media (max-width: 600px) {
+  .top-in { flex-wrap: wrap; height: auto; padding: 8px 16px 0; gap: 6px 8px; }
+  .top-in .brand-t { display: none; } /* 下面的「AiLGNS OTC」按钮已经写了名字，手机上 Logo 后面不再重复 */
+  .tabs { order: 3; flex: 1 1 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px 0 10px; }
+  .tabs a { padding: 9px 4px; font-size: 14px; }
+}
+
+.dw { position: fixed; inset: 0; z-index: 60; }
+.dw[hidden] { display: none; }
+.dw-mask { position: absolute; inset: 0; background: rgba(24, 17, 44, .43); opacity: 0; transition: opacity .2s; }
+.dw-panel { position: absolute; top: 0; bottom: 0; left: 0; width: min(353px, 88vw); background: #fff; border-radius: 0 22px 22px 0; box-shadow: 18px 0 70px rgba(25, 24, 57, .14);
+  display: flex; flex-direction: column; transform: translateX(-104%); transition: transform .22s ease; padding-top: env(safe-area-inset-top); }
+.dw.in .dw-mask { opacity: 1; }
+.dw.in .dw-panel { transform: none; }
+html.dw-lock, html.dw-lock body { overflow: hidden; }
+.dw-head { padding: 20px 20px 16px; border-bottom: 1px solid var(--line); display: grid; gap: 14px; }
+.dw-top { display: flex; align-items: center; justify-content: space-between; }
+.dw-top .hx-logo { height: 40px; width: auto; }
+.dw-x { width: 42px; height: 42px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: var(--soft); color: var(--text); border: 1px solid var(--soft-line); box-shadow: none; }
+.dw-x svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.dw-wallet { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px 10px 10px; border-radius: 18px; background: linear-gradient(135deg, #faf6ff, #efe0fb); border: 1px solid var(--soft-line);
+  color: var(--purple-ink); box-shadow: inset 0 1px 0 #fff, 0 2px 0 #e6d8f7; font-size: 16px; text-align: left; }
+.dw-wallet b { flex: 1; font-weight: 700; }
+.dw-wi { width: 40px; height: 40px; border-radius: 12px; background: #fff; display: grid; place-items: center; flex: none; }
+.dw-wi svg, .dw-items a > svg:first-child { width: 22px; height: 22px; fill: none; stroke: var(--gold); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dw-chev { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.dw-search { display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 46px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line); }
+.dw-search svg { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.dw-search input { flex: 1; border: 0; background: transparent; outline: none; font: inherit; font-size: 15px; color: var(--text); padding: 0; min-width: 0; }
+.dw-body { flex: 1; overflow-y: auto; padding: 14px 16px 10px; display: grid; gap: 10px; align-content: start; -webkit-overflow-scrolling: touch; }
+.dw-gh { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--purple-ink); box-shadow: none; text-align: left; }
+.dw-gh b { font-size: 15.5px; font-weight: 700; }
+.dw-gh small { color: var(--muted); font-size: 12px; letter-spacing: 1px; font-weight: 500; }
+.dw-up { width: 18px; height: 18px; margin-left: auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: rotate(180deg); transition: transform .2s; }
+.dw-group.open .dw-gh { background: linear-gradient(135deg, #faf6ff, #efe0fb); border-color: var(--soft-line); box-shadow: inset 0 1px 0 #fff, 0 2px 0 #e6d8f7; }
+.dw-group.open .dw-up { transform: none; }
+.dw-items { display: none; gap: 4px; padding: 8px 0 2px; }
+.dw-group.open .dw-items { display: grid; }
+.dw-items a { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid transparent; color: var(--purple-ink); font-size: 15.5px; font-weight: 600; }
+.dw-items a span { flex: 1; }
+.dw-items a:hover { text-decoration: none; background: var(--soft); }
+.dw-items a.on { background: var(--grad-dot); border-color: #7727d6; color: #fff; box-shadow: 0 3px 10px rgba(112, 39, 217, .15); }
+.dw-items a.on > svg:first-child { stroke: #fff; }
+.dw-none { color: var(--muted); text-align: center; padding: 20px 0; }
+.dw-foot { margin: 0; padding: 12px 20px calc(14px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--muted); text-align: center; border-top: 1px solid var(--line); }
