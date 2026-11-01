@@ -59,12 +59,13 @@ export async function onRequestGet(ctx) {
 async function catchUp(kv) {
   let budget = BUDGET;
   const rpc = async (chain, method, params) => {
-    budget--;
     const list = CHAINS[chain].rpcs;
     let e;
-    for (let k = 0; k < list.length; k++) {
+    for (let k = 0; k < list.length * 2; k++) { // 每个节点试两次（publicnode 偶尔从 Cloudflare 调会失败）
+      if (k && budget <= 1) break;
+      budget--; // 每次 fetch 都算（免费版每次调用最多 50 次子请求）
       try {
-        const r = await fetch(list[k], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+        const r = await fetch(list[k % list.length], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
         const j = await r.json();
         if (j.error) throw new Error(j.error.message);
         return j.result;
@@ -88,9 +89,13 @@ async function catchUp(kv) {
     if (!days[d]) days[d] = (await kv.get("st:d:" + d, "json")) || emptyDay();
     return days[d];
   };
+  const errors = [];
   const tot = (await kv.get("st:tot", "json")) || { orders: 0, orderDai: 0, fills: 0, fillDai: 0 };
   // 一段一段读；预算不够时停在已处理完的区块，下次接着读
   async function walk(key, chain, start, query, handle) {
+    try { await walk1(key, chain, start, query, handle); } catch (e) { errors.push(key + ": " + String((e && e.message) || e).slice(0, 120)); } // 一条链出错不影响别的
+  }
+  async function walk1(key, chain, start, query, handle) {
     let from = (st.cur[key] || start - 1) + 1;
     while (from <= latest[chain] && budget > 3) {
       const to = Math.min(latest[chain], from + CHAINS[chain].span - 1);
@@ -100,7 +105,9 @@ async function catchUp(kv) {
       for (let i = 0; i < logs.length; i++) {
         const b = parseInt(logs[i].blockNumber, 16);
         if (budget <= 1 && !ts[chain + b]) { done = b - 1; break; } // 没预算查这个区块的时间了：这个区块下次再处理
-        await handle(logs[i], await dayOf(chain, b));
+        let d;
+        try { d = await dayOf(chain, b); } catch (e) { if (ts[chain + b]) throw e; done = b - 1; break; } // 查不到区块时间：从这个区块开始下次再处理，不会重复计数
+        await handle(logs[i], d);
       }
       st.cur[key] = done;
       if (done < to) break;
@@ -144,7 +151,7 @@ async function catchUp(kv) {
   await kv.put("st:tot", JSON.stringify(tot));
   await kv.put("st:cur", JSON.stringify(st));
   const behind = MARKETS.some((m) => behindOf(m.key, m.chain)) || Object.keys(CHAINS).some((c) => behindOf("pay_" + c, c));
-  return { behind, cur: st.cur, budgetLeft: budget };
+  return { behind, cur: st.cur, budgetLeft: budget, ...(errors.length ? { errors } : {}) };
 }
 
 // ---------- 日报文字 ----------
