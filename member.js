@@ -1572,6 +1572,18 @@
         bindRefresh();
         return;
       }
+      // 💰 谁在充钱（高级 VIP）：这段时间伞下入金的地址去重列出来，点一下复制，不用导出
+      var byAddr = {};
+      team.forEach(function (r) { var x = byAddr[r.addr] || (byAddr[r.addr] = { addr: r.addr, power: 0, n: 0, line: r.line, depth: r.depth, t: r.t }); x.power += r.power; x.n++; if (r.t > x.t) x.t = r.t; });
+      var radar = Object.keys(byAddr).map(function (k) { return byAddr[k]; }).sort(function (a, b) { return b.power - a.power; });
+      var plabel = (PERIODS.filter(function (p) { return p[0] === period; })[0] || ["", "这段时间"])[1];
+      html += '<section class="radar"><div class="card-head"><h3 class="g-h" style="margin:0">💰 谁在充钱 <span class="vip vip-pro" style="font-size:12px;vertical-align:2px">' + vipEmblem("pro", 14) + '高级 VIP</span></h3><span class="muted">' + plabel + "伞下入金 " + radar.length + " 个地址 · 点「复制」直接拿地址，不用导出</span></div>" +
+        (isPro()
+          ? '<div class="radar-acts"><button class="ghost" id="rd-all">复制全部地址（' + radar.length + '）</button><button class="ghost" id="rd-all2">复制地址 + 金额</button></div>' +
+            '<div class="radar-list">' + radar.map(function (x) {
+              return '<div class="rd-row"><div class="rd-main"><span class="mono rd-addr">' + x.addr + '</span><small class="muted">' + fmtT(x.t) + " · " + x.n + " 笔 · 直推线 " + A.short(x.line) + " · 第 " + x.depth + ' 层</small></div><b class="num">+' + A.fmt(A.toDai(x.power), 2) + ' DAI</b><button class="ghost rd-copy" data-a="' + x.addr + '">复制</button></div>';
+            }).join("") + "</div>"
+          : '<div class="rd-lock"><span class="muted">高级 VIP 专属：' + plabel + '伞下入金的 ' + radar.length + ' 个地址全部列出，单个复制或一键复制全部，不用导出表格、不用翻结构图。</span><button class="ghost" id="rd-unlock">解锁高级 VIP</button></div>') + "</section>";
       html += '<h3 class="g-h">按直推线</h3><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">直推线</th><th>新增入金 DAI</th><th>DAI 投入</th><th>销毁 LGNS</th><th>笔数</th><th>地址数</th></tr></thead><tbody>' +
         lineList.map(function (L) {
           return '<tr><td data-l="直推线" class="l">' + A.addrLink(L.line, "team") + '</td><td data-l="新增入金 DAI"><b>' + A.fmt(A.toDai(L.power), 2) + '</b></td><td data-l="DAI 投入">' + A.fmt(L.dai, 2) + '</td><td data-l="销毁 LGNS">' + A.fmt(L.lgns, 2) +
@@ -1598,6 +1610,12 @@
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
       });
       proMark(document.getElementById("g-csv"));
+      // 谁在充钱：复制
+      el.querySelectorAll(".rd-copy").forEach(function (b) { b.onclick = function () { copyText(b.getAttribute("data-a"), b); }; });
+      var ra = document.getElementById("rd-all"), ra2 = document.getElementById("rd-all2"), ru = document.getElementById("rd-unlock");
+      if (ra) ra.onclick = function () { copyText(radar.map(function (x) { return x.addr; }).join("\n"), ra); };
+      if (ra2) ra2.onclick = function () { copyText(radar.map(function (x) { return x.addr + "\t" + A.fmt(A.toDai(x.power), 2) + " DAI\t" + x.n + " 笔"; }).join("\n"), ra2); };
+      if (ru) ru.onclick = proOnly(function () {});
     }
     function bindRefresh() {
       var b = document.getElementById("g-refresh");

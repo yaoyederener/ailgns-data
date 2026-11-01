@@ -1177,3 +1177,17 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 
 /* 借贷表单：出借方先填 DAI 金额，再填要求抵押 */
 #ln-grid.lend-first #ln-p-l { order: -1; }
+
+/* 团队新增业绩 · 谁在充钱（高级 VIP）：伞下入金地址一键复制 */
+.radar { margin: 16px 0 4px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(180deg, #fff8e6, var(--panel) 60%); border: 1px solid #f3d98a; }
+.radar-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 10px; }
+.radar-acts button { padding: 7px 14px; font-size: 13px; }
+.radar-list { display: grid; gap: 6px; max-height: 420px; overflow: auto; }
+.rd-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); }
+.rd-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.rd-addr { font-size: 12.5px; overflow-wrap: anywhere; }
+.rd-row b { white-space: nowrap; color: var(--up); }
+.rd-row button { padding: 6px 12px; flex: none; }
+.rd-lock { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
+.rd-lock button { padding: 7px 14px; margin-left: auto; }
+@media (max-width: 600px) { .rd-row { flex-wrap: wrap; } .rd-row b { order: 2; } .rd-row button { order: 3; margin-left: auto; } .rd-main { flex-basis: 100%; } }
