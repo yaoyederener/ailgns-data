@@ -99,8 +99,11 @@ export async function onRequestGet(ctx) {
         }
       }
       // 到期提醒：借款中、还没还的，到期前 24 小时和 1 小时各提醒一次
-      const now = Math.floor(Date.now() / 1000), remind = [];
-      for (const L of await allLoans(m)) {
+      const now = Math.floor(Date.now() / 1000), remind = [], all = await allLoans(m);
+      // 累计借出（已接单的：借款中 / 已还清 / 已违约），给首页「全站累计」用
+      const lent = all.filter((L) => L.status === 1 || L.status === 2 || L.status === 3);
+      if (!dry) await kv.put("st:lend:" + m.key, JSON.stringify({ principal: lent.reduce((t, L) => t + L.principal, 0), n: lent.length, at: Date.now() }));
+      for (const L of all) {
         if (L.status !== 1) continue;
         const left = L.due - now;
         for (const [tag, limit, label] of [["r24", 24 * 3600, "24 小时"], ["r1", 3600, "1 小时"]]) {

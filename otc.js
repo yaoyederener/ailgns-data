@@ -282,7 +282,12 @@
     if (totals && Date.now() - totalsAt < 300000) return Promise.resolve(totals);
     return fetch("/api/totals").then(function (r) { return r.json(); }).then(function (t) { totals = t; totalsAt = Date.now(); return t; }).catch(function () { return totals; });
   }
-  function totalsHtml(t) { return t && t.fillDai ? '<div class="tot"><span class="tot-k">全站累计成交</span><b class="num">' + A.fmt(t.fillDai, 0) + '</b><span class="tot-u">DAI</span><span class="tot-n">' + A.fmt(t.fills) + ' 笔 · 链上可查</span></div>' : ""; }
+  function totalsHtml(t) {
+    if (!t || !t.fillDai) return "";
+    return '<div class="tot"><span class="tot-k">全站累计成交</span><b class="num">' + A.fmt(t.fillDai, 0) + '</b><span class="tot-u">DAI</span><span class="tot-s">' + A.fmt(t.fills) + ' 笔</span>' +
+      (t.lendDai ? '<span class="tot-sep"></span><span class="tot-k">借贷累计借出</span><b class="num">' + A.fmt(t.lendDai, 0) + '</b><span class="tot-u">DAI</span><span class="tot-s">' + A.fmt(t.loans) + ' 笔</span>' : "") +
+      '<span class="tot-n">链上可查</span></div>';
+  }
   function fillTotals() { loadTotals().then(function (t) { var el = document.getElementById("otc-tot"); if (el) el.innerHTML = totalsHtml(t); }); }
   A.fillTotals = fillTotals;
 
