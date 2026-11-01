@@ -7,6 +7,7 @@
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 import { rebuildIfNeeded } from "../../lib/pixel.js";
+import { bjDay } from "../../lib/stats.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -33,7 +34,8 @@ const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），
 // otct:<地址> 记所有成交；送会员只看 otcq:<地址>：单笔成交满 50 DAI 才算（防小额刷单刷会员），满一笔送初级 VIP，累计满 1 万 DAI 送高级 VIP
 // 三个市场的成交额合并累计（DAI 两条链都是 18 位）
 const VIP_MIN_FILL = 50;
-async function markTraders(m, kv, logs, cache) {
+const OLD_VIP_CUTOFF = { anubis: 17967579, polygon: 96531101 }; // 和 functions/api/member.js 的 OTC_VIP_CUTOFF 一样
+async function markTraders(m, kv, logs, cache, live = false) {
   for (const l of logs) {
     if (l.topics[0] !== FILLED) continue;
     const key = "otcf:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
@@ -48,9 +50,10 @@ async function markTraders(m, kv, logs, cache) {
     }
     await kv.put(key, "1");
   }
-  await markVip(m, kv, logs, cache);
+  await markVip(m, kv, logs, cache, live);
 }
-async function markVip(m, kv, logs, cache) {
+// live：正常进度读到的新成交（补记以前的成交时不算），新送出的初级 VIP 记进 st:v:<北京日期>，内部群日报用
+async function markVip(m, kv, logs, cache, live = false) {
   for (const l of logs) {
     if (l.topics[0] !== FILLED) continue;
     const key = "otcq:f:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
@@ -59,7 +62,12 @@ async function markVip(m, kv, logs, cache) {
     const vol = o.sell ? num(d[1]) : num(d[0]);
     if (vol >= VIP_MIN_FILL) {
       for (const a of new Set([o.maker, "0x" + l.topics[2].slice(26)])) {
-        const r = (await kv.get("otcq:" + a, "json")) || { id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16), chain: m.chain.toLowerCase() };
+        const old = await kv.get("otcq:" + a, "json"), r = old || { id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16), chain: m.chain.toLowerCase() };
+        const first = (await kv.get("otct:" + a, "json")) || {}; // 50 DAI 门槛之前就成交过的老用户本来就有会员，不算新送的
+        if (!old && live && !(first.block < (OLD_VIP_CUTOFF[first.chain || "anubis"] || 0))) {
+          const dk = "st:v:" + bjDay(), list = (await kv.get(dk, "json")) || [];
+          if (!list.includes(a)) { list.push(a); await kv.put(dk, JSON.stringify(list), { expirationTtl: 90 * 86400 }); }
+        }
         r.vol = (r.vol || 0) + vol;
         r.n = (r.n || 0) + 1;
         await kv.put("otcq:" + a, JSON.stringify(r));
@@ -327,7 +335,7 @@ export async function onRequestGet(ctx) {
     }
   }
   for (const [m, logs, cache, from, latest] of done) {
-    await markTraders(m, kv, logs, cache).catch(() => {});
+    await markTraders(m, kv, logs, cache, true).catch(() => {});
     if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
     await backfillVip(m, kv, from - 1, cache).catch(() => {});
     await kv.put(m.kv + "block", String(latest));
