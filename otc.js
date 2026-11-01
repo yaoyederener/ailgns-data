@@ -75,11 +75,15 @@
     return (s.slice(0, -d) + "." + s.slice(-d)).replace(/\.?0+$/, "");
   }
   function ceilDiv(a, b) { return (a + b - 1n) / b; }
-  // 零头：剩下的不到 0.0001 个（挂单币或换回的币）。吃单按 4 位小数往下取时可能剩一点点，当作已成交，挂单人点「取回」就行
-  function isDustLeft(o, left) {
+  // 零头：剩下的不到 0.0001 个（挂单币或换回的币），吃单按 4 位小数往下取时会剩这么一点
+  function isCrumb(o, left) {
     var gd = o.sellAilgns ? TD : 18, wd = o.sellAilgns ? 18 : TD;
     return left < 10n ** BigInt(gd - 4) || ceilDiv(left * o.wantTotal, o.giveTotal) < 10n ** BigInt(wd - 4);
   }
+  // 剩下的值多少 DAI：卖单按单价折算，买单存的就是 DAI
+  function daiLeft(o, left) { return o.sellAilgns ? ceilDiv(left * o.wantTotal, o.giveTotal) : left; }
+  var MIN_DAI = 10n ** 18n; // 剩余不足 1 DAI 的挂单自动下架：不在市场里显示，挂单人点「取回」退回（到期也会自动退回）
+  function isDustLeft(o, left) { return isCrumb(o, left) || daiLeft(o, left) < MIN_DAI; }
   function isDust(o) { return o.giveLeft > 0n && isDustLeft(o, o.giveLeft); }
   function left(sec) {
     if (sec <= 0) return "已过期";
@@ -457,10 +461,10 @@
       return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var dust = o.open && isDust(o);
-          var status = !o.open ? "已结束" : dust ? "已成交，剩一点零头，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
+          var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
           if (r && !dust && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
-          var remain = dust ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
+          var remain = dust && isCrumb(o, o.giveLeft) ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
           return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
         }).join("") + "</tbody></table></div></section>";
@@ -590,6 +594,7 @@
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
+        if (v.total < MIN_DAI) { say("挂单总额至少 1 DAI", true); return; }
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number(document.getElementById("otc-dur").value);
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
@@ -674,8 +679,9 @@
           amount = (q * o.giveTotal) / o.wantTotal;
           if (amount > o.giveLeft) amount = o.giveLeft;
         }
-        // 吃完后只剩零头的，连零头一起吃掉（多付不到 0.0001），不给挂单留下撤不掉的尾巴
-        if (amount < o.giveLeft && isDustLeft(o, o.giveLeft - amount)) amount = o.giveLeft;
+        // 吃完后剩下不到 1 DAI 的，连剩下的一起吃掉，不给挂单留下没人要的尾巴
+        var swept = amount > 0n && amount < o.giveLeft && isDustLeft(o, o.giveLeft - amount);
+        if (swept) amount = o.giveLeft;
         pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
         fee = (amount * FEE_BPS) / 10000n; get = amount - fee;
         if (amount === 0n) { quote.textContent = "数量太小"; return null; }
@@ -683,6 +689,7 @@
           ? "你付 <b>" + show(pay, 4) + " DAI</b>，收到 <b>" + tShow(get) + " " + SYM + "</b><br><span class=\"muted\">手续费 1%：" + tShow(fee) + " " + SYM + "</span>"
           : "你付 <b>" + tShow(pay) + " " + SYM + "</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
         if (capped) quote.innerHTML += '<br><span class="muted">这张单只剩这么多，已按剩下的全部算</span>';
+        else if (swept) quote.innerHTML += '<br><span class="muted">这张单买完后只剩不到 1 DAI，已一起算上</span>';
         return { amount: amount, pay: pay };
       }
       qty.oninput = plan;
