@@ -1174,3 +1174,6 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .xfer { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: var(--soft); border: 1px solid var(--soft-line); }
 .xfer h3 { margin: 0 0 6px; font-size: 15px; }
 .xfer p { margin: 0 0 10px; font-size: 13px; line-height: 1.6; }
+
+/* 借贷表单：出借方先填 DAI 金额，再填要求抵押 */
+#ln-grid.lend-first #ln-p-l { order: -1; }

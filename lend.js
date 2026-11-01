@@ -20,6 +20,7 @@
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
   var GUIDE_MONTHLY = 0.10; // 指导利息：月息 10%，按天折算（只是参考，借多少还多少由挂单人自己定）
+  var GUIDE_OVER = 1.10; // 指导抵押：抵押品现值 = 借款金额 × 110%（按 DEX 市价算，只是参考）
   function guideRepay(p, term) { return p + p * BigInt(Math.round(GUIDE_MONTHLY * term / (30 * 86400) * 1e6)) / 1000000n; }
   var STATUS = ["挂单中", "借款中", "已还清", "已违约", "已撤单 / 已退回"];
   var REASONS = {
@@ -209,8 +210,8 @@
   function form(k) {
     return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">押 ' + M.sym + ' 借 DAI</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
       '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我有 ' + M.sym + '，想借 DAI</button><button data-side="lend">我有 DAI，想出借</button></div>' +
-      '<div class="form-grid"><label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
-      '<label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
+      '<div class="form-grid" id="ln-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
+      '<label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
       '<div class="qty-pick" id="ln-pick"></div><div class="guide" id="ln-guide" hidden></div>' +
       '<div class="dur"><span class="dur-t">借款期限 <small class="muted">从接单那一刻起算</small></span><input type="hidden" id="ln-term" value="' + TERM_DEFAULT + '">' +
@@ -223,18 +224,31 @@
   function bind(id, loans) {
     var k = K(), app = A.app, side = "borrow";
     var col = document.getElementById("ln-col"), pIn = document.getElementById("ln-p"), rIn = document.getElementById("ln-r"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), pick = document.getElementById("ln-pick"), guideEl = document.getElementById("ln-guide");
-    var autoRepay = true; // 到期还款没手动改过时，跟着指导价自动填
+    // 指导价：有 AiLGNS 的先填抵押数量 → 算出能借多少（抵押 110%）和到期还多少（月息 10%）；有 DAI 的先填出借金额 → 算出要求对方押多少和到期收回多少
+    // 自动填进去的值，用户手动改过就不再覆盖；点「用这个价」恢复
+    var autoSec = true, autoRepay = true;
     function guide() {
       if (!guideEl) return;
-      var p = k.toWei(pIn.value), term = Number(document.getElementById("ln-term").value);
-      if (!p || p <= 0n) { guideEl.hidden = true; return; }
-      var g = guideRepay(p, term);
-      guideEl.hidden = false;
-      guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + dai(g) + '</b><small>DAI · 按月息 ' + (GUIDE_MONTHLY * 100) + "% 折算 " + days(term) + "（利息 " + dai(g - p) + ' DAI）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
-        '<p class="muted">只是参考：借多少、还多少都由挂单人自己定；利息高接单快，利息低省钱。</p>';
-      document.getElementById("ln-guse").onclick = function () { rIn.value = floorDai(g); autoRepay = true; calc(); };
+      var term = Number(document.getElementById("ln-term").value), lend = side === "lend", g, pr, cl;
+      if (lend) {
+        pr = k.toWei(pIn.value); if (!pr || pr <= 0n) { guideEl.hidden = true; return; }
+        if (mkt) { cl = toTokWei((Number(pr) / 1e18 * GUIDE_OVER / mkt).toFixed(M.dec === 18 ? 6 : 2)); if (autoSec || !col.value) { col.value = floorTok(cl); autoSec = true; } }
+      } else {
+        cl = toTokWei(col.value); if (!cl || cl <= 0n) { guideEl.hidden = true; return; }
+        if (mkt) { pr = k.toWei((tokN(cl) * mkt / GUIDE_OVER).toFixed(2)); if (autoSec || !pIn.value) { pIn.value = floorDai(pr); autoSec = true; } }
+        else pr = k.toWei(pIn.value);
+      }
+      if (!pr || pr <= 0n) { guideEl.hidden = true; return; }
+      g = guideRepay(pr, term);
       if (autoRepay || !rIn.value) { rIn.value = floorDai(g); autoRepay = true; }
+      guideEl.hidden = false;
+      guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? tok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
+        (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(GUIDE_OVER * 100) + "%" : "可借 · 抵押品现值的 " + Math.round(100 / GUIDE_OVER) + "%（抵押率 " + Math.round(GUIDE_OVER * 100) + "%）") +
+        " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "%，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
+        '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、还多少都由挂单人自己定；利息高接单快，抵押多出借人更放心。</p>';
+      document.getElementById("ln-guse").onclick = function () { autoSec = true; autoRepay = true; guide(); calc(); };
     }
+    function floorTok(v) { var n = Number(v) / Math.pow(10, M.dec); return (Math.floor(n * 10000) / 10000).toString(); }
     function floorDai(v) { var n = Number(v) / 1e18; return (Math.round(n * 100) / 100).toString(); }
     if (!st) { st = document.createElement("p"); st.className = "note"; (document.getElementById("otc-mine") || app).appendChild(st); } // 旧合约页没有表单：提示放在「我的借贷」下面
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
@@ -269,6 +283,8 @@
       document.getElementById("ln-r-l").firstChild.textContent = lend ? "到期收回（DAI，含利息）" : "到期还款（DAI，含利息）";
       document.getElementById("otc-create").textContent = lend ? "发布出借单（存入 DAI）" : "发布借款单（存入 " + M.sym + "）";
       document.getElementById("ln-exp-hint").textContent = lend ? "没人来借就自动退回 DAI" : "没人接单就自动退回抵押币";
+      document.getElementById("ln-grid").classList.toggle("lend-first", lend); // 有 DAI 的先填 DAI
+      autoSec = true; autoRepay = true; col.value = ""; pIn.value = ""; rIn.value = ""; guideEl.hidden = true;
       showPick(); calc();
     }
     document.querySelectorAll("#otc-side button").forEach(function (b) { b.onclick = function () { setSide(b.getAttribute("data-side")); }; });
@@ -300,8 +316,8 @@
           (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。出借人实付 " + dai(p + fee(p)) + " DAI（含 1% 手续费），你到手 " + dai(p) + " DAI。") + warn;
       return r < p ? null : { c: c, p: p, r: r, term: term };
     }
-    col.oninput = calc;
-    pIn.oninput = function () { guide(); calc(); };
+    col.oninput = function () { if (side === "lend") autoSec = false; guide(); calc(); };
+    pIn.oninput = function () { if (side !== "lend") autoSec = false; guide(); calc(); };
     rIn.oninput = function () { autoRepay = false; calc(); };
     document.querySelectorAll("#ln-terms button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#ln-terms button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("ln-term").value = b.getAttribute("data-d"); guide(); calc(); }; });
     document.querySelectorAll("#otc-durs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("otc-dur").value = b.getAttribute("data-d"); }; });
