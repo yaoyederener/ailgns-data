@@ -42,7 +42,7 @@ export async function onRequestGet(ctx) {
   const yesterday = bjDay(Date.now() - 86400e3);
   if (dry) return Response.json({ text: await report(kv, url.searchParams.get("day") || yesterday) });
 
-  const scan = await catchUp(kv);
+  const scan = await catchUp(kv).catch((e) => ({ behind: true, error: String((e && e.stack) || e).slice(0, 400) }));
   let sent = null, err = null;
   const hour = new Date(Date.now() + 8 * 3600e3).getUTCHours();
   if (ENABLED && hour >= SEND_HOUR && !scan.behind && (await kv.get("st:sent")) !== yesterday) {
