@@ -120,6 +120,7 @@
     "0x573a0a61a2d6946c7033ec12aba79b70d1da290c": { usd: PRO_USD, note: "赠送" },
     "0xb80e42e9eef4410a5ad48bdd070806b969029dce": { usd: FEE_USD, note: "赠送" },
     "0x5f6f3adb13f650e90758053deca1a6eab12b156d": { usd: PRO_USD, note: "赠送" },
+    "0xd923bd2b62292ad0f315a819c73a6ccfd867a8f6": { usd: FEE_USD, note: "赠送" },
     "0xb23aadf2367746f1a3db36a618c6d6f097e5c6e7": { usd: FEE_USD, note: "手动开通（Anubis 链 DAI 20 枚）", chain: "anubis", tx: "0x384b455267ede4b3e0bfdf89435c6bf0ebf14640776ff39a044580119a1b20cf" }
   };
   // 这个地址自己转给收款地址的全部付款（没下单直接转的，算付款地址自己的）
