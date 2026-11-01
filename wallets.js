@@ -311,7 +311,7 @@
   A.pages.app = function () {
     var k = defaultGuide(), g = GUIDES[k], inWallet = list().length > 0, url = "https://ailgns.dev";
     var html = '<section class="app-hero"><img src="/favicon.png?v=hx2" alt="" width="88" height="88">' +
-      '<div><h1>AiLGNS OTC App</h1><p>官方授权 AiLGNS OTC 服务站 · 装到手机桌面，和 App 一样用</p>' +
+      '<div><h1>AiLGNS OTC App</h1><p>官方认证 AiLGNS OTC 服务站 · 装到手机桌面，和 App 一样用</p>' +
       '<div class="app-feats"><span>📲 桌面一点就开</span><span>🔎 不用再找网址</span><span>🖥️ 全屏像 App</span><span>⚡ 自动更新</span></div></div></section>';
     var main;
     if (standalone()) {
@@ -334,7 +334,7 @@
     }).join("") + "</section>";
     html += '<section class="card"><div class="card-head"><h2>装好后怎么交易</h2></div><p class="g-note" style="margin:0">从桌面图标打开后，点「连接钱包」或「在钱包 App 里打开」，会自动跳到你的钱包（OKX、TokenPocket、MetaMask 等）里签名交易。</p></section>';
     html += '<section class="card"><div class="card-head"><h2>常见问题</h2></div><dl class="app-faq">' +
-      "<dt>安全吗？</dt><dd>就是官方授权网站 ailgns.dev 本身，不下载任何安装包，不要任何手机权限，也不会索取私钥或助记词。</dd>" +
+      "<dt>安全吗？</dt><dd>就是官方认证网站 ailgns.dev 本身，不下载任何安装包，不要任何手机权限，也不会索取私钥或助记词。</dd>" +
       "<dt>怎么删除？</dt><dd>和删 App 一样：长按桌面图标 → 删除 / 移除。</dd>" +
       "<dt>要更新吗？</dt><dd>不用。每次打开都是最新版，自动更新。</dd>" +
       "<dt>为什么苹果商店搜不到？</dt><dd>这是网页版 App，直接从网站装到桌面，不经过应用商店，打开和 App 一样。</dd></dl></section>";

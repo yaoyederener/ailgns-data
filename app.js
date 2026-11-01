@@ -486,7 +486,7 @@
       '<a class="poster-cta" href="' + debox + '" target="_blank" rel="noopener">联系站长 DeBox　→</a>' +
       '<div class="poster-foot">一对一沟通 · 方案报价面议 · 交付后持续调整</div>' +
       "</div></section>" +
-      '<p class="note" style="text-align:center">本站为 AWAKE HELIX 官方授权的 AiLGNS OTC 服务站。本站不会索取私钥或助记词。</p>';
+      '<p class="note" style="text-align:center">本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。本站不会索取私钥或助记词。</p>';
   }
 
   function route() {
