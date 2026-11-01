@@ -4,6 +4,7 @@
 // POST { action: "check", id, tx? }    → 查这个订单有没有到账，到账就记到会员地址上 { paid, payment, target }
 // KV：mord:<id> 订单（2 天过期）；mamt:<method>:<units> 金额占用；mem:<地址> 付款列表；memtx:<tx> 已认领的交易
 import { RPCS } from "../../lib/teamlib.js";
+import { recoverAddress } from "../../lib/evmsig.js";
 
 const RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -70,15 +71,16 @@ export async function onRequestGet(ctx) {
   const addr = (u.searchParams.get("addr") || "").toLowerCase();
   if (!isAddr(addr)) return new Response("bad address", { status: 400 });
   const txs = (u.searchParams.get("txs") || "").toLowerCase().split(",").filter(isTx).slice(0, 50);
-  const [payments, giftPayer, giftedTo, otcq, otct, ...claims] = await Promise.all([
-    kv.get("mem:" + addr, "json"), kv.get("giftto:" + addr), kv.get("gift:" + addr), kv.get("otcq:" + addr, "json"), kv.get("otct:" + addr, "json"), ...txs.map((t) => kv.get("memtx:" + t))
+  const [payments, giftPayer, giftedTo, otcq, otct, xferOut, xferIn, ...claims] = await Promise.all([
+    kv.get("mem:" + addr, "json"), kv.get("giftto:" + addr), kv.get("gift:" + addr), kv.get("otcq:" + addr, "json"), kv.get("otct:" + addr, "json"), kv.get("vipx:out:" + addr, "json"), kv.get("vipx:in:" + addr, "json"), ...txs.map((t) => kv.get("memtx:" + t))
   ]);
   const old = otct && otct.block < (OTC_VIP_CUTOFF[otct.chain || "anubis"] || 0);
   const otcTrader = otcq || (old ? otct : null);
   // 这个地址自己转出去的付款，如果是给别的地址下的订单付的，就不算它自己的
   const claimed = txs.filter((t, i) => claims[i] && claims[i] !== addr);
   // otcAll：全部成交（含单笔不足 50 DAI 的），只用来给客户看累计；送会员只看 otcTrader
-  return Response.json({ payments: payments || [], giftPayer, giftedTo, claimed, otcTrader, otcAll: otct || null }, { headers: { "cache-control": "no-store" } });
+  // transferredTo：这个地址的会员已转赠给谁（自己就不再是会员）；inheritFrom：谁把会员转赠给了这个地址（按那个地址的记录算会员）
+  return Response.json({ payments: payments || [], giftPayer, giftedTo, claimed, otcTrader, otcAll: otct || null, transferredTo: xferOut ? xferOut.to : null, inheritFrom: xferIn ? xferIn.from : null }, { headers: { "cache-control": "no-store" } });
 }
 
 export async function onRequestPost(ctx) {
@@ -89,10 +91,32 @@ export async function onRequestPost(ctx) {
   try {
     if (b.action === "order") return await order(kv, b);
     if (b.action === "check") return await check(kv, b);
+    if (b.action === "transfer") return await transfer(kv, b);
   } catch (e) {
     return Response.json({ error: String((e && e.message) || e) }, { status: 502 });
   }
   return Response.json({ error: "bad action" }, { status: 400 });
+}
+
+// 会员转赠：原地址用钱包签一条固定格式的文字（不是交易、不花 Gas），服务器核对签名确实来自原地址，就把会员记到新地址名下
+// 每个地址只能转出一次、只能接收一次；转出后原地址不再是会员；转赠不可撤销。文字模板必须和 member.js 里的 transferText 一字不差
+const transferText = (from, to, day) => "AiLGNS 服务站会员转赠\n把地址 " + from + " 的会员（含 VIP 等级和 OTC 累计成交）永久转赠给地址 " + to + "。\n转赠后原地址不再是会员，此操作不可撤销。\n日期：" + day;
+async function transfer(kv, b) {
+  const from = String(b.from || "").toLowerCase(), to = String(b.to || "").toLowerCase(), day = String(b.day || "");
+  if (!isAddr(from) || !isAddr(to)) return Response.json({ error: "地址格式不对" }, { status: 400 });
+  if (from === to) return Response.json({ error: "不能转赠给自己" }, { status: 400 });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Math.abs(Date.parse(day + "T00:00:00+08:00") - Date.now()) > 2 * 86400e3) return Response.json({ error: "签名已过期，请重新签" }, { status: 400 });
+  const signer = recoverAddress(transferText(from, to, day), String(b.sig || ""));
+  if (signer !== from) return Response.json({ error: "签名核对失败：请用原地址的钱包签名" }, { status: 400 });
+  const [out, into, toOut, fromIn] = await Promise.all([kv.get("vipx:out:" + from, "json"), kv.get("vipx:in:" + to, "json"), kv.get("vipx:out:" + to, "json"), kv.get("vipx:in:" + from, "json")]);
+  if (out) return Response.json({ error: "这个地址的会员已经转赠过了（转给 " + out.to + "）" }, { status: 400 });
+  if (into) return Response.json({ error: "对方地址已经接收过一次转赠，不能再接收" }, { status: 400 });
+  if (toOut) return Response.json({ error: "对方地址已把会员转赠出去，不能再接收" }, { status: 400 });
+  if (fromIn) return Response.json({ error: "这个地址的会员是别人转赠来的，不能再转出" }, { status: 400 });
+  const rec = { from, to, day, sig: String(b.sig), at: Date.now() };
+  await kv.put("vipx:out:" + from, JSON.stringify(rec));
+  await kv.put("vipx:in:" + to, JSON.stringify(rec));
+  return Response.json({ ok: true, from, to });
 }
 
 async function order(kv, b) {

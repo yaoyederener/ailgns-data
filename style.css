@@ -1169,3 +1169,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .vol-bar { height: 8px; border-radius: 999px; background: #e6dbfa; margin: 8px 0 6px; overflow: hidden; }
 .vol-bar i { display: block; height: 100%; border-radius: 999px; background: var(--grad-dot); min-width: 2px; }
 .vol-f { line-height: 1.5; }
+
+/* 会员转赠 */
+.xfer { margin-top: 14px; padding: 14px 16px; border-radius: 14px; background: var(--soft); border: 1px solid var(--soft-line); }
+.xfer h3 { margin: 0 0 6px; font-size: 15px; }
+.xfer p { margin: 0 0 10px; font-size: 13px; line-height: 1.6; }

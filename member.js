@@ -152,10 +152,19 @@
     });
   }
   // 查一个地址是不是会员：按订单认到它名下的付款 + 它自己直接转的付款 + 以前小号代开给它的付款 + 站长手动开通 + 在 OTC 成交过（送初级）；一笔都没有返回 null
-  function lookup(addr) {
+  function lookup(addr, asInherit) {
     addr = addr.toLowerCase();
     var trade = null;
     return memberApi(addr).then(function (srv) {
+      // 会员已转赠给别人：原地址不再是会员（页面提示转给了谁）
+      if (!asInherit && srv.transferredTo) { var e = new Error("TRANSFERRED"); e.to = srv.transferredTo; throw e; }
+      // 别人把会员转赠给了这个地址：按原地址的全部记录（付款、赠送、OTC 成交）算，记录上标明来源
+      if (!asInherit && srv.inheritFrom) {
+        return lookup(srv.inheritFrom, true).then(function (t) {
+          if (t) { t.payments.forEach(function (p) { p.inheritFrom = srv.inheritFrom; }); t.inheritFrom = srv.inheritFrom; }
+          return t;
+        });
+      }
       trade = srv.otcTrader;
       var own = srv.giftedTo ? Promise.resolve([]) : ownPayments(addr); // 以前给别人代开过的小号：它的付款算大号的
       var gift = srv.giftPayer ? ownPayments(srv.giftPayer) : Promise.resolve([]);
@@ -421,7 +430,11 @@
           memberApi(a).then(function (srv) { var v = document.getElementById("q-vol"); if (v) v.innerHTML = volBox(srv); }).catch(function () {});
           describe();
           document.getElementById("q-pay").onclick = function () { start(this); };
-        }, function (e) { q.disabled = false; qOut.innerHTML = '<p class="note down">' + A.esc(walletError(e)) + "</p>"; });
+        }, function (e) {
+          q.disabled = false;
+          if (e && e.message === "TRANSFERRED") { qOut.innerHTML = '<p class="note down">这个地址的会员已转赠给 ' + A.esc(e.to) + '，请用新地址查询。</p>'; return; }
+          qOut.innerHTML = '<p class="note down">' + A.esc(walletError(e)) + "</p>";
+        });
       };
 
       // 订单：一般直接弹钱包付款；没有钱包时显示手动转账的金额和地址
@@ -518,9 +531,9 @@
   }
   function memberCard(m) {
     var pays = (m.payments || []).map(function (p) {
-      var pm = method(p.method), pc = CHAINS[p.chain || "anubis"];
-      if (p.method === "manual" || p.method === "gift" || p.method === "otc") { var ref = p.ref || p.tx || ""; return A.esc(p.note || "赠送") + (/^0x/.test(ref) ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + ref + '">交易 ↗</a>' : ""); }
-      return show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
+      var pm = method(p.method), pc = CHAINS[p.chain || "anubis"], pre = p.inheritFrom ? "由 " + A.short(p.inheritFrom) + " 转赠：" : "";
+      if (p.method === "manual" || p.method === "gift" || p.method === "otc") { var ref = p.ref || p.tx || ""; return pre + A.esc(p.note || "赠送") + (/^0x/.test(ref) ? ' <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + ref + '">交易 ↗</a>' : ""); }
+      return pre + show(pm, p.paid) + "（" + pc.name + '） <a target="_blank" rel="noopener" href="' + pc.explorer + "/tx/" + p.tx + '">交易 ↗</a>';
     }).join("<br>") + (m.payments && m.payments.length > 1 ? "<br><span class=\"muted\">累计约 " + A.fmt(m.usd, 2) + " 美元</span>" : "");
     var t = m.tier;
     var mcard = '<div class="mcard mcard-' + t + '"><div class="mcard-shine"></div>' +
@@ -530,14 +543,52 @@
       '<div class="mcard-foot"><span class="mono">' + A.short(m.addr) + "</span><span>" + (t === "pro" ? "终生有效" : "永久有效") + "</span></div></div>";
     return '<section class="card">' + mcard + '<dl class="dl" style="margin-top:16px">' +
       "<dt>会员地址</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + (pays || "—") + "</dd></dl>" +
-      '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">换个地址</button></div>' +
-      '<div id="mc-vol"></div>' +
+      '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">换个地址</button>' +
+      (m.inheritFrom ? "" : '<button class="ghost" id="xfer-open" style="padding:10px 18px">转赠给其他地址</button>') + "</div>" +
+      '<div id="xfer-box" hidden></div><div id="mc-vol"></div>' +
       '<p class="note">换手机、换浏览器时，在会员中心填会员地址点「查询」就能恢复，不用重复付款，也不用连接钱包。</p></section>';
   }
   // 会员卡下面补上 OTC 累计成交进度（页面画完后异步填）
   function fillVol(addr) {
     memberApi(addr).then(function (srv) { var v = document.getElementById("mc-vol"); if (v) v.innerHTML = volBox(srv); }).catch(function () {});
   }
+  // 会员转赠：原地址的钱包签一条文字（不是交易、不花 Gas），服务器核对后把会员记到新地址；每个地址只能转出一次、接收一次，不可撤销
+  // 文字模板必须和 functions/api/member.js 里的一字不差
+  function transferText(from, to, day) { return "AiLGNS 服务站会员转赠\n把地址 " + from + " 的会员（含 VIP 等级和 OTC 累计成交）永久转赠给地址 " + to + "。\n转赠后原地址不再是会员，此操作不可撤销。\n日期：" + day; }
+  function utf8hex(str) { var b = unescape(encodeURIComponent(str)), h = "0x"; for (var i = 0; i < b.length; i++) h += b.charCodeAt(i).toString(16).padStart(2, "0"); return h; }
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest("#xfer-open")) return;
+    var box = document.getElementById("xfer-box"), m = member();
+    if (!box || !m) return;
+    box.hidden = false;
+    box.innerHTML = '<div class="xfer"><h3>转赠会员给其他地址</h3><p class="muted">适合用小号交易、大号使用的情况。转赠后<b>本地址不再是会员</b>，VIP 等级和 OTC 累计成交都归新地址；每个地址只能转出一次、接收一次，<b>不可撤销</b>。需要用本会员地址 ' + A.short(m.addr) + ' 的钱包签一条文字确认（只是签名，不是转账，不花 Gas）。</p>' +
+      '<div class="addr-box"><input id="xfer-to" class="mono" placeholder="粘贴接收会员的新地址" autocomplete="off" spellcheck="false"><button id="xfer-go">签名并转赠</button></div><p class="note" id="xfer-st"></p></div>';
+    var st = document.getElementById("xfer-st");
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    document.getElementById("xfer-go").onclick = function () {
+      var btn = this, to = (document.getElementById("xfer-to").value || "").trim().toLowerCase(), from = m.addr;
+      if (!A.isAddr(to)) { say("新地址格式不对", true); return; }
+      if (to === from) { say("不能转赠给自己", true); return; }
+      if (!confirm("确认把 " + A.short(from) + " 的会员永久转赠给 " + A.short(to) + " 吗？转赠后本地址不再是会员，不可撤销。")) return;
+      btn.disabled = true;
+      var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), text = transferText(from, to, day), eth;
+      say("请在钱包里确认连接…");
+      A.wallets.choose().then(function (p) { eth = p; return eth.request({ method: "eth_requestAccounts" }); }).then(function (a) {
+        var cur = String(a[0] || "").toLowerCase();
+        if (cur !== from) throw new Error("钱包当前地址是 " + A.short(cur) + "，请切换到会员地址 " + A.short(from) + " 再试");
+        say("请在钱包里签名确认转赠（只是签名，不花 Gas）…");
+        return eth.request({ method: "personal_sign", params: [utf8hex(text), from] });
+      }).then(function (sig) {
+        say("正在核对签名…");
+        return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "transfer", from: from, to: to, day: day, sig: sig }) }).then(function (r) { return r.json(); });
+      }).then(function (r) {
+        if (r.error) throw new Error(r.error);
+        logout();
+        say("✅ 已转赠给 " + A.short(to) + "。让对方在会员中心填新地址点「查询」就能使用。本地址已不再是会员。");
+        setTimeout(function () { A.ownOnly = null; subnav(); window.dispatchEvent(new HashChangeEvent("hashchange")); }, 4000);
+      }).catch(function (e) { say(walletError(e), true); btn.disabled = false; });
+    };
+  });
   // 退出按钮：页面会重画（比如价格读完后），所以在 document 上统一监听，按钮换了也照样有效
   document.addEventListener("click", function (e) {
     if (!e.target.closest || !e.target.closest("#logout")) return;
@@ -1712,7 +1763,10 @@
   // 本浏览器存的是初级：打开网站时后台再查一次（站长手动升级、补差价到账、OTC 成交满额等），查到高级就自动升级，不用顾客手动「换个地址」重查
   (function recheck() {
     var m = member();
-    if (!m || m.tier === "pro") return;
+    if (!m) return;
+    // 这个地址的会员已经转赠给别人：本浏览器自动退出
+    memberApi(m.addr).then(function (srv) { if (srv.transferredTo && member() && member().addr === m.addr) { logout(); A.ownOnly = null; subnav(); window.dispatchEvent(new HashChangeEvent("hashchange")); } }).catch(function () {});
+    if (m.tier === "pro") return;
     try { if (Date.now() - Number(sessionStorage.getItem("ailgns-recheck") || 0) < 600000) return; sessionStorage.setItem("ailgns-recheck", String(Date.now())); } catch (e) { /* 忽略 */ }
     lookup(m.addr).then(function (t) {
       var now = member();
