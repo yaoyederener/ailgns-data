@@ -19,6 +19,8 @@
   var FEE_BPS = 100n, BOOK_SHOW = 8;
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
+  var GUIDE_MONTHLY = 0.10; // 指导利息：月息 10%，按天折算（只是参考，借多少还多少由挂单人自己定）
+  function guideRepay(p, term) { return p + p * BigInt(Math.round(GUIDE_MONTHLY * term / (30 * 86400) * 1e6)) / 1000000n; }
   var STATUS = ["挂单中", "借款中", "已还清", "已违约", "已撤单 / 已退回"];
   var REASONS = {
     REPAY_LT_PRINCIPAL: "到期还款金额不能少于本金", BAD_TERM: "借款期限要在 1 天到 90 天之间",
@@ -210,17 +212,30 @@
       '<div class="form-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
       '<label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
-      '<div class="qty-pick" id="ln-pick"></div>' +
+      '<div class="qty-pick" id="ln-pick"></div><div class="guide" id="ln-guide" hidden></div>' +
       '<div class="dur"><span class="dur-t">借款期限 <small class="muted">从接单那一刻起算</small></span><input type="hidden" id="ln-term" value="' + TERM_DEFAULT + '">' +
       '<div class="dur-opts" id="ln-terms">' + TERMS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === TERM_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
-      '<div class="dur"><span class="dur-t">挂单有效期 <small class="muted">没人接单就自动退回抵押币</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
+      '<div class="dur"><span class="dur-t">挂单有效期 <small class="muted" id="ln-exp-hint">没人接单就自动退回抵押币</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
       '<div class="dur-opts" id="otc-durs">' + k.DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === k.DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
       '<p class="note" id="otc-sum">填好三个数字后显示明细</p><button id="otc-create" style="padding:12px 22px">发布借款单（存入 ' + M.sym + '）</button><p class="note" id="otc-st"></p></section>';
   }
 
   function bind(id, loans) {
     var k = K(), app = A.app, side = "borrow";
-    var col = document.getElementById("ln-col"), pIn = document.getElementById("ln-p"), rIn = document.getElementById("ln-r"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), pick = document.getElementById("ln-pick");
+    var col = document.getElementById("ln-col"), pIn = document.getElementById("ln-p"), rIn = document.getElementById("ln-r"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), pick = document.getElementById("ln-pick"), guideEl = document.getElementById("ln-guide");
+    var autoRepay = true; // 到期还款没手动改过时，跟着指导价自动填
+    function guide() {
+      if (!guideEl) return;
+      var p = k.toWei(pIn.value), term = Number(document.getElementById("ln-term").value);
+      if (!p || p <= 0n) { guideEl.hidden = true; return; }
+      var g = guideRepay(p, term);
+      guideEl.hidden = false;
+      guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + dai(g) + '</b><small>DAI · 按月息 ' + (GUIDE_MONTHLY * 100) + "% 折算 " + days(term) + "（利息 " + dai(g - p) + ' DAI）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
+        '<p class="muted">只是参考：借多少、还多少都由挂单人自己定；利息高接单快，利息低省钱。</p>';
+      document.getElementById("ln-guse").onclick = function () { rIn.value = floorDai(g); autoRepay = true; calc(); };
+      if (autoRepay || !rIn.value) { rIn.value = floorDai(g); autoRepay = true; }
+    }
+    function floorDai(v) { var n = Number(v) / 1e18; return (Math.round(n * 100) / 100).toString(); }
     if (!st) { st = document.createElement("p"); st.className = "note"; (document.getElementById("otc-mine") || app).appendChild(st); } // 旧合约页没有表单：提示放在「我的借贷」下面
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
@@ -253,6 +268,7 @@
       document.getElementById("ln-p-l").firstChild.textContent = lend ? "出借金额（DAI）" : "借款金额（DAI）";
       document.getElementById("ln-r-l").firstChild.textContent = lend ? "到期收回（DAI，含利息）" : "到期还款（DAI，含利息）";
       document.getElementById("otc-create").textContent = lend ? "发布出借单（存入 DAI）" : "发布借款单（存入 " + M.sym + "）";
+      document.getElementById("ln-exp-hint").textContent = lend ? "没人来借就自动退回 DAI" : "没人接单就自动退回抵押币";
       showPick(); calc();
     }
     document.querySelectorAll("#otc-side button").forEach(function (b) { b.onclick = function () { setSide(b.getAttribute("data-side")); }; });
@@ -284,8 +300,10 @@
           (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。出借人实付 " + dai(p + fee(p)) + " DAI（含 1% 手续费），你到手 " + dai(p) + " DAI。") + warn;
       return r < p ? null : { c: c, p: p, r: r, term: term };
     }
-    col.oninput = pIn.oninput = rIn.oninput = calc;
-    document.querySelectorAll("#ln-terms button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#ln-terms button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("ln-term").value = b.getAttribute("data-d"); calc(); }; });
+    col.oninput = calc;
+    pIn.oninput = function () { guide(); calc(); };
+    rIn.oninput = function () { autoRepay = false; calc(); };
+    document.querySelectorAll("#ln-terms button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#ln-terms button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("ln-term").value = b.getAttribute("data-d"); guide(); calc(); }; });
     document.querySelectorAll("#otc-durs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("otc-dur").value = b.getAttribute("data-d"); }; });
     showPick();
     document.getElementById("otc-create").onclick = function () {
