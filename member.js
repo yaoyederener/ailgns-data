@@ -122,6 +122,7 @@
     "0x5f6f3adb13f650e90758053deca1a6eab12b156d": { usd: PRO_USD, note: "赠送" },
     "0xd923bd2b62292ad0f315a819c73a6ccfd867a8f6": { usd: FEE_USD, note: "赠送" },
     "0xcf220963e3da0686bfcd2ae7dbc4079bb48ddf2f": { usd: FEE_USD, note: "赠送" },
+    "0x533541836ee55db6727a94fb5453a595d8c2252e": { usd: PRO_USD, note: "赠送" },
     // 下了高级订单、付了 5981.1278 LGNS（Polygon），当时没锁定美元价值，币价一跌被按现价算成不够：按订单开通高级
     "0x042e556ffaac805ba0dad484208d5e94a7a71be2": { usd: PRO_USD, note: "高级 VIP（Polygon LGNS 5981.1278 枚，按下单时价格）", chain: "polygon", tx: "0xd4a658d468b345b00185751718bd98d6f1044c3489fb3cdebef6ed9f788f0f9f" },
     "0xb23aadf2367746f1a3db36a618c6d6f097e5c6e7": { usd: FEE_USD, note: "手动开通（Anubis 链 DAI 20 枚）", chain: "anubis", tx: "0x384b455267ede4b3e0bfdf89435c6bf0ebf14640776ff39a044580119a1b20cf" }
