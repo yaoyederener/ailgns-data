@@ -89,6 +89,87 @@ contract AilgnsLoanEscrowTest is Test {
         assertEq(l.borrower, BORROWER); assertEq(l.lender, address(0)); assertEq(l.status, 0);
         assertEq(l.expiry, block.timestamp + 7 days); assertEq(l.term, 30 days); assertEq(l.due, 0);
         assertEq(l.collateral, 1 * E); assertEq(l.principal, 500 * E); assertEq(l.repayAmount, 520 * E);
+        assertFalse(l.isOffer);
+    }
+
+    // ---------- 出借人挂单 / 借款人接单 ----------
+    function _offer() internal returns (uint256) {
+        vm.prank(LENDER);
+        return esc.offer(1 * E, 500 * E, 520 * E, 30 days, 7 days);
+    }
+
+    function test_offer_escrows_principal_plus_fee() public {
+        uint256 l0 = dai.balanceOf(LENDER);
+        uint256 id = _offer();
+        assertEq(l0 - dai.balanceOf(LENDER), 505 * E); assertEq(dai.balanceOf(address(esc)), 505 * E);
+        AilgnsLoanEscrow.Loan memory l = esc.getLoan(id);
+        assertTrue(l.isOffer); assertEq(l.lender, LENDER); assertEq(l.borrower, address(0)); assertEq(l.status, 0); assertEq(l.collateral, 1 * E);
+    }
+
+    function test_offer_rejects_bad_params() public {
+        vm.startPrank(LENDER);
+        vm.expectRevert(bytes("OVER_MAX")); esc.offer(1 * E, 2001 * E, 2100 * E, 30 days, 7 days);
+        vm.expectRevert(bytes("REPAY_LT_PRINCIPAL")); esc.offer(1 * E, 500 * E, 499 * E, 30 days, 7 days);
+        vm.expectRevert(bytes("BAD_TERM")); esc.offer(1 * E, 500 * E, 520 * E, 1 hours, 7 days);
+        vm.expectRevert(bytes("ZERO_AMOUNT")); esc.offer(0, 500 * E, 520 * E, 30 days, 7 days);
+        vm.stopPrank();
+    }
+
+    function test_take_locks_collateral_pays_borrower_and_fee() public {
+        uint256 id = _offer();
+        uint256 b0 = dai.balanceOf(BORROWER);
+        vm.prank(BORROWER); esc.take(id);
+        assertEq(dai.balanceOf(BORROWER) - b0, 500 * E, "borrower gets principal from escrow");
+        assertEq(dai.balanceOf(FEE), 5 * E); assertEq(dai.balanceOf(address(esc)), 0, "no DAI left in escrow");
+        assertEq(ail.balanceOf(address(esc)), 1 * E, "collateral locked");
+        AilgnsLoanEscrow.Loan memory l = esc.getLoan(id);
+        assertEq(l.status, 1); assertEq(l.borrower, BORROWER); assertEq(l.due, block.timestamp + 30 days);
+    }
+
+    function test_take_rejects_bad_cases() public {
+        uint256 id = _offer();
+        vm.prank(LENDER); vm.expectRevert(bytes("OWN_LOAN")); esc.take(id);
+        uint256 rid = _req();
+        vm.prank(LENDER); vm.expectRevert(bytes("NOT_OFFER")); esc.take(rid);
+        vm.prank(BORROWER); vm.expectRevert(bytes("NOT_REQUEST")); esc.fund(id, 505 * E);
+        vm.warp(block.timestamp + 7 days);
+        vm.prank(BORROWER); vm.expectRevert(bytes("EXPIRED")); esc.take(id);
+    }
+
+    function test_take_atomic_when_borrower_has_no_collateral() public {
+        uint256 id = _offer();
+        address poor = address(0xD5);
+        vm.startPrank(poor); ail.approve(address(esc), type(uint256).max);
+        vm.expectRevert(bytes("TOKEN_TRANSFER_FAILED")); esc.take(id);
+        vm.stopPrank();
+        assertEq(esc.getLoan(id).status, 0); assertEq(dai.balanceOf(address(esc)), 505 * E);
+    }
+
+    function test_taken_offer_repay_and_default_work() public {
+        uint256 id = _offer();
+        vm.prank(BORROWER); esc.take(id);
+        uint256 l0 = dai.balanceOf(LENDER);
+        vm.prank(BORROWER); esc.repay(id);
+        assertEq(dai.balanceOf(LENDER) - l0, 520 * E); assertEq(ail.balanceOf(BORROWER), 10 * E);
+        uint256 id2 = _offer();
+        vm.prank(BORROWER); esc.take(id2);
+        vm.warp(block.timestamp + 30 days);
+        vm.prank(OTHER); esc.claim(id2);
+        assertEq(ail.balanceOf(LENDER), 11 * E); assertEq(esc.getLoan(id2).status, 3);
+    }
+
+    function test_offer_cancel_and_expire_refund_dai_to_lender() public {
+        uint256 id = _offer();
+        vm.prank(BORROWER); vm.expectRevert(bytes("NOT_MAKER")); esc.cancel(id);
+        uint256 l1 = dai.balanceOf(LENDER);
+        vm.prank(LENDER); esc.cancel(id);
+        assertEq(dai.balanceOf(LENDER) - l1, 505 * E); assertEq(esc.getLoan(id).status, 4);
+        uint256 id2 = _offer();
+        uint256 l2 = dai.balanceOf(LENDER);
+        vm.warp(block.timestamp + 7 days);
+        uint256[] memory ids = new uint256[](1); ids[0] = id2;
+        vm.prank(OTHER); esc.refundExpired(ids);
+        assertEq(dai.balanceOf(LENDER) - l2, 505 * E); assertEq(dai.balanceOf(address(esc)), 0);
     }
 
     function test_request_rejects_bad_params() public {
@@ -189,7 +270,7 @@ contract AilgnsLoanEscrowTest is Test {
     // ---------- 撤单 / 挂单过期 ----------
     function test_cancel_only_borrower_only_open() public {
         uint256 id = _req();
-        vm.prank(LENDER); vm.expectRevert(bytes("NOT_BORROWER")); esc.cancel(id);
+        vm.prank(LENDER); vm.expectRevert(bytes("NOT_MAKER")); esc.cancel(id);
         vm.prank(BORROWER); esc.cancel(id);
         assertEq(ail.balanceOf(BORROWER), 10 * E); assertEq(esc.getLoan(id).status, 4);
         vm.prank(BORROWER); vm.expectRevert(bytes("NOT_OPEN")); esc.cancel(id);

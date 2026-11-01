@@ -6,8 +6,10 @@ interface IERC20 {
 }
 
 /// @title AiLGNS 点对点抵押借款合约
-/// @notice 借款人把抵押币存进合约挂单：借多少 DAI、到期还多少、借多少天，全由借款人自己填。
-///         出借人接单时，同一笔交易里：本金 DAI 直接到借款人钱包，手续费（本金的 1%）到手续费地址，抵押币继续锁在合约里，开始计时。
+/// @notice 双向挂单：
+///         借款人挂单（request）：把抵押币存进合约，写明借多少 DAI、到期还多少、借多少天；出借人接单（fund）时本金直接到借款人钱包。
+///         出借人挂单（offer）：把本金 + 手续费的 DAI 存进合约，写明要押多少币、到期还多少、借多少天；借款人接单（take）时存入抵押币，本金直接到自己钱包。
+///         两种接单都在同一笔交易里完成：本金到借款人、手续费（本金的 1%，出借人承担）到手续费地址、抵押币锁进合约、开始计时。
 ///         到期前还上约定金额：DAI 给出借人，抵押币退回借款人。到期没还：任何人都可以触发把抵押币划给出借人。
 ///         合约不看价格、不清算、不算利率；没有管理员、不能升级、没有暂停开关，任何人（包括部署者）都动不了别人的抵押币。
 contract AilgnsLoanEscrow {
@@ -33,8 +35,9 @@ contract AilgnsLoanEscrow {
     uint8 public constant CANCELLED = 4;
 
     struct Loan {
-        address borrower;
-        address lender; // 接单前为 0
+        address borrower; // 出借人挂的单，接单前为 0
+        address lender; // 借款人挂的单，接单前为 0
+        bool isOffer; // true：出借人挂的单（DAI 在合约里等人来借）；false：借款人挂的单（抵押币在合约里等人出借）
         uint8 status;
         uint64 expiry; // 挂单有效期：到期没人接单就退回抵押币
         uint64 term; // 借多少秒
@@ -49,9 +52,11 @@ contract AilgnsLoanEscrow {
 
     event Requested(uint256 indexed id, address indexed borrower, uint256 collateral, uint256 principal, uint256 repayAmount, uint64 term, uint64 expiry);
     event Funded(uint256 indexed id, address indexed lender, uint256 principal, uint256 fee, uint64 due);
+    event Offered(uint256 indexed id, address indexed lender, uint256 collateral, uint256 principal, uint256 repayAmount, uint64 term, uint64 expiry);
+    event Taken(uint256 indexed id, address indexed borrower, uint256 principal, uint256 fee, uint64 due);
     event Repaid(uint256 indexed id, address indexed payer, uint256 amount);
     event Defaulted(uint256 indexed id, address indexed lender, uint256 collateral);
-    event Closed(uint256 indexed id, address indexed borrower, bool expired);
+    event Closed(uint256 indexed id, address indexed maker, bool expired);
 
     modifier nonReentrant() {
         require(_lock == 1, "REENTRANT");
@@ -89,8 +94,41 @@ contract AilgnsLoanEscrow {
         _pullExact(COLLATERAL, msg.sender, address(this), collateral);
         id = _loans.length;
         uint64 expiry = uint64(block.timestamp) + listDuration;
-        _loans.push(Loan(msg.sender, address(0), OPEN, expiry, term, 0, collateral, principal, repayAmount));
+        _loans.push(Loan(msg.sender, address(0), false, OPEN, expiry, term, 0, collateral, principal, repayAmount));
         emit Requested(id, msg.sender, collateral, principal, repayAmount, term, expiry);
+    }
+
+    // ---------------- 出借人挂单 ----------------
+
+    /// @notice 出借人挂单：存入 principal + 手续费 的 DAI，要求借款人押 collateral 个币，到期还 repayAmount，借 term 秒
+    function offer(uint256 collateral, uint256 principal, uint256 repayAmount, uint64 term, uint64 listDuration) external nonReentrant returns (uint256 id) {
+        require(collateral > 0 && principal > 0, "ZERO_AMOUNT");
+        require(principal <= MAX_PRINCIPAL, "OVER_MAX");
+        require(repayAmount >= principal, "REPAY_LT_PRINCIPAL");
+        require(term >= MIN_TERM && term <= MAX_TERM, "BAD_TERM");
+        require(listDuration >= MIN_LIST && listDuration <= MAX_LIST, "BAD_DURATION");
+        _pullExact(DAI, msg.sender, address(this), principal + feeOf(principal));
+        id = _loans.length;
+        uint64 expiry = uint64(block.timestamp) + listDuration;
+        _loans.push(Loan(address(0), msg.sender, true, OPEN, expiry, term, 0, collateral, principal, repayAmount));
+        emit Offered(id, msg.sender, collateral, principal, repayAmount, term, expiry);
+    }
+
+    /// @notice 借款人接出借单：存入要求的抵押币，本金从合约直接到自己钱包，手续费到收款地址，开始计时
+    function take(uint256 id) external nonReentrant {
+        Loan storage l = _get(id);
+        require(l.isOffer, "NOT_OFFER");
+        require(l.status == OPEN, "NOT_OPEN");
+        require(block.timestamp < l.expiry, "EXPIRED");
+        require(l.lender != msg.sender, "OWN_LOAN");
+        l.status = ACTIVE;
+        l.borrower = msg.sender;
+        l.due = uint64(block.timestamp) + l.term;
+        _pullExact(COLLATERAL, msg.sender, address(this), l.collateral);
+        _push(DAI, msg.sender, l.principal);
+        uint256 fee = feeOf(l.principal);
+        if (fee > 0) _push(DAI, feeRecipient, fee);
+        emit Taken(id, msg.sender, l.principal, fee, l.due);
     }
 
     // ---------------- 出借人接单 ----------------
@@ -99,6 +137,7 @@ contract AilgnsLoanEscrow {
     /// @param maxPay 最多愿意付多少（本金 + 手续费），防止和页面看到的不一致
     function fund(uint256 id, uint256 maxPay) external nonReentrant {
         Loan storage l = _get(id);
+        require(!l.isOffer, "NOT_REQUEST");
         require(l.status == OPEN, "NOT_OPEN");
         require(block.timestamp < l.expiry, "EXPIRED");
         require(l.borrower != msg.sender, "OWN_LOAN");
@@ -136,15 +175,15 @@ contract AilgnsLoanEscrow {
 
     // ---------------- 撤单 / 挂单到期退回 ----------------
 
-    /// @notice 还没人接单时，借款人随时撤单，抵押币退回
+    /// @notice 还没人接单时，挂单人随时撤单：借款单退抵押币，出借单退 DAI（含预存的手续费）
     function cancel(uint256 id) external nonReentrant {
         Loan storage l = _get(id);
-        require(l.borrower == msg.sender, "NOT_BORROWER");
+        require((l.isOffer ? l.lender : l.borrower) == msg.sender, "NOT_MAKER");
         require(l.status == OPEN, "NOT_OPEN");
         _close(id, false);
     }
 
-    /// @notice 挂单到期还没人接的，任何人都可以触发退回，抵押币只会退给借款人本人
+    /// @notice 挂单到期还没人接的，任何人都可以触发退回，只会退给挂单人本人
     function refundExpired(uint256[] calldata ids) external nonReentrant {
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 id = ids[i];
@@ -155,8 +194,9 @@ contract AilgnsLoanEscrow {
     function _close(uint256 id, bool expired) private {
         Loan storage l = _loans[id];
         l.status = CANCELLED;
-        _push(COLLATERAL, l.borrower, l.collateral);
-        emit Closed(id, l.borrower, expired);
+        if (l.isOffer) _push(DAI, l.lender, l.principal + feeOf(l.principal));
+        else _push(COLLATERAL, l.borrower, l.collateral);
+        emit Closed(id, l.isOffer ? l.lender : l.borrower, expired);
     }
 
     // ---------------- 查询 ----------------

@@ -1,4 +1,4 @@
-// 点对点抵押借款（AilgnsLoanEscrow）：借款人押币挂单（借多少 DAI、到期还多少、借几天），出借人接单本金直接到借款人钱包，
+// 点对点抵押借款（AilgnsLoanEscrow，双向）：借款人押币挂单，出借人接单；出借人存 DAI 挂单，借款人押币接单。本金都直接到借款人钱包，
 // 到期前还款抵押币退回，到期没还抵押币归出借人。合约不看价格、不清算；手续费为本金的 1%，出借人接单时另付。
 // 复用 otc.js 暴露的 A.otcKit（钱包、发交易、读链、数字格式）；先只开 AiLGNS 抵押，LGNS / gLGNS 后面加
 (function () {
@@ -8,12 +8,12 @@
   var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", EXPLORER = "https://anubisscan.io";
   // loan 空着表示还没部署（显示「即将上线」）；otc：复用 otc.js 的哪个市场设置（链、钱包切链）；pair：DEX 池子，只用来显示抵押品现值参考
   var MARKETS = {
-    ailgns: { sym: "AiLGNS", otc: "ailgns", loan: "0x8d84d678d195e770caad263d1c37967ec796165c", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, eg: ["1", "500", "520"] },
+    ailgns: { sym: "AiLGNS", otc: "ailgns", loan: "", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, eg: ["1", "500", "520"] },
     lgns: { sym: "LGNS", otc: "lgns", loan: "", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, eg: ["10000", "500", "520"] },
     glgns: { sym: "gLGNS", otc: "glgns", loan: "", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dec: 18, pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, eg: ["0.01", "500", "520"] }
   };
   var MKEYS = ["ailgns", "lgns", "glgns"];
-  var SEL = { request: "0x2fedd319", fund: "0xa65e2cfd", repay: "0x371fd8e6", claim: "0x379607f5", cancel: "0x40e58ee5", count: "0x9d11ed75", get: "0x86b20104", approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231" };
+  var SEL = { request: "0x2fedd319", fund: "0xa65e2cfd", offer: "0x992001bd", take: "0x4fd9efc4", repay: "0x371fd8e6", claim: "0x379607f5", cancel: "0x40e58ee5", count: "0x9d11ed75", get: "0x86b20104", approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231" };
   var FEE_BPS = 100n, MAX_PRINCIPAL = 2000n * 10n ** 18n, BOOK_SHOW = 8;
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
@@ -21,7 +21,8 @@
   var REASONS = {
     OVER_MAX: "单笔借款上限 2,000 DAI", REPAY_LT_PRINCIPAL: "到期还款金额不能少于本金", BAD_TERM: "借款期限要在 1 天到 90 天之间",
     NOT_OPEN: "这张借款单已经被接走或撤销，请刷新", OWN_LOAN: "不能接自己的借款单", NOT_ACTIVE: "这笔借款不在借款中状态，请刷新",
-    NOT_DUE: "还没到还款截止时间，不能领取抵押品", NOT_BORROWER: "只有借款人自己能撤单", NO_LOAN: "没有这张借款单", ZERO_AMOUNT: "数量不能为 0"
+    NOT_DUE: "还没到还款截止时间，不能领取抵押品", NOT_MAKER: "只有挂单人自己能撤单", NO_LOAN: "没有这张单", ZERO_AMOUNT: "数量不能为 0",
+    NOT_OFFER: "这不是出借单，请刷新", NOT_REQUEST: "这不是借款单，请刷新"
   };
   var MK = "ailgns", M = MARKETS.ailgns, LOAN = "", mkt = null, openBook = {}, timer = null, freshNext = false;
   function K() { return A.otcKit; }
@@ -47,9 +48,9 @@
     if (!r || r === "0x") return [];
     var w = words(r), n = Number(BigInt("0x" + w[1])), list = [];
     for (var i = 0; i < n; i++) {
-      var o = w.slice(2 + i * 9, 11 + i * 9);
-      list.push({ id: from + i, borrower: "0x" + o[0].slice(24), lender: "0x" + o[1].slice(24), status: Number(BigInt("0x" + o[2])), expiry: Number(BigInt("0x" + o[3])), term: Number(BigInt("0x" + o[4])), due: Number(BigInt("0x" + o[5])),
-        collateral: BigInt("0x" + o[6]), principal: BigInt("0x" + o[7]), repayAmount: BigInt("0x" + o[8]) });
+      var o = w.slice(2 + i * 10, 12 + i * 10);
+      list.push({ id: from + i, borrower: "0x" + o[0].slice(24), lender: "0x" + o[1].slice(24), isOffer: BigInt("0x" + o[2]) === 1n, status: Number(BigInt("0x" + o[3])), expiry: Number(BigInt("0x" + o[4])), term: Number(BigInt("0x" + o[5])), due: Number(BigInt("0x" + o[6])),
+        collateral: BigInt("0x" + o[7]), principal: BigInt("0x" + o[8]), repayAmount: BigInt("0x" + o[9]) });
     }
     return list;
   }
@@ -131,7 +132,8 @@
 
   function draw(id, loans) {
     var k = K(), app = A.app, account = k.account(), now = Date.now() / 1000;
-    var open = loans.filter(function (l) { return l.status === 0 && l.expiry > now; }).sort(function (a, b) { return interest(b).apr - interest(a).apr; });
+    var open = loans.filter(function (l) { return l.status === 0 && l.expiry > now && !l.isOffer; }).sort(function (a, b) { return interest(b).apr - interest(a).apr; });
+    var offers = loans.filter(function (l) { return l.status === 0 && l.expiry > now && l.isOffer; }).sort(function (a, b) { return interest(a).apr - interest(b).apr; }); // 出借单按年化从低到高：借款人先看便宜的
     var active = loans.filter(function (l) { return l.status === 1; }).sort(function (a, b) { return a.due - b.due; });
     var mine = account ? loans.filter(function (l) { return l.borrower === account || l.lender === account; }).reverse().slice(0, 30) : [];
     function who(a) { return a === account ? '<b style="color:var(--gold)">我</b>' : A.short(a); }
@@ -141,6 +143,12 @@
       var act = l.borrower === account ? '<button class="ghost act-btn" data-cancel="' + l.id + '">撤单</button>' : '<button class="act-btn btn-buy" data-fund="' + l.id + '">出借</button>';
       return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="借款 DAI" class="price"><b>' + dai(l.principal) + '</b></td><td data-l="到期还 DAI">' + dai(l.repayAmount) + '</td>' +
         '<td data-l="利息">' + A.fmt(it.i, 2) + " DAI（" + it.pct.toFixed(1) + "% · 年化 " + it.apr.toFixed(0) + '%）</td><td data-l="期限">' + days(l.term) + '</td><td data-l="抵押率参考">' + ratioTd(l) + '</td><td data-l="挂单剩余">' + k.left(l.expiry - now) + '</td><td data-l="借款人" class="l mono">' + who(l.borrower) + "</td></tr>";
+    }
+    function offerRow(l, i) {
+      var it = interest(l);
+      var act = l.lender === account ? '<button class="ghost act-btn" data-cancel="' + l.id + '">撤单</button>' : '<button class="act-btn btn-sell" data-take="' + l.id + '">借入</button>';
+      return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="出借 DAI" class="price"><b>' + dai(l.principal) + '</b></td><td data-l="要求抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="到期还 DAI">' + dai(l.repayAmount) + '</td>' +
+        '<td data-l="利息">' + A.fmt(it.i, 2) + " DAI（" + it.pct.toFixed(1) + "% · 年化 " + it.apr.toFixed(0) + '%）</td><td data-l="期限">' + days(l.term) + '</td><td data-l="抵押率参考">' + ratioTd(l) + '</td><td data-l="挂单剩余">' + k.left(l.expiry - now) + '</td><td data-l="出借人" class="l mono">' + who(l.lender) + "</td></tr>";
     }
     function activeRow(l) {
       var act = l.borrower === account ? '<button class="act-btn" data-repay="' + l.id + '">还款</button>' : l.lender === account && l.due <= now ? '<button class="act-btn btn-sell" data-claim="' + l.id + '">领取抵押品</button>' : l.due <= now ? '<span class="muted">已逾期</span>' : "";
@@ -152,11 +160,12 @@
         (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr>' + head + "</tr></thead><tbody>" + list.map(row).join("") + "</tbody></table></div>" +
           (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (isOpen ? "收起 ▴" : "展开其余 " + more + " 笔 ▾") + "</button>" : "") : '<div class="empty">暂无</div>') + "</section>";
     }
-    var html = '<h1>借贷</h1><p class="sub">点对点抵押借款：押 ' + M.sym + ' 借 DAI，借多少、还多少、借几天都由借款人自己定，愿意的人接单。合约只认时间和数字：<b>到期前还上抵押币退回，到期没还抵押币归出借人</b>，不看价格、不清算。</p>' + marketTabs("#/lend") +
-      '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="borrow">＋ 我要借 DAI</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的借贷</button>' : "") + "</div>" +
+    var html = '<h1>借贷</h1><p class="sub">点对点抵押借款，双向挂单：借款人押 ' + M.sym + ' 挂单借 DAI，出借人挂单等人来借，条件（借多少、还多少、借几天）都由挂单人自己定。合约只认时间和数字：<b>到期前还上抵押币退回，到期没还抵押币归出借人</b>，不看价格、不清算。</p>' + marketTabs("#/lend") +
+      '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="borrow">＋ 我要借 DAI</button><button type="button" class="oa-buy" data-goform="lend">＋ 我要出借 DAI</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的借贷</button>' : "") + "</div>" +
       '<div class="otc-top"><span class="hp-tag">手续费 1%</span><span class="ot-txt">出借人接单时按本金另付 1% 手续费；借款人到手完整本金 · 挂单、撤单、还款、违约领取都免费' + (mkt ? " · " + M.sym + " 市价 <b>" + A.fmt(mkt, M.dec === 9 ? 5 : 2) + "</b> DAI" : "") + "</span>" +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
-    html += book("open", "借款挂单", open, "按年化从高到低 · 出借人实付本金 + 1%", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">借款人</th>', openRow);
+    html += book("open", "借款挂单（等人出借）", open, "按年化从高到低 · 出借人实付本金 + 1%", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">借款人</th>', openRow);
+    html += book("offers", "出借挂单（等人来借）", offers, "按年化从低到高 · 押够要求的币就能借走本金", '<th class="l">操作</th><th>出借 DAI</th><th>要求抵押</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">出借人</th>', offerRow);
     html += book("active", "借款中", active, "按还款截止时间排序", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>应还</th><th>还款截止（北京时间）</th><th>抵押率参考</th><th class="l">借款人 / 出借人</th>', activeRow);
     html += form(k);
     if (mine.length) html += myLoans(mine, now);
@@ -171,9 +180,10 @@
   function myLoans(list, now) {
     return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的借贷</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">我是</th><th>抵押</th><th>借款 / 应还</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
       list.map(function (l) {
-        var k = K(), role = l.borrower === k.account() ? "借款人" : "出借人";
-        var st = STATUS[l.status] + (l.status === 0 ? "，" + A.timeBJ(l.expiry * 1000) + " 前无人接单自动退回" : l.status === 1 ? "，" + A.timeBJ(l.due * 1000) + " 前还款（北京时间）" : "");
-        var act = l.status === 0 && role === "借款人" ? '<button class="ghost act-btn" data-cancel="' + l.id + '">' + (l.expiry <= now ? "取回" : "撤单") + "</button>"
+        var k = K(), role = l.isOffer ? (l.lender === k.account() ? "出借人" : "借款人") : (l.borrower === k.account() ? "借款人" : "出借人");
+        var st = (l.status === 0 ? (l.isOffer ? "出借挂单中" : "借款挂单中") : STATUS[l.status]) + (l.status === 0 ? "，" + A.timeBJ(l.expiry * 1000) + " 前无人接单自动退回" : l.status === 1 ? "，" + A.timeBJ(l.due * 1000) + " 前还款（北京时间）" : "");
+        var maker = l.isOffer ? "出借人" : "借款人";
+        var act = l.status === 0 && role === maker ? '<button class="ghost act-btn" data-cancel="' + l.id + '">' + (l.expiry <= now ? "取回" : "撤单") + "</button>"
           : l.status === 1 && role === "借款人" ? '<button class="act-btn" data-repay="' + l.id + '">还款</button>'
           : l.status === 1 && role === "出借人" && l.due <= now ? '<button class="act-btn btn-sell" data-claim="' + l.id + '">领取抵押品</button>' : "";
         return "<tr><td data-l=\"#\">" + l.id + '</td><td data-l="我是" class="l">' + role + '</td><td data-l="抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="借款 / 应还">' + dai(l.principal) + " / " + dai(l.repayAmount) + ' DAI</td><td data-l="状态" class="l">' + st + '</td><td class="act">' + act + "</td></tr>";
@@ -181,10 +191,11 @@
   }
 
   function form(k) {
-    return '<section class="card" id="otc-form"><div class="card-head"><h2>我要借 DAI</h2><span class="muted">抵押币先存进合约，没人接单前随时可撤</span></div>' +
-      '<div class="form-grid"><label>抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
-      '<label>借款金额（DAI，最多 2,000）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
-      '<label>到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
+    return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">发布挂单</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
+      '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我要借 DAI</button><button data-side="lend">我要出借 DAI</button></div>' +
+      '<div class="form-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
+      '<label id="ln-p-l">借款金额（DAI，最多 2,000）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
+      '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
       '<div class="qty-pick" id="ln-pick"></div>' +
       '<div class="dur"><span class="dur-t">借款期限 <small class="muted">从接单那一刻起算</small></span><input type="hidden" id="ln-term" value="' + TERM_DEFAULT + '">' +
       '<div class="dur-opts" id="ln-terms">' + TERMS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === TERM_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
@@ -194,7 +205,7 @@
   }
 
   function bind(id, loans) {
-    var k = K(), app = A.app;
+    var k = K(), app = A.app, side = "borrow";
     var col = document.getElementById("ln-col"), pIn = document.getElementById("ln-p"), rIn = document.getElementById("ln-r"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), pick = document.getElementById("ln-pick");
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
@@ -208,13 +219,37 @@
         if (!openBook[key]) sec.scrollIntoView({ block: "start" });
       };
     });
-    var gf = app.querySelector("[data-goform]");
-    if (gf) gf.onclick = function () { var f = document.getElementById("otc-form"); f.scrollIntoView({ behavior: "smooth", block: "start" }); f.classList.remove("flash", "flash-sell"); void f.offsetWidth; f.classList.add("flash", "flash-sell"); };
+    app.querySelectorAll("[data-goform]").forEach(function (b) {
+      b.onclick = function () {
+        var sd = b.getAttribute("data-goform"), t = document.querySelector('#otc-side [data-side="' + sd + '"]');
+        if (t) t.click();
+        var f = document.getElementById("otc-form"); f.scrollIntoView({ behavior: "smooth", block: "start" });
+        f.classList.remove("flash", "flash-sell", "flash-buy"); void f.offsetWidth; f.classList.add("flash", sd === "lend" ? "flash-buy" : "flash-sell");
+      };
+    });
+    function setSide(sd) {
+      side = sd;
+      document.querySelectorAll("#otc-side button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-side") === sd); });
+      var lend = sd === "lend";
+      document.getElementById("ln-title").textContent = lend ? "我要出借 DAI" : "我要借 DAI";
+      document.getElementById("ln-hint").textContent = lend ? "本金 + 1% 手续费先存进合约，没人借前随时可撤" : "抵押币先存进合约，没人接单前随时可撤";
+      document.getElementById("ln-col-l").firstChild.textContent = lend ? "要求借款人抵押（" + M.sym + "）" : "抵押数量（" + M.sym + "）";
+      document.getElementById("ln-p-l").firstChild.textContent = lend ? "出借金额（DAI，最多 2,000）" : "借款金额（DAI，最多 2,000）";
+      document.getElementById("ln-r-l").firstChild.textContent = lend ? "到期收回（DAI，含利息）" : "到期还款（DAI，含利息）";
+      document.getElementById("otc-create").textContent = lend ? "发布出借单" : "发布借款单";
+      showPick(); calc();
+    }
+    document.querySelectorAll("#otc-side button").forEach(function (b) { b.onclick = function () { setSide(b.getAttribute("data-side")); }; });
     var gm = app.querySelector("[data-gomine]");
     if (gm) gm.onclick = function () { var x = document.getElementById("otc-mine"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
     // 余额和「最大」
     function showPick() {
+      if (side === "lend") { // 出借：显示 DAI 余额
+        if (!k.account()) { pick.innerHTML = ""; return; }
+        k.balance(ANUBIS_DAI, k.account()).then(function (b) { pick.innerHTML = '<span class="muted">钱包里有 ' + dai(b) + " DAI</span>"; }).catch(function () { pick.innerHTML = ""; });
+        return;
+      }
       if (!k.account()) { pick.innerHTML = '<span class="muted">可用余额：</span><a href="#" id="ln-c">连接钱包后显示</a>'; document.getElementById("ln-c").onclick = function (e) { e.preventDefault(); k.connect().then(function () { showPick(); }, function (x) { say(niceError(x), true); }); }; return; }
       k.balance(M.token, k.account()).then(function (b) {
         pick.innerHTML = '<span class="muted">可用 ' + tok(b) + " " + M.sym + '</span> <button type="button" class="ghost" id="ln-max" style="padding:4px 10px">最大</button>';
@@ -226,8 +261,11 @@
       if (!c || !p || !r || c <= 0n || p <= 0n) { sum.textContent = "填好三个数字后显示明细"; return null; }
       var term = Number(document.getElementById("ln-term").value), l = { collateral: c, principal: p, repayAmount: r, term: term }, it = interest(l), ra = ratio(l);
       var warn = r < p ? '<br><span class="down">到期还款不能少于本金</span>' : p > MAX_PRINCIPAL ? '<br><span class="down">单笔借款上限 2,000 DAI</span>' : ra !== null && ra < 100 ? '<br><span class="down">抵押品现值低于借款金额，很难有人接单</span>' : "";
-      sum.innerHTML = "押 <b>" + tok(c) + " " + M.sym + "</b>，借 <b>" + dai(p) + " DAI</b>，" + days(term) + "后还 <b>" + dai(r) + " DAI</b>（利息 " + A.fmt(it.i, 2) + " DAI，" + it.pct.toFixed(1) + "%，年化约 " + it.apr.toFixed(0) + "%）" +
-        (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。出借人实付 " + dai(p + fee(p)) + " DAI（含 1% 手续费），你到手 " + dai(p) + " DAI。" + warn;
+      sum.innerHTML = (side === "lend"
+        ? "借款人押 <b>" + tok(c) + " " + M.sym + "</b> 就能借走 <b>" + dai(p) + " DAI</b>，" + days(term) + "后还你 <b>" + dai(r) + " DAI</b>（利息 " + A.fmt(it.i, 2) + " DAI，" + it.pct.toFixed(1) + "%，年化约 " + it.apr.toFixed(0) + "%）" +
+          (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。你现在需存入 <b>" + dai(p + fee(p)) + " DAI</b>（含 1% 手续费 " + dai(fee(p)) + "），没人借撤单全额退回。"
+        : "押 <b>" + tok(c) + " " + M.sym + "</b>，借 <b>" + dai(p) + " DAI</b>，" + days(term) + "后还 <b>" + dai(r) + " DAI</b>（利息 " + A.fmt(it.i, 2) + " DAI，" + it.pct.toFixed(1) + "%，年化约 " + it.apr.toFixed(0) + "%）" +
+          (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。出借人实付 " + dai(p + fee(p)) + " DAI（含 1% 手续费），你到手 " + dai(p) + " DAI。") + warn;
       return r < p || p > MAX_PRINCIPAL ? null : { c: c, p: p, r: r, term: term };
     }
     col.oninput = pIn.oninput = rIn.oninput = calc;
@@ -238,10 +276,16 @@
       var btn = this, v = calc(), dur = Number(document.getElementById("otc-dur").value);
       if (!v) { say("请把抵押数量、借款金额、到期还款填完整", true); return; }
       btn.disabled = true;
-      k.ready().then(function () { return ensureAllowance(M.token, v.c, say, tok(v.c) + " " + M.sym); })
-        .then(function () { return k.send(LOAN, SEL.request + u256(v.c) + u256(v.p) + u256(v.r) + u256(v.term) + u256(dur), say, "发布借款单"); })
-        .then(function () { say("✅ 借款单已发布！有人接单后本金直接到你的钱包"); setTimeout(reload, 1500); })
-        .catch(function (e) { say(niceError(e), true); btn.disabled = false; });
+      var job = side === "lend"
+        ? k.ready().then(function () { return k.balance(ANUBIS_DAI, k.account()); }).then(function (bal) {
+            if (bal < v.p + fee(v.p)) throw new Error("DAI 不够：需要 " + dai(v.p + fee(v.p)) + "，钱包里只有 " + dai(bal));
+            return ensureAllowance(ANUBIS_DAI, v.p + fee(v.p), say, dai(v.p + fee(v.p)) + " DAI");
+          }).then(function () { return k.send(LOAN, SEL.offer + u256(v.c) + u256(v.p) + u256(v.r) + u256(v.term) + u256(dur), say, "发布出借单"); })
+          .then(function () { say("✅ 出借单已发布！有人押币借走后开始计时，到期还款直接到你的钱包"); })
+        : k.ready().then(function () { return ensureAllowance(M.token, v.c, say, tok(v.c) + " " + M.sym); })
+          .then(function () { return k.send(LOAN, SEL.request + u256(v.c) + u256(v.p) + u256(v.r) + u256(v.term) + u256(dur), say, "发布借款单"); })
+          .then(function () { say("✅ 借款单已发布！有人接单后本金直接到你的钱包"); });
+      job.then(function () { setTimeout(reload, 1500); }).catch(function (e) { say(niceError(e), true); btn.disabled = false; });
     };
     // 撤单 / 取回 / 还款 / 领取抵押品
     function act(sel, label, build, pre) {
@@ -263,9 +307,34 @@
       });
     });
     act("[data-claim]", "领取抵押品", function (l) { return SEL.claim + u256(l.id); });
-    // 出借：确认弹窗
     var modal = document.getElementById("otc-modal");
     function closeModal() { modal.hidden = true; modal.innerHTML = ""; }
+    // 借入：借款人接出借单
+    app.querySelectorAll("[data-take]").forEach(function (b) {
+      b.onclick = function () {
+        var l = loans.filter(function (x) { return x.id === Number(b.getAttribute("data-take")); })[0];
+        if (!l) return;
+        var it = interest(l), ra = ratio(l);
+        modal.innerHTML = '<div class="modal-box"><div class="card-head"><h2>借入 · 出借单 #' + l.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+          '<dl class="dl"><dt>出借人</dt><dd class="mono">' + A.short(l.lender) + "</dd><dt>你要抵押</dt><dd><b>" + tok(l.collateral) + " " + M.sym + "</b>" + (ra === null ? "" : "（现值约 " + A.fmt(tokN(l.collateral) * mkt, 2) + " DAI，抵押率 " + ra.toFixed(0) + "%）") + "</dd>" +
+          "<dt>你到手</dt><dd><b>" + dai(l.principal) + " DAI</b>（手续费由出借人承担）</dd><dt>到期还</dt><dd><b>" + dai(l.repayAmount) + " DAI</b>（利息 " + A.fmt(it.i, 2) + "，年化约 " + it.apr.toFixed(0) + "%）</dd><dt>期限</dt><dd>" + days(l.term) + "，从现在起算</dd></dl>" +
+          '<p class="note down">到期没还上，抵押币直接归出借人，没有宽限期。</p><button id="m-go" style="padding:12px 22px">确认借入</button><p class="note" id="m-st"></p></div>';
+        modal.hidden = false;
+        var ms = document.getElementById("m-st");
+        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; }
+        modal.querySelector("[data-close]").onclick = closeModal;
+        document.getElementById("m-go").onclick = function () {
+          var btn = this; btn.disabled = true;
+          k.ready().then(function () { return k.balance(M.token, k.account()); }).then(function (bal) {
+            if (bal < l.collateral) throw new Error(M.sym + " 不够：要押 " + tok(l.collateral) + "，钱包里只有 " + tok(bal));
+            return ensureAllowance(M.token, l.collateral, msay, tok(l.collateral) + " " + M.sym);
+          }).then(function () { return k.send(LOAN, SEL.take + u256(l.id), msay, "借入 " + dai(l.principal) + " DAI"); })
+            .then(function () { msay("✅ 已借入！本金已到你的钱包，记得在 " + A.timeBJ((Date.now() / 1000 + l.term) * 1000) + "（北京时间）前到「我的借贷」还款"); setTimeout(function () { closeModal(); reload(); }, 3500); })
+            .catch(function (e) { msay(niceError(e), true); btn.disabled = false; });
+        };
+      };
+    });
+    // 出借：确认弹窗
     app.querySelectorAll("[data-fund]").forEach(function (b) {
       b.onclick = function () {
         var l = loans.filter(function (x) { return x.id === Number(b.getAttribute("data-fund")); })[0];
