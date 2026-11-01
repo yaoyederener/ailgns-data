@@ -139,7 +139,7 @@
           (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
     }
     var floor = sells.length ? dai(sells[0].price) : "—", top = bids.length ? dai(bids[0].price) : "—";
-    var html = k.marketTabs() +
+    var html = k.marketTabs() + '<div id="otc-tot"></div>' +
       '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖卡</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要求购</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>" +
       '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt"><b>价格自由定，没有最低限制</b> · 当前最低卖价 <b>' + floor + '</b> · 最高求购 <b>' + top + '</b> DAI · 单笔成交满 50 DAI 送<b>初级 VIP</b>，累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
@@ -154,6 +154,7 @@
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
     bind(id, orders);
+    if (A.fillTotals) A.fillTotals();
     if (k.deboxCard) k.deboxCard(id, { title: "卡牌成交 / 退回，DeBox 私信秒通知", on: "这个钱包的卡牌成交、撤单、到期退回会私信到你的 DeBox" });
   }
 

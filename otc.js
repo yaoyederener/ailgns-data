@@ -276,6 +276,16 @@
   var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
   var openBook = {}; // 用户点开了哪个列表（自动刷新后保持展开）
   var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
+  // ---------- 全站累计成交（给客户信心）：/api/totals，读一次缓存 5 分钟 ----------
+  var totals = null, totalsAt = 0;
+  function loadTotals() {
+    if (totals && Date.now() - totalsAt < 300000) return Promise.resolve(totals);
+    return fetch("/api/totals").then(function (r) { return r.json(); }).then(function (t) { totals = t; totalsAt = Date.now(); return t; }).catch(function () { return totals; });
+  }
+  function totalsHtml(t) { return t && t.fillDai ? '<div class="tot"><span class="tot-k">全站累计成交</span><b class="num">' + A.fmt(t.fillDai, 0) + '</b><span class="tot-u">DAI</span><span class="tot-n">' + A.fmt(t.fills) + ' 笔 · 链上可查</span></div>' : ""; }
+  function fillTotals() { loadTotals().then(function (t) { var el = document.getElementById("otc-tot"); if (el) el.innerHTML = totalsHtml(t); }); }
+  A.fillTotals = fillTotals;
+
   // ---------- DeBox 通知绑定卡片（OTC、卡牌、借贷页共用；文案用 t 参数区分） ----------
   // DeBox 通知：放在「发布挂单」按钮上方，挂单时顺手绑定；之后成交 / 撤单 / 到期退回都会私信通知
   var dbx = null; // { ready, bot, bound }
@@ -440,7 +450,7 @@
       var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要买 ' + SYM + "</button>" +
         (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>";
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
+      var html = marketTabs() + '<div id="otc-tot">' + totalsHtml(totals) + "</div>" + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += createForm();
@@ -457,6 +467,7 @@
       var tc = document.getElementById("otc-top-c");
       if (tc) tc.onclick = function () { var c = document.getElementById("otc-connect"); if (c) c.click(); };
       deboxCard(id);
+      fillTotals();
       app.querySelectorAll(".book-more").forEach(function (b) {
         b.onclick = function () {
           // 只切换显示，不重画页面（免得清掉挂单表单里填了一半的内容）
