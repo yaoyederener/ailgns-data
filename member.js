@@ -1679,6 +1679,19 @@
     if (["team", "growth", "tree"].indexOf(tab) < 0) A.ownOnly = null;
   });
   if (member()) warmTree(member().addr);
+  // 本浏览器存的是初级：打开网站时后台再查一次（站长手动升级、补差价到账、OTC 成交满额等），查到高级就自动升级，不用顾客手动「换个地址」重查
+  (function recheck() {
+    var m = member();
+    if (!m || m.tier === "pro") return;
+    try { if (Date.now() - Number(sessionStorage.getItem("ailgns-recheck") || 0) < 600000) return; sessionStorage.setItem("ailgns-recheck", String(Date.now())); } catch (e) { /* 忽略 */ }
+    lookup(m.addr).then(function (t) {
+      var now = member();
+      if (!t || t.tier !== "pro" || !now || now.addr !== m.addr || now.tier === "pro") return;
+      activate(m.addr, t);
+      subnav();
+      window.dispatchEvent(new HashChangeEvent("hashchange")); // 重新渲染当前页面
+    }).catch(function () {});
+  })();
   A.pages.tree = ownOnly("tree", renderTree);
   A.pages.team = ownOnly("team", renderTeamGate);
   A.pages.growth = ownOnly("growth", renderGrowth);
