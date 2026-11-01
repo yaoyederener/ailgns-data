@@ -174,12 +174,12 @@
     var html = (M.legacy
       ? '<h1>借贷 · 旧合约</h1><p class="sub">这是已下架的旧借款合约 <span class="mono">' + A.short(LOAN) + '</span>，<b>不能再挂新单</b>；之前在这里挂的单可以照常接单、撤单、还款、到期取回。新挂单请到 <a href="#/lend">借贷</a>。</p>'
       : '<h1>借贷</h1><p class="sub">点对点抵押借款，双向挂单：借款人押 ' + M.sym + ' 挂单借 DAI，出借人挂单等人来借，条件（借多少、还多少、借几天）都由挂单人自己定。合约只认时间和数字：<b>到期前还上抵押币退回，到期没还抵押币归出借人</b>，不看价格、不清算。</p>' + marketTabs("#/lend") +
-      '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="borrow">＋ 我要借 DAI</button><button type="button" class="oa-buy" data-goform="lend">＋ 我要出借 DAI</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的借贷</button>' : "") + "</div>" +
-      '<div class="otc-top"><span class="hp-tag">手续费 1%</span><span class="ot-txt">出借人接单时按本金另付 1% 手续费；借款人到手完整本金 · 挂单、撤单、还款、违约领取都免费' + (mkt ? " · " + M.sym + " 市价 <b>" + A.fmt(mkt, M.dec === 9 ? 5 : 2) + "</b> DAI" : "") + "</span>" +
+      '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="borrow">我有 ' + M.sym + '，想借 DAI</button><button type="button" class="oa-buy" data-goform="lend">我有 DAI，想出借</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的借贷</button>' : "") + "</div>" +
+      '<div class="otc-top"><span class="hp-tag">手续费 1%</span><span class="ot-txt">左边红色：你手里有 ' + M.sym + '，押给合约借 DAI；右边绿色：你手里有 DAI，借给押币的人收利息 · 出借人接单时按本金另付 1% 手续费，其它都免费' + (mkt ? " · " + M.sym + " 市价 <b>" + A.fmt(mkt, M.dec === 9 ? 5 : 2) + "</b> DAI" : "") + "</span>" +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>");
     if (M.legacy) html = html.replace(/<div class="otc-acts">[\s\S]*?<\/div>/, ""); // 旧合约页不显示「我要借 / 我要出借」
-    html += book("open", "借款挂单（等人出借）", open, "按年化从高到低 · 出借人实付本金 + 1%", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">借款人</th>', openRow);
-    html += book("offers", "出借挂单（等人来借）", offers, "按年化从低到高 · 押够要求的币就能借走本金", '<th class="l">操作</th><th>出借 DAI</th><th>要求抵押</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">出借人</th>', offerRow);
+    html += book("open", "想借 DAI 的人（已押 " + M.sym + "）", open, "你有 DAI 就可以出借给他 · 按年化从高到低 · 实付本金 + 1%", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">借款人</th>', openRow);
+    html += book("offers", "想出借 DAI 的人", offers, "你押够要求的 " + M.sym + " 就能把 DAI 借走 · 按年化从低到高", '<th class="l">操作</th><th>出借 DAI</th><th>要求抵押</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">出借人</th>', offerRow);
     html += book("active", "借款中", active, "按还款截止时间排序", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>应还</th><th>还款截止（北京时间）</th><th>抵押率参考</th><th class="l">借款人 / 出借人</th>', activeRow);
     if (!M.legacy) html += form(k);
     if (mine.length) html += myLoans(mine, now);
@@ -205,8 +205,8 @@
   }
 
   function form(k) {
-    return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">发布挂单</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
-      '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我要借 DAI</button><button data-side="lend">我要出借 DAI</button></div>' +
+    return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">押 ' + M.sym + ' 借 DAI</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
+      '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我有 ' + M.sym + '，想借 DAI</button><button data-side="lend">我有 DAI，想出借</button></div>' +
       '<div class="form-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
       '<label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
@@ -215,7 +215,7 @@
       '<div class="dur-opts" id="ln-terms">' + TERMS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === TERM_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
       '<div class="dur"><span class="dur-t">挂单有效期 <small class="muted">没人接单就自动退回抵押币</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
       '<div class="dur-opts" id="otc-durs">' + k.DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === k.DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
-      '<p class="note" id="otc-sum">填好三个数字后显示明细</p><button id="otc-create" style="padding:12px 22px">发布借款单</button><p class="note" id="otc-st"></p></section>';
+      '<p class="note" id="otc-sum">填好三个数字后显示明细</p><button id="otc-create" style="padding:12px 22px">发布借款单（存入 ' + M.sym + '）</button><p class="note" id="otc-st"></p></section>';
   }
 
   function bind(id, loans) {
@@ -247,12 +247,12 @@
       side = sd;
       document.querySelectorAll("#otc-side button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-side") === sd); });
       var lend = sd === "lend";
-      document.getElementById("ln-title").textContent = lend ? "我要出借 DAI" : "我要借 DAI";
+      document.getElementById("ln-title").textContent = lend ? "出借 DAI（等人押 " + M.sym + " 来借）" : "押 " + M.sym + " 借 DAI";
       document.getElementById("ln-hint").textContent = lend ? "本金 + 1% 手续费先存进合约，没人借前随时可撤" : "抵押币先存进合约，没人接单前随时可撤";
       document.getElementById("ln-col-l").firstChild.textContent = lend ? "要求借款人抵押（" + M.sym + "）" : "抵押数量（" + M.sym + "）";
       document.getElementById("ln-p-l").firstChild.textContent = lend ? "出借金额（DAI）" : "借款金额（DAI）";
       document.getElementById("ln-r-l").firstChild.textContent = lend ? "到期收回（DAI，含利息）" : "到期还款（DAI，含利息）";
-      document.getElementById("otc-create").textContent = lend ? "发布出借单" : "发布借款单";
+      document.getElementById("otc-create").textContent = lend ? "发布出借单（存入 DAI）" : "发布借款单（存入 " + M.sym + "）";
       showPick(); calc();
     }
     document.querySelectorAll("#otc-side button").forEach(function (b) { b.onclick = function () { setSide(b.getAttribute("data-side")); }; });
