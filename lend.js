@@ -209,8 +209,8 @@
   function form(k) {
     return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">押 ' + M.sym + ' 借 DAI</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
       '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我有 ' + M.sym + '，想借 DAI</button><button data-side="lend">我有 DAI，想出借</button></div>' +
-      '<div class="form-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
-      '<label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
+      '<div class="form-grid"><label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
+      '<label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
       '<div class="qty-pick" id="ln-pick"></div><div class="guide" id="ln-guide" hidden></div>' +
       '<div class="dur"><span class="dur-t">借款期限 <small class="muted">从接单那一刻起算</small></span><input type="hidden" id="ln-term" value="' + TERM_DEFAULT + '">' +
