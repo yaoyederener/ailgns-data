@@ -30,8 +30,9 @@ const GROUPS = ["oes8etcm", "fvg4wksw"]; // 站长的两个 DeBox 群（机器�
 const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），几轮就补完
 
 // 在 OTC 成交过的地址（挂单被吃的挂单人 + 吃单人）记下来，并累计成交额（DAI）：
-// 成交过一笔送初级 VIP，累计满 1 万 DAI 送高级 VIP（会员查询时读 otct:<地址>）
+// otct:<地址> 记所有成交；送会员只看 otcq:<地址>：单笔成交满 50 DAI 才算（防小额刷单刷会员），满一笔送初级 VIP，累计满 1 万 DAI 送高级 VIP
 // 三个市场的成交额合并累计（DAI 两条链都是 18 位）
+const VIP_MIN_FILL = 50;
 async function markTraders(m, kv, logs, cache) {
   for (const l of logs) {
     if (l.topics[0] !== FILLED) continue;
@@ -46,6 +47,37 @@ async function markTraders(m, kv, logs, cache) {
       await kv.put("otct:" + a, JSON.stringify(r));
     }
     await kv.put(key, "1");
+  }
+  await markVip(m, kv, logs, cache);
+}
+async function markVip(m, kv, logs, cache) {
+  for (const l of logs) {
+    if (l.topics[0] !== FILLED) continue;
+    const key = "otcq:f:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
+    if (await kv.get(key)) continue;
+    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data);
+    const vol = o.sell ? num(d[1]) : num(d[0]);
+    if (vol >= VIP_MIN_FILL) {
+      for (const a of new Set([o.maker, "0x" + l.topics[2].slice(26)])) {
+        const r = (await kv.get("otcq:" + a, "json")) || { id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16), chain: m.chain.toLowerCase() };
+        r.vol = (r.vol || 0) + vol;
+        r.n = (r.n || 0) + 1;
+        await kv.put("otcq:" + a, JSON.stringify(r));
+      }
+    }
+    await kv.put(key, "1");
+  }
+}
+// 加了 50 DAI 门槛后，三个市场以前的成交从部署区块起重新补记一遍（只补 otcq，otct 已经记过）
+async function backfillVip(m, kv, upto, cache) {
+  const sk = m.kv + "otcq:scan";
+  let b = parseInt((await kv.get(sk)) || String(m.deploy - 1), 10) + 1;
+  const span = m.chain === "Polygon" ? 3000 : 5000;
+  for (let i = 0; i < BACKFILL_STEPS && b <= upto; i++) {
+    const to = Math.min(upto, b + span - 1);
+    await markVip(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED] }]), cache);
+    await kv.put(sk, String(to));
+    b = to + 1;
   }
 }
 // 以前的成交一点点补记：每次 otc-watch 运行时往前补几段，补到和正常进度接上为止
@@ -149,9 +181,9 @@ const PHRASES = [
   "🔥 成交一笔接一笔，OTC 越来越热闹了！",
   "💎 恭喜这位老板，筹码稳稳到手！",
   "👏 又一位聪明人选择了 OTC，省下了 DEX 的高额滑点！",
-  "🚀 交易就送会员！这一单成交，会员已经自动到账。",
-  "🎁 交易就送会员：任意金额成交送初级 VIP，累计满 1 万 DAI 送高级 VIP！",
-  "🎁 成交一笔就是会员，累计满 1 万 DAI 直接升高级 VIP，越交易越划算！",
+  "🚀 交易就送会员！单笔满 50 DAI 的成交，会员自动到账。",
+  "🎁 交易就送会员：单笔成交满 50 DAI 送初级 VIP，累计满 1 万 DAI 送高级 VIP！",
+  "🎁 成交一笔满 50 DAI 就是会员，累计满 1 万 DAI 直接升高级 VIP，越交易越划算！",
   "🏆 恭喜成交！你离高级 VIP（累计 1 万 DAI）又近了一步。",
   "💰 只收 1% 手续费，买卖 1 万 DAI 比 DEX 省下几百上千 DAI！",
   "⚡ 合约秒到账，不用等、不用信任任何人，代码说了算。",
@@ -175,8 +207,8 @@ const PHRASES = [
   "🔥 恭喜成交！下一笔庆祝的就是你！",
   "🥂 干杯！又一位老板在 OTC 完成交易。",
   "🌈 成交顺利，皆大欢喜！",
-  "✨ 小额也能成交，任意金额都送会员，快来试试！",
-  "📣 交易就送会员，不限金额，成交即送！",
+  "✨ 50 DAI 起就能挂单，成交一笔满 50 DAI 就送会员，快来试试！",
+  "📣 交易就送会员，单笔满 50 DAI 成交即送！",
   "💎 大单小单都欢迎，一视同仁，合约自动结算。",
   "🚀 OTC 成交量稳步增长，感谢每一位支持的朋友！",
   "🤑 省下的滑点就是赚到的钱！",
@@ -297,8 +329,9 @@ export async function onRequestGet(ctx) {
   for (const [m, logs, cache, from, latest] of done) {
     await markTraders(m, kv, logs, cache).catch(() => {});
     if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
+    await backfillVip(m, kv, from - 1, cache).catch(() => {});
     await kv.put(m.kv + "block", String(latest));
   }
   const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
-  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, pixel, backfilledTo: await kv.get("otct2:scan") });
+  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }

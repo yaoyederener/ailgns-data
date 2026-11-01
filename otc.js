@@ -82,6 +82,7 @@
   }
   // 剩下的值多少 DAI：卖单按单价折算，买单存的就是 DAI
   function daiLeft(o, left) { return o.sellAilgns ? ceilDiv(left * o.wantTotal, o.giveTotal) : left; }
+  var MIN_ORDER = 50n * 10n ** 18n; // 挂单总额至少 50 DAI（防小额刷单）
   var MIN_DAI = 10n ** 18n; // 剩余不足 1 DAI 的挂单自动下架：不在市场里显示，挂单人点「取回」退回（到期也会自动退回）
   function isDustLeft(o, left) { return isCrumb(o, left) || daiLeft(o, left) < MIN_DAI; }
   function isDust(o) { return o.giveLeft > 0n && isDustLeft(o, o.giveLeft); }
@@ -234,7 +235,7 @@
       '<span class="pill">智能合约担保 · 无需信任 · 无需许可</span>' +
       '<h1>AiLGNS <span class="grad">OTC</span></h1>' +
       '<p>AiLGNS ⇄ DAI 场外交易。币锁在合约里，付款和收币一笔完成，到期没成交自动退回（有效期 10 分钟到 30 天自选）。</p>' +
-      '<div class="hero-promo"><span class="hp-tag">🎁 交易就送会员</span><span>任意金额成交送<b>初级 VIP</b> · 累计成交满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span></div>' +
+      '<div class="hero-promo"><span class="hp-tag">🎁 交易就送会员</span><span>单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计成交满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span></div>' +
       '<div class="hero-cta"><button data-go="sell">我要卖 AiLGNS</button><button class="ghost" data-go="buy">我要买 AiLGNS</button></div>' +
       '<div class="hero-stats"><div><span>AiLGNS 市价</span><b>' + (mkt ? A.fmt(mkt, 2) : "—") + ' <small>DAI</small></b></div>' +
       "<div><span>挂单中</span><b>" + (live === null ? "—" : live) + " <small>张</small></b></div><div><span>成交手续费</span><b>1%</b></div></div></div>" + HERO_ART + "</section>";
@@ -290,7 +291,7 @@
       }
 
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = marketTabs() + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">任意金额成交送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
+      var html = marketTabs() + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += book("卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += createForm();
@@ -594,7 +595,7 @@
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
-        if (v.total < MIN_DAI) { say("挂单总额至少 1 DAI", true); return; }
+        if (v.total < MIN_ORDER) { say("挂单总额至少 50 DAI", true); return; }
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number(document.getElementById("otc-dur").value);
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
@@ -690,6 +691,7 @@
           : "你付 <b>" + tShow(pay) + " " + SYM + "</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
         if (capped) quote.innerHTML += '<br><span class="muted">这张单只剩这么多，已按剩下的全部算</span>';
         else if (swept) quote.innerHTML += '<br><span class="muted">这张单买完后只剩不到 1 DAI，已一起算上</span>';
+        if ((o.sellAilgns ? pay : amount) < MIN_ORDER) quote.innerHTML += '<br><span class="muted">单笔成交不足 50 DAI，不送会员</span>';
         return { amount: amount, pay: pay };
       }
       qty.oninput = plan;
@@ -867,7 +869,7 @@
   A.pages.promo = function (id) {
     useMarket("ailgns"); // 营销广告讲的是 AiLGNS
     var gift = '<section class="card promo-gift"><div class="card-head"><h2>🎁 交易就送会员</h2></div>' +
-      '<div class="pg-row"><div class="pg-item"><b>初级 VIP</b><span>在本站 OTC 成交任意金额</span></div><div class="pg-item pro"><b>高级 VIP</b><span>累计成交满 1 万 DAI</span></div></div>' +
+      '<div class="pg-row"><div class="pg-item"><b>初级 VIP</b><span>在本站 OTC 单笔成交满 50 DAI</span></div><div class="pg-item pro"><b>高级 VIP</b><span>累计成交满 1 万 DAI</span></div></div>' +
       '<p class="note">挂单被吃、吃别人的单都算，按钱包地址自动累计。成交后到<a href="#/member">「会员」</a>页填这个钱包地址点「查询」就能用。</p>' +
       '<button data-go="otc" style="padding:12px 22px">去 OTC 交易 →</button></section>';
     function draw(mkt, live) {

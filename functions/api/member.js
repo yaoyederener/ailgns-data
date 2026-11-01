@@ -1,5 +1,5 @@
 // 会员按地址开通：不用连钱包、不用签名。先填会员地址下单，网站给一个带零头的专属金额，用任何钱包转这个精确金额就认到这个地址上
-// GET  ?addr=0x…[&txs=0x…,0x…]        → { payments: [按订单认到这个地址的付款], giftPayer, giftedTo, claimed: [txs 里已被订单认领的], otcTrader: 在 OTC 成交过的记录（送初级 VIP） }
+// GET  ?addr=0x…[&txs=0x…,0x…]        → { payments: [按订单认到这个地址的付款], giftPayer, giftedTo, claimed: [txs 里已被订单认领的], otcTrader: 在 OTC 单笔成交满 50 DAI 的记录（送初级 VIP） }
 // POST { action: "order", target, method, amount } → 生成订单 { id, amount, units, chain, token, receiver, expires }
 // POST { action: "check", id, tx? }    → 查这个订单有没有到账，到账就记到会员地址上 { paid, payment, target }
 // KV：mord:<id> 订单（2 天过期）；mamt:<method>:<units> 金额占用；mem:<地址> 付款列表；memtx:<tx> 已认领的交易
@@ -54,7 +54,7 @@ export async function onRequestGet(ctx) {
   if (!isAddr(addr)) return new Response("bad address", { status: 400 });
   const txs = (u.searchParams.get("txs") || "").toLowerCase().split(",").filter(isTx).slice(0, 50);
   const [payments, giftPayer, giftedTo, otcTrader, ...claims] = await Promise.all([
-    kv.get("mem:" + addr, "json"), kv.get("giftto:" + addr), kv.get("gift:" + addr), kv.get("otct:" + addr, "json"), ...txs.map((t) => kv.get("memtx:" + t))
+    kv.get("mem:" + addr, "json"), kv.get("giftto:" + addr), kv.get("gift:" + addr), kv.get("otcq:" + addr, "json"), ...txs.map((t) => kv.get("memtx:" + t))
   ]);
   // 这个地址自己转出去的付款，如果是给别的地址下的订单付的，就不算它自己的
   const claimed = txs.filter((t, i) => claims[i] && claims[i] !== addr);

@@ -150,7 +150,7 @@
       return (txs.length ? memberApi(addr, txs).then(function (d) { return d.claimed || []; }) : Promise.resolve([])).then(function (claimed) {
         var list = direct.filter(function (p) { return claimed.indexOf(p.tx) < 0; }).concat(r[2]), manual = MANUAL[addr];
         if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr, note: manual.note, paid: 0, usd: manual.usd });
-        // OTC 成交送会员：成交过一笔送初级，累计成交满 1 万 DAI 送高级
+        // OTC 成交送会员：单笔成交满 50 DAI 送初级，这样的成交累计满 1 万 DAI 送高级
         if (trade) {
           var vol = trade.vol || 0, big = vol >= OTC_PRO_VOL;
           list.push({ method: "otc", chain: trade.chain || "anubis", tx: "otc:" + addr, ref: trade.tx, paid: 0, usd: big ? PRO_USD : FEE_USD,
@@ -305,7 +305,7 @@
         '<p class="addr-help">会员开在这个地址上，团队、业绩、结构图都查这个地址。</p>' +
         '<div class="addr-box"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button id="mem-q">查询</button></div>' +
         '<div id="q-out"></div>' +
-        '<ul class="addr-tips"><li><b>在本站 OTC 交易就送会员：任意金额成交送初级 VIP，累计成交满 1 万 DAI 送高级 VIP</b>，填交易的地址点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
+        '<ul class="addr-tips"><li><b>在本站 OTC 交易就送会员：单笔成交满 50 DAI 送初级 VIP，累计成交满 1 万 DAI 送高级 VIP</b>，填交易的地址点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
         "<li>已开通的点「查询」直接恢复；未开通的会出现付款按钮。</li>" +
         "<li>开通后不能更改地址，请核对清楚。</li></ul></section>";
       var plans = upgrade
