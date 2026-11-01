@@ -1116,13 +1116,18 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .book-n { font-size: 13px; font-weight: 600; margin-left: 4px; }
 .book-more { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; font-size: 13.5px; color: var(--purple-ink); background: var(--soft); border: 1px solid var(--soft-line); box-shadow: none; }
 .book-more:hover { background: var(--gold-soft); }
-.otc-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 14px; }
-.otc-acts button { padding: 7px 14px; font-size: 13.5px; border-radius: 999px; box-shadow: none; }
+.otc-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin: 0 0 14px; } /* 等宽铺满一行，和上面的市场切换左右对齐 */
+.otc-acts button { height: 40px; padding: 0 10px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: none; white-space: nowrap; }
 .otc-acts .oa-sell { background: var(--grad-dot); color: #fff; }
 .otc-acts .oa-buy { background: #fff; color: var(--purple-ink); border: 1px solid #b98cf5; }
+.otc-acts [data-gomine] { background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); }
 @media (max-width: 600px) {
   .bk-open table.cards.book tr.bk-x { display: grid; } /* 手机上每张挂单是卡片样式 */
-  .otc-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .otc-acts [data-gomine] { grid-column: 1 / -1; }
-  .otc-acts button { padding: 7px 6px; font-size: 13px; }
+  .otc-acts { gap: 6px; }
+  .otc-acts button { height: 38px; padding: 0 4px; font-size: 13px; }
+  .otc-top { gap: 8px; }
+  .otc-top .ot-txt { flex: 1 1 100%; }
+  .otc-top .ot-c, .otc-top .ot-w { margin-left: 0; }
+  .otc-top .ot-c { flex: 1 1 100%; height: 38px; padding: 0 10px; border-radius: 12px; }
 }
+

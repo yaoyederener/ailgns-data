@@ -325,12 +325,12 @@
             (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + bk + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
-      // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = marketTabs() + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
-        (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       // 顶部小按钮：直接跳到挂单表单（订单多时客户找不到挂单的地方）
-      html += '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要买 ' + SYM + "</button>" +
+      var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要买 ' + SYM + "</button>" +
         (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>";
+      // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
+      var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
+        (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
