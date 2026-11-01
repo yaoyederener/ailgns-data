@@ -178,6 +178,13 @@
         m.payments = m.tx ? [{ method: m.method, chain: m.chain, tx: m.tx, block: m.block, paid: m.paid, usd: FEE_USD }] : [];
         m.usd = m.method === "gift" ? PRO_USD : FEE_USD;
       }
+      // 站长手动开通了高级、但本浏览器以前存的是初级：直接改成高级（不用联网查）
+      var man = m && m.tier !== "pro" && MANUAL[m.addr];
+      if (man && man.usd >= PRO_USD) {
+        m.tier = "pro"; m.usd = man.usd;
+        m.payments = [{ method: "manual", chain: man.chain || "anubis", tx: man.tx || "manual:" + m.addr, note: man.note, paid: 0, usd: man.usd }];
+        saveMember(m);
+      }
       return m;
     } catch (e) { return null; }
   }
