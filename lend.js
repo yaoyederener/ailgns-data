@@ -206,6 +206,7 @@
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
     bind(id, loans);
+    if (!M.legacy && k.deboxCard) k.deboxCard(id, { title: "借贷成交 / 还款 / 到期提醒，DeBox 私信秒通知", on: "这个钱包的借贷成交、还款、到期前 24 小时和 1 小时提醒、逾期划转都会私信到你的 DeBox" });
   }
 
   function myLoans(list, now) {
@@ -232,7 +233,7 @@
       '<div class="dur-opts" id="ln-terms">' + TERMS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === TERM_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
       '<div class="dur"><span class="dur-t">挂单有效期 <small class="muted" id="ln-exp-hint">没人接单就自动退回抵押币</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
       '<div class="dur-opts" id="otc-durs">' + k.DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === k.DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
-      '<p class="note" id="otc-sum">填好三个数字后显示明细</p><button id="otc-create" style="padding:12px 22px">发布借款单（存入 ' + M.sym + '）</button><p class="note" id="otc-st"></p></section>';
+      '<p class="note" id="otc-sum">填好三个数字后显示明细</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布借款单（存入 ' + M.sym + '）</button><p class="note" id="otc-st"></p></section>';
   }
 
   function bind(id, loans) {

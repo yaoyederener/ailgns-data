@@ -276,6 +276,109 @@
   var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
   var openBook = {}; // 用户点开了哪个列表（自动刷新后保持展开）
   var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
+  // ---------- DeBox 通知绑定卡片（OTC、卡牌、借贷页共用；文案用 t 参数区分） ----------
+  // DeBox 通知：放在「发布挂单」按钮上方，挂单时顺手绑定；之后成交 / 撤单 / 到期退回都会私信通知
+  var dbx = null; // { ready, bot, bound }
+  function dbxLink() { return "https://m.debox.pro/card?id=" + encodeURIComponent(dbx.bot.uid); } // 机器人名片页：打开后点「关注」/「发消息」
+  function copyTo(text, btn) {
+    function ok() { btn.textContent = "已复制 ✓"; }
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(ok, fallback);
+    fallback();
+    function fallback() { // 部分钱包浏览器不支持剪贴板接口
+      var ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); ok(); } catch (e) { btn.textContent = text; }
+      ta.remove();
+    }
+  }
+  function bindCopies(root) {
+    root.querySelectorAll("[data-dbx-copy]").forEach(function (b) { b.onclick = function () { copyTo(b.getAttribute("data-dbx-copy"), b); }; });
+    root.querySelectorAll("[data-dbx-link]").forEach(function (b) { b.onclick = showLink; });
+  }
+  // 弹出机器人二维码：客户长按保存（或截图），到 DeBox「扫一扫」从相册选图，直接打开机器人关注
+  var QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+  function loadQr() {
+    if (window.qrcode) return Promise.resolve(window.qrcode);
+    return new Promise(function (ok, fail) {
+      var sc = document.createElement("script"); sc.src = QR_LIB;
+      sc.onload = function () { ok(window.qrcode); }; sc.onerror = fail;
+      document.head.appendChild(sc);
+    });
+  }
+  // 二维码画成一张带白边和说明文字的图片，方便长按保存到相册
+  function qrImage(text, caption) {
+    return loadQr().then(function (qrcode) {
+      var q = qrcode(0, "M"); q.addData(text); q.make();
+      var n = q.getModuleCount(), cell = 8, pad = 32, size = n * cell + pad * 2, c = document.createElement("canvas");
+      c.width = size; c.height = size + 56;
+      var g = c.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = "#191839";
+      for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(pad + k * cell, pad + r * cell, cell, cell);
+      g.font = "700 22px -apple-system, PingFang SC, Microsoft YaHei, sans-serif"; g.textAlign = "center"; g.fillStyle = "#7027d9";
+      g.fillText(caption, size / 2, size + 26);
+      return c.toDataURL("image/png");
+    });
+  }
+  function showLink() {
+    var link = dbxLink(), name = dbx.bot.name || "机器人", box = document.createElement("div");
+    box.className = "modal";
+    box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔔 扫码关注「' + A.esc(name) + '」</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+      '<div class="dbx-qr" id="dbx-qr"><div class="loading">正在生成二维码…</div></div>' +
+      '<ol class="steps"><li><b>长按二维码保存到相册</b>（或截图）</li>' +
+      "<li>打开 <b>DeBox App</b> →「扫一扫」→ 从<b>相册</b>选这张图</li>" +
+      "<li>进入机器人页面，点<b>关注</b></li>" +
+      "<li>回到这里，复制钱包地址发给机器人，收到「✅ 已绑定」就完成了</li></ol>" +
+      '<details class="dbx-alt"><summary>扫码不方便？复制链接</summary><div class="dbx-link mono">' + link + '</div><button class="ghost" id="dbx-link-copy" style="padding:8px 14px;margin-top:8px">复制链接</button><p class="note">把链接粘贴发到 DeBox 任意聊天里点开，也能进入机器人页面。</p></details></div>';
+    document.body.appendChild(box);
+    box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+    var btn = document.getElementById("dbx-link-copy");
+    btn.onclick = function () { copyTo(link, btn); };
+    qrImage(link, "DeBox 扫码关注 " + name).then(function (url) {
+      var el = document.getElementById("dbx-qr");
+      if (el) el.innerHTML = '<img src="' + url + '" alt="机器人二维码">';
+    }, function () {
+      var el = document.getElementById("dbx-qr");
+      if (el) el.innerHTML = '<p class="note">二维码加载失败，请用下面「复制链接」。</p>';
+      box.querySelector(".dbx-alt").open = true;
+    });
+  }
+  // 客户大多在钱包的 DApp 浏览器里，那里跳不到 DeBox App：所以给出机器人名字 / ID 让他复制，到 DeBox 里搜
+  var DBX_TXT = { title: "挂单成交 / 退回，DeBox 私信秒通知", on: "这个钱包的挂单成交、撤单、到期退回会私信到你的 DeBox" };
+  function dbxHtml(t) {
+    t = t || DBX_TXT;
+    if (dbx.bound) return '<div class="dbx-bar dbx-on"><span class="dbx-bell">🔔</span><div><b>已开启 DeBox 通知</b><small>' + A.esc(t.on) + '</small></div></div>';
+    return '<div class="dbx-bar"><span class="dbx-bell">🔔</span><div class="dbx-txt"><b>' + A.esc(t.title) + '</b>' +
+      '<ol class="dbx-steps"><li><button type="button" data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
+      "<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
+      "<li>把你的钱包地址发给机器人" + (account ? '：<span class="mono">' + A.short(account) + '</span> <button type="button" class="ghost" data-dbx-copy="' + account + '">复制地址</button>' : "（连接钱包后这里显示）") + "，收到「✅ 已绑定」就好了</li></ol></div></div>";
+  }
+  function deboxCard(id, t) {
+    fetch("/api/debox-bot" + (account ? "?addr=" + account : "")).then(function (r) { return r.json(); }).then(function (d) {
+      dbx = d;
+      var el = document.getElementById("dbx-slot");
+      if (!el || !A.isCurrent(id) || !d.ready) return; // 机器人还没配置好时不显示
+      el.innerHTML = dbxHtml(t);
+      bindCopies(el);
+    }).catch(function () { /* 通知功能不可用时不显示 */ });
+  }
+  // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
+  function dbxAfterCreate() {
+    if (!dbx || !dbx.ready || dbx.bound || !account) return false;
+    var box = document.createElement("div");
+    box.className = "modal";
+    box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+      '<p><b>开启 DeBox 通知</b>，有人成交、到期退回，第一时间私信告诉你，不用一直盯着网页。</p>' +
+      '<ol class="steps"><li><button data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
+      '<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
+      '<li>把钱包地址发给机器人：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" data-dbx-copy="' + account + '">复制</button></div>收到「✅ 已绑定」就好了</li></ol></div>';
+    document.body.appendChild(box);
+    box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+    bindCopies(box);
+    return true;
+  }
+
+
   function renderOtc(id, sub) {
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
@@ -378,105 +481,6 @@
       });
       var gm = app.querySelector("[data-gomine]");
       if (gm) gm.onclick = function () { var x = document.getElementById("otc-mine"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
-    }
-
-    // DeBox 通知：放在「发布挂单」按钮上方，挂单时顺手绑定；之后成交 / 撤单 / 到期退回都会私信通知
-    var dbx = null; // { ready, bot, bound }
-    function dbxLink() { return "https://m.debox.pro/card?id=" + encodeURIComponent(dbx.bot.uid); } // 机器人名片页：打开后点「关注」/「发消息」
-    function copyTo(text, btn) {
-      function ok() { btn.textContent = "已复制 ✓"; }
-      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).then(ok, fallback);
-      fallback();
-      function fallback() { // 部分钱包浏览器不支持剪贴板接口
-        var ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
-        document.body.appendChild(ta); ta.select();
-        try { document.execCommand("copy"); ok(); } catch (e) { btn.textContent = text; }
-        ta.remove();
-      }
-    }
-    function bindCopies(root) {
-      root.querySelectorAll("[data-dbx-copy]").forEach(function (b) { b.onclick = function () { copyTo(b.getAttribute("data-dbx-copy"), b); }; });
-      root.querySelectorAll("[data-dbx-link]").forEach(function (b) { b.onclick = showLink; });
-    }
-    // 弹出机器人二维码：客户长按保存（或截图），到 DeBox「扫一扫」从相册选图，直接打开机器人关注
-    var QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
-    function loadQr() {
-      if (window.qrcode) return Promise.resolve(window.qrcode);
-      return new Promise(function (ok, fail) {
-        var sc = document.createElement("script"); sc.src = QR_LIB;
-        sc.onload = function () { ok(window.qrcode); }; sc.onerror = fail;
-        document.head.appendChild(sc);
-      });
-    }
-    // 二维码画成一张带白边和说明文字的图片，方便长按保存到相册
-    function qrImage(text, caption) {
-      return loadQr().then(function (qrcode) {
-        var q = qrcode(0, "M"); q.addData(text); q.make();
-        var n = q.getModuleCount(), cell = 8, pad = 32, size = n * cell + pad * 2, c = document.createElement("canvas");
-        c.width = size; c.height = size + 56;
-        var g = c.getContext("2d");
-        g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
-        g.fillStyle = "#191839";
-        for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (q.isDark(r, k)) g.fillRect(pad + k * cell, pad + r * cell, cell, cell);
-        g.font = "700 22px -apple-system, PingFang SC, Microsoft YaHei, sans-serif"; g.textAlign = "center"; g.fillStyle = "#7027d9";
-        g.fillText(caption, size / 2, size + 26);
-        return c.toDataURL("image/png");
-      });
-    }
-    function showLink() {
-      var link = dbxLink(), name = dbx.bot.name || "机器人", box = document.createElement("div");
-      box.className = "modal";
-      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔔 扫码关注「' + A.esc(name) + '」</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<div class="dbx-qr" id="dbx-qr"><div class="loading">正在生成二维码…</div></div>' +
-        '<ol class="steps"><li><b>长按二维码保存到相册</b>（或截图）</li>' +
-        "<li>打开 <b>DeBox App</b> →「扫一扫」→ 从<b>相册</b>选这张图</li>" +
-        "<li>进入机器人页面，点<b>关注</b></li>" +
-        "<li>回到这里，复制钱包地址发给机器人，收到「✅ 已绑定」就完成了</li></ol>" +
-        '<details class="dbx-alt"><summary>扫码不方便？复制链接</summary><div class="dbx-link mono">' + link + '</div><button class="ghost" id="dbx-link-copy" style="padding:8px 14px;margin-top:8px">复制链接</button><p class="note">把链接粘贴发到 DeBox 任意聊天里点开，也能进入机器人页面。</p></details></div>';
-      document.body.appendChild(box);
-      box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
-      var btn = document.getElementById("dbx-link-copy");
-      btn.onclick = function () { copyTo(link, btn); };
-      qrImage(link, "DeBox 扫码关注 " + name).then(function (url) {
-        var el = document.getElementById("dbx-qr");
-        if (el) el.innerHTML = '<img src="' + url + '" alt="机器人二维码">';
-      }, function () {
-        var el = document.getElementById("dbx-qr");
-        if (el) el.innerHTML = '<p class="note">二维码加载失败，请用下面「复制链接」。</p>';
-        box.querySelector(".dbx-alt").open = true;
-      });
-    }
-    // 客户大多在钱包的 DApp 浏览器里，那里跳不到 DeBox App：所以给出机器人名字 / ID 让他复制，到 DeBox 里搜
-    function dbxHtml() {
-      if (dbx.bound) return '<div class="dbx-bar dbx-on"><span class="dbx-bell">🔔</span><div><b>已开启 DeBox 通知</b><small>这个钱包的挂单成交、撤单、到期退回会私信到你的 DeBox</small></div></div>';
-      return '<div class="dbx-bar"><span class="dbx-bell">🔔</span><div class="dbx-txt"><b>挂单成交 / 退回，DeBox 私信秒通知</b>' +
-        '<ol class="dbx-steps"><li><button type="button" data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
-        "<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「" + A.esc(dbx.bot.name || "机器人") + "」</li>" +
-        "<li>把你的钱包地址发给机器人" + (account ? '：<span class="mono">' + A.short(account) + '</span> <button type="button" class="ghost" data-dbx-copy="' + account + '">复制地址</button>' : "（连接钱包后这里显示）") + "，收到「✅ 已绑定」就好了</li></ol></div></div>";
-    }
-    function deboxCard(id) {
-      fetch("/api/debox-bot" + (account ? "?addr=" + account : "")).then(function (r) { return r.json(); }).then(function (d) {
-        dbx = d;
-        var el = document.getElementById("dbx-slot");
-        if (!el || !A.isCurrent(id) || !d.ready) return; // 机器人还没配置好时不显示
-        el.innerHTML = dbxHtml();
-        bindCopies(el);
-      }).catch(function () { /* 通知功能不可用时不显示 */ });
-    }
-    // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
-    function dbxAfterCreate() {
-      if (!dbx || !dbx.ready || dbx.bound || !account) return false;
-      var box = document.createElement("div");
-      box.className = "modal";
-      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<p><b>开启 DeBox 通知</b>，有人成交、到期退回，第一时间私信告诉你，不用一直盯着网页。</p>' +
-        '<ol class="steps"><li><button data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
-        '<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
-        '<li>把钱包地址发给机器人：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" data-dbx-copy="' + account + '">复制</button></div>收到「✅ 已绑定」就好了</li></ol></div>';
-      document.body.appendChild(box);
-      box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
-      bindCopies(box);
-      return true;
     }
 
     // 我的钱包：地址 + AiLGNS / DAI 余额；连接后随时刷新
@@ -941,7 +945,8 @@
     account: function () { return account; }, connect: connect, ready: ready, silentAccount: silentAccount, send: send, read: read, balance: balance, allowance: allowance,
     u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT,
     M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; },
-    useMarket: useMarket // lend.js 用：切到对应市场，让链、钱包切链都对
+    useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
+    deboxCard: deboxCard // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
   };
   A.pages.otc = function (id) {
     // #/otc · #/otc/lgns · #/otc/plgns · #/otc/glgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>

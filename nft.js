@@ -154,6 +154,7 @@
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
     bind(id, orders);
+    if (k.deboxCard) k.deboxCard(id, { title: "卡牌成交 / 退回，DeBox 私信秒通知", on: "这个钱包的卡牌成交、撤单、到期退回会私信到你的 DeBox" });
   }
 
   function myOrders(list, now) {
