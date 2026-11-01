@@ -1109,3 +1109,20 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .tabs a.vipt:hover { color: #fff; background: var(--grad-dot); filter: brightness(1.08); }
 .tabs a.vipt.on { color: #fff; background: var(--grad-dot); box-shadow: 0 0 0 2px #fff, 0 0 0 4px #b98cf5, 0 4px 14px rgba(112, 39, 217, .3); }
 @media (max-width: 600px) { .tabs { padding-top: 8px; } .tabs a.vipt { gap: 3px; } .tabs a.vipt svg { width: 14px; height: 14px; } .tabs a.vipt i { top: -7px; right: -2px; } }
+
+/* OTC：挂单太多时每个列表先只显示 5 张，点「展开」看全部；顶部「我要卖 / 我要买」小按钮直达挂单表单 */
+.book tr.bk-x { display: none; }
+.bk-open .book tr.bk-x { display: table-row; }
+.book-n { font-size: 13px; font-weight: 600; margin-left: 4px; }
+.book-more { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; font-size: 13.5px; color: var(--purple-ink); background: var(--soft); border: 1px solid var(--soft-line); box-shadow: none; }
+.book-more:hover { background: var(--gold-soft); }
+.otc-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: -4px 0 14px; }
+.otc-acts button { padding: 7px 14px; font-size: 13.5px; border-radius: 999px; box-shadow: none; }
+.otc-acts .oa-sell { background: var(--grad-dot); color: #fff; }
+.otc-acts .oa-buy { background: #fff; color: var(--purple-ink); border: 1px solid #b98cf5; }
+@media (max-width: 600px) {
+  .bk-open table.cards.book tr.bk-x { display: grid; } /* 手机上每张挂单是卡片样式 */
+  .otc-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .otc-acts [data-gomine] { grid-column: 1 / -1; }
+  .otc-acts button { padding: 7px 6px; font-size: 13px; }
+}

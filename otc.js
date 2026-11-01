@@ -266,6 +266,8 @@
     }).join("") + "</nav>";
   }
 
+  var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
+  var openBook = {}; // 用户点开了哪个列表（自动刷新后保持展开）
   var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
   function renderOtc(id, sub) {
     var app = A.app;
@@ -304,27 +306,32 @@
       var buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
 
-      function row(o) {
+      function row(o, i) {
         var p = priceOf(o), ail = o.sellAilgns ? o.giveLeft : (o.giveLeft * o.wantTotal) / o.giveTotal; // 剩余的挂单币数量
         var diff = mkt ? (p / mkt - 1) * 100 : null;
         // 操作按钮放在最前面：买入绿色、卖出红色，自己的单显示撤单
         var act = o.maker === account
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
-        return '<tr><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
+        return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
           '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td></tr>";
       }
-      function book(title, list, hint) {
-        return '<section class="card"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + hint + "</span></div>" +
+      function book(key, title, list, hint) {
+        var bk = MK + key, open = openBook[bk], more = list.length - BOOK_SHOW;
+        return '<section class="card' + (open ? " bk-open" : "") + '" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 张</small></h2><span class="muted">' + hint + "</span></div>" +
           (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
-            list.map(row).join("") + "</tbody></table></div>" : '<div class="empty">暂无挂单</div>') + "</section>";
+            list.map(row).join("") + "</tbody></table></div>" +
+            (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + bk + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = marketTabs() + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
-      html += book("卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
+      // 顶部小按钮：直接跳到挂单表单（订单多时客户找不到挂单的地方）
+      html += '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要买 ' + SYM + "</button>" +
+        (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>";
+      html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
       html += '<div class="kpis kpis-2">' +
@@ -339,6 +346,26 @@
       var tc = document.getElementById("otc-top-c");
       if (tc) tc.onclick = function () { var c = document.getElementById("otc-connect"); if (c) c.click(); };
       deboxCard(id);
+      app.querySelectorAll(".book-more").forEach(function (b) {
+        b.onclick = function () {
+          // 只切换显示，不重画页面（免得清掉挂单表单里填了一半的内容）
+          var k = b.getAttribute("data-book"), sec = b.closest("section"), n = sec.querySelectorAll("tr.bk-x").length;
+          openBook[k] = !openBook[k];
+          sec.classList.toggle("bk-open", openBook[k]);
+          b.textContent = openBook[k] ? "收起 ▴" : "展开其余 " + n + " 张 ▾";
+          if (!openBook[k]) sec.scrollIntoView({ block: "start" }); // 收起后回到这个列表开头
+        };
+      });
+      app.querySelectorAll("[data-goform]").forEach(function (b) {
+        b.onclick = function () {
+          var t = document.querySelector('#otc-side [data-side="' + b.getAttribute("data-goform") + '"]');
+          if (t) t.click();
+          var f = document.getElementById("otc-form");
+          if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+      });
+      var gm = app.querySelector("[data-gomine]");
+      if (gm) gm.onclick = function () { var x = document.getElementById("otc-mine"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
     }
 
     // DeBox 通知：放在「发布挂单」按钮上方，挂单时顺手绑定；之后成交 / 撤单 / 到期退回都会私信通知
@@ -490,7 +517,7 @@
 
     function myOrders(list, now, mkt) {
       if (!list.length) return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
-      return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
+      return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var dust = o.open && isDust(o);
           var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · 还剩 " + left(o.expiry - now) + '<br><span class="muted">' + A.timeBJ(o.expiry * 1000) + " 到期（北京时间）</span>";
