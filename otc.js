@@ -459,6 +459,7 @@
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += '<div id="otc-tot">' + totalsHtml(totals) + "</div>"; // 全站累计放在挂单下面，上面留给买卖
+      html += '<p class="note" style="margin:-6px 0 14px">成交后想核对记录？<a href="#/trades' + (account ? "/" + account : "") + '">成交查询 →</a> 输入任意地址就能看它在本站的全部成交。</p>';
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
       html += '<div class="kpis kpis-2">' +

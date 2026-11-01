@@ -23,7 +23,7 @@
   };
   // [分组名, 英文, [[链接, 名字, 图标, 是否外链]]]
   var GROUPS = [
-    ["OTC 交易", "TRADE", [["#/otc", "AiLGNS OTC", "otc"], ["#/otc/lgns", "LGNS OTC · Anubis", "chain"], ["#/otc/plgns", "LGNS OTC · Polygon", "chain"], ["#/otc/glgns", "gLGNS OTC · Anubis", "chain"], ["#/otc/nft", "AWAKE NFT 卡牌", "grid"]]],
+    ["OTC 交易", "TRADE", [["#/otc", "AiLGNS OTC", "otc"], ["#/otc/lgns", "LGNS OTC · Anubis", "chain"], ["#/otc/plgns", "LGNS OTC · Polygon", "chain"], ["#/otc/glgns", "gLGNS OTC · Anubis", "chain"], ["#/otc/nft", "AWAKE NFT 卡牌", "grid"], ["#/trades", "成交查询", "wallet"]]],
     ["会员", "MEMBER", [["#/member", "会员中心", "member"], ["#/wallet", "钱包快查", "wallet"], ["#/team", "团队与等级", "team"], ["#/growth", "团队新增业绩", "growth"], ["#/tree", "团队结构图", "tree"], ["#/upline", "上级查询", "upline"]]],
     ["借贷", "LEND", [["#/lend", "AiLGNS 抵押借款", "otc"], ["#/lend/lgns", "LGNS 抵押借款（即将上线）", "chain"], ["#/lend/glgns", "gLGNS 抵押借款（即将上线）", "chain"]]],
     ["销毁乐园", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/pixel", "LGNS 像素墙", "grid"]]],

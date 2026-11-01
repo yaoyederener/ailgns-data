@@ -87,6 +87,48 @@ async function markVip(m, kv, logs, cache, live = false) {
   }
 }
 // 加了 50 DAI 门槛后，三个市场以前的成交从部署区块起重新补记一遍（只补 otcq，otct 已经记过）
+// ---------- 按地址记成交（客户在「成交查询」里按地址查）：tr:<地址> 最多存最近 300 条 ----------
+const TR_MAX = 300, tsCache = {};
+async function blockTime(m, bn) {
+  const k = m.chain + bn;
+  if (!tsCache[k]) tsCache[k] = parseInt((await rpc(m, "eth_getBlockByNumber", ["0x" + bn.toString(16), false])).timestamp, 16);
+  return tsCache[k];
+}
+async function recordTrades(m, kv, logs, cache) {
+  for (const l of logs) {
+    if (l.topics[0] !== filledTopic(m)) continue;
+    const key = "tr:f:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
+    if (await kv.get(key)) continue;
+    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data), taker = "0x" + l.topics[2].slice(26), bn = parseInt(l.blockNumber, 16);
+    const ts = await blockTime(m, bn);
+    let rec;
+    if (m.nft) {
+      const price = num(d[1]);
+      rec = { m: m.key, id, t: ts, tx: l.transactionHash, sym: m.sym, nft: true, tokenId: BigInt("0x" + d[0]).toString(), dai: price, maker: o.maker, taker, makerSide: o.sell ? "卖" : "买" };
+    } else {
+      const gd = o.sell ? m.dec : 18, wd = o.sell ? 18 : m.dec, amount = num(d[0], gd), paid = num(d[1], wd);
+      const qty = o.sell ? amount : paid, dai = o.sell ? paid : amount; // 挂单币数量 / DAI 金额
+      rec = { m: m.key, id, t: ts, tx: l.transactionHash, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker, makerSide: o.sell ? "卖" : "买" };
+    }
+    for (const a of new Set([o.maker, taker])) {
+      const list = (await kv.get("tr:" + a, "json")) || [];
+      if (!list.some((x) => x.tx === rec.tx && x.id === rec.id && x.m === rec.m)) { list.unshift(rec); await kv.put("tr:" + a, JSON.stringify(list.slice(0, TR_MAX))); }
+    }
+    await kv.put(key, "1");
+  }
+}
+// 以前的成交一段段补进 tr:<地址>（每次运行补几段，补到接上为止）
+async function backfillTrades(m, kv, upto, cache) {
+  const sk = m.kv + "tr:scan";
+  let b = parseInt((await kv.get(sk)) || String(m.deploy - 1), 10) + 1;
+  const span = m.chain === "Polygon" ? 2000 : 5000;
+  for (let i = 0; i < 3 && b <= upto; i++) { // 每段里每笔成交要查一次区块时间，所以一次只补 3 段，免得超子请求上限
+    const to = Math.min(upto, b + span - 1);
+    await recordTrades(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [filledTopic(m)] }]), cache);
+    await kv.put(sk, String(to));
+    b = to + 1;
+  }
+}
 async function backfillVip(m, kv, upto, cache) {
   const sk = m.kv + "otcq:scan";
   let b = parseInt((await kv.get(sk)) || String(m.deploy - 1), 10) + 1;
@@ -365,6 +407,8 @@ export async function onRequestGet(ctx) {
   }
   for (const [m, logs, cache, from, latest] of done) {
     await markTraders(m, kv, logs, cache, true).catch(() => {});
+    await recordTrades(m, kv, logs, cache).catch(() => {});
+    await backfillTrades(m, kv, from - 1, cache).catch(() => {});
     if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
     await backfillVip(m, kv, from - 1, cache).catch(() => {});
     await kv.put(m.kv + "block", String(latest));
