@@ -1100,3 +1100,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .dw-items a.on > svg:first-child { stroke: #fff; }
 .dw-none { color: var(--muted); text-align: center; padding: 20px 0; }
 .dw-foot { margin: 0; padding: 12px 20px calc(14px + env(safe-area-inset-bottom)); font-size: 12px; color: var(--muted); text-align: center; border-top: 1px solid var(--line); }
+
+/* 顶部「会员」：金色 VIP 按钮，和「AiLGNS OTC」一样显眼 */
+.tabs a.vipt { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #5a3a00; font-weight: 800; background: linear-gradient(110deg, #ffe08a, #f5b82e 55%, #e89a14); box-shadow: 0 3px 12px rgba(232, 154, 20, .3); }
+.tabs a.vipt svg { width: 16px; height: 16px; flex: none; fill: #fff6d6; stroke: #5a3a00; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.tabs a.vipt i { font-style: normal; position: absolute; top: -6px; right: -4px; font-size: 9px; line-height: 1; font-weight: 800; color: #ffe08a; background: #2b1a52; padding: 2px 5px; border-radius: 6px 6px 6px 0; letter-spacing: .3px; }
+.tabs a.vipt:hover { color: #5a3a00; background: linear-gradient(110deg, #ffe89f, #f7c13f 55%, #efa52a); filter: brightness(1.04); }
+.tabs a.vipt.on { color: #4a2f00; background: linear-gradient(110deg, #ffe08a, #f5b82e 55%, #e89a14); box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f0a91e, 0 4px 14px rgba(232, 154, 20, .35); }
+@media (max-width: 600px) { .tabs a.vipt { gap: 3px; } .tabs a.vipt svg { width: 14px; height: 14px; } .tabs a.vipt i { top: -6px; right: -2px; } }
