@@ -1143,3 +1143,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 /* 表单里的买卖切换也用红绿区分 */
 #otc-side button[data-side="sell"].on { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; }
 #otc-side button[data-side="buy"].on { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; }
+
+/* AWAKE NFT 卡牌市场：选卡的小按钮 */
+.nft-cards { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 13px; }
+.nft-cards small { flex-basis: 100%; }
+.nft-chip { padding: 6px 12px; font-size: 13px; border-radius: 999px; background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); box-shadow: none; font-variant-numeric: tabular-nums; }
+.nft-chip.on { background: var(--grad-dot); color: #fff; border-color: transparent; }

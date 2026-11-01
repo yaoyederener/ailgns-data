@@ -15,7 +15,8 @@ const MARKETS = [
   { key: "ailgns", name: "AiLGNS", chain: "anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", deploy: 17798035 },
   { key: "lgns", name: "LGNS（Anubis）", chain: "anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", deploy: 17936478 },
   { key: "plgns", name: "LGNS（Polygon）", chain: "polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", deploy: 96510526 },
-  { key: "glgns", name: "gLGNS（Anubis）", chain: "anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", deploy: 18004618 }
+  { key: "glgns", name: "gLGNS（Anubis）", chain: "anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", deploy: 18004618 },
+  { key: "nft", name: "AWAKE NFT 卡牌", chain: "anubis", nft: true, otc: "", deploy: 0 } // AwakeNftEscrow：事件结构不同（见下面 NFT_*）；托管合约部署后填地址和区块
 ].filter((m) => m.otc);
 const RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 原收款钱包：会员费都转到这里
 const PAY_TOKENS = { // 会员费能用的币
@@ -25,6 +26,8 @@ const PAY_TOKENS = { // 会员费能用的币
 // 合约转进原收款钱包的是 OTC 手续费、像素墙收入，不是会员费
 const NOT_MEMBER = new Set([...MARKETS.map((m) => m.otc), "0xf1fb8f098979dc29a3020070ac93ef24f1b2ca4c", "0x2b0ab121d60f823fffc4cef75af26055df388e2b"]);
 const CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff"; // Created(id, maker, sellAilgns, give, want, expiry)
+// 卡牌托管合约：Created(id, maker, sell, tokenId, price, expiry)、Filled(id, taker, tokenId, price, fee)
+const NFT_CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff", NFT_FILLED = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
 const FILLED = "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d"; // Filled(id, taker, amount, paid, fee, giveLeft)
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const BUDGET = 40; // 每次调用最多访问节点多少次（免费版 Worker 一次最多 50 个外部请求）
@@ -119,8 +122,20 @@ async function catchUp(kv) {
   for (const m of MARKETS) {
     const sides = st.sides[m.key] || "";
     let s = sides;
-    await walk(m.key, m.chain, m.deploy, { address: m.otc, topics: [[CREATED, FILLED]] }, async (l, d) => {
+    await walk(m.key, m.chain, m.deploy, { address: m.otc, topics: [m.nft ? [NFT_CREATED, NFT_FILLED] : [CREATED, FILLED]] }, async (l, d) => {
       const id = Number(BigInt(l.topics[1])), w = words(l.data), mm = d.m[m.key] || (d.m[m.key] = { orders: 0, orderDai: 0, fills: 0, fillDai: 0 });
+      if (m.nft) { // 卡牌：整张成交，金额就是成交价（DAI）
+        if (l.topics[0] === NFT_CREATED) {
+          const v = dai(w[2]), maker = "0x" + l.topics[2].slice(26);
+          d.orders++; d.orderDai += v; mm.orders++; mm.orderDai += v; tot.orders++; tot.orderDai += v;
+          if (!d.makers.includes(maker)) d.makers.push(maker);
+        } else {
+          const v = dai(w[1]), taker = "0x" + l.topics[2].slice(26);
+          d.fills++; d.fillDai += v; mm.fills++; mm.fillDai += v; tot.fills++; tot.fillDai += v;
+          if (!d.takers.includes(taker)) d.takers.push(taker);
+        }
+        return;
+      }
       if (l.topics[0] === CREATED) {
         const sell = w[0] === 1n, v = dai(sell ? w[2] : w[1]), maker = "0x" + l.topics[2].slice(26);
         s = s.padEnd(id, "?").slice(0, id) + (sell ? "1" : "0") + s.slice(id + 1);

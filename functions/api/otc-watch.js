@@ -23,12 +23,19 @@ const MARKETS = [
   // gLGNS（Anubis，18 位）：DEX 买卖不扣税
   { key: "glgns", sym: "gLGNS", chain: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
     pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 18004618, link: "https://ailgns.dev/#/otc/glgns" },
+  // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」；托管合约部署后填 otc 和 deploy
+  { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nft:", deploy: 0, link: "https://ailgns.dev/#/otc/nft" },
 ].filter((m) => m.otc);
 const SITE = "https://ailgns.dev/#/otc";
 // 币名：LGNS 两条链都有，带上链名
 const label = (m) => (m.key === "ailgns" ? m.sym : `${m.sym}（${m.chain}）`);
 const FILLED = "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d"; // Filled(id, taker, amount, paid, fee, giveLeft)
 const CLOSED = "0xec091cd14d8a8ba29bf6a14340c9c648295a414a131bd9ad694b621358842776"; // Closed(id, maker, refunded, expired)
+// 卡牌托管合约的事件：Filled(id, taker, tokenId, price, fee)、Closed(id, maker, expired)
+const NFT_FILLED = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb", NFT_CLOSED = "0xecbcc0f69172bf54c6cc02c6b099b70f146b61086ecdbc4d1e3c44b4f689bbd6";
+const filledTopic = (m) => (m.nft ? NFT_FILLED : FILLED), closedTopic = (m) => (m.nft ? NFT_CLOSED : CLOSED);
+// 一笔成交的 DAI 金额（送会员、累计成交额用）：卡牌成交 = 成交价；代币成交：卖单看吃单人付的 DAI，买单看吃单人拿走的 DAI
+const fillDai = (m, o, d) => (m.nft ? num(d[1]) : o.sell ? num(d[1]) : num(d[0]));
 const GET_ORDERS = "0x8f72fc77", COUNT = "0x35daa731";
 const GROUPS = ["oes8etcm", "fvg4wksw"]; // 站长的两个 DeBox 群（机器人要先被拉进群才发得出去）
 const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），几轮就补完
@@ -40,11 +47,11 @@ const VIP_MIN_FILL = 50;
 const OLD_VIP_CUTOFF = { anubis: 17967579, polygon: 96531101 }; // 和 functions/api/member.js 的 OTC_VIP_CUTOFF 一样
 async function markTraders(m, kv, logs, cache, live = false) {
   for (const l of logs) {
-    if (l.topics[0] !== FILLED) continue;
+    if (l.topics[0] !== filledTopic(m)) continue;
     const key = "otcf:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
     if (await kv.get(key)) continue; // 记过了（补记和正常进度会有重叠）
     const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data);
-    const vol = o.sell ? num(d[1]) : num(d[0]); // 卖单：吃单人付的 DAI；买单：吃单人拿走的 DAI
+    const vol = fillDai(m, o, d);
     for (const a of new Set([o.maker, "0x" + l.topics[2].slice(26)])) {
       const r = (await kv.get("otct:" + a, "json")) || { id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16), chain: m.chain.toLowerCase() };
       r.vol = (r.vol || 0) + vol;
@@ -58,11 +65,11 @@ async function markTraders(m, kv, logs, cache, live = false) {
 // live：正常进度读到的新成交（补记以前的成交时不算），新送出的初级 VIP 记进 st:v:<北京日期>，内部群日报用
 async function markVip(m, kv, logs, cache, live = false) {
   for (const l of logs) {
-    if (l.topics[0] !== FILLED) continue;
+    if (l.topics[0] !== filledTopic(m)) continue;
     const key = "otcq:f:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
     if (await kv.get(key)) continue;
     const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data);
-    const vol = o.sell ? num(d[1]) : num(d[0]);
+    const vol = fillDai(m, o, d);
     if (vol >= VIP_MIN_FILL) {
       for (const a of new Set([o.maker, "0x" + l.topics[2].slice(26)])) {
         const old = await kv.get("otcq:" + a, "json"), r = old || { id, tx: l.transactionHash, block: parseInt(l.blockNumber, 16), chain: m.chain.toLowerCase() };
@@ -86,7 +93,7 @@ async function backfillVip(m, kv, upto, cache) {
   const span = m.chain === "Polygon" ? 2000 : 5000;
   for (let i = 0; i < BACKFILL_STEPS && b <= upto; i++) {
     const to = Math.min(upto, b + span - 1);
-    await markVip(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED] }]), cache);
+    await markVip(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [filledTopic(m)] }]), cache);
     await kv.put(sk, String(to));
     b = to + 1;
   }
@@ -98,7 +105,7 @@ async function backfillTraders(m, kv, upto, cache) {
   if (b > upto) return;
   for (let i = 0; i < BACKFILL_STEPS && b <= upto; i++) {
     const to = Math.min(upto, b + 4999);
-    await markTraders(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED] }]), cache);
+    await markTraders(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [filledTopic(m)] }]), cache);
     await kv.put("otct2:scan", String(to));
     b = to + 1;
   }
@@ -123,8 +130,8 @@ const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 
 async function order(m, id) {
   const w = words(await rpc(m, "eth_call", [{ to: m.otc, data: GET_ORDERS + u256(id) + u256(1) }, "latest"]));
-  const o = w.slice(2, 9);
-  return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n };
+  const o = w.slice(2, 9); // 代币 7 个字、卡牌 6 个字，前两个字（maker、sell）一样
+  return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n, tokenId: m.nft ? BigInt("0x" + o[4]).toString() : null };
 }
 
 // ---------- 低于市价的好单：推送给关注机器人的人（订阅号）----------
@@ -171,6 +178,7 @@ function dealText(m, list, mkt) {
 }
 // 找出还没推送过的低于市价的单；send=false 时只返回文字（预览）
 async function pushDeals(m, env, kv, send) {
+  if (m.nft) return { hits: 0, skipped: "nft" }; // 卡牌没有 DEX 市价，不推好单
   const now = Math.floor(Date.now() / 1000), [orders, mkt] = await Promise.all([book(m, now), market(m)]);
   const hits = orders.filter((o) => better(o, mkt) > 0);
   const fresh = [];
@@ -250,7 +258,9 @@ async function phrase(kv, dry, onlyAilgns) {
 }
 const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP";
 function groupText(fills, line) {
-  const out = fills.slice(0, 5).map((f) => `🤝 已成交：${f.qty.toFixed(f.m.dec === 18 ? 5 : 2)} 个 ${label(f.m)}，\n金额：${dai2(f.qty * f.price)} DAI，\n单价：${d2(f.price, f.m.pd)} DAI/${f.m.sym}`);
+  const out = fills.slice(0, 5).map((f) => f.m.nft
+    ? `🤝 已成交：1 张 ${f.m.sym} 卡牌，\n金额：${dai2(f.price)} DAI`
+    : `🤝 已成交：${f.qty.toFixed(f.m.dec === 18 ? 5 : 2)} 个 ${label(f.m)}，\n金额：${dai2(f.qty * f.price)} DAI，\n单价：${d2(f.price, f.m.pd)} DAI/${f.m.sym}`);
   if (fills.length > 5) out.push(`……共 ${fills.length} 笔成交`);
   const links = [...new Set(fills.map((f) => f.m.link))]; // 都是同一个市场的成交，就直接链到那个市场
   return out.join("\n\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
@@ -285,7 +295,7 @@ export async function onRequestGet(ctx) {
       const span = m.chain === "Polygon" ? 2000 : 5000, logs = [];
       for (let b = from; b <= latest; b += span) {
         const to = Math.min(latest, b + span - 1);
-        logs.push(...(await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[FILLED, CLOSED]] }])));
+        logs.push(...(await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[filledTopic(m), closedTopic(m)]] }])));
       }
       const cache = {};
       for (const l of logs) {
@@ -294,6 +304,22 @@ export async function onRequestGet(ctx) {
         const giveSym = o.sell ? label(m) : "DAI", wantSym = o.sell ? "DAI" : label(m), side = (m.key === "ailgns" ? "" : label(m)) + (o.sell ? "卖单" : "买单");
         const gd = o.sell ? m.dec : 18, wd = o.sell ? 18 : m.dec; // 挂单存入的币 / 想换回的币各自的小数位
         const link = "\n🔗 " + m.tx + l.transactionHash + "\n🧬 " + m.link;
+        if (m.nft) { // 卡牌：整张成交
+          if (l.topics[0] === NFT_FILLED) {
+            const taker = "0x" + l.topics[2].slice(26), tokenId = BigInt("0x" + d[0]).toString(), price = num(d[1]), fee = num(d[2]);
+            msgs.push([o.maker, o.sell
+              ? `🎉 你的卡牌卖单 #${id} 成交了！\nAWAKE NFT #${tokenId} 已卖出，收到 ${fmt(price)} DAI` + link
+              : `🎉 你的求购单 #${id} 成交了！\n收到 AWAKE NFT #${tokenId}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link]);
+            msgs.push([taker, o.sell
+              ? `✅ 买入成功 #${id}\n收到 AWAKE NFT #${tokenId}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link
+              : `✅ 卖出成功 #${id}\nAWAKE NFT #${tokenId} 已卖给求购方，收到 ${fmt(price)} DAI` + link]);
+            fills.push({ m, qty: 1, price });
+          } else {
+            const expired = BigInt("0x" + d[0]) === 1n;
+            msgs.push([o.maker, (expired ? `⏰ 你的卡牌${o.sell ? "卖单" : "求购单"} #${id} 到期未成交，已自动退回` : `↩️ 你的卡牌${o.sell ? "卖单" : "求购单"} #${id} 已撤单，已退回`) + (o.sell ? ` AWAKE NFT #${o.tokenId}` : " DAI（含预存的手续费）") + " 到你的钱包" + link]);
+          }
+          continue;
+        }
         if (l.topics[0] === FILLED) {
           const taker = "0x" + l.topics[2].slice(26), amount = num(d[0], gd), paid = num(d[1], wd), fee = num(d[2], gd), left = num(d[3], gd);
           msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +

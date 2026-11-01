@@ -20,9 +20,12 @@
     // gLGNS（Governance LGNS，Anubis 链，18 位小数）：普通 ERC20，DEX 买卖都不扣税，只有池子 0.3% 手续费
     glgns: { sym: "gLGNS", chain: "anubis", chainName: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dai: ANUBIS_DAI, dec: 18, pd: 2,
       pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.997, dexBuy: 1.003, dexName: " DEX", eg: [0.1, 83000],
-      flat: true } // DEX 不扣税、价差不到 1%：指导价就是市价，不算「比 DEX 多拿多少」
+      flat: true }, // DEX 不扣税、价差不到 1%：指导价就是市价，不算「比 DEX 多拿多少」
+    // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
+    nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
+      explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "plgns", "glgns"];
+  var MKEYS = ["ailgns", "lgns", "plgns", "glgns", "nft"];
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -277,6 +280,7 @@
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
     if (sub === "split") return renderSplit(id);
+    if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
     if (!OTC) {
       app.innerHTML = marketTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
         '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
@@ -817,11 +821,11 @@
   // ---------- 部署页（只给站长用，不在导航里） ----------
   function renderDeploy(id) {
     var app = A.app;
-    app.innerHTML = '<h1>部署托管合约 · ' + SYM + "（" + M.chainName + ' 链）</h1><p class="sub">用你的钱包把 OTC 托管合约部署到 ' + M.chainName + " 链。部署只需要一次，Gas 用 " + M.chainName + " 链上的 " + M.gas + " 支付。合约代码和 AiLGNS OTC 完全相同，只是构造参数换成下面的币。</p>" +
+    app.innerHTML = '<h1>部署托管合约 · ' + SYM + "（" + M.chainName + ' 链）</h1><p class="sub">用你的钱包把 OTC 托管合约部署到 ' + M.chainName + " 链。部署只需要一次，Gas 用 " + M.chainName + " 链上的 " + M.gas + " 支付。" + (M.nft ? "卡牌用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），构造参数是下面的卡牌合约、DAI 和手续费收款地址。" : "合约代码和 AiLGNS OTC 完全相同，只是构造参数换成下面的币。") + "</p>" +
       '<nav class="mkt-tabs">' + MKEYS.map(function (k) { return '<a href="#/otc/deploy/' + k + '"' + (k === MK ? ' class="on"' : "") + "><b>" + MARKETS[k].sym + "</b><small>" + MARKETS[k].chainName + " 链</small></a>"; }).join("") + "</nav>" +
       (OTC ? '<section class="card"><p>这个市场已经部署：<a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + OTC + " ↗</a>，不用再部署。</p></section>" : "") +
-      '<section class="card"><dl class="dl"><dt>挂单币 ' + SYM + '</dt><dd class="mono">' + AILGNS + "</dd><dt>DAI</dt><dd class=\"mono\">" + DAI + "</dd><dt>手续费收款地址</dt><dd class=\"mono\">" + FEE_RECIPIENT +
-      "</dd><dt>手续费</dt><dd>1%（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
+      '<section class="card"><dl class="dl"><dt>' + (M.nft ? "卡牌合约 " : "挂单币 ") + SYM + '</dt><dd class="mono">' + AILGNS + "</dd><dt>DAI</dt><dd class=\"mono\">" + DAI + "</dd><dt>手续费收款地址</dt><dd class=\"mono\">" + FEE_RECIPIENT +
+      "</dd><dt>手续费</dt><dd>" + (M.nft ? "3%，买家另付" : "1%") + "（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
     var st = document.getElementById("d-st");
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
@@ -834,7 +838,7 @@
         return W.get().request({ method: "eth_chainId" });
       }).then(function (cid) {
         if (Number(cid) !== Number(W.CHAINS[M.chain].params.chainId)) throw new Error("钱包现在不在 " + M.chainName + " 链上：请在钱包里手动切换到 " + M.chainName + " 再点部署");
-        return A.getJSON("contracts/AilgnsOtcEscrow.json");
+        return A.getJSON(M.nft ? "contracts/AwakeNftEscrow.json" : "contracts/AilgnsOtcEscrow.json");
       }).then(function (art) {
         data = art.bytecode + u256(AILGNS) + u256(DAI) + u256(FEE_RECIPIENT);
         say("正在估算部署手续费…");
@@ -930,6 +934,12 @@
 
   // 钱包里切换账户时，页面跟着换
   var listening = false;
+  // 给 nft.js 用：钱包、发交易、读链、数字格式、市场切换（都按当前市场）
+  A.otcKit = {
+    account: function () { return account; }, connect: connect, ready: ready, silentAccount: silentAccount, send: send, read: read, balance: balance, allowance: allowance,
+    u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT,
+    M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; }
+  };
   A.pages.otc = function (id) {
     // #/otc · #/otc/lgns · #/otc/plgns · #/otc/glgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
     var parts = location.hash.split("/"), sub = parts[2] || "";

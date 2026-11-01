@@ -53,3 +53,13 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 - 合约地址（Polygon 链，部署区块 96512223）：`0x2b0ab121d60f823fffc4cef75af26055df388e2b`
 - 2026-10-31 核对：链上运行代码和用上面的标准输入编译出来的结果逐字节一致；`TOKEN()`、`BURN()`、`REVENUE()`、`BURN_BPS()`（8000 = 80%）读出来都和源码一致
 - 部署前（区块 96512223 之前），Polygon 链的像素墙付款直接转进销毁地址（100% 销毁）
+
+## AWAKE NFT 卡牌托管合约 AwakeNftEscrow
+
+- 源码：[`AwakeNftEscrow.sol`](AwakeNftEscrow.sol)（MIT 许可）；测试：[`test/AwakeNftEscrow.t.sol`](test/AwakeNftEscrow.t.sol)（forge，19 项全部通过）
+- 编译参数和 AiLGNS OTC 一样：solc `v0.8.24+commit.e11b9ed9`，优化开启 200 runs，EVM 版本 paris；标准输入 [`AwakeNftEscrow.standard-input.json`](AwakeNftEscrow.standard-input.json)，部署用的字节码在 [`AwakeNftEscrow.json`](AwakeNftEscrow.json)
+- 构造参数：卡牌合约 `0x58839f46bd0E3F4494E2BEB8ca93Da9352208615`（Awake Governance NFT），DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`，手续费收款 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`
+- 规则（都写死在合约里）：整张成交；手续费 `FEE_BPS = 300`（成交价的 3%），由买家在成交价之外另付，卖家拿完整标价；求购单预存「价格 + 手续费」的 DAI；没有管理员、不能升级
+- 合约地址：待部署（部署后在这里补上地址和部署区块，并核对链上代码）
+
+运行测试：把 `AwakeNftEscrow.sol` 放进 forge 项目的 `src/`、把 `test/AwakeNftEscrow.t.sol` 放进 `test/`（import 路径改成 `../src/AwakeNftEscrow.sol`），`foundry.toml` 里 `solc_version = "0.8.24"`、`optimizer_runs = 200`、`evm_version = "paris"`，然后 `forge test`。
