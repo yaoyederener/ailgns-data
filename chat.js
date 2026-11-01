@@ -15,9 +15,10 @@
   function hours() {
     var now = new Date(), van = offsetMin(TZ, now), bj = 8 * 60, diff = (bj - van) / 60; // 北京比温哥华快几小时
     var vanHour = ((now.getUTCHours() * 60 + now.getUTCMinutes() + van) / 60 + 48) % 24;
-    function hh(h) { return String(h).padStart(2, "0") + ":00"; }
+    // 写成「早上 10 点」「晚上 22 点」这样，国内客户一眼看懂
+    function hh(h) { return (h < 6 ? "凌晨 " : h < 12 ? "早上 " : h < 13 ? "中午 " : h < 18 ? "下午 " : "晚上 ") + h + " 点"; }
     var s = (OPEN + diff) % 24, e = (CLOSE + diff) % 24; // 北京时间的开始、结束整点；结束早于开始说明跨到第二天
-    return { online: vanHour >= OPEN && vanHour < CLOSE, text: "温哥华时间 10:00–22:00（北京时间 " + hh(s) + "–" + (e <= s ? "次日 " : "") + hh(e) + "）" };
+    return { online: vanHour >= OPEN && vanHour < CLOSE, text: "北京时间 " + hh(s) + "到" + (e <= s ? "次日" : "") + hh(e) + "（温哥华时间 " + hh(OPEN) + "到" + hh(CLOSE) + "）" };
   }
 
   // ---------- 常见问题：关键词命中就直接回答 ----------
