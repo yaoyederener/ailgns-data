@@ -177,7 +177,7 @@
     }
     var html = (M.legacy
       ? '<h1>借贷 · 旧合约</h1><p class="sub">这是已下架的旧借款合约 <span class="mono">' + A.short(LOAN) + '</span>，<b>不能再挂新单</b>；之前在这里挂的单可以照常接单、撤单、还款、到期取回。新挂单请到 <a href="#/lend">借贷</a>。</p>'
-      : '<h1>借贷</h1><p class="sub">点对点抵押借款，双向挂单：借款人押 ' + M.sym + ' 挂单借 DAI，出借人挂单等人来借，条件（借多少、还多少、借几天）都由挂单人自己定。合约只认时间和数字：<b>到期前还上抵押币退回，到期没还抵押币归出借人</b>，不看价格、不清算。</p>' + marketTabs("#/lend") +
+      : '<h1>借贷</h1><p class="sub">点对点抵押借款，双向挂单：借款人押 ' + M.sym + ' 挂单借 DAI，出借人挂单等人来借，条件（借多少、还多少、借几天）都由挂单人自己定。合约只认时间和数字：<b>到期前还上抵押币退回，到期没还抵押币归出借人</b>，不看价格、不清算。</p>' + marketTabs("#/lend") + (M.legacy ? "" : '<div id="otc-tot"></div>') +
       '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="borrow">我有 ' + M.sym + '，想借 DAI</button><button type="button" class="oa-buy" data-goform="lend">我有 DAI，想出借</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的借贷</button>' : "") + "</div>" +
       '<div class="otc-top"><span class="hp-tag">手续费 1%</span><span class="ot-txt">左边红色：你手里有 ' + M.sym + '，押给合约借 DAI；右边绿色：你手里有 DAI，借给押币的人收利息 · 出借人接单时按本金另付 1% 手续费，其它都免费' + (mkt ? " · " + M.sym + " 市价 <b>" + A.fmt(mkt, M.dec === 9 ? 5 : 2) + "</b> DAI" : "") + "</span>" +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>");
