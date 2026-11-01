@@ -19,9 +19,10 @@
   var FEE_BPS = 100n, BOOK_SHOW = 8;
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
-  var GUIDE_MONTHLY = 0.10; // 指导利息：月息 10%，按天折算（只是参考，借多少还多少由挂单人自己定）
+  var GUIDE_MONTHLY = 0.10; // 指导利息：月息 10%，不足一个月按一个月算（只是参考，利息由双方自己协商）
   var GUIDE_OVER = 1.10; // 指导抵押：抵押品现值 = 借款金额 × 110%（按 DEX 市价算，只是参考）
-  function guideRepay(p, term) { return p + p * BigInt(Math.round(GUIDE_MONTHLY * term / (30 * 86400) * 1e6)) / 1000000n; }
+  function guideMonths(term) { return Math.max(1, Math.ceil(term / (30 * 86400))); }
+  function guideRepay(p, term) { return p + p * BigInt(Math.round(GUIDE_MONTHLY * guideMonths(term) * 1e6)) / 1000000n; }
   var STATUS = ["挂单中", "借款中", "已还清", "已违约", "已撤单 / 已退回"];
   var REASONS = {
     REPAY_LT_PRINCIPAL: "到期还款金额不能少于本金", BAD_TERM: "借款期限要在 1 天到 90 天之间",
@@ -188,6 +189,13 @@
     if (mine.length) html += myLoans(mine, now);
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">借款合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + A.short(LOAN) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsLoanEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
       '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">金额不限 · 期限 1–90 天</div><div class="d">借多少、还多少由挂单人自己填（利息可以为 0）· 没有管理员，部署后任何人改不了</div></div></div>';
+    html += '<section class="card" id="ln-terms"><div class="card-head"><h2>借款约定</h2><span class="muted">接单即视为双方同意，全部由合约执行</span></div><ol class="addr-tips">' +
+      '<li><b>利息自行协商。</b>借多少、到期还多少由挂单人填写，接单方认可就成交；页面的指导价（月息 10%）只是参考。</li>' +
+      '<li><b>不足一个月按一个月计算。</b>指导价按月计息：借 1–30 天算 1 个月，31–60 天算 2 个月，61–90 天算 3 个月；提前还款不退利息。</li>' +
+      '<li><b>逾期不还，抵押币自动划给出借人。</b>到还款截止时间未还清约定金额，合约把全部抵押的 ' + M.sym + ' 划给出借人，借款结束；没有宽限期，划转后不能再还。</li>' +
+      '<li><b>按时还清，抵押币原路退回。</b>还款金额付给出借人，抵押币同一笔交易退回借款地址。</li>' +
+      '<li><b>手续费</b>为本金的 1%，由出借人在接单（或挂出借单）时另付；挂单、撤单、还款、违约划转都不收费。</li>' +
+      '<li>合约不看币价、不清算、没有管理员。抵押币涨跌的风险由双方自行承担，本站只提供链上托管撮合。</li></ol></section>';
     html += '<section class="card" id="ln-howto"><div class="card-head"><h2>还款怎么操作</h2></div><ul class="addr-tips">' +
       '<li><b>可以提前还。</b>接单后任何时候都能还，还的金额就是挂单时写好的「到期还款」数，提前还不打折、不加钱。</li>' +
       '<li><b>不会自动扣款。</b>合约没法从你钱包里扣 DAI：你要自己到「我的借贷」点「还款」，钱包里有足够的 DAI，确认一笔授权、一笔还款，DAI 直接付给出借人，抵押的 ' + M.sym + ' 同一笔交易里退回你钱包。</li>' +
@@ -250,8 +258,8 @@
       guideEl.hidden = false;
       guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? floorTok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
         (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(GUIDE_OVER * 100) + "%" : "可借 · 抵押品现值的 " + Math.round(100 / GUIDE_OVER) + "%（抵押率 " + Math.round(GUIDE_OVER * 100) + "%）") +
-        " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "%，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
-        '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、还多少都由挂单人自己定；利息高接单快，抵押多出借人更放心。</p>';
+        " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "% × " + guideMonths(term) + " 个月，不足一个月按一个月算，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
+        '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、利息多少都由双方自己协商；利息高接单快，抵押多出借人更放心。</p>';
       document.getElementById("ln-guse").onclick = function () { autoSec = true; autoRepay = true; guide(); calc(); };
     }
     function floorTok(v) { var n = Number(v) / Math.pow(10, M.dec); return (Math.floor(n * 10000) / 10000).toString(); }
