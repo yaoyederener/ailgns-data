@@ -6,7 +6,8 @@ import { sendDebox } from "../../lib/debox.js";
 import { bjDay, counts } from "../../lib/stats.js";
 
 const OPS_GROUP = "uqw6tsqb"; // 内部运营群（不要和行情群 oes8etcm、fvg4wksw 混用）
-const ENABLED = false; // 日报模板确认后再打开
+const ENABLED = true; // 2026-11-01 站长确认模板后打开
+const FIRST_DAY = "2026-11-01"; // 访问统计 10-31 晚上才上线：从 11-01 整天开始发
 const SEND_HOUR = 9; // 北京时间几点后发前一天的日报
 const POLY_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
 const CHAINS = { anubis: { rpcs: RPCS, span: 5000, name: "Anubis" }, polygon: { rpcs: POLY_RPCS, span: 2000, name: "Polygon" } };
@@ -45,7 +46,7 @@ export async function onRequestGet(ctx) {
   const scan = await catchUp(kv).catch((e) => ({ behind: true, error: String((e && e.stack) || e).slice(0, 400) }));
   let sent = null, err = null;
   const hour = new Date(Date.now() + 8 * 3600e3).getUTCHours();
-  if (ENABLED && hour >= SEND_HOUR && !scan.behind && (await kv.get("st:sent")) !== yesterday) {
+  if (ENABLED && yesterday >= FIRST_DAY && hour >= SEND_HOUR && !scan.behind && (await kv.get("st:sent")) !== yesterday) {
     try {
       await sendDebox(ctx.env, OPS_GROUP, await report(kv, yesterday), "group");
       await kv.put("st:sent", yesterday);
