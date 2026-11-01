@@ -539,6 +539,22 @@
       try { first = localStorage.getItem("st:seen") !== today; if (first) localStorage.setItem("st:seen", today); } catch (x) { /* 无痕模式 */ }
       track(first ? "v1" : "v");
       window.addEventListener("hashchange", route); route();
+      freshCheck();
     }
   };
+  // 钱包内置浏览器经常把首页缓存很久，导致脚本还是旧版（新功能看不到、按钮没反应）：
+  // 打开后悄悄拉一次最新首页，脚本版本号和当前不一样就自动刷新一次（每次会话最多一次，免得循环）
+  function freshCheck() {
+    try {
+      if (sessionStorage.getItem("fresh:reloaded")) return;
+      var mine = Array.prototype.map.call(document.scripts, function (s) { return (s.getAttribute("src") || "").match(/[a-z]+\.js\?v=[a-z0-9]+/); }).filter(Boolean).map(String).sort().join(",");
+      if (!mine) return;
+      setTimeout(function () {
+        fetch("/?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
+          var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
+          if (latest && latest !== mine) { sessionStorage.setItem("fresh:reloaded", "1"); location.reload(); }
+        }).catch(function () {});
+      }, 1500);
+    } catch (e) { /* 忽略 */ }
+  }
 })();

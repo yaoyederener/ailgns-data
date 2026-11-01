@@ -1603,8 +1603,19 @@
         var csv = "时间,地址,方式,DAI,LGNS,新增入金DAI,所属直推线,第几层,交易或区块\n" + lastRows.map(function (r) {
           return [fmtT(r.t), r.addr, r.kind === "LGNS" ? "销毁LGNS" : "DAI买入", r.dai, r.lgns, Math.round(A.toDai(r.power) * 100) / 100, r.line === "self" ? "本人" : r.line, r.line === "self" ? "" : r.depth, r.tx || "区块 " + r.block].join(",");
         }).join("\n");
+        // 钱包内置浏览器大多不支持下载文件：手机上改成把表格内容显示出来、一键复制（粘到微信 / Excel 都能用）
+        if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || !("download" in document.createElement("a"))) {
+          var tsv = csv.split("\n").map(function (l) { return l.split(","); }).map(function (c) { return c.join("\t"); }).join("\n");
+          var box = document.getElementById("g-csv-box");
+          if (!box) { box = document.createElement("div"); box.id = "g-csv-box"; document.getElementById("g-csv").parentNode.insertAdjacentElement("afterend", box); }
+          box.innerHTML = '<div class="csv-box"><div class="card-head"><b>表格内容（' + lastRows.length + ' 行）</b><button class="ghost" id="g-csv-copy" style="padding:6px 14px">复制全部</button></div><textarea readonly rows="6"></textarea><p class="muted">手机浏览器不能直接下载文件：点「复制全部」，粘到微信、备忘录或 Excel 里就是一张表。</p></div>';
+          box.querySelector("textarea").value = tsv;
+          document.getElementById("g-csv-copy").onclick = function () { copyText(tsv, this); };
+          box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return;
+        }
         var a = document.createElement("a");
-        a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+        a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv" }));
         a.download = "团队新增业绩-" + root.slice(2, 8) + "-" + period + ".csv";
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);

@@ -1191,3 +1191,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .rd-lock { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; }
 .rd-lock button { padding: 7px 14px; margin-left: auto; }
 @media (max-width: 600px) { .rd-row { flex-wrap: wrap; } .rd-row b { order: 2; } .rd-row button { order: 3; margin-left: auto; } .rd-main { flex-basis: 100%; } }
+
+/* 手机上「导出表格」改为显示可复制的表格内容 */
+.csv-box { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: var(--soft); border: 1px solid var(--soft-line); }
+.csv-box textarea { width: 100%; box-sizing: border-box; font: 12px/1.5 ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--panel); color: var(--text); white-space: pre; }
+.csv-box p { margin: 8px 0 0; font-size: 12.5px; }
