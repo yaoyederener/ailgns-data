@@ -188,6 +188,12 @@
     if (mine.length) html += myLoans(mine, now);
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">借款合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + A.short(LOAN) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsLoanEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
       '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">金额不限 · 期限 1–90 天</div><div class="d">借多少、还多少由挂单人自己填（利息可以为 0）· 没有管理员，部署后任何人改不了</div></div></div>';
+    html += '<section class="card" id="ln-howto"><div class="card-head"><h2>还款怎么操作</h2></div><ul class="addr-tips">' +
+      '<li><b>可以提前还。</b>接单后任何时候都能还，还的金额就是挂单时写好的「到期还款」数，提前还不打折、不加钱。</li>' +
+      '<li><b>不会自动扣款。</b>合约没法从你钱包里扣 DAI：你要自己到「我的借贷」点「还款」，钱包里有足够的 DAI，确认一笔授权、一笔还款，DAI 直接付给出借人，抵押的 ' + M.sym + ' 同一笔交易里退回你钱包。</li>' +
+      '<li><b>用哪个钱包还？</b>点「还款」时连接的钱包付 DAI，抵押币退回的永远是<b>当初借款的那个地址</b>。所以用借款钱包还最省事；用别的钱包替他还也行，钱照样付给出借人，币退给借款人。</li>' +
+      '<li><b>到期没还会怎样？</b>到了还款截止时间，抵押币就归出借人（机器人几分钟内自动划转），没有宽限期，之后不能再还。到期前请把 DAI 准备好。</li>' +
+      '<li>还款截止时间在「借款中」列表和「我的借贷」里都按北京时间显示。</li></ul></section>';
     html += '<p class="note"><b>出借前请自己判断风险：</b>合约不会清算。抵押币跌了借款人可能不还，到期你拿到的只是那些抵押币，可能不值借出去的钱。「抵押率参考」按 DEX 市价换算，只是参考。<b>借款人请记好还款截止时间：</b>到期没还抵押币直接归出借人，没有宽限期。本站只提供链上托管撮合，不参与借贷、不承诺收益；智能合约未经第三方审计，请先小额试用。</p>';
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
@@ -201,7 +207,7 @@
         var st = (l.status === 0 ? (l.isOffer ? "出借挂单中" : "借款挂单中") : STATUS[l.status]) + (l.status === 0 ? "，" + A.timeBJ(l.expiry * 1000) + " 前无人接单自动退回" : l.status === 1 ? "，" + A.timeBJ(l.due * 1000) + " 前还款（北京时间）" : "");
         var maker = l.isOffer ? "出借人" : "借款人";
         var act = l.status === 0 && role === maker ? '<button class="ghost act-btn" data-cancel="' + l.id + '">' + (l.expiry <= now ? "取回" : "撤单") + "</button>"
-          : l.status === 1 && role === "借款人" ? '<button class="act-btn" data-repay="' + l.id + '">还款</button>'
+          : l.status === 1 && role === "借款人" ? '<button class="act-btn" data-repay="' + l.id + '">还款 ' + dai(l.repayAmount) + ' DAI</button>'
           : l.status === 1 && role === "出借人" && l.due <= now ? '<button class="act-btn btn-sell" data-claim="' + l.id + '">领取抵押品</button>' : "";
         return "<tr><td data-l=\"#\">" + l.id + '</td><td data-l="我是" class="l">' + role + '</td><td data-l="抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="借款 / 应还">' + dai(l.principal) + " / " + dai(l.repayAmount) + ' DAI</td><td data-l="状态" class="l">' + st + '</td><td class="act">' + act + "</td></tr>";
       }).join("") + "</tbody></table></div></section>";
@@ -334,7 +340,7 @@
           .then(function () { say("✅ 出借单已发布！有人押币借走后开始计时，到期还款直接到你的钱包"); })
         : k.ready().then(function () { return ensureAllowance(M.token, v.c, say, tok(v.c) + " " + M.sym); })
           .then(function () { return k.send(LOAN, SEL.request + u256(v.c) + u256(v.p) + u256(v.r) + u256(v.term) + u256(dur), say, "发布借款单"); })
-          .then(function () { say("✅ 借款单已发布！有人接单后本金直接到你的钱包"); });
+          .then(function () { say("✅ 借款单已发布！有人接单后本金直接到你的钱包。到期前记得自己来点「还款」，合约不会自动扣款"); });
       job.then(function () { setTimeout(reload, 1500); }).catch(function (e) { say(niceError(e), true); btn.disabled = false; });
     };
     bindActions();
@@ -381,7 +387,7 @@
             if (bal < l.collateral) throw new Error(M.sym + " 不够：要押 " + tok(l.collateral) + "，钱包里只有 " + tok(bal));
             return ensureAllowance(M.token, l.collateral, msay, tok(l.collateral) + " " + M.sym);
           }).then(function () { return k.send(LOAN, SEL.take + u256(l.id), msay, "借入 " + dai(l.principal) + " DAI"); })
-            .then(function () { msay("✅ 已借入！本金已到你的钱包，记得在 " + A.timeBJ((Date.now() / 1000 + l.term) * 1000) + "（北京时间）前到「我的借贷」还款"); setTimeout(function () { closeModal(); reload(); }, 3500); })
+            .then(function () { msay("✅ 已借入！本金已到你的钱包。<b>不会自动扣款</b>：请在 " + A.timeBJ((Date.now() / 1000 + l.term) * 1000) + "（北京时间）前到「我的借贷」自己点「还款」，可以提前还"); setTimeout(function () { closeModal(); reload(); }, 3500); })
             .catch(function (e) { msay(niceError(e), true); btn.disabled = false; });
         };
       };
