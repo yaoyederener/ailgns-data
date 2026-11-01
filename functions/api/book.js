@@ -9,7 +9,9 @@ const MARKETS = {
   lgns: { otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", rpcs: RPCS },
   plgns: { otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", rpcs: POLYGON_RPCS },
   glgns: { otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", rpcs: RPCS },
-  nft: { otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", pair: null, rpcs: RPCS } // AWAKE NFT 卡牌托管（AwakeNftEscrow，订单结构不同但同样用 ordersCount/getOrders 读）；没有 DEX 池子
+  nft: { otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", pair: null, rpcs: RPCS },
+  // 点对点借款合约（AilgnsLoanEscrow）：读取函数是 loansCount / getLoans；pair 用来给页面算抵押品现值参考；合约部署后填 otc
+  lend_ailgns: { otc: "", pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", rpcs: RPCS, count: "0x9d11ed75", get: "0x86b20104" } // AWAKE NFT 卡牌托管（AwakeNftEscrow，订单结构不同但同样用 ordersCount/getOrders 读）；没有 DEX 池子
 };
 const COUNT = "0x35daa731", GET_ORDERS = "0x8f72fc77", RESERVES = "0x0902f1ac";
 const MAX = 1000; // 和前端一样只读最近 1000 张
@@ -30,9 +32,9 @@ async function call(m, to, data) {
 }
 
 async function refresh(m, key) {
-  const [count, reserves] = await Promise.all([call(m, m.otc, COUNT), m.pair ? call(m, m.pair, RESERVES).catch(() => null) : null]);
+  const [count, reserves] = await Promise.all([call(m, m.otc, m.count || COUNT), m.pair ? call(m, m.pair, RESERVES).catch(() => null) : null]);
   const n = Number(BigInt(count)), from = Math.max(0, n - MAX);
-  const orders = n ? await call(m, m.otc, GET_ORDERS + u256(from) + u256(n - from)) : "0x";
+  const orders = n ? await call(m, m.otc, (m.get || GET_ORDERS) + u256(from) + u256(n - from)) : "0x";
   const at = Date.now(), body = JSON.stringify({ at, from, orders, reserves });
   await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=3600", "x-at": String(at) } }));
   return body;

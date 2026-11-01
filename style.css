@@ -1149,3 +1149,15 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nft-cards small { flex-basis: 100%; }
 .nft-chip { padding: 6px 12px; font-size: 13px; border-radius: 999px; background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); box-shadow: none; font-variant-numeric: tabular-nums; }
 .nft-chip.on { background: var(--grad-dot); color: #fff; border-color: transparent; }
+
+/* 顶部「借贷」：和「会员」同一套紫色，白底紫边，区分开 */
+.tabs a.lendt { display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: var(--purple-ink); font-weight: 800; background: #fff; border: 1px solid #b98cf5; }
+.tabs a.lendt svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabs a.lendt:hover { background: var(--soft); color: var(--purple-ink); }
+.tabs a.lendt.on { color: #fff; background: var(--grad-dot); border-color: transparent; box-shadow: 0 4px 14px rgba(112, 39, 217, .25); }
+@media (max-width: 600px) {
+  .tabs { grid-template-columns: 1.35fr 1fr .8fr; gap: 6px; } /* 三个栏目一行放下 */
+  .tabs a { padding: 9px 2px; font-size: 13.5px; }
+  .tabs a.lendt { gap: 3px; } .tabs a.lendt svg { width: 14px; height: 14px; }
+}
+.tabs a.feat:not(.on) { border: 1px solid #d9c8fb; background-color: #fff; } /* 没选中时也是一个药丸，和「会员」「借贷」排在一起整齐 */
