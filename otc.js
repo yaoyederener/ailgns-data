@@ -19,7 +19,8 @@
       dexNote: "Polygon 链 DEX 卖出 LGNS 固定扣 5% 手续费，买入不扣。" },
     // gLGNS（Governance LGNS，Anubis 链，18 位小数）：普通 ERC20，DEX 买卖都不扣税，只有池子 0.3% 手续费
     glgns: { sym: "gLGNS", chain: "anubis", chainName: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dai: ANUBIS_DAI, dec: 18, pd: 2,
-      pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.997, dexBuy: 1.003, dexName: " DEX", eg: [0.1, 83000] }
+      pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.997, dexBuy: 1.003, dexName: " DEX", eg: [0.1, 83000],
+      flat: true } // DEX 不扣税、价差不到 1%：指导价就是市价，不算「比 DEX 多拿多少」
   };
   var MKEYS = ["ailgns", "lgns", "plgns", "glgns"];
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
@@ -529,7 +530,7 @@
           var dust = o.open && isDust(o);
           var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · 还剩 " + left(o.expiry - now) + '<br><span class="muted">' + A.timeBJ(o.expiry * 1000) + " 到期（北京时间）</span>";
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
-          if (r && !dust && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
+          if (r && !dust && !M.flat && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
           var remain = dust && isCrumb(o, o.giveLeft) ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
           return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
@@ -575,6 +576,14 @@
         var el = document.getElementById("otc-guide");
         if (!mkt) { el.hidden = true; return; }
         var g = mkt * GUIDE[side], lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
+        if (M.flat) { // DEX 不扣税的币：OTC 和 DEX 价差不到 1%，按市价挂就行；想快点成交就让一点
+          g = mkt;
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 当前 DEX 市价</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
+            "<p>" + SYM + " 在 DEX 买卖都不扣税，场外价贴着市价挂就行；想快点成交，卖单可以比市价低一点、买单比市价高一点。成交手续费 1% 由吃单方承担。</p>";
+          document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
+          if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
+          return;
+        }
         el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价低 ' + ((1 - GUIDE[side]) * 100).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
           (side === "sell"
             ? "<p>买家比去" + DX + " 买便宜；你比在" + DX + " 卖（每枚到手约 " + A.fmt(dexSell, PD) + "）多拿约 <b>" + A.fmt(g - dexSell, PD) + " DAI</b>，挂出去容易被吃掉。</p>" +
@@ -591,13 +600,16 @@
         var total = (q * p) / TUNIT; // DAI
         var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
         var r = mkt ? num(p) / mkt : null, verdict = "";
-        if (r) {
+        if (r && M.flat) { // DEX 不扣税的币：只提醒比 DEX 还差的价格
+          if (side === "sell" && r < DEX_SELL) verdict = "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI";
+          if (side === "buy" && r > DEX_BUY) verdict = "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI";
+        } else if (r) {
           if (side === "sell") verdict = r > RANGE.sell[1] ? "⚠️ 价格偏高：买家去" + DX + " 买更划算，很难成交，建议不高于 " + A.fmt(mkt * RANGE.sell[1], PD) : r < DEX_SELL ? "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI" : "";
           else verdict = r < RANGE.buy[0] ? "⚠️ 价格偏低：卖家去" + DX + " 卖更划算，很难成交，建议不低于 " + A.fmt(mkt * RANGE.buy[0], PD) : r > DEX_BUY ? "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI" : "";
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
-          (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ 价格合理，比' + DX + ' 划算，容易成交</span>') : "");
+          (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ ' + (M.flat ? "价格贴近市价，容易成交" : "价格合理，比" + DX + " 划算，容易成交") + '</span>') : "");
         return { q: q, total: total };
       }
       qty.oninput = calc; price.oninput = function () { auto = false; calc(); pick(); };
