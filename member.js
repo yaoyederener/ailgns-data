@@ -397,7 +397,7 @@
       function stop() { if (polling) clearInterval(polling); polling = null; }
       function showOrder(o, autoPay) {
         var x = method(o.method), c = CHAINS[x.chain], box = document.getElementById("order-box"), hasWallet = A.wallets.list().length > 0;
-        var until = new Date(o.expires), hm = until.getMonth() + 1 + "月" + until.getDate() + "日 " + String(until.getHours()).padStart(2, "0") + ":" + String(until.getMinutes()).padStart(2, "0");
+        var hm = A.timeBJ(o.expires) + "（北京时间）"; // 客户主要在国内，时间一律按北京时间显示
         var manual = '<div class="ob-line"><span class="muted">在</span><b>' + c.name + ' 链</b><span class="muted">转</span><b>' + x.symbol + '</b><span class="muted">（合约 ' + A.short(x.token) + "）</span></div>" +
           '<div class="ob-amt"><b class="num">' + o.amount + "</b><span>" + x.symbol + '</span><button class="ghost" id="ob-ca">复制金额</button></div>' +
           '<div class="ob-warn">金额必须<b>一模一样</b>，最后几位小数是这笔订单的识别码，多一位少一位都认不到；不要从交易所直接提币（会扣手续费）</div>' +

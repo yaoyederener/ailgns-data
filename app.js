@@ -525,7 +525,7 @@
     if (u) { e.preventDefault(); toggleWatch(u.getAttribute("data-unwatch")); route(); }
   });
   // 给 member.js 等扩展页面用的公共工具
-  window.AIL = { toDai: toDai,
+  window.AIL = { toDai: toDai, timeBJ: timeBJ,
     pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },

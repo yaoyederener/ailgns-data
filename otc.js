@@ -493,7 +493,7 @@
       return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var dust = o.open && isDust(o);
-          var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · " + left(o.expiry - now);
+          var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · 还剩 " + left(o.expiry - now) + '<br><span class="muted">' + A.timeBJ(o.expiry * 1000) + " 到期（北京时间）</span>";
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
           if (r && !dust && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
           var remain = dust && isCrumb(o, o.giveLeft) ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
@@ -604,7 +604,7 @@
       function setDur(sec) {
         if (!(sec >= DUR_MIN && sec <= DUR_MAX)) { durIn.value = ""; durSt.innerHTML = '<span class="down">有效期要在 10 分钟到 30 天之间</span>'; return; }
         durIn.value = String(sec);
-        durSt.textContent = "有效期 " + durText(sec) + "，约 " + new Date(Date.now() + sec * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " 到期";
+        durSt.textContent = "有效期 " + durText(sec) + "，约 " + A.timeBJ(Date.now() + sec * 1000) + " 到期（北京时间）";
       }
       function customDur() { var n = Number(durN.value); setDur(n > 0 ? Math.round(n * unit) : NaN); }
       document.querySelectorAll("#otc-durs button").forEach(function (b) {
