@@ -72,7 +72,7 @@ async function markVip(m, kv, logs, cache) {
 async function backfillVip(m, kv, upto, cache) {
   const sk = m.kv + "otcq:scan";
   let b = parseInt((await kv.get(sk)) || String(m.deploy - 1), 10) + 1;
-  const span = m.chain === "Polygon" ? 3000 : 5000;
+  const span = m.chain === "Polygon" ? 2000 : 5000;
   for (let i = 0; i < BACKFILL_STEPS && b <= upto; i++) {
     const to = Math.min(upto, b + span - 1);
     await markVip(m, kv, await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED] }]), cache);
