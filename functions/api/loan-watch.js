@@ -66,6 +66,7 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1";
+  if (url.searchParams.get("log") === "1") return Response.json({ groupLog: (await kv.get("lnw:grouplog", "json")) || [] });
   const msgs = [], groupPosts = [], status = {};
   const latest = parseInt(await rpc("eth_blockNumber", []), 16);
   for (const m of LOANS) {
@@ -126,11 +127,15 @@ export async function onRequestGet(ctx) {
   if (dry) return Response.json({ status, group: groupPosts, messages: msgs.map((x) => ({ to: x[0], text: x[1] })) });
   let sent = 0, failed = 0;
   const groupSent = {};
+  const glog = (await kv.get("lnw:grouplog", "json")) || [];
   for (const text of groupPosts) {
     for (const g of (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((x) => x.trim()).filter(Boolean)) {
-      try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = (groupSent[g] || 0) + 1; } catch (e) { groupSent[g] = String(e.message || e).slice(0, 120); }
+      let ok = true, err = null;
+      try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = (groupSent[g] || 0) + 1; } catch (e) { ok = false; err = String(e.message || e).slice(0, 120); groupSent[g] = err; }
+      glog.unshift({ at: new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ") + " 北京", group: g, ok, err, head: text.split("\n")[0] });
     }
   }
+  if (groupPosts.length) await kv.put("lnw:grouplog", JSON.stringify(glog.slice(0, 50)));
   for (const [addr, text] of msgs) {
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
     for (const u of users) {
