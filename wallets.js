@@ -86,9 +86,15 @@
     });
   }
 
-  function iconHtml(w) {
-    return w.icon ? '<img src="' + A.esc(w.icon) + '" alt="">' : '<span class="wicon">' + A.esc(w.name.slice(0, 1)) + "</span>";
+  // 钱包图标：钱包自己报的图标（EIP-6963）优先，否则用本站存的官方图标，都没有就用首字母
+  var LOGOS = { "OKX Wallet": "okx", "Bitget Wallet": "bitget", "TokenPocket": "tokenpocket", "MetaMask": "metamask", "Trust Wallet": "trust", "imToken": "imtoken" };
+  function logoHtml(name, icon) {
+    var letter = '<span class="wicon">' + A.esc(String(name).slice(0, 1)) + "</span>";
+    var src = icon || (LOGOS[name] ? "icons/wallets/" + LOGOS[name] + ".png?v=1" : "");
+    if (!src) return letter;
+    return '<img class="wlogo" src="' + A.esc(src) + '" alt="" onerror="this.outerHTML=\'' + letter.replace(/'/g, "&#39;") + '\'">';
   }
+  function iconHtml(w) { return logoHtml(w.name, w.icon); }
 
   function sheet(html) {
     var m = document.createElement("div");
@@ -132,7 +138,7 @@
     var s = sheet('<div class="card-head"><h2>' + (mobile ? "到钱包 App 里操作" : "没有检测到钱包") + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
       '<p class="note" style="margin:-6px 0 0">' + (mobile ? "这里连不了钱包（桌面图标和普通浏览器都一样）。点你手机上装的钱包，会自动跳过去并打开<b>当前这一页</b>，在那里连接、确认就行：" : "请先安装一个浏览器钱包插件，装好后刷新本页：") + "</p>" +
       '<div class="wlist">' + (mobile ? apps : installs).map(function (a) {
-        return '<a class="wbtn" href="' + a[1] + '"' + (mobile ? "" : ' target="_blank" rel="noopener"') + '><span class="wicon">' + a[0].slice(0, 1) + "</span><span>" + a[0] + "</span></a>";
+        return '<a class="wbtn" href="' + a[1] + '"' + (mobile ? "" : ' target="_blank" rel="noopener"') + '>' + logoHtml(a[0]) + "<span>" + a[0] + "</span></a>";
       }).join("") + "</div>" +
       '<div class="copy"><span class="mono">' + A.esc(url) + '</span><button class="ghost" id="w-copy">复制网址</button></div>' +
       '<p class="note" style="margin:0">没有反应的话：复制网址，打开钱包 App 的「发现 / DApp 浏览器」粘贴打开。</p>');

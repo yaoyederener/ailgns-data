@@ -233,6 +233,7 @@ label.full .row input { flex: 1; }
 .wbtn { display: flex; align-items: center; gap: 10px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; box-shadow: none; font-weight: 600; font-size: 14px; text-align: left; }
 .wbtn:hover { border-color: var(--gold); text-decoration: none; filter: none; }
 .wbtn img, .wbtn .wicon { width: 30px; height: 30px; border-radius: 9px; flex: none; }
+.wbtn .wlogo { object-fit: contain; background: #fff; border: 1px solid var(--line); }
 .wicon { display: grid; place-items: center; background: var(--grad-dot); color: #fff; font-size: 14px; }
 
 /* 订单簿的买入 / 卖出按钮：放最前面，颜色区分 */
