@@ -4,7 +4,7 @@
 
   var A = window.AIL, W = A.wallet;
   var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", ANUBIS_AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", ANUBIS_EXPLORER = "https://anubisscan.io";
-  // 三个市场用同一份托管合约代码（AilgnsOtcEscrow.sol），各自部署一份，构造参数换成对应的币和 DAI
+  // 各市场用同一份托管合约代码（AilgnsOtcEscrow.sol），各自部署一份，构造参数换成对应的币和 DAI
   // otc 空着时页面显示"即将上线"；pairDai：DEX 交易对里 DAI 是 token0 还是 token1；pd：单价显示几位小数
   // dexSell：在 DEX 卖 1 枚实际到手 ≈ 市价 × dexSell；dexBuy：在 DEX 买 1 枚实际成本 ≈ 市价 × dexBuy（买入不扣税，只有池子手续费 + 滑点）
   // AiLGNS 官方 DEX 卖出扣 3%；LGNS 卖进池子扣税：Polygon 固定 5%，Anubis 动态 5%–约 50%（按最少的 5% 算）
@@ -16,9 +16,12 @@
       dexNote: "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，最少 5%，最高约 50%；这里按最少的 5% 算，实际在 DEX 卖往往扣得更多。" },
     plgns: { sym: "LGNS", chain: "polygon", chainName: "Polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dai: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 9, pd: 4,
       pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, explorer: "https://polygonscan.com", gas: "POL", dexSell: 0.947, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.15],
-      dexNote: "Polygon 链 DEX 卖出 LGNS 固定扣 5% 手续费，买入不扣。" }
+      dexNote: "Polygon 链 DEX 卖出 LGNS 固定扣 5% 手续费，买入不扣。" },
+    // gLGNS（Governance LGNS，Anubis 链，18 位小数）：普通 ERC20，DEX 买卖都不扣税，只有池子 0.3% 手续费；托管合约部署后把地址填到 otc
+    glgns: { sym: "gLGNS", chain: "anubis", chainName: "Anubis", otc: "", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dai: ANUBIS_DAI, dec: 18, pd: 2,
+      pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.997, dexBuy: 1.003, dexName: " DEX", eg: [0.1, 83000] }
   };
-  var MKEYS = ["ailgns", "lgns", "plgns"];
+  var MKEYS = ["ailgns", "lgns", "plgns", "glgns"];
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -848,7 +851,8 @@
       { name: "AiLGNS", chain: "anubis", token: ANUBIS_AILGNS, dec: 18 },
       { name: "DAI", chain: "anubis", token: ANUBIS_DAI, dec: 18 },
       { name: "DAI", chain: "polygon", token: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 18 },
-      { name: "LGNS", chain: "polygon", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dec: 9 }
+      { name: "LGNS", chain: "polygon", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dec: 9 },
+      { name: "gLGNS", chain: "anubis", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dec: 18 }
     ];
     var CH = { anubis: { name: "Anubis", explorer: ANUBIS_EXPLORER }, polygon: { name: "Polygon", explorer: "https://polygonscan.com" } };
     function read(chain, to, data) { return (chain === "anubis" ? A.call(to, data) : W.rpcOn("polygon", "eth_call", [{ to: to, data: data }, "latest"])).then(BigInt); }
@@ -915,7 +919,7 @@
   // 钱包里切换账户时，页面跟着换
   var listening = false;
   A.pages.otc = function (id) {
-    // #/otc · #/otc/lgns · #/otc/plgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
+    // #/otc · #/otc/lgns · #/otc/plgns · #/otc/glgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
     var parts = location.hash.split("/"), sub = parts[2] || "";
     useMarket(sub === "deploy" ? parts[3] : sub);
     if (!listening) {

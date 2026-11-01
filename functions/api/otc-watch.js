@@ -20,6 +20,9 @@ const MARKETS = [
     pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, pd: 4, kv: "otcw:lgns:", deploy: 17936478, sellTax: "5%～50%", link: "https://ailgns.dev/#/otc/lgns" },
   { key: "plgns", sym: "LGNS", chain: "Polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", dec: 9, rpcs: POLYGON_RPCS, tx: "https://polygonscan.com/tx/",
     pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, pd: 4, kv: "otcw:plgns:", deploy: 96510526, sellTax: "5%", link: "https://ailgns.dev/#/otc/plgns" },
+  // gLGNS（Anubis，18 位）：托管合约部署后填 otc 和 deploy 区块；DEX 买卖不扣税
+  { key: "glgns", sym: "gLGNS", chain: "Anubis", otc: "", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
+    pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 0, link: "https://ailgns.dev/#/otc/glgns" },
 ].filter((m) => m.otc);
 const SITE = "https://ailgns.dev/#/otc";
 // 币名：LGNS 两条链都有，带上链名

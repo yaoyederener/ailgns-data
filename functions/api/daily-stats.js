@@ -14,8 +14,9 @@ const CHAINS = { anubis: { rpcs: RPCS, span: 5000, name: "Anubis" }, polygon: { 
 const MARKETS = [
   { key: "ailgns", name: "AiLGNS", chain: "anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", deploy: 17798035 },
   { key: "lgns", name: "LGNS（Anubis）", chain: "anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", deploy: 17936478 },
-  { key: "plgns", name: "LGNS（Polygon）", chain: "polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", deploy: 96510526 }
-];
+  { key: "plgns", name: "LGNS（Polygon）", chain: "polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", deploy: 96510526 },
+  { key: "glgns", name: "gLGNS（Anubis）", chain: "anubis", otc: "", deploy: 0 } // 托管合约部署后填地址和区块
+].filter((m) => m.otc);
 const RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 原收款钱包：会员费都转到这里
 const PAY_TOKENS = { // 会员费能用的币
   anubis: { "0x4d1d808a081fdac440703b3765fc61f8028c06b8": ["LGNS", 9], "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb": ["AiLGNS", 18], "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14": ["DAI", 18] },
