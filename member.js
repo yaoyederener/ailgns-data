@@ -121,6 +121,8 @@
     "0xb80e42e9eef4410a5ad48bdd070806b969029dce": { usd: FEE_USD, note: "赠送" },
     "0x5f6f3adb13f650e90758053deca1a6eab12b156d": { usd: PRO_USD, note: "赠送" },
     "0xd923bd2b62292ad0f315a819c73a6ccfd867a8f6": { usd: FEE_USD, note: "赠送" },
+    // 下了高级订单、付了 5981.1278 LGNS（Polygon），当时没锁定美元价值，币价一跌被按现价算成不够：按订单开通高级
+    "0x042e556ffaac805ba0dad484208d5e94a7a71be2": { usd: PRO_USD, note: "高级 VIP（Polygon LGNS 5981.1278 枚，按下单时价格）", chain: "polygon", tx: "0xd4a658d468b345b00185751718bd98d6f1044c3489fb3cdebef6ed9f788f0f9f" },
     "0xb23aadf2367746f1a3db36a618c6d6f097e5c6e7": { usd: FEE_USD, note: "手动开通（Anubis 链 DAI 20 枚）", chain: "anubis", tx: "0x384b455267ede4b3e0bfdf89435c6bf0ebf14640776ff39a044580119a1b20cf" }
   };
   // 这个地址自己转给收款地址的全部付款（没下单直接转的，算付款地址自己的）
@@ -143,14 +145,18 @@
       trade = srv.otcTrader;
       var own = srv.giftedTo ? Promise.resolve([]) : ownPayments(addr); // 以前给别人代开过的小号：它的付款算大号的
       var gift = srv.giftPayer ? ownPayments(srv.giftPayer) : Promise.resolve([]);
-      var orders = Promise.all((srv.payments || []).map(function (p) { return value(method(p.method), p.paid, p.block, p.tx); }));
+      // 按订单付的款：下单时已锁定美元价值（usd）就直接用，不再按现价重算；以前的老订单没有锁定，照旧按价格算
+      var orders = Promise.all((srv.payments || []).map(function (p) {
+        return p.usd ? Promise.resolve({ method: p.method, chain: p.chain, tx: p.tx, block: p.block, paid: p.paid, usd: p.usd }) : value(method(p.method), p.paid, p.block, p.tx);
+      }));
       return Promise.all([own, gift, orders]);
     }).then(function (r) {
       var direct = r[0].concat(r[1]), txs = direct.map(function (p) { return p.tx; }).filter(function (t) { return /^0x[0-9a-f]{64}$/.test(t); });
       // 自己转出去、但其实是给别的地址下单付的款，不算自己的
       return (txs.length ? memberApi(addr, txs).then(function (d) { return d.claimed || []; }) : Promise.resolve([])).then(function (claimed) {
         var list = direct.filter(function (p) { return claimed.indexOf(p.tx) < 0; }).concat(r[2]), manual = MANUAL[addr];
-        if (manual) list.push({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr, note: manual.note, paid: 0, usd: manual.usd });
+        // 放在最前面：同一笔交易链上也查得到时，以手动开通的记录为准（去重时留第一条）
+        if (manual) list.unshift({ method: "manual", chain: manual.chain || "anubis", tx: manual.tx || "manual:" + addr, note: manual.note, paid: 0, usd: manual.usd });
         // OTC 成交送会员：单笔成交满 50 DAI 送初级，这样的成交累计满 1 万 DAI 送高级
         if (trade) {
           var vol = trade.vol || 0, big = vol >= OTC_PRO_VOL;
@@ -381,6 +387,7 @@
         var a = addrNow();
         if (!a) { qOut.innerHTML = '<p class="note down">地址格式不对</p>'; return; }
         q.disabled = true;
+        A.track("q_member");
         qOut.innerHTML = '<p class="note">正在查这个地址的会员记录…（要查两条链，几秒钟）</p>';
         lookup(a).then(function (t) {
           q.disabled = false;
@@ -467,7 +474,7 @@
           if (!n) throw new Error("这种币的价格暂时读不到，换一种付款方式");
           var old = pendingOrder();
           if (old && old.target === a && old.method === pick.id && old.plan === w && old.expires - Date.now() > 3600000) return old; // 同样的订单接着用
-          return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "order", target: a, method: pick.id, amount: n.toFixed(pick.digits) }) }).then(function (r) { return r.json(); });
+          return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "order", target: a, method: pick.id, amount: n.toFixed(pick.digits), usd: usdNow() }) }).then(function (r) { return r.json(); });
         }).then(function (o) {
           if (o.error) throw new Error(o.error);
           o.plan = w;

@@ -489,6 +489,9 @@
       '<p class="note" style="text-align:center">本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。本站不会索取私钥或助记词。</p>';
   }
 
+  // 访问统计（内部群日报用）：打开网站记一次访问，今天第一次打开再记一位访客；查一个地址记一次查询。只记次数，不记地址
+  function track(e) { try { navigator.sendBeacon("/api/hit?e=" + e); } catch (x) { /* 统计失败不影响使用 */ } }
+  var tracked = {};
   function route() {
     var id = ++renderId;
     var parts = location.hash.replace(/^#\/?/, "").split("/");
@@ -497,6 +500,7 @@
     if (["flows", "wallet", "team", "custom"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
     document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS 服务站";
     if (a && !isAddr(a)) a = "";
+    if (a && ["wallet", "team", "growth", "tree", "upline"].indexOf(tab) >= 0 && !tracked[tab + a]) { tracked[tab + a] = 1; track("q_" + tab); }
     document.querySelectorAll(".tabs a").forEach(function (el) {
       var on = (el.getAttribute("data-tabs") || el.getAttribute("data-tab")).split(" ").indexOf(tab) >= 0;
       el.classList.toggle("on", on);
@@ -529,6 +533,12 @@
     pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
-    start: function () { window.addEventListener("hashchange", route); route(); }
+    track: track,
+    start: function () {
+      var today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), first = false;
+      try { first = localStorage.getItem("st:seen") !== today; if (first) localStorage.setItem("st:seen", today); } catch (x) { /* 无痕模式 */ }
+      track(first ? "v1" : "v");
+      window.addEventListener("hashchange", route); route();
+    }
   };
 })();
