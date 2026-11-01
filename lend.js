@@ -8,7 +8,7 @@
   var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", EXPLORER = "https://anubisscan.io";
   // loan 空着表示还没部署（显示「即将上线」）；otc：复用 otc.js 的哪个市场设置（链、钱包切链）；pair：DEX 池子，只用来显示抵押品现值参考
   var MARKETS = {
-    ailgns: { sym: "AiLGNS", otc: "ailgns", loan: "", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, eg: ["1", "500", "520"] },
+    ailgns: { sym: "AiLGNS", otc: "ailgns", loan: "0x8d84d678d195e770caad263d1c37967ec796165c", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, eg: ["1", "500", "520"] },
     lgns: { sym: "LGNS", otc: "lgns", loan: "", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, eg: ["10000", "500", "520"] },
     glgns: { sym: "gLGNS", otc: "glgns", loan: "", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dec: 18, pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, eg: ["0.01", "500", "520"] }
   };
