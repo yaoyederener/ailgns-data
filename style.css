@@ -1198,7 +1198,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .csv-box p { margin: 8px 0 0; font-size: 12.5px; }
 
 /* 全站累计成交 */
-.tot { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 10px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.tot { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 4px 0 16px; padding: 10px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
 .tot-k { font-size: 13px; color: var(--muted); }
 .tot b { font-size: 22px; color: var(--purple-ink); font-variant-numeric: tabular-nums; }
 .tot-u { font-size: 13px; color: var(--muted); }

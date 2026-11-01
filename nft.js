@@ -139,12 +139,13 @@
           (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
     }
     var floor = sells.length ? dai(sells[0].price) : "—", top = bids.length ? dai(bids[0].price) : "—";
-    var html = k.marketTabs() + '<div id="otc-tot"></div>' +
+    var html = k.marketTabs() +
       '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖卡</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要求购</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>" +
       '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt"><b>价格自由定，没有最低限制</b> · 当前最低卖价 <b>' + floor + '</b> · 最高求购 <b>' + top + '</b> DAI · 单笔成交满 50 DAI 送<b>初级 VIP</b>，累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
     html += book("sells", "在售卡牌", sells, "价格从低到高 · 买家另付 3% 手续费", '<th class="l">操作</th><th>卡牌</th><th>价格 DAI</th><th>买家实付</th><th>剩余时间</th><th class="l">卖家</th>', sellRow);
     html += book("bids", "求购", bids, "价格从高到低 · 卖家拿到完整求购价", '<th class="l">操作</th><th>求购价 DAI</th><th>求购</th><th>剩余时间</th><th class="l">求购人</th>', bidRow);
+    html += '<div id="otc-tot"></div>';
     html += form(k);
     if (account) html += myOrders(mine, now);
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + k.EXPLORER() + "/address/" + k.OTC() + '">' + A.short(k.OTC()) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AwakeNftEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
