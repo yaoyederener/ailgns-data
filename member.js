@@ -126,6 +126,18 @@
     "0x042e556ffaac805ba0dad484208d5e94a7a71be2": { usd: PRO_USD, note: "高级 VIP（Polygon LGNS 5981.1278 枚，按下单时价格）", chain: "polygon", tx: "0xd4a658d468b345b00185751718bd98d6f1044c3489fb3cdebef6ed9f788f0f9f" },
     "0xb23aadf2367746f1a3db36a618c6d6f097e5c6e7": { usd: FEE_USD, note: "手动开通（Anubis 链 DAI 20 枚）", chain: "anubis", tx: "0x384b455267ede4b3e0bfdf89435c6bf0ebf14640776ff39a044580119a1b20cf" }
   };
+  // OTC 累计成交进度（客户想知道离 1 万 DAI 高级 VIP 还差多少）：counted = 计入会员的成交（单笔满 50 DAI），all = 全部成交
+  function volBox(srv) {
+    var t = srv && srv.otcTrader, all = srv && srv.otcAll, vol = (t && t.vol) || 0, n = (t && t.n) || 0, allVol = (all && all.vol) || 0, pct = Math.min(100, vol / OTC_PRO_VOL * 100);
+    var left = OTC_PRO_VOL - vol;
+    return '<div class="vol"><div class="vol-h"><b>OTC 累计成交 ' + A.fmt(vol, 2) + ' DAI</b><span class="muted">' + (n ? n + " 笔" : "还没有计入会员的成交") + "</span></div>" +
+      '<div class="vol-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+      '<div class="vol-f">' + (vol >= OTC_PRO_VOL ? '<span class="up">✅ 已达到高级 VIP 门槛（1 万 DAI）</span>' : (vol >= VIP_MIN_FILL_SHOW ? "✅ 初级 VIP 已达标 · " : "") + "距高级 VIP 还差 <b>" + A.fmt(left, 2) + " DAI</b>") +
+      (allVol > vol + 0.01 ? '<br><span class="muted">另有 ' + A.fmt(allVol - vol, 2) + " DAI 的小额成交（单笔不足 50 DAI）不计入</span>" : "") +
+      '<br><span class="muted">只算单笔满 50 DAI 的成交，买卖都算，三个 OTC 市场合并累计</span></div></div>';
+  }
+  var VIP_MIN_FILL_SHOW = 50;
+  A.volBox = volBox;
   // 这个地址自己转给收款地址的全部付款（没下单直接转的，算付款地址自己的）
   function ownPayments(addr) {
     // 任何一条链查失败都报错，免得把已开通的会员当成没开通
@@ -304,11 +316,13 @@
     var head = '<h1>会员</h1><p class="sub">会员开在<b>地址</b>上：填要开通的地址，点付款，在钱包里确认一笔转账就开通，<b>不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
     if (m && m.tier === "pro") {
       app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
+      fillVol(m.addr);
       return;
     }
     // 未开通：填地址、选等级再付款；初级会员：补差价升级
     var upgrade = !!m, plan = upgrade ? "pro" : "basic", po = pendingOrder();
     app.innerHTML = head + (upgrade ? memberCard(m) : "") + '<div class="loading">正在读取实时价格…</div>';
+    if (upgrade) fillVol(m.addr);
     Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
       function usdNow() { return upgrade ? PRO_USD - FEE_USD : plan === "pro" ? PRO_USD : FEE_USD; }
@@ -402,7 +416,8 @@
           if (t && t.tier) { qOut.innerHTML = '<p class="note up">这个地址已经是' + TIERS[t.tier].name + "，正在恢复…</p>"; return finish(a, t, t.tier); }
           checked = a;
           qOut.innerHTML = '<div class="q-pay"><p>这个地址<b>还不是会员</b>，可以直接付款开通：</p><button class="paybtn" id="q-pay"></button>' +
-            '<p class="muted">想换等级或换币种，在下面选好再点付款。</p></div>';
+            '<p class="muted">想换等级或换币种，在下面选好再点付款。</p></div><div id="q-vol"></div>';
+          memberApi(a).then(function (srv) { var v = document.getElementById("q-vol"); if (v) v.innerHTML = volBox(srv); }).catch(function () {});
           describe();
           document.getElementById("q-pay").onclick = function () { start(this); };
         }, function (e) { q.disabled = false; qOut.innerHTML = '<p class="note down">' + A.esc(walletError(e)) + "</p>"; });
@@ -495,6 +510,7 @@
         });
       }
       go.onclick = function () { start(go); };
+      if (upgrade) fillVol(m.addr);
     }, function () {
       if (A.isCurrent(id)) app.innerHTML = head + '<div class="card err">价格暂时读不到，请稍后刷新。</div>';
     });
@@ -514,7 +530,12 @@
     return '<section class="card">' + mcard + '<dl class="dl" style="margin-top:16px">' +
       "<dt>会员地址</dt><dd>" + A.addrLink(m.addr) + "</dd><dt>付款</dt><dd>" + (pays || "—") + "</dd></dl>" +
       '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap"><a class="btn" style="padding:10px 18px" href="#/tree">去画结构图 →</a><button class="ghost" id="logout" style="padding:10px 18px">换个地址</button></div>' +
+      '<div id="mc-vol"></div>' +
       '<p class="note">换手机、换浏览器时，在会员中心填会员地址点「查询」就能恢复，不用重复付款，也不用连接钱包。</p></section>';
+  }
+  // 会员卡下面补上 OTC 累计成交进度（页面画完后异步填）
+  function fillVol(addr) {
+    memberApi(addr).then(function (srv) { var v = document.getElementById("mc-vol"); if (v) v.innerHTML = volBox(srv); }).catch(function () {});
   }
   // 退出按钮：页面会重画（比如价格读完后），所以在 document 上统一监听，按钮换了也照样有效
   document.addEventListener("click", function (e) {

@@ -1161,3 +1161,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
   .tabs a.lendt { gap: 3px; } .tabs a.lendt svg { width: 14px; height: 14px; }
 }
 .tabs a.feat:not(.on) { border: 1px solid #d9c8fb; background-color: #fff; } /* 没选中时也是一个药丸，和「会员」「借贷」排在一起整齐 */
+
+/* OTC 累计成交进度（会员页、OTC 钱包卡片） */
+.vol { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: var(--soft); border: 1px solid var(--soft-line); font-size: 13px; color: var(--purple-ink); }
+.vol-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.vol-h b { font-size: 15px; }
+.vol-bar { height: 8px; border-radius: 999px; background: #e6dbfa; margin: 8px 0 6px; overflow: hidden; }
+.vol-bar i { display: block; height: 100%; border-radius: 999px; background: var(--grad-dot); min-width: 2px; }
+.vol-f { line-height: 1.5; }

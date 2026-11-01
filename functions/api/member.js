@@ -77,7 +77,8 @@ export async function onRequestGet(ctx) {
   const otcTrader = otcq || (old ? otct : null);
   // 这个地址自己转出去的付款，如果是给别的地址下的订单付的，就不算它自己的
   const claimed = txs.filter((t, i) => claims[i] && claims[i] !== addr);
-  return Response.json({ payments: payments || [], giftPayer, giftedTo, claimed, otcTrader }, { headers: { "cache-control": "no-store" } });
+  // otcAll：全部成交（含单笔不足 50 DAI 的），只用来给客户看累计；送会员只看 otcTrader
+  return Response.json({ payments: payments || [], giftPayer, giftedTo, claimed, otcTrader, otcAll: otct || null }, { headers: { "cache-control": "no-store" } });
 }
 
 export async function onRequestPost(ctx) {

@@ -492,7 +492,9 @@
         return;
       }
       el.innerHTML = '<div class="k">' + A.esc(A.wallets.name() || "我的钱包") + ' <span class="mono">' + A.short(account) + '</span> · <a href="#" id="otc-switch">换钱包</a></div><div class="bal"><div><b id="bal-ail">…</b> ' + SYM + '</div><div><b id="bal-dai">…</b> DAI</div>' + (M.gas === "POL" ? '<div><b id="bal-gas">…</b> POL</div>' : "") + "</div>" +
-        '<div class="d">' + M.chainName + ' 链 · <a href="#" id="otc-watch">把 ' + SYM + " 添加到钱包</a></div>";
+        '<div class="d">' + M.chainName + ' 链 · <a href="#" id="otc-watch">把 ' + SYM + " 添加到钱包</a></div>" + '<div id="otc-vol"></div>';
+      // 累计成交进度：离 1 万 DAI 高级 VIP 还差多少
+      if (A.volBox) fetch("/api/member?addr=" + account).then(function (r) { return r.json(); }).then(function (srv) { var v = document.getElementById("otc-vol"); if (v) v.innerHTML = A.volBox(srv); }).catch(function () {});
       Promise.all([balance(AILGNS, account), balance(DAI, account), M.gas === "POL" ? gasBalance(account) : null]).then(function (b) {
         var a = document.getElementById("bal-ail"), d = document.getElementById("bal-dai"), g = document.getElementById("bal-gas");
         if (a) a.textContent = tShow(b[0]);
