@@ -72,4 +72,7 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 - 编译参数和 AiLGNS OTC 一样：solc `v0.8.24+commit.e11b9ed9`，优化开启 200 runs，EVM 版本 paris；标准输入 [`AilgnsLoanEscrow.standard-input.json`](AilgnsLoanEscrow.standard-input.json)，部署用的字节码在 [`AilgnsLoanEscrow.json`](AilgnsLoanEscrow.json)
 - 构造参数（AiLGNS 抵押市场）：抵押币 AiLGNS `0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB`，DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`，手续费收款 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`
 - 规则（都写死在合约里）：借款人挂单（押币，写明借多少、还多少、借几天）由出借人接单；出借人挂单（存本金 + 1% 手续费的 DAI，写明要押多少币、还多少、借几天）由借款人押币接单；本金都直接到借款人钱包，手续费（本金 1%）都由出借人承担；金额不限，期限 1–90 天；到期前任何人都可替借款人还款；到期没还任何人都可触发把抵押币划给出借人；不看价格、不清算；没有管理员、不能升级
-- 合约地址：待部署（双向版）。此前部署的单向版 `0x8d84d678d195e770caad263d1c37967ec796165c`（区块 18012030）没有产生任何借款，已弃用
+- 合约地址（Anubis 链，部署区块 18016308）：`0x242ab392571d325d814a48892ac16115a6d285dc`
+- 此前部署的单向版 `0x8d84d678d195e770caad263d1c37967ec796165c`（区块 18012030）已下架，只保留 `#/lend/old` 页面让里面的旧单撤回 / 退回
+
+2026-11-01 核对：链上运行代码和上述参数编译出的运行代码逐字节相同，唯一差别是写死的三个构造参数（抵押币、DAI、手续费收款地址）；`COLLATERAL()`、`DAI()`、`feeRecipient()`、`FEE_BPS()`（100 = 1%）读出来都和上表一致，`MAX_PRINCIPAL()` 已不存在（金额不限）。

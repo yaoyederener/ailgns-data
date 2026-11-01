@@ -12,7 +12,7 @@ const MARKETS = {
   nft: { otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", pair: null, rpcs: RPCS },
   // 点对点借款合约（AilgnsLoanEscrow）：读取函数是 loansCount / getLoans；pair 用来给页面算抵押品现值参考
   lend_old: { otc: "0x8d84d678d195e770caad263d1c37967ec796165c", pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", rpcs: RPCS, count: "0x9d11ed75", get: "0x86b20104" }, // 已下架的旧借款合约，只为让旧单能撤 / 还
-  lend_ailgns: { otc: "", pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", rpcs: RPCS, count: "0x9d11ed75", get: "0x86b20104" } // AWAKE NFT 卡牌托管（AwakeNftEscrow，订单结构不同但同样用 ordersCount/getOrders 读）；没有 DEX 池子
+  lend_ailgns: { otc: "0x242ab392571d325d814a48892ac16115a6d285dc", pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", rpcs: RPCS, count: "0x9d11ed75", get: "0x86b20104" } // AWAKE NFT 卡牌托管（AwakeNftEscrow，订单结构不同但同样用 ordersCount/getOrders 读）；没有 DEX 池子
 };
 const COUNT = "0x35daa731", GET_ORDERS = "0x8f72fc77", RESERVES = "0x0902f1ac";
 const MAX = 1000; // 和前端一样只读最近 1000 张
