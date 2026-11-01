@@ -206,6 +206,7 @@
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
     bind(id, loans);
+    if (!M.legacy && A.fillTotals) A.fillTotals();
     if (!M.legacy && k.deboxCard) k.deboxCard(id, { title: "借贷成交 / 还款 / 到期提醒，DeBox 私信秒通知", on: "这个钱包的借贷成交、还款、到期前 24 小时和 1 小时提醒、逾期划转都会私信到你的 DeBox" });
   }
 
