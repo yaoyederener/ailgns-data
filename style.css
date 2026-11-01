@@ -1118,8 +1118,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .book-more:hover { background: var(--gold-soft); }
 .otc-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin: 0 0 14px; } /* 等宽铺满一行，和上面的市场切换左右对齐 */
 .otc-acts button { height: 40px; padding: 0 10px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: none; white-space: nowrap; }
-.otc-acts .oa-sell { background: var(--grad-dot); color: #fff; }
-.otc-acts .oa-buy { background: #fff; color: var(--purple-ink); border: 1px solid #b98cf5; }
+.otc-acts .oa-sell { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; box-shadow: 0 3px 12px rgba(225, 29, 72, .22); } /* 卖：红，和列表里「卖出」按钮同色 */
+.otc-acts .oa-buy { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; box-shadow: 0 3px 12px rgba(22, 163, 74, .22); } /* 买：绿，和列表里「买入」按钮同色 */
+.otc-acts .oa-sell:hover, .otc-acts .oa-buy:hover { filter: brightness(1.06); }
 .otc-acts [data-gomine] { background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); }
 @media (max-width: 600px) {
   .bk-open table.cards.book tr.bk-x { display: grid; } /* 手机上每张挂单是卡片样式 */
@@ -1131,3 +1132,14 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
   .otc-top .ot-c { flex: 1 1 100%; height: 38px; padding: 0 10px; border-radius: 12px; }
 }
 
+
+/* 点顶部「我要卖 / 我要买」跳到挂单表单：留出顶栏高度（不然「发布挂单」标题被顶栏挡住），并闪一下边框提示 */
+#otc-form { scroll-margin-top: 84px; }
+@media (max-width: 600px) { #otc-form { scroll-margin-top: 124px; } }
+#otc-form.flash { animation: formflash 1.6s ease-out; }
+@keyframes formflash { 0%, 40% { box-shadow: 0 0 0 3px var(--flash, #7027d9), 0 8px 26px rgba(112, 39, 217, .25); } 100% { box-shadow: 0 0 0 0 transparent; } }
+#otc-form.flash-sell { --flash: #ef4444; }
+#otc-form.flash-buy { --flash: #16a34a; }
+/* 表单里的买卖切换也用红绿区分 */
+#otc-side button[data-side="sell"].on { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; }
+#otc-side button[data-side="buy"].on { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; }

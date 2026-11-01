@@ -358,10 +358,14 @@
       });
       app.querySelectorAll("[data-goform]").forEach(function (b) {
         b.onclick = function () {
-          var t = document.querySelector('#otc-side [data-side="' + b.getAttribute("data-goform") + '"]');
+          var sd = b.getAttribute("data-goform"), t = document.querySelector('#otc-side [data-side="' + sd + '"]');
           if (t) t.click();
           var f = document.getElementById("otc-form");
-          if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (!f) return;
+          f.scrollIntoView({ behavior: "smooth", block: "start" });
+          f.classList.remove("flash", "flash-sell", "flash-buy");
+          void f.offsetWidth; // 重新触发闪框动画
+          f.classList.add("flash", "flash-" + sd);
         };
       });
       var gm = app.querySelector("[data-gomine]");
