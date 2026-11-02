@@ -52,7 +52,7 @@
   var SPLITTERS = { anubis: "0xeee877c1b6285b82890bdcd027d2715f658ecf23", polygon: "0xcc274e07847a6a86917b6ccd4e67706170d4036f" };
   var PAYEES = [["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], [FEE_RECIPIENT, 30]];
   // 回购分账合约（Anubis）：收到的 LGNS、DAI 在 OTC 换成 AiLGNS，连同收到的 AiLGNS 按 40 / 30 / 30 分；部署后填地址
-  var BUYBACK = "";
+  var BUYBACK = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3";
   var BB_PAYEES = [["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], ["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322", 30]];
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
   var VERIFY = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md";

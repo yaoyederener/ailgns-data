@@ -5,7 +5,7 @@ import { sendDebox } from "../../lib/debox.js";
 
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
 const SPLIT = "0xb1fafb8bf72e6705dba1b22c347f53d50b1b8539bc5f9ce17a1cf52973dfbe79"; // Split(token, amount, toPayee1, toPayee2, toPayee3, by)
-const BUYBACK = ""; // 回购分账合约（Anubis）：部署后填上（小写）；它分的是买到的 AiLGNS，三份都转出去
+const BUYBACK = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3"; // 回购分账合约（Anubis，2026-11-03 部署）；它分的是买到的 AiLGNS，三份都转出去
 const CHAINS = {
   anubis: { name: "Anubis", contract: "0xeee877c1b6285b82890bdcd027d2715f658ecf23", rpcs: RPCS, tx: "https://anubisscan.io/tx/", span: 5000 },
   polygon: { name: "Polygon", contract: "0xcc274e07847a6a86917b6ccd4e67706170d4036f", rpcs: ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"], tx: "https://polygonscan.com/tx/", span: 9000 },
