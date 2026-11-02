@@ -229,7 +229,15 @@ function edge(o, p, tax) {
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd, maximumFractionDigits: pd });
 const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
-function dealText(m, list, p, tax) {
+// ILO 共建底池的历史遗留问题：涡轮按 100% 价格买币另扣 5%，买的币进底池扣 50%，第二天奖励币在底池卖再扣 50%，一进一出亏 5%。
+// 奖励币改在 OTC 卖，成交价只要高于市价 55%（折价不超过 45%）就是赚的。Anubis LGNS 的每条好单播报都带上这段（站长要求）
+function iloText(ratio) {
+  return "🌀 ILO 共建底池的伙伴请注意（历史遗留问题，OTC 帮你解决）：\n" +
+    "涡轮按 100% 价格买币另扣 5%，买的币进底池扣 50%，第二天奖励币在底池卖再扣 50%，一进一出反而亏 5%。\n" +
+    "现在奖励币直接卖给 OTC 求购单，只扣 1%：成交价只要高于市价的 55%（折价不超过 45%）就是赚的！" +
+    (ratio ? `\n👉 现在最高求购价是市价的 ${(ratio * 100).toFixed(1)}%` + (ratio > 0.556 ? "，卖出就赚" : "") : "");
+}
+function dealText(m, list, p, tax, bidRatio) {
   const ns = list.filter((x) => x.o.sell).length, name = label(m), arb = list.some((x) => x.e.arb >= PP_MIN_DAI);
   const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `🔥 比 DEX 卖得更贵：高价求购 ${name}！`];
   for (const { o, e } of list) {
@@ -248,6 +256,7 @@ function dealText(m, list, p, tax) {
         (e.arb >= PP_MIN_DAI ? `\n💰 没有币也能赚：先在 DEX 花 ${d2(e.cost)} DAI 买 ${q} ${m.sym}，再卖给这张单拿 ${d2(e.get)} DAI，净赚 ${d2(e.arb)} DAI` : ""));
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
+  if (m.key === "lgns") lines.push("", iloText(bidRatio));
   lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"} DEX 价 ${d2(p.px, m.pd)} DAI（以上按池子实时深度算，已扣 OTC 1% 手续费${tax ? "和 DEX 卖出税" : ""}，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
   return lines.join("\n");
 }
@@ -262,7 +271,8 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
     if (!prev || (typeof prev === "object" && x.e.pct >= prev.pct + PP_AGAIN_PCT && now - prev.at >= PP_AGAIN_SEC)) fresh.push(x);
   }
   fresh.sort((a, b) => b.e.arb - a.e.arb || b.e.gain - a.e.gain);
-  const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, p, tax) : null;
+  const bestBid = Math.max(0, ...orders.filter((o) => !o.sell).map((o) => o.price)); // 最高求购价（ILO 那段要用）
+  const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, p, tax, bestBid / p.px) : null;
   if (!send || !text) return { hits: hits.length, px: p.px, tax, text };
   if (!pick.some((x) => x.e.arb >= PP_MIN_DAI) && (await kv.get(m.kv + "ppgap"))) return { hits: hits.length, waiting: fresh.length };
   const out = { hits: hits.length, sent: pick.length, groups: {} };
