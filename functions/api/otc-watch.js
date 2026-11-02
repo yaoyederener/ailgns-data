@@ -1,8 +1,8 @@
 // OTC 挂单动态通知：定时任务每 5 分钟调用一次，读各市场托管合约新的成交 / 撤单 / 到期退回事件。
 // 市场：AiLGNS（Anubis）、LGNS（Anubis）、LGNS（Polygon），合约代码相同，各链各一份
 // ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
-// ② 群播报：成交先攒起来，每小时发一次汇总到 DeBox 群（没成交不发；北京时间 0–8 点不发，攒到 8 点一起发）
-// ③ 好单推送：比 DEX 买得便宜 / 卖得贵、或者一买一卖就有钱赚的挂单，每 5 分钟检查，推到营销群和关注机器人的人
+// ② 每小时播报：累计成交 + 本小时新增 + 合约安全 + 高价求购单 + 初心，整点发到 DeBox 群（没成交也没好求购单就不发）
+// ③ 好单推送：比 DEX 买得便宜的出售单，每 5 分钟检查，推到营销群和关注机器人的人（求购单只放进每小时播报）
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
@@ -255,7 +255,7 @@ function dealText(m, list, p, tax) {
 async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   if (m.nft) return { hits: 0, skipped: "nft" }; // 卡牌没有 DEX 市价，不推好单
   const now = Math.floor(Date.now() / 1000), [orders, p, tax] = await Promise.all([book(m, now), market(m), sellTax(m)]);
-  const hits = orders.map((o) => ({ o, e: edge(o, p, tax) })).filter((x) => x.e.pct >= PP_MIN_PCT && x.e.gain >= PP_MIN_DAI);
+  const hits = orders.filter((o) => o.sell).map((o) => ({ o, e: edge(o, p, tax) })).filter((x) => x.e.pct >= PP_MIN_PCT && x.e.gain >= PP_MIN_DAI); // 求购单不实时推，放进每小时播报（站长要求）
   const fresh = [];
   for (const x of hits) {
     const prev = send ? await kv.get(m.kv + "pp:" + x.o.id, "json") : null; // 以前推过：{ pct, at }（老数据是 1）
@@ -275,88 +275,70 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   return out;
 }
 
-// 群播报模板（站长给的）：成交数量 / 金额 / 单价 + 一句随机的庆祝或宣传 + 钱包打开链接
-// 随机句子从下面的池子里抽，最近用过的 30 句不再抽（记在 KV otcw:phr），群里看着不重样
-// 只说真实的东西（0 滑点、1% 手续费、合约担保、成交送会员），不预测价格、不承诺收益
-const PHRASES = [
-  "🎉 恭喜恭喜！又一笔大单落袋，0 滑点就是这么爽！",
-  "🥳 又成交一笔！合约担保，一笔交易钱货两清。",
-  "🔥 成交一笔接一笔，OTC 越来越热闹了！",
-  "💎 恭喜这位老板，筹码稳稳到手！",
-  "👏 又一位聪明人选择了 OTC，省下了 DEX 的高额滑点！",
-  "🚀 交易就送会员！单笔满 50 DAI 的成交，会员自动到账。",
-  "🎁 交易就送会员：单笔成交满 50 DAI 送初级 VIP，累计满 1 万 DAI 送高级 VIP！",
-  "🎁 成交一笔满 50 DAI 就是会员，累计满 1 万 DAI 直接升高级 VIP，越交易越划算！",
-  "🏆 恭喜成交！你离高级 VIP（累计 1 万 DAI）又近了一步。",
-  "💰 只收 1% 手续费，买卖 1 万 DAI 比 DEX 省下几百上千 DAI！",
-  "⚡ 合约秒到账，不用等、不用信任任何人，代码说了算。",
-  "🔐 币锁在合约里，付款收币一笔完成，比私下转账安全得多。",
-  "🤝 买卖双方都满意，这才是好交易！",
-  "🌟 越来越多人选择在 OTC 交易，省钱又安全！",
-  "💪 大家一起建设，AiLGNS 社区越来越热闹！",
-  "🤝 每一笔成交都是社区共识的一部分！",
-  "🏗️ 社区在建设，交易在增长，一起加油！",
-  "🎊 又是漂亮的一单！想买想卖的，挂单就有人接。",
-  "📈 交易越活跃，市场越有深度，大家都受益！",
-  "😎 0 滑点成交的感觉，用过就回不去了。",
-  "🧧 恭喜发财！这一单成交得干脆利落。",
-  "🎯 看准价格挂个单，到价自动成交，省心省力。",
-  "⏰ 挂单 10 分钟到 30 天自选，到期没成交自动退回，零风险挂单。",
-  "🙌 不用盯盘不用抢，挂好单子等人来吃就行。",
-  "💡 小技巧：挂单价格贴近指导价，成交更快！",
-  "💡 想卖 AiLGNS？在 OTC 挂单，0 滑点卖出，不用被池子吃差价。",
-  "💡 想买 AiLGNS？直接吃 OTC 的单，价格一目了然，没有滑点。",
-  "🛡️ 智能合约担保，无需信任、无需许可，安全看得见。",
-  "🔥 恭喜成交！下一笔庆祝的就是你！",
-  "🥂 干杯！又一位老板在 OTC 完成交易。",
-  "🌈 成交顺利，皆大欢喜！",
-  "✨ 50 DAI 起就能挂单，成交一笔满 50 DAI 就送会员，快来试试！",
-  "📣 交易就送会员，单笔满 50 DAI 成交即送！",
-  "💎 大单小单都欢迎，一视同仁，合约自动结算。",
-  "🚀 OTC 成交量稳步增长，感谢每一位支持的朋友！",
-  "🤑 省下的滑点就是赚到的钱！",
-  "🧮 算一算：DEX 滑点 3%–28%，这里固定 1%，差距一目了然。",
-  "🎉 又一单！大家的信任就是我们最大的动力。",
-  "👍 交易透明可查，每一笔都在链上。",
-  "🔗 每笔成交都在链上，随时可以查验，公开透明。",
-  "🥳 恭喜！成交完成，币已经在钱包里了。",
-  "🌟 好的交易平台，就是让买卖变得简单。",
-  "🎁 还没开会员的朋友，来 OTC 成交一笔就送！",
-  "🏅 累计成交满 1 万 DAI 送高级 VIP，大户朋友们冲！",
-  "💬 有任何问题，网站右下角找客服。",
-  "📲 用钱包 App 打开链接，一键挂单、一键成交。",
-  "🙏 感谢每一位在 OTC 交易的朋友，一起把社区做大！",
-  "🎊 成交！又是愉快的一笔交易。",
-  "🔥 热度持续，OTC 天天有成交！",
-  "🌙 不管白天黑夜，合约 24 小时自动撮合结算。",
+// 每小时播报偶尔（约 1/4）带一句感谢四哥，每次不一样（最近用过的 8 句不再抽，记在 KV otcw:thx）；语气平实，不吹捧（站长要求）
+const THANKS = [
+  "🙏 感谢四哥一路以来的资金支持和技术指导，平台能走到今天，离不开他的付出。",
+  "🙏 OTC 背后有四哥默默出钱出力，很多方案都是他熬夜一点点磨出来的，在此道一声感谢。",
+  "🙏 特别感谢四哥：从资金到技术顾问，一直在幕后撑着这个平台。",
+  "🙏 每一份安全稳定的背后都有人在守着，谢谢四哥长期的技术把关和资金支持。",
+  "🙏 平台从无到有，四哥出资、出主意、出时间，这份心意大家都看在眼里。",
+  "🙏 感谢四哥不计回报地为社区操心，很多深夜的方案讨论都有他在。",
+  "🙏 饮水思源，感谢四哥为 AiLGNS OTC 提供的资金和技术支持。",
+  "🙏 没有四哥的支持，就没有这个平台。谢谢四哥一直以来的信任和付出。",
+  "🙏 四哥常说平台好、社区好才是真的好，这份初心我们一直记着。谢谢四哥！",
+  "🙏 感谢四哥担任技术顾问，帮平台把好安全关，让大家交易更放心。",
+  "🙏 一个平台能稳定运行，靠的是有人肯付出。感谢四哥，也感谢每一位伙伴。",
+  "🙏 谢谢四哥在资金和技术上的长期支持，我们会继续把平台做好，不辜负大家。",
 ];
-// 从池子里抽一句最近没用过的；有 LGNS 成交时不抽讲 AiLGNS / 官方 DEX 费用的句子（那些只对 AiLGNS 成立）
-async function phrase(kv, dry, onlyAilgns) {
-  const recent = (await kv.get("otcw:phr", "json")) || [];
-  const ok = (i) => onlyAilgns || !/AiLGNS|DEX/.test(PHRASES[i]);
-  let fresh = PHRASES.map((_, i) => i).filter((i) => ok(i) && !recent.includes(i));
-  if (!fresh.length) fresh = PHRASES.map((_, i) => i).filter(ok);
-  const i = fresh[Math.floor(Math.random() * fresh.length)];
-  if (!dry) await kv.put("otcw:phr", JSON.stringify([...recent, i].slice(-30)));
-  return PHRASES[i];
+async function thanks(kv, dry) {
+  if (Math.random() >= 0.25) return "";
+  const recent = (await kv.get("otcw:thx", "json")) || [];
+  let pool = THANKS.map((_, i) => i).filter((i) => !recent.includes(i));
+  if (!pool.length) pool = THANKS.map((_, i) => i);
+  const i = pool[Math.floor(Math.random() * pool.length)];
+  if (!dry) await kv.put("otcw:thx", JSON.stringify([...recent, i].slice(-8)));
+  return THANKS[i];
 }
-const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP";
-const QUIET = [0, 8]; // 北京时间 0 点到 8 点不往群里发
-// 一段时间的成交按市场汇总：笔数、总金额、单价范围
-function groupText(fills, line, since, until) {
+const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
+// 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心（偶尔带一句感谢四哥）
+// tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
+function groupText(fills, tot, bids, thx, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
-  const by = {};
-  for (const f of fills) (by[f.mk] = by[f.mk] || []).push(f);
-  let n = 0, total = 0;
-  const out = Object.entries(by).map(([k, list]) => {
-    const m = MARKETS.find((x) => x.key === k), sum = list.reduce((t, f) => t + f.qty * f.price, 0);
-    const lo = Math.min(...list.map((f) => f.price)), hi = Math.max(...list.map((f) => f.price));
-    n += list.length; total += sum;
-    return `· ${m.nft ? m.sym + " 卡牌" : label(m)}：${list.length} 笔，共 ${dai2(sum)} DAI，单价 ${d2(lo, m.pd)}` + (hi > lo ? `–${d2(hi, m.pd)}` : "") + (m.nft ? " DAI/张" : "");
-  });
-  if (out.length > 1) out.push(`· 合计 ${n} 笔，${dai2(total)} DAI`);
-  const links = [...new Set(fills.map((f) => MARKETS.find((x) => x.key === f.mk).link))];
-  return `📊 OTC 成交汇总（${hm(since)}–${hm(until)}）\n` + out.join("\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
+  const hourDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
+  const n = Math.max(tot.fills || 0, fills.length), dai = Math.max(tot.fillDai || 0, hourDai);
+  const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "",
+    "✅ 累计成交（合约上线至今）",
+    `· 累计 ${n.toLocaleString("en-US")} 笔 · 成交额 ${dai2(dai)} DAI`];
+  if (fills.length) out.push(`· 本小时新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI`);
+  out.push("· 全部链上可查，0 纠纷 · 0 差错 · 7×24 小时稳定运行", "",
+    "🔐 合约安全",
+    "· 智能合约担保，币和 DAI 锁在合约里，成交即到账",
+    "· 合约没有管理员、没有后门，任何人（包括我们）都无法修改、冻结或挪用",
+    "· 代码开源，链上随时可查");
+  if (bids.length) {
+    out.push("", "📥 高价求购中（卖给它比在 DEX 卖多拿）");
+    for (const { m, o, e } of bids) out.push(`· ${label(m)} ${qtyStr(m, o.qty)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
+  }
+  out.push("", "🤝 我们的初心",
+    "做 AiLGNS OTC，一切都是为了平台好：为社区提供场外流动性，大额买卖不冲击底池，减少抛压、稳住币价，让每一位持币伙伴都受益。",
+    "平台只收 1% 手续费，却要承担域名、服务器、安全防护、链上 Gas、算力和 7×24 小时人工值守等全部开支，常常入不敷出。",
+    "我们坚持下来，只为给大家一个安全、稳定、0 滑点的交易环境。感谢每一位伙伴的支持与信任 🙏");
+  if (thx) out.push("", thx);
+  const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
+  out.push("", PROMO, "👉 钱包打开 DApp 链接", "🧬 " + (links.length === 1 ? links[0] : SITE));
+  return out.join("\n");
+}
+// 现在比 DEX 卖得更值的求购单（各市场合起来，按多拿的比例取前 3）
+async function topBids() {
+  const now = Math.floor(Date.now() / 1000), all = [];
+  for (const m of MARKETS) {
+    if (m.nft) continue;
+    try {
+      const [orders, p, tax] = await Promise.all([book(m, now), market(m), sellTax(m)]);
+      for (const o of orders) if (!o.sell) { const e = edge(o, p, tax); if (e.pct >= PP_MIN_PCT && e.gain >= PP_MIN_DAI) all.push({ m, o, e }); }
+    } catch (e) {} // 一条链读不到就跳过
+  }
+  return all.sort((a, b) => b.e.pct - a.e.pct).slice(0, 3);
 }
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -434,18 +416,21 @@ export async function onRequestGet(ctx) {
   }
   // 群播报：新成交先存进 otcw:hr，整点后发上一段的汇总，发完清空
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
-  const now = Date.now(), bjHour = new Date(now + 8 * 3600e3).getUTCHours();
+  const now = Date.now();
   const hr = (await kv.get("otcw:hr", "json")) || { since: Math.floor(now / 3600e3) * 3600e3, fills: [] };
-  if (!hr.fills.length) hr.since = Math.floor(now / 3600e3) * 3600e3; // 空着的时候从这个整点算起
   for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k });
-  const due = hr.fills.length && Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3) && !(bjHour >= QUIET[0] && bjHour < QUIET[1]);
-  const until = Math.floor(now / 3600e3) * 3600e3; // 汇总截到这个整点
-  const group = hr.fills.length ? groupText(hr.fills, await phrase(kv, true, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until) : null;
-  if (dry) return Response.json({ status, due, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
+  const due = Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 过了整点就发上一小时的播报（夜里也发，站长要求）
+  const until = Math.floor(now / 3600e3) * 3600e3;
+  const build = async (dry2) => {
+    const bids = await topBids();
+    if (!hr.fills.length && !bids.length) return null; // 没成交、也没好的求购单：这一小时不发
+    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, bids, await thanks(kv, dry2), until);
+  };
+  if (dry) return Response.json({ status, due, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if (due) {
-    const text = groupText(hr.fills, await phrase(kv, false, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until);
-    for (const g of gids) {
+    const text = await build(false);
+    if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
     }
