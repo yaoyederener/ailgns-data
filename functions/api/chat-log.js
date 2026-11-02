@@ -3,7 +3,7 @@
 // POST { q, a, page, sid, human } → { ok }。同一访客 1 小时最多转发 30 条，防刷
 import { sendDebox } from "../../lib/debox.js";
 
-const SUPPORT_USER = ""; // 接收客服咨询的 DeBox 用户 id（私信）；也可用环境变量 DEBOX_SUPPORT 覆盖。空着就不转发（不要发内部运营群，也不要发营销群）
+const SUPPORT_USER = "p3zjfyer"; // 接收客服咨询的 DeBox 用户 id（私信）；也可用环境变量 DEBOX_SUPPORT 覆盖。空着就不转发（不要发内部运营群，也不要发营销群）
 const PER_HOUR = 30;
 
 export async function onRequestPost(ctx) {
