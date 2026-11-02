@@ -50,7 +50,7 @@ function notice(items, start, end, day) {
   lines.push("", "👥 按 4 : 3 : 3 分配，今日每份：", ...shareLines(day));
   if (items.some((it) => it.link)) lines.push("", "🔗 转账记录：");
   items.filter((it) => it.link).slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
-  if (items.length > 5) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
+  if (items.length > 5 && items.some((it) => it.link)) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
   lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益；也可以在本站 OTC 买入 AiLGNS 长期持有 👉 https://ailgns.dev/#/otc");
   lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费。", "—— AiLGNS 服务站");
   return lines.join("\n");
