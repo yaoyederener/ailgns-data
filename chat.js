@@ -61,7 +61,7 @@
     var h = hours();
     return "人工客服时间：<b>" + esc(h.text) + "</b><br>" + (h.online ? '<span class="cb-on">● 现在人工在线</span>' : '<span class="cb-off">● 现在不在人工时间，留言后上班第一时间回复</span>') +
       '<br><a class="cb-human" href="' + DEBOX + '" target="_blank" rel="noopener">加站长 DeBox，找人工 →</a>' +
-      '<br><span class="muted">也可以直接在这里留下你的 DeBox 名字或钱包地址，人工看到会主动联系你。</span>';
+      '<br><span class="muted">也可以直接在这里留言，你的每一条留言我们都会阅读并反馈。</span>';
   }
   function add(who, html) {
     var m = el('<div class="cb-msg cb-' + who + '"><div class="cb-bubble"></div></div>');
