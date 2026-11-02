@@ -166,9 +166,9 @@
       return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="出借 DAI" class="price"><b>' + dai(l.principal) + '</b></td><td data-l="要求抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="到期还 DAI">' + dai(l.repayAmount) + '</td>' +
         '<td data-l="利息">' + A.fmt(it.i, 2) + " DAI（" + it.pct.toFixed(1) + "% · 年化 " + it.apr.toFixed(0) + '%）</td><td data-l="期限">' + days(l.term) + '</td><td data-l="抵押率参考">' + ratioTd(l) + '</td><td data-l="挂单剩余">' + k.left(l.expiry - now) + '</td><td data-l="出借人" class="l mono">' + who(l.lender) + "</td></tr>";
     }
-    function activeRow(l) {
+    function activeRow(l, i) {
       var act = l.borrower === account ? '<button class="act-btn" data-repay="' + l.id + '">还款</button>' : l.lender === account && l.due <= now ? '<button class="act-btn btn-sell" data-claim="' + l.id + '">领取抵押品</button>' : l.due <= now ? '<span class="muted">已逾期</span>' : "";
-      return '<tr><td class="act">' + act + '</td><td data-l="抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="借款 DAI">' + dai(l.principal) + '</td><td data-l="应还 DAI" class="price"><b>' + dai(l.repayAmount) + '</b></td><td data-l="还款截止">' + A.timeBJ(l.due * 1000) + (l.due > now ? "（还剩 " + k.left(l.due - now) + "）" : '<span class="down">（已到期）</span>') + '</td><td data-l="抵押率参考">' + ratioTd(l) + '</td><td data-l="借款人 / 出借人" class="l mono">' + who(l.borrower) + " / " + who(l.lender) + "</td></tr>";
+      return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="借款 DAI">' + dai(l.principal) + '</td><td data-l="应还 DAI" class="price"><b>' + dai(l.repayAmount) + '</b></td><td data-l="还款截止">' + A.timeBJ(l.due * 1000) + (l.due > now ? "（还剩 " + k.left(l.due - now) + "）" : '<span class="down">（已到期）</span>') + '</td><td data-l="抵押率参考">' + ratioTd(l) + '</td><td data-l="借款人 / 出借人" class="l mono">' + who(l.borrower) + " / " + who(l.lender) + "</td></tr>";
     }
     function book(key, title, list, hint, head, row) {
       var isOpen = openBook[key], more = list.length - BOOK_SHOW;
