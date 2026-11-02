@@ -49,7 +49,7 @@ function notice(items, start, end, day) {
   lines.push("", `💰 ${bjDate(start)} 今日总收入：`, ...listSum(day));
   lines.push("", "👥 按 4 : 3 : 3 分配，今日每份：", ...shareLines(day));
   lines.push("", "🔗 转账记录：");
-  items.slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
+  items.filter((it) => it.link).slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
   if (items.length > 5) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
   lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益；也可以在本站 OTC 买入 AiLGNS 长期持有 👉 https://ailgns.dev/#/otc");
   lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费。", "—— AiLGNS 服务站");
@@ -77,6 +77,18 @@ export async function onRequestGet(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
   const now = Math.floor(Date.now() / 1000), slot = Math.floor(now / SLOT) * SLOT; // 当前这段的开始
+  // today=1：站长想马上看效果，把今天到现在的汇总立刻发一次（每天只能触发一次，防止被人刷群）
+  if (url.searchParams.get("today") === "1") {
+    const dayStart = Math.floor((now + 8 * 3600) / 86400) * 86400 - 8 * 3600, day = dayKey(dayStart), flag = "opsw:manual:" + day;
+    if (await kv.get(flag)) return Response.json({ error: "今天已经手动发过一次了" }, { status: 429 });
+    const sent0 = (await kv.get("opsw:day:" + day, "json")) || [], pend = ((await kv.get("opsw:pending", "json")) || []).filter((x) => x.time >= dayStart);
+    const all = sent0.concat(pend);
+    if (!all.length) return Response.json({ error: "今天还没有收入" });
+    const text = notice(all, dayStart, now, sum(all)).replace(/本时段收入 \d+ 笔/, `今天到现在收入 ${all.length} 笔`).replace(/⏱ 统计时段：(.*)–[^（]*（/, (m, a) => `⏱ 统计时段：${a}–${bjHour(now)}（`);
+    await kv.put(flag, "1", { expirationTtl: 2 * 86400 });
+    await sendDebox(ctx.env, OPS_GROUP, text, "group");
+    return Response.json({ sent: true, text });
+  }
   const pending = (await kv.get("opsw:pending", "json")) || [], seen = new Set(pending.map((x) => x.link)), fresh = [];
   // 以前发送失败留下的区块段（旧版逻辑），并进来
   const retry = dry ? [] : (await kv.get("opsw:retry", "json")) || [];
