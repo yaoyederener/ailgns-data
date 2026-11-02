@@ -3,8 +3,9 @@
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
-  const [t0, lend] = await Promise.all([kv.get("st:tot", "json"), kv.get("st:lend:ailgns", "json")]);
-  const t = t0 || { orders: 0, orderDai: 0, fills: 0, fillDai: 0 }, l = lend || { principal: 0, n: 0 };
+  const [t0, ...lends] = await Promise.all([kv.get("st:tot", "json"), ...["ailgns", "lgns", "glgns"].map((k) => kv.get("st:lend:" + k, "json"))]);
+  const t = t0 || { orders: 0, orderDai: 0, fills: 0, fillDai: 0 };
+  const l = lends.reduce((a, x) => ({ principal: a.principal + ((x && x.principal) || 0), n: a.n + ((x && x.n) || 0) }), { principal: 0, n: 0 }); // 三个借贷市场加起来
   return Response.json({ fillDai: Math.round(t.fillDai * 100) / 100, fills: t.fills, orderDai: Math.round(t.orderDai * 100) / 100, orders: t.orders, lendDai: Math.round(l.principal * 100) / 100, loans: l.n, at: Date.now() },
     { headers: { "cache-control": "public, max-age=60, s-maxage=60" } });
 }

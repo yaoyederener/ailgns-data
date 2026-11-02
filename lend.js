@@ -9,8 +9,8 @@
   // loan 空着表示还没部署（显示「即将上线」）；otc：复用 otc.js 的哪个市场设置（链、钱包切链）；pair：DEX 池子，只用来显示抵押品现值参考
   var MARKETS = {
     ailgns: { sym: "AiLGNS", otc: "ailgns", loan: "0x242ab392571d325d814a48892ac16115a6d285dc", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, eg: ["1", "500", "520"] },
-    lgns: { sym: "LGNS", otc: "lgns", loan: "", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, eg: ["10000", "500", "520"] },
-    glgns: { sym: "gLGNS", otc: "glgns", loan: "", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dec: 18, pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, eg: ["0.01", "500", "520"] }
+    lgns: { sym: "LGNS", otc: "lgns", loan: "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b", liveTax: true, token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9, pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, eg: ["10000", "500", "520"] },
+    glgns: { sym: "gLGNS", otc: "glgns", loan: "0x00e674bb1559557966a6c2244c36d12a63218a5f", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dec: 18, pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, eg: ["0.01", "500", "520"] }
   };
   // 旧的单向合约（已下架，不在标签里，只能从 #/lend/old 进去撤单 / 还款 / 取回，不能再挂新单）
   MARKETS.old = { sym: "AiLGNS", otc: "ailgns", loan: "0x8d84d678d195e770caad263d1c37967ec796165c", legacy: true, token: MARKETS.ailgns.token, dec: 18, pair: MARKETS.ailgns.pair, pairDai: 1, eg: ["1", "500", "520"] };
@@ -32,6 +32,14 @@
     NOT_OFFER: "这不是出借单，请刷新", NOT_REQUEST: "这不是借款单，请刷新"
   };
   var MK = "ailgns", M = MARKETS.ailgns, LOAN = "", mkt = null, openBook = {}, timer = null, freshNext = false;
+  // Anubis 链 LGNS 卖进 DEX 要扣动态手续费（约 50%）：抵押品按扣费后实际能卖到的价算，不然出借人会高估抵押品
+  var SELL_TAX = null;
+  function loadTax() {
+    if (SELL_TAX !== null) return Promise.resolve();
+    return fetch("/api/sell-tax").then(function (r) { return r.json(); }).then(function (j) { if (j && j.lgns > 0 && j.lgns < 0.95) SELL_TAX = j.lgns; }).catch(function () {});
+  }
+  function taxOf() { return SELL_TAX === null ? 0.5 : SELL_TAX; }
+  function val(raw) { return raw && M.liveTax ? raw * (1 - taxOf()) * 0.997 : raw; } // 0.997：池子 0.3%
   function K() { return A.otcKit; }
   function useMarket(k) { MK = MARKETS[k] ? k : "ailgns"; M = MARKETS[MK]; LOAN = M.loan; K().useMarket(M.otc); }
 
@@ -125,16 +133,16 @@
       return;
     }
     var saved = savedBook(), shown = null;
-    if (saved) { shown = saved; mkt = saved.mkt; draw(id, saved.loans); }
+    if (saved) { shown = saved; mkt = val(saved.mkt); draw(id, saved.loans); }
     else app.innerHTML = '<h1>借贷</h1>' + marketTabs("#/lend") + '<div class="loading">正在读取借款单…</div>';
     var fresh = freshNext; freshNext = false;
-    Promise.all([loadBook(fresh), k.silentAccount()]).then(function (r) {
+    Promise.all([loadBook(fresh), k.silentAccount(), M.liveTax ? loadTax() : null]).then(function (r) {
       if (!A.isCurrent(id)) return;
-      shown = r[0]; mkt = r[0].mkt; draw(id, r[0].loans);
+      shown = r[0]; mkt = val(r[0].mkt); draw(id, r[0].loans);
       timer = setInterval(function () {
         if (!A.isCurrent(id)) { clearInterval(timer); timer = null; return; }
         if (busy()) return;
-        loadBook(false).then(function (b) { if (A.isCurrent(id) && !busy()) { mkt = b.mkt; draw(id, b.loans); } }).catch(function () {});
+        loadBook(false).then(function (b) { if (A.isCurrent(id) && !busy()) { mkt = val(b.mkt); draw(id, b.loans); } }).catch(function () {});
       }, 15000);
     }, function () {
       if (A.isCurrent(id) && shown === null) app.innerHTML = '<h1>借贷</h1>' + marketTabs("#/lend") + '<div class="card err">借款单读取失败，请稍后刷新。</div>';
@@ -180,7 +188,7 @@
       ? '<h1>借贷 · 旧合约</h1><p class="sub">这是已下架的旧借款合约 <span class="mono">' + A.short(LOAN) + '</span>，<b>不能再挂新单</b>；之前在这里挂的单可以照常接单、撤单、还款、到期取回。新挂单请到 <a href="#/lend">借贷</a>。</p>'
       : '<h1>借贷</h1><p class="sub">点对点抵押借款，双向挂单：借款人押 ' + M.sym + ' 挂单借 DAI，出借人挂单等人来借，条件（借多少、还多少、借几天）都由挂单人自己定。合约只认时间和数字：<b>到期前还上抵押币退回，到期没还抵押币归出借人</b>，不看价格、不清算。</p>' + marketTabs("#/lend") +
       '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="borrow">我有 ' + M.sym + '，想借 DAI</button><button type="button" class="oa-buy" data-goform="lend">我有 DAI，想出借</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的借贷</button>' : "") + "</div>" +
-      '<div class="otc-top"><span class="hp-tag">手续费 1%</span><span class="ot-txt">左边红色：你手里有 ' + M.sym + '，押给合约借 DAI；右边绿色：你手里有 DAI，借给押币的人收利息 · 出借人接单时按本金另付 1% 手续费，其它都免费' + (mkt ? " · " + M.sym + " 市价 <b>" + A.fmt(mkt, M.dec === 9 ? 5 : 2) + "</b> DAI" : "") + "</span>" +
+      '<div class="otc-top"><span class="hp-tag">手续费 1%</span><span class="ot-txt">左边红色：你手里有 ' + M.sym + '，押给合约借 DAI；右边绿色：你手里有 DAI，借给押币的人收利息 · 出借人接单时按本金另付 1% 手续费，其它都免费' + (mkt ? " · " + M.sym + (M.liveTax ? " 实际可卖价（扣 DEX 卖出手续费约 " + Math.round(taxOf() * 100) + "%）<b>" : " 市价 <b>") + A.fmt(mkt, M.dec === 9 ? 5 : 2) + "</b> DAI" : "") + "</span>" +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>");
     if (M.legacy) html = html.replace(/<div class="otc-acts">[\s\S]*?<\/div>/, ""); // 旧合约页不显示「我要借 / 我要出借」
     html += book("open", "想借 DAI 的人（已押 " + M.sym + "）", open, "你有 DAI 就可以出借给他 · 按年化从高到低 · 实付本金 + 1%", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">借款人</th>', openRow);
@@ -262,7 +270,7 @@
       guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? floorTok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
         (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(guideOver(term) * 100) + "%（" + days(term) + "）" : "可借 · 抵押品现值的 " + Math.round(100 / guideOver(term)) + "%（" + days(term) + "期限建议抵押率 " + Math.round(guideOver(term) * 100) + "%）") +
         " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "% × " + guideMonths(term) + " 个月，不足一个月按一个月算，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
-        '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、利息多少都由双方自己协商。抵押率建议 1–7 天 130%、8–30 天 150%、31–90 天 200%：合约不清算，币价跌破借款金额时借款人多半不还，抵押越足出借人越安全。</p>';
+        '<p class="muted">按 ' + M.sym + (M.liveTax ? " 扣掉 DEX 卖出手续费（链上实测约 " + Math.round(taxOf() * 100) + "%）后实际能卖到的价 " : " 当前市价 ") + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、利息多少都由双方自己协商。抵押率建议 1–7 天 130%、8–30 天 150%、31–90 天 200%：合约不清算，币价跌破借款金额时借款人多半不还，抵押越足出借人越安全。</p>';
       document.getElementById("ln-guse").onclick = function () { autoSec = true; autoRepay = true; guide(); calc(); };
     }
     function floorTok(v) { var n = Number(v) / Math.pow(10, M.dec); return (Math.floor(n * 10000) / 10000).toString(); }

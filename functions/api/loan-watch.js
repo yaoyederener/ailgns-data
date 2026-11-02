@@ -7,10 +7,13 @@ import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 
 const LOANS = [ // 借款合约（每个抵押币一份）
-  { key: "ailgns", sym: "AiLGNS", dec: 18, addr: "0x242ab392571d325d814a48892ac16115a6d285dc", deploy: 18016308 }
+  { key: "ailgns", sym: "AiLGNS", dec: 18, addr: "0x242ab392571d325d814a48892ac16115a6d285dc", deploy: 18016308 },
+  { key: "lgns", sym: "LGNS", dec: 9, addr: "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b", deploy: 18110656 },
+  { key: "glgns", sym: "gLGNS", dec: 18, addr: "0x00e674bb1559557966a6c2244c36d12a63218a5f", deploy: 18110662 }
 ];
 const GROUPS = ["oes8etcm", "fvg4wksw"]; // 营销群（和 OTC 成交播报同一批群）
 const LINK = "https://ailgns.dev/#/lend", TX = "https://anubisscan.io/tx/";
+const linkOf = (m) => LINK + (m.key === "ailgns" ? "" : "/" + m.key); // 每个抵押币市场一个页面
 const T = {
   Funded: "0x974968e4099686772f222ec802e4262eab7a00af4bc618c179650168f804d656", // (id, lender, principal, fee, due)
   Taken: "0x50e96118c53b6a1892a77e86f7d289841ab3e2cff2c59b8e961c282d0e0d8038", // (id, borrower, principal, fee, due)
@@ -62,7 +65,7 @@ async function allLoans(m) {
   return out;
 }
 
-const groupText = (m, id, L) => `🤝 借贷成交 #${id}\n押 ${fmt(L.collateral)} ${m.sym}，借 ${dai2(L.principal)} DAI\n期限 ${days(L.term)}，到期还 ${dai2(L.repay)} DAI\n链上托管，不看币价、不清算，手续费只收出借人 1%\n🧬 ${LINK}`;
+const groupText = (m, id, L) => `🤝 借贷成交 #${id}\n押 ${fmt(L.collateral)} ${m.sym}，借 ${dai2(L.principal)} DAI\n期限 ${days(L.term)}，到期还 ${dai2(L.repay)} DAI\n链上托管，不看币价、不清算，手续费只收出借人 1%\n🧬 ${linkOf(m)}`;
 
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
@@ -92,7 +95,7 @@ export async function onRequestGet(ctx) {
       const cache = {};
       for (const l of logs) {
         const id = parseInt(l.topics[1], 16), who = "0x" + l.topics[2].slice(26), d = words(l.data), L = cache[id] || (cache[id] = await loan(m, id));
-        const link = "\n🔗 " + TX + l.transactionHash + "\n🧬 " + LINK;
+        const link = "\n🔗 " + TX + l.transactionHash + "\n🧬 " + linkOf(m);
         const terms = `押 ${fmt(L.collateral)} ${m.sym}，借 ${dai2(L.principal)} DAI，${days(L.term)}，到期还 ${dai2(L.repay)} DAI`;
         if (l.topics[0] === T.Funded || l.topics[0] === T.Taken) {
           const due = Number(BigInt("0x" + d[2]));
@@ -123,7 +126,7 @@ export async function onRequestGet(ctx) {
             const k = `lnw:${m.key}:${tag}:${L.id}`;
             if (dry || !(await kv.get(k))) {
               remind.push(k);
-              msgs.push([L.borrower, `⏰ 借款 #${L.id} 还有不到 ${label}到期（${bj(L.due)} 北京时间）\n应还 ${dai2(L.repay)} DAI，请到「借贷 → 我的借贷」点「还款」。不会自动扣款；逾期抵押的 ${fmt(L.collateral)} ${m.sym} 归出借人` + "\n🧬 " + LINK]);
+              msgs.push([L.borrower, `⏰ 借款 #${L.id} 还有不到 ${label}到期（${bj(L.due)} 北京时间）\n应还 ${dai2(L.repay)} DAI，请到「借贷 → 我的借贷」点「还款」。不会自动扣款；逾期抵押的 ${fmt(L.collateral)} ${m.sym} 归出借人` + "\n🧬 " + linkOf(m)]);
             }
           }
         }
