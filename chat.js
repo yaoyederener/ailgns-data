@@ -60,7 +60,8 @@
   function humanHtml() {
     var h = hours();
     return "人工客服时间：<b>" + esc(h.text) + "</b><br>" + (h.online ? '<span class="cb-on">● 现在人工在线</span>' : '<span class="cb-off">● 现在不在人工时间，留言后上班第一时间回复</span>') +
-      '<br><a class="cb-human" href="' + DEBOX + '" target="_blank" rel="noopener">加站长 DeBox，找人工 →</a>';
+      '<br><a class="cb-human" href="' + DEBOX + '" target="_blank" rel="noopener">加站长 DeBox，找人工 →</a>' +
+      '<br><span class="muted">也可以直接在这里留下你的 DeBox 名字或钱包地址，人工看到会主动联系你。</span>';
   }
   function add(who, html) {
     var m = el('<div class="cb-msg cb-' + who + '"><div class="cb-bubble"></div></div>');
@@ -94,6 +95,16 @@
   function reply(html, plain) {
     add("bot", html);
     history.push({ role: "assistant", content: plain });
+    forward(plain, /人工/.test(plain));
+  }
+  // 每次咨询（问题 + 回答）转发到站长指定的 DeBox（后台 /api/chat-log），人工能看到客户在问什么
+  var SID = (function () { try { var k = "cb:sid", v = localStorage.getItem(k); if (!v) { v = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(k, v); } return v; } catch (e) { return "anon"; } })();
+  function forward(answer, human) {
+    var q = history.filter(function (m) { return m.role === "user"; }).slice(-1)[0];
+    if (!q) return;
+    try {
+      fetch("/api/chat-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q: q.content, a: String(answer || "").slice(0, 600), page: location.hash || "/", sid: SID, human: !!human }), keepalive: true }).catch(function () {});
+    } catch (e) { /* 转发失败不影响聊天 */ }
   }
 
   function build() {
