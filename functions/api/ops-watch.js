@@ -44,14 +44,31 @@ function sum(items) {
 const SHARES = [["40% 份", 0.4], ["30% 份（每人）", 0.3]]; // 4 : 3 : 3，两个 30% 一样多，合成一行
 const shareLines = (m) => SHARES.map(([name, r]) => `· ${name}：` + Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${amt(v * r)} ${k}`).join("、"));
 const listSum = (m) => Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `· ${amt(v)} ${k}`);
-function notice(items, start, end, day) {
+// 折合 DAI：按各自 DEX 池子的现价（DAI 本身按 1）；key 和 sum() 里的「币种（链）」一样
+const PAIRS = { "LGNS（Anubis）": ["anubis", "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", 1, 9], "LGNS（Polygon）": ["polygon", "0x882df4b0fb50a229c3b4124eb18c759911485bfb", 0, 9],
+  "AiLGNS（Anubis）": ["anubis", "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", 1, 18] };
+async function prices() {
+  const out = { "DAI（Anubis）": 1, "DAI（Polygon）": 1 };
+  await Promise.all(Object.entries(PAIRS).map(async ([k, [chain, pair, daiIdx, dec]]) => {
+    try {
+      const w = (await rpc(CHAINS[chain], "eth_call", [{ to: pair, data: "0x0902f1ac" }, "latest"])).slice(2).match(/.{64}/g);
+      out[k] = (Number(BigInt("0x" + w[daiIdx])) / 1e18) / (Number(BigInt("0x" + w[1 - daiIdx])) / 10 ** dec);
+    } catch (e) { /* 读不到这个币的价格就不折算它 */ }
+  }));
+  return out;
+}
+const daiOf = (m, px) => Object.entries(m).reduce((t, [k, v]) => t + (px[k] ? v * px[k] : 0), 0);
+const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function notice(items, start, end, day, px) {
   const lines = ["📋 AiLGNS 运营费用发放公告", "", `⏱ 统计时段：${bjDate(start)} ${bjHour(start)}–${end % 86400 === 16 * 3600 ? "24:00" : bjHour(end)}（北京时间）`, "", `本时段收入 ${items.length} 笔，合计：`, ...listSum(sum(items))];
   lines.push("", `💰 ${bjDate(start)} 今日总收入：`, ...listSum(day));
-  lines.push("", "👥 按 4 : 3 : 3 分配，今日每份：", ...shareLines(day));
+  const total = daiOf(day, px || {});
+  if (total) lines.push(`≈ 折合约 ${dai2(total)} DAI（按 DEX 现价）`);
+  lines.push("", "👥 按 4 : 3 : 3 分配，今日每份：", ...shareLines(day).map((l, i) => (total ? l + `（≈ ${dai2(total * SHARES[i][1])} DAI）` : l)));
   if (items.some((it) => it.link)) lines.push("", "🔗 转账记录：");
   items.filter((it) => it.link).slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
   if (items.length > 5 && items.some((it) => it.link)) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
-  lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益；也可以在本站 OTC 买入 AiLGNS 长期持有 👉 https://ailgns.dev/#/otc");
+  lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益（Anubis 链 LGNS 在 DEX 卖要扣约 50% 手续费，到本站 OTC 卖更划算）；也可以在本站 OTC 买入 AiLGNS 长期持有 👉 https://ailgns.dev/#/otc");
   lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费。", "—— AiLGNS 服务站");
   return lines.join("\n");
 }
@@ -88,7 +105,7 @@ export async function onRequestGet(ctx) {
     const sent0 = (await kv.get("opsw:day:" + day, "json")) || [], pend = ((await kv.get("opsw:pending", "json")) || []).filter((x) => x.time >= dayStart && x.time < end);
     const all = sent0.concat(pend);
     if (!all.length) return Response.json({ error: "这天没有收入" });
-    const text = notice(all, dayStart, end, sum(all)).replace(/本时段收入 \d+ 笔/, (end === now ? "今天到现在" : "全天") + `收入 ${all.length} 笔`)
+    const text = notice(all, dayStart, end, sum(all), await prices()).replace(/本时段收入 \d+ 笔/, (end === now ? "今天到现在" : "全天") + `收入 ${all.length} 笔`)
       .replace(/⏱ 统计时段：(.*)–[^（]*（/, (m, a) => `⏱ 统计时段：${a}–${end === now ? bjHour(now) : "24:00"}（`).replace("今日总收入", end === now ? "今日总收入" : "全天总收入").replace("今日每份", end === now ? "今日每份" : "全天每份");
     await kv.put(flag, "1", { expirationTtl: 2 * 86400 });
     await sendDebox(ctx.env, OPS_GROUP, text, "group");
@@ -127,7 +144,7 @@ export async function onRequestGet(ctx) {
   const batch = dry ? pending.filter((x) => x.time >= slot) : due, start = dry ? slot : slot - SLOT, end = dry ? slot + SLOT : slot;
   if (!batch.length) return Response.json({ ranges, pending: 0, text: null });
   const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out, total: totalOf(x) })));
-  const text = notice(batch, start, end, sum(dry ? dayItems.concat(batch) : dayItems));
+  const text = notice(batch, start, end, sum(dry ? dayItems.concat(batch) : dayItems), await prices());
   if (dry) return Response.json({ ranges, pending: pending.length, text });
   let sent = false, err = null;
   for (let k = 0; k < 3 && !sent; k++) { // DeBox 限流时等几秒再试；还不行就下一轮（5 分钟后）再发
