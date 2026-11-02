@@ -231,7 +231,7 @@ const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd,
 const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
 function dealText(m, list, p, tax) {
   const ns = list.filter((x) => x.o.sell).length, name = label(m), arb = list.some((x) => x.e.arb >= PP_MIN_DAI);
-  const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `🔥 比 DEX 卖得更贵：高价求购 ${name}！`];
+  const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `💰 手里有 ${name} 的看过来：在 OTC 卖给这张求购单，比在 DEX 卖多拿钱！`];
   for (const { o, e } of list) {
     const pct = (e.pct * 100).toFixed(1);
     const q = qtyStr(m, o.qty);
@@ -316,7 +316,7 @@ function groupText(fills, tot, bids, thx, until) {
     "· 合约没有管理员、没有后门，任何人（包括我们）都无法修改、冻结或挪用",
     "· 代码开源，链上随时可查");
   if (bids.length) {
-    out.push("", "📥 高价求购中（卖给它比在 DEX 卖多拿）");
+    out.push("", "📥 手里有币的看过来：在 OTC 卖给这些求购单，比在 DEX 卖多拿钱！");
     for (const { m, o, e } of bids) out.push(`· ${label(m)} ${qtyStr(m, o.qty)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
   }
   out.push("", "🤝 我们的初心",
