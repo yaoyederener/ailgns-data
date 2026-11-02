@@ -303,14 +303,14 @@ async function thanks(kv, dry) {
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
 // 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心（偶尔带一句感谢四哥）
 // tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
-function groupText(fills, tot, bids, thx, until) {
+function groupText(fills, tot, bids, thx, since, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const hourDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
   const n = Math.max(tot.fills || 0, fills.length), dai = Math.max(tot.fillDai || 0, hourDai);
   const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
   // DeBox 群里长消息会折叠，网址放第二行，文字压短，保证一打开就能看到链接（站长要求）
   const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "👉 钱包打开：" + (links.length === 1 ? links[0] : SITE), "",
-    `✅ 累计成交 ${n.toLocaleString("en-US")} 笔 · ${dai2(dai)} DAI` + (fills.length ? `\n本小时新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI` : "")];
+    `✅ 累计成交 ${n.toLocaleString("en-US")} 笔 · ${dai2(dai)} DAI` + (fills.length ? `\n${until - since > 3600e3 ? hm(since) + "–" + hm(until) : "本小时"}新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI` : "")];
   if (bids.length) {
     out.push("", "📥 手里有币的看过来：卖给这些求购单，比在 DEX 卖多拿钱！");
     for (const { m, o, e } of bids) out.push(`· ${m.sym} ${d2(o.qty, 0)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
@@ -417,7 +417,7 @@ export async function onRequestGet(ctx) {
   const build = async (dry2) => {
     const bids = await topBids();
     if (!hr.fills.length && !bids.length) return null; // 没成交、也没好的求购单：这一小时不发
-    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, bids, await thanks(kv, dry2), until);
+    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, bids, await thanks(kv, dry2), hr.since, until);
   };
   if (dry) return Response.json({ status, due, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
