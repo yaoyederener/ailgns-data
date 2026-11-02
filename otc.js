@@ -765,8 +765,8 @@
     function sweepHtml() {
       return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>💰 土豪扫单</h2><span class="muted">按价格从优到差，一次吃下多张单</span></div>' +
         '<div class="sw-side"><button type="button" data-sw="buy" class="on">扫卖单 · 买入 ' + SYM + '</button><button type="button" data-sw="sell">扫买单 · 卖出 ' + SYM + "</button></div>" +
-        '<div class="sw-pct"><b id="sw-pv">20%</b><input type="range" id="sw-r" min="1" max="100" value="20" step="1" aria-label="扫单比例"></div>' +
-        '<div class="sw-quick">' + [10, 20, 30, 50, 100].map(function (x) { return '<button type="button" data-swp="' + x + '">' + x + "%</button>"; }).join("") + "</div>" +
+        '<div class="sw-pct"><b id="sw-pv">20%</b><input type="range" id="sw-r" min="1" max="10000" value="2000" step="1" aria-label="扫单比例"></div>' +
+        '<div class="sw-quick">' + [10, 20, 30, 50, 100].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +
         '<div class="sw-out" id="sw-out"></div><div class="sw-ladder" id="sw-ladder"></div>' +
         '<button type="button" id="sw-go" style="width:100%;padding:12px 22px">一键扫单</button><p class="note" id="sw-st"></p></section>';
     }
@@ -788,6 +788,23 @@
       }
       return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
     }
+    // 扫买单（卖出）按手里的币算：最多付 budget 个币（BigInt），从出价最高的买单吃起
+    function sweepPlanTok(list, budget) {
+      var steps = [], dai = 0n, tok = 0n;
+      for (var i = 0; i < list.length && tok < budget; i++) {
+        var o = list[i], amount = o.giveLeft, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+        if (tok + pay > budget) { // 最后一张只吃一部分：币不够整张
+          amount = (budget - tok) * o.giveTotal / o.wantTotal;
+          if (amount <= 0n || amount < MIN_DAI) break;
+          pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+          if (tok + pay > budget) { amount -= 1n; pay = ceilDiv(amount * o.wantTotal, o.giveTotal); }
+        }
+        steps.push({ o: o, amount: amount, pay: pay });
+        dai += amount; tok += pay;
+      }
+      return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
+    }
+    function gasKeep(n) { return M.gas === "DAI" ? GAS_RESERVE + GAS_RESERVE / 10n * BigInt(n + 1) : 0n; } // Anubis 上 Gas 用 DAI 付：固定留 0.1，每张再留 0.01
     function bindSweep(sells, buys, mkt, reload) {
       var box = document.getElementById("otc-sweep");
       if (!box) return;
@@ -795,35 +812,75 @@
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
       function list() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account; }); } // 自己的单不能吃
       function total(l) { return l.reduce(function (t, o) { return t + daiLeft(o, o.giveLeft); }, 0n); }
-      function plan(pct) { var l = list(), t = total(l); return sweepPlan(l, t * BigInt(pct) / 100n); }
+      // 进度条 = 占全部挂单的比例（万分比，最细 0.01%）。连上钱包后，余额最多能扫到哪里就只能拖到哪里（右边那段灰掉）
+      var bal = { buy: null, sell: null };
+      function full(l) { // 余额全用上能扫成什么样；没连钱包返回 null
+        if (bal[side] === null) return null;
+        if (side === "sell") return sweepPlanTok(l, bal.sell); // 卖出：手里的币全卖
+        var avail = bal.buy - gasKeep(l.length); // 买入：DAI 全用上，留一点付 Gas
+        return sweepPlan(l, avail > 0n ? avail : 0n);
+      }
+      function maxBp(l) {
+        var t = total(l), f = full(l);
+        if (!f || !t) return 10000;
+        return f.dai >= t ? 10000 : Number(f.dai * 10000n / t);
+      }
+      function plan(bp) {
+        var l = list(), m = maxBp(l);
+        if (bp >= m && m < 10000) return full(l); // 拖到头 = 余额全部用上（按币数精确算，不会差一点）
+        return sweepPlan(l, total(l) * BigInt(bp) / 10000n);
+      }
+      function pctText(bp) { return (bp >= 100 ? (bp / 100).toFixed(bp % 100 ? 1 : 0) : (bp / 100).toFixed(2)) + "%"; }
+      function loadBal() {
+        if (!account) return;
+        Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) {
+          var first = bal.buy === null; bal = { buy: b[0], sell: b[1] };
+          if (first) r.value = Math.min(Number(r.value), maxBp(list())); // 第一次读到余额：进度条直接定位到余额能到的地方
+          draw();
+        }).catch(function () {});
+      }
+      function balLine(m) {
+        var buy = side === "buy", b = bal[side];
+        if (b === null) return '<p class="muted sw-bal">' + (account ? "正在读取钱包余额…" : "连上钱包后，进度条最多只能拖到你余额扫得起的地方") + "</p>";
+        return '<p class="muted sw-bal">钱包里有 <b>' + (buy ? show(b, 2) + " DAI" : tShow(b) + " " + SYM) + "</b>" + (buy && M.gas === "DAI" ? "（留约 " + show(gasKeep(list().length), 2) + " DAI 付 Gas）" : "") +
+          (m >= 10000 ? " · 够把全部挂单扫完" : " · 最多能扫全部挂单的 <b>" + pctText(m) + "</b>，再往右余额不够") + "</p>";
+      }
       function vs(avg) { if (!mkt || !avg) return ""; var d = (avg / mkt - 1) * 100; return '<span class="' + (d <= 0 ? "up" : "down") + '">比 DEX 市价' + (d <= 0 ? "低 " : "高 ") + Math.abs(d).toFixed(2) + "%</span>"; }
       function draw() {
-        var pct = Number(r.value), l = list(), p = plan(pct);
-        pv.textContent = pct + "%";
-        r.style.setProperty("--p", pct + "%");
+        var l = list(), m = maxBp(l);
+        if (Number(r.value) > m) r.value = m; // 余额不够：只能往左拖
+        var bp = Number(r.value), p = plan(bp);
+        pv.textContent = pctText(bp);
+        r.style.setProperty("--p", bp / 100 + "%");
+        r.style.setProperty("--m", m / 100 + "%");
+        box.querySelectorAll(".sw-quick [data-swp]").forEach(function (q) { var v = q.getAttribute("data-swp"); q.disabled = v !== "max" && Number(v) > m; q.classList.toggle("on", (v === "max" ? m : Number(v)) === bp); });
         if (!l.length) { out.innerHTML = '<div class="empty">现在没有可以扫的' + (side === "buy" ? "卖单" : "买单") + "</div>"; ladder.innerHTML = ""; go.disabled = true; return; }
-        go.disabled = false;
+        go.disabled = !p.steps.length;
+        if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
         var eff = buy ? num(p.dai) / tNum(net) : num(net) / tNum(p.tok); // 算上 1% 手续费后每枚实际成本 / 到手
         var worst = p.steps.length ? priceOf(p.steps[p.steps.length - 1].o) : 0;
-        out.innerHTML = '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
+        out.innerHTML = balLine(m) + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
           '<dl class="dl sw-dl"><dt>吃掉</dt><dd>' + p.steps.length + " 张单（共 " + l.length + " 张）</dd>" +
           (buy ? "<dt>你付</dt><dd><b>" + show(p.dai, 2) + " DAI</b></dd><dt>你收到</dt><dd><b>" + tShow(net) + " " + SYM + "</b>（已扣 1% 手续费 " + tShow(fee) + "）</dd>"
                : "<dt>你付</dt><dd><b>" + tShow(p.tok) + " " + SYM + "</b></dd><dt>你收到</dt><dd><b>" + show(net, 2) + " DAI</b>（已扣 1% 手续费 " + show(fee, 2) + "）</dd>") +
           "<dt>算上手续费</dt><dd>每枚" + (buy ? "实际成本 " : "实际到手 ") + A.fmt(eff, PD + 2) + " DAI</dd><dt>最" + (buy ? "贵" : "低") + "一张</dt><dd>" + A.fmt(worst, PD + 2) + " DAI</dd></dl>";
+        var rows = [1000, 2000, 3000, 5000, 10000].filter(function (x) { return x < m; });
+        if (m > 0) rows.push(m);
         ladder.innerHTML = '<table class="sw-tbl"><thead><tr><th>扫</th><th>' + (buy ? "付 DAI" : "收 DAI") + "</th><th>" + (buy ? "得 " : "付 ") + SYM + "</th><th>均价</th></tr></thead><tbody>" +
-          [10, 20, 30, 50, 100].map(function (x) {
+          rows.map(function (x) {
             var q = plan(x);
-            return "<tr" + (x === pct ? ' class="on"' : "") + ' data-swp="' + x + '"><td>' + x + "%</td><td>" + show(q.dai, 2) + "</td><td>" + tShow(q.tok, 2) + "</td><td><b>" + A.fmt(q.avg, PD + 2) + "</b></td></tr>";
+            return "<tr" + (x === bp ? ' class="on"' : "") + ' data-swp="' + x + '"><td>' + (x === m && m < 10000 ? "最大 " : "") + pctText(x) + "</td><td>" + show(q.dai, 2) + "</td><td>" + tShow(q.tok, 2) + "</td><td><b>" + A.fmt(q.avg, PD + 2) + "</b></td></tr>";
           }).join("") + "</tbody></table>";
         ladder.querySelectorAll("[data-swp]").forEach(function (t) { t.onclick = function () { r.value = t.getAttribute("data-swp"); draw(); }; });
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {
         b.onclick = function () { side = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); draw(); };
       });
-      box.querySelectorAll(".sw-quick [data-swp]").forEach(function (b) { b.onclick = function () { r.value = b.getAttribute("data-swp"); draw(); }; });
+      box.querySelectorAll(".sw-quick [data-swp]").forEach(function (b) { b.onclick = function () { var v = b.getAttribute("data-swp"); r.value = v === "max" ? maxBp(list()) : v; draw(); }; });
       r.oninput = draw;
       draw();
+      loadBal();
       // 一键扫单：先一次授权总额，再按价格从优到差一张一张成交（合约一次只能吃一张单，每张都要在钱包里确认一次）
       go.onclick = function () {
         var buy = side === "buy", token = buy ? DAI : AILGNS, name = buy ? "DAI" : SYM, payDec = buy ? 18 : TD;
@@ -832,12 +889,15 @@
         function end(msg, bad) { sweeping = false; go.disabled = false; say(msg, bad); if (done) setTimeout(reload, 2000); }
         ready().then(function () {
           walletCard();
+          return Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) { bal = { buy: b[0], sell: b[1] }; draw(); });
+        }).then(function () {
           p = plan(Number(r.value));
           if (!p.steps.length) throw new Error("没有可以扫的单");
           var need = p.steps.reduce(function (t, x) { return t + x.pay; }, 0n);
           return balance(token, account).then(function (b) {
-            var reserve = buy && M.gas === "DAI" ? GAS_RESERVE / 10n * BigInt(p.steps.length + 1) : 0n; // Anubis 上 Gas 用 DAI 付，按张数多留一点
+            var reserve = buy ? gasKeep(p.steps.length) : 0n; // Anubis 上 Gas 用 DAI 付，留一点
             if (b < need + reserve) throw new Error("余额不足：扫这么多要 " + show(need, 4, payDec) + " " + name + (reserve ? "（另留一点 DAI 付 Gas）" : "") + "，钱包里有 " + show(b, 4, payDec) + "。把滑块往左拉一点");
+            if (!buy && M.gas === "DAI") return balance(DAI, account).then(function (d) { if (d < gasKeep(p.steps.length) - GAS_RESERVE) throw new Error("钱包里的 DAI 不够付 Gas：Anubis 链 Gas 用 DAI 付，请先转一点 DAI（约 " + show(gasKeep(p.steps.length), 2) + "）进来"); });
             return M.gas === "POL" ? checkPol() : null;
           }).then(function () { return ensureAllowance(token, need, say, name); });
         }).then(function () {

@@ -1233,10 +1233,13 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sweep .sw-pct { display: flex; align-items: center; gap: 14px; }
 .sweep .sw-pct b { min-width: 58px; font-size: 26px; font-weight: 800; color: var(--purple-ink); font-variant-numeric: tabular-nums; }
 .sweep input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 10px; border-radius: 999px; padding: 0; border: 0;
-  background: linear-gradient(90deg, #009cff, #4936ff 55%, #a014f8) 0 0 / var(--p, 20%) 100% no-repeat, var(--pill); }
+  background: linear-gradient(90deg, #009cff, #4936ff 55%, #a014f8) 0 0 / var(--p, 20%) 100% no-repeat,
+    linear-gradient(90deg, transparent var(--m, 100%), rgba(120, 120, 140, .45) var(--m, 100%)), var(--pill); } /* 灰色那段 = 余额不够，拖不过去 */
 .sweep input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; box-shadow: 0 2px 8px rgba(112, 39, 217, .35); cursor: pointer; }
 .sweep input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; cursor: pointer; }
 .sweep .sw-quick { display: flex; gap: 6px; margin: 12px 0 14px; }
+.sweep .sw-quick button:disabled { opacity: .35; cursor: not-allowed; }
+.sweep .sw-quick button.on { background: var(--purple-ink); color: #fff; }
 .sweep .sw-quick button { flex: 1; padding: 7px 0; font-size: 13px; border-radius: 10px; background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); box-shadow: none; }
 .sweep .sw-avg { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--grad-hero); color: #fff; }
 .sweep .sw-avg span { font-size: 13px; opacity: .9; }
