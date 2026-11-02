@@ -2,6 +2,7 @@
 // 支持：直接发地址 / 「绑定 0x…」 / 「解绑 0x…」 / 「我的绑定」
 // 绑定关系存在 KV：dbx:u:<用户> → [地址…]，dbx:a:<地址> → [用户…]
 import { sendDebox } from "../../lib/debox.js";
+import { SUPPORT_USER } from "../../lib/support.js";
 
 const MAX_ADDR = 10;
 const HELP = "👋 这里是 AiLGNS 服务站通知机器人。\n\n把你挂单用的钱包地址（0x 开头）直接发给我，就能绑定。之后这个钱包的 OTC 挂单：\n• 成交（包括部分成交）\n• 撤单退回\n• 到期自动退回\n都会第一时间私信通知你。\n\n其他指令：\n• 解绑 0x…  取消某个地址\n• 我的绑定  查看已绑定的地址\n\n👉 交易：https://ailgns.dev/#/otc";
@@ -35,6 +36,20 @@ export async function onRequestPost(ctx) {
   // 「我的ID」：把发信人的 DeBox 用户 id 告诉他（站长设置客服接收人时要用）
   if (/^(我的\s*id|id|我的编号|编号)$/i.test(text)) { ctx.waitUntil(reply("你的 DeBox 用户 ID 是：" + user + "\n把这个 ID 发给站长，就能把网站客服的咨询转发到你这里。")); return new Response("ok"); }
   const addrs = [...new Set((text.match(/0x[0-9a-fA-F]{40}/g) || []).map((a) => a.toLowerCase()))];
+  // 站长（客服接收人）直接回复机器人 = 回复网站上最近咨询的访客；开头写「@编号 」可以指定访客
+  // 安全：Webhook 没有来源校验，任何人都能伪造 POST，所以只有带正确 key（Cloudflare 环境变量 DEBOX_HOOK_KEY，机器人 Webhook 地址 ?key=… 里同一个值）的请求才算站长回复
+  if (user === SUPPORT_USER && text && !addrs.length && !/^(我的绑定|绑定列表|list|解绑|取消|unbind|帮助|help)/i.test(text)) {
+    const key = new URL(ctx.request.url).searchParams.get("key"), ok = ctx.env.DEBOX_HOOK_KEY && key === ctx.env.DEBOX_HOOK_KEY;
+    if (!ok) { ctx.waitUntil(reply("⚠️ 客服回复还没开启：请在 Cloudflare 设置环境变量 DEBOX_HOOK_KEY，并把机器人的 Webhook 地址改成 https://ailgns.dev/api/debox-hook?key=（同一个值），之后在这里直接回复就能发给客户。")); return new Response("ok"); }
+    const m = text.match(/^@?([a-z0-9]{8})\s+([\s\S]+)$/i);
+    const sid = m ? await kv.get("cl:code:" + m[1].toLowerCase()) : await kv.get("cl:last"), body = (m ? m[2] : text).trim().slice(0, 600);
+    if (!sid) { ctx.waitUntil(reply(m ? "没找到访客 " + m[1] + "（编号只保留 7 天）" : "最近没有待回复的访客")); return new Response("ok"); }
+    const list = (await kv.get("cl:r:" + sid, "json")) || [];
+    list.push({ t: Date.now(), text: body });
+    await kv.put("cl:r:" + sid, JSON.stringify(list.slice(-50)), { expirationTtl: 7 * 86400 });
+    ctx.waitUntil(reply("✅ 已发给访客 " + sid.slice(0, 8) + "（TA 的网页客服窗口几秒内显示）"));
+    return new Response("ok");
+  }
   const mine = await getList(kv, "dbx:u:" + user);
   let out;
   if (/解绑|取消|unbind/i.test(text) && addrs.length) {

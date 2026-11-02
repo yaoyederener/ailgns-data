@@ -1210,3 +1210,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 @media (max-width: 600px) { .tot b { font-size: 19px; } }
 
 .warn { color: #b45309; }
+
+/* 客服窗口：人工回复气泡 + 新回复红点 */
+.cb-msg.cb-human .cb-bubble { background: #fff7ed; border: 1px solid #fdba74; color: #431407; }
+.cb-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #c2410c; background: #ffedd5; border-radius: 999px; padding: 1px 8px; margin: 0 0 4px; }
+.cb-fab { position: relative; }
+.cb-fab.cb-new::after { content: ""; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }

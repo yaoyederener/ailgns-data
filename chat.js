@@ -107,6 +107,25 @@
     } catch (e) { /* 转发失败不影响聊天 */ }
   }
 
+  // 人工回复：站长在 DeBox 里直接回机器人，网页每隔几秒拉一次（窗口开着 5 秒、关着 30 秒），显示成「人工客服」气泡；窗口关着时客服按钮亮红点
+  var lastReply = 0, pollTimer = null;
+  try { lastReply = parseInt(localStorage.getItem("cb:last") || "0", 10) || 0; } catch (e) { /* 忽略 */ }
+  function poll() {
+    fetch("/api/chat-reply?sid=" + SID + "&after=" + lastReply).then(function (r) { return r.json(); }).then(function (d) {
+      (d.replies || []).forEach(function (r) {
+        lastReply = Math.max(lastReply, r.t);
+        add("human", '<span class="cb-tag">人工客服</span>' + linkify(r.text));
+        history.push({ role: "assistant", content: "[人工] " + r.text });
+        if (root.querySelector(".cb-panel").hidden) root.querySelector(".cb-fab").classList.add("cb-new");
+      });
+      try { localStorage.setItem("cb:last", String(lastReply)); } catch (e) { /* 忽略 */ }
+    }).catch(function () {}).then(schedule);
+  }
+  function schedule() {
+    clearTimeout(pollTimer);
+    var open = root && !root.querySelector(".cb-panel").hidden;
+    pollTimer = setTimeout(poll, open ? 5000 : 30000);
+  }
   function build() {
     root = el('<div class="cb" id="cb">' +
       '<button class="cb-fab" aria-label="在线客服"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="12" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="15" cy="9.6" r="1.2" fill="#7027d9"/></svg><span>客服</span></button>' +
@@ -123,6 +142,8 @@
     function toggle(open) {
       panel.hidden = !open;
       root.classList.toggle("open", open);
+      if (open) fab.classList.remove("cb-new");
+      schedule();
       if (open && !list.childNodes.length) {
         add("bot", "你好！我是 AiLGNS 服务站的机器人客服，OTC 买卖、挂单、手续费、会员、钱包连接的问题都可以问我。<br><br>" + humanHtml());
       }
@@ -132,6 +153,7 @@
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
     root.querySelectorAll(".cb-quick button").forEach(function (b) { b.onclick = function () { ask(b.textContent); }; });
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
+    poll();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", build); else build();
 })();

@@ -2,8 +2,9 @@
 //   DEBOX_SUPPORT：DeBox 群 id 或用户 id；DEBOX_SUPPORT_TYPE：group / private（默认 group）
 // POST { q, a, page, sid, human } → { ok }。同一访客 1 小时最多转发 30 条，防刷
 import { sendDebox } from "../../lib/debox.js";
+import { SUPPORT_USER as SUPPORT_DEFAULT } from "../../lib/support.js";
 
-const SUPPORT_USER = "p3zjfyer"; // 接收客服咨询的 DeBox 用户 id（私信）；也可用环境变量 DEBOX_SUPPORT 覆盖。空着就不转发（不要发内部运营群，也不要发营销群）
+const SUPPORT_USER = SUPPORT_DEFAULT; // 接收客服咨询的 DeBox 用户 id（私信）；也可用环境变量 DEBOX_SUPPORT 覆盖。空着就不转发（不要发内部运营群，也不要发营销群）
 const PER_HOUR = 30;
 
 export async function onRequestPost(ctx) {
@@ -21,10 +22,17 @@ export async function onRequestPost(ctx) {
   const to = ctx.env.DEBOX_SUPPORT || SUPPORT_USER, type = ctx.env.DEBOX_SUPPORT_TYPE || "private";
   if (!to) return Response.json({ ok: true, skipped: "no target" });
   const ip = ctx.request.headers.get("cf-connecting-ip") || "", country = ctx.request.headers.get("cf-ipcountry") || "";
-  const text = `💬 网站客服咨询${b.human ? "（客户要找人工）" : ""}\n` +
+  const code = sid.slice(0, 8);
+  const text = `💬 访客 ${code} 的咨询${b.human ? "（要找人工）" : ""}\n` +
     `问：${q}\n` +
-    (a ? `答：${a}\n` : "") +
-    `—— 页面 ${page || "/"} · 访客 ${sid.slice(0, 8)}${country ? " · " + country : ""}${ip ? " · " + ip.replace(/\.\d+$/, ".*") : ""}`;
-  try { await sendDebox(ctx.env, to, text, type); return Response.json({ ok: true }); }
+    (a ? `机器人答：${a}\n` : "") +
+    `—— 页面 ${page || "/"}${country ? " · " + country : ""}${ip ? " · " + ip.replace(/\.\d+$/, ".*") : ""}\n` +
+    `直接回复这条消息就是回复 TA；要回别的访客，开头写 @编号`;
+  try {
+    await sendDebox(ctx.env, to, text, type);
+    // 记下"最近一个访客"，站长直接回复时默认发给 TA；编号前 8 位 → 完整 sid
+    if (kv) { await kv.put("cl:last", sid, { expirationTtl: 7 * 86400 }); await kv.put("cl:code:" + code, sid, { expirationTtl: 7 * 86400 }); }
+    return Response.json({ ok: true });
+  }
   catch (e) { return Response.json({ ok: false, err: String(e.message || e).slice(0, 120) }, { status: 502 }); }
 }
