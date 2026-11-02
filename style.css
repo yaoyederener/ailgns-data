@@ -1224,3 +1224,29 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
   .mkt-tabs a b { font-size: 13px; }
   .mkt-tabs a small { font-size: 10.5px; }
 }
+
+/* 土豪扫单 */
+.sweep .sw-side { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 14px; background: var(--panel-2); margin: 4px 0 14px; }
+.sweep .sw-side button { padding: 10px 8px; border-radius: 11px; font-weight: 700; font-size: 14px; color: var(--muted); background: transparent; border: 0; box-shadow: none; }
+.sweep .sw-side button.on[data-sw="buy"] { color: #fff; background: linear-gradient(110deg, #16a34a, #22c55e); }
+.sweep .sw-side button.on[data-sw="sell"] { color: #fff; background: linear-gradient(110deg, #ef4444, #ff8a3d); }
+.sweep .sw-pct { display: flex; align-items: center; gap: 14px; }
+.sweep .sw-pct b { min-width: 58px; font-size: 26px; font-weight: 800; color: var(--purple-ink); font-variant-numeric: tabular-nums; }
+.sweep input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 10px; border-radius: 999px; padding: 0; border: 0;
+  background: linear-gradient(90deg, #009cff, #4936ff 55%, #a014f8) 0 0 / var(--p, 20%) 100% no-repeat, var(--pill); }
+.sweep input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; box-shadow: 0 2px 8px rgba(112, 39, 217, .35); cursor: pointer; }
+.sweep input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; cursor: pointer; }
+.sweep .sw-quick { display: flex; gap: 6px; margin: 12px 0 14px; }
+.sweep .sw-quick button { flex: 1; padding: 7px 0; font-size: 13px; border-radius: 10px; background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); box-shadow: none; }
+.sweep .sw-avg { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--grad-hero); color: #fff; }
+.sweep .sw-avg span { font-size: 13px; opacity: .9; }
+.sweep .sw-avg b { font-size: 28px; font-weight: 800; }
+.sweep .sw-avg small { font-size: 12.5px; opacity: .95; }
+.sweep .sw-avg small .up, .sweep .sw-avg small .down { color: #fff; font-weight: 700; margin-left: 4px; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .2); }
+.sweep .sw-dl { margin: 10px 0 8px; }
+.sweep .sw-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 14px; font-variant-numeric: tabular-nums; }
+.sweep .sw-tbl th { text-align: right; font-weight: 600; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.sweep .sw-tbl td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.sweep .sw-tbl th:first-child, .sweep .sw-tbl td:first-child { text-align: left; }
+.sweep .sw-tbl tr.on td { background: var(--soft); color: var(--purple-ink); }
+@media (max-width: 600px) { .sweep .sw-side button { font-size: 13px; } .sweep .sw-avg b { font-size: 24px; } .sweep .sw-tbl { font-size: 12px; } .sweep .sw-tbl th, .sweep .sw-tbl td { padding: 6px 4px; } }
