@@ -164,11 +164,11 @@
       if (!asInherit && srv.inheritFrom) {
         return Promise.all([lookup(srv.inheritFrom, true), lookup(addr, true)]).then(function (r) {
           var t = r[0], mine = r[1];
-          if (!t) return mine;
+          if (!t) return { done: mine };
           t.payments.forEach(function (p) { p.inheritFrom = srv.inheritFrom; });
           if (mine) t = tally(t.payments.concat(mine.payments));
           t.inheritFrom = srv.inheritFrom;
-          return t;
+          return { done: t }; // 已经算完：下面那步直接返回（不包一层的话，下面会把结果当成付款列表去拼，报 r[0].concat 错）
         });
       }
       trade = srv.otcTrader;
@@ -180,6 +180,7 @@
       }));
       return Promise.all([own, gift, orders]);
     }).then(function (r) {
+      if (r && !Array.isArray(r)) return r.done;
       var direct = r[0].concat(r[1]), txs = direct.map(function (p) { return p.tx; }).filter(function (t) { return /^0x[0-9a-f]{64}$/.test(t); });
       // 自己转出去、但其实是给别的地址下单付的款，不算自己的
       return (txs.length ? memberApi(addr, txs).then(function (d) { return d.claimed || []; }) : Promise.resolve([])).then(function (claimed) {
