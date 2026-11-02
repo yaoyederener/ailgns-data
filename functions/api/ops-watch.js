@@ -94,20 +94,21 @@ export async function onRequestGet(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
   const now = Math.floor(Date.now() / 1000), slot = Math.floor(now / SLOT) * SLOT; // 当前这段的开始
-  // today=1 / day=2026-11-02：站长想马上看效果，把今天到现在（或前两天里某一整天）的汇总立刻发一次；每个日期只能触发一次，防止被人刷群
+  // today=1 / day=2026-11-02：站长想马上看效果，把今天到现在（或前两天里某一整天）的汇总立刻发一次；每个日期最多手动发 3 次，防止被人刷群
   const pickDay = url.searchParams.get("day");
   if (url.searchParams.get("today") === "1" || /^\d{4}-\d{2}-\d{2}$/.test(pickDay || "")) {
     const today0 = Math.floor((now + 8 * 3600) / 86400) * 86400 - 8 * 3600;
     const dayStart = pickDay ? Date.parse(pickDay + "T00:00:00+08:00") / 1000 : today0, day = dayKey(dayStart), flag = "opsw:manual:" + day;
     if (!(dayStart <= today0 && dayStart >= today0 - 2 * 86400)) return Response.json({ error: "只能发今天或前两天" }, { status: 400 });
     const end = dayStart === today0 ? now : dayStart + 86400;
-    if (await kv.get(flag)) return Response.json({ error: "今天已经手动发过一次了" }, { status: 429 });
+    const used = parseInt((await kv.get(flag)) || "0", 10);
+    if (used >= 3) return Response.json({ error: "这个日期已经手动发过 3 次了" }, { status: 429 });
     const sent0 = (await kv.get("opsw:day:" + day, "json")) || [], pend = ((await kv.get("opsw:pending", "json")) || []).filter((x) => x.time >= dayStart && x.time < end);
     const all = sent0.concat(pend);
     if (!all.length) return Response.json({ error: "这天没有收入" });
     const text = notice(all, dayStart, end, sum(all), await prices()).replace(/本时段收入 \d+ 笔/, (end === now ? "今天到现在" : "全天") + `收入 ${all.length} 笔`)
       .replace(/⏱ 统计时段：(.*)–[^（]*（/, (m, a) => `⏱ 统计时段：${a}–${end === now ? bjHour(now) : "24:00"}（`).replace("今日总收入", end === now ? "今日总收入" : "全天总收入").replace("今日每份", end === now ? "今日每份" : "全天每份");
-    await kv.put(flag, "1", { expirationTtl: 2 * 86400 });
+    await kv.put(flag, String(used + 1), { expirationTtl: 3 * 86400 });
     await sendDebox(ctx.env, OPS_GROUP, text, "group");
     return Response.json({ sent: true, text });
   }
