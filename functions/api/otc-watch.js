@@ -185,7 +185,7 @@ async function order(m, id) {
 // 每张单推一次；之后币价继续往有利方向走、好处又多了 3 个百分点以上（且隔了 30 分钟），再推一次
 const PP_ON = true; // 站长 2026-11-01 确认文案后开启
 const PP_MIN_PCT = 0.005, PP_MIN_DAI = 1, PP_AGAIN_PCT = 0.03, PP_AGAIN_SEC = 1800;
-const PP_GAP = 900; // 同一个市场最少隔 15 分钟推一次，免得刷屏；一买一卖就能赚钱的单不受这个限制，马上推
+const PP_GAP = 240; // 站长要求有好单就马上发：每轮（5 分钟）都推，每个市场每轮最多 3 张
 const OTC_FEE = 0.01;
 const SELL_TAX = { ailgns: 0.03, lgns: 0.5, plgns: 0.05, glgns: 0 }; // DEX 卖出扣的税（不含池子 0.3%）；Anubis LGNS 是动态的，下面用实测值
 async function sellTax(m) {
@@ -257,7 +257,7 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   if (!send || !text) return { hits: hits.length, px: p.px, tax, text };
   if (!pick.some((x) => x.e.arb >= PP_MIN_DAI) && (await kv.get(m.kv + "ppgap"))) return { hits: hits.length, waiting: fresh.length };
   const out = { hits: hits.length, sent: pick.length, groups: {} };
-  if (!quiet) for (const g of gids) { // 营销群（夜里 0–8 点不发群，订阅号照发）
+  if (!quiet) for (const g of gids) { // 营销群：好单夜里也发（站长要求），成交汇总才是夜里不发
     try { await sendDebox(env, g, text, "group"); out.groups[g] = true; } catch (e) { out.groups[g] = String(e.message || e).slice(0, 120); }
   }
   await sendDeboxFans(env, GROUPS[0], text).catch((e) => { out.fans = String(e.message || e).slice(0, 120); });
@@ -447,7 +447,7 @@ export async function onRequestGet(ctx) {
   if (PP_ON) {
     fans = {};
     for (const m of MARKETS) {
-      fans[m.key] = await pushDeals(m, ctx.env, kv, true, gids, bjHour >= QUIET[0] && bjHour < QUIET[1]).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
+      fans[m.key] = await pushDeals(m, ctx.env, kv, true, gids).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
       if (fans[m.key].err) await kv.put("otcw:fans", JSON.stringify({ ok: false, market: m.key, err: fans[m.key].err, at: Date.now() }));
     }
   }
