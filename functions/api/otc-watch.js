@@ -229,8 +229,16 @@ function edge(o, p, tax) {
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd, maximumFractionDigits: pd });
 const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
+// ILO 段落（带上 Anubis LGNS 现在最高求购价占市价的比例）；读不到就不带比例
+async function iloNow() {
+  const m = MARKETS.find((x) => x.key === "lgns");
+  try {
+    const [orders, p] = await Promise.all([book(m, Math.floor(Date.now() / 1000)), market(m)]);
+    return iloText(Math.max(0, ...orders.filter((o) => !o.sell).map((o) => o.price)) / p.px);
+  } catch (e) { return iloText(0); }
+}
 // ILO 共建底池的历史遗留问题：涡轮按 100% 价格买币另扣 5%，买的币进底池扣 50%，第二天奖励币在底池卖再扣 50%，一进一出亏 5%。
-// 奖励币改在 OTC 卖，成交价只要高于市价 55%（折价不超过 45%）就是赚的。Anubis LGNS 的每条好单播报都带上这段（站长要求）
+// 奖励币改在 OTC 卖，成交价只要高于市价 55%（折价不超过 45%）就是赚的。Anubis LGNS 的每条好单播报、每条成交汇总都带上这段（站长要求）
 function iloText(ratio) {
   return "🌀 ILO 共建底池的伙伴请注意（历史遗留问题，OTC 帮你解决）：\n" +
     "涡轮按 100% 价格买币另扣 5%，买的币进底池扣 50%，第二天奖励币在底池卖再扣 50%，一进一出反而亏 5%。\n" +
@@ -353,7 +361,7 @@ async function phrase(kv, dry, onlyAilgns) {
 const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP";
 const QUIET = [0, 8]; // 北京时间 0 点到 8 点不往群里发
 // 一段时间的成交按市场汇总：笔数、总金额、单价范围
-function groupText(fills, line, since, until) {
+function groupText(fills, line, since, until, ilo = "") {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const by = {};
   for (const f of fills) (by[f.mk] = by[f.mk] || []).push(f);
@@ -366,7 +374,7 @@ function groupText(fills, line, since, until) {
   });
   if (out.length > 1) out.push(`· 合计 ${n} 笔，${dai2(total)} DAI`);
   const links = [...new Set(fills.map((f) => MARKETS.find((x) => x.key === f.mk).link))];
-  return `📊 OTC 成交汇总（${hm(since)}–${hm(until)}）\n` + out.join("\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
+  return `📊 OTC 成交汇总（${hm(since)}–${hm(until)}）\n` + out.join("\n") + "\n\n" + line + (ilo ? "\n\n" + ilo + "\n" : "\n") + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
 }
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -450,11 +458,12 @@ export async function onRequestGet(ctx) {
   for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k });
   const due = hr.fills.length && Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3) && !(bjHour >= QUIET[0] && bjHour < QUIET[1]);
   const until = Math.floor(now / 3600e3) * 3600e3; // 汇总截到这个整点
-  const group = hr.fills.length ? groupText(hr.fills, await phrase(kv, true, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until) : null;
+  const ilo = hr.fills.length && (due || dry) ? await iloNow() : ""; // 每条成交汇总也带上 ILO 说明（站长要求）
+  const group = hr.fills.length ? groupText(hr.fills, await phrase(kv, true, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until, ilo) : null;
   if (dry) return Response.json({ status, due, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if (due) {
-    const text = groupText(hr.fills, await phrase(kv, false, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until);
+    const text = groupText(hr.fills, await phrase(kv, false, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until, ilo);
     for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
