@@ -232,11 +232,12 @@
       return W.waitOn(M.chain, hash);
     });
   }
-  // 授权额度不够时先授权本次需要的数量（不做无限授权）
+  // 授权额度不够时一次授权到最大，以后挂单、吃单、扫单都不用再授权（站长要求）
+  var MAX_UINT = (1n << 256n) - 1n;
   function ensureAllowance(token, amount, say, name) {
     return allowance(token, account).then(function (a) {
       if (a >= amount) return;
-      return send(token, SEL.approve + u256(OTC) + u256(amount), say, "授权 " + show(amount, 4, token === DAI ? 18 : TD) + " " + name + " 给托管合约");
+      return send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次，以后不用再授权）");
     });
   }
 
@@ -767,10 +768,10 @@
     function sweepHtml() {
       return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>💰 土豪扫单</h2><span class="muted">按价格从优到差，一次吃下多张单</span></div>' +
         '<div class="sw-side"><button type="button" data-sw="buy" class="on">扫卖单 · 买入 ' + SYM + '</button><button type="button" data-sw="sell">扫买单 · 卖出 ' + SYM + "</button></div>" +
-        '<div class="sw-pct"><b id="sw-pv">20%</b><input type="range" id="sw-r" min="1" max="10000" value="2000" step="1" aria-label="扫单比例"></div>' +
+        '<div class="sw-pct"><b id="sw-pv">100%</b><input type="range" id="sw-r" min="1" max="10000" value="10000" step="1" aria-label="扫单比例"></div>' +
         '<div class="sw-quick">' + [10, 20, 30, 50, 100].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +
         '<div class="sw-out" id="sw-out"></div><div class="sw-ladder" id="sw-ladder"></div>' +
-        '<button type="button" id="sw-go" style="width:100%;padding:12px 22px">一键扫单</button><p class="note" id="sw-st"></p></section>';
+        '<button type="button" id="sw-go" style="width:100%;padding:12px 22px">一键扫单</button><p class="note" id="sw-st"></p><div id="sw-rec"></div></section>';
     }
     // 按 DAI 金额从最优价开始吃，吃到 target（DAI，BigInt）为止；返回每张单吃多少 + 合计
     // 买入（扫卖单）：amount = 拿走的币，pay = 付的 DAI；卖出（扫买单）：amount = 拿走的 DAI，pay = 付的币
@@ -837,7 +838,7 @@
         if (!account) return;
         Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) {
           var first = bal.buy === null; bal = { buy: b[0], sell: b[1] };
-          if (first) r.value = Math.min(Number(r.value), maxBp(list())); // 第一次读到余额：进度条直接定位到余额能到的地方
+          if (first) r.value = maxBp(list()); // 第一次读到余额：进度条默认拉到余额能扫的最大（站长要求）
           draw();
         }).catch(function () {});
       }
@@ -862,7 +863,7 @@
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
         var eff = buy ? num(p.dai) / tNum(net) : num(net) / tNum(p.tok); // 算上 1% 手续费后每枚实际成本 / 到手
         var worst = p.steps.length ? priceOf(p.steps[p.steps.length - 1].o) : 0;
-        out.innerHTML = balLine(m) + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
+        out.innerHTML = balLine(m) + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + "</small></div>" + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
           '<dl class="dl sw-dl"><dt>吃掉</dt><dd>' + p.steps.length + " 张单（共 " + l.length + " 张）</dd>" +
           (buy ? "<dt>你付</dt><dd><b>" + show(p.dai, 2) + " DAI</b></dd><dt>你收到</dt><dd><b>" + tShow(net) + " " + SYM + "</b>（已扣 1% 手续费 " + tShow(fee) + "）</dd>"
                : "<dt>你付</dt><dd><b>" + tShow(p.tok) + " " + SYM + "</b></dd><dt>你收到</dt><dd><b>" + show(net, 2) + " DAI</b>（已扣 1% 手续费 " + show(fee, 2) + "）</dd>") +
@@ -877,7 +878,7 @@
         ladder.querySelectorAll("[data-swp]").forEach(function (t) { t.onclick = function () { r.value = t.getAttribute("data-swp"); draw(); }; });
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {
-        b.onclick = function () { side = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); draw(); };
+        b.onclick = function () { side = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); r.value = maxBp(list()); draw(); };
       });
       box.querySelectorAll(".sw-quick [data-swp]").forEach(function (b) { b.onclick = function () { var v = b.getAttribute("data-swp"); r.value = v === "max" ? maxBp(list()) : v; draw(); }; });
       r.oninput = draw;
@@ -887,8 +888,19 @@
       go.onclick = function () {
         var buy = side === "buy", token = buy ? DAI : AILGNS, name = buy ? "DAI" : SYM, payDec = buy ? 18 : TD;
         go.disabled = true; sweeping = true;
-        var p, done = 0, skipped = 0, paid = 0n;
-        function end(msg, bad) { sweeping = false; go.disabled = false; say(msg, bad); if (done) setTimeout(reload, 2000); }
+        var p, done = 0, skipped = 0, paid = 0n, got = 0n, recs = [], rec = document.getElementById("sw-rec");
+        rec.innerHTML = "";
+        function end(msg, bad) {
+          sweeping = false; go.disabled = false; say(msg, bad);
+          if (done) { // 扫单记录：每张单的成交和链上交易，另附全部成交记录入口（站长要求）
+            var getName = buy ? SYM : "DAI", getDec = buy ? TD : 18;
+            rec.innerHTML = '<div class="sw-get sw-done"><span>本次扫单到手</span><b class="num">' + show(got, 4, getDec) + "</b><em>" + getName + "</em><small>成交 " + done + " 张，共付 " + show(paid, 4, payDec) + " " + name + "</small></div>" +
+              '<table class="sw-tbl"><thead><tr><th>订单</th><th>付出</th><th>到手</th><th>交易</th></tr></thead><tbody>' +
+              recs.map(function (x) { return "<tr><td>#" + x.id + "</td><td>" + show(x.pay, 4, payDec) + "</td><td><b>" + show(x.get, 4, getDec) + "</b></td><td>" + (x.tx ? '<a href="' + M.explorer + "/tx/" + x.tx + '" target="_blank" rel="noopener">查看</a>' : "") + "</td></tr>"; }).join("") +
+              '</tbody></table><p class="note"><a href="#/trades/' + account + '">📋 查看我的全部成交记录 →</a></p>';
+            setTimeout(reload, 2000);
+          }
+        }
         ready().then(function () {
           walletCard();
           return Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) { bal = { buy: b[0], sell: b[1] }; draw(); });
@@ -912,12 +924,16 @@
               var o = parseOrders(h, s.o.id)[0];
               if (!o || !o.open || o.giveLeft === 0n) { skipped++; return next(); }
               var amount = s.amount > o.giveLeft ? o.giveLeft : s.amount, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
-              return send(OTC, SEL.fill + u256(o.id) + u256(amount) + u256(pay), function (t) { say(tag + "：" + t); }, "成交").then(function () { done++; paid += pay; return next(); });
+              return send(OTC, SEL.fill + u256(o.id) + u256(amount) + u256(pay), function (t) { say(tag + "：" + t); }, "成交").then(function (rc) {
+                done++; paid += pay; got += amount - amount / 100n; // 到手 = 吃下的数量扣 1% 手续费
+                recs.push({ id: o.id, pay: pay, get: amount - amount / 100n, tx: rc && rc.transactionHash });
+                return next();
+              });
             });
           }
           return next();
         }).then(function () {
-          end("扫单完成：成交 " + done + " 张，共付 " + show(paid, 4, payDec) + " " + name + (skipped ? "；有 " + skipped + " 张已被别人吃掉，跳过了" : "") + "。币已到你的钱包");
+          end("✅ 扫单完成，已到你的钱包" + (skipped ? "（有 " + skipped + " 张已被别人吃掉，跳过了）" : ""));
         }, function (e) {
           end((done ? "已成交 " + done + " 张，后面的停下了：" : "") + niceError(e), true);
         });

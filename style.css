@@ -1242,6 +1242,13 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sweep .sw-quick button:disabled { opacity: .35; cursor: not-allowed; }
 .sweep .sw-quick button.on { background: var(--purple-ink); color: #fff; }
 .sweep .sw-quick button { flex: 1; padding: 7px 0; font-size: 13px; border-radius: 10px; background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); box-shadow: none; }
+.sweep .sw-get { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 10px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; box-shadow: 0 4px 14px rgba(22, 163, 74, .25); } /* 最终到手：绿色大字，一眼看到 */
+.sweep .sw-get span { font-size: 14px; font-weight: 700; }
+.sweep .sw-get b { font-size: 32px; font-weight: 800; line-height: 1.1; }
+.sweep .sw-get em { font-style: normal; font-size: 16px; font-weight: 800; }
+.sweep .sw-get small { flex-basis: 100%; font-size: 12.5px; opacity: .92; }
+.sweep .sw-done { margin-top: 10px; }
+#sw-rec .sw-tbl a { font-weight: 700; }
 .sweep .sw-avg { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--grad-hero); color: #fff; }
 .sweep .sw-avg span { font-size: 13px; opacity: .9; }
 .sweep .sw-avg b { font-size: 28px; font-weight: 800; }
