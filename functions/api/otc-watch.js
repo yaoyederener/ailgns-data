@@ -173,7 +173,8 @@ const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 async function order(m, id) {
   const w = words(await rpc(m, "eth_call", [{ to: m.otc, data: GET_ORDERS + u256(id) + u256(1) }, "latest"]));
   const o = w.slice(2, 9); // 代币 7 个字、卡牌 6 个字，前两个字（maker、sell）一样
-  return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n, tokenId: m.nft ? BigInt("0x" + o[4]).toString() : null };
+  return { maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n, tokenId: m.nft ? BigInt("0x" + o[4]).toString() : null,
+    give: m.nft ? 0n : BigInt("0x" + o[4]), want: m.nft ? 0n : BigInt("0x" + o[5]) }; // 代币单：挂单总量、想换回的总量
 }
 
 // ---------- 低于市价的好单：推送给关注机器人的人（订阅号）----------
@@ -345,7 +346,8 @@ export async function onRequestGet(ctx) {
         const o = cache[id] || (cache[id] = await order(m, id));
         const giveSym = o.sell ? label(m) : "DAI", wantSym = o.sell ? "DAI" : label(m), side = (m.key === "ailgns" ? "" : label(m)) + (o.sell ? "卖单" : "买单");
         const gd = o.sell ? m.dec : 18, wd = o.sell ? 18 : m.dec; // 挂单存入的币 / 想换回的币各自的小数位
-        const link = "\n🔗 " + m.tx + l.transactionHash + "\n🧬 " + m.link;
+        // 每条私信都附上收信人自己的全部成交记录，客户点进去就能核对，不用自己把几条通知加起来
+        const link = "\n🔗 " + m.tx + l.transactionHash + "\n🧬 " + m.link, mine = (a) => link + "\n📋 我的全部成交记录：https://ailgns.dev/#/trades/" + a;
         if (m.nft) { // 卡牌：整张成交
           if (l.topics[0] === NFT_FILLED) {
             const taker = "0x" + l.topics[2].slice(26), tokenId = BigInt("0x" + d[0]).toString(), price = num(d[1]), fee = num(d[2]);
@@ -364,14 +366,16 @@ export async function onRequestGet(ctx) {
         }
         if (l.topics[0] === FILLED) {
           const taker = "0x" + l.topics[2].slice(26), amount = num(d[0], gd), paid = num(d[1], wd), fee = num(d[2], gd), left = num(d[3], gd);
-          msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
-            ((o.sell ? left * paid / amount : left) >= 1 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交" + (left > 0 ? `（剩 ${fmt(left)} ${giveSym} 不足 1 DAI，已自动下架，可在网站「我的挂单」点取回）` : "")) + link]);
+          const got = o.give ? Number((o.give - BigInt("0x" + d[3])) * o.want / o.give) / 10 ** wd : 0; // 这张单到现在一共收到多少
+          msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n这笔：${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
+            (o.give ? `本单累计：已收到 ${fmt(got)} / ${fmt(Number(o.want) / 10 ** wd)} ${wantSym}\n` : "") +
+            ((o.sell ? left * paid / amount : left) >= 1 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交" + (left > 0 ? `（剩 ${fmt(left)} ${giveSym} 不足 1 DAI，已自动下架，可在网站「我的挂单」点取回）` : "")) + mine(o.maker)]);
           fills.push({ m, qty: o.sell ? amount : paid, price: o.sell ? paid / amount : amount / paid });
-          msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（已扣 1% 手续费 ${fmt(fee)}）` + link]);
+          msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（已扣 1% 手续费 ${fmt(fee)}）` + mine(taker)]);
         } else {
           const refunded = num(d[0], gd), expired = BigInt("0x" + d[1]) === 1n;
           if (refunded <= 0) continue; // 全部成交时的关闭，上面已经通知过
-          msgs.push([o.maker, (expired ? `⏰ 你的${side} #${id} 到期未成交，已自动退回 ` : `↩️ 你的${side} #${id} 已撤单，退回 `) + `${fmt(refunded)} ${giveSym} 到你的钱包` + link]);
+          msgs.push([o.maker, (expired ? `⏰ 你的${side} #${id} 到期未成交，已自动退回 ` : `↩️ 你的${side} #${id} 已撤单，退回 `) + `${fmt(refunded)} ${giveSym} 到你的钱包` + mine(o.maker)]);
         }
       }
       done.push([m, logs, cache, from, latest]);
