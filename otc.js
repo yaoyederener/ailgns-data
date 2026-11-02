@@ -330,7 +330,7 @@
     root.querySelectorAll("[data-dbx-link]").forEach(function (b) { b.onclick = showLink; });
   }
   // 弹出机器人二维码：客户长按保存（或截图），到 DeBox「扫一扫」从相册选图，直接打开机器人关注
-  var QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+  var QR_LIB = "vendor/qrcode-1.4.4.min.js"; // 放在本站：国内访问外站 CDN 不稳定（和 cdnjs 上 1.4.4 版逐字节相同）
   function loadQr() {
     if (window.qrcode) return Promise.resolve(window.qrcode);
     return new Promise(function (ok, fail) {
