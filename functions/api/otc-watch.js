@@ -2,7 +2,7 @@
 // 市场：AiLGNS（Anubis）、LGNS（Anubis）、LGNS（Polygon），合约代码相同，各链各一份
 // ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
 // ② 群播报：成交先攒起来，每小时发一次汇总到 DeBox 群（没成交不发；北京时间 0–8 点不发，攒到 8 点一起发）
-// ③ 订阅号推送：低于市价买 / 高于市价卖的挂单推送给关注机器人的人（每张单只推一次）
+// ③ 好单推送：比 DEX 买得便宜 / 卖得贵、或者一买一卖就有钱赚的挂单，每 5 分钟检查，推到营销群和关注机器人的人
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
@@ -177,15 +177,30 @@ async function order(m, id) {
     give: m.nft ? 0n : BigInt("0x" + o[4]), want: m.nft ? 0n : BigInt("0x" + o[5]) }; // 代币单：挂单总量、想换回的总量
 }
 
-// ---------- 低于市价的好单：推送给关注机器人的人（订阅号）----------
-// 卖单单价低于市价（客户能低于市价买到）、买单出价高于市价（客户能高于市价卖出），就推送；每张单只推一次
-// 只说比市价低 / 高多少，不说能赚多少、不承诺收益
+// ---------- 有利润的好单：实时推送到营销群 + 关注机器人的人 ----------
+// 币价一动，原来挂着的单就可能变成"买了就赚 / 卖了更赚"的好单，每 5 分钟检查一次：
+//   卖单（客户买币）：按 OTC 单价买（到手扣 1% 手续费），和在 DEX 买同样多的币要花多少比，省得多就推；买下后马上在 DEX 卖掉还有钱赚的，写出约赚多少
+//   买单（客户卖币）：卖给这张单拿到的 DAI（扣 1%），和在 DEX 卖同样多的币（扣卖出税、按池子深度算滑点）比，多得多就推；从 DEX 买币再卖给这张单有钱赚的，写出约赚多少
+// 都按池子当前储备精确算（含 0.3% 池子手续费和滑点），不是简单比市价
+// 每张单推一次；之后币价继续往有利方向走、好处又多了 3 个百分点以上（且隔了 30 分钟），再推一次
 const PP_ON = true; // 站长 2026-11-01 确认文案后开启
-// DEX 市价：每枚挂单币值多少 DAI
+const PP_MIN_PCT = 0.005, PP_MIN_DAI = 1, PP_AGAIN_PCT = 0.03, PP_AGAIN_SEC = 1800;
+const PP_GAP = 900; // 同一个市场最少隔 15 分钟推一次，免得刷屏；一买一卖就能赚钱的单不受这个限制，马上推
+const OTC_FEE = 0.01;
+const SELL_TAX = { ailgns: 0.03, lgns: 0.5, plgns: 0.05, glgns: 0 }; // DEX 卖出扣的税（不含池子 0.3%）；Anubis LGNS 是动态的，下面用实测值
+async function sellTax(m) {
+  if (m.key !== "lgns") return SELL_TAX[m.key] || 0;
+  const j = await fetch("https://ailgns.dev/api/sell-tax").then((r) => r.json()).catch(() => null);
+  return j && j.lgns > 0 && j.lgns < 0.95 ? j.lgns : SELL_TAX.lgns;
+}
+// DEX 池子储备：{ tok, dai, px（每枚币值多少 DAI）}
 async function market(m) {
   const w = words(await rpc(m, "eth_call", [{ to: m.pair, data: "0x0902f1ac" }, "latest"]));
-  return num(w[m.pairDai]) / num(w[1 - m.pairDai], m.dec);
+  const dai = num(w[m.pairDai]), tok = num(w[1 - m.pairDai], m.dec);
+  return { tok, dai, px: dai / tok };
 }
+const ammSell = (p, q) => (q * 0.997 * p.dai) / (p.tok + q * 0.997); // 往池子卖 q 个币能拿到的 DAI
+const ammBuyCost = (p, q) => (q >= p.tok ? Infinity : (p.dai * q) / ((p.tok - q) * 0.997)); // 从池子买到 q 个币要花的 DAI
 // 当前在挂的单子（没过期、还有剩余）
 async function book(m, now) {
   const count = Number(BigInt(await rpc(m, "eth_call", [{ to: m.otc, data: COUNT }, "latest"]))), from = Math.max(0, count - 500), out = [];
@@ -201,37 +216,54 @@ async function book(m, now) {
   }
   return out;
 }
+// 一张单对客户有多划算：gain = 比走 DEX 多赚 / 少花的 DAI，pct = 占比，arb = 一买一卖立刻能赚的 DAI（没有就是 0）
+function edge(o, p, tax) {
+  if (o.sell) {
+    const pay = o.qty * o.price, got = o.qty * (1 - OTC_FEE); // 付 DAI，到手的币扣 1%
+    const dex = ammBuyCost(p, got), back = ammSell(p, got * (1 - tax));
+    return { gain: dex - pay, pct: (dex - pay) / dex, arb: Math.max(0, back - pay), dexPrice: dex / got, buy: true };
+  }
+  const get = o.qty * o.price * (1 - OTC_FEE), dex = ammSell(p, o.qty * (1 - tax)), cost = ammBuyCost(p, o.qty); // 卖给这张单拿到的 DAI 扣 1%
+  return { gain: get - dex, pct: dex > 0 ? (get - dex) / dex : 1, arb: Math.max(0, get - cost), dexPrice: dex / o.qty, buy: false };
+}
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd, maximumFractionDigits: pd });
 const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
-// 比市价好多少（正数 = 对客户有利）：卖单比市价低多少，买单比市价高多少
-const better = (o, mkt) => (o.sell ? 1 - o.price / mkt : o.price / mkt - 1);
-function dealText(m, list, mkt) {
-  const ns = list.filter((o) => o.sell).length, name = label(m);
-  const lines = [ns === list.length ? `🔥 低于市场价的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：低于市价买、高于市价卖！` : `🔥 高于市场价求购 ${name}！`];
-  for (const o of list) {
-    const pct = (better(o, mkt) * 100).toFixed(1);
+function dealText(m, list, p, tax) {
+  const ns = list.filter((x) => x.o.sell).length, name = label(m), arb = list.some((x) => x.e.arb >= PP_MIN_DAI);
+  const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `🔥 比 DEX 卖得更贵：高价求购 ${name}！`];
+  for (const { o, e } of list) {
+    const pct = (e.pct * 100).toFixed(1);
     lines.push("", o.sell
-      ? `📤 低价出售 ${qtyStr(m, o.qty)} ${m.sym}\n单价 ${d2(o.price, m.pd)} DAI，比市价低 ${pct}%` + (m.dex ? "，比官方 DEX 买更便宜" : "")
-      : `📥 高价求购 ${qtyStr(m, o.qty)} ${m.sym}\n出价 ${d2(o.price, m.pd)} DAI，比市价高 ${pct}%，手里有币可以直接卖` + (m.sellTax ? `\n（在 DEX 卖要扣 ${m.sellTax} 手续费，这里只收 1%）` : ""));
+      ? `📤 出售 ${qtyStr(m, o.qty)} ${m.sym}，单价 ${d2(o.price, m.pd)} DAI\n比在 DEX 买同样多的币省 ${d2(e.gain)} DAI（便宜 ${pct}%）` + (e.arb >= PP_MIN_DAI ? `\n💰 买下后马上到 DEX 卖掉，约赚 ${d2(e.arb)} DAI` : "")
+      : `📥 求购 ${qtyStr(m, o.qty)} ${m.sym}，出价 ${d2(o.price, m.pd)} DAI\n卖给这张单比在 DEX 卖多拿 ${d2(e.gain)} DAI（多 ${pct}%）` + (tax >= 0.04 ? `，DEX 卖出要扣约 ${Math.round(tax * 100)}% 税，这里只收 1%` : "") + (e.arb >= PP_MIN_DAI ? `\n💰 从 DEX 买币再卖给这张单，约赚 ${d2(e.arb)} DAI` : ""));
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
-  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"}市价 ${d2(mkt, m.pd)} DAI`, "⚡ 先到先得，被别人吃掉就没了！", "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP", "🧬 " + m.link);
+  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"} DEX 价 ${d2(p.px, m.pd)} DAI（以上按池子实时深度算，已扣 OTC 1% 手续费${tax ? "和 DEX 卖出税" : ""}，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
   return lines.join("\n");
 }
-// 找出还没推送过的低于市价的单；send=false 时只返回文字（预览）
-async function pushDeals(m, env, kv, send) {
+// 找出该推的好单；send=false 时只返回文字（预览）
+async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   if (m.nft) return { hits: 0, skipped: "nft" }; // 卡牌没有 DEX 市价，不推好单
-  const now = Math.floor(Date.now() / 1000), [orders, mkt] = await Promise.all([book(m, now), market(m)]);
-  const hits = orders.filter((o) => better(o, mkt) > 0);
+  const now = Math.floor(Date.now() / 1000), [orders, p, tax] = await Promise.all([book(m, now), market(m), sellTax(m)]);
+  const hits = orders.map((o) => ({ o, e: edge(o, p, tax) })).filter((x) => x.e.pct >= PP_MIN_PCT && x.e.gain >= PP_MIN_DAI);
   const fresh = [];
-  for (const o of hits) if (!send || !(await kv.get(m.kv + "pp:" + o.id))) fresh.push(o);
-  fresh.sort((a, b) => better(b, mkt) - better(a, mkt));
-  const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, mkt) : null;
-  if (!send || !text) return { hits: hits.length, mkt, text };
-  await sendDeboxFans(env, GROUPS[0], text);
-  for (const o of pick) await kv.put(m.kv + "pp:" + o.id, "1", { expirationTtl: Math.max(60, Math.ceil(o.left) + 3600) }); // 每张单只推一次
-  return { hits: hits.length, sent: pick.length };
+  for (const x of hits) {
+    const prev = send ? await kv.get(m.kv + "pp:" + x.o.id, "json") : null; // 以前推过：{ pct, at }（老数据是 1）
+    if (!prev || (typeof prev === "object" && x.e.pct >= prev.pct + PP_AGAIN_PCT && now - prev.at >= PP_AGAIN_SEC)) fresh.push(x);
+  }
+  fresh.sort((a, b) => b.e.arb - a.e.arb || b.e.gain - a.e.gain);
+  const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, p, tax) : null;
+  if (!send || !text) return { hits: hits.length, px: p.px, tax, text };
+  if (!pick.some((x) => x.e.arb >= PP_MIN_DAI) && (await kv.get(m.kv + "ppgap"))) return { hits: hits.length, waiting: fresh.length };
+  const out = { hits: hits.length, sent: pick.length, groups: {} };
+  if (!quiet) for (const g of gids) { // 营销群（夜里 0–8 点不发群，订阅号照发）
+    try { await sendDebox(env, g, text, "group"); out.groups[g] = true; } catch (e) { out.groups[g] = String(e.message || e).slice(0, 120); }
+  }
+  await sendDeboxFans(env, GROUPS[0], text).catch((e) => { out.fans = String(e.message || e).slice(0, 120); });
+  await kv.put(m.kv + "ppgap", "1", { expirationTtl: PP_GAP });
+  for (const { o, e } of pick) await kv.put(m.kv + "pp:" + o.id, JSON.stringify({ pct: e.pct, at: now }), { expirationTtl: Math.max(60, Math.ceil(o.left) + 3600) });
+  return out;
 }
 
 // 群播报模板（站长给的）：成交数量 / 金额 / 单价 + 一句随机的庆祝或宣传 + 钱包打开链接
@@ -415,7 +447,7 @@ export async function onRequestGet(ctx) {
   if (PP_ON) {
     fans = {};
     for (const m of MARKETS) {
-      fans[m.key] = await pushDeals(m, ctx.env, kv, true).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
+      fans[m.key] = await pushDeals(m, ctx.env, kv, true, gids, bjHour >= QUIET[0] && bjHour < QUIET[1]).catch((e) => ({ err: String(e.message || e).slice(0, 200) }));
       if (fans[m.key].err) await kv.put("otcw:fans", JSON.stringify({ ok: false, market: m.key, err: fans[m.key].err, at: Date.now() }));
     }
   }
