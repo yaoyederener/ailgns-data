@@ -159,10 +159,15 @@
     return memberApi(addr).then(function (srv) {
       // 会员已转赠给别人：原地址不再是会员（页面提示转给了谁）
       if (!asInherit && srv.transferredTo) { var e = new Error("TRANSFERRED"); e.to = srv.transferredTo; throw e; }
-      // 别人把会员转赠给了这个地址：按原地址的全部记录（付款、赠送、OTC 成交）算，记录上标明来源
+      // 别人把会员转赠给了这个地址：原地址的全部记录（付款、赠送、OTC 成交）加上这个地址自己的记录一起算，转来的记录标明来源
+      // 自己的记录也要算：不然随便一个非会员地址签个名"转赠"过来，就能把这个地址自己的会员顶掉
       if (!asInherit && srv.inheritFrom) {
-        return lookup(srv.inheritFrom, true).then(function (t) {
-          if (t) { t.payments.forEach(function (p) { p.inheritFrom = srv.inheritFrom; }); t.inheritFrom = srv.inheritFrom; }
+        return Promise.all([lookup(srv.inheritFrom, true), lookup(addr, true)]).then(function (r) {
+          var t = r[0], mine = r[1];
+          if (!t) return mine;
+          t.payments.forEach(function (p) { p.inheritFrom = srv.inheritFrom; });
+          if (mine) t = tally(t.payments.concat(mine.payments));
+          t.inheritFrom = srv.inheritFrom;
           return t;
         });
       }
