@@ -32,6 +32,8 @@ export async function onRequestPost(ctx) {
   if (/group/i.test(chatType)) return new Response("ok"); // 只处理私聊，群里的消息不管
   const reply = (t) => sendDebox(ctx.env, chatId, t, "private").catch((e) => kv && kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
 
+  // 「我的ID」：把发信人的 DeBox 用户 id 告诉他（站长设置客服接收人时要用）
+  if (/^(我的\s*id|id|我的编号|编号)$/i.test(text)) { ctx.waitUntil(reply("你的 DeBox 用户 ID 是：" + user + "\n把这个 ID 发给站长，就能把网站客服的咨询转发到你这里。")); return new Response("ok"); }
   const addrs = [...new Set((text.match(/0x[0-9a-fA-F]{40}/g) || []).map((a) => a.toLowerCase()))];
   const mine = await getList(kv, "dbx:u:" + user);
   let out;
