@@ -51,6 +51,9 @@
   // 收入分账合约（Anubis、Polygon 各一个）：原收款钱包授权后，到账的收入按 30% / 40% / 30% 自动分出去（地址、比例写死）
   var SPLITTERS = { anubis: "0xeee877c1b6285b82890bdcd027d2715f658ecf23", polygon: "0xcc274e07847a6a86917b6ccd4e67706170d4036f" };
   var PAYEES = [["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], [FEE_RECIPIENT, 30]];
+  // 回购分账合约（Anubis）：收到的 LGNS、DAI 在 OTC 换成 AiLGNS，连同收到的 AiLGNS 按 40 / 30 / 30 分；部署后填地址
+  var BUYBACK = "";
+  var BB_PAYEES = [["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], ["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322", 30]];
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
   var VERIFY = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md";
   var SEL = {
@@ -1015,17 +1018,41 @@
     var CH = { anubis: { name: "Anubis", explorer: ANUBIS_EXPLORER }, polygon: { name: "Polygon", explorer: "https://polygonscan.com" } };
     function read(chain, to, data) { return (chain === "anubis" ? A.call(to, data) : W.rpcOn("polygon", "eth_call", [{ to: to, data: data }, "latest"])).then(BigInt); }
     function amt(v, dec) { return A.fmt(Number(v) / Math.pow(10, dec), 4); }
-    app.innerHTML = '<h1>收入分账</h1><p class="sub">会员费和 OTC 手续费照旧进入原收款钱包。原收款钱包授权分账合约后，每 5 分钟检查一次，新到账的收入自动按比例分出去。地址和比例写死在合约里，任何人都改不了。</p>' +
-      '<section class="card"><div class="card-head"><h2>分账规则</h2></div><dl class="dl">' +
-      PAYEES.map(function (p, i) { return "<dt>" + p[1] + "%</dt><dd>" + A.addrLink(p[0]) + (i === 2 ? '　<span class="muted">（原收款钱包，这份留在原地）</span>' : "") + "</dd>"; }).join("") +
-      "<dt>分账合约</dt><dd>" + Object.keys(SPLITTERS).map(function (c) { return CH[c].name + '：<a class="mono" target="_blank" rel="noopener" href="' + CH[c].explorer + "/address/" + SPLITTERS[c] + '">' + A.short(SPLITTERS[c]) + " ↗</a>"; }).join("　") +
-      '</dd><dt>源码</dt><dd><a href="contracts/AilgnsFeeSplitter.sol" target="_blank" rel="noopener">AilgnsFeeSplitter.sol ↗</a></dd></dl>' +
-      '<p class="note">分账范围：转进原收款钱包的 Anubis 链 LGNS、AiLGNS、DAI 和 Polygon 链 DAI、LGNS（会员费 + OTC 手续费，包括任何人转进来的这几种币），只算分账上线之后到账的。分账合约不收任何费用，触发分账的 Gas 由自动退款那个小钱包支付。</p></section>' +
-      '<section class="card"><div class="card-head"><h2>授权状态</h2><span class="muted">请用原收款钱包 ' + A.short(FEE_RECIPIENT) + ' 授权，每种币一次</span></div><div id="sp-state" class="loading">正在读取…</div>' +
-      '<p class="note">授权后分账合约只能把钱按上面的比例转给这三个固定地址，不能转到别处。Polygon 上的授权需要少量 POL 付 Gas。</p><p class="note" id="sp-st"></p></section>';
+    var BB_TOKS = TOKS.slice(0, 3); // 回购合约用 Anubis 的 LGNS、AiLGNS、DAI
+    var pulledSel = "0x9f5951c7"; // totalPulled(address)
+    app.innerHTML = '<h1>收入分账</h1><p class="sub">会员费和 OTC 手续费照旧进入原收款钱包 ' + A.short(FEE_RECIPIENT) + '。现在改成<b>回购分账</b>：Anubis 链收到的 LGNS、DAI 先在本站 OTC 换成 AiLGNS，再连同收到的 AiLGNS 按比例分出去；Polygon 链的收入先攒在收款钱包里。地址、比例和价格保护都写死在合约里，任何人都改不了。</p>' +
+      '<section class="card"><div class="card-head"><h2>回购分账规则</h2></div><dl class="dl">' +
+      BB_PAYEES.map(function (p) { return "<dt>" + p[1] + "%</dt><dd>" + A.addrLink(p[0]) + "</dd>"; }).join("") +
+      "<dt>回购合约</dt><dd>" + (BUYBACK ? '<a class="mono" target="_blank" rel="noopener" href="' + ANUBIS_EXPLORER + "/address/" + BUYBACK + '">' + A.short(BUYBACK) + " ↗</a>" : '<span class="muted">待部署</span>') +
+      '</dd><dt>源码</dt><dd><a href="contracts/AilgnsBuyback.sol" target="_blank" rel="noopener">AilgnsBuyback.sol ↗</a></dd></dl>' +
+      '<p class="note">怎么换：LGNS 卖进 LGNS OTC 的买单（出价不低于 DEX 现价 50%，不走 DEX，DEX 卖出要扣约 50%）→ 用 DAI 扫 AiLGNS OTC 的卖单（要价不高于 DEX 现价 115%）→ 买到的 AiLGNS 直接打给上面三个地址。攒够 300 美金换一次；收款钱包永远留 5 DAI 付 Gas；触发钱包 Gas 不够时每次最多从收入里补 0.5 DAI。没有合适的单子时，钱留在合约里下次接着换，也可以原样退回收款钱包。</p>' +
+      '<div id="bb-state" class="loading">正在读取…</div><p class="note" id="sp-st"></p></section>' +
+      '<section class="card"><div class="card-head"><h2>旧分账合约' + (BUYBACK ? "（已停用）" : "") + '</h2><span class="muted">30% / 40% / 30%，按原币分</span></div>' +
+      '<p class="note">' + (BUYBACK ? "回购分账上线后，机器人不再触发旧合约。为了安全，建议用收款钱包把旧合约的授权撤销（点「撤销」，额度改成 0）。" : "回购合约部署之前，旧合约照常分账。") +
+      " 旧合约：" + Object.keys(SPLITTERS).map(function (c) { return CH[c].name + ' <a class="mono" target="_blank" rel="noopener" href="' + CH[c].explorer + "/address/" + SPLITTERS[c] + '">' + A.short(SPLITTERS[c]) + " ↗</a>"; }).join("　") + "</p>" +
+      '<div id="sp-state" class="loading">正在读取…</div></section>';
     var st = document.getElementById("sp-st");
-    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (st.scrollIntoView) st.scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+    function allowCell(a, t) {
+      var ok = a !== null && a >= 10n ** BigInt(t.dec + 6); // 授权 100 万枚以上就算够用
+      return [ok, a === null ? "—" : ok ? '<span class="up">已授权 ✓</span>' : a === 0n ? '<span class="muted">未授权</span>' : amt(a, t.dec)];
+    }
     function load() {
+      if (BUYBACK) Promise.all(BB_TOKS.map(function (t) {
+        return Promise.all([read("anubis", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(BUYBACK)), read("anubis", BUYBACK, pulledSel + u256(t.token))]).catch(function () { return null; });
+      })).then(function (r) {
+        if (!A.isCurrent(id)) return;
+        var el = document.getElementById("bb-state");
+        el.className = "";
+        el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权给回购合约</th><th>累计取走</th><th></th></tr></thead><tbody>' +
+          BB_TOKS.map(function (t, i) {
+            var c = allowCell(r[i] ? r[i][0] : null, t);
+            return '<tr><td class="l"><b>' + t.name + "</b> Anubis</td><td>" + c[1] + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td><td>" +
+              (c[0] ? "" : '<button data-bb="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
+          }).join("") + "</tbody></table></div>";
+        el.querySelectorAll("[data-bb]").forEach(function (b) { b.onclick = function () { approve(BB_TOKS[+b.getAttribute("data-bb")], b, BUYBACK, MAX, "授权回购合约使用 "); }; });
+      });
+      else { var e0 = document.getElementById("bb-state"); e0.className = "note"; e0.textContent = "回购合约部署后，这里会出现授权按钮。"; }
       Promise.all(TOKS.map(function (t) {
         return Promise.all([read(t.chain, t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(SPLITTERS[t.chain])), read(t.chain, SPLITTERS[t.chain], totalSel + u256(t.token))]).catch(function () { return null; });
       })).then(function (r) {
@@ -1034,30 +1061,30 @@
         el.className = "";
         el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th class="l">链</th><th>授权</th><th>累计已分</th><th></th></tr></thead><tbody>' +
           TOKS.map(function (t, i) {
-            var a = r[i] ? r[i][0] : null, ok = a !== null && a >= 10n ** BigInt(t.dec + 6); // 授权 100 万枚以上就算够用
-            return '<tr><td class="l"><b>' + t.name + '</b></td><td class="l">' + CH[t.chain].name + "</td><td>" +
-              (a === null ? "—" : ok ? '<span class="up">已授权 ✓</span>' + (a > MAX / 2n ? "" : '<br><small class="muted">额度 ' + amt(a, t.dec) + "</small>") : a === 0n ? '<span class="down">未授权</span>' : amt(a, t.dec)) + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td>" +
-              '<td>' + (ok ? "" : '<button data-ap="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
+            var a = r[i] ? r[i][0] : null, c = allowCell(a, t);
+            return '<tr><td class="l"><b>' + t.name + '</b></td><td class="l">' + CH[t.chain].name + "</td><td>" + c[1] + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td>" +
+              "<td>" + (BUYBACK ? (a ? '<button class="ghost" data-rv="' + i + '" style="padding:6px 14px">撤销</button>' : "") : c[0] ? "" : '<button data-ap="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
           }).join("") + "</tbody></table></div>";
-        el.querySelectorAll("[data-ap]").forEach(function (b) { b.onclick = function () { approve(TOKS[+b.getAttribute("data-ap")], b); }; });
+        el.querySelectorAll("[data-ap]").forEach(function (b) { var t = TOKS[+b.getAttribute("data-ap")]; b.onclick = function () { approve(t, b, SPLITTERS[t.chain], MAX, "授权分账合约使用 "); }; });
+        el.querySelectorAll("[data-rv]").forEach(function (b) { var t = TOKS[+b.getAttribute("data-rv")]; b.onclick = function () { approve(t, b, SPLITTERS[t.chain], 0n, "撤销旧分账合约对 "); }; });
       });
     }
-    function approve(t, b) {
+    function approve(t, b, spender, value, verb) {
       b.disabled = true;
-      var eth, label = "授权分账合约使用 " + t.name + "（" + CH[t.chain].name + "）";
+      var eth, label = verb + t.name + "（" + CH[t.chain].name + "）" + (value ? "" : " 的授权");
       Promise.resolve().then(function () { return account ? null : connect(); }).then(function () {
-        if (account !== FEE_RECIPIENT) throw new Error("请切换到原收款钱包 " + A.short(FEE_RECIPIENT) + " 再授权（现在连接的是 " + A.short(account) + "）");
+        if (account !== FEE_RECIPIENT) throw new Error("请切换到原收款钱包 " + A.short(FEE_RECIPIENT) + " 再操作（现在连接的是 " + A.short(account) + "）");
         eth = W.get();
         say("正在切换到 " + CH[t.chain].name + " 链…");
         return W.switchTo(eth, t.chain);
       }).then(function () {
         say("请在钱包里确认：" + label + "…");
-        return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: t.token, data: SEL.approve + u256(SPLITTERS[t.chain]) + u256(MAX) }] });
+        return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: t.token, data: SEL.approve + u256(spender) + u256(value) }] });
       }).then(function (hash) {
         say(label + "已提交，等待链上确认…");
         return W.waitOn(t.chain, hash);
       }).then(function () {
-        say("✅ " + t.name + "（" + CH[t.chain].name + "）授权成功，之后新到账的收入会自动分账");
+        say("✅ " + label + "成功");
         load();
       }, function (e) { say(niceError(e), true); b.disabled = false; });
     }

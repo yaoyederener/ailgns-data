@@ -5,6 +5,7 @@ import { sendDebox } from "../../lib/debox.js";
 
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
 const SPLIT = "0xb1fafb8bf72e6705dba1b22c347f53d50b1b8539bc5f9ce17a1cf52973dfbe79"; // Split(token, amount, toPayee1, toPayee2, toPayee3, by)
+const BUYBACK = ""; // 回购分账合约（Anubis）：部署后填上（小写）；它分的是买到的 AiLGNS，三份都转出去
 const CHAINS = {
   anubis: { name: "Anubis", contract: "0xeee877c1b6285b82890bdcd027d2715f658ecf23", rpcs: RPCS, tx: "https://anubisscan.io/tx/", span: 5000 },
   polygon: { name: "Polygon", contract: "0xcc274e07847a6a86917b6ccd4e67706170d4036f", rpcs: ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"], tx: "https://polygonscan.com/tx/", span: 9000 },
@@ -78,10 +79,11 @@ const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 async function scan(c, from, latest, items) {
   for (let b = from; b <= latest; b += c.span) {
     const to = Math.min(latest, b + c.span - 1);
-    const logs = await rpc(c, "eth_getLogs", [{ address: c.contract, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [SPLIT] }]);
+    const logs = await rpc(c, "eth_getLogs", [{ address: [c.contract, c.name === "Anubis" && BUYBACK].filter(Boolean), fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [SPLIT] }]);
     for (const l of logs) {
       const tok = "0x" + l.topics[1].slice(26), [sym, dec] = TOKENS[tok] || ["?", 18], d = l.data.slice(2).match(/.{64}/g);
-      const out = (Number(BigInt("0x" + d[1])) + Number(BigInt("0x" + d[2]))) / 10 ** dec; // 实际转出去的部分（留在原钱包的不算）
+      const bb = l.address.toLowerCase() === BUYBACK; // 回购合约三份都转出去；旧合约第三份留在原钱包
+      const out = (Number(BigInt("0x" + d[1])) + Number(BigInt("0x" + d[2])) + (bb ? Number(BigInt("0x" + d[3])) : 0)) / 10 ** dec;
       const blk = await rpc(c, "eth_getBlockByNumber", [l.blockNumber, false]);
       items.push({ chain: c.name, sym, out, total: Number(BigInt("0x" + d[0])) / 10 ** dec, link: c.tx + l.transactionHash, time: parseInt(blk.timestamp, 16) });
     }
