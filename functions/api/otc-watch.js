@@ -307,26 +307,18 @@ function groupText(fills, tot, bids, thx, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const hourDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
   const n = Math.max(tot.fills || 0, fills.length), dai = Math.max(tot.fillDai || 0, hourDai);
-  const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "",
-    "✅ 累计成交（合约上线至今）",
-    `· 累计 ${n.toLocaleString("en-US")} 笔 · 成交额 ${dai2(dai)} DAI`];
-  if (fills.length) out.push(`· 本小时新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI`);
-  out.push("· 全部链上可查，0 纠纷 · 0 差错 · 7×24 小时稳定运行", "",
-    "🔐 合约安全",
-    "· 智能合约担保，币和 DAI 锁在合约里，成交即到账",
-    "· 合约没有管理员、没有后门，任何人（包括我们）都无法修改、冻结或挪用",
-    "· 代码开源，链上随时可查");
-  if (bids.length) {
-    out.push("", "📥 手里有币的看过来：在 OTC 卖给这些求购单，比在 DEX 卖多拿钱！");
-    for (const { m, o, e } of bids) out.push(`· ${label(m)} ${qtyStr(m, o.qty)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
-  }
-  out.push("", "🤝 我们的初心",
-    "做 AiLGNS OTC，一切都是为了平台好：为社区提供场外流动性，大额买卖不冲击底池，减少抛压、稳住币价，让每一位持币伙伴都受益。",
-    "平台只收 1% 手续费，却要承担域名、服务器、安全防护、链上 Gas、算力和 7×24 小时人工值守等全部开支，常常入不敷出。",
-    "我们坚持下来，只为给大家一个安全、稳定、0 滑点的交易环境。感谢每一位伙伴的支持与信任 🙏");
-  if (thx) out.push("", thx);
   const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
-  out.push("", PROMO, "👉 钱包打开 DApp 链接", "🧬 " + (links.length === 1 ? links[0] : SITE));
+  // DeBox 群里长消息会折叠，网址放第二行，文字压短，保证一打开就能看到链接（站长要求）
+  const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "👉 钱包打开：" + (links.length === 1 ? links[0] : SITE), "",
+    `✅ 累计成交 ${n.toLocaleString("en-US")} 笔 · ${dai2(dai)} DAI` + (fills.length ? `\n本小时新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI` : "")];
+  if (bids.length) {
+    out.push("", "📥 手里有币的看过来：卖给这些求购单，比在 DEX 卖多拿钱！");
+    for (const { m, o, e } of bids) out.push(`· ${m.sym} ${d2(o.qty, 0)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
+  }
+  out.push("", "🤝 初心：为社区提供场外流动性，大额买卖不冲击底池，减少抛压、稳住币价。平台只收 1% 手续费，要承担域名、服务器、安全防护、Gas、算力和人工值守，常常入不敷出。",
+    "🔐 合约无管理员、无后门，任何人（包括我们）都改不了，链上随时可查，0 纠纷 0 差错。");
+  if (thx) out.push(thx);
+  out.push(PROMO);
   return out.join("\n");
 }
 // 现在比 DEX 卖得更值的求购单（各市场合起来，按多拿的比例取前 3）
