@@ -1,5 +1,5 @@
 // 运营费用发放公告：定时任务每 5 分钟调用一次，读 Anubis、Polygon 两个发放合约的新发放记录，攒起来每 8 小时汇总发一次，
-// 发到「运营费用」专用 DeBox 群（只发这个群，和行情播报群分开）。文字只写运营费用发放，不写比例和收款人。
+// 发到「运营费用」专用 DeBox 群（只发这个群，和行情播报群分开）。写今日总收入和按 4:3:3 每份分多少（不写收款地址），并提醒 LGNS 及时换 DAI。
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 
@@ -34,19 +34,25 @@ const bjDate = (sec) => new Date(sec * 1000).toLocaleDateString("zh-CN", { timeZ
 const bjHour = (sec) => new Date(sec * 1000).toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false });
 const dayKey = (sec) => new Date((sec + 8 * 3600) * 1000).toISOString().slice(0, 10); // 北京时间的日期
 // 按「币种（链）」加总
+// total：这笔收入的总数（分账前）；旧记录只存了转出去的部分 out（40% + 30%），按 70% 倒推
+const totalOf = (it) => (it.total !== undefined ? it.total : it.out / 0.7);
 function sum(items) {
   const m = {};
-  for (const it of items) { const k = it.sym + "（" + it.chain + "）"; m[k] = (m[k] || 0) + it.out; }
+  for (const it of items) { const k = it.sym + "（" + it.chain + "）"; m[k] = (m[k] || 0) + totalOf(it); }
   return m;
 }
+const SHARES = [["40% 份", 0.4], ["30% 份（每人）", 0.3]]; // 4 : 3 : 3，两个 30% 一样多，合成一行
+const shareLines = (m) => SHARES.map(([name, r]) => `· ${name}：` + Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${amt(v * r)} ${k}`).join("、"));
 const listSum = (m) => Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, v]) => `· ${amt(v)} ${k}`);
 function notice(items, start, end, day) {
-  const lines = ["📋 AiLGNS 运营费用发放公告", "", `⏱ 统计时段：${bjDate(start)} ${bjHour(start)}–${end % 86400 === 16 * 3600 ? "24:00" : bjHour(end)}（北京时间）`, "", `本时段发放 ${items.length} 笔，合计：`, ...listSum(sum(items))];
-  lines.push("", `📊 ${bjDate(start)} 今日累计：`, ...listSum(day));
+  const lines = ["📋 AiLGNS 运营费用发放公告", "", `⏱ 统计时段：${bjDate(start)} ${bjHour(start)}–${end % 86400 === 16 * 3600 ? "24:00" : bjHour(end)}（北京时间）`, "", `本时段收入 ${items.length} 笔，合计：`, ...listSum(sum(items))];
+  lines.push("", `💰 ${bjDate(start)} 今日总收入：`, ...listSum(day));
+  lines.push("", "👥 按 4 : 3 : 3 分配，今日每份：", ...shareLines(day));
   lines.push("", "🔗 转账记录：");
-  items.slice(-5).forEach((it) => lines.push(`· ${amt(it.out)} ${it.sym}：${it.link}`));
+  items.slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
   if (items.length > 5) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
-  lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费，用于服务站的日常运营。", "—— AiLGNS 服务站");
+  lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益；也可以在本站 OTC 买入 AiLGNS 长期持有 👉 https://ailgns.dev/#/otc");
+  lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费。", "—— AiLGNS 服务站");
   return lines.join("\n");
 }
 
@@ -60,7 +66,7 @@ async function scan(c, from, latest, items) {
       const tok = "0x" + l.topics[1].slice(26), [sym, dec] = TOKENS[tok] || ["?", 18], d = l.data.slice(2).match(/.{64}/g);
       const out = (Number(BigInt("0x" + d[1])) + Number(BigInt("0x" + d[2]))) / 10 ** dec; // 实际转出去的部分（留在原钱包的不算）
       const blk = await rpc(c, "eth_getBlockByNumber", [l.blockNumber, false]);
-      items.push({ chain: c.name, sym, out, link: c.tx + l.transactionHash, time: parseInt(blk.timestamp, 16) });
+      items.push({ chain: c.name, sym, out, total: Number(BigInt("0x" + d[0])) / 10 ** dec, link: c.tx + l.transactionHash, time: parseInt(blk.timestamp, 16) });
     }
   }
 }
@@ -103,7 +109,7 @@ export async function onRequestGet(ctx) {
   // 预览：把攒着的全部当作一段来看
   const batch = dry ? pending.filter((x) => x.time >= slot) : due, start = dry ? slot : slot - SLOT, end = dry ? slot + SLOT : slot;
   if (!batch.length) return Response.json({ ranges, pending: 0, text: null });
-  const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out })));
+  const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out, total: totalOf(x) })));
   const text = notice(batch, start, end, sum(dry ? dayItems.concat(batch) : dayItems));
   if (dry) return Response.json({ ranges, pending: pending.length, text });
   let sent = false, err = null;
