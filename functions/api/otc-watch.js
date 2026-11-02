@@ -248,7 +248,8 @@ function dealText(m, list, p, tax) {
         (e.arb >= PP_MIN_DAI ? `\n💰 没有币也能赚：先在 DEX 花 ${d2(e.cost)} DAI 买 ${q} ${m.sym}，再卖给这张单拿 ${d2(e.get)} DAI，净赚 ${d2(e.arb)} DAI` : ""));
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
-  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"} DEX 价 ${d2(p.px, m.pd)} DAI（以上按池子实时深度算，已扣 OTC 1% 手续费，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
+  const f = list[0], where = m.key === "ailgns" ? "DEX" : m.chain + " 链 DEX"; // DEX 价按第一张单的数量算上手续费和滑点，不报池子的裸价
+  lines.push("", `📊 同样数量在${where}${f.o.sell ? "买入，实际每枚要付" : "卖出，实际每枚只到手"}约 ${d2(f.e.dexPrice, m.pd)} DAI（已算上 DEX 手续费和滑点，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
   return lines.join("\n");
 }
 // 找出该推的好单；send=false 时只返回文字（预览）
