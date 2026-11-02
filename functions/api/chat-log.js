@@ -1,9 +1,9 @@
-// 网站客服的每一次咨询（客户问题 + 机器人回答）转发到指定 DeBox：默认发到内部运营群，也可用环境变量指定一个人
+// 网站客服的每一次咨询（客户问题 + 机器人回答）转发到指定 DeBox 群：站长专门建的客服群（SUPPORT_GROUP），也可用环境变量 DEBOX_SUPPORT 覆盖
 //   DEBOX_SUPPORT：DeBox 群 id 或用户 id；DEBOX_SUPPORT_TYPE：group / private（默认 group）
 // POST { q, a, page, sid, human } → { ok }。同一访客 1 小时最多转发 30 条，防刷
 import { sendDebox } from "../../lib/debox.js";
 
-const OPS_GROUP = "uqw6tsqb"; // 内部群，不是营销群
+const SUPPORT_GROUP = ""; // 站长建好客服群后填群 id；空着就不转发（不要发内部运营群，也不要发营销群）
 const PER_HOUR = 30;
 
 export async function onRequestPost(ctx) {
@@ -18,7 +18,8 @@ export async function onRequestPost(ctx) {
     if (n >= PER_HOUR) return Response.json({ ok: true, skipped: "limit" });
     await kv.put(k, String(n + 1), { expirationTtl: 3700 });
   }
-  const to = ctx.env.DEBOX_SUPPORT || OPS_GROUP, type = ctx.env.DEBOX_SUPPORT_TYPE || "group";
+  const to = ctx.env.DEBOX_SUPPORT || SUPPORT_GROUP, type = ctx.env.DEBOX_SUPPORT_TYPE || "group";
+  if (!to) return Response.json({ ok: true, skipped: "no target" });
   const ip = ctx.request.headers.get("cf-connecting-ip") || "", country = ctx.request.headers.get("cf-ipcountry") || "";
   const text = `💬 网站客服咨询${b.human ? "（客户要找人工）" : ""}\n` +
     `问：${q}\n` +
