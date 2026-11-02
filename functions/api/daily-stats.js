@@ -188,12 +188,11 @@ async function report(kv, day) {
     if (x && (x.orders || x.fills)) lines.push(`  ${m.name}：挂单 ${x.orders} 张 ${money(x.orderDai)} DAI · 成交 ${x.fills} 笔 ${money(x.fillDai)} DAI`);
   }
   lines.push(`· 累计总成交：${money(t.fillDai)} DAI（${t.fills} 笔）`, `· 累计总挂单：${t.orders} 张`, "");
-  // 会员付款：按订单付的显示会员地址（付款地址不同时一起写）
-  const pays = await Promise.all(d.pays.map(async (p) => ({ ...p, target: (await kv.get("memtx:" + p.tx.toLowerCase())) || p.from })));
-  lines.push(`👑 会员付款：${pays.length} 笔`);
-  for (const p of pays) lines.push(`· ${p.target}`, `  ${amt(p.amt)} ${p.sym}（${CHAINS[p.chain].name}）` + (p.target !== p.from ? `，由 ${p.from} 代付` : ""));
-  const v = vip || [];
-  lines.push(`🎁 OTC 成交赠送初级 VIP：${v.length} 个`);
-  for (const a of v) lines.push(`· ${a}`);
+  // 会员付款、赠送 VIP 只报数量，不列地址
+  const bySym = {};
+  for (const p of d.pays) bySym[p.sym] = (bySym[p.sym] || 0) + p.amt;
+  const paySum = Object.entries(bySym).map(([s, a]) => `${amt(a)} ${s}`).join(" + ");
+  lines.push(`👑 会员付款：${d.pays.length} 笔` + (paySum ? `，共 ${paySum}` : ""));
+  lines.push(`🎁 OTC 成交赠送初级 VIP：${(vip || []).length} 个`);
   return lines.join("\n");
 }
