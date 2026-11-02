@@ -229,43 +229,26 @@ function edge(o, p, tax) {
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd, maximumFractionDigits: pd });
 const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
-// ILO 段落（带上 Anubis LGNS 现在最高求购价占市价的比例）；读不到就不带比例
-async function iloNow() {
-  const m = MARKETS.find((x) => x.key === "lgns");
-  try {
-    const [orders, p] = await Promise.all([book(m, Math.floor(Date.now() / 1000)), market(m)]);
-    return iloText(Math.max(0, ...orders.filter((o) => !o.sell).map((o) => o.price)) / p.px);
-  } catch (e) { return iloText(0); }
-}
-// ILO 共建底池的历史遗留问题：涡轮按 100% 价格买币另扣 5%，买的币进底池扣 50%，第二天奖励币在底池卖再扣 50%，一进一出亏 5%。
-// 奖励币改在 OTC 卖，成交价只要高于市价 55%（折价不超过 45%）就是赚的。Anubis LGNS 的每条好单播报、每条成交汇总都带上这段（站长要求）
-function iloText(ratio) {
-  return "🌀 ILO 共建底池的伙伴请注意（历史遗留问题，OTC 帮你解决）：\n" +
-    "涡轮按 100% 价格买币另扣 5%，买的币进底池扣 50%，第二天奖励币在底池卖再扣 50%，一进一出反而亏 5%。\n" +
-    "现在奖励币直接卖给 OTC 求购单，只扣 1%：成交价只要高于市价的 55%（折价不超过 45%）就是赚的！" +
-    (ratio ? `\n👉 现在最高求购价是市价的 ${(ratio * 100).toFixed(1)}%` + (ratio > 0.556 ? "，卖出就赚" : "") : "");
-}
-function dealText(m, list, p, tax, bidRatio) {
+function dealText(m, list, p, tax) {
   const ns = list.filter((x) => x.o.sell).length, name = label(m), arb = list.some((x) => x.e.arb >= PP_MIN_DAI);
   const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `🔥 比 DEX 卖得更贵：高价求购 ${name}！`];
   for (const { o, e } of list) {
     const pct = (e.pct * 100).toFixed(1);
-    const q = qtyStr(m, o.qty), taxNote = tax ? `，扣卖出税约 ${Math.round(tax * 100)}%` : "";
+    const q = qtyStr(m, o.qty);
     lines.push("", o.sell
       ? `📤 出售 ${q} ${m.sym} · 单价 ${d2(o.price, m.pd)} DAI\n` +
         `▶ 全部买下：付 ${d2(e.pay)} DAI，到手 ${qtyStr(m, e.got)} ${m.sym}（已扣 1% 手续费）\n` +
         `▶ 同样多的币在 DEX 买要 ${d2(e.dex)} DAI\n` +
         `✅ 你省下 ${d2(e.gain)} DAI（便宜 ${pct}%）` +
-        (e.arb >= PP_MIN_DAI ? `\n💰 买下马上到 DEX 卖掉能拿回 ${d2(e.back)} DAI（含滑点${taxNote}），净赚 ${d2(e.arb)} DAI` : "")
+        (e.arb >= PP_MIN_DAI ? `\n💰 买下马上到 DEX 卖掉能拿回 ${d2(e.back)} DAI，净赚 ${d2(e.arb)} DAI` : "")
       : `📥 求购 ${q} ${m.sym} · 出价 ${d2(o.price, m.pd)} DAI\n` +
         `▶ 把 ${q} ${m.sym} 卖给这张单：到手 ${d2(e.get)} DAI（已扣 1% 手续费）\n` +
-        `▶ 同样多的币在 DEX 卖只能拿 ${d2(e.dex)} DAI（含滑点${taxNote}）\n` +
+        `▶ 同样多的币在 DEX 卖只能拿 ${d2(e.dex)} DAI\n` +
         `✅ 你多赚 ${d2(e.gain)} DAI（多 ${pct}%）` +
         (e.arb >= PP_MIN_DAI ? `\n💰 没有币也能赚：先在 DEX 花 ${d2(e.cost)} DAI 买 ${q} ${m.sym}，再卖给这张单拿 ${d2(e.get)} DAI，净赚 ${d2(e.arb)} DAI` : ""));
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
-  if (m.key === "lgns") lines.push("", iloText(bidRatio));
-  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"} DEX 价 ${d2(p.px, m.pd)} DAI（以上按池子实时深度算，已扣 OTC 1% 手续费${tax ? "和 DEX 卖出税" : ""}，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
+  lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"} DEX 价 ${d2(p.px, m.pd)} DAI（以上按池子实时深度算，已扣 OTC 1% 手续费，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
   return lines.join("\n");
 }
 // 找出该推的好单；send=false 时只返回文字（预览）
@@ -279,8 +262,7 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
     if (!prev || (typeof prev === "object" && x.e.pct >= prev.pct + PP_AGAIN_PCT && now - prev.at >= PP_AGAIN_SEC)) fresh.push(x);
   }
   fresh.sort((a, b) => b.e.arb - a.e.arb || b.e.gain - a.e.gain);
-  const bestBid = Math.max(0, ...orders.filter((o) => !o.sell).map((o) => o.price)); // 最高求购价（ILO 那段要用）
-  const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, p, tax, bestBid / p.px) : null;
+  const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, p, tax) : null;
   if (!send || !text) return { hits: hits.length, px: p.px, tax, text };
   if (!pick.some((x) => x.e.arb >= PP_MIN_DAI) && (await kv.get(m.kv + "ppgap"))) return { hits: hits.length, waiting: fresh.length };
   const out = { hits: hits.length, sent: pick.length, groups: {} };
@@ -361,7 +343,7 @@ async function phrase(kv, dry, onlyAilgns) {
 const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP";
 const QUIET = [0, 8]; // 北京时间 0 点到 8 点不往群里发
 // 一段时间的成交按市场汇总：笔数、总金额、单价范围
-function groupText(fills, line, since, until, ilo = "") {
+function groupText(fills, line, since, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const by = {};
   for (const f of fills) (by[f.mk] = by[f.mk] || []).push(f);
@@ -374,7 +356,7 @@ function groupText(fills, line, since, until, ilo = "") {
   });
   if (out.length > 1) out.push(`· 合计 ${n} 笔，${dai2(total)} DAI`);
   const links = [...new Set(fills.map((f) => MARKETS.find((x) => x.key === f.mk).link))];
-  return `📊 OTC 成交汇总（${hm(since)}–${hm(until)}）\n` + out.join("\n") + "\n\n" + line + (ilo ? "\n\n" + ilo + "\n" : "\n") + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
+  return `📊 OTC 成交汇总（${hm(since)}–${hm(until)}）\n` + out.join("\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
 }
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -458,12 +440,11 @@ export async function onRequestGet(ctx) {
   for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k });
   const due = hr.fills.length && Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3) && !(bjHour >= QUIET[0] && bjHour < QUIET[1]);
   const until = Math.floor(now / 3600e3) * 3600e3; // 汇总截到这个整点
-  const ilo = hr.fills.length && (due || dry) ? await iloNow() : ""; // 每条成交汇总也带上 ILO 说明（站长要求）
-  const group = hr.fills.length ? groupText(hr.fills, await phrase(kv, true, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until, ilo) : null;
+  const group = hr.fills.length ? groupText(hr.fills, await phrase(kv, true, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until) : null;
   if (dry) return Response.json({ status, due, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if (due) {
-    const text = groupText(hr.fills, await phrase(kv, false, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until, ilo);
+    const text = groupText(hr.fills, await phrase(kv, false, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until);
     for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
