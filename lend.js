@@ -20,7 +20,8 @@
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
   var GUIDE_MONTHLY = 0.10; // 指导利息：月息 10%，不足一个月按一个月算（只是参考，利息由双方自己协商）
-  var GUIDE_OVER = 1.10; // 指导抵押：抵押品现值 = 借款金额 × 110%（按 DEX 市价算，只是参考）
+  // 指导抵押率：期限越长币价波动越大，抵押要越多（按 DEX 市价算，只是参考）：1–7 天 130%，8–30 天 150%，31–90 天 200%
+  function guideOver(term) { return term <= 7 * 86400 ? 1.30 : term <= 30 * 86400 ? 1.50 : 2.00; }
   function guideMonths(term) { return Math.max(1, Math.ceil(term / (30 * 86400))); }
   function guideRepay(p, term) { return p + p * BigInt(Math.round(GUIDE_MONTHLY * guideMonths(term) * 1e6)) / 1000000n; }
   var STATUS = ["挂单中", "借款中", "已还清", "已违约", "已撤单 / 已退回"];
@@ -152,7 +153,7 @@
     var active = loans.filter(function (l) { return l.status === 1; }).sort(function (a, b) { return a.due - b.due; });
     var mine = account ? loans.filter(function (l) { return l.borrower === account || l.lender === account; }).reverse().slice(0, 30) : [];
     function who(a) { return a === account ? '<b style="color:var(--gold)">我</b>' : A.short(a); }
-    function ratioTd(l) { var r = ratio(l); return r === null ? "—" : '<span class="' + (r >= 150 ? "up" : r >= 110 ? "" : "down") + '">' + r.toFixed(0) + "%</span>"; }
+    function ratioTd(l) { var r = ratio(l); return r === null ? "—" : '<span class="' + (r >= 150 ? "up" : r >= 110 ? "warn" : "down") + '" title="' + (r >= 150 ? "抵押较足" : r >= 110 ? "抵押偏薄：币价跌 " + Math.max(1, Math.round(100 - 10000 / r)) + "% 就不够还款" : "抵押不足：借款人很可能不还") + '">' + r.toFixed(0) + "%" + (r < 110 ? " ⚠️" : "") + "</span>"; }
     function openRow(l, i) {
       var it = interest(l);
       var act = l.borrower === account ? '<button class="ghost act-btn" data-cancel="' + l.id + '">撤单</button>' : '<button class="act-btn btn-buy" data-fund="' + l.id + '">出借</button>';
@@ -188,7 +189,7 @@
     if (!M.legacy) html += '<div id="otc-tot"></div>' + form(k);
     if (mine.length) html += myLoans(mine, now);
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">借款合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + A.short(LOAN) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsLoanEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
-      '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">金额不限 · 期限 1–90 天</div><div class="d">借多少、还多少由挂单人自己填（利息可以为 0）· 没有管理员，部署后任何人改不了</div></div></div>';
+      '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">金额不限 · 期限 1–90 天</div><div class="d">借多少、押多少、还多少由挂单人自己填（利息可以为 0）· 建议抵押率 1–7 天 130%、8–30 天 150%、31–90 天 200% · 没有管理员，部署后任何人改不了</div></div></div>';
     html += '<section class="card" id="ln-terms"><div class="card-head"><h2>借款约定</h2><span class="muted">接单即视为双方同意，全部由合约执行</span></div><ol class="addr-tips">' +
       '<li><b>利息自行协商。</b>借多少、到期还多少由挂单人填写，接单方认可就成交；页面的指导价（月息 10%）只是参考。</li>' +
       '<li><b>不足一个月按一个月计算。</b>指导价按月计息：借 1–30 天算 1 个月，31–60 天算 2 个月，61–90 天算 3 个月；提前还款不退利息。</li>' +
@@ -248,10 +249,10 @@
       var term = Number(document.getElementById("ln-term").value), lend = side === "lend", g, pr, cl;
       if (lend) {
         pr = k.toWei(pIn.value); if (!pr || pr <= 0n) { guideEl.hidden = true; return; }
-        if (mkt) { cl = toTokWei((Number(pr) / 1e18 * GUIDE_OVER / mkt).toFixed(M.dec === 18 ? 6 : 2)); if (autoSec || !col.value) { col.value = floorTok(cl); autoSec = true; } }
+        if (mkt) { cl = toTokWei((Number(pr) / 1e18 * guideOver(term) / mkt).toFixed(M.dec === 18 ? 6 : 2)); if (autoSec || !col.value) { col.value = floorTok(cl); autoSec = true; } }
       } else {
         cl = toTokWei(col.value); if (!cl || cl <= 0n) { guideEl.hidden = true; return; }
-        if (mkt) { pr = k.toWei((tokN(cl) * mkt / GUIDE_OVER).toFixed(2)); if (autoSec || !pIn.value) { pIn.value = floorDai(pr); autoSec = true; } }
+        if (mkt) { pr = k.toWei((tokN(cl) * mkt / guideOver(term)).toFixed(2)); if (autoSec || !pIn.value) { pIn.value = floorDai(pr); autoSec = true; } }
         else pr = k.toWei(pIn.value);
       }
       if (!pr || pr <= 0n) { guideEl.hidden = true; return; }
@@ -259,9 +260,9 @@
       if (autoRepay || !rIn.value) { rIn.value = floorDai(g); autoRepay = true; }
       guideEl.hidden = false;
       guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? floorTok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
-        (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(GUIDE_OVER * 100) + "%" : "可借 · 抵押品现值的 " + Math.round(100 / GUIDE_OVER) + "%（抵押率 " + Math.round(GUIDE_OVER * 100) + "%）") +
+        (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(guideOver(term) * 100) + "%（" + days(term) + "）" : "可借 · 抵押品现值的 " + Math.round(100 / guideOver(term)) + "%（" + days(term) + "期限建议抵押率 " + Math.round(guideOver(term) * 100) + "%）") +
         " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "% × " + guideMonths(term) + " 个月，不足一个月按一个月算，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
-        '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、利息多少都由双方自己协商；利息高接单快，抵押多出借人更放心。</p>';
+        '<p class="muted">按 ' + M.sym + " 当前市价 " + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、利息多少都由双方自己协商。抵押率建议 1–7 天 130%、8–30 天 150%、31–90 天 200%：合约不清算，币价跌破借款金额时借款人多半不还，抵押越足出借人越安全。</p>';
       document.getElementById("ln-guse").onclick = function () { autoSec = true; autoRepay = true; guide(); calc(); };
     }
     function floorTok(v) { var n = Number(v) / Math.pow(10, M.dec); return (Math.floor(n * 10000) / 10000).toString(); }
@@ -324,7 +325,7 @@
       var c = toTokWei(col.value), p = k.toWei(pIn.value), r = k.toWei(rIn.value);
       if (!c || !p || !r || c <= 0n || p <= 0n) { sum.textContent = "填好三个数字后显示明细"; return null; }
       var term = Number(document.getElementById("ln-term").value), l = { collateral: c, principal: p, repayAmount: r, term: term }, it = interest(l), ra = ratio(l);
-      var warn = r < p ? '<br><span class="down">到期还款不能少于本金</span>' : ra !== null && ra < 100 ? '<br><span class="down">抵押品现值低于借款金额，很难有人接单</span>' : "";
+      var warn = r < p ? '<br><span class="down">到期还款不能少于本金</span>' : ra !== null && ra < 100 ? '<br><span class="down">抵押品现值低于借款金额，很难有人接单</span>' : ra !== null && ra < guideOver(term) * 100 ? '<br><span class="warn">抵押率低于 ' + days(term) + '期限的建议值 ' + Math.round(guideOver(term) * 100) + '%，出借人可能嫌风险大</span>' : "";
       sum.innerHTML = (side === "lend"
         ? "借款人押 <b>" + tok(c) + " " + M.sym + "</b> 就能借走 <b>" + dai(p) + " DAI</b>，" + days(term) + "后还你 <b>" + dai(r) + " DAI</b>（利息 " + A.fmt(it.i, 2) + " DAI，" + it.pct.toFixed(1) + "%，年化约 " + it.apr.toFixed(0) + "%）" +
           (ra === null ? "" : "；抵押率参考 " + ra.toFixed(0) + "%") + "。你现在需存入 <b>" + dai(p + fee(p)) + " DAI</b>（含 1% 手续费 " + dai(fee(p)) + "），没人借撤单全额退回。"
@@ -412,7 +413,7 @@
           '<dl class="dl"><dt>借款人</dt><dd class="mono">' + A.short(l.borrower) + "</dd><dt>抵押</dt><dd>" + tok(l.collateral) + " " + M.sym + (ra === null ? "" : "（现值约 " + A.fmt(tokN(l.collateral) * mkt, 2) + " DAI，抵押率 " + ra.toFixed(0) + "%）") + "</dd>" +
           "<dt>你借出</dt><dd>" + dai(l.principal) + " DAI</dd><dt>手续费 1%</dt><dd>" + dai(fee(l.principal)) + " DAI</dd><dt>实付</dt><dd><b>" + dai(total) + " DAI</b></dd>" +
           "<dt>到期收回</dt><dd><b>" + dai(l.repayAmount) + " DAI</b>（利息 " + A.fmt(it.i, 2) + "，年化约 " + it.apr.toFixed(0) + "%）</dd><dt>期限</dt><dd>" + days(l.term) + "，从你接单起算</dd></dl>" +
-          '<p class="note down">到期借款人没还，你拿到的是上面的抵押币，不是 DAI；抵押币跌价的风险由你承担，合约不会清算。</p>' +
+          '<p class="note down">到期借款人没还，你拿到的是上面的抵押币，不是 DAI。' + (ra === null ? "" : "按现价，" + M.sym + " 跌超过 " + Math.max(0, Math.round(100 - 10000 / ra)) + "% 时抵押品就不够还款，借款人大概率不还。") + '合约不会清算、不会提醒补仓，跌价风险全部由你承担。</p>' +
           '<button id="m-go" style="padding:12px 22px">确认出借</button><p class="note" id="m-st"></p></div>';
         modal.hidden = false;
         var ms = document.getElementById("m-st");
