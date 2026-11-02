@@ -65,8 +65,14 @@
   // dec：小数位数，默认 18（DAI）；挂单的币用 tWei / tNum / tShow（AiLGNS 18 位，LGNS 9 位）
   function toWei(str, dec) {
     dec = dec || 18;
-    // 手机键盘可能打出逗号、全角符号或空格
-    str = String(str || "").replace(/[，,．。]/g, ".").replace(/\s/g, "");
+    // 手机键盘可能打出全角符号或空格；逗号要分清是千分位（1,000 / 1,234,567.89）还是小数点（中文键盘打出的 0,5）
+    str = String(str || "").replace(/[．。]/g, ".").replace(/，/g, ",").replace(/\s/g, "");
+    if (str.indexOf(",") >= 0) {
+      var parts0 = str.split(","), tail = parts0[parts0.length - 1];
+      // 有小数点、或多个逗号、或逗号后面正好 3 位数字（且前面是 1–3 位）：都是千分位，去掉；否则当小数点
+      if (str.indexOf(".") >= 0 || parts0.length > 2 || (/^\d{1,3}$/.test(parts0[0]) && /^\d{3}$/.test(tail))) str = str.replace(/,/g, "");
+      else str = str.replace(",", ".");
+    }
     if (!/^\d*\.?\d*$/.test(str) || str === "" || str === ".") return null;
     var parts = str.split("."), frac = (parts[1] || "").slice(0, dec).padEnd(dec, "0");
     return BigInt(parts[0] || "0") * 10n ** BigInt(dec) + BigInt(frac);
