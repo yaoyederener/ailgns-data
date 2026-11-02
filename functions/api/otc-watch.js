@@ -221,10 +221,10 @@ function edge(o, p, tax) {
   if (o.sell) {
     const pay = o.qty * o.price, got = o.qty * (1 - OTC_FEE); // 付 DAI，到手的币扣 1%
     const dex = ammBuyCost(p, got), back = ammSell(p, got * (1 - tax));
-    return { gain: dex - pay, pct: (dex - pay) / dex, arb: Math.max(0, back - pay), dexPrice: dex / got, buy: true };
+    return { gain: dex - pay, pct: (dex - pay) / dex, arb: Math.max(0, back - pay), dexPrice: dex / got, buy: true, pay, got, dex, back };
   }
   const get = o.qty * o.price * (1 - OTC_FEE), dex = ammSell(p, o.qty * (1 - tax)), cost = ammBuyCost(p, o.qty); // 卖给这张单拿到的 DAI 扣 1%
-  return { gain: get - dex, pct: dex > 0 ? (get - dex) / dex : 1, arb: Math.max(0, get - cost), dexPrice: dex / o.qty, buy: false };
+  return { gain: get - dex, pct: dex > 0 ? (get - dex) / dex : 1, arb: Math.max(0, get - cost), dexPrice: dex / o.qty, buy: false, get, dex, cost };
 }
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd, maximumFractionDigits: pd });
@@ -234,9 +234,18 @@ function dealText(m, list, p, tax) {
   const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `🔥 比 DEX 卖得更贵：高价求购 ${name}！`];
   for (const { o, e } of list) {
     const pct = (e.pct * 100).toFixed(1);
+    const q = qtyStr(m, o.qty), taxNote = tax ? `，扣卖出税约 ${Math.round(tax * 100)}%` : "";
     lines.push("", o.sell
-      ? `📤 出售 ${qtyStr(m, o.qty)} ${m.sym}，单价 ${d2(o.price, m.pd)} DAI\n比在 DEX 买同样多的币省 ${d2(e.gain)} DAI（便宜 ${pct}%）` + (e.arb >= PP_MIN_DAI ? `\n💰 买下后马上到 DEX 卖掉，约赚 ${d2(e.arb)} DAI` : "")
-      : `📥 求购 ${qtyStr(m, o.qty)} ${m.sym}，出价 ${d2(o.price, m.pd)} DAI\n卖给这张单比在 DEX 卖多拿 ${d2(e.gain)} DAI（多 ${pct}%）` + (tax >= 0.04 ? `，DEX 卖出要扣约 ${Math.round(tax * 100)}% 税，这里只收 1%` : "") + (e.arb >= PP_MIN_DAI ? `\n💰 从 DEX 买币再卖给这张单，约赚 ${d2(e.arb)} DAI` : ""));
+      ? `📤 出售 ${q} ${m.sym} · 单价 ${d2(o.price, m.pd)} DAI\n` +
+        `▶ 全部买下：付 ${d2(e.pay)} DAI，到手 ${qtyStr(m, e.got)} ${m.sym}（已扣 1% 手续费）\n` +
+        `▶ 同样多的币在 DEX 买要 ${d2(e.dex)} DAI\n` +
+        `✅ 你省下 ${d2(e.gain)} DAI（便宜 ${pct}%）` +
+        (e.arb >= PP_MIN_DAI ? `\n💰 买下马上到 DEX 卖掉能拿回 ${d2(e.back)} DAI（含滑点${taxNote}），净赚 ${d2(e.arb)} DAI` : "")
+      : `📥 求购 ${q} ${m.sym} · 出价 ${d2(o.price, m.pd)} DAI\n` +
+        `▶ 把 ${q} ${m.sym} 卖给这张单：到手 ${d2(e.get)} DAI（已扣 1% 手续费）\n` +
+        `▶ 同样多的币在 DEX 卖只能拿 ${d2(e.dex)} DAI（含滑点${taxNote}）\n` +
+        `✅ 你多赚 ${d2(e.gain)} DAI（多 ${pct}%）` +
+        (e.arb >= PP_MIN_DAI ? `\n💰 没有币也能赚：先在 DEX 花 ${d2(e.cost)} DAI 买 ${q} ${m.sym}，再卖给这张单拿 ${d2(e.get)} DAI，净赚 ${d2(e.arb)} DAI` : ""));
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
   lines.push("", `📊 现在${m.key === "ailgns" ? "" : " " + m.chain + " 链"} DEX 价 ${d2(p.px, m.pd)} DAI（以上按池子实时深度算，已扣 OTC 1% 手续费${tax ? "和 DEX 卖出税" : ""}，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
