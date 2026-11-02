@@ -1,7 +1,7 @@
 /*
   Cache-Control: public, max-age=0, must-revalidate
   # 安全：只允许加载本站脚本（外加二维码库），不准别的网站把本站嵌进框里（防骗点授权），强制 HTTPS
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://rpc.anubispace.org https://rpc2.anubispace.org https://rpc3.anubispace.org https://browser.anubispace.org https://polygon-bor-rpc.publicnode.com https://awakehelix.io https://raw.githubusercontent.com https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://rpc.anubispace.org https://rpc2.anubispace.org https://rpc3.anubispace.org https://browser.anubispace.org https://polygon-bor-rpc.publicnode.com https://awakehelix.io https://raw.githubusercontent.com https://cloudflareinsights.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Strict-Transport-Security: max-age=31536000; includeSubDomains
