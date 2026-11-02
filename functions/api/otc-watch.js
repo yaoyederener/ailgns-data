@@ -1,7 +1,7 @@
 // OTC 挂单动态通知：定时任务每 5 分钟调用一次，读各市场托管合约新的成交 / 撤单 / 到期退回事件。
 // 市场：AiLGNS（Anubis）、LGNS（Anubis）、LGNS（Polygon），合约代码相同，各链各一份
 // ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
-// ② 群播报：有成交时发到 DeBox 群（庆祝成交 + 成交送会员 + 网址）
+// ② 群播报：成交先攒起来，每小时发一次汇总到 DeBox 群（没成交不发；北京时间 0–8 点不发，攒到 8 点一起发）
 // ③ 订阅号推送：低于市价买 / 高于市价卖的挂单推送给关注机器人的人（每张单只推一次）
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
@@ -300,13 +300,22 @@ async function phrase(kv, dry, onlyAilgns) {
   return PHRASES[i];
 }
 const PROMO = "🎁 交易就送会员，交易金额超过 1 万 DAI 的送高级 VIP";
-function groupText(fills, line) {
-  const out = fills.slice(0, 5).map((f) => f.m.nft
-    ? `🤝 已成交：1 张 ${f.m.sym} 卡牌，\n金额：${dai2(f.price)} DAI`
-    : `🤝 已成交：${f.qty.toFixed(f.m.dec === 18 ? 5 : 2)} 个 ${label(f.m)}，\n金额：${dai2(f.qty * f.price)} DAI，\n单价：${d2(f.price, f.m.pd)} DAI/${f.m.sym}`);
-  if (fills.length > 5) out.push(`……共 ${fills.length} 笔成交`);
-  const links = [...new Set(fills.map((f) => f.m.link))]; // 都是同一个市场的成交，就直接链到那个市场
-  return out.join("\n\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
+const QUIET = [0, 8]; // 北京时间 0 点到 8 点不往群里发
+// 一段时间的成交按市场汇总：笔数、总金额、单价范围
+function groupText(fills, line, since, until) {
+  const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
+  const by = {};
+  for (const f of fills) (by[f.mk] = by[f.mk] || []).push(f);
+  let n = 0, total = 0;
+  const out = Object.entries(by).map(([k, list]) => {
+    const m = MARKETS.find((x) => x.key === k), sum = list.reduce((t, f) => t + f.qty * f.price, 0);
+    const lo = Math.min(...list.map((f) => f.price)), hi = Math.max(...list.map((f) => f.price));
+    n += list.length; total += sum;
+    return `· ${m.nft ? m.sym + " 卡牌" : label(m)}：${list.length} 笔，共 ${dai2(sum)} DAI，单价 ${d2(lo, m.pd)}` + (hi > lo ? `–${d2(hi, m.pd)}` : "") + (m.nft ? " DAI/张" : "");
+  });
+  if (out.length > 1) out.push(`· 合计 ${n} 笔，${dai2(total)} DAI`);
+  const links = [...new Set(fills.map((f) => MARKETS.find((x) => x.key === f.mk).link))];
+  return `📊 OTC 成交汇总（${hm(since)}–${hm(until)}）\n` + out.join("\n") + "\n\n" + line + "\n" + PROMO + "\n使用钱包打开DApp链接↓\n🧬 " + (links.length === 1 ? links[0] : SITE);
 }
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -357,7 +366,7 @@ export async function onRequestGet(ctx) {
             msgs.push([taker, o.sell
               ? `✅ 买入成功 #${id}\n收到 AWAKE NFT #${tokenId}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link
               : `✅ 卖出成功 #${id}\nAWAKE NFT #${tokenId} 已卖给求购方，收到 ${fmt(price)} DAI` + link]);
-            fills.push({ m, qty: 1, price });
+            fills.push({ m, qty: 1, price, k: l.transactionHash + l.logIndex });
           } else {
             const expired = BigInt("0x" + d[0]) === 1n;
             msgs.push([o.maker, (expired ? `⏰ 你的卡牌${o.sell ? "卖单" : "求购单"} #${id} 到期未成交，已自动退回` : `↩️ 你的卡牌${o.sell ? "卖单" : "求购单"} #${id} 已撤单，已退回`) + (o.sell ? ` AWAKE NFT #${o.tokenId}` : " DAI（含预存的手续费）") + " 到你的钱包" + link]);
@@ -370,7 +379,7 @@ export async function onRequestGet(ctx) {
           msgs.push([o.maker, `🎉 你的${side} #${id} 成交了！\n这笔：${o.sell ? "卖出" : "付出"} ${fmt(amount)} ${giveSym}，收到 ${fmt(paid)} ${wantSym}\n` +
             (o.give ? `本单累计：已收到 ${fmt(got)} / ${fmt(Number(o.want) / 10 ** wd)} ${wantSym}\n` : "") +
             ((o.sell ? left * paid / amount : left) >= 1 ? `还剩 ${fmt(left)} ${giveSym} 在挂单中` : "✅ 已全部成交" + (left > 0 ? `（剩 ${fmt(left)} ${giveSym} 不足 1 DAI，已自动下架，可在网站「我的挂单」点取回）` : "")) + mine(o.maker)]);
-          fills.push({ m, qty: o.sell ? amount : paid, price: o.sell ? paid / amount : amount / paid });
+          fills.push({ m, qty: o.sell ? amount : paid, price: o.sell ? paid / amount : amount / paid, k: l.transactionHash + l.logIndex });
           msgs.push([taker, `✅ 吃单成功 #${id}\n付出 ${fmt(paid)} ${wantSym}，收到 ${fmt(amount - fee)} ${giveSym}（已扣 1% 手续费 ${fmt(fee)}）` + mine(taker)]);
         } else {
           const refunded = num(d[0], gd), expired = BigInt("0x" + d[1]) === 1n;
@@ -382,17 +391,25 @@ export async function onRequestGet(ctx) {
       status[m.key] = { from, latest, events: logs.length };
     } catch (e) { status[m.key] = { err: String(e.message || e).slice(0, 160) }; } // 一条链的节点出问题，不影响别的市场，下次接着读
   }
-  // 群播报：只在有成交时发
+  // 群播报：新成交先存进 otcw:hr，整点后发上一段的汇总，发完清空
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
-  const group = fills.length ? groupText(fills, await phrase(kv, dry, fills.every((f) => f.m.key === "ailgns"))) : null;
-  if (dry) return Response.json({ status, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
+  const now = Date.now(), bjHour = new Date(now + 8 * 3600e3).getUTCHours();
+  const hr = (await kv.get("otcw:hr", "json")) || { since: Math.floor(now / 3600e3) * 3600e3, fills: [] };
+  if (!hr.fills.length) hr.since = Math.floor(now / 3600e3) * 3600e3; // 空着的时候从这个整点算起
+  for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k });
+  const due = hr.fills.length && Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3) && !(bjHour >= QUIET[0] && bjHour < QUIET[1]);
+  const until = Math.floor(now / 3600e3) * 3600e3; // 汇总截到这个整点
+  const group = hr.fills.length ? groupText(hr.fills, await phrase(kv, true, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until) : null;
+  if (dry) return Response.json({ status, due, group, messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
-  if (group) {
+  if (due) {
+    const text = groupText(hr.fills, await phrase(kv, false, hr.fills.every((f) => f.mk === "ailgns")), hr.since, until);
     for (const g of gids) {
-      try { await sendDebox(ctx.env, g, group, "group"); groupSent[g] = true; }
-      catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，下次再试
+      try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
+      catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
     }
-  }
+    await kv.put("otcw:hr", JSON.stringify({ since: until, fills: [] }));
+  } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr)); // 有新成交才写，省 KV 写入次数
   // 低于市价的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
   let fans = null;
   if (PP_ON) {
