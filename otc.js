@@ -7,13 +7,13 @@
   // 各市场用同一份托管合约代码（AilgnsOtcEscrow.sol），各自部署一份，构造参数换成对应的币和 DAI
   // otc 空着时页面显示"即将上线"；pairDai：DEX 交易对里 DAI 是 token0 还是 token1；pd：单价显示几位小数
   // dexSell：在 DEX 卖 1 枚实际到手 ≈ 市价 × dexSell；dexBuy：在 DEX 买 1 枚实际成本 ≈ 市价 × dexBuy（买入不扣税，只有池子手续费 + 滑点）
-  // AiLGNS 官方 DEX 卖出扣 3%；LGNS 卖进池子扣税：Polygon 固定 5%，Anubis 动态 5%–约 50%（按最少的 5% 算）
+  // AiLGNS 官方 DEX 卖出扣 3%；LGNS 卖进池子扣税：Polygon 固定 5%，Anubis 动态（常见 50% 左右，页面打开时从 /api/sell-tax 读链上实测值）
   var MARKETS = {
     ailgns: { sym: "AiLGNS", chain: "anubis", chainName: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", token: ANUBIS_AILGNS, dai: ANUBIS_DAI, dec: 18, pd: 2,
       pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.967, dexBuy: 1.005, dexName: "官方 DEX", eg: [5, 800] },
     lgns: { sym: "LGNS", chain: "anubis", chainName: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dai: ANUBIS_DAI, dec: 9, pd: 4,
-      pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.947, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.075],
-      dexNote: "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，最少 5%，最高约 50%；这里按最少的 5% 算，实际在 DEX 卖往往扣得更多。" },
+      pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.4985, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.075], liveTax: true,
+      dexNote: "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，常见 50% 左右（暂时没读到实测值，按 50% 算）。" },
     plgns: { sym: "LGNS", chain: "polygon", chainName: "Polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", token: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", dai: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", dec: 9, pd: 4,
       pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, explorer: "https://polygonscan.com", gas: "POL", dexSell: 0.947, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.15],
       dexNote: "Polygon 链 DEX 卖出 LGNS 固定扣 5% 手续费，买入不扣。" },
@@ -34,7 +34,16 @@
     // Anubis 链的 Gas 就是用 DAI 付的（DAI 余额就是 Gas 余额），用 DAI 的「最大」要留一点当 Gas；Polygon 用 POL 付 Gas，不用留 DAI
     GAS_RESERVE = M.gas === "DAI" ? 10n ** 17n : 0n; // 0.1 DAI，够授权 + 成交好几次
     DEX_SELL = M.dexSell; DEX_BUY = M.dexBuy; DX = M.dexName;
+    if (M.liveTax && SELL_TAX !== null) DEX_SELL = (1 - SELL_TAX) * 0.997; // 链上实测扣费 + 池子 0.3%
     RANGE = { sell: [DEX_SELL, DEX_BUY * TAKER], buy: [DEX_SELL / TAKER, DEX_BUY] };
+  }
+  // Anubis LGNS 卖出实测扣费（/api/sell-tax，服务器每 5 分钟看一次最近的卖单）；读到后重新算 DEX 到手价和指导价
+  var SELL_TAX = null;
+  function loadTax() {
+    if (!M.liveTax) return Promise.resolve();
+    return fetch("/api/sell-tax").then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.lgns > 0 && j.lgns < 0.95) { SELL_TAX = j.lgns; useMarket(MK); }
+    }).catch(function () { /* 读不到就按默认 50% */ });
   }
   var POL_MIN = 2n * 10n ** 16n; // Polygon 上至少留 0.02 POL 付 Gas
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
@@ -57,7 +66,7 @@
   // 指导价：要比 DEX 对买卖双方都划算，才容易成交（DEX 到手价 / 成本见上面各市场的 dexSell、dexBuy）
   // 吃单方付 1% 手续费，所以：卖单价 ≤ 市价 × dexBuy × 99% 买家才划算；买单价 ≥ 市价 × dexSell ÷ 99% 卖家才划算
   var TAKER = 0.99;
-  var GUIDE = { sell: 0.985, buy: 0.99 }; // 挂卖单建议市价 -1.5%，挂买单建议市价 -1%
+  // 指导价取合理区间（RANGE）的正中间：卖家比去 DEX 卖多拿的，和买家比去 DEX 买省下的，差不多一样多，两边都有赚头
   useMarket("ailgns");
 
   // ---------- 数字 ----------
@@ -133,14 +142,14 @@
     try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"); return j && j.orders ? bookOf(j) : null; } catch (e) { return null; }
   }
   function loadBook(fresh) {
-    var mk = MK;
-    return fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+    var mk = MK, tax = loadTax();
+    return tax.then(function () { return fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || j.error || !j.orders) throw new Error("book");
       try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
       return bookOf(j);
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
-    });
+    }); });
   }
   // 读当前市场所在的链
   function read(to, data) { return W.rpcOn(M.chain, "eth_call", [{ to: to, data: data }, "latest"]); }
@@ -564,7 +573,7 @@
           var dust = o.open && isDust(o);
           var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · 还剩 " + left(o.expiry - now) + '<br><span class="muted">' + A.timeBJ(o.expiry * 1000) + " 到期（北京时间）</span>";
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
-          if (r && !dust && !M.flat && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * GUIDE[side], PD) + " 重挂</span>";
+          if (r && !dust && !M.flat && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * (RANGE[side][0] + RANGE[side][1]) / 2, PD) + " 重挂</span>";
           var remain = dust && isCrumb(o, o.giveLeft) ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
           return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
@@ -609,7 +618,7 @@
       function guide() {
         var el = document.getElementById("otc-guide");
         if (!mkt) { el.hidden = true; return; }
-        var g = mkt * GUIDE[side], lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
+        var g = mkt * (RANGE[side][0] + RANGE[side][1]) / 2, lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
         if (M.flat) { // DEX 不扣税的币：OTC 和 DEX 价差不到 1%，按市价挂就行；想快点成交就让一点
           g = mkt;
           el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 当前 DEX 市价</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
@@ -618,13 +627,11 @@
           if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
           return;
         }
-        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价低 ' + ((1 - GUIDE[side]) * 100).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
-          (side === "sell"
-            ? "<p>买家比去" + DX + " 买便宜；你比在" + DX + " 卖（每枚到手约 " + A.fmt(dexSell, PD) + "）多拿约 <b>" + A.fmt(g - dexSell, PD) + " DAI</b>，挂出去容易被吃掉。</p>" +
-              '<p class="muted">合理区间 ' + A.fmt(lo, PD) + "–" + A.fmt(hi, PD) + "。高于 " + A.fmt(hi, PD) + " 买家直接去 DEX 买更划算，基本卖不掉。</p>"
-            : "<p>卖家扣 1% 手续费后每枚到手 " + A.fmt(g * TAKER, PD) + "，比在" + DX + " 卖（约 " + A.fmt(dexSell, PD) + "）多，容易成交；你比去" + DX + " 买（约 " + A.fmt(dexBuy, PD) + "）每枚省约 <b>" + A.fmt(dexBuy - g, PD) + " DAI</b>。</p>" +
-              '<p class="muted">合理区间 ' + A.fmt(lo, PD) + "–" + A.fmt(hi, PD) + "。低于 " + A.fmt(lo, PD) + " 卖家去 DEX 卖更划算，基本买不到。</p>") +
-          (M.dexNote ? '<p class="muted">' + M.dexNote + " LGNS 在 Anubis 链和 Polygon 链上各有一个市场，价格各自独立。</p>" : "");
+        var off = (1 - g / mkt) * 100, sellGain = (side === "sell" ? g : g * TAKER) - dexSell, buyGain = dexBuy - (side === "sell" ? g / TAKER : g);
+        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价' + (off >= 0 ? "低 " : "高 ") + Math.abs(off).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
+          "<p>按这个价成交，两边都比去" + DX + " 划算：卖家比在" + DX + " 卖（每枚到手约 " + A.fmt(dexSell, PD) + "）多拿约 <b>" + A.fmt(sellGain, PD) + " DAI</b>；买家比去" + DX + " 买（每枚约 " + A.fmt(dexBuy, PD) + "）省约 <b>" + A.fmt(buyGain, PD) + " DAI</b>（都已算上吃单方 1% 手续费）。</p>" +
+          '<p class="muted">合理区间 ' + A.fmt(lo, PD) + "–" + A.fmt(hi, PD) + "。" + (side === "sell" ? "高于 " + A.fmt(hi, PD) + " 买家直接去 DEX 买更划算，基本卖不掉；想快点卖可以往下调。" : "低于 " + A.fmt(lo, PD) + " 卖家去 DEX 卖更划算，基本买不到；想快点买可以往上调。") + "</p>" +
+          (M.dexNote ? '<p class="muted">' + (M.liveTax && SELL_TAX !== null ? "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，链上实测现在约扣 <b>" + (SELL_TAX * 100).toFixed(1) + "%</b>（每 5 分钟更新）。" : M.dexNote) + " LGNS 在 Anubis 链和 Polygon 链上各有一个市场，价格各自独立。</p>" : "");
         document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
         if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
       }
