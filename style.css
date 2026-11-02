@@ -1216,3 +1216,10 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .cb-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #c2410c; background: #ffedd5; border-radius: 999px; padding: 1px 8px; margin: 0 0 4px; }
 .cb-fab { position: relative; }
 .cb-fab.cb-new::after { content: ""; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }
+/* 手机上市场切换缩小：三列、小字、窄内边距，少占屏幕 */
+@media (max-width: 600px) {
+  .mkt-tabs { grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 10px; }
+  .mkt-tabs a { padding: 6px 4px; border-radius: 10px; gap: 0; }
+  .mkt-tabs a b { font-size: 13px; }
+  .mkt-tabs a small { font-size: 10.5px; }
+}
