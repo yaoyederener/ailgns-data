@@ -46,7 +46,9 @@
   }
   function signed(v, f) { v = n(v); return (v > 0 ? "+" : v < 0 ? "−" : "") + (f || wan)(Math.abs(v)); }
   function cls(v) { return n(v) > 0 ? "up" : n(v) < 0 ? "down" : ""; }
-  function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
+  // 短地址顺便记下对应的完整地址：scan.js 全站把短地址换成 .ailgns / .lgns 域名时要用
+  var SHORTS = {};
+  function short(a) { var s = a.slice(0, 6) + "…" + a.slice(-4); if (isAddr(a)) SHORTS[s] = a.toLowerCase(); return s; }
   function isAddr(a) { return /^0x[0-9a-fA-F]{40}$/.test(a || ""); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function lv(level) { return level ? '<span class="lv p' + level + '">P' + level + "</span>" : '<span class="lv">—</span>'; }
@@ -482,7 +484,7 @@
   // 每个页面在浏览器标签和分享时显示的标题
   var PAGE_TITLES = { lend: "借贷", trades: "成交查询",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
-    team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: ".ailgns 域名", scan: "AiLGNS 浏览器"
+    team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: ".ailgns 域名", scan: "AiLGNS 浏览器", rank: "OTC 交易排行榜"
   };
 
   // ---------- 页面：私人定制 · 商户合作（海报） ----------
@@ -569,7 +571,7 @@
   window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
   window.addEventListener("error", function (ev) { if (ev.error) oops(ev.error); });
   window.AIL = { errTip: errTip, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
-    pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
+    pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
     track: track,

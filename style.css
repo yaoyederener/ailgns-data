@@ -1456,3 +1456,18 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-big{font-size:16px}
 .sc-kn{color:#7c3aed}
 .nm-go4{margin-top:12px;background:#16a34a}
+/* 交易排行榜 */
+.rk-podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:8px;align-items:end;text-align:center}
+.rk-p{display:flex;flex-direction:column;gap:4px;padding:14px 6px;border-radius:14px;color:#fff;min-width:0}
+.rk-p1{padding:22px 6px;background:linear-gradient(160deg,#f59e0b,#b45309);box-shadow:0 6px 18px rgba(245,158,11,.35)}
+.rk-p2{background:linear-gradient(160deg,#94a3b8,#475569)}
+.rk-p3{background:linear-gradient(160deg,#d97706,#78350f)}
+.rk-t{font-size:15px}.rk-p1 .rk-t{font-size:17px}
+.rk-p .rk-a{font-size:12px;word-break:break-all;opacity:.95}
+.rk-v{font-size:14px}
+.rk-p small{opacity:.85}
+.rk-list{margin:14px 0 0;padding:0;list-style:none}
+.rk-list li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line,#eee);font-size:14px}
+.rk-n{width:26px;text-align:center;font-weight:700;opacity:.6}
+.rk-list .rk-a{flex:1;min-width:0;word-break:break-all}
+.rk-mine{margin:10px 0;padding:12px;border-radius:12px;background:rgba(22,119,255,.08);font-size:15px;line-height:1.6}

@@ -9,6 +9,7 @@ import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 import { rebuildIfNeeded } from "../../lib/pixel.js";
 import { bjDay } from "../../lib/stats.js";
 import { GP_MAX, SEED } from "../../lib/guide.js";
+import { addVol } from "../../lib/rank.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -47,6 +48,7 @@ const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），
 const VIP_MIN_FILL = 50;
 const OLD_VIP_CUTOFF = { anubis: 17967579, polygon: 96531101 }; // 和 functions/api/member.js 的 OTC_VIP_CUTOFF 一样
 async function markTraders(m, kv, logs, cache, live = false) {
+  const deltas = {}; // 这批新成交给排行榜加的量
   for (const l of logs) {
     if (l.topics[0] !== filledTopic(m)) continue;
     const key = "otcf:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
@@ -58,9 +60,13 @@ async function markTraders(m, kv, logs, cache, live = false) {
       r.vol = (r.vol || 0) + vol;
       r.n = (r.n || 0) + 1;
       await kv.put("otct:" + a, JSON.stringify(r));
+      const d = deltas[a] || (deltas[a] = [0, 0]);
+      d[0] += vol;
+      d[1] += 1;
     }
     await kv.put(key, "1");
   }
+  await addVol(kv, deltas);
   await markVip(m, kv, logs, cache, live);
 }
 // live：正常进度读到的新成交（补记以前的成交时不算），新送出的初级 VIP 记进 st:v:<北京日期>，内部群日报用

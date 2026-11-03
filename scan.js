@@ -44,13 +44,32 @@
     return s < 60 ? Math.max(1, Math.round(s)) + " 秒前" : s < 3600 ? Math.round(s / 60) + " 分钟前" : s < 86400 ? Math.round(s / 3600) + " 小时前" : Math.round(s / 86400) + " 天前";
   }
 
-  // 地址 → 主名字：两个后缀都查，都设了就两个一起显示；同一页里查过的记住
+  // 设过主名字的地址：读两个合约的 PrimaryChanged 记录（官方浏览器接口一次最多 1000 条），5 分钟刷新一次。
+  // 只有这些地址才去链上查名字，全站成百上千个地址也不会每个都查
+  var T_PRIMARY = "0xcce410882185feecc3dc31bf1f98597f94091d6830a2a5776ef494454c2f4930", cand = null, candAt = 0;
+  function candidates() {
+    if (!cand || Date.now() - candAt > 300000) {
+      candAt = Date.now();
+      cand = Promise.all(["ailgns", "lgns"].map(function (t) {
+        return fetch(WEB + "/api?module=logs&action=getLogs&fromBlock=18161690&toBlock=latest&address=" + NAMES[t] + "&topic0=" + T_PRIMARY).then(function (r) { return r.json(); });
+      })).then(function (x) {
+        var set = {};
+        x.forEach(function (d) { (d.result || []).forEach(function (l) { set["0x" + l.topics[1].slice(26)] = 1; }); });
+        return set;
+      }, function () { return null; }); // 读不到就退回每个地址都查
+    }
+    return cand;
+  }
+  // 地址 → 名字：优先显示 .ailgns，没设 .ailgns 才显示 .lgns；同一页里查过的记住
   var nameCache = {};
   function nameOf(a) {
     a = String(a).toLowerCase();
-    if (!nameCache[a]) nameCache[a] = Promise.all(["ailgns", "lgns"].map(function (t) {
-      return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n ? n + "." + t : ""; }, function () { return ""; });
-    })).then(function (x) { return x.filter(Boolean).join(" · "); });
+    if (!nameCache[a]) nameCache[a] = candidates().then(function (set) {
+      if (set && !set[a]) return "";
+      return Promise.all(["ailgns", "lgns"].map(function (t) {
+        return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n ? n + "." + t : ""; }, function () { return ""; });
+      })).then(function (x) { return x[0] || x[1]; });
+    });
     return nameCache[a];
   }
   // 页面里所有 data-a 的地址，查到名字就换成「名字 + 短地址」
@@ -193,6 +212,26 @@
       fillNames(out);
     });
   }
+
+  // 全站：页面上出现的短地址（0x1234…abcd），只要这个地址设了主名字，就换成域名显示
+  var SKIP = { INPUT: 1, TEXTAREA: 1, SCRIPT: 1, STYLE: 1 }, SHORT_RE = /0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}/g, timer = 0;
+  function swapAll() {
+    timer = 0;
+    var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null), n, hits = [];
+    while ((n = w.nextNode())) if (n.nodeValue.indexOf("…") >= 0 && /0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}/.test(n.nodeValue) && n.parentNode && !SKIP[n.parentNode.nodeName]) hits.push(n);
+    hits.forEach(function (node) {
+      (node.nodeValue.match(SHORT_RE) || []).forEach(function (s) {
+        var full = A.shorts && A.shorts[s];
+        if (!full) return;
+        nameOf(full).then(function (nm) {
+          if (!nm || node.nodeValue.indexOf(s) < 0) return;
+          node.nodeValue = node.nodeValue.replace(s, nm);
+          if (node.parentNode && !node.parentNode.title) node.parentNode.title = full;
+        });
+      });
+    });
+  }
+  new MutationObserver(function () { if (!timer) timer = setTimeout(swapAll, 300); }).observe(document.body, { childList: true, subtree: true, characterData: true });
 
   // 给 OTC 等页面用：地址先显示短地址，查到主名字后换成名字
   A.nameTag = function (a) { return '<span data-a="' + a + '">' + A.short(a) + "</span>"; };
