@@ -1471,3 +1471,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .rk-n{width:26px;text-align:center;font-weight:700;opacity:.6}
 .rk-list .rk-a{flex:1;min-width:0;word-break:break-all}
 .rk-mine{margin:10px 0;padding:12px;border-radius:12px;background:rgba(22,119,255,.08);font-size:15px;line-height:1.6}
+/* OTC 自动撮合提示 */
+.otc-match { margin: 10px 0; padding: 14px 16px; border-radius: 14px; background: #fffbeb; border: 1px solid #fcd34d; color: #78350f; }
+.otc-match .om-t { display: block; font-size: 16px; margin-bottom: 6px; }
+.otc-match p { margin: 4px 0; }
+.otc-match button { margin-top: 8px; padding: 12px 22px; background: linear-gradient(110deg, #f59e0b, #ea580c); border: 0; color: #fff; font-weight: 700; }

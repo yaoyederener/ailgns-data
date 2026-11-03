@@ -607,7 +607,7 @@
         '<button type="button" data-d="custom">自定义</button></div>' +
         '<div class="dur-custom" id="otc-dur-custom" hidden><input id="otc-dur-n" inputmode="numeric" placeholder="数字"><div class="seg" id="otc-dur-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div>' +
         '<p class="note" id="otc-dur-st">有效期 7 天</p></div>' +
-        '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
+        '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="otc-match"></div><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
     function myOrders(list, now, mkt) {
@@ -691,7 +691,75 @@
         document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
         if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
       }
+      // 自动撮合：挂单前先看对面有没有价格更好的单，有就提示「一键先成交，剩下的再挂单」
+      var now0 = Date.now() / 1000, live0 = orders.filter(function (o) { return o.open && o.expiry > now0 && o.giveLeft > 0n && !isDust(o) && o.maker !== account; });
+      var mbox = document.getElementById("otc-match"), mp = null;
+      function match() {
+        var q = tWei(qty.value), pw = toWei(price.value), pr = Number(price.value), sell = side === "sell";
+        mp = null;
+        if (!q || !pw || !(pr > 0)) { mbox.innerHTML = ""; return; }
+        var cross = live0.filter(function (o) { return sell ? !o.sellAilgns && priceOf(o) >= pr : o.sellAilgns && priceOf(o) <= pr; })
+          .sort(function (a, b) { return sell ? priceOf(b) - priceOf(a) : priceOf(a) - priceOf(b); });
+        var total = q * pw / TUNIT, p = cross.length ? (sell ? sweepPlanTok(cross, q) : buyPlan(cross, q)) : null;
+        if (!p || !p.steps.length) { mbox.innerHTML = ""; return; }
+        var restGive = sell ? q - p.tok : (q - p.tok) * pw / TUNIT, restWant = sell ? restGive * pw / TUNIT : q - p.tok;
+        var restDai = sell ? restWant : restGive;
+        if (restDai < MIN_DAI) { restGive = 0n; restWant = 0n; } // 剩的不到 1 DAI 就不挂了
+        mp = { p: p, sell: sell, restGive: restGive, restWant: restWant };
+        var fee = sell ? p.dai / 100n : p.tok / 100n, better = sell ? (p.avg / pr - 1) * 100 : (1 - p.avg / pr) * 100;
+        mbox.innerHTML = '<div class="otc-match"><b class="om-t">⚡ 有更划算的单，现在就能成交</b>' +
+          "<p>市场上有 <b>" + p.steps.length + " 张" + (sell ? "买单出价 ≥" : "卖单要价 ≤") + "</b> 你填的价，可以立刻" + (sell ? "卖出 <b>" + tShow(p.tok) + " " + SYM + "</b>，到手 <b>" + show(p.dai - fee, 2) + " DAI</b>" : "买到 <b>" + tShow(p.tok - fee) + " " + SYM + "</b>，付 <b>" + show(p.dai, 2) + " DAI</b>") +
+          "（均价 " + A.fmt(p.avg, PD) + (better > 0.005 ? '，<span class="up">比你填的价' + (sell ? "高 " : "低 ") + better.toFixed(2) + "%</span>" : "") + "，已扣 1% 手续费）</p>" +
+          (restGive ? "<p>剩下 <b>" + (sell ? tShow(restGive) + " " + SYM : show(restGive, 2) + " DAI") + "</b> 按你的价自动挂单，等别人来成交。</p>" : "<p>全部都能马上成交，不用挂单等。</p>") +
+          '<button type="button" id="otc-mgo">⚡ 一键成交 ' + p.steps.length + " 张" + (restGive ? " + 剩余挂单" : "") + '</button><p class="note" id="otc-mst"></p></div>';
+        document.getElementById("otc-mgo").onclick = matchGo;
+      }
+      function buyPlan(list, want) { // 买入：按想买的币数从最便宜的卖单吃起，最多吃到 want 个
+        var steps = [], dai = 0n, tok = 0n;
+        for (var i = 0; i < list.length && tok < want; i++) {
+          var o = list[i], amount = o.giveLeft < want - tok ? o.giveLeft : want - tok, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+          if (pay < MIN_DAI && amount < o.giveLeft) break; // 不到 1 DAI 的零头不吃，留给挂单
+          steps.push({ o: o, amount: amount, pay: pay }); dai += pay; tok += amount;
+        }
+        return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
+      }
+      function matchGo() {
+        var m = mp, btn = document.getElementById("otc-mgo"), mst = document.getElementById("otc-mst");
+        if (!m) return;
+        function msay(t, bad) { mst.className = "note" + (bad ? " down" : ""); mst.textContent = t; if (bad) errTip(t, mst); }
+        var token = m.sell ? AILGNS : DAI, name = m.sell ? SYM : "DAI", dur = Number(document.getElementById("otc-dur").value);
+        var need = m.p.steps.reduce(function (t, x) { return t + x.pay; }, 0n) + m.restGive, done = 0;
+        btn.disabled = true; sweeping = true;
+        ready().then(function () {
+          walletCard();
+          return balance(token, account);
+        }).then(function (b) {
+          if (b < need) throw new Error("余额不足：需要 " + (m.sell ? tShow(need) : show(need, 2)) + " " + name + "，钱包里有 " + (m.sell ? tShow(b) : show(b, 2)));
+          return M.gas === "POL" ? checkPol() : null;
+        }).then(function () { return ensureAllowance(token, need, msay, name); }).then(function () {
+          var i = 0;
+          function next() {
+            if (i >= m.p.steps.length) return;
+            var s = m.p.steps[i++], tag = "成交第 " + i + " / " + m.p.steps.length + " 张（#" + s.o.id + "）";
+            return read(OTC, SEL.getOrders + u256(s.o.id) + u256(1)).then(function (h) {
+              var o = parseOrders(h, s.o.id)[0];
+              if (!o || !o.open || o.giveLeft === 0n) return next(); // 被别人抢先吃了，跳过（这部分会留在钱包里）
+              var amount = s.amount > o.giveLeft ? o.giveLeft : s.amount, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+              return send(OTC, SEL.fill + u256(o.id) + u256(amount) + u256(pay), function (t) { msay(tag + "：" + t); }, "成交").then(function () { done++; return next(); });
+            });
+          }
+          return next();
+        }).then(function () {
+          if (!m.restGive) return;
+          return send(OTC, SEL.create + u256(m.sell ? 1 : 0) + u256(m.restGive) + u256(m.restWant) + u256(dur), function (t) { msay("剩余挂单：" + t); }, "发布挂单");
+        }).then(function () {
+          sweeping = false;
+          msay("✅ 完成：成交 " + done + " 张" + (m.restGive ? "，剩余已挂单" : ""));
+          setTimeout(reload, 1500);
+        }, function (e) { sweeping = false; btn.disabled = false; msay((done ? "已成交 " + done + " 张，后面停下了：" : "") + niceError(e), true); });
+      }
       function calc() {
+        match();
         var q = tWei(qty.value), p = toWei(price.value);
         if (!q || !p) { sum.textContent = "填好数量后显示总额"; return null; }
         var total = (q * p) / TUNIT; // DAI
