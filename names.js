@@ -56,6 +56,20 @@
   function prepay(dai, k, say) {
     var t = TOK[k], max;
     return quote(dai, k).then(function (q) {
+      // 先查余额：币不够时钱包的「确定」是灰的点不动，客户不知道为什么，这里先说清楚
+      var ks = Object.keys(TOK);
+      return Promise.all(ks.map(function (x) { return W.rpcOn("anubis", "eth_call", [{ to: TOK[x].a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt, function () { return -1n; }); })
+        .concat([W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(BigInt, function () { return -1n; })])).then(function (bal) {
+        if (bal[ks.length] === 0n) throw new Error("你的钱包里没有 Anubis 链的 Gas 币，付不了手续费（钱包「确定」会点不动）。请先转一点 Gas 币进这个钱包再来");
+        var mine = bal[ks.indexOf(k)];
+        if (k !== "LGNS" && mine >= 0n && mine < q) {
+          var have = ks.filter(function (x, i) { return x !== k && bal[i] > 0n; }).map(function (x) { return x + " " + fmt(bal[ks.indexOf(x)], TOK[x].d); });
+          throw new Error(k + " 不够：要约 " + fmt(q, TOK[k].d) + " " + k + "，你的钱包只有 " + fmt(mine, TOK[k].d) + "（钱包「确定」会点不动）。" +
+            (have.length ? "你钱包里有 " + have.join("、") + "，点上面「付款」换成它付就行" : "请先往钱包里转 AiLGNS、DAI 或 LGNS"));
+        }
+        return q;
+      });
+    }).then(function (q) {
       if (k !== "LGNS") return q;
       // LGNS：先把卖出税差价转给收款的分账合约，再注册（先补后注册，注册没完成的差价联系客服退回）
       return topUp(q).then(function (e) {
