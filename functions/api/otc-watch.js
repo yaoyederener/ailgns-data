@@ -185,7 +185,7 @@ async function order(m, id) {
 // 每张单推一次；之后币价继续往有利方向走、好处又多了 3 个百分点以上（且隔了 30 分钟），再推一次
 const PP_ON = true; // 2026-11-02 站长确认重新开启（有好单就带详细利润推到营销群，夜里也推）
 const PP_MIN_PCT = 0.005, PP_MIN_DAI = 1, PP_AGAIN_PCT = 0.03, PP_AGAIN_SEC = 1800;
-const PP_GAP = 240; // 站长要求有好单就马上发：每轮（5 分钟）都推，每个市场每轮最多 3 张
+const PP_GAP = 3600; // 站长要求：好单播报全站一小时最多发一次（各市场共用一个间隔），每次最多 3 张
 const OTC_FEE = 0.01;
 const SELL_TAX = { ailgns: 0.03, lgns: 0.5, plgns: 0.05, glgns: 0 }; // DEX 卖出扣的税（不含池子 0.3%）；Anubis LGNS 是动态的，下面用实测值
 async function sellTax(m) {
@@ -231,7 +231,8 @@ const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd,
 const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
 function dealText(m, list, p, tax) {
   const ns = list.filter((x) => x.o.sell).length, name = label(m), arb = list.some((x) => x.e.arb >= PP_MIN_DAI);
-  const lines = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `💰 手里有 ${name} 的看过来：在 OTC 卖给这张求购单，比在 DEX 卖多拿钱！`];
+  const head = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `💰 手里有 ${name} 的看过来：在 OTC 卖给这张求购单，比在 DEX 卖多拿钱！`];
+  const lines = [head[0], "👉 钱包打开：" + m.link];
   for (const { o, e } of list) {
     const pct = (e.pct * 100).toFixed(1);
     const q = qtyStr(m, o.qty);
@@ -249,7 +250,7 @@ function dealText(m, list, p, tax) {
     lines.push(`⏳ 还剩 ${dur(o.left)} · 订单 #${o.id}`);
   }
   const f = list[0], where = m.key === "ailgns" ? "DEX" : m.chain + " 链 DEX"; // DEX 价按第一张单的数量算上手续费和滑点，不报池子的裸价
-  lines.push("", `📊 同样数量在${where}${f.o.sell ? "买入，实际每枚要付" : "卖出，实际每枚只到手"}约 ${d2(f.e.dexPrice, m.pd)} DAI（已算上 DEX 手续费和滑点，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO, "🧬 " + m.link);
+  lines.push("", `📊 同样数量在${where}${f.o.sell ? "买入，实际每枚要付" : "卖出，实际每枚只到手"}约 ${d2(f.e.dexPrice, m.pd)} DAI（已算上 DEX 手续费和滑点，币价随时在变）`, "⚡ 先到先得，被别人吃掉就没了！", PROMO);
   return lines.join("\n");
 }
 // 找出该推的好单；send=false 时只返回文字（预览）
@@ -265,13 +266,13 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   fresh.sort((a, b) => b.e.arb - a.e.arb || b.e.gain - a.e.gain);
   const pick = fresh.slice(0, 3), text = pick.length ? dealText(m, pick, p, tax) : null;
   if (!send || !text) return { hits: hits.length, px: p.px, tax, text };
-  if (!pick.some((x) => x.e.arb >= PP_MIN_DAI) && (await kv.get(m.kv + "ppgap"))) return { hits: hits.length, waiting: fresh.length };
+  if (await kv.get("otcw:ppgap")) return { hits: hits.length, waiting: fresh.length };
   const out = { hits: hits.length, sent: pick.length, groups: {} };
   if (!quiet) for (const g of gids) { // 营销群：好单夜里也发（站长要求），成交汇总才是夜里不发
     try { await sendDebox(env, g, text, "group"); out.groups[g] = true; } catch (e) { out.groups[g] = String(e.message || e).slice(0, 120); }
   }
   await sendDeboxFans(env, GROUPS[0], text).catch((e) => { out.fans = String(e.message || e).slice(0, 120); });
-  await kv.put(m.kv + "ppgap", "1", { expirationTtl: PP_GAP });
+  await kv.put("otcw:ppgap", "1", { expirationTtl: PP_GAP });
   for (const { o, e } of pick) await kv.put(m.kv + "pp:" + o.id, JSON.stringify({ pct: e.pct, at: now }), { expirationTtl: Math.max(60, Math.ceil(o.left) + 3600) });
   return out;
 }
