@@ -385,7 +385,7 @@
         '<p class="note">本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站，会员费由本站收取。只收上面几种币，转错币或转错链无法开通，也无法退回。本站不会向你索取私钥或助记词，开通会员也不需要签名或授权；除了你自愿付的会员费，任何以本站名义要求转账、授权的都是诈骗。</p>';
 
       var st = document.getElementById("st"), go = document.getElementById("go"), polling = null, checked = null;
-      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) AIL.errTip(st.textContent, st); }
       function addrNow() {
         if (upgrade) return m.addr;
         var v = (document.getElementById("mem-addr").value || "").trim().toLowerCase();
@@ -578,7 +578,7 @@
     box.innerHTML = '<div class="xfer"><h3>转赠会员给其他地址</h3><p class="muted">适合用小号交易、大号使用的情况。转赠后<b>本地址不再是会员</b>，VIP 等级和 OTC 累计成交都归新地址；每个地址只能转出一次、接收一次，<b>不可撤销</b>。需要用本会员地址 ' + A.short(m.addr) + ' 的钱包签一条文字确认（只是签名，不是转账，不花 Gas）。</p>' +
       '<div class="addr-box"><input id="xfer-to" class="mono" placeholder="粘贴接收会员的新地址" autocomplete="off" spellcheck="false"><button id="xfer-go">签名并转赠</button></div><p class="note" id="xfer-st"></p></div>';
     var st = document.getElementById("xfer-st");
-    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (bad) AIL.errTip(st.textContent, st); }
     document.getElementById("xfer-go").onclick = function () {
       var btn = this, to = (document.getElementById("xfer-to").value || "").trim().toLowerCase(), from = m.addr;
       if (!A.isAddr(to)) { say("新地址格式不对", true); return; }

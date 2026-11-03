@@ -543,7 +543,32 @@
     if (u) { e.preventDefault(); toggleWatch(u.getAttribute("data-unwatch")); route(); }
   });
   // 给 member.js 等扩展页面用的公共工具
-  window.AIL = { toDai: toDai, timeBJ: timeBJ,
+  // 出错时：屏幕底部弹出原因（不会被滚走），同时把页面滚到出问题的地方，客户照着提示改了再点
+  function errTip(t, el) {
+    var old = document.getElementById("err-tip");
+    if (old) old.remove();
+    var d = document.createElement("div");
+    d.id = "err-tip";
+    d.className = "err-tip";
+    d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><button type="button">知道了</button>';
+    d.querySelector("span").textContent = t;
+    d.querySelector("button").onclick = function () { d.remove(); };
+    document.body.appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.remove(); }, 15000);
+    if (el && el.scrollIntoView && !el.closest(".modal")) el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+  // 全站兜底：点了按钮以后几秒内冒出来、又没人处理的错误，也弹出来告诉客户，不再「点了没反应」
+  var lastTap = 0;
+  document.addEventListener("click", function () { lastTap = Date.now(); }, true);
+  function oops(e) {
+    if (Date.now() - lastTap > 8000) return; // 后台自动刷新出的错不打扰客户
+    var W = window.AIL && window.AIL.wallet, m = "";
+    try { m = W && W.error ? W.error(e) : ""; } catch (x) {}
+    errTip(m || (e && (e.message || e.reason)) || "操作没完成，请刷新页面再试一次");
+  }
+  window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
+  window.addEventListener("error", function (ev) { if (ev.error) oops(ev.error); });
+  window.AIL = { errTip: errTip, toDai: toDai, timeBJ: timeBJ,
     pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },

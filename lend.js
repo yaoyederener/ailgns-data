@@ -276,7 +276,7 @@
     function floorTok(v) { var n = Number(v) / Math.pow(10, M.dec); return (Math.floor(n * 10000) / 10000).toString(); }
     function floorDai(v) { var n = Number(v) / 1e18; return (Math.round(n * 100) / 100).toString(); }
     if (!st) { st = document.createElement("p"); st.className = "note"; (document.getElementById("otc-mine") || app).appendChild(st); } // 旧合约页没有表单：提示放在「我的借贷」下面
-    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (bad) AIL.errTip(st.textContent, st); }
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
     var tc = document.getElementById("otc-top-c");
     if (tc) tc.onclick = function () { k.connect().then(reload, function (e) { say(niceError(e), true); }); };
@@ -398,7 +398,7 @@
           '<p class="note down">到期没还上，抵押币直接归出借人，没有宽限期。</p><button id="m-go" style="padding:12px 22px">确认借入</button><p class="note" id="m-st"></p></div>';
         modal.hidden = false;
         var ms = document.getElementById("m-st");
-        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; }
+        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; if (bad) AIL.errTip(ms.textContent, ms); }
         modal.querySelector("[data-close]").onclick = closeModal;
         document.getElementById("m-go").onclick = function () {
           var btn = this; btn.disabled = true;
@@ -425,7 +425,7 @@
           '<button id="m-go" style="padding:12px 22px">确认出借</button><p class="note" id="m-st"></p></div>';
         modal.hidden = false;
         var ms = document.getElementById("m-st");
-        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; }
+        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; if (bad) AIL.errTip(ms.textContent, ms); }
         modal.querySelector("[data-close]").onclick = closeModal;
         document.getElementById("m-go").onclick = function () {
           var btn = this; btn.disabled = true;
@@ -449,7 +449,7 @@
       '<section class="card"><dl class="dl"><dt>抵押币 ' + M.sym + '</dt><dd class="mono">' + M.token + '</dd><dt>DAI</dt><dd class="mono">' + ANUBIS_DAI + '</dd><dt>手续费收款地址</dt><dd class="mono">' + FEE_RECIPIENT + "</dd><dt>手续费</dt><dd>本金的 1%，出借人另付（合约里写死）</dd><dt>管理员</dt><dd>无，部署后任何人都改不了</dd></dl>" +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
     var st = document.getElementById("d-st");
-    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (bad) AIL.errTip(st.textContent, st); }
     document.getElementById("d-go").onclick = function () {
       var btn = this, data, gas; btn.disabled = true;
       k.connect().then(function () { return W.get().request({ method: "eth_chainId" }); }).then(function (cid) {

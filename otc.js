@@ -398,20 +398,7 @@
     }).catch(function () { /* 通知功能不可用时不显示 */ });
   }
   // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
-  // 出错时：屏幕底部弹出原因（不会被滚走），同时把页面滚到出问题的地方，客户照着提示改了再点
-  function errTip(t, el) {
-    var old = document.getElementById("err-tip");
-    if (old) old.remove();
-    var d = document.createElement("div");
-    d.id = "err-tip";
-    d.className = "err-tip";
-    d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><button type="button">知道了</button>';
-    d.querySelector("span").textContent = t;
-    d.querySelector("button").onclick = function () { d.remove(); };
-    document.body.appendChild(d);
-    setTimeout(function () { if (d.parentNode) d.remove(); }, 15000);
-    if (el && el.scrollIntoView && !el.closest(".modal")) el.scrollIntoView({ block: "center", behavior: "smooth" });
-  }
+  var errTip = A.errTip;
   // 成交 / 挂单成功的结果弹窗：一直停留到客户点关闭，底下放「查看交易记录」
   function doneModal(title, html, extra) {
     var box = document.createElement("div");
@@ -558,7 +545,7 @@
       function jump(elId) { var x = document.getElementById(elId), top = document.querySelector(".top"); if (x) window.scrollTo({ top: x.getBoundingClientRect().top + window.pageYOffset - (top ? top.offsetHeight : 0) - 8, behavior: "smooth" }); }
       if (gm) gm.onclick = function () {
         if (account) return jump("otc-mine");
-        connect().then(function () { pendingJump = true; renderOtc(id); }, function () {}); // 没连钱包：先连，最新订单画完再跳过去
+        connect().then(function () { pendingJump = true; renderOtc(id); }, function (e) { errTip(niceError(e)); }); // 没连钱包：先连，最新订单画完再跳过去
       };
       var gs = app.querySelector("[data-gosweep]");
       if (gs) gs.onclick = function () { jump("otc-sweep"); };
@@ -572,7 +559,7 @@
         var jump = !A.wallets.list().length && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); // 手机上没有钱包（桌面图标、普通浏览器）：直接跳到钱包 App 里打开
         el.innerHTML = '<div class="k">我的钱包</div><div class="v" style="font-size:16px"><button id="otc-connect" style="padding:8px 16px">' + (jump ? "在钱包 App 里打开" : "连接钱包") + '</button></div><div class="d">' + (jump ? "挂单、买卖要在钱包 App 里操作，点一下自动跳过去" : "连接后显示 " + SYM + " 和 DAI 余额") + "</div>";
         document.getElementById("otc-connect").onclick = function () {
-          connect().then(function () { renderOtc(id); }, function (e) { el.querySelector(".d").textContent = niceError(e); });
+          connect().then(function () { renderOtc(id); }, function (e) { el.querySelector(".d").textContent = niceError(e); errTip(niceError(e)); });
         };
         return;
       }
@@ -590,7 +577,7 @@
         e.preventDefault();
         A.wallets.forget();
         account = null;
-        connect().then(function () { renderOtc(id); }, function (err) { renderOtc(id); });
+        connect().then(function () { renderOtc(id); }, function (err) { renderOtc(id); errTip(niceError(err)); });
       };
       document.getElementById("otc-watch").onclick = function (e) {
         e.preventDefault();

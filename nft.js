@@ -182,7 +182,7 @@
   function bind(id, orders) {
     var k = K(), app = A.app, side = "sell", cards = null, picked = null;
     var price = document.getElementById("nft-price"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), cardsEl = document.getElementById("nft-cards");
-    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (bad) AIL.errTip(st.textContent, st); }
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
     var tc = document.getElementById("otc-top-c");
     if (tc) tc.onclick = function () { k.connect().then(reload, function (e) { say(niceError(e), true); }); };
@@ -278,7 +278,7 @@
           '<p class="note">付款和收卡在同一笔交易里完成；卡直接到你的钱包。</p><button id="m-go" style="padding:12px 22px">确认买入</button><p class="note" id="m-st"></p></div>';
         modal.hidden = false;
         var ms = document.getElementById("m-st");
-        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; }
+        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; if (bad) AIL.errTip(ms.textContent, ms); }
         modal.querySelector("[data-close]").onclick = closeModal;
         document.getElementById("m-go").onclick = function () {
           var btn = this; btn.disabled = true;
@@ -302,7 +302,7 @@
           '<button id="m-go" style="padding:12px 22px" disabled>确认卖出</button><p class="note" id="m-st"></p></div>';
         modal.hidden = false;
         var ms = document.getElementById("m-st"), mc = document.getElementById("m-cards"), go = document.getElementById("m-go");
-        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; }
+        function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; if (bad) AIL.errTip(ms.textContent, ms); }
         modal.querySelector("[data-close]").onclick = closeModal;
         k.ready().then(function () { return myCards(k.account()); }).then(function (c) {
           if (!c.length) { mc.innerHTML = '<span class="muted">这个钱包里没有 AWAKE NFT 卡牌</span>'; return; }

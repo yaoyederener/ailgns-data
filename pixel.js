@@ -230,6 +230,7 @@
     if (!st) return;
     st.className = "note" + (bad ? " down" : "");
     st.innerHTML = t;
+    if (bad) AIL.errTip(st.textContent, st);
   }
 
   // ---------- 付款 ----------
@@ -323,7 +324,7 @@
       '<dt>源码</dt><dd><a target="_blank" rel="noopener" href="contracts/' + C.artifact + '.sol">' + C.artifact + '.sol ↗</a></dd></dl>' +
       '<button id="d-go" style="padding:12px 22px;margin-top:16px">连接钱包并部署</button><p class="note" id="d-st"></p></section>';
     var st = document.getElementById("d-st"), eth, from, data;
-    function sayD(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; }
+    function sayD(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (bad) AIL.errTip(st.textContent, st); }
     document.getElementById("d-go").onclick = function () {
       var btn = this;
       btn.disabled = true;
