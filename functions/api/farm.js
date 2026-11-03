@@ -12,7 +12,7 @@ export async function onRequestGet(ctx) {
   if (q.get("rules")) {
     const plots = []; for (let n = START_PLOTS; n < MAX_PLOTS; n++) plots.push(plotPrice(n));
     return Response.json({ crops: CROPS, hen: { price: HEN_PRICE, max: MAX_HENS, feed: FEED_COST, feedTime: FEED_TIME, eggTime: EGG_TIME, egg: EGG_PRICE, maxEggs: MAX_EGGS }, plots, stealShare: STEAL_SHARE, stealDay: STEAL_DAY,
-      packs: PACKS, pay: { token: CHAINS.anubis.lgns, payTo: CHAINS.anubis.payTo, tag: TAG }, dog: { price: DOG_PRICE, days: DOG_TIME / 86400, bite: DOG_BITE }, goldHen: GOLD_HEN, boost: BOOST, daily: DAILY, dailyVip: DAILY_VIP, king: KING }, { headers: { "cache-control": "public, max-age=300" } });
+      packs: PACKS, pay: { token: CHAINS.anubis.lgns, payTo: CHAINS.anubis.payTo, tag: TAG }, dog: { price: DOG_PRICE, days: DOG_TIME / 86400, bite: DOG_BITE }, goldHen: GOLD_HEN, boost: BOOST, daily: DAILY, dailyVip: DAILY_VIP, king: KING }, NO_STORE);
   }
   const u = String(q.get("u") || "").toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(u)) return Response.json({ error: "地址格式不对" }, { status: 400 });

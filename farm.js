@@ -249,7 +249,7 @@
     }, 1000);
 
     fetch("/api/farm?list=1").then(function (r) { return r.json(); }).then(function (d) { burned = d.burned || 0; stat(); }).catch(function () {});
-    fetch("/api/farm?rules=1").then(function (r) { return r.json(); }).then(function (r) {
+    fetch("/api/farm?rules=2", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (r) {
       R = r;
       if (sig) return post("me").then(draw, function (e) { toast(e.message, true); draw(); });
       draw();
