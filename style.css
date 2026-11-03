@@ -1695,3 +1695,4 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 }
 
 @media (max-width: 640px) { #nm-genc .gc .gc-num { display: grid; grid-template-columns: 1fr 1.3fr; } }
+@media (max-width: 640px) { #nm-genc .gc .gc-num { display: flex; gap: 8px; } #nm-genc .gc .gc-num > div { flex: 1; grid-column: auto; } }
