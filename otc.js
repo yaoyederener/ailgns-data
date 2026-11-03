@@ -766,7 +766,7 @@
       A.app.querySelectorAll("[data-fill]").forEach(function (b) {
         b.onclick = function () {
           var o = orders.filter(function (x) { return x.id === Number(b.getAttribute("data-fill")); })[0];
-          openFill(o, reload);
+          openFill(o, reload, mkt);
         };
       });
     }
@@ -815,6 +815,15 @@
       return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
     }
     function gasKeep(n) { return M.gas === "DAI" ? GAS_RESERVE + GAS_RESERVE / 10n * BigInt(n + 1) : 0n; } // Anubis 上 Gas 用 DAI 付：固定留 0.1，每张再留 0.01
+    // 赚了多少：和同样数量在 DEX 买 / 卖比（已算 DEX 手续费、卖出税和本站 1% 手续费）。只在真的比 DEX 划算时显示，不划算就不显示（不能把亏的说成赚的）
+    // buy=true：tok = 到手的币，dai = 付的 DAI；buy=false：tok = 卖出的币，dai = 到手的 DAI
+    function pnlHtml(buy, tok, dai, mkt) {
+      if (!mkt || !tok || !dai) return "";
+      var dex = buy ? tNum(tok) * mkt * DEX_BUY : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
+      if (!(d > 0) || !(dex > 0)) return "";
+      return '<div class="sw-pnl win"><span>✅ 赚了</span><b>+' + A.fmt(d, 2) + " DAI</b><em>" + (buy ? "比去 DEX 买便宜 " : "比在 DEX 卖多拿 ") + (d / dex * 100).toFixed(1) + "%</em>" +
+        "<small>同样" + (buy ? "买 " + tShow(tok) + " " + SYM + "，在 DEX 要付约 " : "卖 " + tShow(tok) + " " + SYM + "，在 DEX 只能拿约 ") + A.fmt(dex, 2) + " DAI（含 DEX 手续费" + (buy ? "" : "和卖出税") + "）</small></div>";
+    }
     function bindSweep(sells, buys, mkt, reload) {
       var box = document.getElementById("otc-sweep");
       if (!box) return;
@@ -871,13 +880,7 @@
         if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI</small>"; // 分两行：付多少一行，得多少一行
         var eff = buy ? num(p.dai) / tNum(net) : num(net) / tNum(p.tok); // 算上 1% 手续费后每枚实际成本 / 到手
         var worst = p.steps.length ? priceOf(p.steps[p.steps.length - 1].o) : 0;
-        // 盈亏一目了然：和同样数量在 DEX 买 / 卖比（已算 DEX 手续费、卖出税和本站 1% 手续费），省了 / 多拿了就是赚
-        var pnl = "";
-        if (mkt) {
-          var dex = buy ? tNum(net) * mkt * DEX_BUY : tNum(p.tok) * mkt * DEX_SELL, mine = buy ? num(p.dai) : num(net), d = buy ? dex - mine : mine - dex, pc = dex > 0 ? Math.abs(d) / dex * 100 : 0;
-          pnl = '<div class="sw-pnl ' + (d >= 0 ? "win" : "lose") + '"><span>' + (d >= 0 ? "✅ 赚了" : "⚠️ 亏了") + "</span><b>" + (d >= 0 ? "+" : "−") + A.fmt(Math.abs(d), 2) + " DAI</b><em>" + (d >= 0 ? (buy ? "比去 DEX 买便宜 " : "比在 DEX 卖多拿 ") : (buy ? "比去 DEX 买贵 " : "比在 DEX 卖少拿 ")) + pc.toFixed(1) + "%</em>" +
-            "<small>同样" + (buy ? "买 " + tShow(net) + " " + SYM + "，在 DEX 要付约 " : "卖 " + tShow(p.tok) + " " + SYM + "，在 DEX 只能拿约 ") + A.fmt(dex, 2) + " DAI（含 DEX 手续费" + (buy ? "" : "和卖出税") + "）</small></div>";
-        }
+        var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
         out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + "</small></div>" + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
           '<dl class="dl sw-dl"><dt>吃掉</dt><dd>' + p.steps.length + " 张单（共 " + l.length + " 张）</dd>" +
           (buy ? "<dt>你付</dt><dd><b>" + show(p.dai, 2) + " DAI</b></dd><dt>你收到</dt><dd><b>" + tShow(net) + " " + SYM + "</b>（已扣 1% 手续费 " + tShow(fee) + "）</dd>"
@@ -949,7 +952,7 @@
     }
 
     // 吃单弹窗：买入按付多少 DAI 填，卖出按卖多少 AiLGNS 填
-    function openFill(o, reload) {
+    function openFill(o, reload, mkt) {
       var m = document.getElementById("otc-modal"), p = priceOf(o);
       var maxAil = o.sellAilgns ? o.giveLeft : ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal);
       m.hidden = false;
@@ -1001,6 +1004,7 @@
         quote.innerHTML = o.sellAilgns
           ? "你付 <b>" + show(pay, 4) + " DAI</b>，收到 <b>" + tShow(get) + " " + SYM + "</b><br><span class=\"muted\">手续费 1%：" + tShow(fee) + " " + SYM + "</span>"
           : "你付 <b>" + tShow(pay) + " " + SYM + "</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
+        quote.innerHTML = pnlHtml(o.sellAilgns, o.sellAilgns ? get : pay, o.sellAilgns ? pay : get, mkt) + quote.innerHTML;
         if (capped) quote.innerHTML += '<br><span class="muted">这张单只剩这么多，已按剩下的全部算</span>';
         else if (swept) quote.innerHTML += '<br><span class="muted">这张单买完后只剩不到 1 DAI，已一起算上</span>';
         if ((o.sellAilgns ? pay : amount) < MIN_ORDER) quote.innerHTML += '<br><span class="muted">单笔成交不足 50 DAI，不送会员</span>';
