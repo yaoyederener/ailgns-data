@@ -15,3 +15,8 @@
 /*.css
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
+
+# Service Worker 不能长期缓存（改了要马上生效），覆盖上面 *.js 的一年缓存
+/sw.js
+  ! Cache-Control
+  Cache-Control: no-cache
