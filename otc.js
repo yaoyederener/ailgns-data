@@ -72,7 +72,9 @@
   var DUR_DEFAULT = 7 * 86400; // 默认挂 7 天：订单簿上挂单多，看着热闹
   var account = null;
   var sweeping = false; // 正在一键扫单：不自动刷新页面
-  var sweepSide = "buy"; // 扫单方向：扫完刷新页面后停在原来的「扫卖单 / 扫买单」，不跳回买入（客户反馈）
+  // 扫单方向：扫完刷新后停在原来的「扫卖单 / 扫买单」，不跳回买入（客户反馈）。存进 sessionStorage：有的钱包浏览器成交后会整页重新加载
+  var sweepSide = "buy";
+  try { if (sessionStorage.getItem("otc:sw") === "sell") sweepSide = "sell"; } catch (e) { /* 忽略 */ }
   // 指导价：要比 DEX 对买卖双方都划算，才容易成交（DEX 到手价 / 成本见上面各市场的 dexSell、dexBuy）
   // 吃单方付 1% 手续费，所以：卖单价 ≤ 市价 × dexBuy × 99% 买家才划算；买单价 ≥ 市价 × dexSell ÷ 99% 卖家才划算
   var TAKER = 0.99;
@@ -999,7 +1001,7 @@
         ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {
-        b.onclick = function () { side = sweepSide = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); r.value = maxBp(list()); draw(); };
+        b.onclick = function () { side = sweepSide = b.getAttribute("data-sw"); try { sessionStorage.setItem("otc:sw", side); } catch (e) { /* 忽略 */ } box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); r.value = maxBp(list()); draw(); };
       });
       box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-sw") === side); });
       box.querySelectorAll(".sw-quick [data-swp]").forEach(function (b) { b.onclick = function () { var v = b.getAttribute("data-swp"); r.value = v === "max" ? maxBp(list()) : v; draw(); }; });
