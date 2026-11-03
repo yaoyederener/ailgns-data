@@ -73,10 +73,20 @@
     var off = parseInt(word(r, 0), 16) / 32, len = parseInt(word(r, off), 16), h = r.slice(2 + (off + 1) * 64, 2 + (off + 1) * 64 + len * 2);
     return new TextDecoder().decode(new Uint8Array((h.match(/../g) || []).map(function (x) { return parseInt(x, 16); })));
   }
-  function info(label) { // 能否注册、指向谁、主人、到期时间
+  var infoCache = {};
+  function info(label) { // 能否注册、指向谁、主人、到期时间（同一个名字 20 秒内不重复查链）
+    var key = TLD + ":" + label, c = infoCache[key];
+    if (c && Date.now() - c.t < 20000) return c.p;
+    var p = info1(label);
+    infoCache[key] = { t: Date.now(), p: p };
+    p.catch(function () { delete infoCache[key]; });
+    return p;
+  }
+  function info1(label) {
     var s = "0000000000000000000000000000000000000000000000000000000000000020" + str(label);
     return Promise.all([call(SEL.available + s), call(SEL.resolve + s), call(SEL.idOf + s)]).then(function (r) {
       var id = word(r[2], 0);
+      if (BigInt("0x" + word(r[0], 0)) === 1n) return { free: true, addr: addrOf(r[1]), id: id, exp: 0, owner: null }; // 能注册：不用再查主人、到期，直接出结果
       return Promise.all([call(SEL.expires + id), call(SEL.ownerOf + id).catch(function () { return null; })]).then(function (x) {
         return { free: BigInt("0x" + word(r[0], 0)) === 1n, addr: addrOf(r[1]), id: id, exp: Number(BigInt("0x" + word(x[0], 0))), owner: x[1] ? addrOf(x[1]) : null };
       });
@@ -132,10 +142,19 @@
     f.onsubmit = function (e) {
       e.preventDefault();
       var v = inp.value.trim().toLowerCase().replace(/\.(ailgns|lgns)$/, ""), t = document.getElementById("nm-t").value;
-      if (v !== q || t !== TLD) { location.hash = "#/names/" + encodeURIComponent(v) + "." + t; return; }
+      if (t !== TLD) { location.hash = "#/names/" + encodeURIComponent(v) + "." + t; return; } // 换后缀：整页换成另一个合约
+      // 同一个后缀：只换地址栏、不重新加载整页（以前每搜一次整页的市场、排行都重新读链，很慢）
+      if (v !== q) { q = v; try { history.replaceState(null, "", "#/names/" + encodeURIComponent(v) + "." + t); } catch (x) { /* 忽略 */ } }
       show(v);
     };
-    inp.oninput = function () { var v = inp.value.toLowerCase(); if (v !== inp.value) inp.value = v; };
+    // 边打字边查：停顿 0.4 秒就先去链上查，按「搜索」时结果多半已经好了
+    var typing;
+    inp.oninput = function () {
+      var v = inp.value.toLowerCase(); if (v !== inp.value) inp.value = v;
+      clearTimeout(typing);
+      v = v.trim().replace(/\.(ailgns|lgns)$/, "");
+      if (NAMES && valid(v)) typing = setTimeout(function () { info(v).catch(function () {}); }, 400);
+    };
     document.getElementById("nm-rf").onsubmit = function (e) {
       e.preventDefault();
       var a = document.getElementById("nm-ra").value.trim().toLowerCase(), o = document.getElementById("nm-rr");
