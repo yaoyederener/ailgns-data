@@ -493,7 +493,8 @@
       if (!cn) { cn = document.createElement("p"); cn.id = "nm-cn"; cn.className = "nm-cn"; document.getElementById("nm-go").before(cn); }
       y.onchange = kk.onchange = function () { // 换年数或币种：显示要付多少个币
         var dai = yearPrice(v) * y.value, k = kk.value;
-        cn.innerHTML = "ℹ️ 只付<b>一次钱</b>，但钱包会弹出 " + (k === "LGNS" ? "<b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款" : "<b>2 次</b>确认：① 授权（<b>不扣钱</b>）② 注册付款") + "。以前授权过的会自动跳过。";
+        cn.innerHTML = k === "LGNS" ? "ℹ️ 钱包会弹出 <b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款。上面显示的金额已经含差价，不会多扣。以前授权过的会自动跳过。"
+          : "ℹ️ 只付<b>一次钱</b>，但钱包会弹出 <b>2 次</b>确认：① 授权（<b>不扣钱</b>）② 注册付款。以前授权过的会自动跳过。";
         cost.textContent = dai + " DAI";
         if (k === "DAI" || preview) return;
         quote(dai, k).then(function (q) { return k === "LGNS" ? topUp(q).then(function (e) { return q + e; }) : q; })
