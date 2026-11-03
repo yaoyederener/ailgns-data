@@ -1596,3 +1596,4 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .tabs a.namet.on { color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #b98cf5, 0 4px 14px rgba(14, 165, 233, .3); }
 @media (max-width: 600px) { .tabs a.namet { gap: 3px; } .tabs a.namet i { top: -7px; right: -2px; } .tabs a.namet svg { width: 14px; height: 14px; } }
 @media (max-width: 600px) { .tabs { grid-template-columns: repeat(4, 1fr); gap: 6px; } .tabs a, .tabs a.vipt, .tabs a.lendt, .tabs a.namet { padding: 8px 2px; font-size: 13.5px; } } /* 四个栏目一行放下 */
+.nm-price small.nm-q { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
