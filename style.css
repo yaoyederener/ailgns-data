@@ -1662,3 +1662,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-pay{display:inline-flex;gap:6px;margin-left:6px;vertical-align:middle}
 .nm-pay button{padding:6px 12px;font-size:14px;font-weight:600;border-radius:999px;border:1px solid var(--soft-line);background:var(--panel);color:var(--purple-ink);cursor:pointer}
 .nm-pay button.on{background:var(--grad);color:#fff;border-color:transparent}
+
+/* 域名页：第 1 步提示 + 抢注按钮点完输入框闪一下 */
+.nm-hint{margin:10px 0 6px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-weight:600;font-size:14px}
+@keyframes nmFlash{0%,100%{box-shadow:0 0 0 0 rgba(112,39,217,0)}50%{box-shadow:0 0 0 4px rgba(112,39,217,.35)}}
+.nm-flash{animation:nmFlash .6s ease 3}
