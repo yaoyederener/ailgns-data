@@ -594,6 +594,8 @@
           if (!localStorage.getItem("st:app")) { localStorage.setItem("st:app", today); track("an"); }
         } catch (x) { /* 无痕模式 */ }
       }
+      // 自动刷新带的 ?v=… 只为绕过缓存，加载完就从地址栏抹掉，复制出去只剩 https://ailgns.dev/#/页面
+      if (/[?&]v=/.test(location.search)) { try { history.replaceState(null, "", location.pathname + location.hash); } catch (x) { /* 忽略 */ } }
       window.addEventListener("hashchange", route); route();
       freshCheck(true);
       window.addEventListener("hashchange", function () { freshCheck(); });
