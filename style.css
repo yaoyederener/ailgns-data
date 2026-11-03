@@ -1410,3 +1410,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13px}
 .nm-dl dd{margin:0;word-break:break-all}
 .nm-st{min-height:1em}
+.nm-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line,#eee)}
+.nm-row small{display:block;font-size:12px;opacity:.7}
+.nm-rp{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.nm-rp button{padding:8px 14px;font-weight:700;color:#fff;border:0;border-radius:8px;background:#1677ff}

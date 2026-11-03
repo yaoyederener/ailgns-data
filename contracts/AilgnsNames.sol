@@ -11,7 +11,7 @@ interface IERC721Receiver {
 
 /// @title .ailgns 域名（照 ENS 的 .eth 规则，简化版）
 /// @notice 任何人付 DAI 就能注册 xxx.ailgns，按年收费、到期续费，价格按名字长度（和 ENS 一样）：
-///         3 个字符 640 DAI / 年，4 个字符 160 DAI / 年，5 个及以上 5 DAI / 年。名字只能用小写字母、数字、连字符，3–32 个字符。
+///         3 个字符 640 DAI / 年，4 个字符 160 DAI / 年，5 个及以上 5 DAI / 年。名字可以用小写字母、数字、连字符、常用汉字，3–32 个字符（中文一个字算 1 个字符）。
 ///         每个名字是一个 NFT（ERC721），可以转让、买卖；主人可以把名字指向任意地址，也可以把它设成自己地址的「主名字」。
 ///         到期后有 90 天宽限期，只有原主人能续费；宽限期过了任何人都能重新注册。
 ///         收费地址、价格、规则写死在合约里，没有管理员、不能升级、不能修改，任何人（包括平台）都收不走别人的名字。
@@ -80,20 +80,37 @@ contract AilgnsNames {
         return uint256(keccak256(bytes(label)));
     }
 
-    /// @notice 名字是否合规：3–32 个字符，只能是 a-z、0-9、-，不能以 - 开头或结尾
-    function valid(string memory label) public pure returns (bool) {
+    /// @notice 名字有几个字符（中文一个字算 1 个）；不合规返回 0。
+    ///         允许：小写字母 a-z、数字 0-9、连字符 -（不能在开头结尾）、常用汉字（Unicode 4E00–9FFF）
+    function length(string memory label) public pure returns (uint256 n) {
         bytes memory b = bytes(label);
-        if (b.length < 3 || b.length > 32 || b[0] == "-" || b[b.length - 1] == "-") return false;
-        for (uint256 i = 0; i < b.length; i++) {
-            bytes1 c = b[i];
-            if (!((c >= "a" && c <= "z") || (c >= "0" && c <= "9") || c == "-")) return false;
+        if (b.length == 0 || b.length > 96 || b[0] == "-" || b[b.length - 1] == "-") return 0;
+        uint256 i = 0;
+        while (i < b.length) {
+            uint8 c = uint8(b[i]);
+            if ((c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39) || c == 0x2d) {
+                i += 1;
+            } else if (c >= 0xe4 && c <= 0xe9 && i + 2 < b.length) {
+                uint8 c2 = uint8(b[i + 1]);
+                uint8 c3 = uint8(b[i + 2]);
+                if (c2 < 0x80 || c2 > 0xbf || c3 < 0x80 || c3 > 0xbf || (c == 0xe4 && c2 < 0xb8)) return 0;
+                i += 3;
+            } else {
+                return 0;
+            }
+            n += 1;
         }
-        return true;
+    }
+
+    /// @notice 名字是否合规：3–32 个字符（和 ENS 一样最少 3 个），只能是 a-z、0-9、-、常用汉字
+    function valid(string memory label) public pure returns (bool) {
+        uint256 n = length(label);
+        return n >= 3 && n <= 32;
     }
 
     /// @notice 一年的价格（DAI，18 位小数）
     function yearPrice(string memory label) public pure returns (uint256) {
-        uint256 n = bytes(label).length;
+        uint256 n = length(label);
         return n == 3 ? PRICE_3 : n == 4 ? PRICE_4 : PRICE_5;
     }
 

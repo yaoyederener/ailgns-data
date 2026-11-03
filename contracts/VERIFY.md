@@ -86,14 +86,16 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 
 DAI 和手续费收款地址同上表。2026-11-02 核对：两份合约的链上运行代码和 AiLGNS 借款合约逐字节相同，唯一差别是写死的抵押币地址；`COLLATERAL()`、`DAI()`、`feeRecipient()`、`FEE_BPS()`（100 = 1%）读出来都和上表一致。
 
-## .ailgns 域名合约 AilgnsNames
+## .ailgns / .lgns 域名（第 2 版，支持中文）
 
-- 地址（Anubis 链）：`0x4992917c0e9790342454d2acbbf7559d94c317cb`，部署区块 18159922
-- 源码：[`AilgnsNames.sol`](AilgnsNames.sol)，测试：[`test/test_names.py`](test/test_names.py)，编译参数同上（标准输入 [`AilgnsNames.standard-input.json`](AilgnsNames.standard-input.json)）
-- 构造参数：DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`，收费 → 回购分账合约 `0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3`，保留名主人 → 收款钱包 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`，保留名 18 个（admin、official、kefu、ailgns、helix、awake、lgns、glgns、otc、support、service、system、root、anubis、polygon、team、awakehelix、guanfang）
+| 合约 | 地址（Anubis 链） | 部署区块 |
+|---|---|---|
+| .ailgns 域名 [`AilgnsNames.sol`](AilgnsNames.sol) | `0x98eb18ee6a30a7c89d6f0bb9a11aaceb508129b0` | 18160940 |
+| .ailgns 域名市场（[`AwakeNftEscrow.sol`](AwakeNftEscrow.sol) 同一份代码） | `0x00a39ebdb85669586b9ab4391cfa5be0d5b3902c` | 18160949 |
+| .lgns 域名 [`LgnsNames.sol`](LgnsNames.sol) | `0x722d1782121c3ef6379f222822a90c4869a56f17` | 18160955 |
+| .lgns 域名市场（同上） | `0x881f15bb629139bed84e0240abf9142c3632931d` | 18160961 |
 
-## .lgns 域名合约 LgnsNames
-
-- 地址（Anubis 链）：`0x9d8caceb1bda65ff21f62248d973e8c2a49bf333`，部署区块 18160417
-- 源码：[`LgnsNames.sol`](LgnsNames.sol)（和 AilgnsNames 同一份规则，只是后缀换成 .lgns），测试：[`test/test_lgns_names.py`](test/test_lgns_names.py)，标准输入 [`LgnsNames.standard-input.json`](LgnsNames.standard-input.json)
-- 构造参数、保留名和上面 .ailgns 完全相同
+- 域名合约构造参数：DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`，收费 → 回购分账合约 `0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3`，保留名主人 → 收款钱包 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`，保留名 21 个（admin、official、kefu、ailgns、helix、awake、lgns、glgns、otc、support、service、system、root、anubis、polygon、team、awakehelix、guanfang、官方客服、官方账号、客服中心）
+- 域名市场构造参数：NFT = 对应域名合约，DAI 同上，手续费 3% → 回购分账合约
+- 测试：[`test/test_names.py`](test/test_names.py)、[`test/test_lgns_names.py`](test/test_lgns_names.py)、[`test/test_names_otc.py`](test/test_names_otc.py)
+- 第 1 版（只支持英文，已弃用，没有用户注册过）：.ailgns `0x4992917c0e9790342454d2acbbf7559d94c317cb`，.lgns `0x9d8caceb1bda65ff21f62248d973e8c2a49bf333`

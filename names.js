@@ -5,14 +5,18 @@
 
   var A = window.AIL, W = A.wallet;
   // 两个后缀各一个合约（同一份规则）；网址 #/names/xxx.lgns 打开 .lgns，默认 .ailgns
-  var CONTRACTS = { ailgns: "0x4992917c0e9790342454d2acbbf7559d94c317cb", lgns: "0x9d8caceb1bda65ff21f62248d973e8c2a49bf333" }; // Anubis 区块：.ailgns 18159922，.lgns 18160417
+  var CONTRACTS = { ailgns: "0x98eb18ee6a30a7c89d6f0bb9a11aaceb508129b0", lgns: "0x722d1782121c3ef6379f222822a90c4869a56f17" }; // 第 2 版（支持中文），Anubis 区块 18160940 / 18160955
   var TLD = "ailgns", NAMES = CONTRACTS.ailgns;
+  // 域名市场：AWAKE NFT 托管合约同一份代码，各后缀一份；卖家把名字存进合约标价，买家付 DAI 同一笔交易里拿到名字，手续费 3% 买家另付，进回购分账合约
+  var OTC = { ailgns: "0x00a39ebdb85669586b9ab4391cfa5be0d5b3902c", lgns: "0x881f15bb629139bed84e0240abf9142c3632931d" }; // Anubis 区块 18160949 / 18160961
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var ZERO = "0x" + "0".repeat(40);
-  var SEL = { available: "0xaeb8ce9b", register: "0xd393c871", renew: "0xacf1a841", resolve: "0x461a4478", nameOf: "0xf5c57382", idOf: "0x5fd846f2", expires: "0xcb52c823", ownerOf: "0x6352211e", setPrimary: "0x38e74feb", setAddr: "0xeba36dbd", allowance: "0xdd62ed3e", approve: "0x095ea7b3" };
+  var SEL = { available: "0xaeb8ce9b", register: "0xd393c871", renew: "0xacf1a841", resolve: "0x461a4478", nameOf: "0xf5c57382", idOf: "0x5fd846f2", expires: "0xcb52c823", ownerOf: "0x6352211e", setPrimary: "0x38e74feb", setAddr: "0xeba36dbd", labelOf: "0x36bf1f0c", oList: "0xca690ea2", oBuy: "0xd6febde8", oCancel: "0x40e58ee5", oCount: "0x35daa731", oGet: "0x8f72fc77", getApproved: "0x081812fc", nftApprove: "0x095ea7b3", allowance: "0xdd62ed3e", approve: "0x095ea7b3" };
 
-  function valid(s) { return /^[a-z0-9-]{3,32}$/.test(s) && s[0] !== "-" && s[s.length - 1] !== "-"; }
-  function yearPrice(s) { return s.length === 3 ? 640 : s.length === 4 ? 160 : 5; }
+  // 和合约一致：a-z、0-9、-、常用汉字（4E00–9FFF），中文一个字算 1 个字符，3–32 个字符
+  function chars(s) { return Array.from(s).length; }
+  function valid(s) { var n = chars(s); return /^[a-z0-9\u4e00-\u9fff-]+$/.test(s) && n >= 3 && n <= 32 && s[0] !== "-" && s[s.length - 1] !== "-"; }
+  function yearPrice(s) { var n = chars(s); return n === 3 ? 640 : n === 4 ? 160 : 5; }
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
   function str(s) { // ABI 编码 string 的尾部：长度 + 内容补齐 32 字节
     var h = Array.prototype.map.call(new TextEncoder().encode(s), function (x) { return x.toString(16).padStart(2, "0"); }).join("");
@@ -70,11 +74,12 @@
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
-      '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，比如 baili" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
+      '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
-      '<div class="nm-price"><div><b>3 个字符</b><span>640 DAI</span></div><div><b>4 个字符</b><span>160 DAI</span></div><div><b>5 个及以上</b><span>5 DAI</span></div></div>' +
-      '<ul class="nm-rules"><li>只能用小写字母、数字、连字符 -，3–32 个字符</li><li>一次买 1–10 年；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
+      '<div class="nm-price"><div><b>3 个字</b><span>640 DAI</span></div><div><b>4 个字</b><span>160 DAI</span></div><div><b>5 个字及以上</b><span>5 DAI</span></div></div>' +
+      '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -，最少 3 个字（一个汉字算 1 个）</li><li>一次买 1–10 年；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
+      '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div><div id="nm-mk"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 反查：这个地址叫什么</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="0x 地址" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
@@ -96,7 +101,7 @@
 
     function show(v) {
       if (!v) { out.innerHTML = ""; return; }
-      if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：只能小写字母、数字、-，3–32 个字符，不能以 - 开头或结尾</p>'; return; }
+      if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-，最少 3 个字、最多 32 个字，不能以 - 开头或结尾</p>'; return; }
       var buy = '<div class="nm-buy"><label>买几年 <select id="nm-y">' + [1, 2, 3, 5, 10].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + '</select></label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
         '<button type="button" class="nm-go" id="nm-go">注册 ' + esc(v) + "." + TLD + "</button><p class=\"muted nm-st\" id=\"nm-st\"></p>";
       if (!NAMES) {
@@ -110,7 +115,7 @@
         var mine = account && r.owner === account, now = Date.now() / 1000;
         out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<div class="nm-act"><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
+          '<div class="nm-act"><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
         document.getElementById("nm-renew").onclick = function () {
           var cost = BigInt(yearPrice(v)) * 10n ** 18n;
@@ -130,6 +135,21 @@
           if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
           tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
+        var sell = document.getElementById("nm-sell");
+        if (sell) sell.onclick = function () {
+          // 挂单最长 7 天；名字至少还要 37 天才到期，防止挂在市场里过期
+          if (r.exp < Date.now() / 1000 + 37 * 86400) { A.errTip("名字 37 天内就到期了，先续费再挂单", st); return; }
+          var p = (prompt("卖多少 DAI？（买家另付 3% 手续费，你拿到完整标价；挂 7 天，随时可以撤单）") || "").trim();
+          if (!p) return;
+          if (!/^\d+(\.\d{1,6})?$/.test(p) || Number(p) <= 0) { A.errTip("价格格式不对，填数字，比如 100", st); return; }
+          var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n, O = OTC[TLD];
+          call(SEL.getApproved + r.id).then(function (g) {
+            if (addrOf(g) === O) return;
+            return tx(NAMES, SEL.nftApprove + A.pad(O) + r.id, say, "🔒 第 1 步：授权市场合约转这个名字（只用于这次挂单，合约开源、无管理员）。请在钱包确认");
+          }).then(function () {
+            return tx(O, SEL.oList + r.id + u256(wei) + u256(7 * 86400), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
+          }).then(function () { say("✅ 已挂到市场"); market(); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
+        };
       }, function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
     function bindBuy(v, preview) {
@@ -146,6 +166,49 @@
       };
     }
     show(q);
+    market();
+  }
+
+  // 域名市场：读最近 200 张单里还在卖的
+  function market() {
+    var box = document.getElementById("nm-mk"), O = OTC[TLD];
+    if (!box) return;
+    if (!O) { box.innerHTML = '<p class="muted">.' + TLD + " 域名市场即将开放</p>"; return; }
+    var oc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: O, data: data }, "latest"]); };
+    box.innerHTML = '<p class="muted">读取中…</p>';
+    oc(SEL.oCount).then(function (c) {
+      var n = Number(BigInt(c)), from = Math.max(0, n - 200);
+      return oc(SEL.oGet + u256(from) + u256(n - from)).then(function (res) {
+        var w = (res.slice(2).match(/.{64}/g) || []), cnt = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, now = Date.now() / 1000, list = [];
+        for (var i = 0; i < cnt; i++) {
+          var o = w.slice(2 + i * 6, 8 + i * 6);
+          var it = { id: from + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]) };
+          if (it.sell && it.open && it.expiry > now) list.push(it);
+        }
+        return Promise.all(list.map(function (it) {
+          return Promise.all([call(SEL.labelOf + it.tid), call(SEL.expires + it.tid)]).then(function (x) { it.label = decStr(x[0]); it.exp = Number(BigInt("0x" + word(x[1], 0))); return it; });
+        }));
+      });
+    }).then(function (list) {
+      if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。搜索你自己的名字，点「挂到市场卖」就能挂。</p>'; return; }
+      list.sort(function (a, b) { return a.price < b.price ? -1 : 1; });
+      box.innerHTML = '<div class="nm-mk">' + list.map(function (it) {
+        var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
+        return '<div class="nm-row"><div><b>' + esc(it.label) + "." + TLD + '</b><small>名字到期 ' + date(it.exp) + " · 卖家 " + A.short(it.maker) + '</small></div><div class="nm-rp"><b>' + p + ' DAI</b><button type="button" data-o="' + it.id + '" data-m="' + (mine ? 1 : 0) + '" data-p="' + it.price + '">' + (mine ? "撤单" : "买") + "</button></div></div>";
+      }).join("") + '</div><p class="muted nm-st" id="nm-mst"></p>';
+      var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
+      box.querySelectorAll("button[data-o]").forEach(function (b) {
+        b.onclick = function () {
+          var id = Number(b.getAttribute("data-o")), price = BigInt(b.getAttribute("data-p")), total = price + price * 3n / 100n;
+          connect().then(function () {
+            if (b.getAttribute("data-m") === "1") return tx(O, SEL.oCancel + u256(id), say, "🔒 撤单，名字退回你的钱包。请在钱包确认");
+            return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(O) }, "latest"]).then(function (a) {
+              if (BigInt(a) < total) return tx(DAI, SEL.approve + A.pad(O) + u256(total), say, "🔒 第 1 步：授权市场合约收 " + Number(total / 10n ** 12n) / 1e6 + " DAI（含 3% 手续费）。请在钱包确认");
+            }).then(function () { return tx(O, SEL.oBuy + u256(id) + u256(total), say, "🔒 第 2 步：付款，名字同一笔交易直接到你钱包。请在钱包确认"); });
+          }).then(function () { say("✅ 成功"); market(); }, function (e) { say(""); A.errTip(e.message || String(e), b); });
+        };
+      });
+    }, function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
   }
 
   A.pages.names = page;
