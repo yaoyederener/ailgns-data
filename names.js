@@ -243,7 +243,7 @@
         o.innerHTML = '<p class="nm-my-sum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = esc(x.label) + "." + x.t;
           return '<a class="nm-my' + (x.no ? " gen" : "") + '" href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' +
-            (x.no ? genEmblem(56) : '<span class="nm-my-dot">🌐</span>') +
+            (x.no ? genEmblem(80) : '<span class="nm-my-dot">🌐</span>') +
             '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>";
         }).join("");
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
