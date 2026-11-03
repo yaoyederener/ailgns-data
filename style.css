@@ -1635,3 +1635,24 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .gc-flash { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; background: rgba(74, 222, 128, .14); border: 1px solid rgba(74, 222, 128, .4); }
 .gc-recent em { font-style: normal; font-weight: 500; opacity: .7; font-size: 11px; }
 @media (max-width: 600px) { .gc-d { width: 44px; height: 60px; font-size: 38px; } .gc-num { grid-template-columns: 1fr 1fr; } }
+/* 创世卡改成网站本身的浅紫配色（站长要求：和全站风格一致、看着舒服；不要深色大块） */
+.gc { color: var(--text); background: linear-gradient(160deg, #ffffff 0%, var(--gold-soft) 45%, var(--soft) 100%); border: 1px solid var(--soft-line); box-shadow: var(--shadow); }
+.gc-tag { color: #fff; background: var(--grad-dot); }
+.gc-top b { color: var(--purple-ink); }
+.gc-live { color: var(--up); }
+.gc-live i { background: var(--up); }
+.gc-cd small { color: var(--muted); opacity: 1; }
+.gc-d { color: var(--purple-ink); background: linear-gradient(180deg, #ffffff 0 50%, #f6f0ff 50% 100%); border: 1px solid var(--soft-line); box-shadow: 0 4px 12px rgba(112, 39, 217, .10); text-shadow: none; }
+.gc-sep { color: var(--purple-ink); }
+.gc-num div { background: #fff; border: 1px solid var(--line); }
+.gc-num small { color: var(--muted); opacity: 1; }
+.gc-num .gc-left { color: var(--down); }
+.gc-me { color: var(--gold); }
+.gc-bar { background: var(--pill); }
+.gc-bar i { background: var(--grad-hero); }
+.gc-hot { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+.gc-hot b, .gc-pts b { color: var(--purple-ink); }
+.gc-flash { background: var(--up-soft); border-color: rgba(22, 163, 74, .3); color: #166534; }
+.gc-recent small { color: var(--muted); opacity: 1; }
+.gc-recent span { background: #fff; border: 1px solid var(--soft-line); color: var(--purple-ink); }
+.gc-go { color: #fff; background: var(--grad); box-shadow: 0 6px 18px rgba(73, 54, 255, .25); }
