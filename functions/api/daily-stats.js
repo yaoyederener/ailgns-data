@@ -1,6 +1,6 @@
 // 内部群日报：每天北京时间 9 点后，把前一天的访问、查询、挂单、成交、会员付款汇总发到内部运营群（只发这个群，不发行情群）
 // 定时任务每 5 分钟调用一次：链上数据分段往前读（落后时每次都读，追上后每小时读一次），按北京日期记进 st:d:<日期>；
-// 访问、查询次数由 /api/hit 记（lib/stats.js）。?dry=1[&day=2026-10-31]：只看日报文字，不发
+// 访问、查询次数由 /api/hit 记（lib/stats.js）。?dry=1&key=<BACKUP_KEY>[&day=2026-10-31]：只看日报文字，不发（没 key 不给看）
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 import { bjDay, counts } from "../../lib/stats.js";
@@ -45,7 +45,11 @@ export async function onRequestGet(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1";
   const yesterday = bjDay(Date.now() - 86400e3);
-  if (dry) return Response.json({ text: await report(kv, url.searchParams.get("day") || yesterday) });
+  // 日报预览只给自己人看（带 BACKUP_KEY），统计不公开，只发内部群
+  if (dry) {
+    if (!ctx.env.BACKUP_KEY || url.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
+    return Response.json({ text: await report(kv, url.searchParams.get("day") || yesterday) }, { headers: { "cache-control": "no-store" } });
+  }
 
   const scan = await catchUp(kv).catch((e) => ({ behind: true, error: String((e && e.stack) || e).slice(0, 400) }));
   let sent = null, err = null;
