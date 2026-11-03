@@ -4,7 +4,9 @@
   "use strict";
 
   var A = window.AIL, W = A.wallet;
-  var NAMES = "0x4992917c0e9790342454d2acbbf7559d94c317cb"; // 域名合约（Anubis，区块 18159922）
+  // 两个后缀各一个合约（同一份规则）；网址 #/names/xxx.lgns 打开 .lgns，默认 .ailgns
+  var CONTRACTS = { ailgns: "0x4992917c0e9790342454d2acbbf7559d94c317cb", lgns: "0x9d8caceb1bda65ff21f62248d973e8c2a49bf333" }; // Anubis 区块：.ailgns 18159922，.lgns 18160417
+  var TLD = "ailgns", NAMES = CONTRACTS.ailgns;
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var ZERO = "0x" + "0".repeat(40);
   var SEL = { available: "0xaeb8ce9b", register: "0xd393c871", renew: "0xacf1a841", resolve: "0x461a4478", nameOf: "0xf5c57382", idOf: "0x5fd846f2", expires: "0xcb52c823", ownerOf: "0x6352211e", setPrimary: "0x38e74feb", setAddr: "0xeba36dbd", allowance: "0xdd62ed3e", approve: "0x095ea7b3" };
@@ -56,26 +58,30 @@
       return tx(DAI, SEL.approve + A.pad(NAMES) + u256(cost), say, "🔒 第 1 步：授权域名合约收 " + yearPrice(label) * years + " DAI（只收这一次的钱，合约开源、无管理员）。请在钱包确认");
     }).then(function () {
       var data = SEL.register + u256(0x60) + A.pad(account) + u256(years) + str(label);
-      return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + ".ailgns 给你自己的地址。请在钱包确认");
+      return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + " 给你自己的地址。请在钱包确认");
     });
   }
 
   function page(rid, arg) {
     // 路由只保留 0x 地址参数，名字自己从网址里取
-    var q = decodeURIComponent(location.hash.split("/")[2] || "").toLowerCase().replace(/\.ailgns$/, "");
+    var q = decodeURIComponent(location.hash.split("/")[2] || "").toLowerCase(), m = q.match(/\.(ailgns|lgns)$/);
+    TLD = m ? m[1] : "ailgns";
+    NAMES = CONTRACTS[TLD];
+    q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
-      '<section class="card nm-hero"><h2>🌐 .ailgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
-      '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，比如 baili" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><span>.ailgns</span><button type="submit">搜索</button></form>' +
+      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
+      '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，比如 baili" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
       '<div class="nm-price"><div><b>3 个字符</b><span>640 DAI</span></div><div><b>4 个字符</b><span>160 DAI</span></div><div><b>5 个及以上</b><span>5 DAI</span></div></div>' +
       '<ul class="nm-rules"><li>只能用小写字母、数字、连字符 -，3–32 个字符</li><li>一次买 1–10 年；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 反查：这个地址叫什么</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="0x 地址" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
+    document.getElementById("nm-t").value = TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
       e.preventDefault();
-      var v = inp.value.trim().toLowerCase().replace(/\.ailgns$/, "");
-      if (v !== q) { location.hash = "#/names/" + encodeURIComponent(v); return; }
+      var v = inp.value.trim().toLowerCase().replace(/\.(ailgns|lgns)$/, ""), t = document.getElementById("nm-t").value;
+      if (v !== q || t !== TLD) { location.hash = "#/names/" + encodeURIComponent(v) + "." + t; return; }
       show(v);
     };
     inp.oninput = function () { var v = inp.value.toLowerCase(); if (v !== inp.value) inp.value = v; };
@@ -85,24 +91,24 @@
       if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("请输入正确的 0x 地址", e.target); return; }
       if (!NAMES) { o.innerHTML = '<p class="muted">合约还没上线（预览）</p>'; return; }
       o.innerHTML = '<p class="muted">查询中…</p>';
-      call(SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); o.innerHTML = n ? '<p class="nm-ok">这个地址的主名字：<b>' + esc(n) + ".ailgns</b></p>" : '<p class="muted">这个地址还没设主名字</p>'; }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
+      call(SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); o.innerHTML = n ? '<p class="nm-ok">这个地址的主名字：<b>' + esc(n) + "." + TLD + "</b></p>" : '<p class="muted">这个地址还没设主名字</p>'; }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     };
 
     function show(v) {
       if (!v) { out.innerHTML = ""; return; }
       if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：只能小写字母、数字、-，3–32 个字符，不能以 - 开头或结尾</p>'; return; }
       var buy = '<div class="nm-buy"><label>买几年 <select id="nm-y">' + [1, 2, 3, 5, 10].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + '</select></label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
-        '<button type="button" class="nm-go" id="nm-go">注册 ' + esc(v) + ".ailgns</button><p class=\"muted nm-st\" id=\"nm-st\"></p>";
+        '<button type="button" class="nm-go" id="nm-go">注册 ' + esc(v) + "." + TLD + "</button><p class=\"muted nm-st\" id=\"nm-st\"></p>";
       if (!NAMES) {
-        out.innerHTML = '<p class="nm-ok"><b>' + esc(v) + '.ailgns</b> 名字合规，' + yearPrice(v) + " DAI / 年</p>" + buy;
+        out.innerHTML = '<p class="nm-ok"><b>' + esc(v) + "." + TLD + '</b> 名字合规，' + yearPrice(v) + " DAI / 年</p>" + buy;
         bindBuy(v, true);
         return;
       }
       out.innerHTML = '<p class="muted">查询中…</p>';
       info(v).then(function (r) {
-        if (r.free) { out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + ".ailgns</b> 可以注册！</p>" + buy; bindBuy(v); return; }
+        if (r.free) { out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
         var mine = account && r.owner === account, now = Date.now() / 1000;
-        out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + ".ailgns</b> 已被注册</p>" +
+        out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
           '<div class="nm-act"><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
@@ -116,10 +122,10 @@
         if (!mine) return;
         document.getElementById("nm-pri").onclick = function () {
           if (r.addr !== account) { A.errTip("名字要先指向你自己的地址，才能设成主名字", st); return; }
-          tx(NAMES, SEL.setPrimary + r.id, say, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认").then(function () { say("✅ 别人查你的地址会显示 " + v + ".ailgns"); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
+          tx(NAMES, SEL.setPrimary + r.id, say, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认").then(function () { say("✅ 别人查你的地址会显示 " + v + "." + TLD); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
         document.getElementById("nm-set").onclick = function () {
-          var a = (prompt("让 " + v + ".ailgns 指向哪个地址？", account) || "").trim().toLowerCase();
+          var a = (prompt("让 " + v + "." + TLD + " 指向哪个地址？", account) || "").trim().toLowerCase();
           if (!a) return;
           if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
           tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
@@ -135,7 +141,7 @@
         b.disabled = true;
         register(v, Number(y.value), function (t) { st.textContent = t; }).then(function () {
           st.textContent = "";
-          out.innerHTML = '<p class="nm-ok">✅ 注册成功！<b>' + esc(v) + ".ailgns</b> 现在指向你的地址</p><p class=\"muted\">再点一次搜索可以「设为我的主名字」，别人查你的地址就会显示这个名字。</p>";
+          out.innerHTML = '<p class="nm-ok">✅ 注册成功！<b>' + esc(v) + "." + TLD + "</b> 现在指向你的地址</p><p class=\"muted\">再点一次搜索可以「设为我的主名字」，别人查你的地址就会显示这个名字。</p>";
         }, function (e) { b.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), b); });
       };
     }
