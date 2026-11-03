@@ -1618,3 +1618,20 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .gc-go { display: block; width: 100%; margin-top: 14px; padding: 13px; border: 0; border-radius: 14px; font-size: 16px; font-weight: 900; color: #191839; background: linear-gradient(110deg, #ffd66b, #ffb020); box-shadow: 0 6px 20px rgba(255, 176, 32, .4); animation: a2hs-pulse 1.8s ease-in-out infinite; }
 @media (max-width: 600px) { .gc-num b { font-size: 17px; } .gc-num { grid-template-columns: 1fr 1fr; } .gc-num div:last-child { grid-column: 1 / -1; } }
 .gc-hot { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; background: rgba(255, 107, 107, .16); border: 1px solid rgba(255, 107, 107, .4); } .gc-hot b { color: #ffd66b; }
+/* 创世倒计时：翻牌数字 + 链上实时小绿点 + 有人抢注时闪一下 */
+.gc-live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #4ade80; }
+.gc-live i { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74, 222, 128, .7); animation: gc-ping 1.6s infinite; }
+@keyframes gc-ping { 70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+.gc-cd { margin-top: 12px; text-align: center; }
+.gc-cd small { display: block; font-size: 12px; opacity: .8; }
+.gc-flip { display: flex; justify-content: center; align-items: flex-end; gap: 6px; margin: 8px 0; }
+.gc-d { width: 52px; height: 70px; display: grid; place-items: center; border-radius: 10px; font-size: 46px; font-weight: 900; font-variant-numeric: tabular-nums; color: #ff6b6b; background: linear-gradient(180deg, #2a2852 0 50%, #222046 50% 100%); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .35), 0 6px 14px rgba(0, 0, 0, .35); text-shadow: 0 0 18px rgba(255, 107, 107, .45); }
+.gc-sep { font-style: normal; font-size: 34px; font-weight: 900; color: #ff6b6b; }
+.gc-hit .gc-d { animation: gc-flipin .6s ease; }
+@keyframes gc-flipin { 0% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+.gc-hit { animation: gc-shake .5s ease; }
+@keyframes gc-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.gc-me { color: #ffd66b; }
+.gc-flash { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; background: rgba(74, 222, 128, .14); border: 1px solid rgba(74, 222, 128, .4); }
+.gc-recent em { font-style: normal; font-weight: 500; opacity: .7; font-size: 11px; }
+@media (max-width: 600px) { .gc-d { width: 44px; height: 60px; font-size: 38px; } .gc-num { grid-template-columns: 1fr 1fr; } }

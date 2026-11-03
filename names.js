@@ -345,28 +345,56 @@
     }, function (e) { delete genCache[TLD]; throw e; });
     return genCache[TLD];
   }
-  // 创世域名营销卡：链上真实数字（已注册几个、还剩几个、下一个编号、最近被抢注的名字），不编数字
-  function genCard() {
-    var box = document.getElementById("nm-genc");
-    if (!box || !NAMES) return;
-    box.innerHTML = '<div class="gc"><div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><b>全球限量 10,000 个</b></div><p class="muted" style="margin:6px 0 0">读取链上数据…</p></div>';
-    logs(NAMES, T_REG, START[TLD]).then(function (l) {
+  // 创世域名营销卡：剩余数量实时倒计时（每 15 秒读一次链，有人注册就当场减一、弹出「刚刚被抢注」），全部是链上真实数字，不编
+  var gcTimer = null, gcLast = -1, blockTs = {};
+  function bts(b) { // 区块时间（秒），缓存
+    if (!blockTs[b]) blockTs[b] = W.rpcOn("anubis", "eth_getBlockByNumber", ["0x" + b.toString(16), false]).then(function (x) { return parseInt(x.timestamp, 16); });
+    return blockTs[b];
+  }
+  function ago(sec) { return sec < 60 ? "刚刚" : sec < 3600 ? Math.floor(sec / 60) + " 分钟前" : sec < 86400 ? Math.floor(sec / 3600) + " 小时前" : Math.floor(sec / 86400) + " 天前"; }
+  function flip(n) { // 翻牌数字：每一位一个牌子，不足 4 位前面补 0（10,000 → 9,994）
+    var s = String(n).padStart(4, "0");
+    return s.split("").map(function (d, i) { return (s.length - i === 3 && i ? '<em class="gc-sep">,</em>' : "") + '<span class="gc-d">' + d + "</span>"; }).join("");
+  }
+  function gcRead() {
+    return logs(NAMES, T_REG, START[TLD]).then(function (l) {
       var seen = {}, list = [];
       l.forEach(function (x) { var id = x[1][1]; if (!seen[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && list.length < GENESIS) { seen[id] = 1; list.push(x); } });
-      var n = list.length, left = GENESIS - n, pct = Math.max(n / GENESIS * 100, 0.6);
-      var recent = list.slice(-6).reverse().map(function (x) { var nm = ""; try { nm = decStr(x[2]); } catch (e) { /* 忽略 */ } return nm ? '<span>' + esc(nm) + "." + TLD + "</span>" : ""; }).join("");
+      var last = list.slice(-6).reverse(), latestBlock = l.length ? l[l.length - 1][0] : 0;
+      return Promise.all([W.rpcOn("anubis", "eth_getBlockByNumber", ["latest", false])].concat(last.map(function (x) { return bts(x[0]); }))).then(function (t) {
+        var now = parseInt(t[0].timestamp, 16), head = parseInt(t[0].number, 16);
+        // 近 24 小时：按最近一个注册的区块和现在的时间差估出每块秒数，再数 24 小时内的注册
+        var spb = last.length && head > last[0][0] ? Math.max(0.5, (now - t[1]) / (head - last[0][0])) : 2;
+        var from = head - Math.floor(86400 / spb), day = list.filter(function (x) { return x[0] >= from; }).length;
+        return { n: list.length, day: day, recent: last.map(function (x, i) { var nm = ""; try { nm = decStr(x[2]); } catch (e) { /* 忽略 */ } return { nm: nm, ago: now - t[i + 1], no: list.indexOf(x) + 1 }; }) };
+      });
+    });
+  }
+  function genCard() {
+    var box = document.getElementById("nm-genc");
+    clearInterval(gcTimer); gcLast = -1;
+    if (!box || !NAMES) return;
+    box.innerHTML = '<div class="gc"><div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><b>全球限量 10,000 个</b></div><p class="muted" style="margin:6px 0 0">读取链上数据…</p></div>';
+    function draw(d) {
       var b = document.getElementById("nm-genc");
-      if (!b) return;
-      b.innerHTML = '<div class="gc">' +
-        '<div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><b>全球限量 10,000 个</b></div>' +
-        '<div class="gc-num"><div><small>已被抢注</small><b>' + n.toLocaleString() + '</b></div><div><small>仅剩</small><b class="gc-left">' + left.toLocaleString() + '</b></div><div><small>你现在注册就是</small><b>创世 #' + (n + 1).toLocaleString() + "</b></div></div>" +
+      if (!b) { clearInterval(gcTimer); return; } // 离开了域名页
+      var n = d.n, left = GENESIS - n, pct = Math.max(n / GENESIS * 100, 0.6), changed = gcLast >= 0 && n > gcLast;
+      var tier = n < 10 ? ["前 10 号", 10] : n < 100 ? ["前 100 号", 100] : n < 1000 ? ["前 1,000 号", 1000] : null;
+      b.innerHTML = '<div class="gc' + (changed ? " gc-hit" : "") + '">' +
+        '<div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><span class="gc-live"><i></i>链上实时</span></div>' +
+        '<div class="gc-cd"><small>.' + TLD + ' 创世域名 · 全球限量 10,000 个 · 仅剩</small><div class="gc-flip">' + flip(left) + '</div><small>售完永久没有，第 10,001 个起再也不是创世域名</small></div>' +
         '<div class="gc-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div>' +
-        (n < 100 ? '<p class="gc-hot">🏅 现在还能拿到<b>前 100 号</b>（个位数、两位数编号最稀有），只剩 <b>' + (100 - n) + "</b> 个</p>" : n < 1000 ? '<p class="gc-hot">🏅 前 1000 号只剩 <b>' + (1000 - n) + "</b> 个</p>" : "") +
-        '<ul class="gc-pts"><li>🔥 <b>只有 1 万个，售完永久没有</b>：第 10,001 个起再也不是创世域名</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序写在区块链上，编号越小越稀有，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
-        (recent ? '<div class="gc-recent"><small>最近被抢注：</small>' + recent + "</div>" : "") +
-        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注我的创世域名</button></div>';
+        '<div class="gc-num"><div><small>已被抢注</small><b>' + n.toLocaleString() + '</b></div><div><small>近 24 小时</small><b>+' + d.day + '</b></div><div><small>你现在注册就是</small><b class="gc-me">创世 #' + (n + 1).toLocaleString() + "</b></div></div>" +
+        (tier ? '<p class="gc-hot">🏅 <b>' + tier[0] + "</b>（编号越小越稀有）只剩 <b>" + (tier[1] - n) + "</b> 个，抢完就只能拿更大的号</p>" : "") +
+        (changed && d.recent[0] && d.recent[0].nm ? '<p class="gc-flash">⚡ 刚刚，<b>' + esc(d.recent[0].nm) + "." + TLD + "</b> 被抢注，成为创世 #" + d.recent[0].no + "</p>" : "") +
+        '<ul class="gc-pts"><li>🔥 <b>限量 1 万，售完永久没有</b>：合约写死，谁都加不了</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序刻在区块链上，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
+        (d.recent.length ? '<div class="gc-recent"><small>最近被抢注：</small>' + d.recent.filter(function (r) { return r.nm; }).map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") + "</div>" : "") +
+        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>";
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); } };
-    }, function () { var b = document.getElementById("nm-genc"); if (b) b.innerHTML = ""; });
+      gcLast = n;
+    }
+    gcRead().then(draw, function () { var b = document.getElementById("nm-genc"); if (b) b.innerHTML = ""; });
+    gcTimer = setInterval(function () { if (!document.getElementById("nm-genc")) { clearInterval(gcTimer); return; } if (!document.hidden) gcRead().then(draw, function () {}); }, 15000);
   }
   // 价格表：每档下面标出用 AiLGNS / LGNS 付要多少个（LGNS 含卖出税补差）（合约 quote = DEX 实时价格）
   function livePrices() {
