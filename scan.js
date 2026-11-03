@@ -1,5 +1,5 @@
 // 轻量区块浏览器（Anubis 链）：一个搜索框搜域名（xxx.ailgns / xxx.lgns）、地址、交易哈希；
-// 链上数据借用 Anubis 官方浏览器（Blockscout）的公开接口，再把地址换成我们的域名显示（像 Etherscan 显示 ENS）
+// 链上数据借用 Anubis 官方浏览器（Blockscout）的公开接口，再把地址换成我们的域名显示
 (function () {
   "use strict";
 

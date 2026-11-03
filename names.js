@@ -1,4 +1,4 @@
-// .ailgns 域名：注册 xxx.ailgns、绑定地址、设主名字、查名字（合约 contracts/AilgnsNames.sol，规则照抄 ENS 的 .eth）
+// .ailgns 域名：注册 xxx.ailgns、绑定地址、设主名字、查名字（合约 contracts/AilgnsNames.sol，按名字长度定价）
 // 收费全部直接进回购分账合约；合约没部署前 NAMES 留空，页面只能看价格、不能注册（预览）
 (function () {
   "use strict";
@@ -20,7 +20,7 @@
   function chars(s) { return Array.from(s).length; }
   function valid(s) { var n = chars(s); return /^[a-z0-9\u4e00-\u9fff-]+$/.test(s) && n >= (cn(s) ? 2 : 3) && n <= 32 && s[0] !== "-" && s[s.length - 1] !== "-"; }
   function cn(s) { return /[\u4e00-\u9fff]/.test(s); }
-  // 带汉字：2 个字 50、3 个字及以上 5；英文照 ENS：3 位 640、4 位 160、5 位及以上 5（DAI / 年）
+  // 带汉字：2 个字 50、3 个字及以上 5；英文：3 位 640、4 位 160、5 位及以上 5（DAI / 年）
   function yearPrice(s) { var n = chars(s); return cn(s) ? (n === 2 ? 50 : 5) : n === 3 ? 640 : n === 4 ? 160 : 5; }
   // 付款币种：DAI，或 LGNS、AiLGNS（合约按 DEX 现价换算）
   var TOK = { DAI: { a: DAI, d: 18 }, LGNS: { a: "0x4d1d808a081fdac440703b3765fc61f8028c06b8", d: 9 }, AiLGNS: { a: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", d: 18 } };
@@ -95,12 +95,12 @@
     NAMES = CONTRACTS[TLD];
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
-      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
+      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。</p>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
-      '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
-      '<p class="nm-pt">英文（照抄 ENS）</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span></div><div><b>4 位</b><span>160 DAI</span></div><div><b>5 位及以上</b><span>5 DAI</span></div></div>' +
+      '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">按名字长度定价</span></div>' +
+      '<p class="nm-pt">英文</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span></div><div><b>4 位</b><span>160 DAI</span></div><div><b>5 位及以上</b><span>5 DAI</span></div></div>' +
       '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span></div><div><b>3 个字及以上</b><span>5 DAI</span></div></div>' +
       '<p class="muted">可以用 DAI、LGNS、AiLGNS 付（Anubis 链，按 DEX 现价换算）</p>' +
       '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
