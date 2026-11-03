@@ -1291,5 +1291,5 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sw-pnl b { font-size: 24px; }
 .sweep .sw-get { background: #f5f3ff; border: 1px solid #ddd6fe; color: #3b0764; box-shadow: none; }
 .sweep .sw-get b { font-size: 24px; }
-.sweep .sw-go { background: #f97316 !important; color: #fff !important; border: 0; box-shadow: 0 6px 18px rgba(249, 115, 22, .45); }
-.sweep .sw-go:disabled { background: #fdba74 !important; box-shadow: none; }
+.sweep .sw-go { background: #1677ff !important; color: #fff !important; border: 0; box-shadow: 0 6px 16px rgba(22, 119, 255, .32); } /* 支付宝式付款蓝：国内用户最熟悉、看着舒服 */
+.sweep .sw-go:disabled { background: #91caff !important; box-shadow: none; }
