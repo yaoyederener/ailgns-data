@@ -321,22 +321,21 @@ const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP
 // tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
 function groupText(fills, tot, { bids, asks }, thx, since, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
-  const hourDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
-  const n = Math.max(tot.fills || 0, fills.length), dai = Math.max(tot.fillDai || 0, hourDai);
+  const n = Math.max(tot.fills || 0, fills.length);
   const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key), ...asks.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
-  // DeBox 群里长消息会折叠，网址放第二行，文字压短，保证一打开就能看到链接（站长要求）
+  // DeBox 群里长消息会折叠：网址放第二行，全文压短；只报笔数不报金额，好单买卖各只放最划算的一张（站长要求）
   const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "👉 钱包打开：" + (links.length === 1 ? links[0] : SITE), "",
-    `✅ 累计成交 ${n.toLocaleString("en-US")} 笔 · ${dai2(dai)} DAI` + (fills.length ? `\n${until - since > 3600e3 ? hm(since) + "–" + hm(until) : "本小时"}新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI` : "")];
-  if (asks.length) {
-    out.push("", "🛒 低价出售中：在 OTC 买比在 DEX 买便宜！");
-    for (const { m, o, e } of asks) out.push(`· ${m.sym} ${d2(o.qty, 0)} 枚 · 单价 ${d2(o.price, m.pd)} · 便宜 ${(e.pct * 100).toFixed(1)}%`);
+    `✅ 累计成交 ${n.toLocaleString("en-US")} 笔` + (fills.length ? ` · ${until - since > 3600e3 ? hm(since) + "–" + hm(until) : "本小时"}新增 ${fills.length} 笔` : ""),
+    "🔐 0 安全漏洞 · 0 出错 · 0 纠纷：合约无管理员、无后门，谁都改不了，链上随时可查"];
+  const a = asks[0], b = bids[0];
+  if (a || b) {
+    out.push("", "🔥 现在的好单：");
+    if (a) out.push(`· 买 ${a.m.sym} 比 DEX 便宜 ${(a.e.pct * 100).toFixed(1)}%（单价 ${d2(a.o.price, a.m.pd)}）`);
+    if (b) out.push(`· 卖 ${b.m.sym} 比 DEX 多拿 ${(b.e.pct * 100).toFixed(1)}%（出价 ${d2(b.o.price, b.m.pd)}）`);
   }
-  if (bids.length) {
-    out.push("", "📥 手里有币的看过来：卖给这些求购单，比在 DEX 卖多拿钱！");
-    for (const { m, o, e } of bids) out.push(`· ${m.sym} ${d2(o.qty, 0)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
-  }
-  out.push("", "🤝 初心：为社区提供场外流动性，大额买卖不冲击底池，减少抛压、稳住币价。平台只收 1% 手续费，要承担域名、服务器、安全防护、Gas、算力和人工值守，常常入不敷出。",
-    "🔐 合约无管理员、无后门，任何人（包括我们）都改不了，链上随时可查，0 纠纷 0 差错。");
+  out.push("", "🤝 初心：我们只想为社区做一件实事——让大家买卖不再冲击底池，少一分抛压，多一分稳定。",
+    "平台只收 1% 手续费，域名、服务器、安全防护、算力、Gas 和日夜值守的人工，一样都不能省，常常入不敷出。但每多一笔场外成交，底池就少一分压力，这份坚持就值得。",
+    "❤️ 感谢每一位来交易的朋友，你们的每一笔，都是在守护我们共同的家园。");
   if (thx) out.push(thx);
   out.push(PROMO);
   return out.join("\n");
