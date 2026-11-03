@@ -179,7 +179,7 @@
       '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div><div id="nm-mk"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
-      '<section class="card"><div class="card-head"><h2>🔍 反查：这个地址叫什么</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="0x 地址" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
+      '<section class="card"><div class="card-head"><h2>🔍 查询：地址 ⇄ 域名</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="输入 0x 地址 或 域名（如 xxx.ailgns）" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
@@ -198,13 +198,31 @@
       v = v.trim().replace(/\.(ailgns|lgns)$/, "");
       if (NAMES && valid(v)) typing = setTimeout(function () { info(v).catch(function () {}); }, 400);
     };
+    // 反查：填 0x 地址 → 查它在 .ailgns / .lgns 的主名字；填域名 → 查它指向哪个地址（站长和保护名单显示匿名）
     document.getElementById("nm-rf").onsubmit = function (e) {
       e.preventDefault();
       var a = document.getElementById("nm-ra").value.trim().toLowerCase(), o = document.getElementById("nm-rr");
-      if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("请输入正确的 0x 地址", e.target); return; }
-      if (!NAMES) { o.innerHTML = '<p class="muted">合约还没上线（预览）</p>'; return; }
+      function on(c, data) { return W.rpcOn("anubis", "eth_call", [{ to: c, data: data }, "latest"]); }
+      var PROT = A.hidden || {}, HN = A.hiddenNames || {}, tlds = Object.keys(CONTRACTS);
+      if (/^0x[0-9a-f]{40}$/.test(a)) {
+        if (PROT[a]) { o.innerHTML = '<p class="muted">🔒 这个地址的持有人选择匿名</p>'; return; }
+        o.innerHTML = '<p class="muted">查询中…</p>';
+        Promise.all(tlds.map(function (t) { return on(CONTRACTS[t], SEL.nameOf + A.pad(a)).then(decStr, function () { return ""; }); })).then(function (ns) {
+          var got = ns.map(function (n, i) { return n && !HN[n + "." + tlds[i]] ? '<b>' + esc(n) + "." + tlds[i] + "</b>" : ""; }).filter(Boolean);
+          o.innerHTML = got.length ? '<p class="nm-ok">这个地址的主名字：' + got.join("、") + "</p>" : '<p class="muted">这个地址还没设主名字</p>';
+        });
+        return;
+      }
+      var m = a.replace(/^\s+|\s+$/g, "").match(/^(.+?)(?:\.(ailgns|lgns))?$/), label = m && m[1], t = (m && m[2]) || TLD;
+      if (!label || /\s|\./.test(label)) { A.errTip("请输入 0x 地址，或者域名（比如 xxx.ailgns）", e.target); return; }
+      var full = label + "." + t;
       o.innerHTML = '<p class="muted">查询中…</p>';
-      call(SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); o.innerHTML = n ? '<p class="nm-ok">这个地址的主名字：<b>' + esc(n) + "." + TLD + "</b></p>" : '<p class="muted">这个地址还没设主名字</p>'; }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
+      on(CONTRACTS[t], SEL.resolve + "0000000000000000000000000000000000000000000000000000000000000020" + str(label)).then(function (r) {
+        var ad = addrOf(r);
+        if (/^0x0{40}$/.test(ad)) { o.innerHTML = '<p class="muted"><b>' + esc(full) + '</b> 还没被注册，<a href="#/names/' + encodeURIComponent(full) + '">现在去注册 →</a></p>'; return; }
+        if (PROT[ad] || HN[full]) { o.innerHTML = '<p class="muted">🔒 <b>' + esc(full) + "</b> 的持有人选择匿名</p>"; return; }
+        o.innerHTML = '<p class="nm-ok"><b>' + esc(full) + '</b> 指向地址：</p><p class="mono" style="word-break:break-all">' + ad + '</p>';
+      }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     };
 
     function show(v) {
