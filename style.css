@@ -1249,7 +1249,14 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sweep .sw-go small { margin-top: 2px; font-size: .8em; font-weight: 700; opacity: .92; }
 .sweep .sw-go { width: 100%; white-space: normal; overflow-wrap: anywhere; min-height: 58px; padding: 14px 18px; font-size: 18px; font-weight: 800; line-height: 1.35; border-radius: 16px; } /* 扫单确认按钮：大字写清楚付多少、得多少 */
 @media (max-width: 600px) { .sweep .sw-go { font-size: 16px; } }
-.sweep .sw-get { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 10px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; box-shadow: 0 4px 14px rgba(22, 163, 74, .25); } /* 最终到手：绿色大字，一眼看到 */
+.sweep .sw-pnl { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 10px; padding: 14px 16px; border-radius: 14px; color: #fff; } /* 赚了绿、亏了红，一眼看出盈亏 */
+.sweep .sw-pnl.win { background: linear-gradient(110deg, #059669, #10b981); box-shadow: 0 4px 14px rgba(5, 150, 105, .28); }
+.sweep .sw-pnl.lose { background: linear-gradient(110deg, #dc2626, #ef4444); box-shadow: 0 4px 14px rgba(220, 38, 38, .28); }
+.sweep .sw-pnl span { font-size: 16px; font-weight: 800; }
+.sweep .sw-pnl b { font-size: 30px; font-weight: 800; line-height: 1.1; }
+.sweep .sw-pnl em { font-style: normal; font-size: 15px; font-weight: 800; padding: 2px 8px; border-radius: 8px; background: rgba(255, 255, 255, .22); }
+.sweep .sw-pnl small { flex-basis: 100%; font-size: 12.5px; opacity: .92; }
+.sweep .sw-get { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 10px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(110deg, #3b1d8f, #5b21b6); color: #fff; box-shadow: 0 4px 14px rgba(76, 29, 149, .28); } /* 最终到手：深紫大字（绿色 / 红色留给上面的赚亏） */
 .sweep .sw-get span { font-size: 14px; font-weight: 700; }
 .sweep .sw-get b { font-size: 32px; font-weight: 800; line-height: 1.1; }
 .sweep .sw-get em { font-style: normal; font-size: 16px; font-weight: 800; }

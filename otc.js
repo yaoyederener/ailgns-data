@@ -866,7 +866,14 @@
         if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI</small>"; // 分两行：付多少一行，得多少一行
         var eff = buy ? num(p.dai) / tNum(net) : num(net) / tNum(p.tok); // 算上 1% 手续费后每枚实际成本 / 到手
         var worst = p.steps.length ? priceOf(p.steps[p.steps.length - 1].o) : 0;
-        out.innerHTML = balLine(m) + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + "</small></div>" + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
+        // 盈亏一目了然：和同样数量在 DEX 买 / 卖比（已算 DEX 手续费、卖出税和本站 1% 手续费），省了 / 多拿了就是赚
+        var pnl = "";
+        if (mkt) {
+          var dex = buy ? tNum(net) * mkt * DEX_BUY : tNum(p.tok) * mkt * DEX_SELL, mine = buy ? num(p.dai) : num(net), d = buy ? dex - mine : mine - dex, pc = dex > 0 ? Math.abs(d) / dex * 100 : 0;
+          pnl = '<div class="sw-pnl ' + (d >= 0 ? "win" : "lose") + '"><span>' + (d >= 0 ? "✅ 赚了" : "⚠️ 亏了") + "</span><b>" + (d >= 0 ? "+" : "−") + A.fmt(Math.abs(d), 2) + " DAI</b><em>" + (d >= 0 ? (buy ? "比去 DEX 买便宜 " : "比在 DEX 卖多拿 ") : (buy ? "比去 DEX 买贵 " : "比在 DEX 卖少拿 ")) + pc.toFixed(1) + "%</em>" +
+            "<small>同样" + (buy ? "买 " + tShow(net) + " " + SYM + "，在 DEX 要付约 " : "卖 " + tShow(p.tok) + " " + SYM + "，在 DEX 只能拿约 ") + A.fmt(dex, 2) + " DAI（含 DEX 手续费" + (buy ? "" : "和卖出税") + "）</small></div>";
+        }
+        out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + "</small></div>" + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
           '<dl class="dl sw-dl"><dt>吃掉</dt><dd>' + p.steps.length + " 张单（共 " + l.length + " 张）</dd>" +
           (buy ? "<dt>你付</dt><dd><b>" + show(p.dai, 2) + " DAI</b></dd><dt>你收到</dt><dd><b>" + tShow(net) + " " + SYM + "</b>（已扣 1% 手续费 " + tShow(fee) + "）</dd>"
                : "<dt>你付</dt><dd><b>" + tShow(p.tok) + " " + SYM + "</b></dd><dt>你收到</dt><dd><b>" + show(net, 2) + " DAI</b>（已扣 1% 手续费 " + show(fee, 2) + "）</dd>") +
