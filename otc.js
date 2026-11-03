@@ -864,7 +864,6 @@
         return '<p class="muted sw-bal">钱包里有 <b>' + (buy ? show(b, 2) + " DAI" : tShow(b) + " " + SYM) + "</b>" + (buy && M.gas === "DAI" ? "（留约 " + show(gasKeep(list().length), 2) + " DAI 付 Gas）" : "") +
           (m >= 10000 ? " · 够把全部挂单扫完" : " · 最多能扫全部挂单的 <b>" + pctText(m) + "</b>，再往右余额不够") + "</p>";
       }
-      function vs(avg) { if (!mkt || !avg) return ""; var d = (avg / mkt - 1) * 100; return '<span class="' + (d <= 0 ? "up" : "down") + '">比 DEX 市价' + (d <= 0 ? "低 " : "高 ") + Math.abs(d).toFixed(2) + "%</span>"; }
       function draw() {
         var l = list(), m = maxBp(l);
         if (Number(r.value) > m) r.value = m; // 余额不够：只能往左拖
@@ -878,14 +877,8 @@
         if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
         if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI</small>"; // 分两行：付多少一行，得多少一行
-        var eff = buy ? num(p.dai) / tNum(net) : num(net) / tNum(p.tok); // 算上 1% 手续费后每枚实际成本 / 到手
-        var worst = p.steps.length ? priceOf(p.steps[p.steps.length - 1].o) : 0;
         var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
-        out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + "</small></div>" + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
-          '<dl class="dl sw-dl"><dt>吃掉</dt><dd>' + p.steps.length + " 张单（共 " + l.length + " 张）</dd>" +
-          (buy ? "<dt>你付</dt><dd><b>" + show(p.dai, 2) + " DAI</b></dd><dt>你收到</dt><dd><b>" + tShow(net) + " " + SYM + "</b>（已扣 1% 手续费 " + tShow(fee) + "）</dd>"
-               : "<dt>你付</dt><dd><b>" + tShow(p.tok) + " " + SYM + "</b></dd><dt>你收到</dt><dd><b>" + show(net, 2) + " DAI</b>（已扣 1% 手续费 " + show(fee, 2) + "）</dd>") +
-          "<dt>算上手续费</dt><dd>每枚" + (buy ? "实际成本 " : "实际到手 ") + A.fmt(eff, PD + 2) + " DAI</dd><dt>最" + (buy ? "贵" : "低") + "一张</dt><dd>" + A.fmt(worst, PD + 2) + " DAI</dd></dl>";
+        out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + " · 吃掉 " + p.steps.length + " 张单</small></div>"; // 平均单价和明细表去掉了（站长要求）
         ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {
