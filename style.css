@@ -1740,3 +1740,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-my{gap:10px}
 .nm-my-a{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-decoration:none;color:inherit}
 .nm-my-sell{flex:none;padding:8px 14px;border-radius:999px;border:0;background:var(--grad);color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+
+/* 付款确认次数说明 */
+.nm-cn{margin:8px 0;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-size:13px;line-height:1.6}
+.nm-big-kind{font-size:16px!important;color:var(--purple-ink)}
+.nm-big-in .nm-free{color:#16a34a}

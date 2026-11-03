@@ -191,11 +191,15 @@
     var el = document.getElementById("nm-big");
     if (!msg) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement("div"); el.id = "nm-big"; el.onclick = function () { el.remove(); }; document.body.appendChild(el); }
-    var m = String(msg).match(/第 (\d) 步/);
+    // 每一步说清楚「扣不扣钱」：客户以为确认几次就付了几次钱
+    tipN++;
+    var t = String(msg), kind = /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
     el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
-      (m ? '<p class="nm-big-step">一共确认 2 次 · 现在是第 <b>' + m[1] + "</b> 次</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
+      '<p class="nm-big-step">第 <b>' + tipN + "</b> 次确认" + (tipTotal ? "（最多 " + tipTotal + " 次）" : "") + "</p>" + (kind ? '<p class="nm-big-kind">' + kind + "</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
   }
+  var tipN = 0, tipTotal = 0; // 大字提示里的「第几次确认 / 最多几次」
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
+    tipN = 0; tipTotal = k === "LGNS" ? 3 : 2;
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
       var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
       return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
@@ -484,8 +488,11 @@
     function bindBuy(v, preview) {
       var y = document.getElementById("nm-y"), st = document.getElementById("nm-st");
       var kk = document.getElementById("nm-k"), cost = document.getElementById("nm-cost");
+      var cn = document.getElementById("nm-cn");
+      if (!cn) { cn = document.createElement("p"); cn.id = "nm-cn"; cn.className = "nm-cn"; document.getElementById("nm-go").before(cn); }
       y.onchange = kk.onchange = function () { // 换年数或币种：显示要付多少个币
         var dai = yearPrice(v) * y.value, k = kk.value;
+        cn.innerHTML = "ℹ️ 只付<b>一次钱</b>，但钱包会弹出 " + (k === "LGNS" ? "<b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款" : "<b>2 次</b>确认：① 授权（<b>不扣钱</b>）② 注册付款") + "。以前授权过的会自动跳过。";
         cost.textContent = dai + " DAI";
         if (k === "DAI" || preview) return;
         quote(dai, k).then(function (q) { return k === "LGNS" ? topUp(q).then(function (e) { return q + e; }) : q; })
