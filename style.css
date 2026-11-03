@@ -1356,3 +1356,26 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .gm-rank { margin: 0; padding-left: 26px; }
 .gm-rank li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .gm-rank li b { color: var(--purple-ink); }
+
+.gm-start { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; font-size: 96px; border-radius: 14px; background: #f5f3ff; }
+.gm-again { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.gm-again [data-go=rk] { background: linear-gradient(110deg, #f97316, #ef4444); }
+.gm-again .ghost { background: #fff; color: #5b21b6; }
+.gm-again small { font-size: 13px; opacity: .9; }
+
+.mg-next { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 8px; font-size: 15px; }
+.mg-next b { font-size: 30px; }
+.mg-next small { color: var(--muted); }
+.mg-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; padding: 6px; border-radius: 14px; background: #ede9fe; }
+.mg-c { aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; background: #fff; font-size: clamp(22px, 8vw, 34px); box-shadow: none; }
+.mg-c.l0 { background: #faf5ff; }
+.mg-c.l4, .mg-c.l5 { background: #dcfce7; } .mg-c.l6, .mg-c.l7 { background: #fef9c3; } .mg-c.l8, .mg-c.l9 { background: #fde68a; }
+.pt-pet { font-size: 110px; text-align: center; margin: 12px 0 4px; animation: pt-bob 2.4s ease-in-out infinite; }
+.pt-pet.hungry { filter: grayscale(.6); }
+@keyframes pt-bob { 50% { transform: translateY(-8px); } }
+.pt-name { text-align: center; }
+.pt-bar { display: flex; align-items: center; gap: 8px; max-width: 320px; margin: 8px auto 14px; font-size: 13px; }
+.pt-bar i { flex: 1; height: 10px; border-radius: 99px; background: #e5e7eb; overflow: hidden; }
+.pt-bar em { display: block; height: 100%; background: linear-gradient(90deg, #22c55e, #ef4444); }
+.pt-acts [data-go=rk], .pt-acts [data-go=free] { color: #fff; border: 0; padding: 12px 18px; border-radius: 12px; font-weight: 800; }
+.pt-acts .ghost { color: #5b21b6 !important; border: 1.5px solid #c4b5fd !important; }

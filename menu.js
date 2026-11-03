@@ -26,7 +26,7 @@
     ["OTC 交易", "TRADE", [["#/otc", "AiLGNS OTC", "otc"], ["#/otc/lgns", "LGNS OTC · Anubis", "chain"], ["#/otc/plgns", "LGNS OTC · Polygon", "chain"], ["#/otc/glgns", "gLGNS OTC · Anubis", "chain"], ["#/otc/nft", "AWAKE NFT 卡牌", "grid"], ["#/trades", "成交查询", "wallet"]]],
     ["会员", "MEMBER", [["#/member", "会员中心", "member"], ["#/wallet", "钱包快查", "wallet"], ["#/team", "团队与等级", "team"], ["#/growth", "团队新增业绩", "growth"], ["#/tree", "团队结构图", "tree"], ["#/upline", "上级查询", "upline"]]],
     ["借贷", "LEND", [["#/lend", "AiLGNS 抵押借款", "otc"], ["#/lend/lgns", "LGNS 抵押借款（即将上线）", "chain"], ["#/lend/glgns", "gLGNS 抵押借款（即将上线）", "chain"]]],
-    ["销毁乐园", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"]]],
+    ["销毁乐园", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
     ["数据", "DATA", [["#/flows", "资金流向", "flow"]]],
     ["合作与支持", "SUPPORT", [["#/promo", "营销广告", "promo"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/app", "下载 App", "app"], ["https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7", "加站长 DeBox", "chat", true]]]
   ];

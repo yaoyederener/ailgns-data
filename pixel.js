@@ -288,14 +288,14 @@
   // ---------- 销毁乐园：小游戏大厅（#/play）。所有游戏花的 LGNS 都进各链的收款合约：80% 销毁、20% 运营 ----------
   var GAMES = [
     { id: "pixel", icon: "🧱", name: "LGNS 像素墙", desc: "花 LGNS 给格子涂色，画图案、写名字、抢地盘（Anubis / Polygon 链都能付）", live: true },
-    { id: "g2048", icon: "🔢", name: "2048", desc: "排位赛 10 LGNS 一局 · 滑动合并数字，冲击 2048", live: true },
-    { id: "snake", icon: "🐍", name: "贪吃蛇", desc: "排位赛 10 LGNS 一局 · 吃豆变长，别撞墙", live: true },
-    { id: "tetris", icon: "🧱", name: "俄罗斯方块", desc: "排位赛 10 LGNS 一局 · 经典消行，越消越快", live: true },
-    { id: "flappy", icon: "🐤", name: "飞翔小鸟", desc: "排位赛 10 LGNS 一局 · 点一下飞一下，穿过管子", live: true },
-    { id: "mines", icon: "💣", name: "扫雷", desc: "排位赛 10 LGNS 一局 · 找出全部地雷", live: true },
-    { id: "brick", icon: "🏓", name: "打砖块", desc: "排位赛 10 LGNS 一局 · 挡板接球，打碎全部砖块", live: true },
-    { id: "merge", icon: "🧬", name: "DNA 合成", desc: "合成更高级的 DNA，冲击排行榜（免费玩，道具用 LGNS）" },
-    { id: "pet", icon: "🌱", name: "HELIX 宠物", desc: "每天喂养你的 DNA 宠物，升级解锁皮肤" }
+    { id: "g2048", icon: "🔢", name: "2048", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 滑动合并数字，冲击 2048", live: true },
+    { id: "snake", icon: "🐍", name: "贪吃蛇", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 吃豆变长，别撞墙", live: true },
+    { id: "tetris", icon: "🧱", name: "俄罗斯方块", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 经典消行，越消越快", live: true },
+    { id: "flappy", icon: "🐤", name: "飞翔小鸟", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 点一下飞一下，穿过管子", live: true },
+    { id: "mines", icon: "💣", name: "扫雷", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 找出全部地雷", live: true },
+    { id: "brick", icon: "🏓", name: "打砖块", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 挡板接球，打碎全部砖块", live: true },
+    { id: "merge", icon: "🧬", name: "DNA 合成", desc: "免费试玩 3 次 · 排位赛 10 LGNS 一局 · 三个相同的合成更高级的 DNA", live: true },
+    { id: "pet", icon: "🌱", name: "HELIX 宠物", desc: "高级饲料 10 LGNS 一份 · 喂养 DNA 宠物，一路进化", live: true }
   ];
   A.pages.play = function (id) {
     A.app.innerHTML = '<div class="loading">正在加载销毁乐园…</div>';
