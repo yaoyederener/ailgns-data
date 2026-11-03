@@ -71,6 +71,7 @@
   var nameCache = {};
   function nameOf(a) {
     a = String(a).toLowerCase();
+    if (A.hidden && A.hidden[a]) return Promise.resolve(""); // 匿名持有人：不把地址换成名字
     if (!nameCache[a]) nameCache[a] = candidates().then(function (set) {
       if (set && !set[a]) return "";
       return Promise.all(["ailgns", "lgns"].map(function (t) {
@@ -164,6 +165,7 @@
     return Promise.all(tries.map(function (t) { return call(NAMES[t[1]], SEL.resolve + str(t[0])).then(function (r) { return { label: t[0], tld: t[1], a: "0x" + r.slice(26) }; }); })).then(function (rs) {
       var hit = rs.filter(function (r) { return r.a !== ZERO; })[0];
       if (!hit) { out.innerHTML = '<section class="card"><p class="nm-bad">没找到「' + esc(q) + '」：这个域名还没注册或已过期</p><p><a href="#/names/' + encodeURIComponent(m ? q : q + ".ailgns") + '">去注册 →</a></p></section>'; return; }
+      if (A.hidden && A.hidden[hit.a.toLowerCase()]) { out.innerHTML = '<section class="card"><h2>🌐 ' + esc(hit.label + "." + hit.tld) + '</h2><p class="muted">🔒 这个域名的持有人选择匿名，不公开地址。</p></section>'; return; }
       return addrView(hit.a, out, hit.label + "." + hit.tld);
     });
   }
@@ -195,6 +197,7 @@
     allNfts(a).then(function (x) {
       var mine = (x.items || []).filter(function (n) { var t = (n.token.address_hash || "").toLowerCase(); return t === NAMES.ailgns || t === NAMES.lgns; });
       if (!el("sc-names")) return;
+      if (A.hidden && A.hidden[String(a).toLowerCase()]) { el("sc-names").innerHTML = '<p class="muted">🔒 不公开</p>'; return; } // 匿名持有人
       el("sc-nh").textContent = "🌐 拥有的域名（" + mine.length + "）";
       el("sc-names").innerHTML = mine.length ? '<div class="sc-names">' + mine.map(function (n) {
         var nm = (n.metadata && n.metadata.name) || "";
