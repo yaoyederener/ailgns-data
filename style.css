@@ -1555,3 +1555,26 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .brand-t small, .brand-t .brand-s { display: block; font-size: 10.5px; line-height: 1.25; letter-spacing: .6px; font-weight: 600; }
 .brand-t small { color: var(--gold); }
 .brand-s { font-style: normal; color: var(--muted, #6b7280); }
+/* 添加到桌面向导：一步一屏 */
+.wz { display: grid; gap: 10px; }
+.wz-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.wz-dev { padding: 7px 12px; border-radius: 10px; background: rgba(22, 163, 74, .1); color: var(--up); font-size: 13px; font-weight: 700; line-height: 1.4; }
+.wz-pick { padding: 6px 10px; font-size: 12.5px; }
+.wz-dots { display: flex; gap: 6px; justify-content: center; }
+.wz-dots i { width: 22px; height: 6px; border-radius: 3px; background: var(--line); }
+.wz-dots i.done { background: var(--up); }
+.wz-dots i.on { background: var(--gold); width: 34px; }
+.wz-step { display: grid; grid-template-columns: 30px 1fr; gap: 8px 10px; padding: 14px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line); }
+.wz-step .g-txt { font-size: 16px; }
+.wz-step .g-pic { padding-top: 10px; }
+.wz-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.wz-nav .paybtn { flex: 1; max-width: 260px; margin-left: auto; }
+.wz-help { font-size: 13px; }
+.wz-help > a { color: var(--muted); text-decoration: underline; }
+.wz-altbox { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(239, 68, 68, .06); border: 1px dashed rgba(239, 68, 68, .4); line-height: 1.6; }
+.wz-altbox ol { margin: 6px 0 0; padding-left: 20px; }
+.wz-grp { margin-top: 10px; }
+.wz-grp b { display: block; font-size: 13px; margin-bottom: 6px; }
+.g-tabs a { padding: 7px 12px; font-size: 13px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text, #191839); }
+.app-qr { width: 180px; height: 180px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
+.app-done small { display: block; margin-top: 6px; color: var(--muted); }
