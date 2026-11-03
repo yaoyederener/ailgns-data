@@ -191,7 +191,8 @@
       '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>3 个字及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
       '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
       '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
-      '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div><div id="nm-mk"></div></section>' +
+      '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div>' +
+        '<div class="nm-mk-sell"><button type="button" class="nm-go" id="nm-sellgo">💰 我要卖域名</button><span class="muted">卖家拿完整标价，0 手续费</span></div><div id="nm-mk"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 查询：地址 ⇄ 域名</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="输入 0x 地址 或 域名（如 xxx.ailgns）" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
@@ -242,12 +243,24 @@
         var g = list.filter(function (x) { return x.no; }).length;
         o.innerHTML = '<p class="nm-my-sum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = esc(x.label) + "." + x.t;
-          return '<a class="nm-my' + (x.no ? " gen" : "") + '" href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' +
+          var href = "#/names/" + encodeURIComponent(x.label + "." + x.t);
+          return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
             (x.no ? genEmblem(80) : '<span class="nm-my-dot">🌐</span>') +
-            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>";
+            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>" +
+            (self ? '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button>' : "") + "</div>";
         }).join("");
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
+    // 「我要卖」：连钱包 → 列出我名下的域名 → 每个旁边「挂单出售」→ 打开这个名字的页面并直接弹出挂单设置
+    document.getElementById("nm-sellgo").onclick = function () {
+      var c = document.getElementById("nm-mycard"); c.scrollIntoView({ behavior: "smooth", block: "start" });
+      connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
+    };
+    document.getElementById("nm-myr").onclick = function (e) {
+      var b = e.target.closest(".nm-my-sell"); if (!b) return;
+      try { sessionStorage.setItem("nm:sell", b.getAttribute("data-full")); } catch (x) { /* 忽略 */ }
+      location.hash = "#/names/" + encodeURIComponent(b.getAttribute("data-full"));
+    };
     document.getElementById("nm-myf").onsubmit = function (e) { e.preventDefault(); myNames(document.getElementById("nm-mya").value.trim().toLowerCase()); };
     document.getElementById("nm-myw").onclick = function () {
       connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
@@ -319,6 +332,8 @@
         };
         var sell = document.getElementById("nm-sell");
         if (sell) sell.onclick = function () { sellForm(v, r, st); };
+        var want = null; try { want = sessionStorage.getItem("nm:sell"); } catch (x) { /* 忽略 */ }
+        if (want && want === v + "." + TLD) { try { sessionStorage.removeItem("nm:sell"); } catch (x) { /* 忽略 */ } if (sell) sell.click(); else A.errTip("这个名字现在不能挂单（可能已经在市场里了）", st); }
       }, function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
     // 挂单设置页：和 OTC「发布挂单」同一套样式（价格 + 有效期 + 到手金额），代替原来的弹窗

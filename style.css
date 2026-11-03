@@ -1733,3 +1733,10 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-my.gen .nm-my-t b{font-size:20px}
 .nm-my.gen .nm-my-no{font-size:17px}
 .nm-my-dot{width:80px}
+
+/* 域名市场「我要卖」入口 + 我的域名里的挂单按钮 */
+.nm-mk-sell{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px}
+.nm-mk-sell .nm-go{background:var(--grad);padding:12px 20px}
+.nm-my{gap:10px}
+.nm-my-a{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-decoration:none;color:inherit}
+.nm-my-sell{flex:none;padding:8px 14px;border-radius:999px;border:0;background:var(--grad);color:#fff;font-weight:700;font-size:13px;cursor:pointer}
