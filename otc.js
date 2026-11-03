@@ -1097,14 +1097,17 @@
     function read(chain, to, data) { return (chain === "anubis" ? A.call(to, data) : W.rpcOn("polygon", "eth_call", [{ to: to, data: data }, "latest"])).then(BigInt); }
     function amt(v, dec) { return A.fmt(Number(v) / Math.pow(10, dec), 4); }
     var BB_TOKS = TOKS.slice(0, 3); // 回购合约用 Anubis 的 LGNS、AiLGNS、DAI
+    var PG_KEEPER = "0x89Dd06754bb239b6C4C92Bc47C8Fa72889084E27", PG_TOKS = [TOKS[4], TOKS[3]]; // Polygon 跨链回购：触发钱包取 Polygon 的 LGNS、DAI，卖成 DAI 跨到 Anubis
     var pulledSel = "0x9f5951c7"; // totalPulled(address)
-    app.innerHTML = '<h1>收入分账</h1><p class="sub">会员费和 OTC 手续费照旧进入原收款钱包 ' + A.short(FEE_RECIPIENT) + '。现在改成<b>回购分账</b>：Anubis 链收到的 LGNS、DAI 先在本站 OTC 换成 AiLGNS，再连同收到的 AiLGNS 按比例分出去；Polygon 链的收入先攒在收款钱包里。地址、比例和价格保护都写死在合约里，任何人都改不了。</p>' +
+    app.innerHTML = '<h1>收入分账</h1><p class="sub">会员费和 OTC 手续费照旧进入原收款钱包 ' + A.short(FEE_RECIPIENT) + '。现在改成<b>回购分账</b>：Anubis 链收到的 LGNS、DAI 先在本站 OTC 换成 AiLGNS，再连同收到的 AiLGNS 按比例分出去；Polygon 链的收入攒够 100 美金后卖成 DAI 跨到 Anubis，再一起回购。地址、比例和价格保护都写死在合约里，任何人都改不了。</p>' +
       '<section class="card"><div class="card-head"><h2>回购分账规则</h2></div><dl class="dl">' +
       BB_PAYEES.map(function (p) { return "<dt>" + p[1] + "%</dt><dd>" + A.addrLink(p[0]) + "</dd>"; }).join("") +
       "<dt>回购合约</dt><dd>" + (BUYBACK ? '<a class="mono" target="_blank" rel="noopener" href="' + ANUBIS_EXPLORER + "/address/" + BUYBACK + '">' + A.short(BUYBACK) + " ↗</a>" : '<span class="muted">待部署</span>') +
       '</dd><dt>源码</dt><dd><a href="contracts/AilgnsBuyback.sol" target="_blank" rel="noopener">AilgnsBuyback.sol ↗</a></dd></dl>' +
       '<p class="note">怎么换：LGNS 卖进 LGNS OTC 的买单（出价不低于 DEX 现价 50%，不走 DEX，DEX 卖出要扣约 50%）→ 用 DAI 扫 AiLGNS OTC 的卖单（要价不高于 DEX 现价 115%）→ 买到的 AiLGNS 直接打给上面三个地址。攒够 300 美金换一次；收款钱包永远留 5 DAI 付 Gas；触发钱包 Gas 不够时每次最多从收入里补 0.5 DAI。没有合适的单子时，钱留在合约里下次接着换，也可以原样退回收款钱包。</p>' +
       '<div id="bb-state" class="loading">正在读取…</div><p class="note" id="sp-st"></p></section>' +
+      '<section class="card"><div class="card-head"><h2>Polygon 收入跨链回购</h2></div><p class="note">Polygon 链收到的 LGNS、DAI 攒够 100 美金后，触发钱包 ' + A.short(PG_KEEPER) + ' 把它取走：LGNS 在 QuickSwap 卖成 DAI（扣约 5% 税），再通过 Anubis 官方跨链桥跨回收款钱包（桥收 1 DAI），到账后和 Anubis 收入一样扫单买成 AiLGNS 分出去。需要先用收款钱包在 Polygon 链授权下面两个币（每个点一次）。</p>' +
+      '<div id="pg-state" class="loading">正在读取…</div></section>' +
       '<section class="card"><div class="card-head"><h2>旧分账合约' + (BUYBACK ? "（已停用）" : "") + '</h2><span class="muted">30% / 40% / 30%，按原币分</span></div>' +
       '<p class="note">' + (BUYBACK ? "回购分账上线后，机器人不再触发旧合约。为了安全，建议用收款钱包把旧合约的授权撤销（点「撤销」，额度改成 0）。" : "回购合约部署之前，旧合约照常分账。") +
       " 旧合约：" + Object.keys(SPLITTERS).map(function (c) { return CH[c].name + ' <a class="mono" target="_blank" rel="noopener" href="' + CH[c].explorer + "/address/" + SPLITTERS[c] + '">' + A.short(SPLITTERS[c]) + " ↗</a>"; }).join("　") + "</p>" +
@@ -1116,6 +1119,17 @@
       return [ok, a === null ? "—" : ok ? '<span class="up">已授权 ✓</span>' : a === 0n ? '<span class="muted">未授权</span>' : amt(a, t.dec)];
     }
     function load() {
+      Promise.all(PG_TOKS.map(function (t) { return read("polygon", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(PG_KEEPER)).catch(function () { return null; }); })).then(function (r) {
+        if (!A.isCurrent(id)) return;
+        var el = document.getElementById("pg-state");
+        el.className = "";
+        el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权给触发钱包</th><th></th></tr></thead><tbody>' +
+          PG_TOKS.map(function (t, i) {
+            var c = allowCell(r[i], t);
+            return '<tr><td class="l"><b>' + t.name + "</b> Polygon</td><td>" + c[1] + "</td><td>" + (c[0] ? "" : '<button data-pg="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
+          }).join("") + "</tbody></table></div>";
+        el.querySelectorAll("[data-pg]").forEach(function (b) { b.onclick = function () { approve(PG_TOKS[+b.getAttribute("data-pg")], b, PG_KEEPER, MAX, "授权触发钱包使用 "); }; });
+      });
       if (BUYBACK) Promise.all(BB_TOKS.map(function (t) {
         return Promise.all([read("anubis", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(BUYBACK)), read("anubis", BUYBACK, pulledSel + u256(t.token))]).catch(function () { return null; });
       })).then(function (r) {

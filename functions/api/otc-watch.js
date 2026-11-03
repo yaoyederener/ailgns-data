@@ -2,7 +2,7 @@
 // 市场：AiLGNS（Anubis）、LGNS（Anubis）、LGNS（Polygon），合约代码相同，各链各一份
 // ① 私信：按钱包地址找到在 DeBox 机器人里绑定过的用户，通知挂单人（成交时也通知吃单人）
 // ② 每小时播报：累计成交 + 本小时新增 + 合约安全 + 高价求购单 + 初心，整点发到 DeBox 群（没成交也没好求购单就不发）
-// ③ 好单推送：比 DEX 买得便宜的出售单，每 5 分钟检查，推到营销群和关注机器人的人（求购单只放进每小时播报）
+// ③ 好单私信：比 DEX 买得便宜的出售单，私信关注机器人的人（一小时最多一次）；营销群里的好单合进每小时播报
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
@@ -268,9 +268,7 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   if (!send || !text) return { hits: hits.length, px: p.px, tax, text };
   if (await kv.get("otcw:ppgap")) return { hits: hits.length, waiting: fresh.length };
   const out = { hits: hits.length, sent: pick.length, groups: {} };
-  if (!quiet) for (const g of gids) { // 营销群：好单夜里也发（站长要求），成交汇总才是夜里不发
-    try { await sendDebox(env, g, text, "group"); out.groups[g] = true; } catch (e) { out.groups[g] = String(e.message || e).slice(0, 120); }
-  }
+  // 营销群不再单独发好单：合进每小时播报（站长要求一小时只发一条）；这里只私信关注机器人的人
   await sendDeboxFans(env, GROUPS[0], text).catch((e) => { out.fans = String(e.message || e).slice(0, 120); });
   await kv.put("otcw:ppgap", "1", { expirationTtl: PP_GAP });
   for (const { o, e } of pick) await kv.put(m.kv + "pp:" + o.id, JSON.stringify({ pct: e.pct, at: now }), { expirationTtl: Math.max(60, Math.ceil(o.left) + 3600) });
@@ -304,14 +302,18 @@ async function thanks(kv, dry) {
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
 // 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心（偶尔带一句感谢四哥）
 // tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
-function groupText(fills, tot, bids, thx, since, until) {
+function groupText(fills, tot, { bids, asks }, thx, since, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const hourDai = fills.reduce((t, f) => t + f.qty * f.price, 0);
   const n = Math.max(tot.fills || 0, fills.length), dai = Math.max(tot.fillDai || 0, hourDai);
-  const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
+  const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key), ...asks.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
   // DeBox 群里长消息会折叠，网址放第二行，文字压短，保证一打开就能看到链接（站长要求）
   const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "👉 钱包打开：" + (links.length === 1 ? links[0] : SITE), "",
     `✅ 累计成交 ${n.toLocaleString("en-US")} 笔 · ${dai2(dai)} DAI` + (fills.length ? `\n${until - since > 3600e3 ? hm(since) + "–" + hm(until) : "本小时"}新增 ${fills.length} 笔 · ${dai2(hourDai)} DAI` : "")];
+  if (asks.length) {
+    out.push("", "🛒 低价出售中：在 OTC 买比在 DEX 买便宜！");
+    for (const { m, o, e } of asks) out.push(`· ${m.sym} ${d2(o.qty, 0)} 枚 · 单价 ${d2(o.price, m.pd)} · 便宜 ${(e.pct * 100).toFixed(1)}%`);
+  }
   if (bids.length) {
     out.push("", "📥 手里有币的看过来：卖给这些求购单，比在 DEX 卖多拿钱！");
     for (const { m, o, e } of bids) out.push(`· ${m.sym} ${d2(o.qty, 0)} 枚 · 出价 ${d2(o.price, m.pd)} · 多拿 ${(e.pct * 100).toFixed(1)}%`);
@@ -322,17 +324,18 @@ function groupText(fills, tot, bids, thx, since, until) {
   out.push(PROMO);
   return out.join("\n");
 }
-// 现在比 DEX 卖得更值的求购单（各市场合起来，按多拿的比例取前 3）
-async function topBids() {
+// 现在比 DEX 划算的挂单（各市场合起来，按划算的比例各取前 3）：bids 求购单（卖给它比 DEX 多拿），asks 出售单（买它比 DEX 便宜）
+async function topDeals() {
   const now = Math.floor(Date.now() / 1000), all = [];
   for (const m of MARKETS) {
     if (m.nft) continue;
     try {
       const [orders, p, tax] = await Promise.all([book(m, now), market(m), sellTax(m)]);
-      for (const o of orders) if (!o.sell) { const e = edge(o, p, tax); if (e.pct >= PP_MIN_PCT && e.gain >= PP_MIN_DAI) all.push({ m, o, e }); }
+      for (const o of orders) { const e = edge(o, p, tax); if (e.pct >= PP_MIN_PCT && e.gain >= PP_MIN_DAI) all.push({ m, o, e }); }
     } catch (e) {} // 一条链读不到就跳过
   }
-  return all.sort((a, b) => b.e.pct - a.e.pct).slice(0, 3);
+  all.sort((a, b) => b.e.pct - a.e.pct);
+  return { bids: all.filter((x) => !x.o.sell).slice(0, 3), asks: all.filter((x) => x.o.sell).slice(0, 3) };
 }
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -416,9 +419,9 @@ export async function onRequestGet(ctx) {
   const due = Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 过了整点就发上一小时的播报（夜里也发，站长要求）
   const until = Math.floor(now / 3600e3) * 3600e3;
   const build = async (dry2) => {
-    const bids = await topBids();
-    if (!hr.fills.length && !bids.length) return null; // 没成交、也没好的求购单：这一小时不发
-    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, bids, await thanks(kv, dry2), hr.since, until);
+    const deals = await topDeals();
+    if (!hr.fills.length && !deals.bids.length && !deals.asks.length) return null; // 没成交、也没好单：这一小时不发
+    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, await thanks(kv, dry2), hr.since, until);
   };
   if (dry) return Response.json({ status, due, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
