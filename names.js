@@ -100,6 +100,21 @@
         ev.forEach(function (x) { if (!x.reg) c += x.v; else { c -= x.v * bp / (10000n - bp); if (c < 0n) c = 0n; } });
         return c;
       });
+    }).then(function (c) {
+      // 站长从自己钱包手动退过的 LGNS，从余额里扣掉，避免退了钱还能再抵扣
+      if (c <= 0n) return c;
+      var owners = Object.keys(A.hidden || {});
+      return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
+        var latest = parseInt(h, 16), jobs = [];
+        owners.forEach(function (o) { for (var b = START.ailgns; b <= latest; b += 5000) jobs.push([o, b, Math.min(latest, b + 4999)]); });
+        return A.pool(jobs, 4, function (j) {
+          return W.rpcOn("anubis", "eth_getLogs", [{ address: L, fromBlock: "0x" + j[1].toString(16), toBlock: "0x" + j[2].toString(16), topics: [T_XFER, "0x" + A.pad(j[0]), me] }]);
+        });
+      }).then(function (chunks) {
+        var back = 0n;
+        chunks.forEach(function (x) { if (!x) throw new Error("读链上记录失败"); x.forEach(function (l) { back += BigInt(l.data); }); });
+        return c > back ? c - back : 0n;
+      });
     });
   }
   function prepay(dai, k, say) {
