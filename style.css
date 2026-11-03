@@ -1282,3 +1282,14 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .quote .sw-pnl { margin-bottom: 8px; }
 
 .gm-big{display:block;width:100%;margin:6px 0 4px;padding:14px;font-size:18px;font-weight:700;color:#fff;border:0;border-radius:12px;background:linear-gradient(135deg,#5b21b6,#7c3aed)}
+
+/* 扫单面板减色：赚亏和到手改成浅底彩字，整块只有「确认付款」一个实心大橙色按钮，一眼就知道按哪里 */
+.sw-pnl { color: #065f46; }
+.sw-pnl.win { background: #ecfdf5; border: 1px solid #a7f3d0; box-shadow: none; }
+.sw-pnl.lose { background: #fef2f2; border: 1px solid #fecaca; box-shadow: none; color: #991b1b; }
+.sw-pnl em { background: #d1fae5; }
+.sw-pnl b { font-size: 24px; }
+.sweep .sw-get { background: #f5f3ff; border: 1px solid #ddd6fe; color: #3b0764; box-shadow: none; }
+.sweep .sw-get b { font-size: 24px; }
+.sweep .sw-go { background: #f97316 !important; color: #fff !important; border: 0; box-shadow: 0 6px 18px rgba(249, 115, 22, .45); }
+.sweep .sw-go:disabled { background: #fdba74 !important; box-shadow: none; }
