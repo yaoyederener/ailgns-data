@@ -398,17 +398,23 @@
     }).catch(function () { /* 通知功能不可用时不显示 */ });
   }
   // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
+  // 客户反馈挂完找不到自己的单：成功弹窗里放一个大按钮，点了直接跳到「我的挂单」
   function dbxAfterCreate() {
-    if (!dbx || !dbx.ready || dbx.bound || !account) return false;
     var box = document.createElement("div");
     box.className = "modal";
-    box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+    var mine = '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单</button><p class="note" style="text-align:center">以后也可以点页面上方紫色的「📋 我的挂单」找到它</p>';
+    if (!dbx || !dbx.ready || dbx.bound || !account) {
+      box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine + "</div>";
+    } else box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine +
       '<p><b>开启 DeBox 通知</b>，有人成交、到期退回，第一时间私信告诉你，不用一直盯着网页。</p>' +
       '<ol class="steps"><li><button data-dbx-link>显示机器人二维码</button>，长按保存到相册</li>' +
       '<li>打开 <b>DeBox</b>「扫一扫」→ 从相册选这张图 → 关注「' + A.esc(dbx.bot.name || "机器人") + '」</li>' +
       '<li>把钱包地址发给机器人：<div class="copy"><span class="mono">' + account + '</span><button class="ghost" data-dbx-copy="' + account + '">复制</button></div>收到「✅ 已绑定」就好了</li></ol></div>';
     document.body.appendChild(box);
-    box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+    box.addEventListener("click", function (e) {
+      if (e.target.closest("[data-seemine]")) { box.remove(); var g = A.app.querySelector("[data-gomine]"); if (g) g.click(); return; }
+      if (e.target === box || e.target.closest("[data-close]")) box.remove();
+    });
     bindCopies(box);
     return true;
   }
@@ -475,7 +481,7 @@
       }
 
       // 顶部小按钮：直接跳到挂单表单（订单多时客户找不到挂单的地方）
-      var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要买 ' + SYM + "</button>" +
+      var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
@@ -571,7 +577,7 @@
 
     function createForm() {
       return '<section class="card" id="otc-form"><div class="card-head"><h2>发布挂单</h2><span class="muted">币先存进托管合约，成交前随时可撤</span></div>' +
-        '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖 ' + SYM + '</button><button data-side="buy">我要买 ' + SYM + "</button></div>" +
+        '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要挂单卖 ' + SYM + '</button><button data-side="buy">我要挂单买 ' + SYM + "</button></div>" +
         '<div class="form-grid"><label>数量（' + SYM + '）<input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +

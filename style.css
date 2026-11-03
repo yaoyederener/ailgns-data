@@ -1280,3 +1280,5 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 
 .cx-st { margin: 6px 0 0; font-size: 13.5px; font-weight: 600; text-align: center; } /* 撤单进度，显示在撤单按钮正下方 */
 .quote .sw-pnl { margin-bottom: 8px; }
+
+.gm-big{display:block;width:100%;margin:6px 0 4px;padding:14px;font-size:18px;font-weight:700;color:#fff;border:0;border-radius:12px;background:linear-gradient(135deg,#5b21b6,#7c3aed)}
