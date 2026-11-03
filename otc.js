@@ -228,7 +228,8 @@
       var gas = res[1];
       var tx = { from: account, to: to, data: data };
       if (gas) tx.gas = gas;
-      say("请在钱包里确认：" + label + "…");
+      // 这行字在手机上只显示两行：一句话说清楚这一步 + 为什么放心（站长要求）
+      say(/^授权/.test(label) ? "🔒 请在钱包确认授权" + (label.indexOf("只需一次") >= 0 ? "（只需一次）" : "") + "：合约开源、无管理员，只有你本人能动用" : "🔒 请在钱包确认" + (label.length <= 6 ? "「" + label + "」" : "") + "：合约开源、无后门，币只按规则走");
       return eth.request({ method: "eth_sendTransaction", params: [tx] });
     }).then(function (hash) {
       say(label + "已提交，等待链上确认…");
