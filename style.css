@@ -1779,3 +1779,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-sale-p b{font-size:24px;color:var(--purple-ink);margin-right:8px}
 .nm-sale-p small{color:var(--muted)}
 .nm-sale .nm-go{width:100%;margin-top:6px;background:#16a34a}
+
+/* 我要卖域名：已连钱包时列出自己的域名，点一下填好 */
+.nm-sp-mine{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
+.nm-sp-mine button{padding:5px 12px;border-radius:999px;border:1px solid var(--soft-line);background:var(--panel);color:var(--purple-ink);font-size:13px;font-weight:600;box-shadow:none}
+.nm-sp-mine button.on{background:var(--grad);color:#fff;border-color:transparent}

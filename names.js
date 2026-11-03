@@ -749,42 +749,55 @@
     var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
     return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟";
   }
-  // 「我要卖域名」面板：和 OTC「发布挂单」一样 —— 选名字、填价格、选有效期、看到手金额、发布
+  // 「我要卖域名」面板：和 AiLGNS OTC 一样，先直接显示挂单表单，不弹钱包；点「发布挂单」时才连钱包、核对名字是不是你的
   function sellPanel() {
     var box = document.getElementById("nm-sp"); if (!box) return;
-    box.innerHTML = '<p class="muted">连接钱包，读取你名下的域名…</p>';
-    connect().then(function () { return ownedList(account); }).then(function (list) {
+    var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 7 * 86400;
+    var pre = ""; try { pre = sessionStorage.getItem("nm:sellpick") || ""; sessionStorage.removeItem("nm:sellpick"); } catch (x) { /* 忽略 */ }
+    box.innerHTML = '<div class="form-grid"><label>要卖的域名<input id="nm-sp-n" list="nm-sp-dl" placeholder="例如 发财.ailgns" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(pre) + '"><datalist id="nm-sp-dl"></datalist></label>' +
+      '<label>售价（DAI）<input id="nm-sp-p" inputmode="decimal" placeholder="例如 100"></label></div>' +
+      '<div class="nm-sp-mine" id="nm-sp-mine"></div>' +
+      '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没卖掉，名字自动退回</small></span><div class="dur-opts" id="nm-sp-d">' + DURS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === dur ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
+      '<p class="note" id="nm-sp-sum">填好售价后显示你能拿到多少</p><button id="nm-sp-go" style="padding:12px 22px">发布挂单</button><p class="note" id="nm-sp-st">点「发布挂单」时才会连接钱包；名字先存进托管合约，成交前随时可撤</p>';
+    var ni = document.getElementById("nm-sp-n"), pi = document.getElementById("nm-sp-p"), sum = document.getElementById("nm-sp-sum"), sst = document.getElementById("nm-sp-st"), go = document.getElementById("nm-sp-go");
+    // 已经连过钱包的：把名下的域名列成按钮，点一下就填好（不弹钱包）
+    if (account) ownedList(account).then(function (list) {
+      var m = document.getElementById("nm-sp-mine"); if (!m || !list.length) return;
       list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
-      if (!list.length) { box.innerHTML = '<p class="muted">你的钱包里还没有域名（挂在市场里的不算）。先在上面搜索注册一个吧。</p>'; return; }
-      var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 7 * 86400;
-      box.innerHTML = '<div class="form-grid"><label>选择要卖的域名<select id="nm-sp-n">' + list.map(function (x, i) { return '<option value="' + i + '">' + esc(x.label) + "." + x.t + (x.no ? "  🌟创世 #" + x.no : "") + "</option>"; }).join("") + "</select></label>" +
-        '<label>售价（DAI）<input id="nm-sp-p" inputmode="decimal" placeholder="例如 100"></label></div>' +
-        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没卖掉，名字自动退回</small></span><div class="dur-opts" id="nm-sp-d">' + DURS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === dur ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
-        '<p class="note" id="nm-sp-sum">填好售价后显示你能拿到多少</p><button id="nm-sp-go" style="padding:12px 22px">发布挂单</button><p class="note" id="nm-sp-st"></p>';
-      var pi = document.getElementById("nm-sp-p"), sum = document.getElementById("nm-sp-sum"), sst = document.getElementById("nm-sp-st"), go = document.getElementById("nm-sp-go"), ns = document.getElementById("nm-sp-n");
-      var pre = null; try { pre = sessionStorage.getItem("nm:sellpick"); sessionStorage.removeItem("nm:sellpick"); } catch (x) { /* 忽略 */ }
-      if (pre) list.forEach(function (x, i) { if (x.label + "." + x.t === pre) ns.value = i; });
-      function ok(p) { return /^\d+(\.\d{1,6})?$/.test(p) && Number(p) > 0; }
-      pi.oninput = function () { var p = pi.value.trim(); sum.innerHTML = ok(p) ? "你拿到 <b>" + Number(p) + " DAI</b>（完整标价，卖家 0 手续费）· 买家付 " + Math.round(Number(p) * 1.03 * 1e6) / 1e6 + " DAI（含 3%）" : "填好售价后显示你能拿到多少"; };
-      document.getElementById("nm-sp-d").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; dur = Number(b.getAttribute("data-d")); this.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; }); };
-      function say(t) { sst.textContent = t; }
-      go.onclick = function () {
-        var x = list[Number(ns.value)], p = pi.value.trim(), O = OTC[x.t], C = CONTRACTS[x.t];
-        if (!ok(p)) { A.errTip("价格格式不对，填数字，比如 100", go); return; }
-        if (!O) { A.errTip("." + x.t + " 市场还没开放", go); return; }
-        if (x.exp < Date.now() / 1000 + dur + 30 * 86400) { A.errTip("这个名字快到期了，先续费再挂单（或选短一点的有效期）", go); return; }
-        var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n;
-        go.disabled = true;
-        nftOk(C, O, x.id, say).then(function () {
-          return tx(O, SEL.oList + x.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
-        }).then(function () {
-          say("✅ 已挂到市场"); go.disabled = false;
-          var b = document.querySelector('#nm-side button[data-side="buy"]'); if (b && x.t === TLD) { b.click(); market(); } else sellPanel();
-        }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
-      };
-    }, function (e) { box.innerHTML = '<p class="muted">' + esc((e && e.message) || "连接钱包失败") + "</p>"; });
+      document.getElementById("nm-sp-dl").innerHTML = list.map(function (x) { return '<option value="' + esc(x.label + "." + x.t) + '">'; }).join("");
+      m.innerHTML = '<small class="muted">你的域名：</small>' + list.map(function (x) { return '<button type="button" data-n="' + esc(x.label + "." + x.t) + '">' + esc(x.label) + "." + x.t + (x.no ? " 🌟#" + x.no : "") + "</button>"; }).join("");
+      m.onclick = function (e) { var b = e.target.closest("button[data-n]"); if (!b) return; ni.value = b.getAttribute("data-n"); m.querySelectorAll("button").forEach(function (y) { y.className = y === b ? "on" : ""; }); pi.focus(); };
+    }, function () {});
+    function ok(p) { return /^\d+(\.\d{1,6})?$/.test(p) && Number(p) > 0; }
+    pi.oninput = function () { var p = pi.value.trim(); sum.innerHTML = ok(p) ? "你拿到 <b>" + Number(p) + " DAI</b>（完整标价，卖家 0 手续费）· 买家付 " + Math.round(Number(p) * 1.03 * 1e6) / 1e6 + " DAI（含 3%）" : "填好售价后显示你能拿到多少"; };
+    document.getElementById("nm-sp-d").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; dur = Number(b.getAttribute("data-d")); this.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; }); };
+    function say(t) { sst.textContent = t; }
+    go.onclick = function () {
+      var raw = ni.value.trim().toLowerCase(), p = pi.value.trim(), m = raw.match(/^(.+?)(?:\.(ailgns|lgns))?$/), label = m && m[1], t = (m && m[2]) || "ailgns";
+      if (!label) { A.errTip("请填要卖的域名，比如 发财.ailgns", go); return; }
+      if (!ok(p)) { A.errTip("价格格式不对，填数字，比如 100", go); return; }
+      var O = OTC[t], C = CONTRACTS[t];
+      if (!O) { A.errTip("." + t + " 市场还没开放", go); return; }
+      function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
+      var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n, id;
+      go.disabled = true;
+      connect().then(function () {
+        return on(SEL.idOf + "0000000000000000000000000000000000000000000000000000000000000020" + str(label));
+      }).then(function (r) {
+        id = word(r, 0);
+        return Promise.all([on(SEL.ownerOf + id).then(addrOf, function () { return ""; }), on(SEL.expires + id)]);
+      }).then(function (x) {
+        if (x[0] !== account) throw new Error(x[0] === O ? label + "." + t + " 已经在市场里挂着了" : label + "." + t + " 不在你当前连接的钱包里，请换成注册它的钱包");
+        if (Number(BigInt("0x" + word(x[1], 0))) < Date.now() / 1000 + dur + 30 * 86400) throw new Error("这个名字快到期了，先续费再挂单（或选短一点的有效期）");
+        return nftOk(C, O, id, say);
+      }).then(function () {
+        return tx(O, SEL.oList + id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
+      }).then(function () {
+        say("✅ 已挂到市场"); go.disabled = false; ni.value = ""; pi.value = "";
+        var b = document.querySelector('#nm-side button[data-side="buy"]'); if (b) b.click(); market();
+      }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
+    };
   }
-  // 域名市场：.ailgns 和 .lgns 两个市场合在一张表里（以前只显示当前后缀，.lgns 的挂单在默认页面看不到）
   var lsP = null, lsAt = 0;
   function listings(fresh) { // 两个市场里所有在卖的名字（15 秒内复用）
     if (lsP && !fresh && Date.now() - lsAt < 15000) return lsP;
