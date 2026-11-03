@@ -44,13 +44,13 @@
     return s < 60 ? Math.max(1, Math.round(s)) + " 秒前" : s < 3600 ? Math.round(s / 60) + " 分钟前" : s < 86400 ? Math.round(s / 3600) + " 小时前" : Math.round(s / 86400) + " 天前";
   }
 
-  // 地址 → 主名字（两个后缀都查，先 .ailgns 后 .lgns）；同一页里查过的记住
+  // 地址 → 主名字：两个后缀都查，都设了就两个一起显示；同一页里查过的记住
   var nameCache = {};
   function nameOf(a) {
     a = String(a).toLowerCase();
     if (!nameCache[a]) nameCache[a] = Promise.all(["ailgns", "lgns"].map(function (t) {
       return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n ? n + "." + t : ""; }, function () { return ""; });
-    })).then(function (x) { return x[0] || x[1]; });
+    })).then(function (x) { return x.filter(Boolean).join(" · "); });
     return nameCache[a];
   }
   // 页面里所有 data-a 的地址，查到名字就换成「名字 + 短地址」
