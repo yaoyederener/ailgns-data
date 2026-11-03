@@ -85,3 +85,9 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 | gLGNS 抵押 | `0x00e674bb1559557966a6c2244c36d12a63218a5f` | 18110662 | gLGNS `0xf140a92c156e76f5a1d3d6f96284b250330f8f4c` |
 
 DAI 和手续费收款地址同上表。2026-11-02 核对：两份合约的链上运行代码和 AiLGNS 借款合约逐字节相同，唯一差别是写死的抵押币地址；`COLLATERAL()`、`DAI()`、`feeRecipient()`、`FEE_BPS()`（100 = 1%）读出来都和上表一致。
+
+## .ailgns 域名合约 AilgnsNames
+
+- 地址（Anubis 链）：`0x4992917c0e9790342454d2acbbf7559d94c317cb`，部署区块 18159922
+- 源码：[`AilgnsNames.sol`](AilgnsNames.sol)，测试：[`test/test_names.py`](test/test_names.py)，编译参数同上（标准输入 [`AilgnsNames.standard-input.json`](AilgnsNames.standard-input.json)）
+- 构造参数：DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`，收费 → 回购分账合约 `0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3`，保留名主人 → 收款钱包 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`，保留名 18 个（admin、official、kefu、ailgns、helix、awake、lgns、glgns、otc、support、service、system、root、anubis、polygon、team、awakehelix、guanfang）
