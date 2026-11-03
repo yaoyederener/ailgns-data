@@ -1061,9 +1061,11 @@
           return ensureAllowance(token, v.pay, say, name, res[2]);
         }).then(function () {
           return send(OTC, SEL.fill + u256(o.id) + u256(v.amount) + u256(v.pay), say, "成交");
-        }).then(function () {
+        }).then(function (tx) {
           say("成交成功！币已到你的钱包");
-          setTimeout(function () { m.hidden = true; reload(); }, 1500);
+          m.hidden = true; // 换成停留的结果弹窗，带成交记录入口（客户自己点关闭）
+          doneModal("✅ 成交成功！", '<p style="font-size:16px">币已到你的钱包（订单 #' + o.id + "）" + ((tx = tx && (tx.transactionHash || tx)) && typeof tx === "string" ? '，<a href="' + M.explorer + "/tx/" + tx + '" target="_blank" rel="noopener">查看链上交易</a>' : "") + "。</p>");
+          setTimeout(reload, 1500);
         }, function (e) { say(niceError(e), true); btn.disabled = false; });
       };
     }
