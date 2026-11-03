@@ -213,6 +213,7 @@
         });
         return;
       }
+      if (/^0x[0-9a-f]*$/.test(a)) { A.errTip("地址不完整：0x 开头，一共 42 位", e.target); return; }
       var m = a.replace(/^\s+|\s+$/g, "").match(/^(.+?)(?:\.(ailgns|lgns))?$/), label = m && m[1], t = (m && m[2]) || TLD;
       if (!label || /\s|\./.test(label)) { A.errTip("请输入 0x 地址，或者域名（比如 xxx.ailgns）", e.target); return; }
       var full = label + "." + t;
