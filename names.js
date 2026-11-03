@@ -345,7 +345,8 @@
     }, function (e) { delete genCache[TLD]; throw e; });
     return genCache[TLD];
   }
-  // 创世域名营销卡：剩余数量实时倒计时（每 15 秒读一次链，有人注册就当场减一、弹出「刚刚被抢注」），全部是链上真实数字，不编
+  // 创世域名营销卡：剩余数量实时倒计时（每 15 秒读一次链，有人注册就当场减一、弹出「刚刚又有人抢注」），全部是链上真实数字，不编
+  // 不列出谁注册了哪个名字、第几号（站长要求）
   var gcTimer = null, gcLast = -1, blockTs = {};
   function bts(b) { // 区块时间（秒），缓存
     if (!blockTs[b]) blockTs[b] = W.rpcOn("anubis", "eth_getBlockByNumber", ["0x" + b.toString(16), false]).then(function (x) { return parseInt(x.timestamp, 16); });
@@ -386,9 +387,8 @@
         '<div class="gc-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div>' +
         '<div class="gc-num"><div><small>已被抢注</small><b>' + n.toLocaleString() + '</b></div><div><small>近 24 小时</small><b>+' + d.day + '</b></div><div><small>你现在注册就是</small><b class="gc-me">创世 #' + (n + 1).toLocaleString() + "</b></div></div>" +
         (tier ? '<p class="gc-hot">🏅 <b>' + tier[0] + "</b>（编号越小越稀有）只剩 <b>" + (tier[1] - n) + "</b> 个，抢完就只能拿更大的号</p>" : "") +
-        (changed && d.recent[0] && d.recent[0].nm ? '<p class="gc-flash">⚡ 刚刚，<b>' + esc(d.recent[0].nm) + "." + TLD + "</b> 被抢注，成为创世 #" + d.recent[0].no + "</p>" : "") +
+        (changed ? '<p class="gc-flash">⚡ 刚刚又有 <b>' + (n - gcLast) + "</b> 个创世域名被抢注，现在只剩 <b>" + left.toLocaleString() + "</b> 个</p>" : "") +
         '<ul class="gc-pts"><li>🔥 <b>限量 1 万，售完永久没有</b>：合约写死，谁都加不了</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序刻在区块链上，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
-        (d.recent.length ? '<div class="gc-recent"><small>最近被抢注：</small>' + d.recent.filter(function (r) { return r.nm; }).map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") + "</div>" : "") +
         '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>";
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); } };
       gcLast = n;
