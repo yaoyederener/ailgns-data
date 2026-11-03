@@ -961,6 +961,7 @@
           }
           return next();
         }).then(function () {
+          if (!done) { end("⚠️ 你选的单刚被别人抢先买走了，没有扣你的币。正在刷新最新挂单，请再点一次", true); setTimeout(reload, 800); return; } // 以前这里也说「扫单完成」，客户以为点了没反应
           end("✅ 扫单完成，已到你的钱包" + (skipped ? "（有 " + skipped + " 张已被别人吃掉，跳过了）" : ""));
         }, function (e) {
           end((done ? "已成交 " + done + " 张，后面的停下了：" : "") + niceError(e), true);
