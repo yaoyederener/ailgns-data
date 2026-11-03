@@ -1671,3 +1671,25 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 /* 最近被抢注：默认 3 个，展开看全部 */
 .gc-recent:not(.open) span:nth-of-type(n+4){display:none}
 .gc-more{padding:3px 10px;border-radius:999px;border:1px dashed var(--soft-line);background:transparent;color:var(--purple-ink);font-size:12px;font-weight:600;cursor:pointer}
+
+/* 域名页手机版：精简 —— 去掉说明文字和卖点列表，搜索框整行，倒计时卡片变紧凑 */
+@media (max-width: 640px) {
+  .nm-hero > p.muted { display: none; }
+  .nm-hero > h2 { margin-bottom: 0; }
+  .nm-steps li { padding: 6px 2px; font-size: 12px; }
+  .nm-hint { margin: 8px 0 4px; padding: 6px 10px; font-size: 13px; }
+  .nm-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .nm-search input { grid-column: 1 / -1; }
+  .nm-search button { width: 100%; }
+  #nm-f { grid-template-columns: auto 1fr; }
+  .gc { padding: 14px; }
+  .gc-live, .gc-pts, .gc-cd small:last-child, .gc-num div:nth-child(2) { display: none; }
+  .gc-cd small { font-size: 12px; }
+  .gc-d { width: 38px; height: 50px; font-size: 32px; }
+  .gc-flip { margin: 6px 0; }
+  .gc-num { grid-template-columns: 1fr 1.3fr; margin-top: 10px; }
+  .gc-num div { padding: 8px 4px; }
+  .gc-num b { font-size: 17px; }
+  .gc-hot, .gc-flash { font-size: 12.5px; margin: 8px 0 0; }
+  .gc-recent { margin-top: 10px; }
+}

@@ -1344,7 +1344,7 @@
     var el = document.getElementById("promo");
     if (!el) return;
     var tab = location.hash.replace(/^#\/?/, "").split("/")[0] || "otc";
-    el.innerHTML = tab === "otc" ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">每 1,000 美元省 $20–$270 · 手续费仅 1%（官方 DEX 3%–28%）· 0 滑点</span><span class="promo-go">去交易 →</span></a>';
+    el.innerHTML = tab === "otc" || (tab === "names" && innerWidth < 640) ? "" : '<a class="promo" href="#/otc"><span class="promo-tag">主推</span><b>AiLGNS OTC</b><span class="promo-txt">每 1,000 美元省 $20–$270 · 手续费仅 1%（官方 DEX 3%–28%）· 0 滑点</span><span class="promo-go">去交易 →</span></a>';
   }
   window.addEventListener("hashchange", promo);
   promo();

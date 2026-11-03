@@ -160,8 +160,8 @@
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。</p>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
-      '<p class="nm-hint">👇 第 1 步：在下面输入你想要的名字（中文、英文都行），点「搜索」</p>' +
-      '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
+      '<p class="nm-hint">👇 输入你想要的名字，点「搜索」</p>' +
+      '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">按名字长度定价</span></div>' +
       '<p class="nm-pt">英文</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>5 位及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
