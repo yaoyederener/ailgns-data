@@ -1578,3 +1578,13 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .g-tabs a { padding: 7px 12px; font-size: 13px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text, #191839); }
 .app-qr { width: 180px; height: 180px; border-radius: 12px; border: 1px solid var(--line); background: #fff; }
 .app-done small { display: block; margin-top: 6px; color: var(--muted); }
+.mk-wx { display: flex; gap: 12px; padding: 12px; border-radius: 14px; background: #f3f3f3; border: 1px solid var(--line); width: 100%; max-width: 300px; overflow: hidden; }
+.mk-wx span { flex: none; width: 56px; display: grid; justify-items: center; gap: 4px; text-align: center; }
+.mk-wx i { width: 44px; height: 44px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-style: normal; font-size: 18px; color: #555; }
+.mk-wx small { font-size: 10.5px; line-height: 1.3; color: #555; }
+.mk-wx .hl i { outline: 3px solid #ef4444; outline-offset: 2px; animation: mk-blink 1.4s ease-in-out infinite; }
+.mk-wx .hl small { color: #ef4444; font-weight: 800; }
+#wx-arrow { position: fixed; top: 6px; right: 14px; z-index: 9999; display: grid; justify-items: end; color: #ef4444; pointer-events: none; text-shadow: 0 1px 3px #fff; animation: wx-bob 1s ease-in-out infinite; }
+#wx-arrow b { font-size: 44px; line-height: 1; }
+#wx-arrow span { padding: 4px 10px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 13px; font-weight: 800; text-shadow: none; }
+@keyframes wx-bob { 50% { transform: translate(4px, -6px); } }

@@ -246,6 +246,9 @@
     '<div class="mk-dlg-t"><span>作为网页 App 打开</span><i class="mk-switch"></i></div></div>';
   var ADROID_DLG = '<div class="mk-dlg"><div class="mk-dlg-b">' + ICON + "<div><b>AiLGNS</b><small>ailgns.dev</small></div></div>" + '<div class="mk-dlg-h"><span>取消</span><span class="hl">添加</span></div></div>';
   var HOME = '<div class="mk-home"><i></i><i></i><i></i><span>' + ICON + "<small>AiLGNS</small></span><i></i><i></i><i></i><i></i></div>";
+  function wxSheet(items) { // 微信 / QQ 底部弹出的一排圆形图标
+    return '<div class="mk-wx">' + items.map(function (x) { return '<span class="' + (x[2] ? "hl" : "") + '"><i>' + x[0] + "</i><small>" + x[1] + "</small></span>"; }).join("") + "</div>";
+  }
   var OPEN_BROWSER = menu([["↗", "在浏览器打开", true], ["⎘", "复制链接"], ["✉", "发送给朋友"]]);
   var SHARE_SHEET = '<div class="mk-sheet"><div class="mk-apps"><i></i><i></i><i></i><i></i></div>' + menu([["⎘", "拷贝"], ["☆", "添加到个人收藏"], [I.plus, "添加到主屏幕", 1]]) + "</div>";
   var PERM_ANDROID = "提示没有权限、或者点了添加桌面上没图标：去手机<b>「设置 → 应用 → 应用管理 → 找到这个浏览器 → 权限」</b>，把<b>「桌面快捷方式」</b>（有的叫「创建桌面快捷方式」）打开，再回来加一次。";
@@ -409,13 +412,22 @@
       perm: PERM_ANDROID
     },
     wechat: {
-      name: "微信 / QQ / 钉钉里", dev: "", note: "在<b>微信、QQ、钉钉</b>里打开的网页不能放到桌面，先换到浏览器打开。",
+      name: "iPhone 微信 / QQ 里", dev: "iPhone", note: "微信、QQ 里的网页<b>放不到桌面</b>，要先跳到 iPhone 自带的 <b>Safari</b> 里打开（不用复制网址，点两下就行）。",
       steps: [
-        ["点右上角的<b>「···」</b>。", bar([["✕"], ["AiLGNS 服务站"], [I.dots, 1]])],
-        ["点<b>「在浏览器打开」</b>（iPhone 显示「在 Safari 中打开」；安卓新版微信要先点「更多」）。", OPEN_BROWSER],
-        ["浏览器打开后，这一页会自动认出你的浏览器，照新出来的步骤做。", HOME]
+        ["点屏幕<b>右上角的「···」</b>（跟着红色箭头）。", bar([["✕"], ["AiLGNS 服务站"], [I.dots, 1]])],
+        ["底部弹出一排圆形图标，<b>往左滑</b>，点<b>「在Safari中打开」</b>（指南针图标）。", wxSheet([["➤", "发送给朋友"], ["◎", "分享到朋友圈"], ["☆", "收藏"], ["🧭", "在Safari中打开", 1]])],
+        ["Safari 打开后，这一页会<b>自动换成 Safari 的步骤</b>，接着照做就行。", HOME]
       ],
-      alt: { title: "没有「在浏览器打开」？", steps: ["点「···」→「复制链接」，回桌面打开浏览器（iPhone 用 Safari），点地址栏粘贴打开。"] }
+      alt: { title: "没有「在Safari中打开」？", steps: ["点「···」→「复制链接」。", "回到桌面打开 <b>Safari</b>（蓝色指南针），点地址栏粘贴，打开。"] }
+    },
+    wechatAndroid: {
+      name: "安卓微信 / QQ 里", dev: "安卓", note: "微信、QQ 里的网页<b>放不到桌面</b>，要先跳到手机浏览器里打开（不用复制网址，点两下就行）。",
+      steps: [
+        ["点屏幕<b>右上角的「···」</b>（跟着红色箭头）。", bar([["✕"], ["AiLGNS 服务站"], [I.dots, 1]])],
+        ["底部弹出一排圆形图标，<b>往左滑</b>，点<b>「在浏览器打开」</b>。<br><small>第一次会让你选浏览器：选手机自带浏览器或 Chrome，点「仅此一次」。</small>", wxSheet([["➤", "发送给朋友"], ["◎", "分享到朋友圈"], ["☆", "收藏"], ["🌐", "在浏览器打开", 1]])],
+        ["浏览器打开后，这一页会<b>自动换成你浏览器的步骤</b>，接着照做就行。", HOME]
+      ],
+      alt: { title: "没有「在浏览器打开」？", steps: ["点「···」→「复制链接」。", "回到桌面打开手机自带浏览器或 Chrome，点地址栏粘贴，打开。"] }
     },
     wallet: {
       name: "钱包 App 里", dev: "", note: "你现在在<b>钱包 App</b> 里，钱包里不能装到桌面。",
@@ -431,13 +443,13 @@
     }
   };
   // 手动选的菜单（认错了的时候）
-  var PICK = [["iPhone", ["safari26", "safari", "ioschrome", "iosother"]], ["安卓", ["chrome", "huawei", "xiaomi", "vivo", "oppo", "samsung", "qqb", "uc", "edge", "firefox", "androidother"]], ["App 里", ["wechat", "wallet"]]];
+  var PICK = [["iPhone", ["safari26", "safari", "ioschrome", "iosother"]], ["安卓", ["chrome", "huawei", "xiaomi", "vivo", "oppo", "samsung", "qqb", "uc", "edge", "firefox", "androidother"]], ["App 里", ["wechat", "wechatAndroid", "wallet"]]];
 
   // 自动认：先看是不是在 App 里，再看浏览器
   function detect() {
     if (!ENV.ios && !ENV.android) return "desktop";
     if (list().length) return "wallet";
-    if (ENV.inApp) return "wechat";
+    if (ENV.inApp) return ENV.ios ? "wechat" : "wechatAndroid";
     if (ENV.ios) {
       if (ENV.iosChrome) return "ioschrome";
       if (ENV.iosOther) return "iosother";
@@ -460,7 +472,7 @@
     var b = brand(), parts = [];
     if (!ENV.ios && !ENV.android) return "电脑浏览器";
     if (b) parts.push(b + (MODEL && b !== "安卓" && !ENV.ios ? " " + MODEL : ""));
-    if (ENV.ios && ENV.iosVer) parts.push("iOS " + ENV.iosVer);
+    if (ENV.ios && ENV.iosVer && !ENV.inApp) parts.push("iOS " + ENV.iosVer); // 微信 / QQ 里拿不到准确的 iOS 版本，不显示
     else if (ENV.harmonyNext) parts.push("鸿蒙 NEXT");
     else if (/HarmonyOS/i.test(UA)) parts.push("鸿蒙");
     else if (ENV.android) parts.push("安卓 " + (ver(/Android (\d+)/) || ""));
@@ -478,7 +490,7 @@
     "添加到个人收藏": "Add to Favorites", "在页面上查找": "Find on Page", "作为网页 App 打开": "Open as Web App", "编辑操作": "Edit Actions", "添加书签": "Add Bookmark",
     "添加到主屏幕 / 安装应用": "Add to Home screen / Install app", "安装应用": "Install app", "安装": "Install", "刷新": "Refresh", "设置": "Settings",
     "添加页面到": "Add page to", "主屏幕": "Home screen", "添加到手机": "Add to phone", "添加到收藏夹": "Add to favorites", "下载": "Downloads", "书签": "Bookmarks",
-    "在浏览器打开": "Open in Browser", "在 Safari 中打开": "Open in Safari", "复制链接": "Copy Link", "发送给朋友": "Send to Chat", "快速访问": "Quick access" };
+    "在浏览器打开": "Open in Browser", "在Safari中打开": "Open in Safari", "发送给朋友": "Send to Chat", "分享到朋友圈": "Share to Moments", "收藏": "Favorite", "在 Safari 中打开": "Open in Safari", "复制链接": "Copy Link", "快速访问": "Quick access" };
   function en(html) {
     if (ZH) return html;
     return html.replace(/「([^」<]+)」/g, function (m, t) { return EN[t] ? "「" + EN[t] + "」<small>(" + t + ")</small>" : m; })
@@ -504,6 +516,10 @@
           (g.alt ? "<b>" + g.alt.title + "</b><ol>" + g.alt.steps.map(function (s) { return "<li>" + en(s) + "</li>"; }).join("") + "</ol>" : "") +
           (g.perm ? '<p class="g-note">' + g.perm + "</p>" : "") + "</div>" : "") + "</div>" : "") +
         "</div>";
+      var arrow = document.getElementById("wx-arrow");
+      if ((k === "wechat" || k === "wechatAndroid") && i === 0 && ENV.inApp) {
+        if (!arrow) { arrow = document.createElement("div"); arrow.id = "wx-arrow"; arrow.innerHTML = "<b>↗</b><span>点这里「···」</span>"; document.body.appendChild(arrow); }
+      } else if (arrow) arrow.remove();
       var q = function (s) { return box.querySelector(s); };
       q(".wz-pick").onclick = function () { picker(box, k, onPick); };
       if (q(".wz-prev")) q(".wz-prev").onclick = function () { i--; draw(); };
