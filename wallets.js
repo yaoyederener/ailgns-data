@@ -509,6 +509,7 @@
       if (q(".wz-prev")) q(".wz-prev").onclick = function () { i--; draw(); };
       if (q(".wz-next")) q(".wz-next").onclick = function () { i++; draw(); window.scrollTo(0, Math.max(0, box.offsetTop - 60)); };
       if (q(".wz-done")) q(".wz-done").onclick = function () {
+        A.track && A.track("gd");
         box.innerHTML = '<div class="app-done">🎉 回到手机桌面，点 <b>AiLGNS</b> 图标打开就行。<br><small>桌面上没有图标？</small> <a href="#" class="wz-redo">重新看一遍步骤</a></div>';
         box.querySelector(".wz-redo").onclick = function (e) { e.preventDefault(); i = 0; showAlt = true; draw(); };
       };

@@ -579,6 +579,13 @@
       var today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), first = false;
       try { first = localStorage.getItem("st:seen") !== today; if (first) localStorage.setItem("st:seen", today); } catch (x) { /* 无痕模式 */ }
       track(first ? "v1" : "v");
+      // 从手机桌面图标打开的：每天第一次记一下（桌面 App 日活）；这台手机第一次从桌面打开记一次「新装」
+      if ((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone) {
+        try {
+          if (first) track("a1");
+          if (!localStorage.getItem("st:app")) { localStorage.setItem("st:app", today); track("an"); }
+        } catch (x) { /* 无痕模式 */ }
+      }
       window.addEventListener("hashchange", route); route();
       freshCheck(true);
       window.addEventListener("hashchange", function () { freshCheck(); });

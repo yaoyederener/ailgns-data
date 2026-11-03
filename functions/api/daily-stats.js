@@ -171,14 +171,23 @@ async function catchUp(kv) {
   return { behind, cur: st.cur, budgetLeft: budget, ...(errors.length ? { errors } : {}) };
 }
 
+// 累计装到桌面的手机：从 APP_FROM 到这一天每天「新装」加起来（统计上线前就装好的，第一次从桌面打开时才算进来）
+const APP_FROM = "2026-11-04";
+async function appTotal(kv, day) {
+  let n = 0;
+  for (let t = Date.parse(APP_FROM + "T00:00:00Z"); bjDay(t - 8 * 3600e3) <= day; t += 86400e3) n += (await counts(kv, bjDay(t - 8 * 3600e3))).app_new || 0;
+  return n;
+}
+
 // ---------- 日报文字 ----------
 async function report(kv, day) {
-  const [d0, c, tot, vip] = await Promise.all([kv.get("st:d:" + day, "json"), counts(kv, day), kv.get("st:tot", "json"), kv.get("st:v:" + day, "json")]);
+  const [d0, c, tot, vip, apps] = await Promise.all([kv.get("st:d:" + day, "json"), counts(kv, day), kv.get("st:tot", "json"), kv.get("st:v:" + day, "json"), appTotal(kv, day)]);
   const d = d0 || emptyDay(), t = tot || { orders: 0, orderDai: 0, fills: 0, fillDai: 0 };
   const [y, mo, da] = day.split("-").map(Number);
   const q = (k) => c["q_" + k] || 0;
   const lines = [`📊 AiLGNS 服务站日报 · ${mo}月${da}日（北京时间）`, ""];
   lines.push("👀 访问", `· 访问人数：${c.uv || 0}（按设备去重）`, `· 访问次数：${c.pv || 0}`, "");
+  lines.push("📲 手机桌面 App", `· 新装：${c.app_new || 0} 台`, `· 从桌面图标打开：${c.app_uv || 0} 台`, `· 累计装到桌面：${apps} 台（${APP_FROM} 起统计）`, `· 安装教程点「加好了」：${c.app_guide || 0} 次`, "");
   const qAll = q("member") + q("wallet") + q("team") + q("growth") + q("tree") + q("upline");
   lines.push(`🔍 查询：${qAll} 次`, `· 会员查询 ${q("member")} · 钱包快查 ${q("wallet")} · 团队与等级 ${q("team")}`, `· 团队新增业绩 ${q("growth")} · 团队结构图 ${q("tree")} · 上级查询 ${q("upline")}`, "");
   lines.push("📝 挂单", `· 新挂单：${d.orders} 张，${d.makers.length} 个地址，共 ${money(d.orderDai)} DAI`);
