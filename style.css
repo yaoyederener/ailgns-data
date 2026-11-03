@@ -1300,3 +1300,19 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .err-tip b { display: block; margin-bottom: 4px; }
 .err-tip button { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 0; border-radius: 10px; background: #1677ff; color: #fff; font-size: 16px; font-weight: 700; }
 .safe-tip { position: fixed; left: 10px; right: 10px; top: calc(10px + env(safe-area-inset-top)); z-index: 2147483000; max-width: 560px; margin: 0 auto; padding: 12px 14px; border-radius: 14px; background: #ecfdf5; color: #065f46; border: 1.5px solid #6ee7b7; box-shadow: 0 8px 24px rgba(0, 0, 0, .15); font-size: 14px; line-height: 1.55; }
+
+/* ===== OTC 顶部减色（客户反馈太花）：参照主流交易所 P2P 页面——只有「卖=红、买=绿」两个实心色块，其余白底描边；
+   选中的币种用紫色描边 + 浅紫底，不再整块渐变；「连接钱包」是这一块唯一的蓝色实心按钮 ===== */
+.mkt-tabs a { background: #fff; border: 1.5px solid #e5e7eb; color: #1f2937; box-shadow: none; }
+.mkt-tabs a:hover { background: #faf5ff; }
+.mkt-tabs a.on { background: #f5f3ff; border: 2px solid #7c3aed; color: #5b21b6; box-shadow: none; }
+.mkt-tabs a.on small { color: #7c3aed; }
+.otc-acts .oa-sell { background: #ef4444; box-shadow: none; }
+.otc-acts .oa-buy { background: #16a34a; box-shadow: none; }
+.otc-acts [data-gomine] { background: #fff; color: #5b21b6; border: 2px solid #7c3aed; box-shadow: none; }
+.otc-acts [data-gomine] .gm-n { background: #7c3aed; color: #fff; }
+.otc-top { background: #fff; border: 1.5px solid #e5e7eb; box-shadow: none; color: #4b5563; }
+.otc-top b { color: #5b21b6; }
+.otc-top .hp-tag { background: none; color: #4b5563; padding: 0; box-shadow: none; font-weight: 700; }
+.otc-top .ot-sw { background: #fff; color: #1677ff; border: 1.5px solid #1677ff; box-shadow: none; }
+.otc-top .ot-c { background: #1677ff; color: #fff; border: 0; box-shadow: none; }
