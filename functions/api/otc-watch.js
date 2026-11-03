@@ -292,34 +292,10 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
   return out;
 }
 
-// 每小时播报偶尔（约 1/4）带一句感谢四哥，每次不一样（最近用过的 8 句不再抽，记在 KV otcw:thx）；语气平实，不吹捧（站长要求）
-const THANKS = [
-  "🙏 感谢四哥一路以来的资金支持和技术指导，平台能走到今天，离不开他的付出。",
-  "🙏 OTC 背后有四哥默默出钱出力，很多方案都是他熬夜一点点磨出来的，在此道一声感谢。",
-  "🙏 特别感谢四哥：从资金到技术顾问，一直在幕后撑着这个平台。",
-  "🙏 每一份安全稳定的背后都有人在守着，谢谢四哥长期的技术把关和资金支持。",
-  "🙏 平台从无到有，四哥出资、出主意、出时间，这份心意大家都看在眼里。",
-  "🙏 感谢四哥不计回报地为社区操心，很多深夜的方案讨论都有他在。",
-  "🙏 饮水思源，感谢四哥为 AiLGNS OTC 提供的资金和技术支持。",
-  "🙏 没有四哥的支持，就没有这个平台。谢谢四哥一直以来的信任和付出。",
-  "🙏 四哥常说平台好、社区好才是真的好，这份初心我们一直记着。谢谢四哥！",
-  "🙏 感谢四哥担任技术顾问，帮平台把好安全关，让大家交易更放心。",
-  "🙏 一个平台能稳定运行，靠的是有人肯付出。感谢四哥，也感谢每一位伙伴。",
-  "🙏 谢谢四哥在资金和技术上的长期支持，我们会继续把平台做好，不辜负大家。",
-];
-async function thanks(kv, dry) {
-  if (Math.random() >= 0.25) return "";
-  const recent = (await kv.get("otcw:thx", "json")) || [];
-  let pool = THANKS.map((_, i) => i).filter((i) => !recent.includes(i));
-  if (!pool.length) pool = THANKS.map((_, i) => i);
-  const i = pool[Math.floor(Math.random() * pool.length)];
-  if (!dry) await kv.put("otcw:thx", JSON.stringify([...recent, i].slice(-8)));
-  return THANKS[i];
-}
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
-// 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心（偶尔带一句感谢四哥）
+// 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心
 // tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
-function groupText(fills, tot, { bids, asks }, thx, since, until) {
+function groupText(fills, tot, { bids, asks }, since, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const n = Math.max(tot.fills || 0, fills.length);
   const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key), ...asks.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
@@ -336,7 +312,6 @@ function groupText(fills, tot, { bids, asks }, thx, since, until) {
   out.push("", "🤝 初心：我们只想为社区做一件实事——让大家买卖不再冲击底池，少一分抛压，多一分稳定。",
     "平台只收 1% 手续费，域名、服务器、安全防护、算力、Gas 和日夜值守的人工，一样都不能省，常常入不敷出。但每多一笔场外成交，底池就少一分压力，这份坚持就值得。",
     "❤️ 感谢每一位来交易的朋友，你们的每一笔，都是在守护我们共同的家园。");
-  if (thx) out.push(thx);
   out.push(PROMO);
   return out.join("\n");
 }
@@ -437,7 +412,7 @@ export async function onRequestGet(ctx) {
   const build = async (dry2) => {
     const deals = await topDeals();
     if (!hr.fills.length && !deals.bids.length && !deals.asks.length) return null; // 没成交、也没好单：这一小时不发
-    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, await thanks(kv, dry2), hr.since, until);
+    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, hr.since, until);
   };
   if (dry) return Response.json({ status, due, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
