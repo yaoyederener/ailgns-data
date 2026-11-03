@@ -208,6 +208,7 @@
     return on(SEL.getApproved + id).then(function (g) {
       if (addrOf(g) === O) return;
       return tx(C, SEL.nftApprove + A.pad(O) + id, say, "🔒 第 1 步：授权市场合约转这个名字（不扣钱）。⚠️ 钱包里如果出现「消费上限 / 金额 / 额度」，不要改，直接点确定").catch(function (e) {
+        if (/reject|denied|cancel|取消|拒绝签名|User/i.test((e && e.message) || "")) throw e; // 客户自己点了取消
         throw new Error("授权没成功，链上拒绝了。多半是钱包里的「消费上限 / 金额」被改动了：那个数字是名字的编号，不是价格。请重新点「发布挂单」，钱包里什么数字都不要改，直接点确定。");
       }).then(function () {
         return on(SEL.getApproved + id).then(function (g2) { if (addrOf(g2) !== O) throw new Error("授权没生效：钱包里的数字被改动了。请重新点「发布挂单」，钱包里不要改任何数字，直接点确定。"); });
