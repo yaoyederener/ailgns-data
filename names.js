@@ -125,7 +125,7 @@
     NAMES = CONTRACTS[TLD];
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
-      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。</p>' +
+      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。</p><div id="nm-genc"></div>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
@@ -302,6 +302,7 @@
     market();
     ranks();
     livePrices();
+    genCard();
     // 菜单「域名 OTC」（#/names/otc）：直接滚到域名市场
     if (/^#\/names\/otc/.test(location.hash)) setTimeout(function () { var m = document.getElementById("nm-mk"); if (m) (m.closest("section") || m).scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
   }
@@ -343,6 +344,29 @@
       return g;
     }, function (e) { delete genCache[TLD]; throw e; });
     return genCache[TLD];
+  }
+  // 创世域名营销卡：链上真实数字（已注册几个、还剩几个、下一个编号、最近被抢注的名字），不编数字
+  function genCard() {
+    var box = document.getElementById("nm-genc");
+    if (!box || !NAMES) return;
+    box.innerHTML = '<div class="gc"><div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><b>全球限量 10,000 个</b></div><p class="muted" style="margin:6px 0 0">读取链上数据…</p></div>';
+    logs(NAMES, T_REG, START[TLD]).then(function (l) {
+      var seen = {}, list = [];
+      l.forEach(function (x) { var id = x[1][1]; if (!seen[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && list.length < GENESIS) { seen[id] = 1; list.push(x); } });
+      var n = list.length, left = GENESIS - n, pct = Math.max(n / GENESIS * 100, 0.6);
+      var recent = list.slice(-6).reverse().map(function (x) { var nm = ""; try { nm = decStr(x[2]); } catch (e) { /* 忽略 */ } return nm ? '<span>' + esc(nm) + "." + TLD + "</span>" : ""; }).join("");
+      var b = document.getElementById("nm-genc");
+      if (!b) return;
+      b.innerHTML = '<div class="gc">' +
+        '<div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><b>全球限量 10,000 个</b></div>' +
+        '<div class="gc-num"><div><small>已被抢注</small><b>' + n.toLocaleString() + '</b></div><div><small>仅剩</small><b class="gc-left">' + left.toLocaleString() + '</b></div><div><small>你现在注册就是</small><b>创世 #' + (n + 1).toLocaleString() + "</b></div></div>" +
+        '<div class="gc-bar"><i style="width:' + pct.toFixed(2) + '%"></i></div>' +
+        (n < 100 ? '<p class="gc-hot">🏅 现在还能拿到<b>前 100 号</b>（个位数、两位数编号最稀有），只剩 <b>' + (100 - n) + "</b> 个</p>" : n < 1000 ? '<p class="gc-hot">🏅 前 1000 号只剩 <b>' + (1000 - n) + "</b> 个</p>" : "") +
+        '<ul class="gc-pts"><li>🔥 <b>只有 1 万个，售完永久没有</b>：第 10,001 个起再也不是创世域名</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序写在区块链上，编号越小越稀有，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
+        (recent ? '<div class="gc-recent"><small>最近被抢注：</small>' + recent + "</div>" : "") +
+        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注我的创世域名</button></div>';
+      document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); } };
+    }, function () { var b = document.getElementById("nm-genc"); if (b) b.innerHTML = ""; });
   }
   // 价格表：每档下面标出用 AiLGNS / LGNS 付要多少个（LGNS 含卖出税补差）（合约 quote = DEX 实时价格）
   function livePrices() {

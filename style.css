@@ -1597,3 +1597,24 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 @media (max-width: 600px) { .tabs a.namet { gap: 3px; } .tabs a.namet i { top: -7px; right: -2px; } .tabs a.namet svg { width: 14px; height: 14px; } }
 @media (max-width: 600px) { .tabs { grid-template-columns: repeat(4, 1fr); gap: 6px; } .tabs a, .tabs a.vipt, .tabs a.lendt, .tabs a.namet { padding: 8px 2px; font-size: 13.5px; } } /* 四个栏目一行放下 */
 .nm-price small.nm-q { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+/* 创世域名营销卡：深色 + 金色，制造稀缺感（数字都是链上真实的） */
+.gc { margin: 12px 0 14px; padding: 16px; border-radius: 18px; color: #fff; background: radial-gradient(120% 140% at 0% 0%, #3b1d7a 0%, #191839 55%, #0d0c22 100%); border: 1px solid rgba(255, 214, 107, .45); box-shadow: 0 10px 30px rgba(25, 24, 57, .35), inset 0 0 0 1px rgba(255, 255, 255, .04); }
+.gc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.gc-tag { padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 800; color: #191839; background: linear-gradient(110deg, #ffd66b, #ffb020); }
+.gc-top b { font-size: 18px; letter-spacing: .5px; color: #ffd66b; }
+.gc-num { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; margin-top: 14px; text-align: center; }
+.gc-num div { padding: 10px 4px; border-radius: 12px; background: rgba(255, 255, 255, .06); }
+.gc-num small { display: block; font-size: 11.5px; opacity: .75; }
+.gc-num b { display: block; margin-top: 2px; font-size: 20px; font-weight: 900; }
+.gc-num .gc-left { color: #ff6b6b; }
+.gc-bar { height: 10px; margin-top: 12px; border-radius: 6px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.gc-bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #ffd66b, #ff6b6b); animation: gc-glow 1.6s ease-in-out infinite; }
+@keyframes gc-glow { 50% { filter: brightness(1.35); } }
+.gc-pts { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.55; }
+.gc-pts b { color: #ffd66b; }
+.gc-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; font-size: 12.5px; }
+.gc-recent small { opacity: .75; }
+.gc-recent span { padding: 3px 9px; border-radius: 999px; background: rgba(255, 214, 107, .14); color: #ffd66b; font-weight: 700; }
+.gc-go { display: block; width: 100%; margin-top: 14px; padding: 13px; border: 0; border-radius: 14px; font-size: 16px; font-weight: 900; color: #191839; background: linear-gradient(110deg, #ffd66b, #ffb020); box-shadow: 0 6px 20px rgba(255, 176, 32, .4); animation: a2hs-pulse 1.8s ease-in-out infinite; }
+@media (max-width: 600px) { .gc-num b { font-size: 17px; } .gc-num { grid-template-columns: 1fr 1fr; } .gc-num div:last-child { grid-column: 1 / -1; } }
+.gc-hot { margin: 10px 0 0; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; background: rgba(255, 107, 107, .16); border: 1px solid rgba(255, 107, 107, .4); } .gc-hot b { color: #ffd66b; }
