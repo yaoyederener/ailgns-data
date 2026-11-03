@@ -189,7 +189,7 @@
   function ver(re) { var m = UA.match(re); return m ? parseInt(m[1], 10) : 0; }
   var ENV = {
     ios: /iPhone|iPad|iPod/i.test(UA) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
-    iosVer: ver(/OS (\d+)_/),
+    iosVer: Math.max(ver(/OS (\d+)_/), /CriOS|FxiOS|EdgiOS/.test(UA) ? 0 : ver(/Version\/(\d+)/)), // iOS 26 起 Safari 的 UA 系统版本冻结在 18，真实版本在 Version/26
     android: /Android/i.test(UA),
     wechat: /MicroMessenger/i.test(UA),
     qq: / QQ\/[\d.]/i.test(UA), // QQ App 里打开（QQ 浏览器 App 的 UA 只有 MQQBrowser，没有 " QQ/"）
@@ -253,15 +253,15 @@
   // 每套教程：name 标签、dev 手机、note 开头提醒、steps 一步一屏、alt 没找到按钮时的备用路线、perm 权限提示
   var GUIDES = {
     safari26: {
-      name: "iPhone · Safari（iOS 26）", dev: "iPhone", note: "iOS 26 的 Safari 把分享收进了右下角「···」里，比以前多一步。",
+      name: "iPhone · Safari（iOS 26）", dev: "iPhone", note: "iOS 26 的 Safari 底部没有分享按钮了，分享藏在<b>地址栏左边的「≡」</b>里。",
       steps: [
-        ["点屏幕<b>右下角的「···」</b>（三个点）。", bar([["‹"], ["ailgns.dev"], [I.dots, 1]])],
+        ["点底部地址栏<b>左边的「≡」</b>。<br><small>有的手机这里没有「≡」，是在右下角的「···」，点它一样。</small>", bar([["‹"], [I.menu, 1], ["ailgns.dev"], ["↻"], ["⧉"]])],
         ["在弹出的菜单里点<b>「分享」</b>。", menu([[I.share, "分享", 1], ["☆", "添加到个人收藏"], ["⌕", "在页面上查找"]])],
-        ["分享面板出来后，<b>往上滑</b>，找到<b>「添加到主屏幕」</b>点一下。", SHARE_SHEET],
+        ["分享面板出来后，<b>往上滑</b>，点<b>「查看更多」</b>，再点<b>「添加到主屏幕」</b>。<br><small>列表里直接看到「添加到主屏幕」的，直接点它。</small>", '<div class="mk-sheet"><div class="mk-apps"><i></i><i></i><i></i><i></i></div>' + menu([["⎘", "拷贝"], ["⋯", "查看更多", 1], [I.plus, "添加到主屏幕", 1]]) + "</div>"],
         ["保持<b>「作为网页 App 打开」</b>是开着的，点右上角<b>「添加」</b>。", DIALOG],
         ["回到桌面，就有 AiLGNS 图标了，以后点它打开。", HOME]
       ],
-      alt: { title: "底部没有「···」，是「方框加箭头」的分享按钮？", steps: ["那就是老布局：直接点底部中间的分享按钮，再往上滑找「添加到主屏幕」，点「添加」。"] }
+      alt: { title: "还是找不到「添加到主屏幕」？", steps: ["分享面板拉到最底下，点「编辑操作」，把「添加到主屏幕」加上，再回去点它。", "底部有「方框加箭头」分享按钮的（设置里改过标签页布局），直接点它，再往上滑找「添加到主屏幕」。"] }
     },
     safari: {
       name: "iPhone · Safari", dev: "iPhone", note: "请用 iPhone 自带的 <b>Safari</b>（指南针图标）打开，其他浏览器大多加不了。",
@@ -271,7 +271,7 @@
         ["点右上角<b>「添加」</b>。", DIALOG],
         ["回到桌面，就有 AiLGNS 图标了，以后点它打开。", HOME]
       ],
-      alt: { title: "底部没有分享按钮，只有「···」？", steps: ["那是 iOS 26 的新布局：点右下角「···」→「分享」→ 往上滑找「添加到主屏幕」→「添加」。"] }
+      alt: { title: "底部没有分享按钮？", steps: ["那是 iOS 26 的新布局：点地址栏左边的「≡」（或右下角「···」）→「分享」→「查看更多」→「添加到主屏幕」→「添加」。"] }
     },
     ioschrome: {
       name: "iPhone · Chrome", dev: "iPhone", note: "iPhone 上的 Chrome 也能加（系统要 iOS 16.4 以上）。不行就换 Safari 打开。",
