@@ -47,8 +47,37 @@
 
   function saved() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
   function save(id) { try { localStorage.setItem(KEY, id); } catch (e) { /* 隐私模式不保存 */ } }
+  // 钱包弹窗出来时，在屏幕顶部（钱包弹窗一般在下半屏）说明这一步在做什么、为什么放心；钱包一回应就收起
+  // 只写事实（连接只读地址、授权对象是开源无管理员的合约、可随时取消），不说「绝对零风险」
+  function safeText(a) {
+    var m = a && a.method, d = (a && a.params && a.params[0] && a.params[0].data) || "";
+    if (m === "eth_requestAccounts") return "🔒 连接 / 登录只是让本站看到你的钱包地址（DeBox 还有昵称头像），<b>不会转走任何币，也不花一分钱</b>。";
+    if (m === "personal_sign" || /^eth_signTypedData/.test(m || "")) return "🔒 这只是签名确认身份，<b>不是转账，不会动你的币</b>，也不花 Gas。";
+    if (m !== "eth_sendTransaction") return "";
+    if (/^0x095ea7b3/i.test(d)) return "🔒 <b>授权说明</b>：授权给的是本站托管合约 <span class=\"mono\">" + ("0x" + d.slice(34, 38) + "…" + d.slice(70, 74)) + "</span>。合约代码开源、<b>无管理员、无后门、谁都改不了</b>，只会在<b>你本人</b>下单或成交时转你的币，任何人（包括我们）都动不了。授权只需一次，不放心可随时在钱包里取消。";
+    return "🔒 这笔交易由你本人发起，金额以钱包里显示的为准；托管合约开源、无管理员、无后门，币只按合约规则走。";
+  }
+  function safeShow(t) {
+    var el = document.getElementById("safe-tip");
+    if (!t) return el && el.remove();
+    if (!el) { el = document.createElement("div"); el.id = "safe-tip"; el.className = "safe-tip"; document.body.appendChild(el); }
+    el.innerHTML = t;
+  }
+  function guard(p) {
+    if (!p || p.__ailSafe || typeof p.request !== "function") return;
+    var raw = p.request.bind(p);
+    try {
+      p.request = function (a) {
+        var t = safeText(a);
+        if (t) safeShow(t);
+        return raw(a).then(function (r) { if (t) safeShow(""); return r; }, function (e) { if (t) safeShow(""); throw e; });
+      };
+      p.__ailSafe = true;
+    } catch (e) { /* 有的钱包对象改不了，就不提示 */ }
+  }
   function use(w) {
     if (current && current.provider === w.provider) return w.provider;
+    guard(w.provider);
     current = w;
     save(w.id);
     if (w.provider.on) w.provider.on("accountsChanged", function (a) { listeners.forEach(function (fn) { fn(a); }); });
