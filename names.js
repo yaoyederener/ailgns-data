@@ -773,42 +773,50 @@
       };
     }, function (e) { box.innerHTML = '<p class="muted">' + esc((e && e.message) || "连接钱包失败") + "</p>"; });
   }
+  // 域名市场：.ailgns 和 .lgns 两个市场合在一张表里（以前只显示当前后缀，.lgns 的挂单在默认页面看不到）
   function market() {
-    var box = document.getElementById("nm-mk"), O = OTC[TLD];
+    var box = document.getElementById("nm-mk");
     if (!box) return;
-    if (!O) { box.innerHTML = '<p class="muted">.' + TLD + " 域名市场即将开放</p>"; return; }
-    var oc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: O, data: data }, "latest"]); };
     box.innerHTML = '<p class="muted">读取中…</p>';
-    oc(SEL.oCount).then(function (c) {
-      var n = Number(BigInt(c)), from = Math.max(0, n - 200);
-      return oc(SEL.oGet + u256(from) + u256(n - from)).then(function (res) {
-        var w = (res.slice(2).match(/.{64}/g) || []), cnt = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, now = Date.now() / 1000, list = [];
-        for (var i = 0; i < cnt; i++) {
-          var o = w.slice(2 + i * 6, 8 + i * 6);
-          var it = { id: from + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]) };
-          if (it.sell && it.open && it.expiry > now) list.push(it);
-        }
-        return Promise.all(list.map(function (it) {
-          return Promise.all([call(SEL.labelOf + it.tid), call(SEL.expires + it.tid)]).then(function (x) { it.label = decStr(x[0]); it.exp = Number(BigInt("0x" + word(x[1], 0))); return it; });
-        }));
+    var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
+    Promise.all(tlds.map(function (t) {
+      var O = OTC[t], C = CONTRACTS[t];
+      var oc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: O, data: data }, "latest"]); };
+      var nc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: data }, "latest"]); };
+      return oc(SEL.oCount).then(function (c) {
+        var n = Number(BigInt(c)), from = Math.max(0, n - 200);
+        return oc(SEL.oGet + u256(from) + u256(n - from)).then(function (res) {
+          var w = (res.slice(2).match(/.{64}/g) || []), cnt = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, now = Date.now() / 1000, list = [];
+          for (var i = 0; i < cnt; i++) {
+            var o = w.slice(2 + i * 6, 8 + i * 6);
+            var it = { t: t, O: O, id: from + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]) };
+            if (it.sell && it.open && it.expiry > now) list.push(it);
+          }
+          return Promise.all(list.map(function (it) {
+            return Promise.all([nc(SEL.labelOf + it.tid), nc(SEL.expires + it.tid)]).then(function (x) { it.label = decStr(x[0]); it.exp = Number(BigInt("0x" + word(x[1], 0))); return it; });
+          }));
+        });
       });
-    }).then(function (list) {
+    })).then(function (all) {
+      var list = [].concat.apply([], all);
       if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>'; return; }
-      list.sort(function (a, b) { return a.price < b.price ? -1 : 1; });
+      list.sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it) {
+      box.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
-        var act = mine ? '<button type="button" class="ghost act-btn" data-o="' + it.id + '" data-m="1" data-p="' + it.price + '">撤单</button>'
-          : '<button type="button" class="act-btn btn-buy" data-o="' + it.id + '" data-m="0" data-p="' + it.price + '">买入</button>';
-        return '<tr><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + TLD + '</b> <i class="nm-gb" data-g="' + it.tid + '"></i></td>' +
+        var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
+          : '<button type="button" class="act-btn btn-buy" data-i="' + i + '" data-m="0">买入</button>';
+        return '<tr><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
           '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) + "</td></tr>";
       }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-mst"></p>';
-      genesis().then(function (g) { box.querySelectorAll("[data-g]").forEach(function (e) { var k = g[e.getAttribute("data-g")]; if (k) e.textContent = "🌟 创世 #" + k; }); }, function () {});
+      tlds.forEach(function (t) {
+        genesis(t).then(function (g) { box.querySelectorAll('[data-g^="' + t + ':"]').forEach(function (e) { var k = g[e.getAttribute("data-g").split(":")[1]]; if (k) e.textContent = "🌟 创世 #" + k; }); }, function () {});
+      });
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
-      box.querySelectorAll("button[data-o]").forEach(function (b) {
+      box.querySelectorAll("button[data-i]").forEach(function (b) {
         b.onclick = function () {
-          var id = Number(b.getAttribute("data-o")), price = BigInt(b.getAttribute("data-p")), total = price + price * 3n / 100n;
+          var it = list[Number(b.getAttribute("data-i"))], O = it.O, id = it.id, price = it.price, total = price + price * 3n / 100n;
           connect().then(function () {
             if (b.getAttribute("data-m") === "1") return tx(O, SEL.oCancel + u256(id), say, "🔒 撤单，名字退回你的钱包。请在钱包确认");
             return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(O) }, "latest"]).then(function (a) {
