@@ -1543,3 +1543,6 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .fm-packs small { font-size: 12px; }
 .fm-hot { position: absolute; top: -9px; right: -4px; padding: 1px 8px; border-radius: 99px; background: #ef4444; color: #fff; font-style: normal; font-size: 11px; font-weight: 700; }
 .fm-perk { margin: 12px 0 4px; padding-left: 4px; list-style: none; font-size: 13px; line-height: 1.9; }
+.fm-items button, .fm-plot, .fm-hen, .fm-seeds button, .fm-packs button { white-space: normal; min-width: 0; }
+.fm-items em { display: block; line-height: 1.35; }
+@media (max-width: 600px) { .fm-items { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
