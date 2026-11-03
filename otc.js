@@ -871,14 +871,7 @@
           (buy ? "<dt>你付</dt><dd><b>" + show(p.dai, 2) + " DAI</b></dd><dt>你收到</dt><dd><b>" + tShow(net) + " " + SYM + "</b>（已扣 1% 手续费 " + tShow(fee) + "）</dd>"
                : "<dt>你付</dt><dd><b>" + tShow(p.tok) + " " + SYM + "</b></dd><dt>你收到</dt><dd><b>" + show(net, 2) + " DAI</b>（已扣 1% 手续费 " + show(fee, 2) + "）</dd>") +
           "<dt>算上手续费</dt><dd>每枚" + (buy ? "实际成本 " : "实际到手 ") + A.fmt(eff, PD + 2) + " DAI</dd><dt>最" + (buy ? "贵" : "低") + "一张</dt><dd>" + A.fmt(worst, PD + 2) + " DAI</dd></dl>";
-        var rows = [1000, 2000, 3000, 5000, 10000].filter(function (x) { return x < m; });
-        if (m > 0) rows.push(m);
-        ladder.innerHTML = '<table class="sw-tbl"><thead><tr><th>扫</th><th>' + (buy ? "付 DAI" : "收 DAI") + "</th><th>" + (buy ? "得 " : "付 ") + SYM + "</th><th>均价</th></tr></thead><tbody>" +
-          rows.map(function (x) {
-            var q = plan(x);
-            return "<tr" + (x === bp ? ' class="on"' : "") + ' data-swp="' + x + '"><td>' + (x === m && m < 10000 ? "最大 " : "") + pctText(x) + "</td><td>" + show(q.dai, 2) + "</td><td>" + tShow(q.tok, 2) + "</td><td><b>" + A.fmt(q.avg, PD + 2) + "</b></td></tr>";
-          }).join("") + "</tbody></table>";
-        ladder.querySelectorAll("[data-swp]").forEach(function (t) { t.onclick = function () { r.value = t.getAttribute("data-swp"); draw(); }; });
+        ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {
         b.onclick = function () { side = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); r.value = maxBp(list()); draw(); };
