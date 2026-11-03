@@ -59,7 +59,7 @@
       var items = g[2].filter(function (it) { return !kw || it[1].toLowerCase().indexOf(kw) >= 0; });
       if (!items.length) return "";
       var isOpen = kw || open[gi];
-      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
+      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><em class="dw-sum">' + g[2].map(function (it) { return it[1]; }).join(" · ") + '</em><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
         '<div class="dw-items">' + items.map(function (it) {
           return '<a href="' + it[0] + '"' + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + svg(it[2]) + "<span>" + it[1] + "</span>" + CHEV + "</a>";
         }).join("") + "</div></section>";
@@ -73,10 +73,8 @@
   q.oninput = draw;
 
   function show() {
-    // 打开时全部分组都展开
-    var cur = current();
+    // 打开时分组全部收起（站长要求）：每个分组标题下面用小字列出里面有什么，一屏看到全部功能，点标题再展开
     open = {};
-    GROUPS.forEach(function (g, gi) { open[gi] = true; }); // 打开菜单默认全部展开，大家能看到全部功能和小游戏（站长要求）
     q.value = "";
     draw();
     wallet();
