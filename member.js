@@ -244,13 +244,20 @@
     if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里取消了操作";
     return (e && (e.message || e.reason)) || "操作失败，请重试";
   }
+  // 已经在这条链上就不再切换（有些钱包 App 切到「当前同一条链」时不回应，按钮就一直灰着没反应）；钱包 20 秒不回应就提示客户手动切链
   function switchTo(eth, chain) {
-    var params = CHAINS[chain || "anubis"].params;
-    return eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
-      if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
-        return eth.request({ method: "wallet_addEthereumChain", params: [params] });
-      }
-      throw e;
+    var params = CHAINS[chain || "anubis"].params, name = chain === "polygon" ? "Polygon" : "Anubis";
+    function timeout(p) {
+      return Promise.race([p, new Promise(function (_, fail) { setTimeout(function () { fail(new Error("钱包没有响应：请在钱包 App 里手动切换到 " + name + " 链，然后刷新页面再试")); }, 20000); })]);
+    }
+    return timeout(eth.request({ method: "eth_chainId" })).catch(function () { return null; }).then(function (id) {
+      if (id && parseInt(id, 16) === parseInt(params.chainId, 16)) return;
+      return timeout(eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
+        if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
+          return eth.request({ method: "wallet_addEthereumChain", params: [params] });
+        }
+        throw e;
+      }));
     });
   }
   function switchChain(eth) { return switchTo(eth, "anubis"); }

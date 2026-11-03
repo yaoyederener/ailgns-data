@@ -1019,8 +1019,10 @@
         if (!v) { say("请输入数量", true); return; }
         var token = o.sellAilgns ? DAI : AILGNS, name = payName;
         btn.disabled = true;
+        say("正在连接钱包…");
         ready().then(function () {
           walletCard();
+          say("正在检查余额…");
           if (account === o.maker) throw new Error(REASONS.TRANSFER_MISMATCH);
           return balance(token, account);
         }).then(function (b) {
