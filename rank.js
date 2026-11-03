@@ -18,9 +18,10 @@
       });
     };
     var silent = A.wallets && A.wallets.silent ? A.wallets.silent().catch(function () { return null; }) : Promise.resolve(null);
-    silent.then(function (a) { me = a ? String(a).toLowerCase() : null; return load(); }).catch(function () {
-      document.getElementById("rk-out").innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>';
-    });
+    // 排行榜马上读，不等钱包；钱包认出来以后再读一次带上「我的排名」
+    var fail = function () { var o = document.getElementById("rk-out"); if (o) o.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>'; };
+    load().catch(fail);
+    silent.then(function (a) { if (a) { me = String(a).toLowerCase(); load().catch(function () {}); } });
 
     function render(d) {
       var top = d.top || [], out = document.getElementById("rk-out"), box = document.getElementById("rk-me");
