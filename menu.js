@@ -73,11 +73,10 @@
   q.oninput = draw;
 
   function show() {
-    // 打开时展开当前页面所在的分组
+    // 打开时全部分组都展开
     var cur = current();
     open = {};
-    GROUPS.forEach(function (g, gi) { if (g[2].some(function (it) { return it[0] === cur; })) open[gi] = true; });
-    if (!Object.keys(open).length) open[0] = true;
+    GROUPS.forEach(function (g, gi) { open[gi] = true; }); // 打开菜单默认全部展开，大家能看到全部功能和小游戏（站长要求）
     q.value = "";
     draw();
     wallet();
