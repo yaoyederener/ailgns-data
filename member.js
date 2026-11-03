@@ -281,7 +281,7 @@
     return A.wallets.choose().then(function (p) {
       eth = p;
       status("🔒 只读地址，不动你的币。请在钱包确认连接");
-      return eth.request({ method: "eth_requestAccounts" });
+      return AIL.wallets.ask(eth, { method: "eth_requestAccounts" });
     }).then(function (accs) {
       from = String(accs[0]).toLowerCase();
       status("正在切换到 " + chain.name + " 链…");
@@ -292,7 +292,7 @@
       if (BigInt(bal) < units) throw new Error(chain.name + " 链上的这个钱包里只有 " + A.fmt(Number(BigInt(bal)) / Math.pow(10, m.dec), m.digits + 4) + " " + m.symbol + "，需要 " + o.amount);
       status("请在钱包里确认转账 " + o.amount + " " + m.symbol + "（Gas 用 " + chain.gas + "）…");
       var data = "0xa9059cbb" + A.pad(RECEIVER) + units.toString(16).padStart(64, "0");
-      return eth.request({ method: "eth_sendTransaction", params: [{ from: from, to: m.token, data: data }] });
+      return AIL.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: from, to: m.token, data: data }] });
     }).then(function (hash) {
       status("已提交，等待 " + chain.name + " 链确认…（通常几秒钟）");
       return waitOn(m.chain, hash).then(function () { return hash; });
@@ -587,11 +587,11 @@
       btn.disabled = true;
       var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), text = transferText(from, to, day), eth;
       say("🔒 只读地址，不动你的币。请在钱包确认连接");
-      A.wallets.choose().then(function (p) { eth = p; return eth.request({ method: "eth_requestAccounts" }); }).then(function (a) {
+      A.wallets.choose().then(function (p) { eth = p; return AIL.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) {
         var cur = String(a[0] || "").toLowerCase();
         if (cur !== from) throw new Error("钱包当前地址是 " + A.short(cur) + "，请切换到会员地址 " + A.short(from) + " 再试");
         say("请在钱包里签名确认转赠（只是签名，不花 Gas）…");
-        return eth.request({ method: "personal_sign", params: [utf8hex(text), from] });
+        return AIL.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(text), from] });
       }).then(function (sig) {
         say("正在核对签名…");
         return fetch("/api/member", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "transfer", from: from, to: to, day: day, sig: sig }) }).then(function (r) { return r.json(); });

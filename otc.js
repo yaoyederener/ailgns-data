@@ -185,7 +185,7 @@
     var eth;
     return A.wallets.choose().then(function (p) {
       eth = p;
-      return eth.request({ method: "eth_requestAccounts" });
+      return AIL.wallets.ask(eth, { method: "eth_requestAccounts" });
     }).then(function (a) {
       account = String(a[0]).toLowerCase();
       return W.switchTo(eth, M.chain);
@@ -230,7 +230,7 @@
       if (gas) tx.gas = gas;
       // 这行字在手机上只显示两行：一句话说清楚这一步 + 为什么放心（站长要求）
       say(/^授权/.test(label) ? "🔒 合约开源、无管理员，只有你本人能动用。请在钱包确认授权" + (label.indexOf("只需一次") >= 0 ? "（只需一次）" : "") : "🔒 合约开源、无后门，币只按规则走。请在钱包确认" + (label.length <= 6 ? "「" + label + "」" : ""));
-      return eth.request({ method: "eth_sendTransaction", params: [tx] });
+      return AIL.wallets.ask(eth, { method: "eth_sendTransaction", params: [tx] });
     }).then(function (hash) {
       say(label + "已提交，等待链上确认…");
       return W.waitOn(M.chain, hash);
@@ -1120,7 +1120,7 @@
         var cost = gas * BigInt(r[1]);
         if (BigInt(r[2]) < cost) throw new Error("钱包里的 " + M.gas + " 不够付部署手续费：大约需要 " + show(cost, 3) + " " + M.gas + "，现在有 " + show(BigInt(r[2]), 3));
         say("请在钱包里确认部署（手续费约 " + show(cost, 3) + " " + M.gas + "）…");
-        return W.get().request({ method: "eth_sendTransaction", params: [{ from: account, data: data, gas: "0x" + gas.toString(16) }] });
+        return AIL.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [{ from: account, data: data, gas: "0x" + gas.toString(16) }] });
       }).then(function (hash) {
         say("已提交，等待链上确认…");
         return W.waitOn(M.chain, hash);
@@ -1219,7 +1219,7 @@
         return W.switchTo(eth, t.chain);
       }).then(function () {
         say("请在钱包里确认：" + label + "…");
-        return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: t.token, data: SEL.approve + u256(spender) + u256(value) }] });
+        return AIL.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: t.token, data: SEL.approve + u256(spender) + u256(value) }] });
       }).then(function (hash) {
         say(label + "已提交，等待链上确认…");
         return W.waitOn(t.chain, hash);

@@ -464,7 +464,7 @@
         var cost = gas * BigInt(r[1]);
         if (BigInt(r[2]) < cost) throw new Error("钱包里的 DAI 不够付部署手续费：大约需要 " + dai(cost, 3) + " DAI");
         say("请在钱包里确认部署（手续费约 " + dai(cost, 3) + " DAI）…");
-        return W.get().request({ method: "eth_sendTransaction", params: [{ from: k.account(), data: data, gas: "0x" + gas.toString(16) }] });
+        return AIL.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [{ from: k.account(), data: data, gas: "0x" + gas.toString(16) }] });
       }).then(function (hash) { say("已提交，等待链上确认…"); return W.waitOn("anubis", hash); })
         .then(function (r) { say('✅ 部署成功！合约地址：<b class="mono">' + r.contractAddress + '</b><br>把这个地址发给我，我把它填进网站就能开放。<a target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + r.contractAddress + '">在浏览器查看 ↗</a>'); },
           function (e) { say(niceError(e), true); btn.disabled = false; });

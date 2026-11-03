@@ -107,7 +107,7 @@
   document.getElementById("dw-wallet").onclick = function () {
     if (addr) { close(); location.hash = "#/member"; return; }
     var t = document.getElementById("dw-wt");
-    A.wallets.choose().then(function (eth) { return eth.request({ method: "eth_requestAccounts" }); }).then(function (a) {
+    A.wallets.choose().then(function (eth) { return AIL.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) {
       addr = String(a[0]).toLowerCase();
       t.textContent = "已连接 " + A.short(addr);
     }, function () { t.textContent = "连接钱包"; });

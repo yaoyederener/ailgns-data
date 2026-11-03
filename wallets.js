@@ -63,21 +63,14 @@
     if (!el) { el = document.createElement("div"); el.id = "safe-tip"; el.className = "safe-tip"; document.body.appendChild(el); }
     el.innerHTML = t;
   }
-  function guard(p) {
-    if (!p || p.__ailSafe || typeof p.request !== "function") return;
-    var raw = p.request.bind(p);
-    try {
-      p.request = function (a) {
-        var t = safeText(a);
-        if (t) safeShow(t);
-        return raw(a).then(function (r) { if (t) safeShow(""); return r; }, function (e) { if (t) safeShow(""); throw e; });
-      };
-      p.__ailSafe = true;
-    } catch (e) { /* 有的钱包对象改不了，就不提示 */ }
+  // 弹钱包时顺便显示说明。不改钱包对象本身（OKX 钱包内部会回调自己的 request，改了会无限循环）
+  function ask(eth, a) {
+    var t = safeText(a);
+    if (t) safeShow(t);
+    return Promise.resolve().then(function () { return eth.request(a); }).then(function (r) { if (t) safeShow(""); return r; }, function (e) { if (t) safeShow(""); throw e; });
   }
   function use(w) {
     if (current && current.provider === w.provider) return w.provider;
-    guard(w.provider);
     current = w;
     save(w.id);
     if (w.provider.on) w.provider.on("accountsChanged", function (a) { listeners.forEach(function (fn) { fn(a); }); });
@@ -181,6 +174,7 @@
   A.wallets = {
     list: list,
     choose: choose,
+    ask: ask,
     openIn: noWallet, // 弹出「在钱包 App 里打开」
     standalone: standalone,
     silent: silent,

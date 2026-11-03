@@ -242,7 +242,7 @@
     btn.disabled = true;
     A.wallets.choose().then(function (p) {
       eth = p;
-      return eth.request({ method: "eth_requestAccounts" });
+      return AIL.wallets.ask(eth, { method: "eth_requestAccounts" });
     }).then(function (a) {
       account = String(a[0]).toLowerCase();
       say("正在切换到 " + C.name + " 链…");
@@ -260,7 +260,7 @@
       return W.rpcOn(ch, "eth_call", [{ from: account, to: C.lgns, data: data }, "latest"]);
     }).then(function () {
       say("请在钱包里确认：支付 " + A.fmt(t) + " LGNS 涂 " + px.length + " 格…");
-      return eth.request({ method: "eth_sendTransaction", params: [{ from: account, to: C.lgns, data: data }] });
+      return AIL.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: C.lgns, data: data }] });
     }).then(function (tx) {
       store(PENDING, { tx: tx, px: px, chain: ch });
       say("已提交，等待链上确认…");
@@ -330,7 +330,7 @@
       btn.disabled = true;
       A.wallets.choose().then(function (p) {
         eth = p;
-        return eth.request({ method: "eth_requestAccounts" });
+        return AIL.wallets.ask(eth, { method: "eth_requestAccounts" });
       }).then(function (a) {
         from = String(a[0]).toLowerCase();
         return W.switchTo(eth, ch);
@@ -344,7 +344,7 @@
         return W.rpcOn(ch, "eth_estimateGas", [{ from: from, data: data }]);
       }).then(function (g) {
         sayD("请在钱包里确认部署…");
-        return eth.request({ method: "eth_sendTransaction", params: [{ from: from, data: data, gas: "0x" + (BigInt(g) * 13n / 10n).toString(16) }] });
+        return AIL.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: from, data: data, gas: "0x" + (BigInt(g) * 13n / 10n).toString(16) }] });
       }).then(function (hash) {
         sayD("已提交，等待链上确认…");
         return W.waitOn(ch, hash);
