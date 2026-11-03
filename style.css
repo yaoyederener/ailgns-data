@@ -1316,3 +1316,32 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .otc-top .hp-tag { background: none; color: #4b5563; padding: 0; box-shadow: none; font-weight: 700; }
 .otc-top .ot-sw { background: #fff; color: #1677ff; border: 1.5px solid #1677ff; box-shadow: none; }
 .otc-top .ot-c { background: #1677ff; color: #fff; border: 0; box-shadow: none; }
+
+/* ===== 销毁乐园 · 免费小游戏 ===== */
+.gm-card { margin-top: 12px; }
+.gm-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.gm-head h2 { margin: 0; }
+.gm-sc { display: flex; gap: 14px; font-size: 14px; color: var(--muted); }
+.gm-sc b { color: var(--purple-ink); font-size: 18px; }
+.gm-stage { position: relative; max-width: 380px; margin: 12px auto; user-select: none; -webkit-user-select: none; touch-action: none; }
+.gm-cv { display: block; width: 100%; height: auto; border-radius: 14px; }
+.gm-bar { text-align: center; }
+.gm-over { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border-radius: 14px; background: rgba(15, 23, 42, .72); color: #fff; font-size: 18px; text-align: center; padding: 16px; }
+.gm-over button { background: #1677ff; color: #fff; border: 0; padding: 10px 22px; border-radius: 12px; font-size: 16px; font-weight: 700; }
+.gm-pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(2, 52px); gap: 6px; justify-content: center; margin-top: 10px; }
+.gm-pad button { padding: 0; font-size: 20px; border-radius: 12px; background: #f5f3ff; color: #5b21b6; border: 1.5px solid #c4b5fd; }
+.gm-pad [data-d=Up] { grid-column: 2; }
+.gm-pad [data-d=Left] { grid-column: 1; grid-row: 2; }
+.gm-pad [data-d=Down] { grid-column: 2; grid-row: 2; }
+.gm-pad [data-d=Right] { grid-column: 3; grid-row: 2; }
+.g2-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 8px; padding: 8px; border-radius: 14px; background: #bbada0; aspect-ratio: 1; }
+.g2-c { display: flex; align-items: center; justify-content: center; border-radius: 8px; background: #cdc1b4; font-size: clamp(18px, 7vw, 30px); font-weight: 800; color: #776e65; }
+.g2-c.v2 { background: #eee4da; } .g2-c.v4 { background: #ede0c8; }
+.g2-c.v8 { background: #f2b179; color: #fff; } .g2-c.v16 { background: #f59563; color: #fff; }
+.g2-c.v32 { background: #f67c5f; color: #fff; } .g2-c.v64 { background: #f65e3b; color: #fff; }
+.g2-c.v128, .g2-c.v256, .g2-c.v512 { background: #edcf72; color: #fff; font-size: clamp(16px, 6vw, 26px); }
+.g2-c.v1024, .g2-c.v2048, .g2-c.v4096 { background: #edc22e; color: #fff; font-size: clamp(14px, 5vw, 22px); }
+.mn-grid { display: grid; gap: 3px; }
+.mn-c { aspect-ratio: 1; padding: 0; border-radius: 6px; border: 0; background: #c4b5fd; font-size: 16px; font-weight: 800; color: #1f2937; box-shadow: none; }
+.mn-c.o { background: #f5f3ff; }
+.mn-c.n1 { color: #2563eb; } .mn-c.n2 { color: #16a34a; } .mn-c.n3 { color: #dc2626; } .mn-c.n4 { color: #7c3aed; } .mn-c.n5, .mn-c.n6, .mn-c.n7, .mn-c.n8 { color: #b45309; }
