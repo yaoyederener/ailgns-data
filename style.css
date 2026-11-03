@@ -1754,3 +1754,4 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-yrs button small{font-size:11px;opacity:.8}
 .nm-total{margin:8px 0 2px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-size:14px;line-height:1.6}
 .nm-total small{color:var(--muted);font-size:12px}
+.nm-big-in .nm-warn{color:#dc2626}

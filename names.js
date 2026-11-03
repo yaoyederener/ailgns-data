@@ -197,11 +197,23 @@
     // 每一步说清楚「扣不扣钱」：客户以为确认几次就付了几次钱
     if (Date.now() - tipAt > 180000) { tipN = 0; tipTotal = 0; } // 别的操作（挂单、设主名字）重新从第 1 次数
     tipAt = Date.now(); tipN++;
-    var t = String(msg), kind = /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
+    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
     el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
       '<p class="nm-big-step">第 <b>' + tipN + "</b> 次确认" + (tipTotal ? "（最多 " + tipTotal + " 次）" : "") + "</p>" + (kind ? '<p class="nm-big-kind">' + kind + "</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
   }
-  var tipN = 0, tipTotal = 0, tipAt = 0; // 大字提示里的「第几次确认 / 最多几次」
+  var tipN = 0, tipTotal = 0, tipAt = 0;
+  // 名字授权给市场：有的钱包把它当成「代币授权」，显示可改的「消费上限」，客户把价格填进去，名字编号就被改掉、链上拒绝
+  function nftOk(C, O, id, say) {
+    function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
+    return on(SEL.getApproved + id).then(function (g) {
+      if (addrOf(g) === O) return;
+      return tx(C, SEL.nftApprove + A.pad(O) + id, say, "🔒 第 1 步：授权市场合约转这个名字（不扣钱）。⚠️ 钱包里如果出现「消费上限 / 金额 / 额度」，不要改，直接点确定").catch(function (e) {
+        throw new Error("授权没成功，链上拒绝了。多半是钱包里的「消费上限 / 金额」被改动了：那个数字是名字的编号，不是价格。请重新点「发布挂单」，钱包里什么数字都不要改，直接点确定。");
+      }).then(function () {
+        return on(SEL.getApproved + id).then(function (g2) { if (addrOf(g2) !== O) throw new Error("授权没生效：钱包里的数字被改动了。请重新点「发布挂单」，钱包里不要改任何数字，直接点确定。"); });
+      });
+    });
+  } // 大字提示里的「第几次确认 / 最多几次」
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
     tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
@@ -402,10 +414,7 @@
         if (r.exp < Date.now() / 1000 + dur + 30 * 86400) { A.errTip("名字快到期了，先续费再挂单（或选短一点的有效期）", go); return; }
         var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n, O = OTC[TLD];
         go.disabled = true;
-        call(SEL.getApproved + r.id).then(function (g) {
-          if (addrOf(g) === O) return;
-          return tx(NAMES, SEL.nftApprove + A.pad(O) + r.id, say, "🔒 第 1 步：授权市场合约转这个名字（只用于这次挂单，合约开源、无管理员）。请在钱包确认");
-        }).then(function () {
+        nftOk(NAMES, O, r.id, say).then(function () {
           return tx(O, SEL.oList + r.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
         }).then(function () { say("✅ 已挂到市场"); market(); show(v); }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
       };
@@ -728,10 +737,7 @@
         if (x.exp < Date.now() / 1000 + dur + 30 * 86400) { A.errTip("这个名字快到期了，先续费再挂单（或选短一点的有效期）", go); return; }
         var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n;
         go.disabled = true;
-        W.rpcOn("anubis", "eth_call", [{ to: C, data: SEL.getApproved + x.id }, "latest"]).then(function (g) {
-          if (addrOf(g) === O) return;
-          return tx(C, SEL.nftApprove + A.pad(O) + x.id, say, "🔒 第 1 步：授权市场合约转这个名字（只用于这次挂单，合约开源、无管理员）。请在钱包确认");
-        }).then(function () {
+        nftOk(C, O, x.id, say).then(function () {
           return tx(O, SEL.oList + x.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
         }).then(function () {
           say("✅ 已挂到市场"); go.disabled = false;
