@@ -13,14 +13,24 @@
  var T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
   // 创世徽章：和会员勋章同一种做法（渐变圆章 + 虚线内圈 + 白色图案），站点紫色，中间一颗星
   function genEmblem(s) {
+    var rays = "";
+    for (var i = 0; i < 24; i++) { var a = i * 15, w = i % 2 ? 2.2 : 3.4, h = i % 2 ? 7 : 10; rays += '<rect x="' + (32 - w / 2) + '" y="1" width="' + w + '" height="' + h + '" rx="1" fill="url(#gnRay)" transform="rotate(' + a + ' 32 32)"/>'; }
     return '<svg class="gen-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
-      '<linearGradient id="geG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset=".35" stop-color="#c9a8ff"/><stop offset=".65" stop-color="#7027d9"/><stop offset="1" stop-color="#4936ff"/></linearGradient>' +
-      '<linearGradient id="geD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6927db"/><stop offset="1" stop-color="#9828dc"/></linearGradient></defs>' +
-      '<circle cx="32" cy="32" r="31" fill="url(#geG)"/><circle cx="32" cy="32" r="27.5" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-dasharray="1.6 2.4"/>' +
-      '<circle cx="32" cy="32" r="23.5" fill="url(#geD)" stroke="#fff" stroke-width="1.5"/>' +
-      '<path d="M32 14.5l4.6 10.6 11.4 1-8.7 7.5 2.7 11.2L32 38.9l-10 5.9 2.7-11.2-8.7-7.5 11.4-1z" fill="#fff"/>' +
-      '<text x="32" y="54.5" text-anchor="middle" font-size="7.5" font-weight="900" fill="#ffe08a" font-family="system-ui,sans-serif">GENESIS</text></svg>';
+      '<linearGradient id="gnRay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b3"/><stop offset="1" stop-color="#e3a71c"/></linearGradient>' +
+      '<linearGradient id="gnGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff5c2"/><stop offset=".35" stop-color="#f3c54a"/><stop offset=".6" stop-color="#c98a12"/><stop offset=".8" stop-color="#f7d564"/><stop offset="1" stop-color="#b8780a"/></linearGradient>' +
+      '<radialGradient id="gnCore" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#9b4dff"/><stop offset=".55" stop-color="#5a1fd1"/><stop offset="1" stop-color="#2a0e6e"/></radialGradient>' +
+      '<linearGradient id="gnStar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8d6"/><stop offset=".5" stop-color="#f5c93d"/><stop offset="1" stop-color="#d0920f"/></linearGradient>' +
+      '<linearGradient id="gnGem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#8ad7ff"/><stop offset="1" stop-color="#1e6fe8"/></linearGradient></defs>' +
+      rays +
+      '<circle cx="32" cy="32" r="24.5" fill="url(#gnGold)"/>' +
+      '<circle cx="32" cy="32" r="21.2" fill="url(#gnCore)" stroke="#fff3c4" stroke-width="1.1"/>' +
+      '<circle cx="32" cy="32" r="18.6" fill="none" stroke="#f7d564" stroke-opacity=".55" stroke-width=".9" stroke-dasharray="1.2 2.2"/>' +
+      '<path d="M32 15l4.9 10.9 11.9 1.1-9 7.9 2.7 11.7L32 40.5l-10.5 6.1 2.7-11.7-9-7.9 11.9-1.1z" fill="url(#gnStar)" stroke="#7a4c00" stroke-width=".6" stroke-linejoin="round"/>' +
+      '<path d="M32 15l4.9 10.9 11.9 1.1-9 7.9L32 30.5z" fill="#ffffff" opacity=".22"/>' +
+      '<circle cx="32" cy="31.5" r="3.1" fill="url(#gnGem)" stroke="#7a4c00" stroke-width=".4"/>' +
+      '<text x="32" y="52.5" text-anchor="middle" font-size="6.2" font-weight="900" letter-spacing="1.2" fill="#ffe08a" font-family="system-ui,sans-serif">GENESIS</text></svg>';
   }
+
  var T_REG = "0xa15b66031269f1c32be8db1e4353108dc76c84574a7c6697527e431ad921462a", T_FILL = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
   var OTC = { ailgns: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", lgns: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d" }; // Anubis 区块 18161704 / 18161717
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
