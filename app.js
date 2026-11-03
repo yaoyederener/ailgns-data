@@ -2,6 +2,17 @@
 (function () {
   "use strict";
 
+  // 苹果 Safari 不认 user-scalable=no：这里拦住双指缩放和双击放大，页面固定不缩放（站长要求）
+  document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener("touchmove", function (e) { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+  var lastTap = 0;
+  document.addEventListener("touchend", function (e) {
+    var now = Date.now();
+    if (now - lastTap < 300 && !e.target.closest("input, textarea, select")) e.preventDefault(); // 快速连点两下不放大（按钮照常能点）
+    lastTap = now;
+  }, { passive: false });
+
   var API = "https://awakehelix.io/api/v1";
   // 历史数据走本站的 /api/flows（Cloudflare 边缘缓存），国内不用直连 GitHub；失败时再直连
   var FLOWS_URL = "/api/flows";
