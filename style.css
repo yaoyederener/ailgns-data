@@ -1549,3 +1549,4 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-mine { margin: 8px 0 12px; padding: 10px 14px; border-radius: 12px; background: linear-gradient(90deg, #fef3c7, #fce7f3); color: #7c2d12; font-size: 14.5px; }
 .nm-again { background: linear-gradient(110deg, #22c55e, #16a34a) !important; }
 .nm-skip { display: block; margin: 10px auto 0; padding: 6px 14px; background: none; border: 0; color: var(--purple-ink); font-weight: 600; text-decoration: underline; }
+.brand-s { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: 1px; background: linear-gradient(90deg, #2563eb, #9333ea); -webkit-background-clip: text; background-clip: text; color: transparent; }
