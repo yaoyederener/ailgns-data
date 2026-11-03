@@ -248,7 +248,15 @@
         }
         stepTo(2);
         if (r.addr !== account) {
-          box.innerHTML = '<div class="nm-guide"><p class="muted">第 2 步：这个名字现在指向别的地址，要先点下面「改指向地址」改成你自己的地址，才能设成主名字。</p></div>';
+          if (r.owner !== account) { box.innerHTML = '<div class="nm-guide"><p class="muted">这个名字不在你当前连接的钱包里，请切换到注册它的钱包再打开。</p></div>'; return; }
+          box.innerHTML = '<div class="nm-guide"><button type="button" class="nm-go" id="nm-fix">第 2 步：把名字指向我的地址</button>' +
+            '<p class="muted">不花钱，只付一点 Gas。做完再点一次「设为主名字」就完成了。</p><p class="muted nm-st" id="nm-fst"></p></div>';
+          var fb = document.getElementById("nm-fix"), fst = document.getElementById("nm-fst");
+          fb.onclick = function () {
+            fb.disabled = true;
+            tx(NAMES, SEL.setAddr + r.id + A.pad(account), function (t) { fst.textContent = t; }, "🔒 把名字指向你的地址（不花钱，只付一点 Gas）。请在钱包确认")
+              .then(function () { delete infoCache[TLD + ":" + v]; show(v); }, function (e) { fb.disabled = false; fst.textContent = ""; A.errTip(e.message || String(e), fb); });
+          };
           return;
         }
         box.innerHTML = '<div class="nm-guide"><div id="nm-mine"></div><button type="button" class="nm-go" id="nm-pri">第 2 步：设为我的主名字</button>' +
@@ -289,7 +297,9 @@
         register(v, Number(y.value), kk.value, function (t) { st.textContent = t; }).then(function () {
           st.textContent = "";
           out.innerHTML = '<p class="nm-ok nm-big">✅ 第 1 步完成：<b>' + esc(v) + "." + TLD + '</b> 注册成功，已经指向你的地址</p><p class="nm-gen" id="nm-gen"></p><div id="nm-next"><p class="muted">正在准备第 2 步…</p></div>';
-          info(v).then(function (r) {
+          delete infoCache[TLD + ":" + v]; // 注册前查过的缓存是「还没注册」，不能用
+          (function fresh(n) { return info1(v).then(function (r) { return (r.free || r.addr !== account) && n > 0 ? new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return fresh(n - 1); }) : r; }); })(4).then(function (r) {
+            infoCache[TLD + ":" + v] = { t: Date.now(), p: Promise.resolve(r) };
             genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 你是创世域名 #" + g[r.id]; }, function () {});
             guide(document.getElementById("nm-next"), v, r);
           });
