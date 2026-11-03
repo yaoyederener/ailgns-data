@@ -398,11 +398,22 @@
     }).catch(function () { /* 通知功能不可用时不显示 */ });
   }
   // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
+  // 成交 / 挂单成功的结果弹窗：一直停留到客户点关闭，底下放「查看交易记录」
+  function doneModal(title, html, extra) {
+    var box = document.createElement("div");
+    box.className = "modal";
+    box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + title + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + html +
+      (extra || "") + '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/trades/' + account + '" data-close>📜 查看我的交易记录</a></div>';
+    document.body.appendChild(box);
+    box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+    return box;
+  }
   // 客户反馈挂完找不到自己的单：成功弹窗里放一个大按钮，点了直接跳到「我的挂单」
   function dbxAfterCreate() {
     var box = document.createElement("div");
     box.className = "modal";
-    var mine = '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单</button><p class="note" style="text-align:center">以后也可以点页面上方紫色的「📋 我的挂单」找到它</p>';
+    var mine = '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单</button><p class="note" style="text-align:center">以后也可以点页面上方紫色的「📋 我的挂单」找到它</p>' +
+      (account ? '<a class="gm-big alt" href="#/trades/' + account + '" data-close>📜 查看我的交易记录</a>' : "");
     if (!dbx || !dbx.ready || dbx.bound || !account) {
       box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine + "</div>";
     } else box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine +
@@ -911,10 +922,11 @@
           sweeping = false; go.disabled = false; say(msg, bad);
           if (done) { // 扫单记录：每张单的成交和链上交易，另附全部成交记录入口（站长要求）
             var getName = buy ? SYM : "DAI", getDec = buy ? TD : 18;
-            rec.innerHTML = '<div class="sw-get sw-done"><span>本次扫单到手</span><b class="num">' + show(got, 4, getDec) + "</b><em>" + getName + "</em><small>成交 " + done + " 张，共付 " + show(paid, 4, payDec) + " " + name + "</small></div>" +
+            var html = '<div class="sw-get sw-done"><span>本次扫单到手</span><b class="num">' + show(got, 4, getDec) + "</b><em>" + getName + "</em><small>成交 " + done + " 张，共付 " + show(paid, 4, payDec) + " " + name + "</small></div>" +
               '<table class="sw-tbl"><thead><tr><th>订单</th><th>付出</th><th>到手</th><th>交易</th></tr></thead><tbody>' +
               recs.map(function (x) { return "<tr><td>#" + x.id + "</td><td>" + show(x.pay, 4, payDec) + "</td><td><b>" + show(x.get, 4, getDec) + "</b></td><td>" + (x.tx ? '<a href="' + M.explorer + "/tx/" + x.tx + '" target="_blank" rel="noopener">查看</a>' : "") + "</td></tr>"; }).join("") +
-              '</tbody></table><p class="note"><a href="#/trades/' + account + '">📋 查看我的全部成交记录 →</a></p>';
+              "</tbody></table>";
+            doneModal("✅ 扫单成功！", html); // 弹窗里显示，页面刷新也不会消失，客户自己点关闭（以前写在页面里，2 秒后刷新就没了）
             setTimeout(reload, 2000);
           }
         }
