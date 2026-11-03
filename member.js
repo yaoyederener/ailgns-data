@@ -280,7 +280,7 @@
     var m = method(o.method), chain = CHAINS[m.chain], eth, from, units = BigInt(o.units);
     return A.wallets.choose().then(function (p) {
       eth = p;
-      status("🔒 请在钱包确认连接：只读地址，不动你的币");
+      status("🔒 只读地址，不动你的币。请在钱包确认连接");
       return eth.request({ method: "eth_requestAccounts" });
     }).then(function (accs) {
       from = String(accs[0]).toLowerCase();
@@ -586,7 +586,7 @@
       if (!confirm("确认把 " + A.short(from) + " 的会员永久转赠给 " + A.short(to) + " 吗？转赠后本地址不再是会员，不可撤销。")) return;
       btn.disabled = true;
       var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), text = transferText(from, to, day), eth;
-      say("🔒 请在钱包确认连接：只读地址，不动你的币");
+      say("🔒 只读地址，不动你的币。请在钱包确认连接");
       A.wallets.choose().then(function (p) { eth = p; return eth.request({ method: "eth_requestAccounts" }); }).then(function (a) {
         var cur = String(a[0] || "").toLowerCase();
         if (cur !== from) throw new Error("钱包当前地址是 " + A.short(cur) + "，请切换到会员地址 " + A.short(from) + " 再试");
