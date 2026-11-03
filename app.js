@@ -74,11 +74,14 @@
 
   function rpc(method, params, i) {
     i = i || 0;
+    // 一个节点 8 秒没回应就换下一个（以前没有超时，节点卡住时会一直等，钱包迟迟弹不出来）
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null, timer = ctl && setTimeout(function () { ctl.abort(); }, 8000);
     return fetch(RPCS[i % RPCS.length], {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params })
-    }).then(function (r) { return r.json(); }).then(function (j) {
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) { clearTimeout(timer); return r.json(); }).then(function (j) {
       if (j.error) throw new Error(j.error.message);
       return j.result;
     }).catch(function (e) {

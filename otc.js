@@ -217,12 +217,12 @@
     var eth = W.get();
     say("正在检查交易能否成功…");
     // 先模拟一次：会失败的交易直接说明原因，不让钱包弹出一个确认不了的窗口
-    return W.rpcOn(M.chain, "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) {
-      throw new Error(niceError(e));
-    }).then(function () {
-      // 用本站节点估好 Gas（多留 30%）一起交给钱包，有些钱包自己估算会失败（报「手续费估算失败」）
-      return W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: to, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; });
-    }).then(function (gas) {
+    // 模拟和估 Gas 同时查（以前一个接一个，钱包弹出来要多等一轮）；用本站节点估好 Gas（多留 30%）交给钱包，有些钱包自己估算会失败
+    return Promise.all([
+      W.rpcOn(M.chain, "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) { throw new Error(niceError(e)); }),
+      W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: to, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; })
+    ]).then(function (res) {
+      var gas = res[1];
       var tx = { from: account, to: to, data: data };
       if (gas) tx.gas = gas;
       say("请在钱包里确认：" + label + "…");
@@ -234,8 +234,8 @@
   }
   // 授权额度不够时一次授权到最大，以后挂单、吃单、扫单都不用再授权（站长要求）
   var MAX_UINT = (1n << 256n) - 1n;
-  function ensureAllowance(token, amount, say, name) {
-    return allowance(token, account).then(function (a) {
+  function ensureAllowance(token, amount, say, name, known) {
+    return (known !== undefined ? Promise.resolve(known) : allowance(token, account)).then(function (a) {
       if (a >= amount) return;
       return send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次，以后不用再授权）");
     });
@@ -1026,18 +1026,14 @@
           walletCard();
           say("正在检查余额…");
           if (account === o.maker) throw new Error(REASONS.TRANSFER_MISMATCH);
-          return balance(token, account);
-        }).then(function (b) {
+          // 余额、Gas 余额、授权额度一次同时查（以前一个接一个查，点了要等好几秒钱包才弹出来）
+          return Promise.all([balance(token, account), !o.sellAilgns && M.gas !== "POL" ? balance(DAI, account) : null, allowance(token, account), M.gas === "POL" ? checkPol() : null]);
+        }).then(function (res) {
+          var b = res[0], g = res[1];
           if (b < v.pay) throw new Error("余额不足：需要 " + show(v.pay, 4, payDec) + " " + name + "，钱包里有 " + show(b, 4, payDec));
-          if (M.gas === "POL") return checkPol();
-          if (o.sellAilgns && b - v.pay < GAS_RESERVE / 10n) throw new Error("要留一点 DAI 付 Gas：请把金额改小一点（或点「最大」自动留 0.1 DAI）");
-          if (!o.sellAilgns) return balance(DAI, account).then(function (g) {
-            if (g < GAS_RESERVE / 10n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够），现在只有 " + show(g, 4) + " DAI");
-            return b;
-          });
-          return b;
-        }).then(function (b) {
-          return ensureAllowance(token, v.pay, say, name);
+          if (M.gas !== "POL" && o.sellAilgns && b - v.pay < GAS_RESERVE / 10n) throw new Error("要留一点 DAI 付 Gas：请把金额改小一点（或点「最大」自动留 0.1 DAI）");
+          if (g !== null && g < GAS_RESERVE / 10n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够），现在只有 " + show(g, 4) + " DAI");
+          return ensureAllowance(token, v.pay, say, name, res[2]);
         }).then(function () {
           return send(OTC, SEL.fill + u256(o.id) + u256(v.amount) + u256(v.pay), say, "成交");
         }).then(function () {
