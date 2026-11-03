@@ -16,6 +16,7 @@
   var KNOWN = {};
   KNOWN[ZERO] = "🆕 新注册";
   KNOWN["0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3"] = "回购分账合约";
+  KNOWN["0xdcc5354175d60ffc8364e71e792fcd66366f00fe"] = "OTC 自动撮合合约";
   KNOWN["0xb6a7a3be9a17ad241665ab9bddbd9a573d488818"] = "LGNS OTC";
   KNOWN["0x4e730be6d46be71223ded5a32dc45799f6d4bc15"] = "AiLGNS OTC";
   KNOWN["0x2b0ab121d60f823fffc4cef75af26055df388e2b"] = "gLGNS OTC";

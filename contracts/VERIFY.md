@@ -113,3 +113,10 @@ DAI 和手续费收款地址同上表。2026-11-02 核对：两份合约的链�
 - 域名市场构造参数：NFT = 对应域名合约，DAI 同上，手续费 3% → 回购分账合约
 - 测试：[`test/test_names.py`](test/test_names.py)、[`test/test_lgns_names.py`](test/test_lgns_names.py)、[`test/test_names_otc.py`](test/test_names_otc.py)
 - 第 1 版（只支持英文，已弃用，没有用户注册过）：.ailgns `0x4992917c0e9790342454d2acbbf7559d94c317cb`，.lgns `0x9d8caceb1bda65ff21f62248d973e8c2a49bf333`
+
+## OTC 自动撮合合约 AilgnsOtcMatcher（Anubis，2026-11-03）
+- 地址 `0xdcc5354175d60ffc8364e71e792fcd66366f00fe`，区块 18174407，部署交易 `0xa1cc77e14f009b4e8682fa89d2c5f0bc0c295e8127b83c28f055b2b7b669b918`
+- 编译：solc 0.8.24，optimizer 200，evm paris；源码 `AilgnsOtcMatcher.sol`，标准输入 `AilgnsOtcMatcher.standard-input.json`
+- 构造参数：keeper = 触发钱包 `0x89Dd06754bb239b6C4C92Bc47C8Fa72889084E27`
+- 本金从收款钱包 `0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6` 取、当笔原样退回；利润进回购分账合约 `0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3`；每次最多 0.5 DAI 补 Gas；赚不到 minProfit 整笔回滚
+- 本地测试：`test/test_matcher.py`（17 项）

@@ -56,6 +56,8 @@
   var PAYEES = [["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], [FEE_RECIPIENT, 30]];
   // 回购分账合约（Anubis）：收到的 LGNS、DAI 在 OTC 换成 AiLGNS，连同收到的 AiLGNS 按 40 / 30 / 30 分；部署后填地址
   var BUYBACK = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3";
+  // OTC 自动撮合合约（Anubis）：卖单比买单便宜 2% 以上时，从收款钱包临时取 DAI 吃卖单再卖给买单，本金当笔退回，利润进回购合约
+  var MATCHER = "0xdcc5354175d60ffc8364e71e792fcd66366f00fe";
   var BB_PAYEES = [["0xd53a00bb90bb606f10d888419a14eca779f17285", 40], ["0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", 30], ["0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322", 30]];
   var SOURCE = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsOtcEscrow.sol";
   var VERIFY = "https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md";
@@ -1227,6 +1229,9 @@
       '</dd><dt>源码</dt><dd><a href="contracts/AilgnsBuyback.sol" target="_blank" rel="noopener">AilgnsBuyback.sol ↗</a></dd></dl>' +
       '<p class="note">怎么换：LGNS 卖进 LGNS OTC 的买单（出价不低于 DEX 现价 50%，不走 DEX，DEX 卖出要扣约 50%）→ 用 DAI 扫 AiLGNS OTC 的卖单（要价不高于 DEX 现价 115%）→ 买到的 AiLGNS 直接打给上面三个地址。攒够 300 美金换一次；收款钱包永远留 5 DAI 付 Gas；触发钱包 Gas 不够时每次最多从收入里补 0.5 DAI。没有合适的单子时，钱留在合约里下次接着换，也可以原样退回收款钱包。</p>' +
       '<div id="bb-state" class="loading">正在读取…</div><p class="note" id="sp-st"></p></section>' +
+      '<section class="card"><div class="card-head"><h2>⚡ OTC 自动撮合</h2><span class="muted">利润进回购合约</span></div>' +
+      '<p class="note">卖单要价比买单出价低 2% 以上时，机器人每几分钟自动撮合：从收款钱包临时取 DAI（每次用能用的最多 DAI，收款钱包永远留 5 DAI 付 Gas）→ 吃卖单 → 卖给买单 → 循环。<b>本金在同一笔交易里原样退回收款钱包</b>，利润进回购合约（攒够 300 美金自动分）；赚不到钱整笔回滚，本金一分不动。合约 <a class="mono" target="_blank" rel="noopener" href="' + ANUBIS_EXPLORER + "/address/" + MATCHER + '">' + A.short(MATCHER) + ' ↗</a> · <a href="contracts/AilgnsOtcMatcher.sol" target="_blank" rel="noopener">源码 ↗</a></p>' +
+      '<div id="mx-state" class="loading">正在读取…</div></section>' +
       '<section class="card"><div class="card-head"><h2>Polygon 收入跨链回购</h2></div><p class="note">Polygon 链收到的 LGNS、DAI 攒够 100 美金后，触发钱包 ' + A.short(PG_KEEPER) + ' 把它取走：LGNS 在 QuickSwap 卖成 DAI（扣约 5% 税），再通过 Anubis 官方跨链桥跨回收款钱包（桥收 1 DAI），到账后和 Anubis 收入一样扫单买成 AiLGNS 分出去。需要先用收款钱包在 Polygon 链授权下面两个币（每个点一次）。</p>' +
       '<div id="pg-state" class="loading">正在读取…</div></section>' +
       '<section class="card"><div class="card-head"><h2>旧分账合约' + (BUYBACK ? "（已停用）" : "") + '</h2><span class="muted">30% / 40% / 30%，按原币分</span></div>' +
@@ -1250,6 +1255,14 @@
             return '<tr><td class="l"><b>' + t.name + "</b> Polygon</td><td>" + c[1] + "</td><td>" + (c[0] ? "" : '<button data-pg="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
           }).join("") + "</tbody></table></div>";
         el.querySelectorAll("[data-pg]").forEach(function (b) { b.onclick = function () { approve(PG_TOKS[+b.getAttribute("data-pg")], b, PG_KEEPER, MAX, "授权触发钱包使用 "); }; });
+      });
+      Promise.all([read("anubis", ANUBIS_DAI, SEL.allowance + u256(FEE_RECIPIENT) + u256(MATCHER)), read("anubis", MATCHER, "0x2a5b1451"), read("anubis", MATCHER, "0x86001519")]).catch(function () { return null; }).then(function (r) {
+        if (!A.isCurrent(id)) return;
+        var el = document.getElementById("mx-state"), t = BB_TOKS[2], c = allowCell(r ? r[0] : null, t);
+        el.className = "";
+        el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权给撮合合约</th><th>已撮合</th><th>累计利润</th><th></th></tr></thead><tbody><tr><td class="l"><b>DAI</b> Anubis</td><td>' + c[1] + "</td><td>" + (r ? r[1] + " 次" : "—") + "</td><td>" + (r ? amt(r[2], 18) + " DAI" : "—") + "</td><td>" +
+          (c[0] ? '<button class="ghost" data-mx="0" style="padding:6px 14px">撤销</button>' : '<button data-mx="1" style="padding:6px 14px">授权</button>') + "</td></tr></tbody></table></div>";
+        el.querySelectorAll("[data-mx]").forEach(function (b) { b.onclick = function () { var on = b.getAttribute("data-mx") === "1"; approve(t, b, MATCHER, on ? MAX : 0n, on ? "授权撮合合约使用 " : "撤销撮合合约对 "); }; });
       });
       if (BUYBACK) Promise.all(BB_TOKS.map(function (t) {
         return Promise.all([read("anubis", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(BUYBACK)), read("anubis", BUYBACK, pulledSel + u256(t.token))]).catch(function () { return null; });
