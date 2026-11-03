@@ -1745,3 +1745,12 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-cn{margin:8px 0;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-size:13px;line-height:1.6}
 .nm-big-kind{font-size:16px!important;color:var(--purple-ink)}
 .nm-big-in .nm-free{color:#16a34a}
+
+/* 买几年：按钮一排摊开 + 总价一行 */
+.nm-yr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.nm-yr-t{font-weight:600;color:var(--text)}
+.nm-yrs{flex-wrap:wrap;margin-left:0}
+.nm-yrs button{display:inline-flex;align-items:center;gap:3px}
+.nm-yrs button small{font-size:11px;opacity:.8}
+.nm-total{margin:8px 0 2px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-size:14px;line-height:1.6}
+.nm-total small{color:var(--muted);font-size:12px}

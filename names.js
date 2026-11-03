@@ -55,7 +55,7 @@
     e.preventDefault();
     var g = b.parentNode, sel = document.getElementById(g.getAttribute("data-for")); if (!sel) return;
     g.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; });
-    sel.value = b.getAttribute("data-k"); if (sel.onchange) sel.onchange(); else sel.dispatchEvent(new Event("change"));
+    sel.value = b.getAttribute("data-k"); sel.dispatchEvent(new Event("change"));
   });
   function fmt(x, d) { var v = Number(x) / Math.pow(10, d); return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toPrecision(4); }
   function quote(dai, k) { // dai 个 DAI 用 k 币要付多少（最小单位）
@@ -325,7 +325,9 @@
     function show(v) {
       if (!v) { out.innerHTML = ""; return; }
       if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-；英文最少 3 位，中文最少 2 个字，最多 32 个字，不能以 - 开头或结尾</p>'; return; }
-      var buy = '<div class="nm-buy"><label>买几年 <select id="nm-y">' + [1, 2, 3, 5, 10, 100].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + '</select></label><label>付款 ' + tokSel("nm-k") + '</label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
+      var buy = '<div class="nm-yr"><span class="nm-yr-t">买几年</span><select id="nm-y" hidden>' + [1, 2, 3, 5, 10, 100].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + "</select>" +
+        '<span class="nm-pay nm-yrs" data-for="nm-y">' + [1, 2, 3, 5, 10, 100].map(function (y, i) { return '<button type="button" data-k="' + y + '"' + (i ? "" : ' class="on"') + ">" + (y === 100 ? "100 年<small>永久</small>" : y + " 年") + "</button>"; }).join("") + "</span></div>" +
+        '<p class="nm-total" id="nm-total"></p><div class="nm-buy"><label>付款 ' + tokSel("nm-k") + '</label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
         '<label class="nm-for"><input type="checkbox" id="nm-for"> 🤝 帮别人注册（志愿者代办：我付钱，名字归对方）</label>' +
         '<div class="nm-for-box" id="nm-for-box" hidden><input id="nm-to" placeholder="对方的钱包地址 0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><p class="muted">名字会直接注册到对方地址上，对方什么都不用点。请仔细核对地址，填错了收不回来。</p></div>' +
         '<button type="button" class="nm-go" id="nm-go">注册 ' + esc(v) + "." + TLD + "</button><p class=\"muted nm-st\" id=\"nm-st\"></p>";
@@ -495,7 +497,9 @@
       var cn = document.getElementById("nm-cn");
       if (!cn) { cn = document.createElement("p"); cn.id = "nm-cn"; cn.className = "nm-cn"; document.getElementById("nm-go").before(cn); }
       y.onchange = kk.onchange = function () { // 换年数或币种：显示要付多少个币
-        var dai = yearPrice(v) * y.value, k = kk.value;
+        var dai = yearPrice(v) * y.value, k = kk.value, yy = Number(y.value), ex = new Date(); ex.setFullYear(ex.getFullYear() + yy);
+        var tt = document.getElementById("nm-total");
+        if (tt) tt.innerHTML = "📅 买 <b>" + (yy === 100 ? "100 年（永久）" : yy + " 年") + "</b>：" + yearPrice(v) + " DAI × " + yy + " 年 = 一共 <b>" + dai + " DAI</b> · 到期 " + date(ex / 1000) + (yy === 100 ? "" : "<small>（到期前可以续费）</small>");
         cn.innerHTML = k === "LGNS" ? "ℹ️ 钱包会弹出 <b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款（以后再注册少一次授权）。上面显示的金额已经含差价，不会多扣。推荐用 AiLGNS / DAI 付，少一步。"
           : "ℹ️ 只付<b>一次钱</b>。第一次注册钱包弹 <b>2 次</b>：① 授权（<b>不扣钱</b>）② 注册付款；<b>以后再注册只弹 1 次</b>。";
         cost.textContent = dai + " DAI";
