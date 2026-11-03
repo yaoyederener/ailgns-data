@@ -93,6 +93,18 @@
     var t = (r.token && r.token.address_hash || "").toLowerCase(), id = r.total && r.total.token_id, tld = t === NAMES.ailgns ? "ailgns" : t === NAMES.lgns ? "lgns" : "";
     return tld && id ? '<span data-nft="' + tld + ":" + id + '">🌐 域名</span>' : esc((r.token && r.token.name) || "NFT");
   }
+  // 地址拥有的 NFT：官方接口一页 50 个，旧版合约的保留名会占满第一页，所以翻页读完（最多 10 页）
+  function allNfts(a) {
+    var items = [];
+    function page(next, n) {
+      var q = next ? "&" + Object.keys(next).map(function (k) { return k + "=" + encodeURIComponent(next[k]); }).join("&") : "";
+      return get("/addresses/" + a + "/nft?type=ERC-721" + q).then(function (d) {
+        items = items.concat(d.items || []);
+        return d.next_page_params && n < 10 ? page(d.next_page_params, n + 1) : { items: items };
+      });
+    }
+    return page(null, 1).catch(function () { return { items: items }; });
+  }
   function addr(a) {
     var k = a && KNOWN[a.toLowerCase()];
     if (k) return '<a class="sc-a" href="#/scan/' + a + '" data-a="' + a + '" title="' + a + '"><b class="sc-kn">' + k + "</b></a>";
@@ -131,7 +143,7 @@
 
   // 地址：主名字、余额、拥有的域名、最近交易
   function addrView(a, out, via) {
-    return Promise.all([get("/addresses/" + a), get("/addresses/" + a + "/token-balances").catch(function () { return []; }), get("/addresses/" + a + "/nft?type=ERC-721").catch(function () { return { items: [] }; }), get("/addresses/" + a + "/counters").catch(function () { return {}; }), nameOf(a)]).then(function (x) {
+    return Promise.all([get("/addresses/" + a), get("/addresses/" + a + "/token-balances").catch(function () { return []; }), allNfts(a), get("/addresses/" + a + "/counters").catch(function () { return {}; }), nameOf(a)]).then(function (x) {
       var info = x[0], bals = x[1] || [], nfts = (x[2].items || []), cnt = x[3] || {}, primary = x[4];
       var mine = nfts.filter(function (n) { var t = (n.token.address_hash || "").toLowerCase(); return t === NAMES.ailgns || t === NAMES.lgns; });
       var keep = ["DAI", "LGNS", "AiLGNS", "gLGNS"];
