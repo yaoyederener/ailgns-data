@@ -1419,3 +1419,10 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-buy select,.nm-rk select{margin-left:4px;padding:6px;font-size:15px;border-radius:8px}
 .nm-rk{display:flex;align-items:center;font-size:14px}
 .nm-buy{flex-wrap:wrap;gap:8px}
+.nm-gen{margin:6px 0 0;font-weight:700;color:#d97706}
+.nm-gb{margin-left:6px;font-style:normal;font-size:12px;font-weight:700;color:#d97706}
+.nm-rk2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.nm-rk2 h3{margin:0 0 6px;font-size:14px}
+.nm-rk2 ol{margin:0;padding:0;list-style:none;font-size:13px}
+.nm-rk2 li{display:flex;justify-content:space-between;gap:6px;padding:5px 0;border-bottom:1px solid var(--line,#eee)}
+@media (max-width:560px){.nm-rk2{grid-template-columns:1fr}}

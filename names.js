@@ -8,6 +8,9 @@
   var CONTRACTS = { ailgns: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", lgns: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3" }; // 第 3 版（中文价格、DAI/LGNS/AiLGNS 付款、最多 100 年），Anubis 区块 18161697 / 18161710
   var TLD = "ailgns", NAMES = CONTRACTS.ailgns;
   // 域名市场：AWAKE NFT 托管合约同一份代码，各后缀一份；卖家把名字存进合约标价，买家付 DAI 同一笔交易里拿到名字，手续费 3% 买家另付，进回购分账合约
+  var START = { ailgns: 18161697, lgns: 18161710 }; // 合约部署区块，从这里开始读链上记录
+  var GENESIS = 10000; // 前 1 万个付费注册的名字是「创世域名」，按链上注册顺序编号
+  var T_REG = "0xa15b66031269f1c32be8db1e4353108dc76c84574a7c6697527e431ad921462a", T_FILL = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
   var OTC = { ailgns: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", lgns: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d" }; // Anubis 区块 18161704 / 18161717
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var ZERO = "0x" + "0".repeat(40);
@@ -96,8 +99,9 @@
       '<p class="nm-pt">英文（照抄 ENS）</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span></div><div><b>4 位</b><span>160 DAI</span></div><div><b>5 位及以上</b><span>5 DAI</span></div></div>' +
       '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span></div><div><b>3 个字及以上</b><span>5 DAI</span></div></div>' +
       '<p class="muted">可以用 DAI、LGNS、AiLGNS 付（Anubis 链，按 DEX 现价换算）</p>' +
-      '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
+      '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div><div id="nm-mk"></div></section>' +
+      '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 反查：这个地址叫什么</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="0x 地址" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
@@ -133,8 +137,9 @@
         var mine = account && r.owner === account, now = Date.now() / 1000;
         out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
+          '<p class="nm-gen" id="nm-gen"></p><div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
+        genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {});
         document.getElementById("nm-renew").onclick = function () {
           var k = document.getElementById("nm-rk").value;
           connect().then(function () { return prepay(yearPrice(v), k, say); })
@@ -190,6 +195,53 @@
     }
     show(q);
     market();
+    ranks();
+  }
+
+  // 读某个合约的某种事件：从部署区块开始，每次 5000 块；读过的存在本机，下次只读新增的
+  function logs(addr, topic, from) {
+    var key = "nmlog:" + addr + ":" + topic.slice(2, 10), c = null;
+    try { c = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { /* 无痕模式 */ }
+    c = c || { to: from - 1, l: [] };
+    return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
+      var latest = parseInt(h, 16), ranges = [];
+      for (var b = c.to + 1; b <= latest; b += 5000) ranges.push([b, Math.min(latest, b + 4999)]);
+      return A.pool(ranges, 4, function (r) {
+        return W.rpcOn("anubis", "eth_getLogs", [{ address: addr, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [topic] }]);
+      }).then(function (chunks) {
+        chunks.forEach(function (x) { if (!x) throw new Error("读链上记录失败"); });
+        [].concat.apply([], chunks).forEach(function (l) { c.l.push([parseInt(l.blockNumber, 16), l.topics, l.data]); });
+        c.to = latest;
+        try { localStorage.setItem(key, JSON.stringify(c)); } catch (e) { /* 存不下就下次重读 */ }
+        return c.l;
+      });
+    });
+  }
+  // 创世编号：按链上顺序，每个名字第一次付费注册排一个号（官方保留名不算），前 1 万个
+  var genCache = {};
+  function genesis() {
+    if (!genCache[TLD]) genCache[TLD] = logs(NAMES, T_REG, START[TLD]).then(function (l) {
+      var g = {}, n = 0;
+      l.forEach(function (x) { var id = x[1][1].slice(2); if (!g[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && n < GENESIS) g[id] = ++n; });
+      return g;
+    }, function (e) { delete genCache[TLD]; throw e; });
+    return genCache[TLD];
+  }
+  // 成交排行：最贵 10 笔 + 最新 10 笔
+  function ranks() {
+    var box = document.getElementById("nm-rank"), O = OTC[TLD];
+    if (!box || !O) return;
+    box.innerHTML = '<p class="muted">读取中…</p>';
+    Promise.all([logs(O, T_FILL, START[TLD]), genesis().catch(function () { return {}; })]).then(function (x) {
+      var fills = x[0].map(function (l) { return { b: l[0], tid: l[2].slice(2, 66), price: BigInt("0x" + l[2].slice(66, 130)) }; }), g = x[1];
+      if (!fills.length) { box.innerHTML = '<p class="muted">还没有成交。第一笔成交会出现在这里！</p>'; return; }
+      var top = fills.slice().sort(function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; }).slice(0, 10), last = fills.slice(-10).reverse(), all = top.concat(last), names = {};
+      return Promise.all(all.map(function (f) { return names[f.tid] || (names[f.tid] = call(SEL.labelOf + f.tid).then(decStr)); })).then(function (labels) {
+        all.forEach(function (f, i) { f.label = labels[i]; });
+        var row = function (f, i) { return '<li><span>' + (i + 1) + ". <b>" + esc(f.label) + "." + TLD + "</b>" + (g[f.tid] ? ' <i class="nm-gb">🌟 创世 #' + g[f.tid] + "</i>" : "") + "</span><b>" + Number(f.price / 10n ** 12n) / 1e6 + " DAI</b></li>"; };
+        box.innerHTML = '<div class="nm-rk2"><div><h3>💎 最贵成交</h3><ol>' + top.map(row).join("") + '</ol></div><div><h3>🕒 最新成交</h3><ol>' + last.map(row).join("") + "</ol></div></div>";
+      });
+    }).catch(function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
   }
 
   // 域名市场：读最近 200 张单里还在卖的
@@ -217,8 +269,9 @@
       list.sort(function (a, b) { return a.price < b.price ? -1 : 1; });
       box.innerHTML = '<div class="nm-mk">' + list.map(function (it) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
-        return '<div class="nm-row"><div><b>' + esc(it.label) + "." + TLD + '</b><small>名字到期 ' + date(it.exp) + " · 卖家 " + A.short(it.maker) + '</small></div><div class="nm-rp"><b>' + p + ' DAI</b><button type="button" data-o="' + it.id + '" data-m="' + (mine ? 1 : 0) + '" data-p="' + it.price + '">' + (mine ? "撤单" : "买") + "</button></div></div>";
+        return '<div class="nm-row"><div><b>' + esc(it.label) + "." + TLD + '</b><i class="nm-gb" data-g="' + it.tid + '"></i><small>名字到期 ' + date(it.exp) + " · 卖家 " + A.short(it.maker) + '</small></div><div class="nm-rp"><b>' + p + ' DAI</b><button type="button" data-o="' + it.id + '" data-m="' + (mine ? 1 : 0) + '" data-p="' + it.price + '">' + (mine ? "撤单" : "买") + "</button></div></div>";
       }).join("") + '</div><p class="muted nm-st" id="nm-mst"></p>';
+      genesis().then(function (g) { box.querySelectorAll("[data-g]").forEach(function (e) { var k = g[e.getAttribute("data-g")]; if (k) e.textContent = "🌟 创世 #" + k; }); }, function () {});
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-o]").forEach(function (b) {
         b.onclick = function () {
