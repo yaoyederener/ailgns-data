@@ -96,7 +96,7 @@
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
-      '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>链上查询</li></ol>' +
+      '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>链上查询</li><li data-s="4"><b>4</b>OTC 出售</li></ol>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
@@ -183,7 +183,13 @@
           stepTo(3);
           box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字</p>' +
             '<a class="nm-go nm-golink" href="#/scan/' + encodeURIComponent(full) + '">第 3 步：去链上查询 →</a>' +
-            '<p class="muted">在浏览器里，你的地址会直接显示成 <b>' + esc(full) + "</b>，转账时对方输入这个名字就能找到你。</p></div>";
+            '<p class="muted">在浏览器里，你的地址会直接显示成 <b>' + esc(full) + "</b>；在 OTC 挂单时，挂单人也显示这个名字。</p>" +
+            (OTC[TLD] ? '<button type="button" class="nm-go nm-go4" id="nm-go4">第 4 步：挂到 OTC 市场出售</button><p class="muted">想转手赚钱就挂单：你定价格，买家付 DAI 后名字自动过户，你拿完整标价（买家另付 3% 手续费）。不卖就不用做这一步。</p>' : "") + "</div>";
+          var g4 = document.getElementById("nm-go4");
+          if (g4) g4.onclick = function () {
+            var sell = document.getElementById("nm-sell");
+            if (sell) { stepTo(4); sell.click(); } else show(v); // 刚注册完的页面没有挂单按钮，先刷新成完整页面
+          };
           return;
         }
         stepTo(2);
@@ -197,7 +203,7 @@
         b.onclick = function () {
           b.disabled = true;
           tx(NAMES, SEL.setPrimary + r.id, function (t) { pst.textContent = t; }, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认")
-            .then(function () { guide(box, v, r); }, function (e) { b.disabled = false; pst.textContent = ""; A.errTip(e.message || String(e), b); });
+            .then(function () { show(v); }, function (e) { b.disabled = false; pst.textContent = ""; A.errTip(e.message || String(e), b); });
         };
       });
     }

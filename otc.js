@@ -490,7 +490,7 @@
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
         return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
-          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker)) + "</td></tr>";
+          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.nameTag(o.maker)) + "</td></tr>";
       }
       function book(key, title, list, hint) {
         var bk = MK + key, open = openBook[bk], more = list.length - BOOK_SHOW;
@@ -519,6 +519,7 @@
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。' + (M.gas === "POL" ? "Polygon 链的 Gas 用 POL 支付，钱包里要留一点 POL。" : "") + '智能合约未经第三方审计，请先小额试用。本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
+      A.fillNames(A.app); // 挂单人有 .ailgns / .lgns 主名字的，显示名字
       bind(id, orders, mkt);
       bindSweep(sells, buys, mkt, function () { if (A.isCurrent(id)) { freshNext = true; renderOtc(id); } });
       walletCard();
@@ -997,7 +998,7 @@
       var maxAil = o.sellAilgns ? o.giveLeft : ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal);
       m.hidden = false;
       m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (o.sellAilgns ? "买入 " : "卖出 ") + SYM + " · #" + o.id + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, PD + 2) + " DAI</dd><dt>可成交</dt><dd>" + tShow(maxAil) + " " + SYM + '</dd><dt>挂单人</dt><dd class="mono">' + A.short(o.maker) + "</dd></dl>" +
+        '<dl class="dl"><dt>单价</dt><dd>' + A.fmt(p, PD + 2) + " DAI</dd><dt>可成交</dt><dd>" + tShow(maxAil) + " " + SYM + '</dd><dt>挂单人</dt><dd class="mono">' + A.nameTag(o.maker) + "</dd></dl>" +
         '<label class="full">' + (o.sellAilgns ? "付款金额（DAI）" : "卖出数量（" + SYM + "）") + '<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
         '<div class="quote" id="f-quote">输入数量后显示</div><div class="note" id="f-bal" style="margin:0"></div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");

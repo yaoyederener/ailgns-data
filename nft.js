@@ -121,7 +121,7 @@
     var bids = live.filter(function (o) { return !o.sell; }).sort(function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; });
     var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
 
-    function who(o) { return o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.short(o.maker); }
+    function who(o) { return o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.nameTag(o.maker); }
     function sellRow(o, i) {
       var act = o.maker === account ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>' : '<button class="act-btn btn-buy" data-buy="' + o.id + '">买入</button>';
       return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="卡牌" class="mono">#' + o.tokenId + '</td><td data-l="价格 DAI" class="price"><b>' + dai(o.price) + '</b></td>' +
@@ -154,6 +154,7 @@
     html += '<p class="note">成交手续费为成交价的 3%，由买家在成交价之外另付，卖家拿到完整标价；挂单、撤单、到期退回都不收费。卡牌合约由官方控制：已装配（锁定）的卡不能挂单；官方关闭转账期间，托管中的卡要等重新开放才能取回或成交。本站只提供链上托管撮合，价格由买卖双方自行决定。智能合约未经第三方审计，请先小额试用。</p>';
     html += '<div class="modal" id="otc-modal" hidden></div>';
     app.innerHTML = html;
+    A.fillNames(app);
     bind(id, orders);
     if (A.fillTotals) A.fillTotals();
     if (k.deboxCard) k.deboxCard(id, { title: "卡牌成交 / 退回，DeBox 私信秒通知", on: "这个钱包的卡牌成交、撤单、到期退回会私信到你的 DeBox" });
