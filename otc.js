@@ -303,14 +303,18 @@
   // ---------- 全站累计成交（给客户信心）：/api/totals，读一次缓存 5 分钟 ----------
   var totals = null, totalsAt = 0;
   function loadTotals() {
-    if (totals && Date.now() - totalsAt < 300000) return Promise.resolve(totals);
-    return fetch("/api/totals").then(function (r) { return r.json(); }).then(function (t) { totals = t; totalsAt = Date.now(); return t; }).catch(function () { return totals; });
+    var owner = account === FEE_RECIPIENT; // 站长自己的收款钱包连上时才取累计数字
+    if (totals && Date.now() - totalsAt < 300000 && (!owner || totals.fillDai !== undefined)) return Promise.resolve(totals);
+    return fetch("/api/totals" + (owner ? "?all=1" : "")).then(function (r) { return r.json(); }).then(function (t) { totals = t; totalsAt = Date.now(); return t; }).catch(function () { return totals; });
   }
+  // 公开只显示今日成交 + 0 出错（站长要求，不想让人眼红）；站长收款钱包连上时，下面多一行只有自己看得到的累计数字
   function totalsHtml(t) {
-    if (!t || !t.fillDai) return "";
-    return '<div class="tot"><div class="tot-i"><span class="tot-k">全站累计成交</span><b class="num">' + A.fmt(t.fillDai, 0) + '</b><span class="tot-u">DAI · ' + A.fmt(t.fills) + ' 笔</span></div>' +
-      (t.lendDai ? '<div class="tot-i"><span class="tot-k">借贷累计借出</span><b class="num">' + A.fmt(t.lendDai, 0) + '</b><span class="tot-u">DAI · ' + A.fmt(t.loans) + ' 笔</span></div>' : "") +
-      '<span class="tot-n">链上可查</span></div>';
+    if (!t || !t.today) return "";
+    return '<div class="tot"><div class="tot-i"><span class="tot-k">今日成交</span><b class="num">' + A.fmt(t.today.fillDai, 0) + '</b><span class="tot-u">DAI</span></div>' +
+      '<div class="tot-i"><span class="tot-k">今日笔数</span><b class="num">' + A.fmt(t.today.fills) + '</b><span class="tot-u">笔</span></div>' +
+      '<div class="tot-i"><span class="tot-k">运行至今</span><b class="num">0</b><span class="tot-u">出错 · 0 纠纷</span></div>' +
+      '<span class="tot-n">链上可查</span></div>' +
+      (t.fillDai !== undefined ? '<p class="note tot-own">🔒 仅你可见（站长钱包）：累计成交 <b>' + A.fmt(t.fillDai, 0) + " DAI · " + A.fmt(t.fills) + " 笔</b>" + (t.lendDai ? "；借贷累计借出 <b>" + A.fmt(t.lendDai, 0) + " DAI · " + A.fmt(t.loans) + " 笔</b>" : "") + "</p>" : "");
   }
   function fillTotals() { loadTotals().then(function (t) { var el = document.getElementById("otc-tot"); if (el) el.innerHTML = totalsHtml(t); }); }
   A.fillTotals = fillTotals;
