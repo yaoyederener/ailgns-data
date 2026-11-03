@@ -73,9 +73,12 @@
       .then(function (a) { account = String(a[0]).toLowerCase(); return W.switchTo(eth, "anubis"); }).then(function () { return account; });
   }
   function tx(to, data, say, msg) {
-    say(msg);
-    return W.rpcOn("anubis", "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) { throw new Error(e && /PAY_FAILED|transfer/i.test(e.message) ? "DAI 不够（还要一点 DAI 付 Gas）" : "交易会失败：" + ((e && e.message) || "请检查名字和余额")); })
-      .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }); })
+    // 页面打开时只是静默认出了钱包地址，真要发交易时再正式连接钱包、切到 Anubis
+    return (eth ? Promise.resolve() : connect()).then(function () {
+      say(msg);
+      return W.rpcOn("anubis", "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) { throw new Error(e && /PAY_FAILED|transfer/i.test(e.message) ? "DAI 不够（还要一点 DAI 付 Gas）" : "交易会失败：" + ((e && e.message) || "请检查名字和余额")); })
+      .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }); });
+    })
       .then(function (h) { say("已提交，等待链上确认…"); return W.waitOn("anubis", h).then(function () { return h; }); });
   }
   function register(label, years, k, say) {
@@ -93,6 +96,7 @@
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
+      '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>链上查询</li></ol>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
@@ -133,11 +137,11 @@
       }
       out.innerHTML = '<p class="muted">查询中…</p>';
       info(v).then(function (r) {
-        if (r.free) { out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
+        if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
         var mine = account && r.owner === account, now = Date.now() / 1000;
         out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<p class="nm-gen" id="nm-gen"></p><div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
+          '<p class="nm-gen" id="nm-gen"></p>' + (mine ? '<div id="nm-next"></div>' : '<a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') + '<div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
         genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {});
         document.getElementById("nm-renew").onclick = function () {
@@ -146,11 +150,8 @@
             .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(1) + p + str(v), say, "🔒 第 2 步：续费 1 年。请在钱包确认"); })
             .then(function () { say("✅ 续费成功"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
-        if (!mine) return;
-        document.getElementById("nm-pri").onclick = function () {
-          if (r.addr !== account) { A.errTip("名字要先指向你自己的地址，才能设成主名字", st); return; }
-          tx(NAMES, SEL.setPrimary + r.id, say, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认").then(function () { say("✅ 别人查你的地址会显示 " + v + "." + TLD); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
-        };
+        if (!mine) { stepTo(1); return; }
+        guide(document.getElementById("nm-next"), v, r);
         document.getElementById("nm-set").onclick = function () {
           var a = (prompt("让 " + v + "." + TLD + " 指向哪个地址？", account) || "").trim().toLowerCase();
           if (!a) return;
@@ -174,6 +175,39 @@
         };
       }, function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
+    // 傻瓜式三步：① 注册 ② 设为主名字 ③ 链上查询。自己的名字没设主名字就给大按钮去设，设好了就给大按钮去查
+    function guide(box, v, r) {
+      var full = v + "." + TLD;
+      call(SEL.nameOf + A.pad(account)).then(function (x) { return decStr(x) === v; }, function () { return false; }).then(function (done) {
+        if (done) {
+          stepTo(3);
+          box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字</p>' +
+            '<a class="nm-go nm-golink" href="#/scan/' + encodeURIComponent(full) + '">第 3 步：去链上查询 →</a>' +
+            '<p class="muted">在浏览器里，你的地址会直接显示成 <b>' + esc(full) + "</b>，转账时对方输入这个名字就能找到你。</p></div>";
+          return;
+        }
+        stepTo(2);
+        if (r.addr !== account) {
+          box.innerHTML = '<div class="nm-guide"><p class="muted">第 2 步：这个名字现在指向别的地址，要先点下面「改指向地址」改成你自己的地址，才能设成主名字。</p></div>';
+          return;
+        }
+        box.innerHTML = '<div class="nm-guide"><button type="button" class="nm-go" id="nm-pri">第 2 步：设为我的主名字</button>' +
+          '<p class="muted">不花钱，只付一点 Gas。设好后，别人在浏览器里看到你的地址，就显示 <b>' + esc(full) + '</b>。</p><p class="muted nm-st" id="nm-pst"></p></div>';
+        var b = document.getElementById("nm-pri"), pst = document.getElementById("nm-pst");
+        b.onclick = function () {
+          b.disabled = true;
+          tx(NAMES, SEL.setPrimary + r.id, function (t) { pst.textContent = t; }, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认")
+            .then(function () { guide(box, v, r); }, function (e) { b.disabled = false; pst.textContent = ""; A.errTip(e.message || String(e), b); });
+        };
+      });
+    }
+    function stepTo(n) {
+      document.querySelectorAll("#nm-steps li").forEach(function (li) {
+        var s = Number(li.getAttribute("data-s"));
+        li.className = s < n ? "done" : s === n ? "on" : "";
+      });
+    }
+
     function bindBuy(v, preview) {
       var y = document.getElementById("nm-y"), st = document.getElementById("nm-st");
       var kk = document.getElementById("nm-k"), cost = document.getElementById("nm-cost");
@@ -189,10 +223,17 @@
         b.disabled = true;
         register(v, Number(y.value), kk.value, function (t) { st.textContent = t; }).then(function () {
           st.textContent = "";
-          out.innerHTML = '<p class="nm-ok">✅ 注册成功！<b>' + esc(v) + "." + TLD + "</b> 现在指向你的地址</p><p class=\"muted\">再点一次搜索可以「设为我的主名字」，别人查你的地址就会显示这个名字。</p>";
+          out.innerHTML = '<p class="nm-ok nm-big">✅ 第 1 步完成：<b>' + esc(v) + "." + TLD + '</b> 注册成功，已经指向你的地址</p><p class="nm-gen" id="nm-gen"></p><div id="nm-next"><p class="muted">正在准备第 2 步…</p></div>';
+          info(v).then(function (r) {
+            genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 你是创世域名 #" + g[r.id]; }, function () {});
+            guide(document.getElementById("nm-next"), v, r);
+          });
         }, function (e) { b.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), b); });
       };
     }
+    stepTo(1);
+    // 已经连过钱包的，静默认出地址，打开自己的名字就直接显示第 2 / 3 步
+    if (!account && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a && !account) { account = String(a).toLowerCase(); show(q); } }, function () {});
     show(q);
     market();
     ranks();
