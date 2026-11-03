@@ -27,6 +27,9 @@ const MARKETS = [
     pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 18004618, link: "https://ailgns.dev/#/otc/glgns" },
   // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」
   { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nft:", deploy: 18008025, link: "https://ailgns.dev/#/otc/nft" },
+  // 域名市场（同一份 AwakeNftEscrow 代码）：成交通知里显示名字（从域名合约 labelOf 读），不显示编号
+  { key: "nm_ailgns", sym: ".ailgns 域名", kind: "域名", chain: "Anubis", nft: true, otc: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", names: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", tld: "ailgns", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nma:", deploy: 18161704, link: "https://ailgns.dev/#/names/otc" },
+  { key: "nm_lgns", sym: ".lgns 域名", kind: "域名", chain: "Anubis", nft: true, otc: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d", names: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3", tld: "lgns", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nml:", deploy: 18161717, link: "https://ailgns.dev/#/names/otc" },
 ].filter((m) => m.otc);
 const SITE = "https://ailgns.dev/#/otc";
 // 币名：LGNS 两条链都有，带上链名
@@ -192,6 +195,16 @@ const words = (h) => (h.startsWith("0x") ? h.slice(2) : h).match(/.{64}/g) || []
 const num = (h, dec = 18) => Number(BigInt("0x" + h)) / 10 ** dec;
 const fmt = (v) => v.toLocaleString("en-US", { maximumFractionDigits: v !== 0 && Math.abs(v) < 0.01 ? 8 : 4 }); // 很小的数多保留几位，别显示成 0
 const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+
+// 成交通知里怎么称呼这件东西：域名显示「xxx.ailgns」，卡牌显示「AWAKE NFT #编号」
+async function itemName(m, tokenId) {
+  if (!m.names) return "AWAKE NFT #" + tokenId;
+  try {
+    const h = (await rpc(m, "eth_call", [{ to: m.names, data: "0x36bf1f0c" + u256(tokenId) }, "latest"])).slice(2);
+    const len = parseInt(h.slice(64, 128), 16), bytes = new Uint8Array(h.slice(128, 128 + len * 2).match(/.{2}/g).map((x) => parseInt(x, 16)));
+    return new TextDecoder().decode(bytes) + "." + m.tld;
+  } catch (e) { return m.sym + " #" + tokenId.slice(0, 8) + "…"; }
+}
 
 async function order(m, id) {
   const w = words(await rpc(m, "eth_call", [{ to: m.otc, data: GET_ORDERS + u256(id) + u256(1) }, "latest"]));
@@ -376,17 +389,18 @@ export async function onRequestGet(ctx) {
         const link = "\n🔗 " + m.tx + l.transactionHash + "\n🧬 " + m.link, mine = (a) => link + "\n📋 我的全部成交记录：https://ailgns.dev/#/trades/" + a;
         if (m.nft) { // 卡牌：整张成交
           if (l.topics[0] === NFT_FILLED) {
-            const taker = "0x" + l.topics[2].slice(26), tokenId = BigInt("0x" + d[0]).toString(), price = num(d[1]), fee = num(d[2]);
+            const taker = "0x" + l.topics[2].slice(26), tokenId = BigInt("0x" + d[0]).toString(), price = num(d[1]), fee = num(d[2]), nm = await itemName(m, tokenId), kind = m.kind || "卡牌";
             msgs.push([o.maker, o.sell
-              ? `🎉 你的卡牌卖单 #${id} 成交了！\nAWAKE NFT #${tokenId} 已卖出，收到 ${fmt(price)} DAI` + link
-              : `🎉 你的求购单 #${id} 成交了！\n收到 AWAKE NFT #${tokenId}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link]);
+              ? `🎉 你的${kind}卖单 #${id} 成交了！\n${nm} 已卖出，收到 ${fmt(price)} DAI` + link
+              : `🎉 你的${kind}求购单 #${id} 成交了！\n收到 ${nm}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link]);
             msgs.push([taker, o.sell
-              ? `✅ 买入成功 #${id}\n收到 AWAKE NFT #${tokenId}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link
-              : `✅ 卖出成功 #${id}\nAWAKE NFT #${tokenId} 已卖给求购方，收到 ${fmt(price)} DAI` + link]);
+              ? `✅ 买入成功 #${id}\n收到 ${nm}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link
+              : `✅ 卖出成功 #${id}\n${nm} 已卖给求购方，收到 ${fmt(price)} DAI` + link]);
             fills.push({ m, qty: 1, price, k: l.transactionHash + l.logIndex });
           } else {
             const expired = BigInt("0x" + d[0]) === 1n;
-            msgs.push([o.maker, (expired ? `⏰ 你的卡牌${o.sell ? "卖单" : "求购单"} #${id} 到期未成交，已自动退回` : `↩️ 你的卡牌${o.sell ? "卖单" : "求购单"} #${id} 已撤单，已退回`) + (o.sell ? ` AWAKE NFT #${o.tokenId}` : " DAI（含预存的手续费）") + " 到你的钱包" + link]);
+            const kind = m.kind || "卡牌", nm = o.sell ? await itemName(m, o.tokenId) : "";
+            msgs.push([o.maker, (expired ? `⏰ 你的${kind}${o.sell ? "卖单" : "求购单"} #${id} 到期未成交，已自动退回` : `↩️ 你的${kind}${o.sell ? "卖单" : "求购单"} #${id} 已撤单，已退回`) + (o.sell ? " " + nm : " DAI（含预存的手续费）") + " 到你的钱包" + link]);
           }
           continue;
         }
