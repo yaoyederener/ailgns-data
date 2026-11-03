@@ -120,3 +120,9 @@ DAI 和手续费收款地址同上表。2026-11-02 核对：两份合约的链�
 - 构造参数：keeper = 触发钱包 `0x89Dd06754bb239b6C4C92Bc47C8Fa72889084E27`
 - 本金从收款钱包 `0xEdb9C6900A11d2dd37Da6B59f3604C35A39DB1e6` 取、当笔原样退回；利润进回购分账合约 `0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3`；每次最多 0.5 DAI 补 Gas；赚不到 minProfit 整笔回滚
 - 本地测试：`test/test_matcher.py`（17 项）
+
+## OTC 批量扫单合约 AilgnsSweepRouter（Anubis，2026-11-03）
+- 地址 `0x6ec474047a6c12d0cab53855a990c1c8b3996c20`，区块 18193446，部署交易 `0x7c7743056b1f4592478cc931e199c75f060ddf04285d65430c5e8b2d4ca44505`
+- 编译：solc 0.8.24，optimizer 200，evm paris；源码 `AilgnsSweepRouter.sol`，标准输入 `AilgnsSweepRouter.standard-input.json`；无构造参数、无管理员、不能升级
+- 只认 AiLGNS / LGNS / gLGNS 三个 OTC 托管合约；只从调用者钱包取钱，同一笔交易里结清，合约不留钱
+- 本地测试：`test/test_router.py`（15 项）；部署后链上模拟三个市场各吃一张单，结果正确

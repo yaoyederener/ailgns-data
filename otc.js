@@ -166,7 +166,10 @@
   // 读当前市场所在的链
   function read(to, data) { return W.rpcOn(M.chain, "eth_call", [{ to: to, data: data }, "latest"]); }
   function balance(token, who) { return read(token, SEL.balanceOf + u256(who)).then(BigInt); }
-  function allowance(token, who) { return read(token, SEL.allowance + u256(who) + u256(OTC)).then(BigInt); }
+  function allowance(token, who, spender) { return read(token, SEL.allowance + u256(who) + u256(spender || OTC)).then(BigInt); }
+  // 批量扫单合约（Anubis 的 AiLGNS / LGNS / gLGNS 三个市场）：一笔交易吃多张单，钱包只确认 1 次；没填地址或别的市场就照旧一张一张吃
+  var ROUTER = "0x6ec474047a6c12d0cab53855a990c1c8b3996c20", ROUTER_MK = { ailgns: 1, lgns: 1, glgns: 1 };
+  function useRouter() { return !!(ROUTER && ROUTER_MK[MK]); }
   function gasBalance(who) { return W.rpcOn(M.chain, "eth_getBalance", [who, "latest"]).then(BigInt); }
   // Polygon 上 Gas 用 POL 付：钱包里没有 POL 的话，交易发不出去，提前说清楚
   function checkPol() {
@@ -243,10 +246,10 @@
   }
   // 授权额度不够时一次授权到最大，以后挂单、吃单、扫单都不用再授权（站长要求）
   var MAX_UINT = (1n << 256n) - 1n;
-  function ensureAllowance(token, amount, say, name, known) {
-    return (known !== undefined ? Promise.resolve(known) : allowance(token, account)).then(function (a) {
+  function ensureAllowance(token, amount, say, name, known, spender) {
+    return (known !== undefined ? Promise.resolve(known) : allowance(token, account, spender)).then(function (a) {
       if (a >= amount) return;
-      return send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次，以后不用再授权）");
+      return send(token, SEL.approve + u256(spender || OTC) + u256(MAX_UINT), say, "授权 " + name + " 给" + (spender ? "批量扫单合约" : "托管合约") + "（只需一次，以后不用再授权）");
     });
   }
 
@@ -1026,6 +1029,20 @@
             setTimeout(reload, 2000);
           }
         }
+        // 批量扫单：一笔交易吃掉计划里的所有单，钱包只确认 1 次；结果从合约的 Swept 事件读
+        function viaRouter() {
+          var ids = p.steps.map(function (x) { return x.o.id; }), amts = p.steps.map(function (x) { return x.amount; });
+          var max = p.steps.reduce(function (t, x) { return t + x.pay; }, 0n), arr = function (a) { return u256(a.length) + a.map(u256).join(""); };
+          var data = "0x934a9456" + u256(OTC) + u256(buy ? 1 : 0) + u256(6 * 32) + u256((7 + ids.length) * 32) + u256(max) + u256(0) + arr(ids) + arr(amts);
+          return send(ROUTER, data, function (t) { say("一次吃 " + ids.length + " 张：" + t); }, "批量扫单").then(function (rc) {
+            var lg = (rc && rc.logs || []).filter(function (l) { return l.address.toLowerCase() === ROUTER && l.topics[0] === "0x2dd220c0a634108812dcd2bfb91b386e16d5da52969e771d2a9bb90eb2995257"; })[0];
+            if (!lg) throw new Error("扫单交易成功了，但没读到结果，请刷新看看钱包余额");
+            var w = function (i) { return BigInt("0x" + lg.data.slice(2 + i * 64, 66 + i * 64)); };
+            done = Number(w(1)); paid = w(2); got = w(3);
+            recs.push({ id: ids.slice(0, done).join(" #"), pay: paid, get: got, tx: rc.transactionHash });
+            skipped = ids.length - done;
+          });
+        }
         ready().then(function () {
           walletCard();
           return Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) { bal = { buy: b[0], sell: b[1] }; draw(); });
@@ -1038,8 +1055,9 @@
             if (b < need + reserve) throw new Error("余额不足：扫这么多要 " + show(need, 4, payDec) + " " + name + (reserve ? "（另留一点 DAI 付 Gas）" : "") + "，钱包里有 " + show(b, 4, payDec) + "。把滑块往左拉一点");
             if (!buy && M.gas === "DAI") return balance(DAI, account).then(function (d) { if (d < gasKeep(p.steps.length) - GAS_RESERVE) throw new Error("钱包里的 DAI 不够付 Gas：Anubis 链 Gas 用 DAI 付，请先转一点 DAI（约 " + show(gasKeep(p.steps.length), 2) + "）进来"); });
             return M.gas === "POL" ? checkPol() : null;
-          }).then(function () { return ensureAllowance(token, need, say, name); });
+          }).then(function () { return ensureAllowance(token, need, say, name, undefined, useRouter() ? ROUTER : undefined); });
         }).then(function () {
+          if (useRouter()) return viaRouter();
           var i = 0;
           function next() {
             if (i >= p.steps.length) return;
