@@ -391,14 +391,6 @@
             .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(1) + p + str(v), say, "🔒 第 2 步：续费 1 年。请在钱包确认"); })
             .then(function () { say("✅ 续费成功"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
-        if (!mine) { stepTo(1); return; }
-        guide(document.getElementById("nm-next"), v, r);
-        document.getElementById("nm-set").onclick = function () {
-          var a = (prompt("让 " + v + "." + TLD + " 指向哪个地址？", account) || "").trim().toLowerCase();
-          if (!a) return;
-          if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
-          tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
-        };
         if (onSale) listings().then(function (ls) {
           var it = ls.filter(function (x) { return x.t === TLD && x.tid === r.id; })[0], sb = document.getElementById("nm-sale");
           if (!sb) return;
@@ -409,6 +401,14 @@
           var sg = document.getElementById("nm-salego"), sst = document.getElementById("nm-sst");
           sg.onclick = function () { sg.disabled = true; buyIt(it, sg, function (t) { sst.textContent = t; }).then(function () { sst.textContent = "✅ 成功"; delete infoCache[TLD + ":" + v]; show(v); market(); }, function (e) { sg.disabled = false; sst.textContent = ""; A.errTip(e.message || String(e), sg); }); };
         });
+        if (!mine) { stepTo(1); return; }
+        guide(document.getElementById("nm-next"), v, r);
+        document.getElementById("nm-set").onclick = function () {
+          var a = (prompt("让 " + v + "." + TLD + " 指向哪个地址？", account) || "").trim().toLowerCase();
+          if (!a) return;
+          if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
+          tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
+        };
         var sell = document.getElementById("nm-sell");
         if (sell) sell.onclick = function () { sellForm(v, r, st); };
         var want = null; try { want = sessionStorage.getItem("nm:sell"); } catch (x) { /* 忽略 */ }
