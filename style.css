@@ -27,6 +27,9 @@
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+/* 手机上页面固定：不左右晃（任何元素超宽都裁掉，clip 不影响顶部导航吸顶），不双击缩放 */
+html, body { overflow-x: hidden; overflow-x: clip; max-width: 100%; touch-action: manipulation; }
+@media (max-width: 600px) { input, select, textarea { font-size: 16px !important; } } /* iPhone 输入框字小于 16px 会自动放大页面 */
 /* 手机上双击不缩放（双指缩放仍然可以），点击也不再有 300ms 延迟 */
 * { touch-action: manipulation; }
 .tree-box, .tree-box * { touch-action: none; }
@@ -819,7 +822,7 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .g-num { width: 28px; height: 28px; border-radius: 50%; background: var(--gold); color: #fff; font-weight: 800; display: grid; place-items: center; }
 .g-txt { font-size: 14.5px; line-height: 1.6; align-self: center; }
 .g-txt small { color: var(--muted); font-size: 12.5px; }
-.g-pic { grid-column: 1 / -1; display: grid; place-items: center; padding: 6px 0 2px; }
+.g-pic { grid-column: 1 / -1; min-width: 0; max-width: 100%; overflow: hidden; display: grid; place-items: center; padding: 6px 0 2px; }
 .mk-bar { display: flex; align-items: center; justify-content: space-around; gap: 6px; width: 100%; max-width: 300px; padding: 10px 8px; border-radius: 12px; background: #fff; border: 1px solid var(--line); color: #848298; font-size: 15px; }
 .mk-bar span { min-width: 30px; height: 30px; display: grid; place-items: center; padding: 0 4px; border-radius: 8px; font-size: 13px; }
 .mk-bar svg { width: 20px; height: 20px; }
@@ -1242,7 +1245,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sweep .sw-quick button:disabled { opacity: .35; cursor: not-allowed; }
 .sweep .sw-quick button.on { background: var(--purple-ink); color: #fff; }
 .sweep .sw-quick button { flex: 1; padding: 7px 0; font-size: 13px; border-radius: 10px; background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); box-shadow: none; }
-.sweep .sw-go { width: 100%; min-height: 58px; padding: 14px 18px; font-size: 18px; font-weight: 800; line-height: 1.35; border-radius: 16px; } /* 扫单确认按钮：大字写清楚付多少、得多少 */
+.sweep .sw-go { width: 100%; white-space: normal; overflow-wrap: anywhere; min-height: 58px; padding: 14px 18px; font-size: 18px; font-weight: 800; line-height: 1.35; border-radius: 16px; } /* 扫单确认按钮：大字写清楚付多少、得多少 */
 @media (max-width: 600px) { .sweep .sw-go { font-size: 16px; } }
 .sweep .sw-get { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 10px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; box-shadow: 0 4px 14px rgba(22, 163, 74, .25); } /* 最终到手：绿色大字，一眼看到 */
 .sweep .sw-get span { font-size: 14px; font-weight: 700; }
