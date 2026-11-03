@@ -192,14 +192,15 @@
     if (!msg) { if (el) el.remove(); return; }
     if (!el) { el = document.createElement("div"); el.id = "nm-big"; el.onclick = function () { el.remove(); }; document.body.appendChild(el); }
     // 每一步说清楚「扣不扣钱」：客户以为确认几次就付了几次钱
-    tipN++;
+    if (Date.now() - tipAt > 180000) { tipN = 0; tipTotal = 0; } // 别的操作（挂单、设主名字）重新从第 1 次数
+    tipAt = Date.now(); tipN++;
     var t = String(msg), kind = /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
     el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
       '<p class="nm-big-step">第 <b>' + tipN + "</b> 次确认" + (tipTotal ? "（最多 " + tipTotal + " 次）" : "") + "</p>" + (kind ? '<p class="nm-big-kind">' + kind + "</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
   }
-  var tipN = 0, tipTotal = 0; // 大字提示里的「第几次确认 / 最多几次」
+  var tipN = 0, tipTotal = 0, tipAt = 0; // 大字提示里的「第几次确认 / 最多几次」
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
-    tipN = 0; tipTotal = k === "LGNS" ? 3 : 2;
+    tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
       var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
       return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
