@@ -34,7 +34,18 @@
     return taxP;
   }
   function topUp(q) { return lgnsTax().then(function (bp) { return q * bp / (10000n - bp); }); } // 合约收 q 个 LGNS 时要补的差价
-  function tokSel(id) { return '<select id="' + id + '">' + Object.keys(TOK).map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</select>"; }
+  // 付款币种直接摊开三个按钮（下拉框客户以为只有 AiLGNS）；隐藏的 select 仍是数据来源，原有 onchange 照用
+  function tokSel(id) {
+    return '<select id="' + id + '" hidden>' + Object.keys(TOK).map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</select>" +
+      '<span class="nm-pay" data-for="' + id + '">' + Object.keys(TOK).map(function (k, i) { return '<button type="button" data-k="' + k + '"' + (i ? "" : ' class="on"') + ">" + k + "</button>"; }).join("") + "</span>";
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest(".nm-pay button"); if (!b) return;
+    e.preventDefault();
+    var g = b.parentNode, sel = document.getElementById(g.getAttribute("data-for")); if (!sel) return;
+    g.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; });
+    sel.value = b.getAttribute("data-k"); if (sel.onchange) sel.onchange(); else sel.dispatchEvent(new Event("change"));
+  });
   function fmt(x, d) { var v = Number(x) / Math.pow(10, d); return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toPrecision(4); }
   function quote(dai, k) { // dai 个 DAI 用 k 币要付多少（最小单位）
     var wei = BigInt(dai) * 10n ** 18n;
