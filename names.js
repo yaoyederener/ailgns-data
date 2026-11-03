@@ -22,8 +22,9 @@
   function cn(s) { return /[\u4e00-\u9fff]/.test(s); }
   // 带汉字：2 个字 50、3 个字及以上 5；英文：3 位 640、4 位 160、5 位及以上 5（DAI / 年）
   function yearPrice(s) { var n = chars(s); return cn(s) ? (n === 2 ? 50 : 5) : n === 3 ? 640 : n === 4 ? 160 : 5; }
-  // 付款币种（站长定的顺序：AiLGNS 优先，再 DAI、LGNS）；LGNS、AiLGNS 由合约按 DEX 实时价格换算
-  var TOK = { AiLGNS: { a: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", d: 18 }, DAI: { a: DAI, d: 18 }, LGNS: { a: "0x4d1d808a081fdac440703b3765fc61f8028c06b8", d: 9 } };
+  // 付款币种：AiLGNS 优先，再 DAI（AiLGNS 由合约按 DEX 实时价格换算）
+  // 不收 LGNS：合约按 DEX 现价收 LGNS，但 LGNS 在 DEX 卖出要扣约 50% 税，收到的 LGNS 只值一半，平台亏（站长要求停掉；合约写死改不了，只在网页上去掉）
+  var TOK = { AiLGNS: { a: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", d: 18 }, DAI: { a: DAI, d: 18 } };
   function tokSel(id) { return '<select id="' + id + '">' + Object.keys(TOK).map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</select>"; }
   function fmt(x, d) { var v = Number(x) / Math.pow(10, d); return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toPrecision(4); }
   function quote(dai, k) { // dai 个 DAI 用 k 币要付多少（最小单位）
@@ -103,7 +104,7 @@
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">按名字长度定价</span></div>' +
       '<p class="nm-pt">英文</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>5 位及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
       '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>3 个字及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
-      '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS、LGNS 按 DEX 实时价格换算，<b>不经过 DEX，不扣卖出税、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
+      '<p class="muted">可以用 <b>AiLGNS、DAI</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
       '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div><div id="nm-mk"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
@@ -305,17 +306,14 @@
     }, function (e) { delete genCache[TLD]; throw e; });
     return genCache[TLD];
   }
-  // 价格表：每档下面标出用 AiLGNS / LGNS 付要多少个（合约 quote = DEX 实时价格）
+  // 价格表：每档下面标出用 AiLGNS 付要多少个（合约 quote = DEX 实时价格）
   function livePrices() {
     var els = document.querySelectorAll(".nm-q");
     if (!els.length || !NAMES) return;
-    Promise.all([quote(1, "AiLGNS"), quote(1, "LGNS")]).then(function (q) {
-      els.forEach(function (el) {
-        var d = BigInt(el.getAttribute("data-dai"));
-        el.innerHTML = "≈ " + fmt(q[0] * d, 18) + " AiLGNS<br>≈ " + fmt(q[1] * d, 9) + " LGNS";
-      });
+    quote(1, "AiLGNS").then(function (q) {
+      els.forEach(function (el) { el.textContent = "≈ " + fmt(q * BigInt(el.getAttribute("data-dai")), 18) + " AiLGNS"; });
       var px = document.getElementById("nm-px");
-      if (px) px.textContent = " 现在 1 AiLGNS ≈ " + (1e18 / Number(q[0])).toFixed(4) + " DAI，1 LGNS ≈ " + (1e9 / Number(q[1])).toFixed(4) + " DAI。";
+      if (px) px.textContent = " 现在 1 AiLGNS ≈ " + (1e18 / Number(q)).toFixed(2) + " DAI。";
     }, function () {});
   }
 
