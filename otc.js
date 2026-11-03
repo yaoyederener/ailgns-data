@@ -398,6 +398,20 @@
     }).catch(function () { /* 通知功能不可用时不显示 */ });
   }
   // 挂单成功后：还没绑定的，弹窗提醒顺手开启通知
+  // 出错时：屏幕底部弹出原因（不会被滚走），同时把页面滚到出问题的地方，客户照着提示改了再点
+  function errTip(t, el) {
+    var old = document.getElementById("err-tip");
+    if (old) old.remove();
+    var d = document.createElement("div");
+    d.id = "err-tip";
+    d.className = "err-tip";
+    d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><button type="button">知道了</button>';
+    d.querySelector("span").textContent = t;
+    d.querySelector("button").onclick = function () { d.remove(); };
+    document.body.appendChild(d);
+    setTimeout(function () { if (d.parentNode) d.remove(); }, 15000);
+    if (el && el.scrollIntoView && !el.closest(".modal")) el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
   // 成交 / 挂单成功的结果弹窗：一直停留到客户点关闭，底下放「查看交易记录」
   function doneModal(title, html, extra) {
     var box = document.createElement("div");
@@ -619,6 +633,7 @@
       function say(t, bad) {
         st.className = "note" + (bad ? " down" : "");
         st.textContent = t;
+        if (bad) return errTip(t, st);
         if (st.scrollIntoView) st.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
       function reload() { if (A.isCurrent(id)) { freshNext = true; renderOtc(id); } }
@@ -851,7 +866,7 @@
       var box = document.getElementById("otc-sweep");
       if (!box) return;
       var side = "buy", r = document.getElementById("sw-r"), pv = document.getElementById("sw-pv"), out = document.getElementById("sw-out"), ladder = document.getElementById("sw-ladder"), go = document.getElementById("sw-go"), st = document.getElementById("sw-st");
-      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
       function list() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account; }); } // 自己的单不能吃
       function total(l) { return l.reduce(function (t, o) { return t + daiLeft(o, o.giveLeft); }, 0n); }
       // 进度条 = 占全部挂单的比例（万分比，最细 0.01%）。连上钱包后，余额最多能扫到哪里就只能拖到哪里（右边那段灰掉）
@@ -999,7 +1014,7 @@
         }
         return b < maxAil ? b : maxAil; // 卖：挂单币余额（Gas 用 DAI / POL 付，不用留）
       }
-      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
       function plan() {
         var q = toWei(qty.value, payDec);
         if (!q) { quote.textContent = o.sellAilgns ? "输入付多少 DAI 后显示" : "输入数量后显示"; return null; }
