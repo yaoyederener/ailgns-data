@@ -288,21 +288,23 @@
   // ---------- 销毁乐园：小游戏大厅（#/play）。所有游戏花的 LGNS 都进各链的收款合约：80% 销毁、20% 运营 ----------
   var GAMES = [
     { id: "pixel", icon: "🧱", name: "LGNS 像素墙", desc: "花 LGNS 给格子涂色，画图案、写名字、抢地盘（Anubis / Polygon 链都能付）", live: true },
-    { id: "g2048", icon: "🔢", name: "2048", desc: "免费玩 · 滑动合并数字，冲击 2048", live: true },
-    { id: "snake", icon: "🐍", name: "贪吃蛇", desc: "免费玩 · 吃豆变长，别撞墙", live: true },
-    { id: "tetris", icon: "🧱", name: "俄罗斯方块", desc: "免费玩 · 经典消行，越消越快", live: true },
-    { id: "flappy", icon: "🐤", name: "飞翔小鸟", desc: "免费玩 · 点一下飞一下，穿过管子", live: true },
-    { id: "mines", icon: "💣", name: "扫雷", desc: "免费玩 · 找出全部地雷", live: true },
-    { id: "brick", icon: "🏓", name: "打砖块", desc: "免费玩 · 挡板接球，打碎全部砖块", live: true },
+    { id: "g2048", icon: "🔢", name: "2048", desc: "排位赛 10 LGNS 一局 · 滑动合并数字，冲击 2048", live: true },
+    { id: "snake", icon: "🐍", name: "贪吃蛇", desc: "排位赛 10 LGNS 一局 · 吃豆变长，别撞墙", live: true },
+    { id: "tetris", icon: "🧱", name: "俄罗斯方块", desc: "排位赛 10 LGNS 一局 · 经典消行，越消越快", live: true },
+    { id: "flappy", icon: "🐤", name: "飞翔小鸟", desc: "排位赛 10 LGNS 一局 · 点一下飞一下，穿过管子", live: true },
+    { id: "mines", icon: "💣", name: "扫雷", desc: "排位赛 10 LGNS 一局 · 找出全部地雷", live: true },
+    { id: "brick", icon: "🏓", name: "打砖块", desc: "排位赛 10 LGNS 一局 · 挡板接球，打碎全部砖块", live: true },
     { id: "merge", icon: "🧬", name: "DNA 合成", desc: "合成更高级的 DNA，冲击排行榜（免费玩，道具用 LGNS）" },
     { id: "pet", icon: "🌱", name: "HELIX 宠物", desc: "每天喂养你的 DNA 宠物，升级解锁皮肤" }
   ];
   A.pages.play = function (id) {
     A.app.innerHTML = '<div class="loading">正在加载销毁乐园…</div>';
-    fetch("/api/pixel").then(function (r) { return r.json(); }).then(function (b) {
+    var gs = fetch("/api/game").then(function (r) { return r.json(); }).then(function (j) { return j.stats; }, function () { return null; }); // 小游戏排位赛的销毁，一起算进大厅总数
+    Promise.all([fetch("/api/pixel").then(function (r) { return r.json(); }), gs]).then(function (res) {
+      var b = res[0], g = res[1] || {};
       if (!A.isCurrent(id)) return;
       board = b;
-      var s = b.s;
+      var s = { burned: b.s.burned + (g.burned || 0), spent: (b.s.spent || 0) + (g.spent || 0), txs: b.s.txs + (g.plays || 0) };
       A.app.innerHTML = '<section class="px-hero play-hero"><h1>🔥 销毁乐园</h1>' +
         "<p>玩小游戏，销毁 LGNS，为社区做贡献！每一枚花出去的 LGNS 都有去处，链上可查。</p>" +
         '<p class="px-burn">' + burnText() + "</p></section>" +

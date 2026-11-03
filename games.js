@@ -1,5 +1,5 @@
 // 销毁乐园 · 免费小游戏：2048、贪吃蛇、俄罗斯方块、飞翔小鸟、扫雷、打砖块
-// 全部在浏览器里跑，免费玩，不花币、不赢币；最高分存在本机（localStorage）
+// 免费练习：不花币，最高分存在本机；排位赛：每局付 LGNS（80% 销毁、20% 进分账），分数上全站排行榜（后台 /api/game，规则见 lib/game.js）
 (function () {
   var A = window.AIL;
   var LIST = [
@@ -20,29 +20,117 @@
     } catch (e) { return v || 0; }
   }
 
-  // 公共外壳：标题、分数、最高分、重新开始；游戏只管往 .gm-stage 里画
+  // ---------- 排位赛：每局付 10 LGNS 进收款合约（80% 销毁、20% 进分账），分数上全站排行榜；不赢币、没有奖品 ----------
+  var W = A.wallet, CHN = { anubis: "Anubis", polygon: "Polygon" };
+  function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
+  function sha(t) { return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function (d) { return Array.prototype.map.call(new Uint8Array(d), function (x) { return x.toString(16).padStart(2, "0"); }).join(""); }); }
+  function post(b) { return fetch("/api/game", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); return j; }); }
+  function saved(g, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem("gtk:" + g) || "null"); if (v) localStorage.setItem("gtk:" + g, JSON.stringify(v)); else localStorage.removeItem("gtk:" + g); } catch (e) { return null; } }
+  function buy(g, info, ch, say) {
+    var C = info.pay[ch], eth, account, data;
+    return A.wallets.choose().then(function (p) {
+      eth = p;
+      return A.wallets.ask(eth, { method: "eth_requestAccounts" });
+    }).then(function (a) {
+      account = String(a[0]).toLowerCase();
+      say("正在切换到 " + CHN[ch] + " 链…");
+      return W.switchTo(eth, ch);
+    }).then(function () { return sha(g); }).then(function (h) {
+      data = "0xa9059cbb" + A.pad(C.payTo) + u256(BigInt(info.price) * 10n ** 9n) + "4741" + h;
+      say("正在检查 LGNS 余额…");
+      return W.rpcOn(ch, "eth_call", [{ from: account, to: C.token, data: data }, "latest"]).catch(function () { throw new Error("LGNS 不够或 Gas 不够：每局要 " + info.price + " LGNS（" + CHN[ch] + " 链），还要一点 " + (ch === "polygon" ? "POL" : "DAI") + " 付 Gas"); });
+    }).then(function () {
+      say("🔒 80% 直接销毁、20% 进分账合约。请在钱包确认支付 " + info.price + " LGNS");
+      return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: C.token, data: data }] });
+    }).then(function (tx) {
+      saved(g, { tx: tx, ch: ch });
+      say("已付款，等待链上确认…");
+      return W.waitOn(ch, tx).then(function () { return tx; });
+    }).then(function (tx) { return confirm(g, tx, ch, say); });
+  }
+  function confirm(g, tx, ch, say) { // 链上确认后后台还要几秒才查得到，多试几次
+    var n = 0;
+    function once() {
+      return post({ act: "ticket", tx: tx, game: g, chain: ch }).then(function (r) { if (r.used) { saved(g, null); throw new Error("这张门票已经用过了"); } return tx; }, function (e) {
+        if (++n < 6 && /查不到/.test(e.message)) { say("正在核对付款…"); return new Promise(function (ok) { setTimeout(ok, 3000); }).then(once); }
+        throw e;
+      });
+    }
+    return once();
+  }
+  function boardHtml(info) {
+    var b = info.board || [];
+    return '<section class="card"><div class="card-head"><h2>🏆 排位赛排行榜</h2><span class="muted">每个地址只算最好一局</span></div>' +
+      (b.length ? '<ol class="gm-rank">' + b.slice(0, 20).map(function (x) { return "<li><span class=\"mono\">" + A.short(x.a) + "</span><b>" + x.s + "</b></li>"; }).join("") + "</ol>" : '<p class="muted">还没有人上榜，第一名等你来拿！</p>') +
+      '<p class="note">销毁乐园累计销毁 <b>' + A.fmt(info.stats.burned || 0) + " LGNS</b>，排位赛已玩 " + (info.stats.plays || 0) + " 局。只消耗、不赢币：排行榜只有名次，没有奖金奖品。</p></section>";
+  }
+
+  // 公共外壳：标题、分数、最高分、免费练习 / 排位赛；游戏只管往 .gm-stage 里画
   function shell(id, g, howto, start) {
     A.app.innerHTML = '<a class="px-back" href="#/play">← 销毁乐园</a>' +
-      '<section class="card gm-card"><div class="gm-head"><h2>' + g.icon + " " + g.name + '</h2><div class="gm-sc"><span>分数 <b id="gm-s">0</b></span><span>最高 <b id="gm-b">' + best(g.id) + '</b></span></div></div>' +
-      '<div class="gm-stage" id="gm-stage"></div><div class="gm-bar"><button type="button" id="gm-re">🔄 重新开始</button></div>' +
-      '<p class="note">' + howto + "</p></section>" +
-      '<p class="note">免费玩，不花币也不赢币，最高分只存在你这台手机上。</p>';
-    var stage = document.getElementById("gm-stage"), sEl = document.getElementById("gm-s"), bEl = document.getElementById("gm-b");
+      '<section class="card gm-card"><div class="gm-head"><h2>' + g.icon + " " + g.name + '</h2><div class="gm-sc"><span id="gm-mode">免费练习</span><span>分数 <b id="gm-s">0</b></span><span>最高 <b id="gm-b">' + best(g.id) + '</b></span></div></div>' +
+      '<div class="gm-stage" id="gm-stage"></div>' +
+      '<div class="gm-bar"><button type="button" class="ghost" id="gm-re">🔄 免费练习</button><button type="button" class="gm-rk" id="gm-rk">🔥 排位赛 · 10 LGNS 一局</button></div>' +
+      '<div class="gm-ch" id="gm-ch"><span>用哪条链的 LGNS：</span><button type="button" data-ch="anubis" class="on">Anubis</button><button type="button" data-ch="polygon">Polygon</button></div>' +
+      '<p class="note" id="gm-st"></p><p class="note">' + howto + "</p></section>" +
+      '<div id="gm-board"></div>' +
+      '<p class="note">免费练习不花币，分数只存在本机。排位赛每局 10 LGNS：<b>80% 直接销毁</b>，20% 进分账合约用于平台运营，分数进全站排行榜。</p>';
+    var stage = document.getElementById("gm-stage"), sEl = document.getElementById("gm-s"), bEl = document.getElementById("gm-b"), st = document.getElementById("gm-st"), rk = document.getElementById("gm-rk");
+    var info = null, ch = "anubis", ranked = null, cur = 0;
+    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad && A.errTip) A.errTip(t, st); }
+    function loadBoard() {
+      return fetch("/api/game?g=" + g.id).then(function (r) { return r.json(); }).then(function (j) {
+        info = j; rk.textContent = "🔥 排位赛 · " + j.price + " LGNS 一局";
+        if (api.alive()) document.getElementById("gm-board").innerHTML = boardHtml(j);
+      }).catch(function () { /* 读不到排行榜不影响免费玩 */ });
+    }
     var api = {
       alive: function () { return A.isCurrent(id) && document.body.contains(stage); },
-      score: function (v) { sEl.textContent = v; bEl.textContent = best(g.id, v); },
+      score: function (v) { cur = v; sEl.textContent = v; bEl.textContent = best(g.id, v); },
       over: function (msg) {
         var d = document.createElement("div");
         d.className = "gm-over";
-        d.innerHTML = "<b>" + (msg || "游戏结束") + '</b><button type="button">再来一局</button>';
-        d.querySelector("button").onclick = run;
+        d.innerHTML = "<b>" + (msg || "游戏结束") + "</b><span></span>" + '<button type="button">再来一局（免费练习）</button>';
+        d.querySelector("button").onclick = function () { run(null); };
         stage.appendChild(d);
+        if (ranked) {
+          var tx = ranked; ranked = null;
+          var note = d.querySelector("span");
+          note.textContent = "正在提交排位赛成绩…";
+          post({ act: "score", tx: tx, score: cur }).then(function (r) {
+            saved(g.id, null);
+            note.textContent = "🏆 排位赛成绩 " + cur + " 分，全站第 " + r.rank + " 名！";
+            loadBoard();
+          }, function (e) { note.textContent = "成绩没交上：" + e.message; });
+        }
       }
     };
     var stop = null;
-    function run() { if (stop) stop(); stage.innerHTML = ""; api.score(0); stop = start(stage, api) || null; }
-    document.getElementById("gm-re").onclick = run;
-    run();
+    function run(tx) {
+      if (stop) stop();
+      ranked = tx || null;
+      document.getElementById("gm-mode").textContent = ranked ? "🔥 排位赛" : "免费练习";
+      stage.innerHTML = ""; api.score(0); stop = start(stage, api) || null;
+    }
+    document.getElementById("gm-re").onclick = function () { run(null); };
+    document.querySelectorAll("#gm-ch [data-ch]").forEach(function (b) {
+      b.onclick = function () { ch = b.getAttribute("data-ch"); document.querySelectorAll("#gm-ch [data-ch]").forEach(function (x) { x.classList.toggle("on", x === b); }); };
+    });
+    rk.onclick = function () {
+      var old = saved(g.id);
+      rk.disabled = true;
+      (old ? confirm(g.id, old.tx, old.ch, say) : (info ? Promise.resolve() : loadBoard()).then(function () {
+        if (!info) throw new Error("排行榜服务暂时连不上，请稍后再试");
+        return buy(g.id, info, ch, say);
+      })).then(function (tx) {
+        rk.disabled = false; say("✅ 门票已确认，排位赛开始！这一局的分数会上全站排行榜。");
+        run(tx);
+        stage.scrollIntoView({ block: "center", behavior: "smooth" });
+      }, function (e) { rk.disabled = false; if (old && /用过/.test(e.message)) saved(g.id, null); say((W.error ? W.error(e) : e.message) || "没成功", true); });
+    };
+    if (saved(g.id)) rk.textContent = "🔥 继续排位赛（已付款的门票）";
+    loadBoard().then(function () { if (saved(g.id)) rk.textContent = "🔥 继续排位赛（已付款的门票）"; });
+    run(null);
   }
 
   // 键盘：只在当前游戏页有效
