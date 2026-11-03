@@ -192,7 +192,8 @@
       '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
       '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div>' +
-        '<div class="nm-mk-sell"><button type="button" class="nm-go" id="nm-sellgo">💰 我要卖域名</button><span class="muted">卖家拿完整标价，0 手续费</span></div><div id="nm-mk"></div></section>' +
+        '<div class="seg" id="nm-side"><button type="button" data-side="buy" class="on">我要买域名</button><button type="button" data-side="sell" id="nm-sellgo">我要卖域名</button></div>' +
+        '<div id="nm-mk"></div><div id="nm-sp" hidden></div></section>' +
       '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 查询：地址 ⇄ 域名</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="输入 0x 地址 或 域名（如 xxx.ailgns）" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
@@ -220,24 +221,8 @@
       var self = a === account;
       if ((A.hidden || {})[a] && !self) { o.innerHTML = '<p class="muted">🔒 这个地址的持有人选择匿名</p>'; return; }
       o.innerHTML = '<p class="muted">查询中…（第一次要读链上记录，稍等几秒）</p>';
-      var pad = "0x" + A.pad(a), tlds = Object.keys(CONTRACTS);
-      Promise.all(tlds.map(function (t) {
-        var C = CONTRACTS[t];
-        function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
-        return logs(C, T_XFER, START[t]).then(function (l) {
-          var ids = {}; l.forEach(function (x) { if (x[1][2] === pad) ids[x[1][3]] = 1; });
-          return Promise.all(Object.keys(ids).map(function (id) {
-            var h = id.slice(2);
-            return on(SEL.ownerOf + h).then(function (w) {
-              if (addrOf(w) !== a) return null;
-              return Promise.all([on(SEL.labelOf + h), on(SEL.expires + h), genesis(t)]).then(function (x) {
-                return { t: t, label: decStr(x[0]), exp: Number(BigInt("0x" + word(x[1], 0))), no: x[2][h] || 0 };
-              });
-            }, function () { return null; });
-          }));
-        });
-      })).then(function (all) {
-        var HN = A.hiddenNames || {}, list = [].concat.apply([], all).filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
+      ownedList(a).then(function (all) {
+        var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
         if (!list.length) { o.innerHTML = '<p class="muted">这个地址名下还没有域名。刚注册的等 10 秒再查；挂在 OTC 市场里的名字暂时在市场合约里，不显示在这里。</p>'; return; }
         var g = list.filter(function (x) { return x.no; }).length;
@@ -252,14 +237,17 @@
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
     // 「我要卖」：连钱包 → 列出我名下的域名 → 每个旁边「挂单出售」→ 打开这个名字的页面并直接弹出挂单设置
-    document.getElementById("nm-sellgo").onclick = function () {
-      var c = document.getElementById("nm-mycard"); c.scrollIntoView({ behavior: "smooth", block: "start" });
-      connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
+    document.getElementById("nm-side").onclick = function (e) {
+      var b = e.target.closest("button[data-side]"); if (!b) return;
+      var sell = b.getAttribute("data-side") === "sell";
+      this.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; });
+      document.getElementById("nm-mk").hidden = sell; document.getElementById("nm-sp").hidden = !sell;
+      if (sell) sellPanel();
     };
     document.getElementById("nm-myr").onclick = function (e) {
       var b = e.target.closest(".nm-my-sell"); if (!b) return;
-      try { sessionStorage.setItem("nm:sell", b.getAttribute("data-full")); } catch (x) { /* 忽略 */ }
-      location.hash = "#/names/" + encodeURIComponent(b.getAttribute("data-full"));
+      try { sessionStorage.setItem("nm:sellpick", b.getAttribute("data-full")); } catch (x) { /* 忽略 */ }
+      var sg = document.getElementById("nm-sellgo"); sg.click(); sg.scrollIntoView({ behavior: "smooth", block: "start" });
     };
     document.getElementById("nm-myf").onsubmit = function (e) { e.preventDefault(); myNames(document.getElementById("nm-mya").value.trim().toLowerCase()); };
     document.getElementById("nm-myw").onclick = function () {
@@ -641,6 +629,69 @@
   }
 
   // 域名市场：读最近 200 张单里还在卖的
+  // 某个地址名下现在有哪些名字（两个后缀）：读 Transfer 记录找候选，再用 ownerOf 确认还在他手里
+  function ownedList(a) {
+    var pad = "0x" + A.pad(a), tlds = Object.keys(CONTRACTS);
+    return Promise.all(tlds.map(function (t) {
+      var C = CONTRACTS[t];
+      function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
+      return logs(C, T_XFER, START[t]).then(function (l) {
+        var ids = {}; l.forEach(function (x) { if (x[1][2] === pad) ids[x[1][3]] = 1; });
+        return Promise.all(Object.keys(ids).map(function (id) {
+          var h = id.slice(2);
+          return on(SEL.ownerOf + h).then(function (w) {
+            if (addrOf(w) !== a) return null;
+            return Promise.all([on(SEL.labelOf + h), on(SEL.expires + h), genesis(t)]).then(function (x) {
+              return { t: t, id: h, label: decStr(x[0]), exp: Number(BigInt("0x" + word(x[1], 0))), no: x[2][h] || 0 };
+            });
+          }, function () { return null; });
+        }));
+      });
+    })).then(function (all) { return [].concat.apply([], all).filter(function (x) { return x && x.label; }); });
+  }
+  function leftT(sec) {
+    if (sec <= 0) return "已过期";
+    var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+    return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟";
+  }
+  // 「我要卖域名」面板：和 OTC「发布挂单」一样 —— 选名字、填价格、选有效期、看到手金额、发布
+  function sellPanel() {
+    var box = document.getElementById("nm-sp"); if (!box) return;
+    box.innerHTML = '<p class="muted">连接钱包，读取你名下的域名…</p>';
+    connect().then(function () { return ownedList(account); }).then(function (list) {
+      list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
+      if (!list.length) { box.innerHTML = '<p class="muted">你的钱包里还没有域名（挂在市场里的不算）。先在上面搜索注册一个吧。</p>'; return; }
+      var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 7 * 86400;
+      box.innerHTML = '<div class="form-grid"><label>选择要卖的域名<select id="nm-sp-n">' + list.map(function (x, i) { return '<option value="' + i + '">' + esc(x.label) + "." + x.t + (x.no ? "  🌟创世 #" + x.no : "") + "</option>"; }).join("") + "</select></label>" +
+        '<label>售价（DAI）<input id="nm-sp-p" inputmode="decimal" placeholder="例如 100"></label></div>' +
+        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没卖掉，名字自动退回</small></span><div class="dur-opts" id="nm-sp-d">' + DURS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === dur ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
+        '<p class="note" id="nm-sp-sum">填好售价后显示你能拿到多少</p><button id="nm-sp-go" style="padding:12px 22px">发布挂单</button><p class="note" id="nm-sp-st"></p>';
+      var pi = document.getElementById("nm-sp-p"), sum = document.getElementById("nm-sp-sum"), sst = document.getElementById("nm-sp-st"), go = document.getElementById("nm-sp-go"), ns = document.getElementById("nm-sp-n");
+      var pre = null; try { pre = sessionStorage.getItem("nm:sellpick"); sessionStorage.removeItem("nm:sellpick"); } catch (x) { /* 忽略 */ }
+      if (pre) list.forEach(function (x, i) { if (x.label + "." + x.t === pre) ns.value = i; });
+      function ok(p) { return /^\d+(\.\d{1,6})?$/.test(p) && Number(p) > 0; }
+      pi.oninput = function () { var p = pi.value.trim(); sum.innerHTML = ok(p) ? "你拿到 <b>" + Number(p) + " DAI</b>（完整标价，卖家 0 手续费）· 买家付 " + Math.round(Number(p) * 1.03 * 1e6) / 1e6 + " DAI（含 3%）" : "填好售价后显示你能拿到多少"; };
+      document.getElementById("nm-sp-d").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; dur = Number(b.getAttribute("data-d")); this.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; }); };
+      function say(t) { sst.textContent = t; }
+      go.onclick = function () {
+        var x = list[Number(ns.value)], p = pi.value.trim(), O = OTC[x.t], C = CONTRACTS[x.t];
+        if (!ok(p)) { A.errTip("价格格式不对，填数字，比如 100", go); return; }
+        if (!O) { A.errTip("." + x.t + " 市场还没开放", go); return; }
+        if (x.exp < Date.now() / 1000 + dur + 30 * 86400) { A.errTip("这个名字快到期了，先续费再挂单（或选短一点的有效期）", go); return; }
+        var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n;
+        go.disabled = true;
+        W.rpcOn("anubis", "eth_call", [{ to: C, data: SEL.getApproved + x.id }, "latest"]).then(function (g) {
+          if (addrOf(g) === O) return;
+          return tx(C, SEL.nftApprove + A.pad(O) + x.id, say, "🔒 第 1 步：授权市场合约转这个名字（只用于这次挂单，合约开源、无管理员）。请在钱包确认");
+        }).then(function () {
+          return tx(O, SEL.oList + x.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
+        }).then(function () {
+          say("✅ 已挂到市场"); go.disabled = false;
+          var b = document.querySelector('#nm-side button[data-side="buy"]'); if (b && x.t === TLD) { b.click(); market(); } else sellPanel();
+        }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
+      };
+    }, function (e) { box.innerHTML = '<p class="muted">' + esc((e && e.message) || "连接钱包失败") + "</p>"; });
+  }
   function market() {
     var box = document.getElementById("nm-mk"), O = OTC[TLD];
     if (!box) return;
@@ -661,12 +712,17 @@
         }));
       });
     }).then(function (list) {
-      if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。搜索你自己的名字，点「挂到市场卖」就能挂。</p>'; return; }
+      if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>'; return; }
       list.sort(function (a, b) { return a.price < b.price ? -1 : 1; });
-      box.innerHTML = '<div class="nm-mk">' + list.map(function (it) {
+      var now2 = Date.now() / 1000;
+      box.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
-        return '<div class="nm-row"><div><b>' + esc(it.label) + "." + TLD + '</b><i class="nm-gb" data-g="' + it.tid + '"></i><small>名字到期 ' + date(it.exp) + " · 卖家 " + A.short(it.maker) + '</small></div><div class="nm-rp"><b>' + p + ' DAI</b><button type="button" data-o="' + it.id + '" data-m="' + (mine ? 1 : 0) + '" data-p="' + it.price + '">' + (mine ? "撤单" : "买") + "</button></div></div>";
-      }).join("") + '</div><p class="muted nm-st" id="nm-mst"></p>';
+        var act = mine ? '<button type="button" class="ghost act-btn" data-o="' + it.id + '" data-m="1" data-p="' + it.price + '">撤单</button>'
+          : '<button type="button" class="act-btn btn-buy" data-o="' + it.id + '" data-m="0" data-p="' + it.price + '">买入</button>';
+        return '<tr><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + TLD + '</b> <i class="nm-gb" data-g="' + it.tid + '"></i></td>' +
+          '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
+          '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : A.short(it.maker)) + "</td></tr>";
+      }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-mst"></p>';
       genesis().then(function (g) { box.querySelectorAll("[data-g]").forEach(function (e) { var k = g[e.getAttribute("data-g")]; if (k) e.textContent = "🌟 创世 #" + k; }); }, function () {});
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-o]").forEach(function (b) {
