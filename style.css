@@ -1128,7 +1128,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .otc-acts [data-gomine] { background: linear-gradient(110deg, #5b21b6, #7c3aed); color: #fff; border: 0; box-shadow: 0 3px 12px rgba(124, 58, 237, .3); } /* 我的挂单：平台紫，实心白字，和红绿两个按钮一样显眼 */
 .otc-acts [data-gomine]:hover { filter: brightness(1.08); }
 .otc-acts .gm-n { display: inline-block; min-width: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #fff; color: #5b21b6; font-size: 12px; line-height: 20px; }
-.otc-top .ot-sw { padding: 5px 12px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 0; color: #fff; background: linear-gradient(110deg, #f59e0b, #ef4444); box-shadow: 0 2px 8px rgba(239, 68, 68, .25); cursor: pointer; white-space: nowrap; }
+.otc-top .ot-sw { padding: 5px 12px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 0; color: #fff; background: #1677ff; box-shadow: 0 2px 8px rgba(22, 119, 255, .28); cursor: pointer; white-space: nowrap; } /* 和扫单「确认付款」同一个蓝 */
 @media (max-width: 600px) {
   .bk-open table.cards.book tr.bk-x { display: grid; } /* 手机上每张挂单是卡片样式 */
   .otc-acts { gap: 6px; }
