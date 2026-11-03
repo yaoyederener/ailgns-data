@@ -10,7 +10,18 @@
   // 域名市场：AWAKE NFT 托管合约同一份代码，各后缀一份；卖家把名字存进合约标价，买家付 DAI 同一笔交易里拿到名字，手续费 3% 买家另付，进回购分账合约
   var START = { ailgns: 18161697, lgns: 18161710 }; // 合约部署区块，从这里开始读链上记录
   var GENESIS = 10000; // 前 1 万个付费注册的名字是「创世域名」，按链上注册顺序编号
-  var T_REG = "0xa15b66031269f1c32be8db1e4353108dc76c84574a7c6697527e431ad921462a", T_FILL = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
+ var T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+  // 创世徽章：和会员勋章同一种做法（渐变圆章 + 虚线内圈 + 白色图案），站点紫色，中间一颗星
+  function genEmblem(s) {
+    return '<svg class="gen-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
+      '<linearGradient id="geG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset=".35" stop-color="#c9a8ff"/><stop offset=".65" stop-color="#7027d9"/><stop offset="1" stop-color="#4936ff"/></linearGradient>' +
+      '<linearGradient id="geD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6927db"/><stop offset="1" stop-color="#9828dc"/></linearGradient></defs>' +
+      '<circle cx="32" cy="32" r="31" fill="url(#geG)"/><circle cx="32" cy="32" r="27.5" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-dasharray="1.6 2.4"/>' +
+      '<circle cx="32" cy="32" r="23.5" fill="url(#geD)" stroke="#fff" stroke-width="1.5"/>' +
+      '<path d="M32 14.5l4.6 10.6 11.4 1-8.7 7.5 2.7 11.2L32 38.9l-10 5.9 2.7-11.2-8.7-7.5 11.4-1z" fill="#fff"/>' +
+      '<text x="32" y="54.5" text-anchor="middle" font-size="7.5" font-weight="900" fill="#ffe08a" font-family="system-ui,sans-serif">GENESIS</text></svg>';
+  }
+ var T_REG = "0xa15b66031269f1c32be8db1e4353108dc76c84574a7c6697527e431ad921462a", T_FILL = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
   var OTC = { ailgns: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", lgns: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d" }; // Anubis 区块 18161704 / 18161717
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var ZERO = "0x" + "0".repeat(40);
@@ -162,9 +173,9 @@
   function page(rid, arg) {
     // 路由只保留 0x 地址参数，名字自己从网址里取
     var q = decodeURIComponent(location.hash.split("/")[2] || "").toLowerCase(), m = q.match(/\.(ailgns|lgns)$/);
-    if (q === "otc") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
+    if (q === "otc" || q === "mine") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
     TLD = m ? m[1] : "ailgns";
-    NAMES = CONTRACTS[TLD];
+    NAMES = CONTRACTS[TLD]; window.__nmTLD = TLD;
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="nm-what">💡 域名就是你的<b>链上靓号</b>：别人转账给你，只要填 <b>xxx.ailgns</b>，不用再抄一长串 0x 地址；好名字全球只有一个，<b>先注册先得</b>，稀缺的好名字可以挂到 OTC 转卖。</p>' +
@@ -172,6 +183,9 @@
       '<p class="nm-hint">👇 输入你想要的名字，点「搜索」</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
+      '<section class="card" id="nm-mycard"><div class="card-head"><h2>📒 我的域名</h2><span class="muted">买到了在这里看</span></div>' +
+      '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入你的钱包地址 0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查看</button></form>' +
+      '<button type="button" class="nm-skip" id="nm-myw">👛 直接查我当前连接的钱包</button><div id="nm-myr"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">按名字长度定价</span></div>' +
       '<p class="nm-pt">英文</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>5 位及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
       '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>3 个字及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
@@ -198,6 +212,47 @@
       v = v.trim().replace(/\.(ailgns|lgns)$/, "");
       if (NAMES && valid(v)) typing = setTimeout(function () { info(v).catch(function () {}); }, 400);
     };
+    // 我的域名：填地址（或用当前钱包）→ 列出这个地址名下所有 .ailgns / .lgns 名字，创世域名大大地显示创世徽章
+    function myNames(a) {
+      var o = document.getElementById("nm-myr");
+      if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对：0x 开头，一共 42 位", document.getElementById("nm-myf")); return; }
+      var self = a === account;
+      if ((A.hidden || {})[a] && !self) { o.innerHTML = '<p class="muted">🔒 这个地址的持有人选择匿名</p>'; return; }
+      o.innerHTML = '<p class="muted">查询中…（第一次要读链上记录，稍等几秒）</p>';
+      var pad = "0x" + A.pad(a), tlds = Object.keys(CONTRACTS);
+      Promise.all(tlds.map(function (t) {
+        var C = CONTRACTS[t];
+        function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
+        return logs(C, T_XFER, START[t]).then(function (l) {
+          var ids = {}; l.forEach(function (x) { if (x[1][2] === pad) ids[x[1][3]] = 1; });
+          return Promise.all(Object.keys(ids).map(function (id) {
+            var h = id.slice(2);
+            return on(SEL.ownerOf + h).then(function (w) {
+              if (addrOf(w) !== a) return null;
+              return Promise.all([on(SEL.labelOf + h), on(SEL.expires + h), genesis(t)]).then(function (x) {
+                return { t: t, label: decStr(x[0]), exp: Number(BigInt("0x" + word(x[1], 0))), no: x[2][h] || 0 };
+              });
+            }, function () { return null; });
+          }));
+        });
+      })).then(function (all) {
+        var HN = A.hiddenNames || {}, list = [].concat.apply([], all).filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
+        list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
+        if (!list.length) { o.innerHTML = '<p class="muted">这个地址名下还没有域名。刚注册的等 10 秒再查；挂在 OTC 市场里的名字暂时在市场合约里，不显示在这里。</p>'; return; }
+        var g = list.filter(function (x) { return x.no; }).length;
+        o.innerHTML = '<p class="nm-my-sum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
+          var full = esc(x.label) + "." + x.t;
+          return '<a class="nm-my' + (x.no ? " gen" : "") + '" href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' +
+            (x.no ? genEmblem(56) : '<span class="nm-my-dot">🌐</span>') +
+            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>";
+        }).join("");
+      }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
+    }
+    document.getElementById("nm-myf").onsubmit = function (e) { e.preventDefault(); myNames(document.getElementById("nm-mya").value.trim().toLowerCase()); };
+    document.getElementById("nm-myw").onclick = function () {
+      connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
+    };
+    if (/^#\/names\/mine/.test(location.hash)) setTimeout(function () { document.getElementById("nm-mycard").scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
     // 反查：填 0x 地址 → 查它在 .ailgns / .lgns 的主名字；填域名 → 查它指向哪个地址（站长和保护名单显示匿名）
     document.getElementById("nm-rf").onsubmit = function (e) {
       e.preventDefault();
@@ -478,8 +533,9 @@
   }
   // 创世编号：按链上顺序，每个名字第一次付费注册排一个号（官方保留名不算），前 1 万个
   var genCache = {};
-  function genesis() {
-    if (!genCache[TLD]) genCache[TLD] = logs(NAMES, T_REG, START[TLD]).then(function (l) {
+  function genesis(t) {
+    var TLD = t || window.__nmTLD || "ailgns"; // 默认当前页面的后缀
+    if (!genCache[TLD]) genCache[TLD] = logs(CONTRACTS[TLD], T_REG, START[TLD]).then(function (l) {
       var g = {}, n = 0;
       l.forEach(function (x) { var id = x[1][1].slice(2); if (!g[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && n < GENESIS) g[id] = ++n; });
       return g;

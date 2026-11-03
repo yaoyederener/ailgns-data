@@ -1717,3 +1717,15 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-what{margin:8px 0 4px;font-size:14px;line-height:1.6;color:var(--muted)}
 .nm-what b{color:var(--purple-ink)}
 @media (max-width:640px){.nm-what{font-size:13px;margin:6px 0 2px}}
+
+/* 我的域名：创世域名大徽章，和会员勋章一样 */
+.nm-my-sum{margin:12px 0 8px;color:var(--purple-ink)}
+.nm-my{display:flex;align-items:center;gap:12px;margin:8px 0;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--soft-line);text-decoration:none;color:inherit}
+.nm-my.gen{background:linear-gradient(135deg,#fff 0%,var(--soft) 100%);border-color:#c9a8ff;box-shadow:0 6px 18px rgba(112,39,217,.12)}
+.nm-my .gen-emb{flex:none;filter:drop-shadow(0 4px 10px rgba(112,39,217,.35))}
+.nm-my-dot{flex:none;width:56px;text-align:center;font-size:26px}
+.nm-my-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.nm-my-t b{font-size:17px;color:var(--purple-ink);word-break:break-all}
+.nm-my-no{font-style:normal;font-weight:800;font-size:14px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nm-my-t small{color:var(--muted);font-size:12px}
+#nm-myw{margin-top:4px}
