@@ -1414,3 +1414,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-row small{display:block;font-size:12px;opacity:.7}
 .nm-rp{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .nm-rp button{padding:8px 14px;font-weight:700;color:#fff;border:0;border-radius:8px;background:#1677ff}
+.nm-pt{margin:10px 0 6px;font-size:13px;font-weight:700}
+.nm-p2{grid-template-columns:repeat(2,1fr)}
+.nm-buy select,.nm-rk select{margin-left:4px;padding:6px;font-size:15px;border-radius:8px}
+.nm-rk{display:flex;align-items:center;font-size:14px}
+.nm-buy{flex-wrap:wrap;gap:8px}

@@ -6,6 +6,7 @@ from eth_tester import EthereumTester, PyEVMBackend
 from web3 import Web3
 
 E = 10**18
+MAX = 2**256 - 1
 art = json.load(open(sys.argv[1]))["artifacts"]
 tester = EthereumTester(PyEVMBackend())
 w3 = Web3(Web3.EthereumTesterProvider(tester))
@@ -31,15 +32,21 @@ def check(name, cond):
 
 
 dai = deploy("MockToken", 0)
-n = deploy("AilgnsNames", dai.address, PAY, RES, ["admin"])
+lgns = deploy("MockToken", 0)
+ail = deploy("MockToken", 0)
+lp = deploy("MockPair", lgns.address, dai.address)  # LGNS 9 位小数：1 LGNS = 10 DAI
+send(lp.functions.setReserves(1000 * 10**9, 10_000 * E), DEPLOYER)
+ap = deploy("MockPair", dai.address, ail.address)  # 反过来排：1 AiLGNS = 800 DAI
+send(ap.functions.setReserves(80_000 * E, 100 * E), DEPLOYER)
+n = deploy("AilgnsNames", [dai.address, lgns.address, lp.address, ail.address, ap.address], PAY, RES, ["admin"])
 esc = deploy("AwakeNftEscrow", n.address, dai.address, FEE)
 bal = lambda a: dai.functions.balanceOf(a).call()
 for who in (A, B, C):
     send(dai.functions.mint(who, 10_000 * E), DEPLOYER)
     send(dai.functions.approve(n.address, 2**256 - 1), who)
     send(dai.functions.approve(esc.address, 2**256 - 1), who)
-send(n.functions.register("alice", A, 1), A)
-send(n.functions.register("bobby", C, 1), C)
+send(n.functions.register("alice", A, 1, dai.address, MAX), A)
+send(n.functions.register("bobby", C, 1, dai.address, MAX), C)
 ida, idb = n.functions.idOf("alice").call(), n.functions.idOf("bobby").call()
 
 # 卖单：A 挂 alice 100 DAI，B 买

@@ -76,3 +76,25 @@ contract ReentrantToken {
         }
     }
 }
+
+/// 测试用 Uniswap V2 交易对：只模拟 token0/token1/getReserves
+contract MockPair {
+    address public token0;
+    address public token1;
+    uint112 private r0;
+    uint112 private r1;
+
+    constructor(address t0, address t1) {
+        token0 = t0;
+        token1 = t1;
+    }
+
+    function setReserves(uint112 a, uint112 b) external {
+        r0 = a;
+        r1 = b;
+    }
+
+    function getReserves() external view returns (uint112, uint112, uint32) {
+        return (r0, r1, 0);
+    }
+}

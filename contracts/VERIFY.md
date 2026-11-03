@@ -86,7 +86,21 @@ Anubis 区块浏览器（Blockscout）的源码验证服务目前无法使用（
 
 DAI 和手续费收款地址同上表。2026-11-02 核对：两份合约的链上运行代码和 AiLGNS 借款合约逐字节相同，唯一差别是写死的抵押币地址；`COLLATERAL()`、`DAI()`、`feeRecipient()`、`FEE_BPS()`（100 = 1%）读出来都和上表一致。
 
-## .ailgns / .lgns 域名（第 2 版，支持中文）
+## .ailgns / .lgns 域名（第 3 版，当前使用）
+
+| 合约 | 地址（Anubis 链） | 部署区块 |
+|---|---|---|
+| .ailgns 域名 [`AilgnsNames.sol`](AilgnsNames.sol) | `0xbc408e9d7350967e7247c917a086cb4ece0ed988` | 18161697 |
+| .ailgns 域名市场（[`AwakeNftEscrow.sol`](AwakeNftEscrow.sol) 同一份代码） | `0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e` | 18161704 |
+| .lgns 域名 [`LgnsNames.sol`](LgnsNames.sol) | `0x93af23fe74e5180f54f0996fa6bb6c157775f7f3` | 18161710 |
+| .lgns 域名市场（同上） | `0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d` | 18161717 |
+
+- 价格（每年）：英文 3 位 640 DAI、4 位 160、5 位及以上 5；带汉字 2 个字 50、3 个字及以上 5。一次 1–100 年
+- 付款：DAI、LGNS、AiLGNS（后两种按 LGNS/DAI `0x32A4586797E3f561F41C0F47CA57eD08D64f3dC0`、AiLGNS/DAI `0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0` 交易对现价换算），全部进回购分账合约 `0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3`
+- 构造参数：tokens = [DAI `0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14`, LGNS `0x4D1D808a081FdAc440703b3765FC61f8028C06B8`, LGNS/DAI 交易对, AiLGNS `0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB`, AiLGNS/DAI 交易对]，收费 → 回购分账合约，保留名主人 → 收款钱包 `0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6`，保留名 21 个（见下方第 2 版）
+- 域名市场构造参数：NFT = 对应域名合约，DAI，手续费 3% → 回购分账合约
+
+## .ailgns / .lgns 域名（第 2 版，已弃用，没有用户注册过）
 
 | 合约 | 地址（Anubis 链） | 部署区块 |
 |---|---|---|

@@ -5,18 +5,40 @@
 
   var A = window.AIL, W = A.wallet;
   // 两个后缀各一个合约（同一份规则）；网址 #/names/xxx.lgns 打开 .lgns，默认 .ailgns
-  var CONTRACTS = { ailgns: "0x98eb18ee6a30a7c89d6f0bb9a11aaceb508129b0", lgns: "0x722d1782121c3ef6379f222822a90c4869a56f17" }; // 第 2 版（支持中文），Anubis 区块 18160940 / 18160955
+  var CONTRACTS = { ailgns: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", lgns: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3" }; // 第 3 版（中文价格、DAI/LGNS/AiLGNS 付款、最多 100 年），Anubis 区块 18161697 / 18161710
   var TLD = "ailgns", NAMES = CONTRACTS.ailgns;
   // 域名市场：AWAKE NFT 托管合约同一份代码，各后缀一份；卖家把名字存进合约标价，买家付 DAI 同一笔交易里拿到名字，手续费 3% 买家另付，进回购分账合约
-  var OTC = { ailgns: "0x00a39ebdb85669586b9ab4391cfa5be0d5b3902c", lgns: "0x881f15bb629139bed84e0240abf9142c3632931d" }; // Anubis 区块 18160949 / 18160961
+  var OTC = { ailgns: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", lgns: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d" }; // Anubis 区块 18161704 / 18161717
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var ZERO = "0x" + "0".repeat(40);
-  var SEL = { available: "0xaeb8ce9b", register: "0xd393c871", renew: "0xacf1a841", resolve: "0x461a4478", nameOf: "0xf5c57382", idOf: "0x5fd846f2", expires: "0xcb52c823", ownerOf: "0x6352211e", setPrimary: "0x38e74feb", setAddr: "0xeba36dbd", labelOf: "0x36bf1f0c", oList: "0xca690ea2", oBuy: "0xd6febde8", oCancel: "0x40e58ee5", oCount: "0x35daa731", oGet: "0x8f72fc77", getApproved: "0x081812fc", nftApprove: "0x095ea7b3", allowance: "0xdd62ed3e", approve: "0x095ea7b3" };
+  var SEL = { available: "0xaeb8ce9b", register: "0xd868a84f", renew: "0x26e43e37", quote: "0x13b0be33", resolve: "0x461a4478", nameOf: "0xf5c57382", idOf: "0x5fd846f2", expires: "0xcb52c823", ownerOf: "0x6352211e", setPrimary: "0x38e74feb", setAddr: "0xeba36dbd", labelOf: "0x36bf1f0c", oList: "0xca690ea2", oBuy: "0xd6febde8", oCancel: "0x40e58ee5", oCount: "0x35daa731", oGet: "0x8f72fc77", getApproved: "0x081812fc", nftApprove: "0x095ea7b3", allowance: "0xdd62ed3e", approve: "0x095ea7b3" };
 
-  // 和合约一致：a-z、0-9、-、常用汉字（4E00–9FFF），中文一个字算 1 个字符，3–32 个字符
+  // 和合约一致：a-z、0-9、-、常用汉字（4E00–9FFF），中文一个字算 1 个字符；英文最少 3 个，带汉字最少 2 个，最多 32 个
   function chars(s) { return Array.from(s).length; }
-  function valid(s) { var n = chars(s); return /^[a-z0-9\u4e00-\u9fff-]+$/.test(s) && n >= 3 && n <= 32 && s[0] !== "-" && s[s.length - 1] !== "-"; }
-  function yearPrice(s) { var n = chars(s); return n === 3 ? 640 : n === 4 ? 160 : 5; }
+  function valid(s) { var n = chars(s); return /^[a-z0-9\u4e00-\u9fff-]+$/.test(s) && n >= (cn(s) ? 2 : 3) && n <= 32 && s[0] !== "-" && s[s.length - 1] !== "-"; }
+  function cn(s) { return /[\u4e00-\u9fff]/.test(s); }
+  // 带汉字：2 个字 50、3 个字及以上 5；英文照 ENS：3 位 640、4 位 160、5 位及以上 5（DAI / 年）
+  function yearPrice(s) { var n = chars(s); return cn(s) ? (n === 2 ? 50 : 5) : n === 3 ? 640 : n === 4 ? 160 : 5; }
+  // 付款币种：DAI，或 LGNS、AiLGNS（合约按 DEX 现价换算）
+  var TOK = { DAI: { a: DAI, d: 18 }, LGNS: { a: "0x4d1d808a081fdac440703b3765fc61f8028c06b8", d: 9 }, AiLGNS: { a: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", d: 18 } };
+  function tokSel(id) { return '<select id="' + id + '">' + Object.keys(TOK).map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</select>"; }
+  function fmt(x, d) { var v = Number(x) / Math.pow(10, d); return v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toPrecision(4); }
+  function quote(dai, k) { // dai 个 DAI 用 k 币要付多少（最小单位）
+    var wei = BigInt(dai) * 10n ** 18n;
+    if (k === "DAI") return Promise.resolve(wei);
+    return call(SEL.quote + u256(wei) + A.pad(TOK[k].a)).then(function (r) { return BigInt(r); });
+  }
+  // 授权并返回付款参数：最多多付 2%，防止付款时币价小幅变动导致失败
+  function prepay(dai, k, say) {
+    var t = TOK[k], max;
+    return quote(dai, k).then(function (q) {
+      max = q * 102n / 100n;
+      return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
+    }).then(function (a) {
+      if (BigInt(a) >= max) return;
+      return tx(t.a, SEL.approve + A.pad(NAMES) + u256(max), say, "🔒 第 1 步：授权域名合约收 " + fmt(max, t.d) + " " + k + "（只收这一次的钱，合约开源、无管理员）。请在钱包确认");
+    }).then(function () { return A.pad(t.a) + u256(max); });
+  }
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
   function str(s) { // ABI 编码 string 的尾部：长度 + 内容补齐 32 字节
     var h = Array.prototype.map.call(new TextEncoder().encode(s), function (x) { return x.toString(16).padStart(2, "0"); }).join("");
@@ -53,15 +75,9 @@
       .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }); })
       .then(function (h) { say("已提交，等待链上确认…"); return W.waitOn("anubis", h).then(function () { return h; }); });
   }
-  function register(label, years, say) {
-    var cost = BigInt(yearPrice(label) * years) * 10n ** 18n;
-    return connect().then(function () {
-      return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
-    }).then(function (r) {
-      if (BigInt(r) >= cost) return;
-      return tx(DAI, SEL.approve + A.pad(NAMES) + u256(cost), say, "🔒 第 1 步：授权域名合约收 " + yearPrice(label) * years + " DAI（只收这一次的钱，合约开源、无管理员）。请在钱包确认");
-    }).then(function () {
-      var data = SEL.register + u256(0x60) + A.pad(account) + u256(years) + str(label);
+  function register(label, years, k, say) {
+    return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
+      var data = SEL.register + u256(0xa0) + A.pad(account) + u256(years) + p + str(label);
       return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + " 给你自己的地址。请在钱包确认");
     });
   }
@@ -77,8 +93,10 @@
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
-      '<div class="nm-price"><div><b>3 个字</b><span>640 DAI</span></div><div><b>4 个字</b><span>160 DAI</span></div><div><b>5 个字及以上</b><span>5 DAI</span></div></div>' +
-      '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -，最少 3 个字（一个汉字算 1 个）</li><li>一次买 1–10 年；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
+      '<p class="nm-pt">英文（照抄 ENS）</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span></div><div><b>4 位</b><span>160 DAI</span></div><div><b>5 位及以上</b><span>5 DAI</span></div></div>' +
+      '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span></div><div><b>3 个字及以上</b><span>5 DAI</span></div></div>' +
+      '<p class="muted">可以用 DAI、LGNS、AiLGNS 付（Anubis 链，按 DEX 现价换算）</p>' +
+      '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div><div id="nm-mk"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 反查：这个地址叫什么</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="0x 地址" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
@@ -101,8 +119,8 @@
 
     function show(v) {
       if (!v) { out.innerHTML = ""; return; }
-      if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-，最少 3 个字、最多 32 个字，不能以 - 开头或结尾</p>'; return; }
-      var buy = '<div class="nm-buy"><label>买几年 <select id="nm-y">' + [1, 2, 3, 5, 10].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + '</select></label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
+      if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-；英文最少 3 位，中文最少 2 个字，最多 32 个字，不能以 - 开头或结尾</p>'; return; }
+      var buy = '<div class="nm-buy"><label>买几年 <select id="nm-y">' + [1, 2, 3, 5, 10, 100].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + '</select></label><label>付款 ' + tokSel("nm-k") + '</label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
         '<button type="button" class="nm-go" id="nm-go">注册 ' + esc(v) + "." + TLD + "</button><p class=\"muted nm-st\" id=\"nm-st\"></p>";
       if (!NAMES) {
         out.innerHTML = '<p class="nm-ok"><b>' + esc(v) + "." + TLD + '</b> 名字合规，' + yearPrice(v) + " DAI / 年</p>" + buy;
@@ -115,13 +133,12 @@
         var mine = account && r.owner === account, now = Date.now() / 1000;
         out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<div class="nm-act"><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
+          '<div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-pri">设为我的主名字</button><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
         document.getElementById("nm-renew").onclick = function () {
-          var cost = BigInt(yearPrice(v)) * 10n ** 18n;
-          connect().then(function () { return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]); })
-            .then(function (a) { if (BigInt(a) < cost) return tx(DAI, SEL.approve + A.pad(NAMES) + u256(cost), say, "🔒 第 1 步：授权域名合约收 " + yearPrice(v) + " DAI。请在钱包确认"); })
-            .then(function () { return tx(NAMES, SEL.renew + u256(0x40) + u256(1) + str(v), say, "🔒 第 2 步：续费 1 年。请在钱包确认"); })
+          var k = document.getElementById("nm-rk").value;
+          connect().then(function () { return prepay(yearPrice(v), k, say); })
+            .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(1) + p + str(v), say, "🔒 第 2 步：续费 1 年。请在钱包确认"); })
             .then(function () { say("✅ 续费成功"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
         if (!mine) return;
@@ -154,12 +171,18 @@
     }
     function bindBuy(v, preview) {
       var y = document.getElementById("nm-y"), st = document.getElementById("nm-st");
-      y.onchange = function () { document.getElementById("nm-cost").textContent = yearPrice(v) * y.value + " DAI"; };
+      var kk = document.getElementById("nm-k"), cost = document.getElementById("nm-cost");
+      y.onchange = kk.onchange = function () { // 换年数或币种：显示要付多少个币
+        var dai = yearPrice(v) * y.value, k = kk.value;
+        cost.textContent = dai + " DAI";
+        if (k === "DAI" || preview) return;
+        quote(dai, k).then(function (q) { if (kk.value === k) cost.textContent = "≈ " + fmt(q, TOK[k].d) + " " + k; }, function () { cost.textContent = dai + " DAI"; });
+      };
       document.getElementById("nm-go").onclick = function () {
         if (preview) { st.textContent = "⏳ 合约还没上线，这里是预览"; return; }
         var b = this;
         b.disabled = true;
-        register(v, Number(y.value), function (t) { st.textContent = t; }).then(function () {
+        register(v, Number(y.value), kk.value, function (t) { st.textContent = t; }).then(function () {
           st.textContent = "";
           out.innerHTML = '<p class="nm-ok">✅ 注册成功！<b>' + esc(v) + "." + TLD + "</b> 现在指向你的地址</p><p class=\"muted\">再点一次搜索可以「设为我的主名字」，别人查你的地址就会显示这个名字。</p>";
         }, function (e) { b.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), b); });
