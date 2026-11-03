@@ -1667,3 +1667,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-hint{margin:10px 0 6px;padding:8px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-weight:600;font-size:14px}
 @keyframes nmFlash{0%,100%{box-shadow:0 0 0 0 rgba(112,39,217,0)}50%{box-shadow:0 0 0 4px rgba(112,39,217,.35)}}
 .nm-flash{animation:nmFlash .6s ease 3}
+
+/* 最近被抢注：默认 3 个，展开看全部 */
+.gc-recent:not(.open) span:nth-of-type(n+4){display:none}
+.gc-more{padding:3px 10px;border-radius:999px;border:1px dashed var(--soft-line);background:transparent;color:var(--purple-ink);font-size:12px;font-weight:600;cursor:pointer}

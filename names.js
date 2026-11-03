@@ -85,6 +85,14 @@
     return new TextDecoder().decode(new Uint8Array((h.match(/../g) || []).map(function (x) { return parseInt(x, 16); })));
   }
   var infoCache = {};
+  // 最近被抢注：默认只露 3 个，点「展开」才显示全部；卡片 15 秒重画一次，所以状态放外面
+  var gcOpen = false;
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest(".gc-more"); if (!b) return;
+    gcOpen = !gcOpen;
+    b.parentNode.classList.toggle("open", gcOpen);
+    b.textContent = gcOpen ? "收起 ▴" : "展开全部 " + b.parentNode.querySelectorAll("span").length + " 个 ▾";
+  });
   function info(label) { // 能否注册、指向谁、主人、到期时间（同一个名字 20 秒内不重复查链）
     var key = TLD + ":" + label, c = infoCache[key];
     if (c && Date.now() - c.t < 20000) return c.p;
@@ -445,7 +453,8 @@
         (tier ? '<p class="gc-hot">🏅 <b>' + tier[0] + "</b>（编号越小越稀有）只剩 <b>" + (tier[1] - n) + "</b> 个，抢完就只能拿更大的号</p>" : "") +
         (changed ? '<p class="gc-flash">⚡ 刚刚又有 <b>' + (n - gcLast) + "</b> 个创世域名被抢注，现在只剩 <b>" + left.toLocaleString() + "</b> 个</p>" : "") +
         '<ul class="gc-pts"><li>🔥 <b>限量 1 万，售完永久没有</b>：合约写死，谁都加不了</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序刻在区块链上，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
-        (d.recent.length ? '<div class="gc-recent"><small>最近被抢注：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") + "</div>" : "") +
+        (d.recent.length ? '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>最近被抢注：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") +
+          (d.recent.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + d.recent.length + " 个 ▾") + "</button>" : "") + "</div>" : "") +
         '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>";
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); i.classList.remove("nm-flash"); void i.offsetWidth; i.classList.add("nm-flash"); } };
       gcLast = n;
