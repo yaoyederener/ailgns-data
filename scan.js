@@ -77,7 +77,9 @@
       owned = Promise.all(["ailgns", "lgns"].map(function (t) {
         return viaProxy("/api?module=logs&action=getLogs&fromBlock=18161690&toBlock=latest&address=" + NAMES[t] + "&topic0=" + T_XFER).then(function (d) {
           var cur = {};
-          (d.result || []).forEach(function (l) { cur[l.topics[3]] = { to: "0x" + l.topics[2].slice(26), b: parseInt(l.blockNumber, 16) }; });
+          // 挂在域名市场里的名字（转进托管合约），仍然算挂单人的
+          var ESC = { "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e": 1, "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d": 1 };
+          (d.result || []).forEach(function (l) { var to = "0x" + l.topics[2].slice(26), from = "0x" + l.topics[1].slice(26); cur[l.topics[3]] = { to: ESC[to] ? from : to, b: parseInt(l.blockNumber, 16) }; });
           return cur;
         });
       })).then(function (x) {
