@@ -280,10 +280,10 @@
         if (!list.length) { o.innerHTML = '<p class="muted">这个地址名下还没有域名。刚注册的等 10 秒再查；挂在 OTC 市场里的名字暂时在市场合约里，不显示在这里。</p>'; return; }
         var g = list.filter(function (x) { return x.no; }).length;
         o.innerHTML = '<p class="nm-my-sum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
-          var full = esc(x.label) + "." + x.t;
+          var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
           var href = "#/names/" + encodeURIComponent(x.label + "." + x.t);
           return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
-            (x.no ? genEmblem(80) : '<span class="nm-my-dot">🌐</span>') +
+            (x.no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
             '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>" +
             (self ? '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button>' : "") + "</div>";
         }).join("");
@@ -690,6 +690,7 @@
   // 某个地址名下现在有哪些名字（两个后缀）：读 Transfer 记录找候选，再用 ownerOf 确认还在他手里
   function ownedList(a) {
     var pad = "0x" + A.pad(a), tlds = Object.keys(CONTRACTS);
+    tlds.forEach(function (t) { delete genCache[t]; }); // 创世编号重新读（增量，很快），刚注册的名字也能拿到编号
     return Promise.all(tlds.map(function (t) {
       var C = CONTRACTS[t];
       function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
