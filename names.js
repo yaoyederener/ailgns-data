@@ -96,7 +96,7 @@
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="muted">把一长串 0x 地址换成好记的名字：转账、收款报 <b>xxx.ailgns</b> 就行。规则照抄以太坊 ENS（.eth）。</p>' +
-      '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>链上查询</li><li data-s="4"><b>4</b>OTC 出售</li></ol>' +
+      '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="输入想要的名字，中文英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div></section>' +
       '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">和 ENS 一样按长度</span></div>' +
@@ -175,20 +175,34 @@
         };
       }, function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
-    // 傻瓜式三步：① 注册 ② 设为主名字 ③ 链上查询。自己的名字没设主名字就给大按钮去设，设好了就给大按钮去查
+    // 傻瓜式三步：① 注册 ② 设为主名字 ③ OTC 出售（站长要求去掉「链上查询」）。每步做完都能「继续注册下一个」，并显示我注册了几个、排第几
+    function again() { // 回到第 1 步，接着注册下一个
+      inp.value = ""; out.innerHTML = ""; stepTo(1);
+      history.replaceState(null, "", "#/names");
+      inp.scrollIntoView({ behavior: "smooth", block: "center" }); inp.focus();
+    }
+    function mine(box) { // 我注册了几个、排第几（.ailgns 和 .lgns 合起来算，只算付费注册）
+      if (!account) return;
+      regStats(account).then(function (x) {
+        if (!x.n) return;
+        box.innerHTML = '<div class="nm-mine">🏅 你已注册 <b>' + x.n + "</b> 个域名，排第 <b>" + x.rank + "</b> 名（共 " + x.total + " 人）" +
+          (x.rank > 1 ? "，再注册 <b>" + x.gap + "</b> 个就超过第 " + (x.rank - 1) + " 名" : "，👑 你是注册王！") + "</div>";
+      }, function () {});
+    }
     function guide(box, v, r) {
       var full = v + "." + TLD;
       call(SEL.nameOf + A.pad(account)).then(function (x) { return decStr(x) === v; }, function () { return false; }).then(function (done) {
         if (done) {
           stepTo(3);
-          box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字</p>' +
-            '<a class="nm-go nm-golink" href="#/scan/' + encodeURIComponent(full) + '">第 3 步：去链上查询 →</a>' +
-            '<p class="muted">在浏览器里，你的地址会直接显示成 <b>' + esc(full) + "</b>；在 OTC 挂单时，挂单人也显示这个名字。</p>" +
-            (OTC[TLD] ? '<button type="button" class="nm-go nm-go4" id="nm-go4">第 4 步：挂到 OTC 市场出售</button><p class="muted">想转手赚钱就挂单：你定价格，买家付 DAI 后名字自动过户，你拿完整标价（买家另付 3% 手续费）。不卖就不用做这一步。</p>' : "") + "</div>";
+          box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字，你的地址在本站会显示成这个名字</p><div id="nm-mine"></div>' +
+            (OTC[TLD] ? '<button type="button" class="nm-go nm-go4" id="nm-go4">第 3 步：挂到 OTC 市场出售</button><p class="muted">想转手赚钱就挂单：你定价格，买家付 DAI 后名字自动过户，你拿完整标价（买家另付 3% 手续费）。不卖就不用做这一步。</p>' : "") +
+            '<button type="button" class="nm-go nm-again" id="nm-again">➕ 继续注册下一个</button></div>';
+          mine(document.getElementById("nm-mine"));
+          document.getElementById("nm-again").onclick = again;
           var g4 = document.getElementById("nm-go4");
           if (g4) g4.onclick = function () {
             var sell = document.getElementById("nm-sell");
-            if (sell) { stepTo(4); sell.click(); } else show(v); // 刚注册完的页面没有挂单按钮，先刷新成完整页面
+            if (sell) sell.click(); else show(v); // 刚注册完的页面没有挂单按钮，先刷新成完整页面
           };
           return;
         }
@@ -197,8 +211,11 @@
           box.innerHTML = '<div class="nm-guide"><p class="muted">第 2 步：这个名字现在指向别的地址，要先点下面「改指向地址」改成你自己的地址，才能设成主名字。</p></div>';
           return;
         }
-        box.innerHTML = '<div class="nm-guide"><button type="button" class="nm-go" id="nm-pri">第 2 步：设为我的主名字</button>' +
-          '<p class="muted">不花钱，只付一点 Gas。设好后，别人在浏览器里看到你的地址，就显示 <b>' + esc(full) + '</b>。</p><p class="muted nm-st" id="nm-pst"></p></div>';
+        box.innerHTML = '<div class="nm-guide"><div id="nm-mine"></div><button type="button" class="nm-go" id="nm-pri">第 2 步：设为我的主名字</button>' +
+          '<p class="muted">不花钱，只付一点 Gas。设好后，别人在本站看到你的地址，就显示 <b>' + esc(full) + '</b>。一个地址只有一个主名字，已经有主名字的可以跳过。</p><p class="muted nm-st" id="nm-pst"></p>' +
+          '<button type="button" class="nm-skip" id="nm-again">跳过，继续注册下一个 →</button></div>';
+        mine(document.getElementById("nm-mine"));
+        document.getElementById("nm-again").onclick = again;
         var b = document.getElementById("nm-pri"), pst = document.getElementById("nm-pst");
         b.onclick = function () {
           b.disabled = true;
@@ -262,6 +279,15 @@
         try { localStorage.setItem(key, JSON.stringify(c)); } catch (e) { /* 存不下就下次重读 */ }
         return c.l;
       });
+    });
+  }
+  // 注册排名：.ailgns 和 .lgns 两个合约的付费注册合起来，按注册个数排（官方保留名不算）
+  function regStats(me) {
+    return Promise.all(["ailgns", "lgns"].map(function (t) { return logs(CONTRACTS[t], T_REG, START[t]); })).then(function (all) {
+      var c = {};
+      all.forEach(function (l) { l.forEach(function (x) { if (BigInt("0x" + x[2].slice(66, 130)) > 0n) { var o = "0x" + x[1][2].slice(26); c[o] = (c[o] || 0) + 1; } }); });
+      var n = c[me] || 0, above = Object.keys(c).filter(function (a) { return c[a] > n; }).map(function (a) { return c[a]; });
+      return { n: n, rank: above.length + 1, total: Object.keys(c).length, gap: above.length ? Math.min.apply(null, above) - n + 1 : 0 };
     });
   }
   // 创世编号：按链上顺序，每个名字第一次付费注册排一个号（官方保留名不算），前 1 万个

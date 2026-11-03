@@ -1546,3 +1546,6 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .fm-items button, .fm-plot, .fm-hen, .fm-seeds button, .fm-packs button { white-space: normal; min-width: 0; }
 .fm-items em { display: block; line-height: 1.35; }
 @media (max-width: 600px) { .fm-items { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+.nm-mine { margin: 8px 0 12px; padding: 10px 14px; border-radius: 12px; background: linear-gradient(90deg, #fef3c7, #fce7f3); color: #7c2d12; font-size: 14.5px; }
+.nm-again { background: linear-gradient(110deg, #22c55e, #16a34a) !important; }
+.nm-skip { display: block; margin: 10px auto 0; padding: 6px 14px; background: none; border: 0; color: var(--purple-ink); font-weight: 600; text-decoration: underline; }
