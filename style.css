@@ -1693,3 +1693,5 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
   .gc-hot, .gc-flash { font-size: 12.5px; margin: 8px 0 0; }
   .gc-recent { margin-top: 10px; }
 }
+
+@media (max-width: 640px) { #nm-genc .gc .gc-num { display: grid; grid-template-columns: 1fr 1.3fr; } }
