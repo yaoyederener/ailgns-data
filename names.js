@@ -802,7 +802,7 @@
           : '<button type="button" class="act-btn btn-buy" data-o="' + it.id + '" data-m="0" data-p="' + it.price + '">买入</button>';
         return '<tr><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + TLD + '</b> <i class="nm-gb" data-g="' + it.tid + '"></i></td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
-          '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : A.short(it.maker)) + "</td></tr>";
+          '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) + "</td></tr>";
       }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-mst"></p>';
       genesis().then(function (g) { box.querySelectorAll("[data-g]").forEach(function (e) { var k = g[e.getAttribute("data-g")]; if (k) e.textContent = "🌟 创世 #" + k; }); }, function () {});
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };

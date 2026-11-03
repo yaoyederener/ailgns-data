@@ -69,6 +69,40 @@
   }
   // 地址 → 名字：优先显示 .ailgns，没设 .ailgns 才显示 .lgns；同一页里查过的记住
   var nameCache = {};
+  // 没设主名字的地址：用他名下的域名代替钱包地址（读 Transfer 记录得出每个名字现在归谁，5 分钟刷新一次）
+  var T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", owned = null, ownedAt = 0;
+  function ownedMap() {
+    if (!owned || Date.now() - ownedAt > 300000) {
+      ownedAt = Date.now();
+      owned = Promise.all(["ailgns", "lgns"].map(function (t) {
+        return viaProxy("/api?module=logs&action=getLogs&fromBlock=18161690&toBlock=latest&address=" + NAMES[t] + "&topic0=" + T_XFER).then(function (d) {
+          var cur = {};
+          (d.result || []).forEach(function (l) { cur[l.topics[3]] = { to: "0x" + l.topics[2].slice(26), b: parseInt(l.blockNumber, 16) }; });
+          return cur;
+        });
+      })).then(function (x) {
+        var by = {};
+        ["ailgns", "lgns"].forEach(function (t, i) {
+          Object.keys(x[i]).forEach(function (id) { var o = x[i][id]; (by[o.to] = by[o.to] || []).push({ t: t, id: id, b: o.b }); });
+        });
+        // 优先 .ailgns，再按拿到的先后（最早的那个）
+        Object.keys(by).forEach(function (a) { by[a].sort(function (p, q) { return (p.t === "ailgns" ? 0 : 1) - (q.t === "ailgns" ? 0 : 1) || p.b - q.b; }); });
+        return by;
+      }, function () { return {}; });
+    }
+    return owned;
+  }
+  function anyName(a) {
+    return ownedMap().then(function (by) {
+      var list = (by[a] || []).slice(0, 5), HN = A.hiddenNames || {};
+      return list.reduce(function (pr, x) {
+        return pr.then(function (got) {
+          if (got) return got;
+          return call(NAMES[x.t], "0x36bf1f0c" + x.id.slice(2)).then(function (r) { var n = decStr(r); return n && !HN[n + "." + x.t] ? n + "." + x.t : ""; }, function () { return ""; });
+        });
+      }, Promise.resolve(""));
+    });
+  }
   function nameOf(a) {
     a = String(a).toLowerCase();
     if (A.hidden && A.hidden[a]) return Promise.resolve(""); // 匿名持有人：不把地址换成名字
@@ -77,7 +111,7 @@
       return Promise.all(["ailgns", "lgns"].map(function (t) {
         return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n && !(A.hiddenNames || {})[n + "." + t] ? n + "." + t : ""; }, function () { return ""; });
       })).then(function (x) { return x[0] || x[1]; });
-    });
+    }).then(function (n) { return n || anyName(a); }); // 设了主名字用主名字；没设就用他名下的域名
     return nameCache[a];
   }
   // 页面里所有 data-a 的地址，查到名字就换成「名字 + 短地址」
