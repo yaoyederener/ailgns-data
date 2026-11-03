@@ -748,12 +748,17 @@
       };
 
       // 撤单 / 取回
+      // 进度就写在撤单按钮下面（以前写在页面最上面的挂单表单那里，页面会跳走，客户以为没反应）；撤单过程中不自动刷新页面，不然按钮和提示会被刷掉
       A.app.querySelectorAll("[data-cancel]").forEach(function (b) {
         b.onclick = function () {
-          b.disabled = true;
+          var note = b.parentElement.querySelector(".cx-st");
+          if (!note) { note = document.createElement("p"); note.className = "note cx-st"; b.parentElement.appendChild(note); }
+          function here(t, bad) { note.className = "note cx-st" + (bad ? " down" : ""); note.textContent = t; }
+          b.disabled = true; sweeping = true;
+          here("正在连接钱包…");
           ready().then(function () {
-            return send(OTC, SEL.cancel + u256(b.getAttribute("data-cancel")), say, "撤单");
-          }).then(function () { say("已撤单，币已退回你的钱包"); setTimeout(reload, 1200); }, function (e) { say(niceError(e), true); b.disabled = false; });
+            return send(OTC, SEL.cancel + u256(b.getAttribute("data-cancel")), here, "撤单");
+          }).then(function () { sweeping = false; here("✅ 已撤单，币已退回你的钱包"); setTimeout(reload, 1500); }, function (e) { sweeping = false; here(niceError(e), true); b.disabled = false; });
         };
       });
 

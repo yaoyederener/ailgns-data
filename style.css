@@ -1275,3 +1275,5 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sweep .sw-tbl th:first-child, .sweep .sw-tbl td:first-child { text-align: left; }
 .sweep .sw-tbl tr.on td { background: var(--soft); color: var(--purple-ink); }
 @media (max-width: 600px) { .sweep .sw-side button { font-size: 13px; } .sweep .sw-avg b { font-size: 24px; } .sweep .sw-tbl { font-size: 12px; } .sweep .sw-tbl th, .sweep .sw-tbl td { padding: 6px 4px; } }
+
+.cx-st { margin: 6px 0 0; font-size: 13.5px; font-weight: 600; text-align: center; } /* 撤单进度，显示在撤单按钮正下方 */
