@@ -521,9 +521,11 @@
         };
       });
       var gm = app.querySelector("[data-gomine]");
-      if (gm) gm.onclick = function () { var x = document.getElementById("otc-mine"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      // 跳到某一块：减去顶部固定导航栏的高度，不然手机上标题和买卖切换会被导航栏挡住
+      function jump(elId) { var x = document.getElementById(elId), top = document.querySelector(".top"); if (x) window.scrollTo({ top: x.getBoundingClientRect().top + window.pageYOffset - (top ? top.offsetHeight : 0) - 8, behavior: "smooth" }); }
+      if (gm) gm.onclick = function () { jump("otc-mine"); };
       var gs = app.querySelector("[data-gosweep]");
-      if (gs) gs.onclick = function () { var x = document.getElementById("otc-sweep"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      if (gs) gs.onclick = function () { jump("otc-sweep"); };
     }
 
     // 我的钱包：地址 + AiLGNS / DAI 余额；连接后随时刷新
