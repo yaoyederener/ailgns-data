@@ -863,7 +863,7 @@
         go.disabled = !p.steps.length;
         if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
-        if (!sweeping) go.textContent = buy ? "👉 点击确认付款 " + show(p.dai, 2) + " DAI，买入 " + tShow(net) + " " + SYM : "👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "，收到 " + show(net, 2) + " DAI";
+        if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI</small>"; // 分两行：付多少一行，得多少一行
         var eff = buy ? num(p.dai) / tNum(net) : num(net) / tNum(p.tok); // 算上 1% 手续费后每枚实际成本 / 到手
         var worst = p.steps.length ? priceOf(p.steps[p.steps.length - 1].o) : 0;
         out.innerHTML = balLine(m) + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + "</small></div>" + '<div class="sw-avg"><span>平均单价</span><b class="num">' + A.fmt(p.avg, PD + 2) + '</b><small>DAI / 枚 ' + vs(p.avg) + "</small></div>" +
