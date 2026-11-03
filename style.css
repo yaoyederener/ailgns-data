@@ -1784,3 +1784,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-sp-mine{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
 .nm-sp-mine button{padding:5px 12px;border-radius:999px;border:1px solid var(--soft-line);background:var(--panel);color:var(--purple-ink);font-size:13px;font-weight:600;box-shadow:none}
 .nm-sp-mine button.on{background:var(--grad);color:#fff;border-color:transparent}
+
+/* 求购意向：余额验证标记 */
+.nm-wok { font-size: 12px; color: var(--green, #2f9e6b); white-space: nowrap; }
+.nm-wbad { font-size: 12px; color: var(--muted, #8a84a3); white-space: nowrap; }
+tr.nm-wdim td { opacity: .5; }

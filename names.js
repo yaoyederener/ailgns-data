@@ -222,7 +222,7 @@
     // 每一步说清楚「扣不扣钱」：客户以为确认几次就付了几次钱
     if (Date.now() - tipAt > 180000) { tipN = 0; tipTotal = 0; } // 别的操作（挂单、设主名字）重新从第 1 次数
     tipAt = Date.now(); tipN++;
-    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
+    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /^签名$/.test(t) ? '这一步只是<b class="nm-free">签名，不扣钱、不花 Gas</b>，证明是你本人出价' : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
     el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
       '<p class="nm-big-step">第 <b>' + tipN + "</b> 次确认" + (tipTotal ? "（最多 " + tipTotal + " 次）" : "") + "</p>" + (kind ? '<p class="nm-big-kind">' + kind + "</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
   }
@@ -803,31 +803,50 @@
   // 📢 求购意向（不上链、不锁钱）：买家留「想要哪个名字、出多少」，出价高的排前面；名字主人按这个价挂单，买家再去买入
   function wantPanel() {
     var box = document.getElementById("nm-wp"); if (!box) return;
-    box.innerHTML = '<p class="note">想要的名字已经被别人注册了？在这里出个价，名字主人看到会按你的价格挂单。<b>不用连钱包，也不扣钱</b>，挂单后你再点「买入」成交。</p>' +
+    box.innerHTML = '<p class="note">想要的名字已经被别人注册了？在这里出个价，名字主人看到会按你的价格挂单，你再点「买入」成交。<br>发布时要<b>连钱包签个名（不扣钱、不花 Gas）</b>，钱包里 DAI 要够「出价 + 3% 手续费」，这样大家知道你是真心要买。钱一直在你自己钱包里，随时可以撤单。</p>' +
       '<div class="form-grid"><label>想要的域名<input id="nm-w-n" placeholder="例如 发财.ailgns" autocomplete="off" autocapitalize="none" spellcheck="false"></label>' +
       '<label>出价（DAI）<input id="nm-w-p" inputmode="decimal" placeholder="例如 500"></label>' +
-      '<label>你的钱包地址（选填，显示成你的域名）<input id="nm-w-a" placeholder="0x…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + (account || "") + '"></label></div>' +
-      '<button id="nm-w-go" style="padding:12px 22px;margin-top:10px">📢 发布求购意向</button><p class="note" id="nm-w-st"></p><div id="nm-w-list"><p class="muted">读取中…</p></div>';
+      '</div><button id="nm-w-go" style="padding:12px 22px;margin-top:10px">📢 连钱包签名，发布求购</button><p class="note" id="nm-w-st"></p><div id="nm-w-list"><p class="muted">读取中…</p></div>';
     var go = document.getElementById("nm-w-go"), wst = document.getElementById("nm-w-st");
     go.onclick = function () {
-      var raw = document.getElementById("nm-w-n").value.trim().toLowerCase(), p = Number(document.getElementById("nm-w-p").value.trim()), by = document.getElementById("nm-w-a").value.trim().toLowerCase();
+      var raw = document.getElementById("nm-w-n").value.trim().toLowerCase(), p = Math.round(Number(document.getElementById("nm-w-p").value.trim()) * 100) / 100, day = bjDay();
       if (raw && !/\.(ailgns|lgns)$/.test(raw)) raw += ".ailgns";
       var m = raw.match(/^(.+)\.(ailgns|lgns)$/);
       if (!m) { A.errTip("请填想要的域名，例如 发财.ailgns", go); return; }
       if (!(p >= 1)) { A.errTip("出价至少 1 DAI", go); return; }
-      if (by && !/^0x[0-9a-f]{40}$/.test(by)) { A.errTip("钱包地址格式不对（可以不填）", go); return; }
       go.disabled = true; wst.textContent = "检查这个名字…";
       W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[m[2]], data: SEL.available + "0000000000000000000000000000000000000000000000000000000000000020" + str(m[1]) }, "latest"]).then(function (r) {
         if (BigInt("0x" + word(r, 0)) === 1n) { go.disabled = false; wst.innerHTML = '🎉 <b>' + esc(raw) + '</b> 还没人注册，不用求购！<a href="#/names/' + encodeURIComponent(raw) + '">直接去注册 →</a>'; return; }
-        return fetch("/api/name-want", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: raw, price: p, by: by }) }).then(function (x) { return x.json(); }).then(function (j) {
+        wst.textContent = "请在钱包确认连接…";
+        return (eth ? Promise.resolve() : connect()).then(function () {
+          wst.textContent = "检查钱包里的 DAI…";
+          return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: "0x70a08231" + account.slice(2).padStart(64, "0") }, "latest"]);
+        }).then(function (r) {
+          var have = Number(BigInt(r) / 10n ** 14n) / 1e4, want = Math.ceil(p * 1.03 * 100) / 100;
+          if (have < want) throw new Error("钱包里 DAI 不够：出价 " + p + " + 3% 手续费 = " + want + " DAI，你现在只有 " + have + " DAI（活期/质押里的不算）");
+          bigTip("签名");
+          wst.textContent = "请在钱包里签名（只是签名，不扣钱、不花 Gas）…";
+          return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(wantText(raw, p, account, day)), account] });
+        }).then(function (sig) {
+          bigTip(""); wst.textContent = "正在发布…";
+          return fetch("/api/name-want", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: raw, price: p, by: account, day: day, sig: sig }) }).then(function (x) { return x.json(); });
+        }).then(function (j) {
           go.disabled = false;
-          if (j.error) { wst.textContent = ""; A.errTip(j.error, go); return; }
+          if (j.error) throw new Error(j.error);
           wst.textContent = "✅ 已发布，名字主人看到会按你的价格挂单。记得常回来看看";
-          drawWants(j.list);
+          loadWants();
         });
-      }).catch(function (e) { go.disabled = false; wst.textContent = ""; A.errTip((e && e.message) || "发布失败，请稍后再试", go); });
+      }).catch(function (e) { bigTip(""); go.disabled = false; wst.textContent = ""; A.errTip((e && e.message) || "发布失败，请稍后再试", go); });
     };
-    fetch("/api/name-want", { cache: "no-store" }).then(function (x) { return x.json(); }).then(function (j) { drawWants(j.list || []); }, function () { document.getElementById("nm-w-list").innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
+    loadWants();
+  }
+  // 签名文字必须和 functions/api/name-want.js 里一字不差
+  function wantText(name, price, by, day) { return "AiLGNS 域名求购\n我想用 " + price + " DAI 买 " + name + "\n出价地址：" + by + "\n日期：" + day; }
+  function cancelText(id, by, day) { return "AiLGNS 域名求购撤单\n撤销求购 " + id + "\n出价地址：" + by + "\n日期：" + day; }
+  function bjDay() { return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); }
+  function utf8hex(str) { var b = unescape(encodeURIComponent(str)), h = "0x"; for (var i = 0; i < b.length; i++) h += b.charCodeAt(i).toString(16).padStart(2, "0"); return h; }
+  function loadWants() {
+    fetch("/api/name-want", { cache: "no-store" }).then(function (x) { return x.json(); }).then(function (j) { drawWants(j.list || []); }, function () { var el = document.getElementById("nm-w-list"); if (el) el.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
   }
   function drawWants(list) {
     var el = document.getElementById("nm-w-list"); if (!el) return;
@@ -837,10 +856,11 @@
       var sale = {}; ls.forEach(function (x) { sale[x.label + "." + x.t] = x; });
       var now = Date.now();
       el.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">想要的域名</th><th>出价 DAI</th><th class="l">出价人</th><th>时间</th></tr></thead><tbody>' + list.map(function (w, i) {
-        var it = sale[w.name], act = it ? '<button type="button" class="act-btn btn-buy" data-wb="' + i + '">已挂单 ' + Number(it.price / 10n ** 12n) / 1e6 + " · 买入</button>"
+        var it = sale[w.name], act = account && w.by === account ? '<button type="button" class="act-btn" data-wc="' + i + '">撤单</button>'
+          : it ? '<button type="button" class="act-btn btn-buy" data-wb="' + i + '">已挂单 ' + Number(it.price / 10n ** 12n) / 1e6 + " · 买入</button>"
           : '<button type="button" class="act-btn btn-sell" data-ws="' + i + '">我是主人，按这个价卖</button>';
-        return '<tr><td class="act">' + act + '</td><td data-l="想要的域名" class="l"><b>' + esc(w.name) + '</b></td><td data-l="出价 DAI" class="price"><b>' + w.price + '</b></td>' +
-          '<td data-l="出价人" class="l mono">' + (w.by ? (A.nameTag ? A.nameTag(w.by) : A.short(w.by)) : "匿名") + '</td><td data-l="时间">' + ago((now - w.at) / 1000) + "</td></tr>";
+        return '<tr' + (w.ok === false ? ' class="nm-wdim"' : "") + '><td class="act">' + act + '</td><td data-l="想要的域名" class="l"><b>' + esc(w.name) + '</b></td><td data-l="出价 DAI" class="price"><b>' + w.price + '</b></td>' +
+          '<td data-l="出价人" class="l mono">' + (A.nameTag ? A.nameTag(w.by) : A.short(w.by)) + (w.ok === false ? ' <span class="nm-wbad">余额不足</span>' : ' <span class="nm-wok">✅ 余额已验证</span>') + '</td><td data-l="时间">' + ago((now - w.at) / 1000) + "</td></tr>";
       }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-w-st2"></p>';
       var st2 = document.getElementById("nm-w-st2");
       el.querySelectorAll("button[data-ws]").forEach(function (b) {
@@ -848,6 +868,18 @@
           var w = list[Number(b.getAttribute("data-ws"))];
           try { sessionStorage.setItem("nm:sellpick", w.name); sessionStorage.setItem("nm:sellprice", String(w.price)); } catch (x) { /* 忽略 */ }
           var sg = document.getElementById("nm-sellgo"); sg.click(); sg.scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+      });
+      el.querySelectorAll("button[data-wc]").forEach(function (b) {
+        b.onclick = function () {
+          var w = list[Number(b.getAttribute("data-wc"))], day = bjDay();
+          b.disabled = true; st2.textContent = "请在钱包里签名撤单（不扣钱、不花 Gas）…";
+          (eth ? Promise.resolve() : connect()).then(function () {
+            if (account !== w.by) throw new Error("请切换到出价的钱包 " + A.short(w.by));
+            return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(cancelText(w.id, account, day)), account] });
+          }).then(function (sig) {
+            return fetch("/api/name-want", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel", id: w.id, by: account, day: day, sig: sig }) }).then(function (x) { return x.json(); });
+          }).then(function (j) { if (j.error) throw new Error(j.error); st2.textContent = "✅ 已撤单"; loadWants(); }, function (e) { b.disabled = false; st2.textContent = ""; A.errTip(e.message || String(e), b); });
         };
       });
       el.querySelectorAll("button[data-wb]").forEach(function (b) {
