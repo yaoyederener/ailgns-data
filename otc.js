@@ -10,7 +10,7 @@
   // AiLGNS 官方 DEX 卖出扣 3%；LGNS 卖进池子扣税：Polygon 固定 5%，Anubis 动态（常见 50% 左右，页面打开时从 /api/sell-tax 读链上实测值）
   var MARKETS = {
     ailgns: { sym: "AiLGNS", chain: "anubis", chainName: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", token: ANUBIS_AILGNS, dai: ANUBIS_DAI, dec: 18, pd: 2,
-      pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.967, dexBuy: 1.005, dexName: "官方 DEX", eg: [5, 800] },
+      pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.967, dexBuy: 1.005, dexName: "官方 DEX", eg: [5, 800], buyRef: 1.3 },
     lgns: { sym: "LGNS", chain: "anubis", chainName: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dai: ANUBIS_DAI, dec: 9, pd: 4,
       pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.4985, dexBuy: 1.005, dexName: " DEX", eg: [10000, 0.075], liveTax: true,
       dexNote: "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，常见 50% 左右（暂时没读到实测值，按 50% 算）。" },
@@ -819,10 +819,12 @@
     // buy=true：tok = 到手的币，dai = 付的 DAI；buy=false：tok = 卖出的币，dai = 到手的 DAI
     function pnlHtml(buy, tok, dai, mkt) {
       if (!mkt || !tok || !dai) return "";
-      var dex = buy ? tNum(tok) * mkt * DEX_BUY : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
+      // AiLGNS 不能直接从底池买，只能场外收，买入按场外行情算：DEX 价 + 30% 溢价（站长定的标准，buyRef）
+      var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
       if (!(d > 0) || !(dex > 0)) return "";
-      return '<div class="sw-pnl win"><span>✅ 赚了</span><b>+' + A.fmt(d, 2) + " DAI</b><em>" + (buy ? "比去 DEX 买便宜 " : "比在 DEX 卖多拿 ") + (d / dex * 100).toFixed(1) + "%</em>" +
-        "<small>同样" + (buy ? "买 " + tShow(tok) + " " + SYM + "，在 DEX 要付约 " : "卖 " + tShow(tok) + " " + SYM + "，在 DEX 只能拿约 ") + A.fmt(dex, 2) + " DAI（含 DEX 手续费" + (buy ? "" : "和卖出税") + "）</small></div>";
+      var refTxt = ref ? "场外行情（DEX 价 + " + Math.round((ref - 1) * 100) + "% 溢价）" : "";
+      return '<div class="sw-pnl win"><span>✅ 赚了</span><b>+' + A.fmt(d, 2) + " DAI</b><em>" + (buy ? (ref ? "比场外行情便宜 " : "比去 DEX 买便宜 ") : "比在 DEX 卖多拿 ") + (d / dex * 100).toFixed(1) + "%</em>" +
+        "<small>同样" + (buy ? "买 " + tShow(tok) + " " + SYM + "，" + (ref ? "按" + refTxt + "要付约 " : "在 DEX 要付约 ") : "卖 " + tShow(tok) + " " + SYM + "，在 DEX 只能拿约 ") + A.fmt(dex, 2) + " DAI" + (ref ? "" : "（含 DEX 手续费" + (buy ? "" : "和卖出税") + "）") + "</small></div>";
     }
     function bindSweep(sells, buys, mkt, reload) {
       var box = document.getElementById("otc-sweep");
