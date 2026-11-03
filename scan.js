@@ -142,7 +142,7 @@
     var q = decodeURIComponent(location.hash.split("/")[2] || "").trim();
     A.app.innerHTML = '<section class="card"><h2>🔎 AiLGNS 浏览器 <small class="muted">Anubis 链</small></h2>' +
       '<form class="nm-search" id="sc-f"><input id="sc-q" placeholder="搜域名 / 地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">搜索</button></form>' +
-      '<p class="muted sc-tip">例：加拿大局长.lgns · 0x 开头的地址 · 交易哈希。数据来自 Anubis 官方浏览器，每项都能点去官方核对。</p></section><div id="sc-out"></div>';
+      '<p class="muted sc-tip">例：xxx.ailgns · 0x 开头的地址 · 交易哈希。数据来自 Anubis 官方浏览器，每项都能点去官方核对。</p></section><div id="sc-out"></div>';
     document.getElementById("sc-f").onsubmit = function (e) {
       e.preventDefault();
       var v = document.getElementById("sc-q").value.trim();
