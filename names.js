@@ -178,12 +178,12 @@
       info(v).then(function (r) {
         if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
         var mine = account && r.owner === account, now = Date.now() / 1000;
-        var anon = !mine && (PROTECT[r.owner] || PROTECT[r.addr]); // 匿名持有人：不显示地址
+        var anon = !mine && (PROTECT[r.owner] || PROTECT[r.addr] || (A.hiddenNames || {})[v + "." + TLD]); // 匿名持有人：不显示地址、编号
         out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (anon ? "🔒 匿名" : r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (anon ? "🔒 匿名持有人" : r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
           '<p class="nm-gen" id="nm-gen"></p>' + (mine ? '<div id="nm-next"></div>' : anon ? "" : '<a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') + '<div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
-        if (!PROTECT[r.owner] || mine) genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {});
+        if (!anon) genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {});
         document.getElementById("nm-renew").onclick = function () {
           var k = document.getElementById("nm-rk").value;
           connect().then(function () { return prepay(yearPrice(v), k, say); })
@@ -363,13 +363,14 @@
     return logs(NAMES, T_REG, START[TLD]).then(function (l) {
       var seen = {}, list = [];
       l.forEach(function (x) { var id = x[1][1]; if (!seen[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && list.length < GENESIS) { seen[id] = 1; list.push(x); } });
-      var last = list.filter(function (x) { return !PROTECT["0x" + x[1][2].slice(26)]; }).slice(-6).reverse(), latestBlock = l.length ? l[l.length - 1][0] : 0;
+      var last = list.filter(function (x) { return !PROTECT["0x" + x[1][2].slice(26)]; }).slice(-10).reverse(), latestBlock = l.length ? l[l.length - 1][0] : 0;
       return Promise.all([W.rpcOn("anubis", "eth_getBlockByNumber", ["latest", false])].concat(last.map(function (x) { return bts(x[0]); }))).then(function (t) {
         var now = parseInt(t[0].timestamp, 16), head = parseInt(t[0].number, 16);
         // 近 24 小时：按最近一个注册的区块和现在的时间差估出每块秒数，再数 24 小时内的注册
         var spb = last.length && head > last[0][0] ? Math.max(0.5, (now - t[1]) / (head - last[0][0])) : 2;
         var from = head - Math.floor(86400 / spb), day = list.filter(function (x) { return x[0] >= from; }).length;
-        return { n: list.length, day: day, recent: last.map(function (x, i) { var nm = ""; try { nm = decStr(x[2]); } catch (e) { /* 忽略 */ } return { nm: nm, ago: now - t[i + 1], no: list.indexOf(x) + 1 }; }) };
+        return { n: list.length, day: day, recent: last.map(function (x, i) { var nm = ""; try { nm = decStr(x[2]); } catch (e) { /* 忽略 */ } return { nm: nm, ago: now - t[i + 1], no: list.indexOf(x) + 1 }; })
+          .filter(function (r) { return r.nm && !(A.hiddenNames || {})[r.nm + "." + TLD]; }) };
       });
     });
   }
@@ -391,7 +392,7 @@
         (tier ? '<p class="gc-hot">🏅 <b>' + tier[0] + "</b>（编号越小越稀有）只剩 <b>" + (tier[1] - n) + "</b> 个，抢完就只能拿更大的号</p>" : "") +
         (changed ? '<p class="gc-flash">⚡ 刚刚又有 <b>' + (n - gcLast) + "</b> 个创世域名被抢注，现在只剩 <b>" + left.toLocaleString() + "</b> 个</p>" : "") +
         '<ul class="gc-pts"><li>🔥 <b>限量 1 万，售完永久没有</b>：合约写死，谁都加不了</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序刻在区块链上，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
-        // 不列「最近被抢注」的名字（站长要求去掉）
+        (d.recent.length ? '<div class="gc-recent"><small>最近被抢注：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") + "</div>" : "") +
         '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>";
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); } };
       gcLast = n;

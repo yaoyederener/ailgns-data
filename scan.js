@@ -75,7 +75,7 @@
     if (!nameCache[a]) nameCache[a] = candidates().then(function (set) {
       if (set && !set[a]) return "";
       return Promise.all(["ailgns", "lgns"].map(function (t) {
-        return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n ? n + "." + t : ""; }, function () { return ""; });
+        return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n && !(A.hiddenNames || {})[n + "." + t] ? n + "." + t : ""; }, function () { return ""; });
       })).then(function (x) { return x[0] || x[1]; });
     });
     return nameCache[a];
@@ -165,7 +165,7 @@
     return Promise.all(tries.map(function (t) { return call(NAMES[t[1]], SEL.resolve + str(t[0])).then(function (r) { return { label: t[0], tld: t[1], a: "0x" + r.slice(26) }; }); })).then(function (rs) {
       var hit = rs.filter(function (r) { return r.a !== ZERO; })[0];
       if (!hit) { out.innerHTML = '<section class="card"><p class="nm-bad">没找到「' + esc(q) + '」：这个域名还没注册或已过期</p><p><a href="#/names/' + encodeURIComponent(m ? q : q + ".ailgns") + '">去注册 →</a></p></section>'; return; }
-      if (A.hidden && A.hidden[hit.a.toLowerCase()]) { out.innerHTML = '<section class="card"><h2>🌐 ' + esc(hit.label + "." + hit.tld) + '</h2><p class="muted">🔒 这个域名的持有人选择匿名，不公开地址。</p></section>'; return; }
+      if ((A.hidden && A.hidden[hit.a.toLowerCase()]) || (A.hiddenNames || {})[hit.label + "." + hit.tld]) { out.innerHTML = '<section class="card"><h2>🌐 ' + esc(hit.label + "." + hit.tld) + '</h2><p class="muted">🔒 这个域名的持有人选择匿名，不公开地址。</p></section>'; return; }
       return addrView(hit.a, out, hit.label + "." + hit.tld);
     });
   }
