@@ -379,7 +379,8 @@
         if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
         var mine = account && r.owner === account, now = Date.now() / 1000;
         var anon = !mine && (PROTECT[r.owner] || PROTECT[r.addr] || (A.hiddenNames || {})[v + "." + TLD]); // 匿名持有人：不显示地址、编号
-        out.innerHTML = '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
+        var onSale = r.owner && r.owner === OTC[TLD];
+        out.innerHTML = (onSale ? '<div class="nm-sale" id="nm-sale"><p class="muted">🛒 这个名字正在市场出售，读取价格中…</p></div>' : "") + '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (anon ? "🔒 匿名" : r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (anon ? "🔒 匿名持有人" : r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
           '<p class="nm-gen" id="nm-gen"></p>' + (mine ? '<div id="nm-next"></div>' : anon ? "" : '<a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') + '<div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
@@ -398,6 +399,16 @@
           if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
           tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
+        if (onSale) listings().then(function (ls) {
+          var it = ls.filter(function (x) { return x.t === TLD && x.tid === r.id; })[0], sb = document.getElementById("nm-sale");
+          if (!sb) return;
+          if (!it) { sb.innerHTML = '<p class="muted">🛒 这个名字在市场合约里（挂单可能刚过期，等卖家取回）</p>'; return; }
+          var p = Number(it.price / 10n ** 12n) / 1e6, me = account && it.maker === account;
+          sb.innerHTML = '<p class="nm-sale-t">🛒 <b>' + esc(v) + "." + TLD + '</b> 正在出售</p><p class="nm-sale-p"><b>' + p + ' DAI</b><small>买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + " DAI（含 3%）· 剩 " + leftT(it.expiry - Date.now() / 1000) + '</small></p><p class="muted">卖家 <span class="mono">' + (me ? "我" : A.nameTag ? A.nameTag(it.maker) : A.short(it.maker)) + '</span></p>' +
+            '<button type="button" class="nm-go" id="nm-salego">' + (me ? "撤单" : "立即买入") + '</button><p class="muted nm-st" id="nm-sst"></p>';
+          var sg = document.getElementById("nm-salego"), sst = document.getElementById("nm-sst");
+          sg.onclick = function () { sg.disabled = true; buyIt(it, sg, function (t) { sst.textContent = t; }).then(function () { sst.textContent = "✅ 成功"; delete infoCache[TLD + ":" + v]; show(v); market(); }, function (e) { sg.disabled = false; sst.textContent = ""; A.errTip(e.message || String(e), sg); }); };
+        });
         var sell = document.getElementById("nm-sell");
         if (sell) sell.onclick = function () { sellForm(v, r, st); };
         var want = null; try { want = sessionStorage.getItem("nm:sell"); } catch (x) { /* 忽略 */ }
@@ -774,12 +785,12 @@
     }, function (e) { box.innerHTML = '<p class="muted">' + esc((e && e.message) || "连接钱包失败") + "</p>"; });
   }
   // 域名市场：.ailgns 和 .lgns 两个市场合在一张表里（以前只显示当前后缀，.lgns 的挂单在默认页面看不到）
-  function market() {
-    var box = document.getElementById("nm-mk");
-    if (!box) return;
-    box.innerHTML = '<p class="muted">读取中…</p>';
+  var lsP = null, lsAt = 0;
+  function listings(fresh) { // 两个市场里所有在卖的名字（15 秒内复用）
+    if (lsP && !fresh && Date.now() - lsAt < 15000) return lsP;
+    lsAt = Date.now();
     var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
-    Promise.all(tlds.map(function (t) {
+    lsP = Promise.all(tlds.map(function (t) {
       var O = OTC[t], C = CONTRACTS[t];
       var oc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: O, data: data }, "latest"]); };
       var nc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: data }, "latest"]); };
@@ -797,8 +808,27 @@
           }));
         });
       });
-    })).then(function (all) {
-      var list = [].concat.apply([], all);
+    })).then(function (all) { return [].concat.apply([], all); });
+    lsP.catch(function () { lsP = null; });
+    return lsP;
+  }
+  // 买一个在卖的名字：授权 DAI（含 3%）→ 付款，名字同一笔交易到钱包；自己的单就是撤单
+  function buyIt(it, b, say) {
+    var O = it.O, id = it.id, price = it.price, total = price + price * 3n / 100n;
+    return connect().then(function () {
+      if (it.maker === account) return tx(O, SEL.oCancel + u256(id), say, "🔒 撤单，名字退回你的钱包。请在钱包确认");
+      return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(O) }, "latest"]).then(function (a) {
+        if (BigInt(a) < total) return tx(DAI, SEL.approve + A.pad(O) + u256(total), say, "🔒 第 1 步：授权市场合约收 " + Number(total / 10n ** 12n) / 1e6 + " DAI（含 3% 手续费）。请在钱包确认");
+      }).then(function () { return tx(O, SEL.oBuy + u256(id) + u256(total), say, "🔒 第 2 步：付款，名字同一笔交易直接到你钱包。请在钱包确认"); });
+    });
+  }
+  function market() {
+    var box = document.getElementById("nm-mk");
+    if (!box) return;
+    box.innerHTML = '<p class="muted">读取中…</p>';
+    var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
+    listings(true).then(function (list) {
+      list = list.slice();
       if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>'; return; }
       list.sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; });
       var now2 = Date.now() / 1000;
@@ -816,13 +846,7 @@
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-i]").forEach(function (b) {
         b.onclick = function () {
-          var it = list[Number(b.getAttribute("data-i"))], O = it.O, id = it.id, price = it.price, total = price + price * 3n / 100n;
-          connect().then(function () {
-            if (b.getAttribute("data-m") === "1") return tx(O, SEL.oCancel + u256(id), say, "🔒 撤单，名字退回你的钱包。请在钱包确认");
-            return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(O) }, "latest"]).then(function (a) {
-              if (BigInt(a) < total) return tx(DAI, SEL.approve + A.pad(O) + u256(total), say, "🔒 第 1 步：授权市场合约收 " + Number(total / 10n ** 12n) / 1e6 + " DAI（含 3% 手续费）。请在钱包确认");
-            }).then(function () { return tx(O, SEL.oBuy + u256(id) + u256(total), say, "🔒 第 2 步：付款，名字同一笔交易直接到你钱包。请在钱包确认"); });
-          }).then(function () { say("✅ 成功"); market(); }, function (e) { say(""); A.errTip(e.message || String(e), b); });
+          buyIt(list[Number(b.getAttribute("data-i"))], b, say).then(function () { say("✅ 成功"); market(); }, function (e) { say(""); A.errTip(e.message || String(e), b); });
         };
       });
     }, function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });

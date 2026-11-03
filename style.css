@@ -1771,3 +1771,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
   .nm-my-a{flex-basis:100%}
   .nm-my-sell{margin-top:-2px}
 }
+
+/* 名字页：正在市场出售 */
+.nm-sale{margin:8px 0 12px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#fff,var(--soft));border:1px solid #c9a8ff}
+.nm-sale-t{margin:0 0 4px;color:var(--purple-ink);font-size:16px}
+.nm-sale-p{margin:4px 0}
+.nm-sale-p b{font-size:24px;color:var(--purple-ink);margin-right:8px}
+.nm-sale-p small{color:var(--muted)}
+.nm-sale .nm-go{width:100%;margin-top:6px;background:#16a34a}
