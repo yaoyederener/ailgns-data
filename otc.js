@@ -72,6 +72,7 @@
   var DUR_DEFAULT = 7 * 86400; // 默认挂 7 天：订单簿上挂单多，看着热闹
   var account = null;
   var sweeping = false; // 正在一键扫单：不自动刷新页面
+  var sweepSide = "buy"; // 扫单方向：扫完刷新页面后停在原来的「扫卖单 / 扫买单」，不跳回买入（客户反馈）
   // 指导价：要比 DEX 对买卖双方都划算，才容易成交（DEX 到手价 / 成本见上面各市场的 dexSell、dexBuy）
   // 吃单方付 1% 手续费，所以：卖单价 ≤ 市价 × dexBuy × 99% 买家才划算；买单价 ≥ 市价 × dexSell ÷ 99% 卖家才划算
   var TAKER = 0.99;
@@ -943,7 +944,7 @@
     function bindSweep(sells, buys, mkt, reload) {
       var box = document.getElementById("otc-sweep");
       if (!box) return;
-      var side = "buy", r = document.getElementById("sw-r"), pv = document.getElementById("sw-pv"), out = document.getElementById("sw-out"), ladder = document.getElementById("sw-ladder"), go = document.getElementById("sw-go"), st = document.getElementById("sw-st");
+      var side = sweepSide, r = document.getElementById("sw-r"), pv = document.getElementById("sw-pv"), out = document.getElementById("sw-out"), ladder = document.getElementById("sw-ladder"), go = document.getElementById("sw-go"), st = document.getElementById("sw-st");
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
       function list() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account; }); } // 自己的单不能吃
       function total(l) { return l.reduce(function (t, o) { return t + daiLeft(o, o.giveLeft); }, 0n); }
@@ -998,8 +999,9 @@
         ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {
-        b.onclick = function () { side = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); r.value = maxBp(list()); draw(); };
+        b.onclick = function () { side = sweepSide = b.getAttribute("data-sw"); box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x === b); }); say(""); r.value = maxBp(list()); draw(); };
       });
+      box.querySelectorAll("[data-sw]").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-sw") === side); });
       box.querySelectorAll(".sw-quick [data-swp]").forEach(function (b) { b.onclick = function () { var v = b.getAttribute("data-swp"); r.value = v === "max" ? maxBp(list()) : v; draw(); }; });
       r.oninput = draw;
       draw();
