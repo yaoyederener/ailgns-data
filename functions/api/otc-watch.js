@@ -413,16 +413,18 @@ export async function onRequestGet(ctx) {
   const now = Date.now();
   const hr = (await kv.get("otcw:hr", "json")) || { since: Math.floor(now / 3600e3) * 3600e3, fills: [] };
   for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k });
-  const due = Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 过了整点就发上一小时的播报（夜里也发，站长要求）
+  const due = Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 过了整点就发上一小时的播报
+  // 北京时间夜里 23:00–8:00 不播报（站长要求）：夜里的成交先攒着，早上 8 点那条一起发
+  const bjHour = new Date(now + 8 * 3600e3).getUTCHours(), quiet = bjHour >= 23 || bjHour < 8;
   const until = Math.floor(now / 3600e3) * 3600e3;
   const build = async (dry2) => {
     const deals = await topDeals();
     if (!hr.fills.length && !deals.bids.length && !deals.asks.length) return null; // 没成交、也没好单：这一小时不发
     return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, hr.since, until);
   };
-  if (dry) return Response.json({ status, due, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
+  if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
-  if (due) {
+  if (due && !quiet) {
     const text = await build(false);
     if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
