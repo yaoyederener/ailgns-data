@@ -562,8 +562,12 @@
   // 全站兜底：点了按钮以后几秒内冒出来、又没人处理的错误，也弹出来告诉客户，不再「点了没反应」
   var lastTap = 0;
   document.addEventListener("click", function () { lastTap = Date.now(); }, true);
+  var lastNav = 0;
+  window.addEventListener("hashchange", function () { lastNav = Date.now(); });
   function oops(e) {
     if (Date.now() - lastTap > 8000) return; // 后台自动刷新出的错不打扰客户
+    // 切换页面后，上一页还没加载完的内容写回已经不在的位置（Cannot set properties of null）：只是旧页面的残留，不影响操作，不弹
+    if (Date.now() - lastNav < 15000 && /of null|of undefined/.test(String(e && e.message))) { try { console.warn("旧页面残留：", e); } catch (x) {} return; }
     var W = window.AIL && window.AIL.wallet, m = "";
     try { m = W && W.error ? W.error(e) : ""; } catch (x) {}
     errTip(m || (e && (e.message || e.reason)) || "操作没完成，请刷新页面再试一次");
