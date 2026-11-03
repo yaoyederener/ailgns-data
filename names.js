@@ -64,6 +64,34 @@
     return call(SEL.quote + u256(wei) + A.pad(TOK[k].a)).then(function (r) { return BigInt(r); });
   }
   // 授权并返回付款参数：最多多付 2%，防止付款时币价小幅变动导致失败
+  // 差价余额：这个地址转给分账合约的 LGNS 里，不在注册交易里的算「补差价」；每次用 LGNS 注册成功，按时间顺序用掉最早的一笔补差价。剩下没用掉的就是余额
+  function topUpCredit() {
+    var L = TOK.LGNS.a, me = "0x" + A.pad(account), to = "0x" + A.pad(PAYEE), regs = {};
+    Object.keys(CONTRACTS).forEach(function (t) { regs[CONTRACTS[t]] = 1; });
+    return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
+      var latest = parseInt(h, 16), ranges = [];
+      for (var b = START.ailgns; b <= latest; b += 5000) ranges.push([b, Math.min(latest, b + 4999)]);
+      return A.pool(ranges, 4, function (r) {
+        return W.rpcOn("anubis", "eth_getLogs", [{ address: L, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [T_XFER, me, to] }]);
+      });
+    }).then(function (chunks) {
+      var xs = [].concat.apply([], chunks.map(function (c) { if (!c) throw new Error("读链上记录失败"); return c; }));
+      return Promise.all(xs.map(function (l) {
+        return W.rpcOn("anubis", "eth_getTransactionReceipt", [l.transactionHash]).then(function (rc) {
+          var isReg = (rc.logs || []).some(function (y) { return y.topics[0] === T_REG && regs[String(y.address).toLowerCase()]; });
+          return { b: parseInt(l.blockNumber, 16), i: parseInt(l.logIndex, 16), v: BigInt(l.data), reg: isReg };
+        });
+      }));
+    }).then(function (ev) {
+      // 按时间顺序记账：补差价 +；每次用 LGNS 注册，按现在的税率扣掉这次该补的差价；最低到 0（以前税率低时多扣的不倒找）
+      ev.sort(function (x, y) { return x.b - y.b || x.i - y.i; });
+      return lgnsTax().then(function (bp) {
+        var c = 0n;
+        ev.forEach(function (x) { if (!x.reg) c += x.v; else { c -= x.v * bp / (10000n - bp); if (c < 0n) c = 0n; } });
+        return c;
+      });
+    });
+  }
   function prepay(dai, k, say) {
     var t = TOK[k], max;
     return quote(dai, k).then(function (q) {
@@ -83,9 +111,13 @@
     }).then(function (q) {
       if (k !== "LGNS") return q;
       // LGNS：先把卖出税差价转给收款的分账合约，再注册（先补后注册，注册没完成的差价联系客服退回）
-      return topUp(q).then(function (e) {
+      // 之前补过差价、但注册没完成的（比如钱包里点了取消），这次直接抵扣，不再重复收
+      return Promise.all([topUp(q), topUpCredit().catch(function () { return 0n; })]).then(function (z) {
+        var e = z[0], cr = z[1];
+        if (cr > 0n) { say("✅ 你之前补过的 " + fmt(cr, 9) + " LGNS 差价还没用上，这次直接抵扣"); e = cr * 100n >= e * 90n ? 0n : e - cr; }
         return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(function (b) {
           if (BigInt(b) < q * 102n / 100n + e) throw new Error("LGNS 不够：一共要约 " + fmt(q + e, 9) + " LGNS（含 DEX 卖出税补差），你的钱包只有 " + fmt(BigInt(b), 9) + "（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）");
+          if (!e) return;
           return tx(t.a, "0xa9059cbb" + A.pad(PAYEE) + u256(e), say, "💸 补 DEX 卖出税差价 " + fmt(e, 9) + " LGNS（LGNS 在 DEX 卖出要扣税，这部分补给平台；转进回购分账合约）。请在钱包确认");
         }).then(function () { return q; });
       });
