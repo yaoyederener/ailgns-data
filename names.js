@@ -260,6 +260,8 @@
     show(q);
     market();
     ranks();
+    // 菜单「域名 OTC」（#/names/otc）：直接滚到域名市场
+    if (/^#\/names\/otc/.test(location.hash)) setTimeout(function () { var m = document.getElementById("nm-mk"); if (m) (m.closest("section") || m).scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
   }
 
   // 读某个合约的某种事件：从部署区块开始，每次 5000 块；读过的存在本机，下次只读新增的

@@ -1588,3 +1588,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 #wx-arrow b { font-size: 44px; line-height: 1; }
 #wx-arrow span { padding: 4px 10px; border-radius: 10px; background: #ef4444; color: #fff; font-size: 13px; font-weight: 800; text-shadow: none; }
 @keyframes wx-bob { 50% { transform: translate(4px, -6px); } }
+/* 顶部「域名」按钮：和借贷同样的胶囊样式，橙色角标 */
+.tabs a.namet { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #fff; font-weight: 800; background: linear-gradient(120deg, #0ea5e9, #6366f1 60%, #a855f7); border: 0; box-shadow: 0 4px 14px rgba(14, 165, 233, .28); }
+.tabs a.namet svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabs a.namet i { font-style: normal; position: absolute; top: -7px; right: -4px; font-size: 9px; line-height: 1; font-weight: 800; color: #fff; background: linear-gradient(110deg, #f97316, #f59e0b); padding: 2px 5px; border-radius: 6px 6px 6px 0; letter-spacing: .3px; }
+.tabs a.namet:hover { color: #fff; filter: brightness(1.08); }
+.tabs a.namet.on { color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #b98cf5, 0 4px 14px rgba(14, 165, 233, .3); }
+@media (max-width: 600px) { .tabs a.namet { gap: 3px; } .tabs a.namet i { top: -7px; right: -2px; } .tabs a.namet svg { width: 14px; height: 14px; } }
+@media (max-width: 600px) { .tabs { grid-template-columns: repeat(4, 1fr); gap: 6px; } .tabs a, .tabs a.vipt, .tabs a.lendt, .tabs a.namet { padding: 8px 2px; font-size: 13.5px; } } /* 四个栏目一行放下 */
