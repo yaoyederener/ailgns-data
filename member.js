@@ -314,24 +314,43 @@
   };
   function perkList(t) { return '<ul class="perks">' + PERKS[t].map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>"; }
   // 会员标志：高级 VIP 是金色皇冠勋章，初级 VIP 是绿色盾牌
+  // VIP 徽章：高级 = 金色放射光环 + 紫金勋章 + 皇冠 + 月桂；初级 = 银紫盾徽。都是纯 SVG，放多大都清晰
   function vipEmblem(t, size) {
     var s = size || 22;
     if (t === "pro") {
+      var rays = "";
+      for (var i = 0; i < 24; i++) { var a = i * 15, w = i % 2 ? 2.2 : 3.4, h = i % 2 ? 7 : 10; rays += '<rect x="' + (32 - w / 2) + '" y="1" width="' + w + '" height="' + h + '" rx="1" fill="url(#vpRay)" transform="rotate(' + a + ' 32 32)"/>'; }
       return '<svg class="vip-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
-        '<linearGradient id="vgG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9a8ff"/><stop offset=".3" stop-color="#8933ff"/><stop offset=".55" stop-color="#5500e8"/><stop offset=".8" stop-color="#a014f8"/><stop offset="1" stop-color="#4936ff"/></linearGradient>' +
-        '<linearGradient id="vgD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6927db"/><stop offset="1" stop-color="#9828dc"/></linearGradient></defs>' +
-        '<circle cx="32" cy="32" r="31" fill="url(#vgG)"/><circle cx="32" cy="32" r="27.5" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.4" stroke-dasharray="1.6 2.4"/>' +
-        '<circle cx="32" cy="32" r="23.5" fill="url(#vgD)" stroke="#ffffff" stroke-width="1.5"/>' +
-        '<path d="M18.5 40.5l-2.6-15.2 8.6 6.4L32 19.5l7.5 12.2 8.6-6.4-2.6 15.2z" fill="#ffffff"/>' +
-        '<rect x="18.5" y="42.5" width="27" height="4.2" rx="1.6" fill="#ffffff"/>' +
-        '<circle cx="15.9" cy="24.6" r="2.2" fill="#ffffff"/><circle cx="32" cy="18" r="2.4" fill="#ffffff"/><circle cx="48.1" cy="24.6" r="2.2" fill="#ffffff"/></svg>';
+        '<linearGradient id="vpRay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2b3"/><stop offset="1" stop-color="#e3a71c"/></linearGradient>' +
+        '<linearGradient id="vpGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff5c2"/><stop offset=".35" stop-color="#f3c54a"/><stop offset=".6" stop-color="#c98a12"/><stop offset=".8" stop-color="#f7d564"/><stop offset="1" stop-color="#b8780a"/></linearGradient>' +
+        '<radialGradient id="vpCore" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#9b4dff"/><stop offset=".55" stop-color="#5a1fd1"/><stop offset="1" stop-color="#2a0e6e"/></radialGradient>' +
+        '<linearGradient id="vpCrown" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8d6"/><stop offset=".5" stop-color="#f5c93d"/><stop offset="1" stop-color="#d0920f"/></linearGradient>' +
+        '<linearGradient id="vpGem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#8ad7ff"/><stop offset="1" stop-color="#1e6fe8"/></linearGradient></defs>' +
+        rays +
+        '<circle cx="32" cy="32" r="24.5" fill="url(#vpGold)"/>' +
+        '<circle cx="32" cy="32" r="21.2" fill="url(#vpCore)" stroke="#fff3c4" stroke-width="1.1"/>' +
+        '<circle cx="32" cy="32" r="18.6" fill="none" stroke="#f7d564" stroke-opacity=".55" stroke-width=".9" stroke-dasharray="1.2 2.2"/>' +
+        // 月桂叶（左右各一支）
+        '<g fill="url(#vpCrown)" opacity=".95"><path d="M15.5 36c1.8-5.4 5-9.2 9.6-11.3-3.2 3.4-5.2 7.3-6.1 11.8z"/><path d="M16.2 41.6c2.9-4.3 6.6-6.8 11-7.6-4 2.7-7.1 5.3-9.5 8.9z"/><path d="M18.9 46.2c3.5-3.2 7.3-4.6 11.4-4.3-4.3 1.6-7.8 3.3-10.4 5.8z"/>' +
+        '<path d="M48.5 36c-1.8-5.4-5-9.2-9.6-11.3 3.2 3.4 5.2 7.3 6.1 11.8z"/><path d="M47.8 41.6c-2.9-4.3-6.6-6.8-11-7.6 4 2.7 7.1 5.3 9.5 8.9z"/><path d="M45.1 46.2c-3.5-3.2-7.3-4.6-11.4-4.3 4.3 1.6 7.8 3.3 10.4 5.8z"/></g>' +
+        // 皇冠
+        '<path d="M21 39.5l-2.2-12.6 7.4 5.4L32 21.5l5.8 10.8 7.4-5.4L43 39.5z" fill="url(#vpCrown)" stroke="#7a4c00" stroke-width=".6" stroke-linejoin="round"/>' +
+        '<rect x="21" y="40.6" width="22" height="4.4" rx="1.4" fill="url(#vpCrown)" stroke="#7a4c00" stroke-width=".6"/>' +
+        '<path d="M32 19.2l1.9 2.9-1.9 2.9-1.9-2.9z" fill="url(#vpGem)"/><circle cx="18.5" cy="26.2" r="1.7" fill="url(#vpGem)"/><circle cx="45.5" cy="26.2" r="1.7" fill="url(#vpGem)"/>' +
+        '<circle cx="26.5" cy="42.8" r="1" fill="#2a0e6e" opacity=".55"/><circle cx="32" cy="42.8" r="1.2" fill="#2a0e6e" opacity=".55"/><circle cx="37.5" cy="42.8" r="1" fill="#2a0e6e" opacity=".55"/>' +
+        '<path d="M26 24.5c2.5-1.6 5-2.4 7.5-2.4" fill="none" stroke="#ffffff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/></svg>';
     }
     return '<svg class="vip-emb" width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true"><defs>' +
-      '<linearGradient id="vgE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#86efac"/><stop offset=".45" stop-color="#16a34a"/><stop offset="1" stop-color="#15803d"/></linearGradient></defs>' +
-      '<path d="M32 4l22 8v17c0 15.5-9.4 26.6-22 31-12.6-4.4-22-15.5-22-31V12z" fill="url(#vgE)"/>' +
-      '<path d="M32 9.5l17 6.2V29c0 12.3-7.2 21.3-17 25.2-9.8-3.9-17-12.9-17-25.2V15.7z" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="1.6"/>' +
-      '<path d="M32 19.5l3.6 7.4 8.1 1.2-5.9 5.7 1.4 8.1L32 38.1l-7.2 3.8 1.4-8.1-5.9-5.7 8.1-1.2z" fill="#fff"/></svg>';
+      '<linearGradient id="vbRim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#c9d4e6"/><stop offset=".7" stop-color="#8a9bb8"/><stop offset="1" stop-color="#e6edf7"/></linearGradient>' +
+      '<linearGradient id="vbCore" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9b6bff"/><stop offset="1" stop-color="#5a2fd6"/></linearGradient>' +
+      '<linearGradient id="vbCrown" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d6def0"/></linearGradient></defs>' +
+      '<path d="M32 3l23 8.5v16.5c0 15.6-9.8 27-23 32-13.2-5-23-16.4-23-32V11.5z" fill="url(#vbRim)"/>' +
+      '<path d="M32 7.5l18.6 6.9v13.8c0 13.1-8 22.7-18.6 27-10.6-4.3-18.6-13.9-18.6-27V14.4z" fill="url(#vbCore)" stroke="#ffffff" stroke-opacity=".7" stroke-width="1"/>' +
+      '<path d="M22.5 37l-2-10.6 6.5 4.6L32 22l5 9 6.5-4.6-2 10.6z" fill="url(#vbCrown)"/><rect x="22.5" y="38.2" width="19" height="3.6" rx="1.2" fill="url(#vbCrown)"/>' +
+      '<circle cx="32" cy="20" r="1.6" fill="#ffffff"/><circle cx="20" cy="25.5" r="1.4" fill="#ffffff"/><circle cx="44" cy="25.5" r="1.4" fill="#ffffff"/>' +
+      '<path d="M24 14.5c2.6-1.5 5.3-2.3 8-2.3" fill="none" stroke="#ffffff" stroke-opacity=".6" stroke-width="1" stroke-linecap="round"/></svg>';
   }
+
   function tierBadge(t) { return '<span class="vip vip-' + t + '">' + vipEmblem(t, 18) + TIERS[t].name + "</span>"; }
 
   // ---------- 页面：会员 ----------
