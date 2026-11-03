@@ -568,7 +568,7 @@
   }
   window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
   window.addEventListener("error", function (ev) { if (ev.error) oops(ev.error); });
-  window.AIL = { errTip: errTip, toDai: toDai, timeBJ: timeBJ,
+  window.AIL = { errTip: errTip, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     pages: {}, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
@@ -578,22 +578,27 @@
       try { first = localStorage.getItem("st:seen") !== today; if (first) localStorage.setItem("st:seen", today); } catch (x) { /* 无痕模式 */ }
       track(first ? "v1" : "v");
       window.addEventListener("hashchange", route); route();
-      freshCheck();
+      freshCheck(true);
+      window.addEventListener("hashchange", function () { freshCheck(); });
     }
   };
   // 钱包内置浏览器经常把首页缓存很久，导致脚本还是旧版（新功能看不到、按钮没反应）：
   // 打开后悄悄拉一次最新首页，脚本版本号和当前不一样就自动刷新一次（每次会话最多一次，免得循环）
-  function freshCheck() {
+  // 打开网站、切换页面、点开菜单时都查一下有没有新版本（最多 1 分钟查一次）；有就带上随机参数重新打开，绕过钱包浏览器的旧缓存
+  // 同一个新版本只自动刷新一次，避免钱包死活给旧页面时一直刷新
+  var lastFresh = 0;
+  function freshCheck(now) {
     try {
-      if (sessionStorage.getItem("fresh:reloaded")) return;
+      if (!now && Date.now() - lastFresh < 60e3) return;
+      lastFresh = Date.now();
       var mine = Array.prototype.map.call(document.scripts, function (s) { return (s.getAttribute("src") || "").match(/[a-z]+\.js\?v=[a-z0-9]+/); }).filter(Boolean).map(String).sort().join(",");
       if (!mine) return;
-      setTimeout(function () {
-        fetch("/?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
-          var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
-          if (latest && latest !== mine) { sessionStorage.setItem("fresh:reloaded", "1"); location.reload(); }
-        }).catch(function () {});
-      }, 1500);
+      fetch("/?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
+        var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
+        if (!latest || latest === mine || sessionStorage.getItem("fresh:to") === latest) return;
+        sessionStorage.setItem("fresh:to", latest);
+        location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+      }).catch(function () {});
     } catch (e) { /* 忽略 */ }
   }
 })();
