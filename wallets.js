@@ -472,6 +472,20 @@
     return parts.join(" · ");
   }
 
+  // 手机系统是英文的：菜单上的字是英文，教程里的按钮名后面补上英文（「分享 Share」），示意图里直接换成英文
+  var ZH = /^zh/i.test(navigator.language || "zh");
+  var EN = { "分享": "Share", "查看更多": "View More", "添加到主屏幕": "Add to Home Screen", "添加": "Add", "取消": "Cancel", "拷贝": "Copy", "复制": "Copy",
+    "添加到个人收藏": "Add to Favorites", "在页面上查找": "Find on Page", "作为网页 App 打开": "Open as Web App", "编辑操作": "Edit Actions", "添加书签": "Add Bookmark",
+    "添加到主屏幕 / 安装应用": "Add to Home screen / Install app", "安装应用": "Install app", "安装": "Install", "刷新": "Refresh", "设置": "Settings",
+    "添加页面到": "Add page to", "主屏幕": "Home screen", "添加到手机": "Add to phone", "添加到收藏夹": "Add to favorites", "下载": "Downloads", "书签": "Bookmarks",
+    "在浏览器打开": "Open in Browser", "在 Safari 中打开": "Open in Safari", "复制链接": "Copy Link", "发送给朋友": "Send to Chat", "快速访问": "Quick access" };
+  function en(html) {
+    if (ZH) return html;
+    return html.replace(/「([^」<]+)」/g, function (m, t) { return EN[t] ? "「" + EN[t] + "」<small>(" + t + ")</small>" : m; })
+      .replace(/(<span>)([^<]+)(<\/span>)/g, function (m, a, t, b) { return EN[t] ? a + EN[t] + b : m; })
+      .replace(/(<b>)([^<]+)(<\/b>)/g, function (m, a, t, b) { return EN[t] ? a + EN[t] + b : m; });
+  }
+
   // 一步一屏的向导：box 容器，k 教程，onPick 换教程
   function wizard(box, k, onPick) {
     var g = GUIDES[k], i = 0, showAlt = false, auto = k === detect();
@@ -479,14 +493,15 @@
       var st = g.steps[i], last = i === g.steps.length - 1, canOne = installPrompt && (k === "chrome" || k === "edge" || k === "androidother");
       box.innerHTML = '<div class="wz">' +
         '<div class="wz-top"><span class="wz-dev">' + (auto ? "✓ 已识别：" + deviceLine() : "📘 " + g.name) + '</span><button type="button" class="ghost wz-pick">不是这个？换一个</button></div>' +
-        (i === 0 && g.note ? '<p class="g-note">' + g.note + "</p>" : "") +
+        (i === 0 && g.note ? '<p class="g-note">' + en(g.note) + "</p>" : "") +
+        (i === 0 && !ZH ? '<p class="g-note">🌐 你的手机是英文系统，按钮名按英文写，括号里是中文。</p>' : "") +
         (i === 0 && canOne ? '<button class="paybtn wz-one">⚡ 一键安装到桌面（不用按步骤）</button><p class="g-note" style="text-align:center">点了没反应再按下面的步骤：</p>' : "") +
         '<div class="wz-dots">' + g.steps.map(function (_, j) { return '<i class="' + (j < i ? "done" : j === i ? "on" : "") + '"></i>'; }).join("") + "</div>" +
-        '<div class="wz-step"><div class="g-num">' + (i + 1) + '</div><div class="g-txt">' + st[0] + '</div><div class="g-pic">' + st[1] + "</div></div>" +
+        '<div class="wz-step"><div class="g-num">' + (i + 1) + '</div><div class="g-txt">' + en(st[0]) + '</div><div class="g-pic">' + en(st[1]) + "</div></div>" +
         '<div class="wz-nav">' + (i > 0 ? '<button type="button" class="ghost wz-prev">← 上一步</button>' : "<span></span>") +
         (last ? '<button type="button" class="paybtn wz-done">✅ 加好了</button>' : '<button type="button" class="paybtn wz-next">做好了，下一步 →</button>') + "</div>" +
         (g.alt || g.perm ? '<div class="wz-help"><a href="#" class="wz-alt">没找到这个按钮？</a>' + (showAlt ? '<div class="wz-altbox">' +
-          (g.alt ? "<b>" + g.alt.title + "</b><ol>" + g.alt.steps.map(function (s) { return "<li>" + s + "</li>"; }).join("") + "</ol>" : "") +
+          (g.alt ? "<b>" + g.alt.title + "</b><ol>" + g.alt.steps.map(function (s) { return "<li>" + en(s) + "</li>"; }).join("") + "</ol>" : "") +
           (g.perm ? '<p class="g-note">' + g.perm + "</p>" : "") + "</div>" : "") + "</div>" : "") +
         "</div>";
       var q = function (s) { return box.querySelector(s); };
