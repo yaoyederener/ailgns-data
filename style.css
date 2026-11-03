@@ -1696,3 +1696,19 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 
 @media (max-width: 640px) { #nm-genc .gc .gc-num { display: grid; grid-template-columns: 1fr 1.3fr; } }
 @media (max-width: 640px) { #nm-genc .gc .gc-num { display: flex; gap: 8px; } #nm-genc .gc .gc-num > div { flex: 1; grid-column: auto; } }
+
+/* 代注册 / 自动选币 / 大字确认提示（站点浅紫） */
+.nm-for{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:14px;color:var(--purple-ink);font-weight:600}
+.nm-for input{width:18px;height:18px}
+.nm-for-box input{width:100%;padding:12px;font-size:15px;border:1px solid var(--soft-line);border-radius:10px;font-family:ui-monospace,monospace}
+.nm-for-box p{margin:6px 0 0;font-size:12.5px}
+.nm-pick{margin:10px 0 6px;padding:10px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--soft-line);color:var(--purple-ink);font-size:14px}
+#nm-big{position:fixed;inset:0;z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:18vh 16px 0;background:rgba(243,235,255,.92)}
+.nm-big-in{max-width:360px;width:100%;text-align:center;padding:22px 18px;border-radius:18px;background:var(--panel,#fff);border:1px solid var(--soft-line);box-shadow:0 10px 30px rgba(112,39,217,.15);color:var(--purple-ink)}
+.nm-big-ico{font-size:44px}
+.nm-big-in > b{display:block;font-size:24px;margin:6px 0}
+.nm-big-in p{font-size:19px;margin:6px 0;line-height:1.5}
+.nm-big-in p b{color:#16a34a}
+.nm-big-step{font-size:16px!important;color:var(--muted)}
+.nm-big-in small{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
+.nm-big-in em{display:block;margin-top:12px;font-style:normal;font-size:12px;color:var(--muted)}

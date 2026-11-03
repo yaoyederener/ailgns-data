@@ -139,14 +139,23 @@
     return (eth ? Promise.resolve() : connect()).then(function () {
       say(msg);
       return W.rpcOn("anubis", "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) { throw new Error(e && /PAY_FAILED|transfer/i.test(e.message) ? "DAI 不够（还要一点 DAI 付 Gas）" : "交易会失败：" + ((e && e.message) || "请检查名字和余额")); })
-      .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }); });
+      .then(function () { bigTip(msg); return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }); });
     })
-      .then(function (h) { say("已提交，等待链上确认…"); return W.waitOn("anubis", h).then(function () { return h; }); });
+      .then(function (h) { bigTip(""); say("已提交，等待链上确认…"); return W.waitOn("anubis", h).then(function () { return h; }); }, function (e) { bigTip(""); throw e; });
   }
-  function register(label, years, k, say) {
+  // 大字提示层：钱包弹出前先告诉老人家「点绿色确定」，点一下就关
+  function bigTip(msg) {
+    var el = document.getElementById("nm-big");
+    if (!msg) { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement("div"); el.id = "nm-big"; el.onclick = function () { el.remove(); }; document.body.appendChild(el); }
+    var m = String(msg).match(/第 (\d) 步/);
+    el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
+      (m ? '<p class="nm-big-step">一共确认 2 次 · 现在是第 <b>' + m[1] + "</b> 次</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
+  }
+  function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
-      var data = SEL.register + u256(0xa0) + A.pad(account) + u256(years) + p + str(label);
-      return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + " 给你自己的地址。请在钱包确认");
+      var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
+      return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
     });
   }
 
@@ -202,6 +211,8 @@
       if (!v) { out.innerHTML = ""; return; }
       if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-；英文最少 3 位，中文最少 2 个字，最多 32 个字，不能以 - 开头或结尾</p>'; return; }
       var buy = '<div class="nm-buy"><label>买几年 <select id="nm-y">' + [1, 2, 3, 5, 10, 100].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + '</select></label><label>付款 ' + tokSel("nm-k") + '</label><b id="nm-cost">' + yearPrice(v) + ' DAI</b></div>' +
+        '<label class="nm-for"><input type="checkbox" id="nm-for"> 🤝 帮别人注册（志愿者代办：我付钱，名字归对方）</label>' +
+        '<div class="nm-for-box" id="nm-for-box" hidden><input id="nm-to" placeholder="对方的钱包地址 0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><p class="muted">名字会直接注册到对方地址上，对方什么都不用点。请仔细核对地址，填错了收不回来。</p></div>' +
         '<button type="button" class="nm-go" id="nm-go">注册 ' + esc(v) + "." + TLD + "</button><p class=\"muted nm-st\" id=\"nm-st\"></p>";
       if (!NAMES) {
         out.innerHTML = '<p class="nm-ok"><b>' + esc(v) + "." + TLD + '</b> 名字合规，' + yearPrice(v) + " DAI / 年</p>" + buy;
@@ -344,6 +355,23 @@
       });
     }
 
+    // 自动选币：查钱包里哪种币够付，直接帮客户选好（大爷大妈不用自己挑）；都不够就大字说明
+    function autoPick(v, y, kk) {
+      if (!account) return;
+      var dai = yearPrice(v) * y.value, ks = Object.keys(TOK), tip = document.getElementById("nm-pick");
+      Promise.all(ks.map(function (k) {
+        return Promise.all([quote(dai, k).then(function (q) { return k === "LGNS" ? topUp(q).then(function (e) { return q + e; }) : q; }),
+          W.rpcOn("anubis", "eth_call", [{ to: TOK[k].a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt)]).then(function (x) { return x[1] >= x[0] * 102n / 100n; }, function () { return false; });
+      })).then(function (ok) {
+        if (!document.getElementById("nm-go")) return;
+        var i = ok.indexOf(true), box = tip || document.createElement("p");
+        box.id = "nm-pick"; box.className = "nm-pick";
+        if (!tip) document.getElementById("nm-go").before(box);
+        if (i < 0) { box.innerHTML = "⚠️ 你的钱包里 AiLGNS、DAI、LGNS 都不够付这个名字。<b>请先充值，或者找志愿者帮你代注册。</b>"; return; }
+        if (kk.value !== ks[i]) { var pb = document.querySelector('.nm-pay button[data-k="' + ks[i] + '"]'); if (pb) pb.click(); }
+        box.innerHTML = "✅ 已自动帮你选好：用你钱包里的 <b>" + ks[i] + "</b> 付款，直接点下面蓝色按钮就行";
+      });
+    }
     function bindBuy(v, preview) {
       var y = document.getElementById("nm-y"), st = document.getElementById("nm-st");
       var kk = document.getElementById("nm-k"), cost = document.getElementById("nm-cost");
@@ -355,12 +383,30 @@
           .then(function (q) { if (kk.value === k) cost.textContent = "≈ " + fmt(q, TOK[k].d) + " " + k + (k === "LGNS" ? "（含 DEX 卖出税补差）" : ""); }, function () { cost.textContent = dai + " DAI"; });
       };
       kk.onchange();
+      var forCb = document.getElementById("nm-for");
+      if (forCb) forCb.onchange = function () { document.getElementById("nm-for-box").hidden = !forCb.checked; if (forCb.checked) document.getElementById("nm-to").focus(); };
+      if (!preview) autoPick(v, y, kk);
+      y.addEventListener("change", function () { if (!preview) autoPick(v, y, kk); });
       document.getElementById("nm-go").onclick = function () {
         if (preview) { st.textContent = "⏳ 合约还没上线，这里是预览"; return; }
-        var b = this;
+        var b = this, to = "";
+        if (forCb && forCb.checked) {
+          to = document.getElementById("nm-to").value.trim().toLowerCase();
+          if (!/^0x[0-9a-f]{40}$/.test(to)) { A.errTip("对方地址格式不对：要以 0x 开头，一共 42 位", b); return; }
+          if (to === account) to = "";
+          else if (!confirm("确认帮这个地址注册吗？\n\n" + v + "." + TLD + "\n→ " + to + "\n\n地址填错了收不回来")) return;
+        }
         b.disabled = true;
-        register(v, Number(y.value), kk.value, function (t) { st.textContent = t; }).then(function () {
+        register(v, Number(y.value), kk.value, function (t) { st.textContent = t; }, to).then(function () {
           st.textContent = "";
+          if (to) { // 帮别人注册：名字已经在对方地址上，后面的「设主名字」只能对方自己做，这里不引导
+            delete infoCache[TLD + ":" + v];
+            out.innerHTML = '<p class="nm-ok nm-big">✅ 代注册成功：<b>' + esc(v) + "." + TLD + '</b> 已经归 <span class="mono">' + to.slice(0, 6) + "…" + to.slice(-4) + '</span></p><p class="nm-gen" id="nm-gen"></p>' +
+              '<p class="muted">对方以后转账、收款报这个名字就行。</p><button type="button" class="nm-go nm-again" id="nm-again">➕ 继续帮下一个人注册</button>';
+            document.getElementById("nm-again").onclick = again;
+            info1(v).then(function (r) { genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {}); }, function () {});
+            return;
+          }
           out.innerHTML = '<p class="nm-ok nm-big">✅ 第 1 步完成：<b>' + esc(v) + "." + TLD + '</b> 注册成功，已经指向你的地址</p><p class="nm-gen" id="nm-gen"></p><div id="nm-next"><p class="muted">正在准备第 2 步…</p></div>';
           delete infoCache[TLD + ":" + v]; // 注册前查过的缓存是「还没注册」，不能用
           (function fresh(n) { return info1(v).then(function (r) { return (r.free || r.addr !== account) && n > 0 ? new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return fresh(n - 1); }) : r; }); })(4).then(function (r) {
