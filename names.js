@@ -210,21 +210,52 @@
           tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
         var sell = document.getElementById("nm-sell");
-        if (sell) sell.onclick = function () {
-          // 挂单最长 7 天；名字至少还要 37 天才到期，防止挂在市场里过期
-          if (r.exp < Date.now() / 1000 + 37 * 86400) { A.errTip("名字 37 天内就到期了，先续费再挂单", st); return; }
-          var p = (prompt("卖多少 DAI？（买家另付 3% 手续费，你拿到完整标价；挂 7 天，随时可以撤单）") || "").trim();
-          if (!p) return;
-          if (!/^\d+(\.\d{1,6})?$/.test(p) || Number(p) <= 0) { A.errTip("价格格式不对，填数字，比如 100", st); return; }
-          var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n, O = OTC[TLD];
-          call(SEL.getApproved + r.id).then(function (g) {
-            if (addrOf(g) === O) return;
-            return tx(NAMES, SEL.nftApprove + A.pad(O) + r.id, say, "🔒 第 1 步：授权市场合约转这个名字（只用于这次挂单，合约开源、无管理员）。请在钱包确认");
-          }).then(function () {
-            return tx(O, SEL.oList + r.id + u256(wei) + u256(7 * 86400), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
-          }).then(function () { say("✅ 已挂到市场"); market(); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
-        };
+        if (sell) sell.onclick = function () { sellForm(v, r, st); };
       }, function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
+    }
+    // 挂单设置页：和 OTC「发布挂单」同一套样式（价格 + 有效期 + 到手金额），代替原来的弹窗
+    function sellForm(v, r, st) {
+      var old = document.getElementById("nm-sf"); if (old) old.remove();
+      var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 7 * 86400;
+      var box = document.createElement("section");
+      box.className = "card"; box.id = "nm-sf";
+      box.innerHTML = '<div class="card-head"><h2>挂单出售 ' + esc(v + "." + TLD) + '</h2><span class="muted">名字先存进托管合约，成交前随时可撤</span></div>' +
+        '<div class="form-grid"><label>售价（DAI）<input id="nm-sf-p" inputmode="decimal" placeholder="例如 100"></label></div>' +
+        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没卖掉，名字自动退回</small></span>' +
+        '<div class="dur-opts" id="nm-sf-d">' + DURS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === dur ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
+        '<p class="note" id="nm-sf-sum">填好售价后显示你能拿到多少</p>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap"><button id="nm-sf-go" style="padding:12px 22px">发布挂单</button><button type="button" class="ghost" id="nm-sf-x" style="padding:12px 22px">取消</button></div>' +
+        '<p class="note" id="nm-sf-st"></p>';
+      out.appendChild(box);
+      box.scrollIntoView({ behavior: "smooth", block: "start" });
+      var pi = document.getElementById("nm-sf-p"), sum = document.getElementById("nm-sf-sum"), sst = document.getElementById("nm-sf-st"), go = document.getElementById("nm-sf-go");
+      function ok(p) { return /^\d+(\.\d{1,6})?$/.test(p) && Number(p) > 0; }
+      function upd() {
+        var p = pi.value.trim();
+        sum.innerHTML = ok(p) ? "你拿到 <b>" + Number(p) + " DAI</b>（完整标价）· 买家付 " + Math.round(Number(p) * 1.03 * 1e6) / 1e6 + " DAI（含 3% 手续费）" : "填好售价后显示你能拿到多少";
+      }
+      pi.oninput = upd; setTimeout(function () { pi.focus(); }, 300);
+      document.getElementById("nm-sf-d").onclick = function (e) {
+        var b = e.target.closest("button"); if (!b) return;
+        dur = Number(b.getAttribute("data-d"));
+        this.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; });
+      };
+      document.getElementById("nm-sf-x").onclick = function () { box.remove(); };
+      function say(t) { sst.textContent = t; }
+      go.onclick = function () {
+        var p = pi.value.trim();
+        if (!ok(p)) { A.errTip("价格格式不对，填数字，比如 100", go); return; }
+        // 名字在挂单期间 + 30 天内不能到期，防止挂在市场里过期
+        if (r.exp < Date.now() / 1000 + dur + 30 * 86400) { A.errTip("名字快到期了，先续费再挂单（或选短一点的有效期）", go); return; }
+        var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n, O = OTC[TLD];
+        go.disabled = true;
+        call(SEL.getApproved + r.id).then(function (g) {
+          if (addrOf(g) === O) return;
+          return tx(NAMES, SEL.nftApprove + A.pad(O) + r.id, say, "🔒 第 1 步：授权市场合约转这个名字（只用于这次挂单，合约开源、无管理员）。请在钱包确认");
+        }).then(function () {
+          return tx(O, SEL.oList + r.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
+        }).then(function () { say("✅ 已挂到市场"); market(); show(v); }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
+      };
     }
     // 傻瓜式三步：① 注册 ② 设为主名字 ③ OTC 出售（站长要求去掉「链上查询」）。每步做完都能「继续注册下一个」，并显示我注册了几个、排第几
     function again() { // 回到第 1 步，接着注册下一个
