@@ -414,6 +414,7 @@
   }
 
 
+  var pendingJump = false;
   function renderOtc(id, sub) {
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
@@ -432,6 +433,7 @@
     var acct0 = account;
     Promise.all([loadBook(fresh), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
+      if (pendingJump) { pendingJump = false; setTimeout(function () { var g = app.querySelector("[data-gomine]"); if (g) g.click(); }, 80); }
       var b = r[0];
       if (shown !== null && b.raw === shown && account === acct0) return; // 没变化
       if (shown !== null && busy()) return;
@@ -474,7 +476,7 @@
 
       // 顶部小按钮：直接跳到挂单表单（订单多时客户找不到挂单的地方）
       var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要买 ' + SYM + "</button>" +
-        (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>";
+        '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b></span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
@@ -523,7 +525,10 @@
       var gm = app.querySelector("[data-gomine]");
       // 跳到某一块：减去顶部固定导航栏的高度，不然手机上标题和买卖切换会被导航栏挡住
       function jump(elId) { var x = document.getElementById(elId), top = document.querySelector(".top"); if (x) window.scrollTo({ top: x.getBoundingClientRect().top + window.pageYOffset - (top ? top.offsetHeight : 0) - 8, behavior: "smooth" }); }
-      if (gm) gm.onclick = function () { jump("otc-mine"); };
+      if (gm) gm.onclick = function () {
+        if (account) return jump("otc-mine");
+        connect().then(function () { pendingJump = true; renderOtc(id); }, function () {}); // 没连钱包：先连，最新订单画完再跳过去
+      };
       var gs = app.querySelector("[data-gosweep]");
       if (gs) gs.onclick = function () { jump("otc-sweep"); };
     }
@@ -579,7 +584,7 @@
     }
 
     function myOrders(list, now, mkt) {
-      if (!list.length) return '<section class="card"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
+      if (!list.length) return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
       return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var dust = o.open && isDust(o);

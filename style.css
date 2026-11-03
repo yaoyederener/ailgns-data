@@ -1125,7 +1125,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .otc-acts .oa-sell { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; box-shadow: 0 3px 12px rgba(225, 29, 72, .22); } /* 卖：红，和列表里「卖出」按钮同色 */
 .otc-acts .oa-buy { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; box-shadow: 0 3px 12px rgba(22, 163, 74, .22); } /* 买：绿，和列表里「买入」按钮同色 */
 .otc-acts .oa-sell:hover, .otc-acts .oa-buy:hover { filter: brightness(1.06); }
-.otc-acts [data-gomine] { background: var(--soft); color: var(--purple-ink); border: 1px solid var(--soft-line); }
+.otc-acts [data-gomine] { background: linear-gradient(110deg, #5b21b6, #7c3aed); color: #fff; border: 0; box-shadow: 0 3px 12px rgba(124, 58, 237, .3); } /* 我的挂单：平台紫，实心白字，和红绿两个按钮一样显眼 */
+.otc-acts [data-gomine]:hover { filter: brightness(1.08); }
+.otc-acts .gm-n { display: inline-block; min-width: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #fff; color: #5b21b6; font-size: 12px; line-height: 20px; }
 .otc-top .ot-sw { padding: 5px 12px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 0; color: #fff; background: linear-gradient(110deg, #f59e0b, #ef4444); box-shadow: 0 2px 8px rgba(239, 68, 68, .25); cursor: pointer; white-space: nowrap; }
 @media (max-width: 600px) {
   .bk-open table.cards.book tr.bk-x { display: grid; } /* 手机上每张挂单是卡片样式 */
