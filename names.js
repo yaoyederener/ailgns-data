@@ -125,8 +125,11 @@
       max = q * 102n / 100n;
       return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
     }).then(function (a) {
-      if (BigInt(a) >= max) return;
-      return tx(t.a, SEL.approve + A.pad(NAMES) + u256(max), say, "🔒 第 1 步：授权域名合约收 " + fmt(max, t.d) + " " + k + "（只收这一次的钱，合约开源、无管理员）。请在钱包确认");
+      if (BigInt(a) >= max) return; // 额度还够：跳过授权，钱包只弹「注册」一次
+      // 一次授权管以后：额度 = 这次 + 再注册 9 个 5 DAI 普通名字（有上限，不是无限授权；只是额度，用多少扣多少）
+      return quote(5, k).then(function (c) { return max + c * 102n / 100n * 9n; }, function () { return max; }).then(function (amt) {
+        return tx(t.a, SEL.approve + A.pad(NAMES) + u256(amt), say, "🔒 第 1 步：授权（不扣钱）。额度 " + fmt(amt, t.d) + " " + k + "，够这次再加 9 个普通名字，以后注册只要点 1 次；用多少扣多少，随时可在钱包撤销。请在钱包确认");
+      });
     }).then(function () { return A.pad(t.a) + u256(max); });
   }
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
@@ -493,8 +496,8 @@
       if (!cn) { cn = document.createElement("p"); cn.id = "nm-cn"; cn.className = "nm-cn"; document.getElementById("nm-go").before(cn); }
       y.onchange = kk.onchange = function () { // 换年数或币种：显示要付多少个币
         var dai = yearPrice(v) * y.value, k = kk.value;
-        cn.innerHTML = k === "LGNS" ? "ℹ️ 钱包会弹出 <b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款。上面显示的金额已经含差价，不会多扣。以前授权过的会自动跳过。"
-          : "ℹ️ 只付<b>一次钱</b>，但钱包会弹出 <b>2 次</b>确认：① 授权（<b>不扣钱</b>）② 注册付款。以前授权过的会自动跳过。";
+        cn.innerHTML = k === "LGNS" ? "ℹ️ 钱包会弹出 <b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款（以后再注册少一次授权）。上面显示的金额已经含差价，不会多扣。推荐用 AiLGNS / DAI 付，少一步。"
+          : "ℹ️ 只付<b>一次钱</b>。第一次注册钱包弹 <b>2 次</b>：① 授权（<b>不扣钱</b>）② 注册付款；<b>以后再注册只弹 1 次</b>。";
         cost.textContent = dai + " DAI";
         if (k === "DAI" || preview) return;
         quote(dai, k).then(function (q) { return k === "LGNS" ? topUp(q).then(function (e) { return q + e; }) : q; })
