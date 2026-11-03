@@ -8,6 +8,7 @@ import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 import { rebuildIfNeeded } from "../../lib/pixel.js";
 import { bjDay } from "../../lib/stats.js";
+import { GP_MAX, SEED } from "../../lib/guide.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -116,6 +117,22 @@ async function recordTrades(m, kv, logs, cache) {
     }
     await kv.put(key, "1");
   }
+}
+// 指导价素材：新成交的单价 ÷ 现在的 DEX 市价，按挂单方向记进 gp:<市场>（最近 30 笔）
+async function recordGuide(m, kv, logs, cache) {
+  if (m.nft || !m.pair) return;
+  const fills = logs.filter((l) => l.topics[0] === filledTopic(m));
+  if (!fills.length) return;
+  const px = (await market(m)).px, g = (await kv.get("gp:" + m.key, "json")) || SEED[m.key] || { sell: [], buy: [] };
+  for (const l of fills) {
+    const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data);
+    const gd = o.sell ? m.dec : 18, wd = o.sell ? 18 : m.dec, amount = num(d[0], gd), paid = num(d[1], wd);
+    const qty = o.sell ? amount : paid, dai = o.sell ? paid : amount;
+    if (!qty || !dai || dai < 0.5) continue; // 零头成交不算
+    const s = o.sell ? "sell" : "buy";
+    g[s] = [...(g[s] || []), Math.round((dai / qty / px) * 10000) / 10000].slice(-GP_MAX);
+  }
+  await kv.put("gp:" + m.key, JSON.stringify(g));
 }
 // 以前的成交一段段补进 tr:<地址>（每次运行补几段，补到接上为止）
 async function backfillTrades(m, kv, upto, cache) {
@@ -452,6 +469,7 @@ export async function onRequestGet(ctx) {
   for (const [m, logs, cache, from, latest] of done) {
     await markTraders(m, kv, logs, cache, true).catch(() => {});
     await recordTrades(m, kv, logs, cache).catch(() => {});
+    await recordGuide(m, kv, logs, cache).catch(() => {});
     await backfillTrades(m, kv, from - 1, cache).catch(() => {});
     if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
     await backfillVip(m, kv, from - 1, cache).catch(() => {});

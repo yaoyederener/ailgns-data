@@ -45,6 +45,9 @@
       if (j && j.lgns > 0 && j.lgns < 0.95) { SELL_TAX = j.lgns; useMarket(MK); }
     }).catch(function () { /* 读不到就按默认 50% */ });
   }
+  // 指导价跟真实成交走（站长要求）：/api/guide 给出最近 30 笔成交价 ÷ 当时 DEX 市价的中位数，页面乘上现在的市价
+  var GUIDE = null;
+  var guideP = fetch("/api/guide").then(function (r) { return r.json(); }).then(function (j) { GUIDE = j || {}; }, function () { GUIDE = {}; });
   var POL_MIN = 2n * 10n ** 16n; // Polygon 上至少留 0.02 POL 付 Gas
   var FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
   var FEE_BPS = 100n;
@@ -663,6 +666,17 @@
           if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
           return;
         }
+        var gr = GUIDE && GUIDE[MK] && GUIDE[MK][side];
+        if (gr) { // 有真实成交数据：直接用最近成交的中间价
+          g = mkt * gr;
+          var gn = GUIDE[MK].n[side], goff = (gr - 1) * 100;
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比 DEX 市价' + (goff >= 0 ? "高 " : "低 ") + Math.abs(goff).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
+            "<p>按本站最近 <b>" + gn + " 笔真实成交</b>的中间价算（每 5 分钟跟着新成交更新）：大家" + (side === "sell" ? "卖" : "买") + " " + SYM + " 一般成交在 DEX 市价的 <b>" + (gr * 100).toFixed(1) + "%</b> 左右。按这个价挂，最容易成交。</p>" +
+            '<p class="muted">' + (side === "sell" ? "想卖得快，可以比指导价再低一点；挂得越高，等的时间越长。" : "想买得快，可以比指导价再高一点；挂得越低，等的时间越长。") + "成交手续费 1% 由吃单方承担。</p>";
+          document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
+          if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
+          return;
+        }
         var off = (1 - g / mkt) * 100, sellGain = (side === "sell" ? g : g * TAKER) - dexSell, buyGain = dexBuy - (side === "sell" ? g / TAKER : g);
         el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价' + (off >= 0 ? "低 " : "高 ") + Math.abs(off).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
           "<p>按这个价成交，两边都比去" + DX + " 划算：卖家比在" + DX + " 卖（每枚到手约 " + A.fmt(dexSell, PD) + "）多拿约 <b>" + A.fmt(sellGain, PD) + " DAI</b>；买家比去" + DX + " 买（每枚约 " + A.fmt(dexBuy, PD) + "）省约 <b>" + A.fmt(buyGain, PD) + " DAI</b>（都已算上吃单方 1% 手续费）。</p>" +
@@ -691,6 +705,7 @@
       }
       qty.oninput = calc; price.oninput = function () { auto = false; calc(); pick(); };
       guide();
+      if (!GUIDE) guideP.then(function () { if (document.getElementById("otc-guide") && document.body.contains(price)) { guide(); calc(); } }); // 成交价数据晚到一步：到了再刷新指导价
       // 可用余额 + 25% / 50% / 75% / 最大：卖单按 AiLGNS 余额，买单按 DAI 余额 ÷ 单价换成能买多少枚
       var bal = null;
       function maxQty() {
