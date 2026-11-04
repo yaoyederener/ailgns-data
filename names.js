@@ -1051,7 +1051,8 @@
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.vol - a.vol || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+      box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 没有成交的，<b>创世编号越小</b>，越靠前</span><span>③ 都一样的，新挂的在前</span></div>' +
+        '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
@@ -1086,7 +1087,7 @@
     return fetch("/api/member?vols=" + as.join(",")).then(function (r) { return r.json(); }).then(function (j) { return j.vols || {}; }, function () { return {}; });
   }
   function rankRules() {
-    return '<details class="nm-rules" open><summary>📋 挂单排名规则（推荐排序）</summary><ol>' +
+    return '<details class="nm-rules"><summary>📋 规则详细说明 · 查我的 OTC 成交额</summary><ol>' +
       "<li><b>卖家 OTC 累计成交越多，排越前。</b>就是会员卡上的「OTC 累计成交」：在本站 OTC（AiLGNS / LGNS / gLGNS / NFT 卡牌 / 域名）单笔成交满 50 DAI 的金额累计。成交多说明信誉好，买家更放心。</li>" +
       "<li><b>都没有成交的，按创世编号排</b>：创世 #1 最前，编号越小越靠前。</li>" +
       "<li><b>都不是创世的，按挂单时间排</b>，新挂的在前。</li></ol>" +
