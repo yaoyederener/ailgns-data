@@ -93,7 +93,7 @@
     var ailV = f.ail * f.px, tot = f.dai + ailV + f.owed;
     return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "</b></span>" +
       "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
-      "<span>🔸 LGNS <b>0</b>" + (f.owed > 0 ? " <small>（LGNS 付款部分待留 " + f.owed.toFixed(2) + " DAI）</small>" : "") + "</span>" +
+      (f.owed > 0 ? "<span>🔸 LGNS 付款部分 <b>" + f.owed.toFixed(2) + " DAI</b> <small>（待留）</small></span>" : "") +
       '<span class="or-tot">合计约 <b>' + tot.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " DAI</b></span>" +
       '<small class="or-fnote">奖金池里实际留着的钱（在收款钱包 0xedb9），<a href="https://github.com/yaoyederener/monita/blob/main/data/oracle_prize.json" target="_blank" rel="noopener">记账公开 ↗</a></small></div>';
   }
