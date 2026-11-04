@@ -169,7 +169,7 @@
     if (account === SRC) return ownerBox();
     if (!account) return '<p>参加资格（满足其一）：① 主名字是 <b>🌟 创世 .ailgns 域名</b> ② <b>OTC 累计成交满 5 万 DAI</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
     if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
-    if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：<a href="#/names">买一个新的 🌟 创世 .ailgns 域名</a>，设为主名字就能再参加。</p>';
+    if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，<a href="#/names">买一个新的 🌟 创世 .ailgns 域名</a>，设为主名字就能再参加。</p>';
     if (!me.ok) return '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。满足其一就能参加：</p><ul class="or-req">' +
       '<li>' + (me.name ? "❌ 主名字 <b>" + esc(me.name) + "</b> 不是创世域名" : "❌ 还没有 .ailgns 主名字") + '：<a href="#/names">注册 / 买一个 🌟 创世 .ailgns 域名，设为主名字 →</a></li>' +
       '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li></ul>';
@@ -286,7 +286,7 @@
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚开奖，9 点后提交的参加第二天。</li>" +
       "<li><b>怎么开奖</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是开奖价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
       "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b>，全部进奖池，回馈参与的朋友。每晚开奖：🥇 <b>天眼通</b>（最接近）拿<b>奖池总额的 10%</b>，🥈 <b>地灵通</b>（次接近）拿 <b>5%</b>（一样接近先提交的得）；🔮 <b>神算子</b>（3 位小数完全猜中）平分剩下的，没人中就一直滚。</li>" +
-      "<li><b>每个名字只能中一次</b>：拿到神算子、天眼通或地灵通后，这个名字（靠 OTC 成交参加的按钱包）就不能再参加了；想继续玩，买一个新的 🌟 创世 .ailgns 域名设为主名字。</li>" +
+      "<li><b>每个名字、每个钱包只能中一次</b>：拿到神算子、天眼通或地灵通后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。</li>" +
       "<li><b>公开透明</b>：开奖区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
   }
