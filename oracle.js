@@ -7,7 +7,7 @@
   var eth = null, account = "", pxTimer = 0, cdTimer = 0, data = null, curRid = 0;
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function dai(v) { return Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 2 }) + " DAI"; }
+  function dai(v) { return Number(v || 0).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI"; }
   function hm(ms) { var d = new Date(ms + 8 * 3600e3); return (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
   function dayCn(day) { var p = day.split("-"); return Number(p[1]) + "月" + Number(p[2]) + "日"; }
   function left(ms) { if (ms <= 0) return "0 分"; var h = Math.floor(ms / 3600e3), m = Math.floor(ms / 60e3) % 60, s = Math.floor(ms / 1000) % 60; return (h ? h + " 小时 " : "") + m + " 分 " + (h ? "" : s + " 秒"); }
@@ -116,7 +116,7 @@
     var html = "", top = "";
     // 超级大奖池 + 本轮奖金（放在页面最上面）
     var potV = d.funds ? Math.floor((d.funds.dai + d.funds.ail * d.funds.px) * 100) / 100 : 0; // 奖池实际总额
-    var n0 = function (v) { return Math.floor(v).toLocaleString("en-US"); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
+    var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></div>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点开奖</div>') +
@@ -155,10 +155,10 @@
   function funds(f, pool) {
     if (!f) return "";
     var ailV = f.ail * f.px, tot = f.dai + ailV, gap = Math.max(0, pool - tot);
-    return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "</b></span>" +
-      "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
-      '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " DAI</b></span>" +
-      '<small class="or-fnote">' + (gap >= 1 ? "上面的奖池是应得的总额；其中 " + tot.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " DAI 已经单独留出，另外 " + gap.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " DAI 正从接下来的域名收入里自动陆续留出，中奖了照样足额发。" : "奖池的钱已经全部单独留出，中奖自动发到你的钱包。") + "</small></div>";
+    return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + "</b></span>" +
+      "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
+      '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI</b></span>" +
+      '<small class="or-fnote">' + (gap >= 1 ? "上面的奖池是应得的总额；其中 " + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 }) + " DAI 已经单独留出，另外 " + gap.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 }) + " DAI 正从接下来的域名收入里自动陆续留出，中奖了照样足额发。" : "奖池的钱已经全部单独留出，中奖自动发到你的钱包。") + "</small></div>";
   }
   function meBox(d) {
     var me = d.me;
@@ -168,10 +168,10 @@
     if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！中奖后<b>暂停 7 轮</b>，让新人也有机会。</p><p class="muted">' + esc(me.cool) + ' 这一轮开完后自动恢复。想马上接着玩：换一个 🌟 创世 .ailgns 域名设为主名字（或用另一个有创世域名的钱包）。</p>';
     if (!me.ok) return '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。满足其一就能参加：</p><ul class="or-req">' +
       '<li>' + (me.name ? "❌ 主名字 <b>" + esc(me.name) + "</b> 不是创世域名" : "❌ 还没有 .ailgns 主名字") + '：<a href="#/names">注册 / 买一个 🌟 创世 .ailgns 域名，设为主名字 →</a></li>' +
-      '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US") + "</b> / " + Number(me.need).toLocaleString("en-US") + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li></ul>';
+      '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li></ul>';
     if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";
     var rest = me.n - me.used;
-    return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US") + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
+    return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US", { useGrouping: false }) + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
       (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" : "") +
       (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="例如 827.354（3 位小数）" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔮 提交预测</button></div>' +
         '<p class="muted">还能预测 ' + rest + " 次；有几次就填几个价格，用空格或逗号隔开。只需要钱包签名，不扣钱、不花 Gas。</p>" :
@@ -185,7 +185,7 @@
     setTimeout(function () {
       [[DAI, "or-allow", " DAI"], [AIL, "or-allow2", " AiLGNS"]].forEach(function (t) {
         W.rpcOn("anubis", "eth_call", [{ to: t[0], data: "0xdd62ed3e" + SRC.slice(2).padStart(64, "0") + KEEPER.slice(2).padStart(64, "0") }, "latest"]).then(function (r) {
-          var el = document.getElementById(t[1]); if (el) el.textContent = (Number(BigInt(r) / 10n ** 14n) / 10000).toLocaleString("en-US") + t[2];
+          var el = document.getElementById(t[1]); if (el) el.textContent = (Number(BigInt(r) / 10n ** 14n) / 10000).toLocaleString("en-US", { useGrouping: false }) + t[2];
         }, function () {});
       });
     }, 0);
@@ -237,10 +237,10 @@
     document.querySelectorAll(".or-cnt").forEach(function (el, k) {
       var to = Number(el.getAttribute("data-to")) || 0, from = cntSeen[k] != null ? cntSeen[k] : 0, t0 = performance.now(), dur = from ? 900 : 1800;
       cntSeen[k] = to;
-      if (from === to) { el.textContent = to.toLocaleString("en-US"); return; }
+      if (from === to) { el.textContent = to.toLocaleString("en-US", { useGrouping: false }); return; }
       (function step(t) {
         var x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3);
-        el.textContent = Math.floor(from + (to - from) * e).toLocaleString("en-US");
+        el.textContent = Math.floor(from + (to - from) * e).toLocaleString("en-US", { useGrouping: false });
         if (x < 1 && el.isConnected) requestAnimationFrame(step);
       })(t0);
     });
