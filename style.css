@@ -2141,3 +2141,6 @@ tr.nm-pinrow td { background: #fff8e6; }
 @media (max-width: 640px) { .or-pz small { font-size: 12.5px; } }
 .or-dbx { background: linear-gradient(135deg, #f3edff, #fff7fb); }
 .or-dbx p { margin: 4px 0 8px; color: var(--purple-ink); }
+.or-no { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 50%; background: #fff; font-size: 14px; font-weight: 900; text-decoration: none; vertical-align: 1px; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+.or-pz.p3 .or-no { color: #db2777; } .or-pz.p1 .or-no { color: #ea580c; } .or-pz.p2 .or-no { color: #7c3aed; }
+@media (max-width: 640px) { .or-no { width: 19px; height: 19px; font-size: 12px; margin-right: 3px; } }
