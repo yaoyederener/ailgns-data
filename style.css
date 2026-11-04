@@ -1983,3 +1983,4 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .nm-ob-s { color: #e0565b; font-weight: 600; }
 
 .nm-tld { display: flex; align-items: center; padding: 0 10px; color: var(--purple-ink); font-weight: 600; }
+#nm-f .nm-tld { display: none; }
