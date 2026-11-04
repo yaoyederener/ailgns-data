@@ -20,14 +20,25 @@
   function tierChip(t) { return t < 0 ? "" : '<span class="hn-tier hn-t' + t + '">' + TIER[t][0] + " " + TIER[t][1] + "</span>"; }
 
   // ---------- 顶部播报条（全站） ----------
+  // 播报里的地址：有域名的直接显示域名昵称（先查好名字再开播，最多等 3 秒）
   function ticker(d) {
+    var as = [];
+    (d.top3 || []).concat(d.mtop3 || []).forEach(function (x) { as.push(x.a); });
+    (d.ev || []).slice(0, 5).forEach(function (e) { as.push(e.a); if (e.over) as.push(e.over); });
+    var N = {}, go = function () { tickerRun(d, function (a) { return N[a] || A.short(a); }); }, done = false;
+    var once = function () { if (!done) { done = true; go(); } };
+    if (!A.nameOf || !as.length) return go();
+    setTimeout(once, 3000);
+    Promise.all(as.map(function (a) { return A.nameOf(a).then(function (n) { if (n) N[a] = n; }).catch(function () {}); })).then(once);
+  }
+  function tickerRun(d, nm) {
     var msgs = [];
-    if (d.top3 && d.top3.length) msgs.push("🏆 感谢 " + d.top3.map(function (x, i) { return MEDAL[i] + "榜" + "一二三"[i] + " " + A.short(x.a); }).join("、") + " 为 AiLGNS 做出的贡献！");
+    if (d.top3 && d.top3.length) msgs.push("🏆 感谢 " + d.top3.map(function (x, i) { return MEDAL[i] + "榜" + "一二三"[i] + " " + nm(x.a); }).join("、") + " 为 AiLGNS 做出的贡献！");
     (d.ev || []).slice(0, 5).forEach(function (e) {
       var t = tierOfRank(e.to);
-      msgs.push("🔥 " + A.short(e.a) + (e.over ? " 刚刚超过 " + A.short(e.over) + "，" : " 冲进榜单，") + "升到本月第 " + e.to + " 名【" + TIER[t][1] + "】！");
+      msgs.push("🔥 " + nm(e.a) + (e.over ? " 刚刚超过 " + nm(e.over) + "，" : " 冲进榜单，") + "升到本月第 " + e.to + " 名【" + TIER[t][1] + "】！");
     });
-    if (d.mtop3 && d.mtop3[0]) msgs.push("👑 本月榜一 " + A.short(d.mtop3[0].a) + "，已成交 " + dai(d.mtop3[0].vol) + "，谁来挑战？");
+    if (d.mtop3 && d.mtop3[0]) msgs.push("👑 本月榜一 " + nm(d.mtop3[0].a) + "，已成交 " + dai(d.mtop3[0].vol) + "，谁来挑战？");
     var rest = d.end - Date.now();
     if (rest > 0 && rest < 3 * 86400e3) msgs.push("⏰ 本月榜一争夺战还剩 " + left(rest) + "，月底定冠军，永久刻进名人堂！");
     if (!msgs.length) return;
