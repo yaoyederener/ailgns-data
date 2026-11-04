@@ -1997,3 +1997,12 @@ tr[hidden], .cards [hidden] { display: none !important; }
 
 .nm-oh { font-size: 15px; margin: 10px 0 6px; color: var(--purple-ink); }
 #nm-minep { margin-top: 10px; }
+
+/* ⚠️ 全站风险提示与免责声明（每个页面内容下方） */
+.risk-note { margin-top: 18px; margin-bottom: 18px; padding: 14px 16px; background: #faf8ff; border: 1px solid #eee6ff; border-radius: 14px; color: #6b6489; font-size: 13px; line-height: 1.75; }
+.risk-note b { color: #5b3fc4; }
+.risk-sum { margin: 0; }
+.risk-det { margin-top: 6px; }
+.risk-det summary { cursor: pointer; color: #7c5cff; font-weight: 600; }
+.risk-det ol { margin: 8px 0 0; padding-left: 20px; }
+.risk-det li { margin: 6px 0; }
