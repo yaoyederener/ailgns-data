@@ -271,9 +271,9 @@
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
-      '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><span class="muted">填地址看他有哪些域名，填域名看是谁的</span></div>' +
+      '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><button type="button" class="nm-myw" id="nm-myw">👛 查我的钱包</button></div>' +
       '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入 0x 钱包地址，或者域名（如 发财.ailgns）" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查询</button></form>' +
-      '<button type="button" class="nm-skip" id="nm-myw">👛 直接查我当前连接的钱包</button><div id="nm-myr"></div></section>' +
+      '<div id="nm-myr"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div>' +
         '<div class="seg" id="nm-side"><button type="button" data-side="buy" class="on">我要买域名</button><button type="button" data-side="sell" id="nm-sellgo">我要卖域名</button><button type="button" data-side="want">📢 求购意向</button></div>' +
         '<div id="nm-mk"></div><div id="nm-sp" hidden></div><div id="nm-wp" hidden></div></section>' +

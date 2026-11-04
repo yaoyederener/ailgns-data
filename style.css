@@ -1890,3 +1890,7 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-my-give { flex: none; padding: 9px 16px; border-radius: 999px; border: 1px solid #c4b2f0; background: #f4f0ff; color: var(--purple-ink); font-weight: 700; font-size: 14px; cursor: pointer; }
 .nm-give { margin: -4px 0 12px; padding: 12px 14px; border-radius: 12px; background: #faf7ff; border: 1px dashed #c4b2f0; }
 .nm-give p { margin: 0 0 6px; }
+
+/* 查询域名：「查我的钱包」放到标题右边，小按钮，不挡结果 */
+.nm-myw { flex: none; padding: 5px 12px; font-size: 13px; font-weight: 600; border-radius: 999px; border: 1px solid #d9ccf5; background: #f7f3ff; color: var(--purple-ink); cursor: pointer; }
+.nm-myw:hover { background: #efe7ff; }
