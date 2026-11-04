@@ -2135,3 +2135,7 @@ tr.nm-pinrow td { background: #fff8e6; }
   .or-dmin .nm-go { padding: 8px 12px; font-size: 13px; }
 }
 @media (max-width: 640px) { .or-dmsky { height: 96px; } }
+.or-pz b i { font-style: normal; }
+.or-pz b em { font-style: normal; font-size: .45em; margin-left: 4px; opacity: .9; }
+.or-pz small { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+@media (max-width: 640px) { .or-pz small { font-size: 12.5px; } }
