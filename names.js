@@ -240,13 +240,15 @@
   // 名字授权给市场：有的钱包把它当成「代币授权」，显示可改的「消费上限」，客户把价格填进去，名字编号就被改掉、链上拒绝
   function nftOk(C, O, id, say) {
     function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
-    return on(SEL.getApproved + id).then(function (g) {
-      if (addrOf(g) === O) return;
-      return tx(C, SEL.nftApprove + A.pad(O) + id, say, "🔒 第 1 步：授权市场合约转这个名字（不扣钱）。⚠️ 钱包里如果出现「消费上限 / 金额 / 额度」，不要改，直接点确定").catch(function (e) {
+    // 改成「一次授权全部名字」（setApprovalForAll）：钱包里没有可改的数字，以后再挂别的名字也不用再授权
+    var all = function () { return on("0xe985e9c5" + A.pad(account) + A.pad(O)).then(function (r) { return BigInt(r) === 1n; }); };
+    return Promise.all([on(SEL.getApproved + id), all()]).then(function (g) {
+      if (addrOf(g[0]) === O || g[1]) return;
+      return tx(C, "0xa22cb465" + A.pad(O) + u256(1), say, "🔒 第 1 步：授权市场合约（不扣钱，只需一次，以后挂单不用再授权）。直接点确定").catch(function (e) {
         if (/reject|denied|cancel|取消|拒绝签名|User/i.test((e && e.message) || "")) throw e; // 客户自己点了取消
-        throw new Error("授权没成功，链上拒绝了。多半是钱包里的「消费上限 / 金额」被改动了：那个数字是名字的编号，不是价格。请重新点「发布挂单」，钱包里什么数字都不要改，直接点确定。");
+        throw new Error("授权没成功，请重新点「发布挂单」，钱包里直接点确定。");
       }).then(function () {
-        return on(SEL.getApproved + id).then(function (g2) { if (addrOf(g2) !== O) throw new Error("授权没生效：钱包里的数字被改动了。请重新点「发布挂单」，钱包里不要改任何数字，直接点确定。"); });
+        return all().then(function (ok) { if (!ok) throw new Error("授权没生效，请重新点「发布挂单」，钱包里直接点确定。"); });
       });
     });
   } // 大字提示里的「第几次确认 / 最多几次」
