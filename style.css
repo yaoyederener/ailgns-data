@@ -1809,3 +1809,8 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-pcard > p.muted { font-size: 12.5px; margin: 8px 0 4px; }
 .nm-pdet summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 @media (max-width: 640px) { .nm-price.nm-pc { grid-template-columns: repeat(2, 1fr); } }
+
+/* 注册搜索框：名字 → 后缀 → 搜索，一行一个，不并排 */
+#nm-f.nm-search { display: grid; grid-template-columns: 1fr; gap: 8px; }
+#nm-f.nm-search input, #nm-f.nm-search select, #nm-f.nm-search button { width: 100%; grid-column: auto; }
+#nm-f.nm-search select { padding: 11px 12px; text-align: center; }

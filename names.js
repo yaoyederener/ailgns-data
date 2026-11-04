@@ -256,7 +256,7 @@
     NAMES = CONTRACTS[TLD]; window.__nmTLD = TLD;
     q = q.replace(/\.(ailgns|lgns)$/, "");
     A.app.innerHTML =
-      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="nm-what">💡 域名就是你的<b>链上靓号</b>：别人转账给你，只要填 <b>xxx.ailgns</b>，不用再抄一长串 0x 地址；好名字全球只有一个，<b>先注册先得</b>，稀缺的好名字可以挂到 OTC 转卖。</p>' +
+      '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
