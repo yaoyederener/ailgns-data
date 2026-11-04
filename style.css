@@ -2144,3 +2144,5 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-no { display: inline-grid; place-items: center; width: 24px; height: 24px; margin-right: 6px; border-radius: 50%; background: #fff; font-size: 14px; font-weight: 900; text-decoration: none; vertical-align: 1px; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
 .or-pz.p3 .or-no { color: #db2777; } .or-pz.p1 .or-no { color: #ea580c; } .or-pz.p2 .or-no { color: #7c3aed; }
 @media (max-width: 640px) { .or-no { width: 19px; height: 19px; font-size: 12px; margin-right: 3px; } }
+.or-rk { display: block; width: max-content; margin: 0 auto 4px; padding: 1px 12px; border-radius: 999px; background: rgba(255,255,255,.25); border: 1px solid rgba(255,255,255,.55); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-decoration: none; }
+@media (max-width: 640px) { .or-rk { font-size: 11px; padding: 0 8px; letter-spacing: 1px; } }
