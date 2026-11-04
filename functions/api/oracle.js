@@ -84,7 +84,7 @@ export async function onRequestPost(ctx) {
   if (a === "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6" || a === "0x89dd06754bb239b6c4c92bc47c8fa72889084e27") return json({ error: "站长钱包不参加" }, 400);
   let el;
   try { el = await eligibility(kv, a); } catch (e) { return json({ error: "读链失败，请稍后再试" }, 502); }
-  if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + " 冷却中，" + el.cool + " 这一轮之后恢复（中奖后暂停 7 轮，让新人也有机会）" }, 400);
+  if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + " 已经领过奖，不能再参加。想继续玩：换一个新的 🌟 创世 .ailgns 域名设为主名字就行" }, 400);
   if (!el.ok) return json({ error: "还没有参加资格：主名字是创世 .ailgns 域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，满足其一就能参加" }, 400);
   const name = el.name || a.slice(0, 6) + "…" + a.slice(-4); // 没有域名、靠 OTC 成交参加的，用短地址显示
   const key = "or:g:" + round + ":" + el.key, mine = (await kv.get(key, "json")) || { a, name, ps: [] };
