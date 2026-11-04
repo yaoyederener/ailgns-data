@@ -19,9 +19,9 @@
   function page(rid) {
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
     A.app.innerHTML =
-      '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 持有域名就能玩</span></div>' +
+      '<div id="or-top"></div><section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 持有域名就能玩</span></div>' +
       '<div class="or-px"><small>AiLGNS 现价（链上实时）</small><b id="or-px">读取中…</b><span>DAI</span></div>' +
-      '<svg id="or-chart" class="or-chart" viewBox="0 0 360 200"><text x="180" y="100" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
+      '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
     livePx(rid); chart(rid);
@@ -77,10 +77,10 @@
       // 没成交的小时：一字线，沿用上一根收盘
       for (var j = 0; j < N; j++) if (!c[j].touched) { var pc = j ? c[j - 1].c : last; c[j].o = c[j].h = c[j].l = c[j].c = pc; }
       drawK(el, c);
-    }, function () { var el = document.getElementById("or-chart"); if (el) el.innerHTML = '<text x="180" y="100" text-anchor="middle" class="or-ct">K 线读取失败</text>'; });
+    }, function () { var el = document.getElementById("or-chart"); if (el) el.innerHTML = '<text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取失败</text>'; });
   }
   function drawK(el, c) {
-    var W0 = 360, H0 = 200, L = 6, R = 300, T = 10, B = 172, hi = -Infinity, lo = Infinity;
+    var W0 = 360, H0 = 150, L = 6, R = 300, T = 8, B = 124, hi = -Infinity, lo = Infinity;
     c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
     var pad = (hi - lo) * 0.08 || 0.5; hi += pad; lo -= pad;
     var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
@@ -108,9 +108,9 @@
   function render(rid) {
     var d = data, o = document.getElementById("or-out"); if (!o) return;
     var dr = d.drawing, res = dr.res, now = Date.now(), inWin = now >= dr.from && now < dr.to + 5 * 60e3 && !res;
-    var html = "";
-    // 超级大奖池 + 本轮奖金
-    html += '<section class="card or-pool"><div class="or-pl"><small>🎯 超级大奖池（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.pool) + "</b></div>" +
+    var html = "", top = "";
+    // 超级大奖池 + 本轮奖金（放在页面最上面）
+    top += '<section class="card or-pool"><div class="or-pl"><small>🎯 超级大奖池（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.pool) + "</b></div>" +
       funds(d.funds) +
       '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= 昨天域名收入 " + dai(d.rev) + " × 20%：10% 给最接近的人，90% 滚进大奖池</small></div></section>";
     // 正在开奖 / 刚开完
@@ -124,6 +124,7 @@
       d.board.map(function (x) { return "<li><b>" + esc(x.name) + "</b><span>🎯 " + x.j + " 次 · 🥇 " + x.c + " 次</span></li>"; }).join("") + "</ol></section>";
     html += rules();
     o.innerHTML = html;
+    var tp = document.getElementById("or-top"); if (tp) tp.innerHTML = top;
     bind(rid);
     tick();
     clearInterval(cdTimer); cdTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(cdTimer); tick(); }, 1000);
