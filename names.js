@@ -409,7 +409,9 @@
         return on(CONTRACTS[t], SEL.ownerOf + id).then(function (ow) { return addrOf(ow); }, function () { return ""; }).then(function (owner) {
           if (!owner || /^0x0{40}$/.test(owner)) { o.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(full) + '</b> 还没被注册，<a href="#/names/' + encodeURIComponent(full) + '">现在去注册 →</a></p>'; return; }
           var anon = PROT[ad] || PROT[owner] || HN[full], sale = owner === OTC[t];
-          return genesis(t).catch(function () { return {}; }).then(function (g) {
+          // 页面打开后才注册的名字不在旧的创世编号表里：查不到就重新读一次链（刚注册的也能马上显示创世编号）
+          var gP = genesis(t).then(function (g) { if (g[id]) return g; delete genCache[t]; return genesis(t); }).catch(function () { return {}; });
+          return gP.then(function (g) {
             var no = anon ? 0 : g[id], href = "#/names/" + encodeURIComponent(full);
             o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
               '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : "") +
