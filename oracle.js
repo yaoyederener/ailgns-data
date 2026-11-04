@@ -208,7 +208,7 @@
     var top = leadRows.slice(0, 3), key = top.map(function (r) { return r.name + r.p; }).join("|"), moved = leadKey && key !== leadKey;
     leadKey = key;
     el.innerHTML = '<div class="or-lh"><b>🏆 如果现在开奖</b><span>最接近的 3 位</span></div>' + top.map(function (r, i) {
-      return '<div class="or-lr r' + (i + 1) + (moved ? " moved" : "") + '"><i>' + (i + 1) + '</i><div class="or-ln"><b>' + esc(r.name) + '</b><small>预测 ' + r.p + '</small></div><em>差 ' + r.d + "</em></div>";
+      return '<div class="or-ldr r' + (i + 1) + (moved ? " moved" : "") + '"><i>' + (i + 1) + '</i><div class="or-ln"><b>' + esc(r.name) + '</b><small>预测 ' + r.p + '</small></div><em>差 ' + r.d + "</em></div>";
     }).join("");
   }
 
