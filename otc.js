@@ -1081,6 +1081,8 @@
           end("✅ 扫单完成，已到你的钱包" + (skipped ? "（有 " + skipped + " 张已被别人吃掉，跳过了）" : ""));
         }, function (e) {
           end((done ? "已成交 " + done + " 张，后面的停下了：" : "") + niceError(e), true);
+          // 单被别人抢走 / 已关闭：页面上的挂单是旧的，马上重读最新挂单（以前不刷新，客户再点还是吃同一张旧单，一直报错）
+          if (/NOTHING_FILLED|CLOSED|EXPIRED|抢先|已经成交完/.test(String((e && e.message) || e))) setTimeout(function () { sweeping = false; reload(); }, 1500);
         });
       };
     }
