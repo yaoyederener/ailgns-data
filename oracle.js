@@ -20,7 +20,7 @@
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
     A.app.innerHTML =
       '<div id="or-top"></div>' +
-      '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，连钱包签名，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
+      '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
       '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻开奖</small></div><div class="or-lead" id="or-lead"></div></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
@@ -292,12 +292,18 @@
   function dmText(txt, ts, a) { return "AiLGNS 弹幕\n" + txt + "\n时间：" + ts + "\n地址：" + a; }
   function dmFetch() {
     return fetch("/api/danmaku?r=" + Date.now()).then(function (r) { return r.json(); }).then(function (j) {
-      (j.list || []).forEach(function (m) { if (!dmSeen[m.id]) { dmSeen[m.id] = 1; dmList.push(m); if (dmList.length > 80) dmList.shift(); if (dmFetched) dmQ.push(m); } });
+      var fresh = false;
+      (j.list || []).forEach(function (m) { if (!dmSeen[m.id]) { dmSeen[m.id] = 1; dmAdd(m); fresh = true; } });
+      if (fresh || !dmFetched) dmI = 0; // 有人发新弹幕：从头滚一遍
       dmFetched = true;
       var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = dmList.length ? "" : "💬 还没有弹幕，来发第一条吧！";
     }, function () {});
   }
   var dmFetched = false;
+  function dmAdd(m) { // 每人只留最新一条
+    dmList = dmList.filter(function (x) { return x.name !== m.name; }); dmList.push(m);
+    if (dmList.length > 60) dmList.shift();
+  }
   function dmFly(m, mine) {
     var sky = document.getElementById("or-dmsky"); if (!sky) return;
     var el = document.createElement("div");
@@ -313,9 +319,8 @@
     dmFetch();
     var tick = setInterval(function () {
       if (!A.isCurrent(rid) || !document.getElementById("or-dmsky")) return clearInterval(tick);
-      if (dmQ.length) return dmFly(dmQ.shift(), false);
-      if (dmList.length) dmFly(dmList[dmI++ % dmList.length], false);
-    }, 1600);
+      if (dmI < dmList.length) dmFly(dmList[dmI++], false); // 滚完一遍就停，等有人发新的再从头滚
+    }, 1800);
     var pull = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pull); dmFetch(); }, 15000);
     var inp = document.getElementById("or-dmt"), btn = document.getElementById("or-dmgo");
     if (!btn) return;
@@ -331,7 +336,7 @@
       }).then(function (j) {
         btn.disabled = false;
         if (j.error) throw new Error(j.error);
-        inp.value = ""; dmSeen[j.it.id] = 1; dmList.push(j.it); dmFly(j.it, true);
+        inp.value = ""; dmSeen[j.it.id] = 1; dmAdd(j.it); dmI = 0;
         var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = "";
       }).catch(function (e) { btn.disabled = false; A.errTip(e.message || String(e), btn); });
     };

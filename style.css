@@ -2126,3 +2126,11 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-dmin input { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid #e3d8ff; border-radius: 10px; background: #fff; font-size: 14px; }
 .or-dmin button { white-space: nowrap; }
 .or-dmin .nm-go { width: auto; flex: none; margin: 0; padding: 9px 18px; }
+
+@media (max-width: 640px) {
+  .or-dm { padding: 8px; }
+  .or-dmsky { height: 84px; }
+  .or-dmi { font-size: 12.5px; padding: 2px 10px; max-width: 85vw; overflow: hidden; text-overflow: ellipsis; }
+  .or-dmin input { font-size: 13px; padding: 8px 10px; }
+  .or-dmin .nm-go { padding: 8px 12px; font-size: 13px; }
+}
