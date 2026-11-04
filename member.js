@@ -377,7 +377,7 @@
         '<p class="addr-help">会员开在这个地址上，团队、业绩、结构图都查这个地址。</p>' +
         '<div class="addr-box"><input id="mem-addr" class="mono" placeholder="粘贴要开通会员的地址" autocomplete="off" spellcheck="false" value="' + (po ? po.target : "") + '"><button id="mem-q">查询</button></div>' +
         '<div id="q-out"></div>' +
-        '<ul class="addr-tips"><li><b>在本站 OTC 交易就送会员：单笔成交满 50 DAI 送初级 VIP，累计成交满 1 万 DAI 送高级 VIP</b>，填交易的地址点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
+        '<ul class="addr-tips"><li><b>在本站 OTC 交易就送会员：单笔成交满 50 DAI 送初级 VIP，累计成交满 1 万 DAI 送高级 VIP，累计满 100 万 DAI 送👑至尊 VIP + 名人堂永久留名</b>，填交易的地址点「查询」就能用。</li><li>可以用小号付款给大号开通，大号不用任何操作。</li>' +
         "<li>已开通的点「查询」直接恢复；未开通的会出现付款按钮。</li>" +
         "<li>开通后不能更改地址，请核对清楚。</li></ul></section>";
       var plans = upgrade

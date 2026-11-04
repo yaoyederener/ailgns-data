@@ -22,7 +22,7 @@ export async function onRequestGet(ctx) {
   }
 
   const board = u.searchParams.get("board") === "month" ? "month" : "total", all = board === "month" ? allM : allT;
-  const out = { board, ym, end, top: all.slice(0, 50).map(row), hof: await hallOfFame(kv, ym), ev };
+  const out = { board, ym, end, top: all.slice(0, 50).map(row), hof: await hallOfFame(kv, ym), ev, mil: allT.filter(([, v]) => v[0] >= 1e6).map(([a, v]) => ({ a, vol: Math.round(v[0]) })) };
   const me = (u.searchParams.get("me") || "").toLowerCase();
   if (isAddr(me)) {
     const i = all.findIndex(([a]) => a === me), vol = i < 0 ? 0 : all[i][1][0], rank = i + 1;
