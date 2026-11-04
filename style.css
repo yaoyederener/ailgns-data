@@ -1918,3 +1918,10 @@ tr[hidden], .cards [hidden] { display: none !important; }
 
 /* 百万俱乐部 */
 .hn-mil { background: #fff8e6; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+
+.hn-milc { background: linear-gradient(135deg, #fff8e6, #f6f1ff); border: 1px solid #f0d99a; }
+.hn-mil-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 18px; color: #8a5a00; }
+.hn-mil-n { font-size: 30px; font-weight: 800; color: #c98a00; line-height: 1; }
+.hn-mil-n small { font-size: 14px; font-weight: 600; }
+.hn-mil-l { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+.hn-mil-t { margin: 6px 0 0; font-size: 13.5px; color: var(--purple-ink); }

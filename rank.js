@@ -78,7 +78,7 @@
   // ---------- 荣耀榜页面 ----------
   var board = "total";
   function page(rid) {
-    A.app.innerHTML = '<section class="card hn-hero"><h2>🏆 AiLGNS 荣耀榜</h2><p class="muted">感谢每一位为 AiLGNS 生态做出贡献的交易者 · 按 OTC 累计成交排名（链上真实成交）</p>' +
+    A.app.innerHTML = '<div id="hn-milbox" data-nb="1"></div><section class="card hn-hero"><h2>🏆 AiLGNS 荣耀榜</h2><p class="muted">感谢每一位为 AiLGNS 生态做出贡献的交易者 · 按 OTC 累计成交排名（链上真实成交）</p>' +
       '<div class="seg hn-seg" id="hn-seg"><button type="button" data-b="total">🏛 总榜</button><button type="button" data-b="month">🔥 本月榜</button></div><p class="hn-cd" id="hn-cd"></p><div id="hn-me"></div></section>' +
       '<div id="hn-out" data-nb="1"><section class="card"><p class="muted">读取中…</p></section></div>';
     var me = null, seg = document.getElementById("hn-seg");
@@ -112,7 +112,6 @@
       // 名人堂
       var hof = d.hof || [], mil = d.mil || [];
       html += '<section class="card hn-hof"><div class="card-head"><h2>🏛 名人堂</h2><span class="muted">历届月榜前三 · 百万大户，永久留名</span></div>' +
-        '<div class="hn-hy hn-mil"><b>👑 百万俱乐部</b><div>' + (mil.length ? mil.map(function (x) { return '<span class="hn-hm">👑 至尊 VIP ' + A.nameTag(x.a) + " <small>" + dai(x.vol) + "</small></span>"; }).join("") : '<span class="muted">OTC 累计成交满 100 万 DAI，送👑至尊 VIP，名字永久刻在这里。第一位百万大户虚位以待！</span>') + "</div></div>" +
         (hof.length ? hof.map(function (h) {
           return '<div class="hn-hy"><b>' + h.ym.replace("-", " 年 ") + ' 月</b><div>' + h.top.map(function (x, i) { return '<span class="hn-hm">' + MEDAL[i] + " " + A.nameTag(x.a) + " <small>" + dai(x.vol) + "</small></span>"; }).join("") + "</div></div>";
         }).join("") : '<p class="muted">第一届名人堂将在本月月底诞生，本月榜一、榜二、榜三的名字会永久刻在这里。</p>') + "</section>";
@@ -121,6 +120,11 @@
         "<li>" + TIER[0][0] + " <b>最强王者</b>：第 1 名</li><li>" + TIER[1][0] + " <b>荣耀王者</b>：第 2–3 名</li><li>" + TIER[2][0] + " <b>王者</b>：第 4–10 名</li><li>" + TIER[3][0] + " <b>星耀</b>：第 11–20 名</li><li>" + TIER[4][0] + " <b>钻石</b>：第 21–50 名</li></ul>" +
         '<p class="muted">按在本站 OTC（AiLGNS / LGNS / gLGNS / NFT 卡牌 / 域名）的累计成交排名，买和卖都算；<b>单笔满 50 DAI 才计入</b>（和会员卡上的「OTC 累计成交」同一个数）。总榜前 50 名的名字在全站显示段位徽章；本月榜每月 1 号清零，月底前三名进名人堂；<b>累计满 100 万 DAI 送👑至尊 VIP，永久进名人堂「百万俱乐部」</b>。</p></section>';
       out.innerHTML = html;
+      // 名人堂 · 百万俱乐部：放在页面最顶上，人数从 0 开始挂出来，有人达到就展示
+      var mb = document.getElementById("hn-milbox");
+      if (mb) { mb.innerHTML = '<section class="card hn-milc"><div class="hn-mil-h"><b>👑 名人堂 · 百万俱乐部</b><span class="hn-mil-n">' + mil.length + ' <small>位</small></span></div>' +
+        (mil.length ? '<div class="hn-mil-l">' + mil.map(function (x, i) { return '<span class="hn-hm">' + (i + 1) + '. 👑 至尊 VIP ' + A.nameTag(x.a) + " <small>" + dai(x.vol) + "</small></span>"; }).join("") + "</div>" : "") +
+        '<p class="hn-mil-t">OTC 累计成交满 <b>100 万 DAI</b>，送👑<b>至尊 VIP</b>，名字永久刻在这里' + (mil.length ? "" : "。第一位百万大户虚位以待！") + "</p></section>"; if (mil.length) A.fillNames(mb); }
 
       // 我的名次：还差多少超过上一名、升下一个段位
       if (!me) {
