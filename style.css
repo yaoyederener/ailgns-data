@@ -2031,3 +2031,16 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-players { display: flex; flex-wrap: wrap; gap: 6px; }
 .or-players span { padding: 3px 10px; border-radius: 999px; background: #f3edff; font-size: 13px; }
 .or-q { width: 100%; margin: 8px 0; padding: 8px 10px; border: 1px solid #e3d8ff; border-radius: 10px; background: #fbf9ff; }
+
+.or-lnow { margin: 4px 0 8px; }
+.or-lwin { max-height: 330px; overflow: hidden; border-radius: 12px; background: #fbf9ff; border: 1px solid #ece4ff; }
+.or-lwin ol { list-style: none; margin: 0; padding: 0; }
+.or-lwin.roll ol { animation: or-roll calc(var(--n) * 2.2s) linear infinite; }
+.or-lwin.roll:hover ol { animation-play-state: paused; }
+@keyframes or-roll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.or-lwin li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid #f0eaff; height: 41px; box-sizing: border-box; }
+.or-lwin li b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.or-lwin li.top { background: #fff6dc; }
+.or-lr { width: 26px; text-align: center; color: #8a72c9; font-weight: 700; }
+.or-lp { font-variant-numeric: tabular-nums; font-weight: 700; color: #6b3fd6; }
+.or-lwin li small { color: #9a8fb8; white-space: nowrap; }

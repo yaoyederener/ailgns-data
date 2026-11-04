@@ -32,6 +32,7 @@
   function livePx(rid) {
     W.rpcOn("anubis", "eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]).then(function (r) {
       var el = document.getElementById("or-px"); if (el && A.isCurrent(rid)) el.textContent = pxOf(r).toFixed(3);
+      if (A.isCurrent(rid)) { livePxV = pxOf(r); liveRank(); }
     }, function () {});
   }
   // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
@@ -118,6 +119,7 @@
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
     html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上开奖价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + playersCard(d);
+    setTimeout(liveRank, 0);
     // 最近一次结果（不在上面显示时）
     if (d.last && !(res && res.day === d.last.day && now - res.at < 20 * 3600e3)) html += resultCard(d.last, "📜 上一期结果");
     // 预言家榜
@@ -196,13 +198,26 @@
     return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离开奖价远近排" : "") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
       rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + "</li>"; }).join("") + "</ol></details>";
   }
-  // 本轮已参加的人（价格晚上 9 点锁定后才公开）
+  // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
+  var livePxV = 0, liveRows = [], liveKey = "";
   function playersCard(d) {
-    var ps = d.players || [];
-    if (!ps.length) return "";
-    return '<section class="card"><div class="card-head"><h2>👥 ' + dayCn(d.round) + " 已参加 " + ps.length + ' 人</h2><span class="muted">共 ' + d.count.guesses + ' 个预测</span></div>' +
-      '<p class="muted">为了公平，预测的价格要到当晚 9 点锁定后才公开，防止别人跟着抄。</p><p class="or-players">' +
-      ps.map(function (p) { return "<span><b>" + esc(p.name) + "</b> ×" + p.n + "</span>"; }).join("") + "</p></section>";
+    liveRows = []; liveKey = "";
+    (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
+    if (!liveRows.length) return "";
+    return '<section class="card or-live"><div class="card-head"><h2>📈 ' + dayCn(d.round) + ' 实时排行</h2><span class="muted">' + (d.players || []).length + " 人 · " + liveRows.length + ' 个预测</span></div>' +
+      '<p class="muted">按离<b>当前链上价</b>最近排序，每 5 秒刷新；最终以当晚 9–10 点随机一刻的价格开奖。</p><div id="or-live"></div></section>';
+  }
+  function liveRank() {
+    var box = document.getElementById("or-live");
+    if (!box || !liveRows.length || !livePxV) return;
+    var m = Math.round(livePxV * 1000);
+    var rows = liveRows.slice().sort(function (a, b) { return Math.abs(a.m - m) - Math.abs(b.m - m); });
+    var key = m + ":" + rows.map(function (r) { return r.name + r.p; }).join("|");
+    if (key === liveKey) return;
+    liveKey = key;
+    var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp">' + r.p + '</span><small>差 ' + (Math.abs(r.m - m) / 1000).toFixed(3) + "</small></li>"; };
+    var html = rows.map(li).join(""), roll = rows.length > 8;
+    box.innerHTML = '<p class="or-lnow">当前价 <b>' + livePxV.toFixed(3) + '</b> DAI</p><div class="or-lwin' + (roll ? " roll" : "") + '"><ol style="--n:' + rows.length + '">' + html + (roll ? html : "") + "</ol></div>";
   }
   function resultCard(r, title) {
     var px = (r.px / 1000).toFixed(3), jw = r.jackpot.winners, c = r.closest;
