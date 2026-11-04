@@ -903,9 +903,18 @@
   var lsP = null, lsAt = 0;
   function listings(fresh) { // 两个市场里所有在卖的名字（15 秒内复用）
     if (lsP && !fresh && Date.now() - lsAt < 15000) return lsP;
-    lsAt = Date.now();
+    var again = !!lsP; lsAt = Date.now();
     var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
-    lsP = Promise.all(tlds.map(function (t) {
+    // 先用服务器批量读好的列表（一次请求）；服务器出问题再退回自己逐个读链
+    lsP = fetch("/api/name-market" + (fresh && again ? "?f=1" : "")).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
+      if (!j.list) throw new Error("bad");
+      return j.list.map(function (it) { it.price = BigInt(it.price); return it; });
+    }).catch(function () { return slowListings(tlds); });
+    lsP.catch(function () { lsP = null; });
+    return lsP;
+  }
+  function slowListings(tlds) {
+    return Promise.all(tlds.map(function (t) {
       var O = OTC[t], C = CONTRACTS[t];
       var oc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: O, data: data }, "latest"]); };
       var nc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: data }, "latest"]); };
@@ -924,8 +933,6 @@
         });
       });
     })).then(function (all) { return [].concat.apply([], all); });
-    lsP.catch(function () { lsP = null; });
-    return lsP;
   }
   // 买一个在卖的名字：授权 DAI（含 3%）→ 付款，名字同一笔交易到钱包；自己的单就是撤单
   function buyIt(it, b, say) {
