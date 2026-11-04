@@ -3,7 +3,7 @@
   "use strict";
   var A = window.AIL, W = A.wallet;
   var PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0", SCAN = "https://anubisscan.io/";
-  var SRC = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", KEEPER = "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
+  var SRC = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", KEEPER = "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";
   var eth = null, account = "", pxTimer = 0, cdTimer = 0, data = null, curRid = 0;
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -106,12 +106,16 @@
   // 站长（收款钱包）：给触发钱包授权 DAI 发奖额度。触发钱包只能在这个额度内把奖金发给中奖的人
   function ownerBox() {
     setTimeout(function () {
-      W.rpcOn("anubis", "eth_call", [{ to: DAI, data: "0xdd62ed3e" + SRC.slice(2).padStart(64, "0") + KEEPER.slice(2).padStart(64, "0") }, "latest"]).then(function (r) {
-        var el = document.getElementById("or-allow"); if (el) el.textContent = (Number(BigInt(r) / 10n ** 16n) / 100).toLocaleString("en-US") + " DAI";
-      }, function () {});
+      [[DAI, "or-allow", " DAI"], [AIL, "or-allow2", " AiLGNS"]].forEach(function (t) {
+        W.rpcOn("anubis", "eth_call", [{ to: t[0], data: "0xdd62ed3e" + SRC.slice(2).padStart(64, "0") + KEEPER.slice(2).padStart(64, "0") }, "latest"]).then(function (r) {
+          var el = document.getElementById(t[1]); if (el) el.textContent = (Number(BigInt(r) / 10n ** 14n) / 10000).toLocaleString("en-US") + t[2];
+        }, function () {});
+      });
     }, 0);
     return '<p>👑 站长钱包不参加预测。这里设置<b>自动发奖额度</b>：收款钱包授权触发钱包 ' + A.short(KEEPER) + ' 最多转出多少 DAI 发奖金（只能发给中奖的人，额度用完再授权）。</p>' +
-      '<p>当前额度：<b id="or-allow">读取中…</b></p><div class="or-in"><input id="or-amt" inputmode="decimal" value="1000"><button type="button" class="nm-go" id="or-approve">授权发奖额度</button></div><p class="muted or-st" id="or-st"></p>';
+      '<p>奖金先用 DAI 发，DAI 不够用 AiLGNS（按现价折算），所以两种都要授权。当前额度：<b id="or-allow">读取中…</b> · <b id="or-allow2">读取中…</b></p>' +
+      '<div class="or-in"><input id="or-amt" inputmode="decimal" value="1000"><button type="button" class="nm-go or-approve" data-t="DAI">授权 DAI 额度</button></div>' +
+      '<div class="or-in"><input id="or-amt2" inputmode="decimal" value="5"><button type="button" class="nm-go or-approve" data-t="AIL">授权 AiLGNS 额度</button></div><p class="muted or-st" id="or-st"></p>';
   }
   function drawCard(d) {
     var dr = d.drawing, res = dr.res;
@@ -169,17 +173,16 @@
         load(rid);
       }, function (e) { go.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), go); });
     };
-    var ap = document.getElementById("or-approve");
-    if (ap) ap.onclick = function () {
-      var v = Number(document.getElementById("or-amt").value);
+    document.querySelectorAll(".or-approve").forEach(function (ap) { ap.onclick = function () {
+      var isA = ap.getAttribute("data-t") === "AIL", v = Number(document.getElementById(isA ? "or-amt2" : "or-amt").value);
       if (!(v >= 0 && v <= 100000)) return A.errTip("额度填 0 到 100000 之间（填 0 = 取消授权）", ap);
-      var amt = BigInt(Math.round(v * 100)) * 10n ** 16n;
+      var amt = BigInt(Math.round(v * 10000)) * 10n ** 14n;
       ap.disabled = true; st.textContent = "请在钱包确认授权…";
       (eth ? Promise.resolve() : connect()).then(function () { return W.switchTo(eth, "anubis"); }).then(function () {
-        return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: DAI, data: "0x095ea7b3" + KEEPER.slice(2).padStart(64, "0") + amt.toString(16).padStart(64, "0") }] });
+        return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: isA ? AIL : DAI, data: "0x095ea7b3" + KEEPER.slice(2).padStart(64, "0") + amt.toString(16).padStart(64, "0") }] });
       }).then(function (h) { st.textContent = "已提交，等待确认…"; return W.waitOn("anubis", h); }).then(function () { ap.disabled = false; st.textContent = "✅ 授权成功"; load(rid); },
         function (e) { ap.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), ap); });
-    };
+    }; });
     var pb = document.getElementById("or-poster");
     if (pb) pb.onclick = function () { poster(); };
   }
