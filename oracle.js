@@ -71,7 +71,7 @@
     c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
     var pad = (hi - lo) * 0.08 || 0.5; hi += pad; lo -= pad;
     var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
-    for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 4) + '" y="' + (gy + 3.5).toFixed(1) + '" class="or-ct">' + gp.toFixed(2) + "</text>"; }
+    for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 4) + '" y="' + (gy + 3.5).toFixed(1) + '" class="or-ct">' + gp.toFixed(3) + "</text>"; }
     c.forEach(function (x, i) {
       var cx = L + cw * i + cw / 2, up = x.c >= x.o, col = up ? "or-up" : "or-dn", top = y(Math.max(x.o, x.c)), bot = y(Math.min(x.o, x.c));
       var d = new Date((x.t + 8 * 3600) * 1000), hh = String(d.getUTCHours()).padStart(2, "0") + ":00";
@@ -81,7 +81,7 @@
       if (i % 6 === 0) svg += '<text x="' + cx.toFixed(1) + '" y="' + (H0 - 12) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
     });
     var lastC = c[c.length - 1];
-    svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 7).toFixed(1) + '" width="58" height="14" rx="3" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(2) + "</text>";
+    svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 7).toFixed(1) + '" width="58" height="14" rx="3" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(3) + "</text>";
     el.innerHTML = svg;
   }
 
