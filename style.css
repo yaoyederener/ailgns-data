@@ -1822,3 +1822,7 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 #nm-f.nm-search #nm-q:placeholder-shown:not(:focus) { animation: nmGlow 1.8s ease-in-out infinite; }
 @keyframes nmGlow { 0%, 100% { box-shadow: 0 0 0 4px rgba(139, 92, 246, .12); } 50% { box-shadow: 0 0 0 8px rgba(139, 92, 246, .26); } }
 @media (prefers-reduced-motion: reduce) { #nm-f.nm-search #nm-q { animation: none !important; } }
+
+/* 域名市场挂单折叠按钮 */
+.nm-more { display: block; width: 100%; margin: 10px 0 0; padding: 11px; font-size: 14px; font-weight: 600; color: var(--purple-ink); background: #f4f0ff; border: 1px dashed #c4b2f0; border-radius: 10px; cursor: pointer; }
+.nm-more:hover { background: #ece4ff; }
