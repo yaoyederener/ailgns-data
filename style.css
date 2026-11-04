@@ -1826,3 +1826,44 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 /* 域名市场挂单折叠按钮 */
 .nm-more { display: block; width: 100%; margin: 10px 0 0; padding: 11px; font-size: 14px; font-weight: 600; color: var(--purple-ink); background: #f4f0ff; border: 1px dashed #c4b2f0; border-radius: 10px; cursor: pointer; }
 .nm-more:hover { background: #ece4ff; }
+
+/* ========== 🏆 荣耀榜 ========== */
+#hn-tick { display: flex; align-items: center; gap: 10px; max-width: 1180px; margin: 8px auto 0; padding: 8px 14px; border-radius: 12px; background: linear-gradient(90deg, #fff8e6, #f5efff 60%, #eef3ff); border: 1px solid #ecdcb0; color: var(--purple-ink); font-size: 14px; text-decoration: none; overflow: hidden; box-sizing: border-box; }
+#hn-tick .hn-tk-l { flex: none; padding: 2px 9px; border-radius: 999px; background: linear-gradient(110deg, #f5b301, #e58a00); color: #fff; font-weight: 700; font-size: 12px; }
+#hn-tick .hn-tk-m { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+#hn-tick .hn-tk-m.in { animation: hnIn .5s ease; }
+#hn-tick .hn-tk-r { flex: none; font-size: 12px; color: var(--muted); }
+@keyframes hnIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { #hn-tick { margin: 6px 10px 0; font-size: 13px; padding: 7px 10px; } #hn-tick .hn-tk-r { display: none; } #hn-tick .hn-tk-m { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } }
+.hn-hero h2 { margin-bottom: 4px; }
+.hn-seg { margin: 12px 0 6px; }
+.hn-cd { font-size: 14px; color: var(--purple-ink); margin: 6px 0; }
+.hn-podium { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 10px; align-items: end; text-align: center; }
+.hn-p { display: flex; flex-direction: column; gap: 4px; padding: 14px 8px; border-radius: 16px; min-width: 0; color: #3b2a63; }
+.hn-p1 { padding: 22px 8px; background: linear-gradient(170deg, #fff6d6, #ffe9a8); border: 2px solid #f2c14e; box-shadow: 0 6px 22px rgba(242, 177, 30, .35); animation: hnGlow 2.4s ease-in-out infinite; }
+.hn-p2 { background: linear-gradient(170deg, #f7f8fb, #e6eaf2); border: 2px solid #c3cad8; }
+.hn-p3 { background: linear-gradient(170deg, #fdf3ea, #f6dcc4); border: 2px solid #e0a874; }
+@keyframes hnGlow { 0%, 100% { box-shadow: 0 6px 22px rgba(242, 177, 30, .3); } 50% { box-shadow: 0 6px 30px rgba(242, 177, 30, .6); } }
+.hn-medal { font-size: 30px; line-height: 1; }
+.hn-p1 .hn-medal { font-size: 40px; }
+.hn-pt { font-size: 13px; }
+.hn-p1 .hn-pt { font-size: 15px; color: #a86a00; }
+.hn-pa { font-size: 13px; font-weight: 700; word-break: break-all; }
+.hn-p1 .hn-pa { font-size: 15px; }
+.hn-pv { font-size: 14px; color: var(--purple-ink); }
+.hn-p small { color: var(--muted); }
+.hn-list { margin: 14px 0 0; padding: 0; list-style: none; }
+.hn-list li { display: flex; align-items: center; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--line, #eee); font-size: 14px; }
+.hn-list li.hn-r2 { background: linear-gradient(90deg, rgba(139, 92, 246, .08), transparent); }
+.hn-n { width: 26px; text-align: center; font-weight: 700; color: var(--muted); flex: none; }
+.hn-a { flex: 1; min-width: 0; word-break: break-all; }
+.hn-tier { flex: none; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; font-weight: 600; }
+.hn-t0 { background: #fff1c7; color: #9a6400; } .hn-t1 { background: #fff4dc; color: #a86a00; }
+.hn-t2 { background: #efe6ff; color: #6927db; } .hn-t3 { background: #e8edff; color: #3b5bdb; } .hn-t4 { background: #e6f6ff; color: #0b7bb8; }
+.hn-mine { margin: 10px 0; padding: 12px 14px; border-radius: 12px; background: #f4efff; font-size: 15px; line-height: 1.8; }
+.hn-hy { padding: 10px 0; border-bottom: 1px solid var(--line, #eee); }
+.hn-hy > div { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 4px; }
+.hn-hm small { color: var(--muted); }
+.hn-rules ul { margin: 4px 0 8px; padding-left: 20px; line-height: 1.9; }
+@media (max-width: 640px) { .hn-podium { gap: 6px; } .hn-p { padding: 12px 4px; } .hn-pa { font-size: 12px; } .hn-list b { font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { .hn-p1, #hn-tick .hn-tk-m.in { animation: none; } }

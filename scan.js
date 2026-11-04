@@ -285,10 +285,13 @@
       (node.nodeValue.match(SHORT_RE) || []).forEach(function (s) {
         var full = A.shorts && A.shorts[s];
         if (!full) return;
-        nameOf(full).then(function (nm) {
-          if (!nm || node.nodeValue.indexOf(s) < 0) return;
-          node.nodeValue = node.nodeValue.replace(s, nm);
-          if (node.parentNode && !node.parentNode.title) node.parentNode.title = full;
+        // 荣耀榜总榜前 50：名字前面加段位徽章（荣耀榜页面和顶部播报条里不加，避免重复）
+        Promise.all([nameOf(full), A.rankReady || null]).then(function (x) {
+          var nm = x[0], p = node.parentNode, nb = p && p.closest && p.closest("[data-nb]"), bg = !nb && A.rankBadge ? A.rankBadge(full) : "";
+          if (node.nodeValue.indexOf(s) < 0) return;
+          if (!nm && (!bg || node.nodeValue.indexOf(bg + s) >= 0)) return;
+          node.nodeValue = node.nodeValue.replace(s, bg + (nm || s));
+          if (p && !p.title) p.title = full + (bg ? " · " + A.rankTitle(full) : "");
         });
       });
     });

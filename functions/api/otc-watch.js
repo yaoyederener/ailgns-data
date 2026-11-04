@@ -10,6 +10,7 @@ import { rebuildIfNeeded } from "../../lib/pixel.js";
 import { bjDay } from "../../lib/stats.js";
 import { GP_MAX, SEED } from "../../lib/guide.js";
 import { addVol } from "../../lib/rank.js";
+import { addHonor } from "../../lib/honor.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -74,6 +75,7 @@ async function markTraders(m, kv, logs, cache, live = false) {
 }
 // live：正常进度读到的新成交（补记以前的成交时不算），新送出的初级 VIP 记进 st:v:<北京日期>，内部群日报用
 async function markVip(m, kv, logs, cache, live = false) {
+  const hd = {}; // 荣耀榜（总榜 / 月榜）这批新加的量
   for (const l of logs) {
     if (l.topics[0] !== filledTopic(m)) continue;
     const key = "otcq:f:" + l.transactionHash + ":" + parseInt(l.logIndex, 16);
@@ -91,10 +93,14 @@ async function markVip(m, kv, logs, cache, live = false) {
         r.vol = (r.vol || 0) + vol;
         r.n = (r.n || 0) + 1;
         await kv.put("otcq:" + a, JSON.stringify(r));
+        const h = hd[a] || (hd[a] = [0, 0]);
+        h[0] += vol;
+        h[1] += 1;
       }
     }
     await kv.put(key, "1");
   }
+  await addHonor(kv, hd, live);
 }
 // 加了 50 DAI 门槛后，三个市场以前的成交从部署区块起重新补记一遍（只补 otcq，otct 已经记过）
 // ---------- 按地址记成交（客户在「成交查询」里按地址查）：tr:<地址> 最多存最近 300 条 ----------
