@@ -112,8 +112,7 @@
     var dr = d.drawing, res = dr.res, now = Date.now(), inWin = !dr.skip && now >= dr.from && now < dr.to + 5 * 60e3 && !res; // 第一期之前（11 月 5 日）不开奖
     var html = "", top = "";
     // 超级大奖池 + 本轮奖金（放在页面最上面）
-    top += '<section class="card or-pool"><div class="or-pl"><small>🎯 超级大奖池（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.pool) + "</b>" + (d.last ? "" : '<small class="or-seed">🎁 含开局奖池：11 月 4 日域名收入 × 20% 全部进大奖池（当天实时累加），第一期 11 月 6 日晚开奖</small>') + "</div>" +
-      funds(d.funds, d.pool) +
+    top += '<section class="card or-pool"><div class="or-pl"><small>🎯 奖池总额（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.funds ? Math.floor((d.funds.dai + d.funds.ail * d.funds.px) * 100) / 100 : d.pool) + "</b>" + (d.last ? "" : '<small class="or-seed">🎁 第一期 11 月 6 日晚开奖</small>') + "</div>" +
       '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= " + dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10)) + " 域名收入 " + dai(d.rev) + " × 20%（那天实时累加）：10% 给最接近的人，90% 滚进大奖池</small></div></section>";
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
