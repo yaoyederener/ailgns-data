@@ -150,7 +150,7 @@
   function meBox(d) {
     var me = d.me;
     if (account === SRC) return ownerBox();
-    if (!account) return '<p>持有 .ailgns / .lgns 域名并设为主名字，就能免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
+    if (!account) return '<p>持有 .ailgns 域名并设为主名字，就能免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
     if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
     if (!me.name) return '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有<b>主名字</b>。</p><p>注册一个 .ailgns 域名（5 DAI 起），再点「设为主名字」就能参加 👇</p><a class="nm-go" href="#/names">去注册域名 →</a>';
     if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";
@@ -199,7 +199,7 @@
   }
   function rules() {
     return '<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>' +
-      "<li><b>谁能玩</b>：持有 .ailgns / .lgns 域名并设为主名字，免费参与，只需钱包签名。</li>" +
+      "<li><b>谁能玩</b>：持有 .ailgns 域名并设为主名字，免费参与，只需钱包签名。</li>" +
       "<li><b>猜什么</b>：猜开奖价，精确到小数点后 3 位，例如 827.354。</li>" +
       "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚开奖，9 点后提交的参加第二天。</li>" +
