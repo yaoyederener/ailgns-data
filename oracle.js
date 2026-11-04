@@ -19,12 +19,14 @@
   function page(rid) {
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
     A.app.innerHTML =
-      '<div id="or-top"></div><section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
+      '<div id="or-top"></div>' +
+      '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，连钱包签名，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
+      '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
       '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻开奖</small></div><div class="or-lead" id="or-lead"></div></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
-    livePx(rid); chart(rid);
+    livePx(rid); chart(rid); dmInit(rid);
     pxTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pxTimer); livePx(rid); }, 5000);
     var go = function () { load(rid); };
     if (!account && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a) account = String(a).toLowerCase(); go(); }, go); else go();
@@ -285,6 +287,57 @@
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
   }
 
+  // 💬 弹幕：每 15 秒拉一次，3 条跑道从右往左一直飘；新发的优先飘
+  var dmList = [], dmQ = [], dmI = 0, dmSeen = {}, dmLane = 0;
+  function dmText(txt, ts, a) { return "AiLGNS 弹幕\n" + txt + "\n时间：" + ts + "\n地址：" + a; }
+  function dmFetch() {
+    return fetch("/api/danmaku?r=" + Date.now()).then(function (r) { return r.json(); }).then(function (j) {
+      (j.list || []).forEach(function (m) { if (!dmSeen[m.id]) { dmSeen[m.id] = 1; dmList.push(m); if (dmList.length > 80) dmList.shift(); if (dmFetched) dmQ.push(m); } });
+      dmFetched = true;
+      var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = dmList.length ? "" : "💬 还没有弹幕，来发第一条吧！";
+    }, function () {});
+  }
+  var dmFetched = false;
+  function dmFly(m, mine) {
+    var sky = document.getElementById("or-dmsky"); if (!sky) return;
+    var el = document.createElement("div");
+    el.className = "or-dmi" + (mine ? " mine" : "");
+    el.style.top = (8 + (dmLane++ % 3) * 30) + "px";
+    el.innerHTML = "<b>" + esc(m.name) + "</b>：" + esc(m.txt);
+    el.style.animationDuration = (9 + Math.random() * 4).toFixed(1) + "s";
+    el.addEventListener("animationend", function () { el.remove(); });
+    sky.appendChild(el);
+  }
+  function dmInit(rid) {
+    dmFetched = false; dmSeen = {}; dmList = []; dmQ = [];
+    dmFetch();
+    var tick = setInterval(function () {
+      if (!A.isCurrent(rid) || !document.getElementById("or-dmsky")) return clearInterval(tick);
+      if (dmQ.length) return dmFly(dmQ.shift(), false);
+      if (dmList.length) dmFly(dmList[dmI++ % dmList.length], false);
+    }, 1600);
+    var pull = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pull); dmFetch(); }, 15000);
+    var inp = document.getElementById("or-dmt"), btn = document.getElementById("or-dmgo");
+    if (!btn) return;
+    var send = function () {
+      var txt = inp.value.replace(/\s+/g, " ").trim();
+      if (!txt) return A.errTip("先写点内容", btn);
+      btn.disabled = true;
+      var ts = Date.now();
+      (eth ? Promise.resolve() : connect()).then(function () {
+        return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(dmText(txt, ts, account)), account] });
+      }).then(function (sig) {
+        return fetch("/api/danmaku", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: account, txt: txt, ts: ts, sig: sig }) }).then(function (r) { return r.json(); });
+      }).then(function (j) {
+        btn.disabled = false;
+        if (j.error) throw new Error(j.error);
+        inp.value = ""; dmSeen[j.it.id] = 1; dmList.push(j.it); dmFly(j.it, true);
+        var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = "";
+      }).catch(function (e) { btn.disabled = false; A.errTip(e.message || String(e), btn); });
+    };
+    btn.onclick = send;
+    inp.onkeydown = function (e) { if (e.key === "Enter") send(); };
+  }
   function connect() {
     return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return account; });
   }

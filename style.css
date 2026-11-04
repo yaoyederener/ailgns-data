@@ -2113,3 +2113,15 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-pnote { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
 @media (max-width: 640px) { .or-pbig { font-size: 46px; } .or-prz { gap: 6px; } .or-pz b { font-size: 22px; } .or-pz small { font-size: 12px; } .or-pz span { font-size: 10.5px; } }
 .or-pbig i { font-style: normal; }
+
+/* 💬 弹幕 */
+.or-dm { padding: 10px 12px; background: linear-gradient(135deg, #f6f0ff, #fff6fb); }
+.or-dmsky { position: relative; height: 100px; overflow: hidden; border-radius: 12px; background: rgba(255,255,255,.6); border: 1px dashed #e3d8ff; }
+.or-dmtip { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.or-dmi { position: absolute; left: 100%; white-space: nowrap; padding: 3px 12px; border-radius: 999px; background: #fff; border: 1px solid #e9dfff; color: #4b3a7a; font-size: 14px; box-shadow: 0 2px 8px rgba(120,80,200,.10); animation: or-dmfly 10s linear forwards; }
+.or-dmi b { color: #7c3aed; }
+.or-dmi.mine { background: #fff3c4; border-color: #f0d78a; }
+@keyframes or-dmfly { from { transform: translateX(0); } to { transform: translateX(calc(-100vw - 100%)); } }
+.or-dmin { display: flex; gap: 8px; margin-top: 8px; }
+.or-dmin input { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid #e3d8ff; border-radius: 10px; background: #fff; font-size: 14px; }
+.or-dmin button { white-space: nowrap; }
