@@ -546,6 +546,12 @@
   });
   // 给 member.js 等扩展页面用的公共工具
   // 出错时：屏幕底部弹出原因（不会被滚走），同时把页面滚到出问题的地方，客户照着提示改了再点
+  // 合约报错翻译成客户看得懂的话（去掉一长串 0x 数据）
+  function friendly(t) {
+    t = String(t || "");
+    if (/NOTHING_FILLED/.test(t)) return "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。";
+    return t.replace(/:?\s*0x[0-9a-f]{40,}/gi, "").trim() || "操作没完成，请刷新页面再试一次";
+  }
   function errTip(t, el) {
     var old = document.getElementById("err-tip");
     if (old) old.remove();
@@ -553,7 +559,7 @@
     d.id = "err-tip";
     d.className = "err-tip";
     d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><button type="button">知道了</button>';
-    d.querySelector("span").textContent = t;
+    d.querySelector("span").textContent = friendly(t);
     d.querySelector("button").onclick = function () { d.remove(); };
     document.body.appendChild(d);
     setTimeout(function () { if (d.parentNode) d.remove(); }, 15000);
