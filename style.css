@@ -2007,7 +2007,7 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .risk-head small { display: block; font-size: 12px; color: #9a90bd; }
 .risk-chips { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .risk-chips li { padding: 3px 10px; font-size: 12.5px; color: #5b3fc4; background: #fff; border: 1px solid #e6dbff; border-radius: 999px; }
-.risk-chips li:last-child { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+.risk-chips li:nth-last-child(-n+2) { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
 .risk-sum { margin: 0; }
 .risk-dev { margin: 8px 0 0; padding: 6px 10px; background: #fff; border: 1px dashed #d9ccff; border-radius: 10px; font-size: 13px; }
 .risk-det { margin-top: 10px; }
