@@ -18,7 +18,9 @@ export async function onRequestGet(ctx) {
   if (u.searchParams.get("ticker")) {
     const badges = {};
     allT.slice(0, 50).forEach(([a], i) => { badges[a] = i + 1; });
-    return json({ badges, top3: allT.slice(0, 3).map(row), mtop3: allM.slice(0, 3).map(row), ev, ym, end }, true);
+    const [orPool, orLast] = await Promise.all([kv.get("or:pool", "json"), kv.get("or:last", "json")]);
+    const or = { pool: (orPool && orPool.pool) || 0, last: orLast ? { day: orLast.day, px: orLast.px, c: orLast.closest && { name: orLast.closest.name, amt: orLast.closest.amt, diff: orLast.closest.diff }, j: orLast.jackpot.winners.map((w) => w.name), each: orLast.jackpot.each, at: orLast.at } : null };
+    return json({ badges, top3: allT.slice(0, 3).map(row), mtop3: allM.slice(0, 3).map(row), ev, ym, end, or }, true);
   }
 
   const board = u.searchParams.get("board") === "month" ? "month" : "total", all = board === "month" ? allM : allT;

@@ -41,6 +41,15 @@
     if (d.mtop3 && d.mtop3[0]) msgs.push("👑 本月榜一 " + nm(d.mtop3[0].a) + "，已成交 " + dai(d.mtop3[0].vol) + "，谁来挑战？");
     var rest = d.end - Date.now();
     if (rest > 0 && rest < 3 * 86400e3) msgs.push("⏰ 本月榜一争夺战还剩 " + left(rest) + "，月底定冠军，永久刻进名人堂！");
+    // 🔮 预言家：大奖池金额 + 最近一期结果（一天内）
+    var or = d.or;
+    if (or) {
+      if (or.last && Date.now() - or.last.at < 86400e3) {
+        if (or.last.j.length) msgs.unshift("🎯 神预测！" + or.last.j.join("、") + " 猜中开奖价 " + (or.last.px / 1000).toFixed(3) + "，瓜分超级大奖池！");
+        else if (or.last.c) msgs.push("🔮 今日预言家 " + or.last.c.name + "：只差 " + (or.last.c.diff / 1000).toFixed(3) + "，拿下 " + or.last.c.amt + " DAI！");
+      }
+      msgs.push("🔮 预言家超级大奖池已累积 " + Number(or.pool).toLocaleString("en-US") + " DAI，猜中今晚 AiLGNS 价格就能拿走 →");
+    }
     if (!msgs.length) return;
     // 穿插「注册域名」引导：上榜大哥只显示 0x 地址太可惜，亮出名字让全网知道
     var DOM = ["🌐 上了荣耀榜却只显示一串 0x？注册 .ailgns 域名，让全网知道你是谁 →",
@@ -48,7 +57,7 @@
       "💎 好名字全球只有一个，先注册先得，晚一步就是别人的 →",
       "🏆 榜上有名，更要有名！5 DAI 起注册 .ailgns，名字永久跟着你 →",
       "📣 0x 地址没人记得住，xxx.ailgns 一眼就记住：别人转账填名字就行 →"];
-    var list = msgs.map(function (t) { return { t: t, h: "#/rank" }; });
+    var list = msgs.map(function (t) { return { t: t, h: /^(🔮|🎯)/.test(t) ? "#/oracle" : "#/rank" }; });
     var mix = [];
     list.forEach(function (m, i) { mix.push(m); mix.push({ t: DOM[i % DOM.length], h: "#/names" }); });
     // 前三名、本月榜一还没域名的：点名邀请
@@ -70,7 +79,7 @@
       app.parentNode.insertBefore(wrap, app);
     }
     var i = 0, m = document.getElementById("hn-tk-m");
-    var show = function () { var x = mix[i++ % mix.length]; m.classList.remove("in"); void m.offsetWidth; m.textContent = x.t; bar.href = x.h; bar.querySelector(".hn-tk-r").textContent = x.h === "#/names" ? "去注册 ›" : "看榜 ›"; m.classList.add("in"); };
+    var show = function () { var x = mix[i++ % mix.length]; m.classList.remove("in"); void m.offsetWidth; m.textContent = x.t; bar.href = x.h; bar.querySelector(".hn-tk-r").textContent = x.h === "#/names" ? "去注册 ›" : x.h === "#/oracle" ? "去预测 ›" : "看榜 ›"; m.classList.add("in"); };
     show();
     clearInterval(ticker.t); ticker.t = setInterval(show, 5000);
   }
