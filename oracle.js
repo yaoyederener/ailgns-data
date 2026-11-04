@@ -115,7 +115,7 @@
     // 超级大奖池 + 本轮奖金（放在页面最上面）
     var potV = d.funds ? Math.floor((d.funds.dai + d.funds.ail * d.funds.px) * 100) / 100 : 0; // 奖池实际总额
     top += '<section class="card or-pool"><div class="or-pl"><small>🎯 奖池总额（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(potV) + "</b>" + (d.last ? "" : '<small class="or-seed">🎁 第一期 11 月 6 日晚开奖</small>') + "</div>" +
-      '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= " + dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10)) + " 域名收入 " + dai(d.rev) + " × 20%，全部进奖池（那天实时累加）</small>" + '<small class="or-split">今晚开奖（按奖池总额）：🥇 最接近 10% ≈ <b>' + dai(Math.floor(potV * 10) / 100) + '</b> · 🥈 第二名 5% ≈ <b>' + dai(Math.floor(potV * 5) / 100) + '</b> · 🎯 猜中 3 位小数平分剩下的</small></div></section>';
+      '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= " + dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10)) + " 域名收入 " + dai(d.rev) + " × 20%，全部进奖池（那天实时累加）</small>" + '<small class="or-split">每晚开奖按奖池总额发：🥇 最接近 10% ≈ <b>' + dai(Math.floor(potV * 10) / 100) + '</b> · 🥈 第二名 5% ≈ <b>' + dai(Math.floor(potV * 5) / 100) + '</b> · 🎯 猜中 3 位小数平分剩下的</small></div></section>';
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
