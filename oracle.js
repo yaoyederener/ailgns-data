@@ -119,9 +119,9 @@
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig">' + n0(potV) + '<span>DAI</span></div>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点开奖</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p1"><small>🥇 最接近</small><b>' + n0(potV * 0.1) + '</b><span>DAI · 奖池 10%</span></div>' +
-        '<div class="or-pz p2"><small>🥈 第二名</small><b>' + n0(potV * 0.05) + '</b><span>DAI · 奖池 5%</span></div>' +
-        '<div class="or-pz p3"><small>🎯 超级大奖</small><b>' + n0(potV * 0.85) + '</b><span>DAI · 猜中 3 位小数平分</span></div>' +
+        '<div class="or-pz p3"><small>🔮 神算子大奖</small><b>' + n0(potV * 0.85) + '</b><span>DAI · 3 位小数全猜中，平分</span></div>' +
+        '<div class="or-pz p1"><small>🥇 第一名</small><b>' + n0(potV * 0.1) + '</b><span>DAI · 最接近开奖价 · 奖池 10%</span></div>' +
+        '<div class="or-pz p2"><small>🥈 第二名</small><b>' + n0(potV * 0.05) + '</b><span>DAI · 第二接近 · 奖池 5%</span></div>' +
       "</div>" +
       '<p class="or-pnote">本轮新增 <b>' + dai(d.allot) + "</b> = " + rd + " 域名收入 " + dai(d.rev) + " × 20%，全部进奖池（实时累加）</p></div></section>";
     // 正在开奖 / 刚开完
