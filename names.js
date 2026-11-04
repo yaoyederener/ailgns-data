@@ -258,7 +258,7 @@
     A.app.innerHTML =
       '<section class="card nm-hero"><h2>🌐 .ailgns / .lgns 域名</h2><p class="nm-what">💡 域名就是你的<b>链上靓号</b>：别人转账给你，只要填 <b>xxx.ailgns</b>，不用再抄一长串 0x 地址；好名字全球只有一个，<b>先注册先得</b>，稀缺的好名字可以挂到 OTC 转卖。</p>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
-      '<p class="nm-hint">👇 输入你想要的名字，点「搜索」</p>' +
+      '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div>' +
@@ -282,6 +282,8 @@
       // 同一个后缀：只换地址栏、不重新加载整页（以前每搜一次整页的市场、排行都重新读链，很慢）
       if (v !== q) { q = v; try { history.replaceState(null, "", "#/names/" + encodeURIComponent(v) + "." + t); } catch (x) { /* 忽略 */ } }
       show(v);
+      // 点了「搜索」：收起手机键盘，把结果（注册按钮）滚到眼前
+      if (e.isTrusted !== false && !e.auto) { inp.blur(); setTimeout(function () { out.scrollIntoView({ behavior: "smooth", block: "start" }); }, 300); }
     };
     // 边打字边查：停顿 0.4 秒就先去链上查，按「搜索」时结果多半已经好了
     var typing;
@@ -289,7 +291,10 @@
       var v = inp.value.toLowerCase(); if (v !== inp.value) inp.value = v;
       clearTimeout(typing);
       v = v.trim().replace(/\.(ailgns|lgns)$/, "");
-      if (NAMES && valid(v)) typing = setTimeout(function () { info(v).catch(function () {}); }, 400);
+      var hint = document.getElementById("nm-hint");
+      if (hint) hint.innerHTML = v ? "👇 下面就是 <b>" + esc(v) + "." + TLD + "</b> 能不能注册，能注册就点下面的「注册」按钮" : "👇 输入你想要的名字，下面马上显示能不能注册";
+      // 停顿一下就自动出结果，不用找「搜索」按钮
+      if (valid(v)) typing = setTimeout(function () { if (document.getElementById("nm-t").value === TLD) f.onsubmit({ preventDefault: function () {}, auto: true }); }, 700);
     };
     // 我的域名：填地址（或用当前钱包）→ 列出这个地址名下所有 .ailgns / .lgns 名字，创世域名大大地显示创世徽章
     function myNames(a) {
@@ -360,7 +365,9 @@
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     };
 
+    var showSeq = 0;
     function show(v) {
+      var my = ++showSeq;
       if (!v) { out.innerHTML = ""; return; }
       if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-；英文最少 3 位，中文最少 2 个字，最多 32 个字，不能以 - 开头或结尾</p>'; return; }
       var buy = '<div class="nm-yr"><span class="nm-yr-t">买几年</span><select id="nm-y" hidden>' + [1, 2, 3, 5, 10, 100].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + "</select>" +
@@ -376,6 +383,7 @@
       }
       out.innerHTML = '<p class="muted">查询中…</p>';
       info(v).then(function (r) {
+        if (my !== showSeq) return; // 已经换了别的名字，这个结果作废
         if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
         var mine = account && r.owner === account, now = Date.now() / 1000;
         var anon = !mine && (PROTECT[r.owner] || PROTECT[r.addr] || (A.hiddenNames || {})[v + "." + TLD]); // 匿名持有人：不显示地址、编号
