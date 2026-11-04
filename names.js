@@ -757,11 +757,12 @@
     var pre = ""; try { pre = sessionStorage.getItem("nm:sellpick") || ""; sessionStorage.removeItem("nm:sellpick"); } catch (x) { /* 忽略 */ }
     box.innerHTML = '<div class="form-grid"><label>要卖的域名<input id="nm-sp-n" list="nm-sp-dl" placeholder="例如 发财.ailgns" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(pre) + '"><datalist id="nm-sp-dl"></datalist></label>' +
       '<label>售价（DAI）<input id="nm-sp-p" inputmode="decimal" placeholder="例如 100"></label></div>' +
-      '<div class="nm-sp-mine" id="nm-sp-mine"></div>' +
+      '<div class="nm-sp-mine" id="nm-sp-mine"></div><p class="note" id="nm-sp-vol"></p>' +
       '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没卖掉，名字自动退回</small></span><div class="dur-opts" id="nm-sp-d">' + DURS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === dur ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
       '<p class="note" id="nm-sp-sum">填好售价后显示你能拿到多少</p><button id="nm-sp-go" style="padding:12px 22px">发布挂单</button><p class="note" id="nm-sp-st">点「发布挂单」时才会连接钱包；名字先存进托管合约，成交前随时可撤</p>';
     var ni = document.getElementById("nm-sp-n"), pi = document.getElementById("nm-sp-p"), sum = document.getElementById("nm-sp-sum"), sst = document.getElementById("nm-sp-st"), go = document.getElementById("nm-sp-go");
     try { var pp = sessionStorage.getItem("nm:sellprice"); sessionStorage.removeItem("nm:sellprice"); if (pp) { pi.value = pp; setTimeout(function () { pi.oninput && pi.oninput(); }, 0); } } catch (x) { /* 忽略 */ }
+    if (account) otcVols([account]).then(function (v) { var e = document.getElementById("nm-sp-vol"), vol = v[account] || 0; if (e) e.innerHTML = "📊 你的 OTC 累计成交：<b>" + A.fmt(vol, 2) + " DAI</b>" + (vol ? "，挂单会排在成交比你少的卖家前面" : "（还没有，挂单排在有成交的卖家后面）") + ' · <a href="#/names/otc">排名规则</a>'; });
     // 已经连过钱包的：把名下的域名列成按钮，点一下就填好（不弹钱包）
     if (account) ownedList(account).then(function (list) {
       var m = document.getElementById("nm-sp-mine"); if (!m || !list.length) return;
@@ -934,27 +935,67 @@
     var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
     listings(true).then(function (list) {
       list = list.slice();
-      if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>'; return; }
-      list.sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; });
+      if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>' + rankRules(); rankLookup(); return; }
+      var makers = list.map(function (x) { return x.maker; }).filter(function (a, i, z) { return z.indexOf(a) === i; });
+      return Promise.all([otcVols(makers)].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) { draw(list, r[0], r.slice(1)); });
+    }).catch(function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
+    function draw(list, vols, gens) {
+      list.forEach(function (it) { it.vol = vols[it.maker] || 0; it.gno = gens[tlds.indexOf(it.t)][it.tid] || 0; });
+      // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 都没成交的，创世编号小的在前（同号 .ailgns 在前）③ 再按挂单先后，新挂的在前
+      list.sort(mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
+        : mkSort === "new" ? function (a, b) { return b.id - a.id; }
+        : function (a, b) { return b.vol - a.vol || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
+      box.innerHTML = '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
           : '<button type="button" class="act-btn btn-buy" data-i="' + i + '" data-m="0">买入</button>';
         return '<tr><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
-          '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) + "</td></tr>";
-      }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-mst"></p>';
-      tlds.forEach(function (t) {
-        genesis(t).then(function (g) { box.querySelectorAll('[data-g^="' + t + ':"]').forEach(function (e) { var k = g[e.getAttribute("data-g").split(":")[1]]; if (k) e.textContent = "🌟 创世 #" + k; }); }, function () {});
-      });
+          '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) +
+          '<br><small class="nm-vol">' + (it.vol ? "OTC 累计成交 " + A.fmt(it.vol, 2) + " DAI" : "暂无 OTC 成交") + "</small></td></tr>";
+      }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-mst"></p>' + rankRules();
+      box.querySelectorAll("[data-g]").forEach(function (e) { var k = e.getAttribute("data-g").split(":"), n = gens[tlds.indexOf(k[0])][k[1]]; if (n) e.textContent = "🌟 创世 #" + n; });
+      document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(list, vols, gens); };
+      rankLookup();
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-i]").forEach(function (b) {
         b.onclick = function () {
           buyIt(list[Number(b.getAttribute("data-i"))], b, say).then(function () { say("✅ 成功"); market(); }, function (e) { say(""); A.errTip(e.message || String(e), b); });
         };
       });
-    }, function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
+    }
+  }
+  var mkSort = "rec";
+  // 卖家的「OTC 累计成交」：和会员卡上同一个数（本站 OTC 单笔满 50 DAI 的成交累计）
+  function otcVols(as) {
+    if (!as.length) return Promise.resolve({});
+    return fetch("/api/member?vols=" + as.join(",")).then(function (r) { return r.json(); }).then(function (j) { return j.vols || {}; }, function () { return {}; });
+  }
+  function rankRules() {
+    return '<details class="nm-rules" open><summary>📋 挂单排名规则（推荐排序）</summary><ol>' +
+      "<li><b>卖家 OTC 累计成交越多，排越前。</b>就是会员卡上的「OTC 累计成交」：在本站 OTC（AiLGNS / LGNS / gLGNS / NFT 卡牌 / 域名）单笔成交满 50 DAI 的金额累计。成交多说明信誉好，买家更放心。</li>" +
+      "<li><b>都没有成交的，按创世编号排</b>：创世 #1 最前，编号越小越靠前。</li>" +
+      "<li><b>都不是创世的，按挂单时间排</b>，新挂的在前。</li></ol>" +
+      '<p class="muted">想排前面？多在 <a href="#/otc">OTC 交易</a> 成交就行。也可以点上面「价格低→高」「最新挂单」换排序。刷单每笔要付 3% 手续费，刷不划算。</p>' +
+      '<div class="nm-rk"><input id="nm-rk-a" placeholder="填钱包地址，查你的 OTC 累计成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-rk-go">查询</button></div><p class="note" id="nm-rk-r"></p></details>';
+  }
+  function rankLookup() {
+    var inp = document.getElementById("nm-rk-a"), go = document.getElementById("nm-rk-go"), out = document.getElementById("nm-rk-r");
+    if (!inp) return;
+    if (account) inp.value = account;
+    var run = function () {
+      var a = inp.value.trim().toLowerCase();
+      if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("请填 0x 开头的钱包地址", go); return; }
+      out.textContent = "查询中…";
+      otcVols([a]).then(function (v) {
+        var vol = v[a] || 0;
+        out.innerHTML = vol ? "✅ " + A.short(a) + " 的 OTC 累计成交：<b>" + A.fmt(vol, 2) + " DAI</b>。挂单时会排在成交比你少的卖家前面" : A.short(a) + " 还没有 OTC 成交（单笔满 50 DAI 才计入）。挂单会排在有成交的卖家后面，创世名字按编号排";
+      });
+    };
+    go.onclick = run;
+    if (account) run();
   }
 
   A.pages.names = page;

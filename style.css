@@ -1789,3 +1789,12 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-wok { font-size: 12px; color: var(--green, #2f9e6b); white-space: nowrap; }
 .nm-wbad { font-size: 12px; color: var(--muted, #8a84a3); white-space: nowrap; }
 tr.nm-wdim td { opacity: .5; }
+
+/* 域名市场：排名规则 / 卖家成交额 */
+.nm-vol { color: var(--muted, #8a84a3); font-size: 12px; font-family: inherit; }
+.nm-sort { margin: 0 0 10px; }
+.nm-rules { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--soft, #f4f1fb); border: 1px solid var(--line, #e6e0f5); font-size: 14px; line-height: 1.7; }
+.nm-rules summary { cursor: pointer; font-weight: 600; }
+.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
+.nm-rk { display: flex; gap: 8px; margin-top: 8px; }
+.nm-rk input { flex: 1; min-width: 0; }

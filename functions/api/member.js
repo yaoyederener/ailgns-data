@@ -68,6 +68,16 @@ function fromUnits(u, dec, places) {
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv) return new Response("no kv", { status: 503 });
+  // ?vols=0x…,0x… → { vols: { 地址: OTC 累计成交 DAI } }，和会员卡上「OTC 累计成交」同一个数；域名市场按这个给卖家排名
+  if (u.searchParams.has("vols")) {
+    const as = [...new Set((u.searchParams.get("vols") || "").toLowerCase().split(",").filter(isAddr))].slice(0, 80), vols = {};
+    await Promise.all(as.map(async (a) => {
+      const [q, t] = await Promise.all([kv.get("otcq:" + a, "json"), kv.get("otct:" + a, "json")]);
+      const tr = q || (t && t.block < (OTC_VIP_CUTOFF[t.chain || "anubis"] || 0) ? t : null);
+      vols[a] = Math.round(((tr && tr.vol) || 0) * 100) / 100;
+    }));
+    return Response.json({ vols }, { headers: { "cache-control": "public, max-age=60" } });
+  }
   const addr = (u.searchParams.get("addr") || "").toLowerCase();
   if (!isAddr(addr)) return new Response("bad address", { status: 400 });
   const txs = (u.searchParams.get("txs") || "").toLowerCase().split(",").filter(isTx).slice(0, 50);
