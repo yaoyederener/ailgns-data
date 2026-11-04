@@ -1883,3 +1883,10 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .tabs a.rankt:hover { color: #fff; filter: brightness(1.08); }
 .tabs a.rankt.on { color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f5c451, 0 4px 14px rgba(240, 140, 0, .3); }
 @media (max-width: 600px) { .tabs { grid-template-columns: repeat(5, 1fr); gap: 5px; } .tabs a, .tabs a.vipt, .tabs a.lendt, .tabs a.namet, .tabs a.rankt { padding: 8px 1px; font-size: 12.5px; gap: 2px; } .tabs a.rankt svg { width: 13px; height: 13px; } .tabs a.rankt i { right: -2px; } } /* 五个栏目一行放下 */
+
+/* 我的域名：转赠 */
+.nm-my-btns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.nm-my-btns .nm-my-sell { margin-left: 0; }
+.nm-my-give { flex: none; padding: 9px 16px; border-radius: 999px; border: 1px solid #c4b2f0; background: #f4f0ff; color: var(--purple-ink); font-weight: 700; font-size: 14px; cursor: pointer; }
+.nm-give { margin: -4px 0 12px; padding: 12px 14px; border-radius: 12px; background: #faf7ff; border: 1px dashed #c4b2f0; }
+.nm-give p { margin: 0 0 6px; }

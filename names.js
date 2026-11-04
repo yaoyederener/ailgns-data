@@ -232,7 +232,7 @@
     // 每一步说清楚「扣不扣钱」：客户以为确认几次就付了几次钱
     if (Date.now() - tipAt > 180000) { tipN = 0; tipTotal = 0; } // 别的操作（挂单、设主名字）重新从第 1 次数
     tipAt = Date.now(); tipN++;
-    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /^签名$/.test(t) ? '这一步只是<b class="nm-free">签名，不扣钱、不花 Gas</b>，证明是你本人出价' : /注册|续费/.test(t) ? (Date.now() - topUpAt < 600000 ? '✅ 第 1 笔差价 ' + topUpAmt + ' LGNS 已补好（<b>不会重复扣</b>）<br>这是<b>第 2 笔：真正付注册费</b>，付完名字就到手，千万别取消' : '这一步才是<b>真正付款</b>，付完名字就到手') : "";
+    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /转赠/.test(t) ? '这一步是<b class="nm-free">转赠，不扣钱</b>，只花一点 Gas；名字马上到对方钱包' : /^签名$/.test(t) ? '这一步只是<b class="nm-free">签名，不扣钱、不花 Gas</b>，证明是你本人出价' : /注册|续费/.test(t) ? (Date.now() - topUpAt < 600000 ? '✅ 第 1 笔差价 ' + topUpAmt + ' LGNS 已补好（<b>不会重复扣</b>）<br>这是<b>第 2 笔：真正付注册费</b>，付完名字就到手，千万别取消' : '这一步才是<b>真正付款</b>，付完名字就到手') : "";
     el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
       '<p class="nm-big-step">第 <b>' + tipN + "</b> 次确认" + (tipTotal ? "（最多 " + tipTotal + " 次）" : "") + "</p>" + (kind ? '<p class="nm-big-kind">' + kind + "</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
   }
@@ -323,7 +323,7 @@
           return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
             (x.no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
             '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>" +
-            (self ? '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button>' : "") + "</div>";
+            (self ? '<span class="nm-my-btns">' + giveBtn(x.t, x.id, x.label + "." + x.t) + '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button></span>' : "") + "</div>";
         }).join("");
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
@@ -337,6 +337,7 @@
       if (side === "want") wantPanel();
     };
     document.getElementById("nm-myr").onclick = function (e) {
+      var gv = e.target.closest(".nm-my-give"); if (gv) { giveForm(gv); return; }
       var b = e.target.closest(".nm-my-sell"); if (!b) return;
       try { sessionStorage.setItem("nm:sellpick", b.getAttribute("data-full")); } catch (x) { /* 忽略 */ }
       var sg = document.getElementById("nm-sellgo"); sg.click(); sg.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -352,6 +353,48 @@
       connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
     };
     if (/^#\/names\/mine/.test(location.hash)) setTimeout(function () { document.getElementById("nm-mycard").scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
+    // 🎁 转赠：主人把名字转给别的地址（比如小号转大号）。不扣钱，只花一点 Gas；对方可以填 0x 地址或域名
+    function giveBtn(t, id, full) { return '<button type="button" class="nm-my-give" data-t="' + t + '" data-id="' + id + '" data-full="' + esc(full) + '">🎁 转赠</button>'; }
+    function giveForm(b) {
+      var item = b.closest(".nm-my"), old = item.nextElementSibling;
+      if (old && old.classList.contains("nm-give")) { old.remove(); return; }
+      var t = b.getAttribute("data-t"), id = b.getAttribute("data-id"), full = b.getAttribute("data-full"), box = document.createElement("div");
+      box.className = "nm-give";
+      box.innerHTML = '<p>把 <b>' + esc(full) + '</b> 转给：</p><div class="nm-search"><input placeholder="对方的 0x 地址，或对方的域名" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button">确认转赠</button></div><p class="muted nm-st"></p>';
+      item.after(box);
+      var inp = box.querySelector("input"), go = box.querySelector("button"), st = box.querySelector(".nm-st"), say = function (x) { st.textContent = x; };
+      inp.focus();
+      go.onclick = function () {
+        var v = inp.value.trim().toLowerCase();
+        if (!v) { A.errTip("请填对方的地址或域名", go); return; }
+        go.disabled = true;
+        var toP;
+        if (/^0x[0-9a-f]{40}$/.test(v)) toP = Promise.resolve(v);
+        else {
+          var m = v.match(/^(.+?)(?:\.(ailgns|lgns))?$/), lb = m && m[1], tt = (m && m[2]) || "ailgns";
+          if (!lb || /^0x/.test(v) || /\s|\./.test(lb)) { go.disabled = false; A.errTip("地址不对：0x 开头一共 42 位，或者填对方的域名", go); return; }
+          say("查询 " + lb + "." + tt + " 指向的地址…");
+          toP = W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[tt], data: SEL.resolve + "0000000000000000000000000000000000000000000000000000000000000020" + str(lb) }, "latest"]).then(function (r) {
+            var ad = addrOf(r); if (/^0x0{40}$/.test(ad)) throw new Error(lb + "." + tt + " 还没被注册，或者没有指向地址"); return ad;
+          });
+        }
+        var to;
+        toP.then(function (ad) {
+          to = ad;
+          return eth ? null : connect();
+        }).then(function () {
+          if (to === account) throw new Error("不能转给自己（就是你现在连接的钱包）");
+          return W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[t], data: SEL.ownerOf + id }, "latest"]);
+        }).then(function (ow) {
+          if (addrOf(ow) !== account) throw new Error("这个名字不在你当前连接的钱包里（主人是 " + A.short(addrOf(ow)) + "），请切换到主人钱包");
+          if (!confirm("确认把 " + full + " 转给\n" + to + " 吗？\n\n转出后名字归对方，不能撤回。")) throw new Error("已取消");
+          return tx(CONTRACTS[t], "0x23b872dd" + A.pad(account) + A.pad(to) + id, say, "🎁 转赠 " + full + " 给 " + to.slice(0, 6) + "…" + to.slice(-4) + "。请在钱包确认");
+        }).then(function () {
+          say("✅ 已转给 " + A.short(to) + "，名字已经到对方钱包");
+          genCache = {}; setTimeout(function () { myNames(account); }, 1500);
+        }, function (e) { go.disabled = false; say(""); if (e && e.message !== "已取消") A.errTip((e && e.message) || "转赠失败", go); });
+      };
+    }
     // 查一个域名：是谁的、指向哪里、是不是创世域名（创世的大大地显示创世徽章）；站长和保护名单显示匿名
     function lookName(a) {
       var o = document.getElementById("nm-myr"), btn = document.getElementById("nm-myf");
@@ -370,7 +413,8 @@
             var no = anon ? 0 : g[id], href = "#/names/" + encodeURIComponent(full);
             o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
               '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : "") +
-              "<small>" + (anon ? "🔒 持有人选择匿名" : sale ? "🛒 正在域名市场出售，点开可以买" : "主人 " + A.nameTag(owner)) + "</small></span></a></div>" +
+              "<small>" + (anon ? "🔒 持有人选择匿名" : sale ? "🛒 正在域名市场出售，点开可以买" : "主人 " + A.nameTag(owner)) + "</small></span></a>" +
+              (account && owner === account ? '<span class="nm-my-btns">' + giveBtn(t, id, full) + "</span>" : "") + "</div>" +
               (anon || sale ? "" : '<p class="muted" style="word-break:break-all">指向地址：<span class="mono">' + ad + "</span></p>");
           });
         });
