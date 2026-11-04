@@ -320,7 +320,7 @@
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
         if (!list.length) { o.innerHTML = '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><div id="nm-myo"></div>'; myOpen(a, document.getElementById("nm-myo")); return; }
         var g = list.filter(function (x) { return x.no; }).length;
-        o.innerHTML = '<p class="nm-my-sum">钱包里 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "（挂单中的在最下面）</p>" + list.map(function (x) {
+        o.innerHTML = '<p class="nm-my-sum" id="nm-mysum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
           var href = "#/names/" + encodeURIComponent(x.label + "." + x.t);
           return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
@@ -328,7 +328,8 @@
             '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>" +
             (self ? '<span class="nm-my-btns">' + giveBtn(x.t, x.id, x.label + "." + x.t) + '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button></span>' : "") + "</div>";
         }).join("") + '<div id="nm-myo"></div>';
-        myOpen(a, document.getElementById("nm-myo")); // 挂在市场里的名字在托管合约名下，钱包里查不到：单独列在下面
+        var n0 = list.length;
+        myOpen(a, document.getElementById("nm-myo")).then(function (k) { var sm = document.getElementById("nm-mysum"); if (sm && k) sm.innerHTML = "共 <b>" + (n0 + k) + "</b> 个域名：钱包里 <b>" + n0 + "</b> 个" + (g ? "（🌟创世 " + g + " 个）" : "") + " + <b>挂单中 " + k + "</b> 个（在最下面，卖出后就不算了）"; }); // 挂在市场里的名字在托管合约名下，钱包里查不到：单独列在下面
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
     // 「我要卖」：连钱包 → 列出我名下的域名 → 每个旁边「挂单出售」→ 打开这个名字的页面并直接弹出挂单设置
@@ -821,9 +822,9 @@
   function myOpen(a, box) {
     if (!box || !/^0x[0-9a-f]{40}$/.test(a || "")) return;
     box.innerHTML = '<p class="muted">读取挂单中…</p>';
-    listings(true).then(function (all) {
+    return listings(true).then(function (all) {
       var list = all.filter(function (x) { return x.maker === a; }), me = account && a === account, now2 = Date.now() / 1000;
-      if (!list.length) { box.innerHTML = '<p class="muted">📋 ' + (me ? "你" : A.short(a)) + ' 现在没有在挂的单。' + (me ? '点上面「我要卖域名」就能挂。' : "") + "</p>"; return; }
+      if (!list.length) { box.innerHTML = '<p class="muted">📋 ' + (me ? "你" : A.short(a)) + ' 现在没有在挂的单。' + (me ? '点上面「我要卖域名」就能挂。' : "") + "</p>"; return 0; }
       box.innerHTML = '<h3 class="nm-oh">📋 ' + (me ? "我的" : A.short(a) + " 的") + "挂单（" + list.length + ' 个在卖）</h3><div class="nm-otbl"><table><thead><tr><th>域名</th><th>标价</th><th>买家付（含 3%）</th><th>剩余时间</th><th>操作</th></tr></thead><tbody>' +
         list.map(function (it, i) {
           var p = Number(it.price / 10n ** 12n) / 1e6;
@@ -833,6 +834,7 @@
       box.querySelectorAll("button[data-oc]").forEach(function (b) {
         b.onclick = function () { b.disabled = true; buyIt(list[Number(b.getAttribute("data-oc"))], b, say).then(function () { say("✅ 已撤单，名字已退回你的钱包"); market(); setTimeout(function () { myOpen(a, box); }, 3000); }, function (e) { b.disabled = false; say(""); A.errTip(e.message || String(e), b); }); };
       });
+      return list.length;
     }).catch(function () { box.innerHTML = '<p class="muted">挂单读取失败，请稍后再试</p>'; });
   }
   // 买入成功后：订单查询自动填上自己的地址并刷新（链上记录要几秒才出来）
