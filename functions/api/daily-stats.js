@@ -4,6 +4,7 @@
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 import { bjDay, counts } from "../../lib/stats.js";
+import { keccak256 } from "../../lib/evmsig.js";
 
 const OPS_GROUP = "uqw6tsqb"; // 内部运营群（不要和行情群 oes8etcm、fvg4wksw 混用）
 const ENABLED = true; // 2026-11-01 站长确认模板后打开
@@ -35,6 +36,20 @@ const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523
 // 域名收入：两个域名合约的 Paid(payer, token, amount, costDai)（注册 + 续费都发）；用 LGNS 付时另有一笔「补 DEX 卖出税差价」直接转进分账合约
 const NM = { names: ["0xbc408e9d7350967e7247c917a086cb4ece0ed988", "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3"], deploy: 18161697, payee: "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", lgns: "0x4d1d808a081fdac440703b3765fc61f8028c06b8",
   paid: "0x26c4308021cef5cdbc618fee8b61faf9de6b8f7e4e49fac43869dc1a26756408", own: new Set(["0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "0x89dd06754bb239b6c4c92bc47c8fa72889084e27"]) }; // 站长自己注册的不算收入
+// 站长重要域名到期提醒：到期前 120 天起每天在日报里提醒（创世 #1 等，过了 90 天宽限期别人就能注册走）
+const KEEP_NAMES = [["加拿大局长", "ailgns"], ["四哥", "ailgns"], ["aiotc", "ailgns"], ["觉醒人生", "ailgns"], ["加拿大局长", "lgns"]];
+async function renewNag() {
+  const C = { ailgns: NM.names[0], lgns: NM.names[1] }, now = Date.now() / 1000;
+  const body = KEEP_NAMES.map(([l, t], i) => ({ jsonrpc: "2.0", id: i, method: "eth_call", params: [{ to: C[t], data: "0xcb52c823" + Array.from(keccak256(new TextEncoder().encode(l))).map((b) => b.toString(16).padStart(2, "0")).join("") }, "latest"] }));
+  const r = await (await fetch(RPCS[0], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
+  const out = [];
+  for (const x of r) {
+    const [l, t] = KEEP_NAMES[x.id], exp = Number(BigInt(x.result || "0x0")), left = Math.floor((exp - now) / 86400);
+    if (!exp || left > 120) continue;
+    out.push(left >= 0 ? `· ${l}.${t} 还有 ${left} 天到期（${bjDay(exp * 1000)}），请尽快续费` : `· ⚠️ ${l}.${t} 已过期 ${-left} 天，宽限期还剩 ${90 + left} 天，过了别人就能注册走！`);
+  }
+  return out;
+}
 const BUDGET = 40; // 每次调用最多访问节点多少次（免费版 Worker 一次最多 50 个外部请求）
 
 const pad = (a) => "0x" + a.slice(2).padStart(64, "0");
@@ -234,5 +249,7 @@ async function report(kv, day) {
   lines.push("", "🌐 域名收入", `· 今日：${nm.n} 笔，合计 ${money(nm.dai)} DAI` + (nm.n ? `（${tokStr(nm)}）` : ""));
   if (nm.top) lines.push(`· 今日 LGNS 补税差：${amt(nm.top)} LGNS`);
   lines.push(`· 累计：${tn.n} 笔，合计 ${money(tn.dai)} DAI` + (tn.n ? `（${tokStr(tn)}）` : ""), `· 累计 LGNS 补税差：${amt(tn.top)} LGNS`);
+  const nag = await renewNag().catch(() => []);
+  if (nag.length) lines.push("", "⏰ 重要域名续费提醒", ...nag);
   return lines.join("\n");
 }
