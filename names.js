@@ -613,7 +613,9 @@
     var key = "nmlog:" + addr + ":" + topic.slice(2, 10), c = null;
     try { c = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { /* 无痕模式 */ }
     c = c || { to: from - 1, l: [] };
-    return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
+    // 本地没缓存或落后很多：先拉服务器快照（一次拿到全部历史），再只从链上补最新几个块
+    var snap = c.to < from + 1000 || !c.l.length ? fetch("/api/name-logs?a=" + addr + "&t=" + topic).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j && j.to > c.to) c = j; }, function () {}) : Promise.resolve();
+    return snap.then(function () { return W.rpcOn("anubis", "eth_blockNumber", []); }).then(function (h) {
       var latest = parseInt(h, 16), ranges = [];
       for (var b = c.to + 1; b <= latest; b += 5000) ranges.push([b, Math.min(latest, b + 4999)]);
       return A.pool(ranges, 4, function (r) {
