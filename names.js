@@ -828,9 +828,13 @@
       box.innerHTML = '<h3 class="nm-oh">📋 ' + (me ? "我的" : A.short(a) + " 的") + "挂单（" + list.length + ' 个在卖）</h3><div class="nm-otbl"><table><thead><tr><th>域名</th><th>标价</th><th>买家付（含 3%）</th><th>剩余时间</th><th>操作</th></tr></thead><tbody>' +
         list.map(function (it, i) {
           var p = Number(it.price / 10n ** 12n) / 1e6;
-          return '<tr><td><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + "</b></a></td><td><b>" + p + " DAI</b></td><td>" + Math.round(p * 1.03 * 1e6) / 1e6 + " DAI</td><td>" + leftT(it.expiry - now2) + "</td><td>" + (me ? '<button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + "</td></tr>";
+          return '<tr><td><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + "</b></a></td><td><b>" + p + " DAI</b></td><td>" + Math.round(p * 1.03 * 1e6) / 1e6 + " DAI</td><td>" + leftT(it.expiry - now2) + "</td><td>" + (me ? '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button> <button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + "</td></tr>";
         }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-ost"></p>';
       var st = document.getElementById("nm-ost"), say = function (t) { if (st) st.textContent = t; };
+      if (me) pinRetry(say);
+      box.querySelectorAll("button[data-op]").forEach(function (b) {
+        b.onclick = function () { pinIt(list[Number(b.getAttribute("data-op"))], b, say); };
+      });
       box.querySelectorAll("button[data-oc]").forEach(function (b) {
         b.onclick = function () { b.disabled = true; buyIt(list[Number(b.getAttribute("data-oc"))], b, say).then(function () { say("✅ 已撤单，名字已退回你的钱包"); market(); setTimeout(function () { myOpen(a, box); }, 3000); }, function (e) { b.disabled = false; say(""); A.errTip(e.message || String(e), b); }); };
       });
@@ -1111,6 +1115,45 @@
       }).then(function () { return tx(O, SEL.oBuy + u256(id) + u256(total), say, "🔒 第 2 步：付款，名字同一笔交易直接到你钱包。请在钱包确认"); });
     });
   }
+  // ⭐ 付费置顶：卖家付 DAI（进回购分账，和域名收入一起分），置顶 3 天，出得多的排前面；没卖掉也不退
+  var BUYBACK = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", PIN_MIN = 10;
+  function pinsGet() {
+    return fetch("/api/name-pin?r=" + Date.now()).then(function (r) { return r.json(); }).then(function (j) {
+      var m = {}; (j.pins || []).forEach(function (p) { m[p.t + ":" + p.id] = p.amt; }); m._top = (j.pins || []).map(function (p) { return p.amt; }); return m;
+    }, function () { return { _top: [] }; });
+  }
+  function pinPost(p, say) {
+    return fetch("/api/name-pin", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(p) }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok) throw new Error(j.error || "登记失败");
+      try { localStorage.removeItem("nmPinTx"); } catch (e) {}
+      say("✅ 置顶成功！累计 " + j.amt + " DAI，现在排第 " + j.rank + " 位，到 " + new Date(j.exp).toLocaleString() + " 结束");
+      market(); return j;
+    });
+  }
+  function pinRetry(say) { // 付了钱但登记没成功（网络断了等）：下次打开自动补登记
+    var p; try { p = JSON.parse(localStorage.getItem("nmPinTx") || "null"); } catch (e) {}
+    if (p) pinPost(p, say).catch(function (e) { if (/用过|卖掉|没有成功|找不到/.test(e.message)) try { localStorage.removeItem("nmPinTx"); } catch (x) {} });
+  }
+  function pinIt(it, b, say) {
+    pinsGet().then(function (m) {
+      var top = m._top, mine = m[it.t + ":" + it.id] || 0;
+      var v = prompt("⭐ 付费置顶「" + it.label + "." + it.t + "」\n\n" +
+        "· 置顶 3 天，出价越高排越前（同一张单再付会累加）\n· 最少 " + PIN_MIN + " DAI，从你的钱包直接付\n· ⚠️ 3 天内没卖掉也不退\n\n" +
+        (top.length ? "现在置顶出价：" + top.slice(0, 5).join(" / ") + " DAI" : "现在还没有人置顶，第一个就是第 1 名") + (mine ? "\n你这张单已付 " + mine + " DAI" : "") +
+        "\n\n请输入这次付多少 DAI：", String(Math.max(PIN_MIN, top.length ? Math.floor(top[0] - mine + 1) : PIN_MIN)));
+      if (v === null) return;
+      var n = Number(v);
+      if (!(n >= PIN_MIN) || !/^\d+(\.\d{1,2})?$/.test(String(v).trim())) { say("最少 " + PIN_MIN + " DAI，最多 2 位小数"); return; }
+      b.disabled = true;
+      var wei = BigInt(Math.round(n * 100)) * 10n ** 16n;
+      return tx(DAI, "0xa9059cbb" + A.pad(BUYBACK) + u256(wei), say, "⭐ 付置顶费 " + n + " DAI（3 天，不退）。请在钱包确认").then(function (h) {
+        var p = { tx: h, t: it.t, id: it.id };
+        try { localStorage.setItem("nmPinTx", JSON.stringify(p)); } catch (e) {}
+        say("付款成功，登记置顶中…");
+        return pinPost(p, say);
+      }).then(function () { b.disabled = false; }, function (e) { b.disabled = false; say(""); A.errTip(e.message || String(e), b); });
+    });
+  }
   function market() {
     var box = document.getElementById("nm-mk");
     if (!box) return;
@@ -1120,7 +1163,10 @@
       list = list.filter(function (x) { return x.t !== "lgns" || (account && x.maker === account); }); // .lgns 暂停：市场只显示 .ailgns；自己挂的老 .lgns 单照样显示（能看到、能撤）
       if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>' + rankRules(); rankLookup(); return; }
       var makers = list.map(function (x) { return x.maker; }).filter(function (a, i, z) { return z.indexOf(a) === i; });
-      return Promise.all([otcVols(makers)].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) { draw(list, r[0], r.slice(1)); });
+      return Promise.all([otcVols(makers), pinsGet()].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) {
+        list.forEach(function (it) { it.pin = r[1][it.t + ":" + it.id] || 0; });
+        draw(list, r[0], r.slice(2));
+      });
     }).catch(function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
     function draw(full, vols, gens) {
       var list = full;
@@ -1131,16 +1177,16 @@
       // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 名字一年注册价高的在前（3 位 640、4 位 160、中文 2 字 50…）③ 创世编号小的在前 ④ 新挂的在前
       list.sort(mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
-        : function (a, b) { return b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
+        : function (a, b) { return b.pin - a.pin || b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
+      box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
         '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + list.length + " 个</span>" : "") + "</div>" +
         '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
           : '<button type="button" class="act-btn btn-buy" data-i="' + i + '" data-m="0">买入</button>';
-        return '<tr' + (i >= mkShow() ? " hidden" : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
+        return '<tr' + (i >= mkShow() ? " hidden" : "") + (it.pin && mkSort === "rec" ? ' class="nm-pinrow"' : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l">' + (it.pin && mkSort === "rec" ? '<span class="nm-pin">⭐ 置顶</span> ' : "") + '<b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
           '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) +
           '<br><small class="nm-vol">' + (it.vol ? "OTC 累计成交 " + A.fmt(it.vol, 2) + " DAI" : "暂无 OTC 成交") + "</small></td></tr>";

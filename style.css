@@ -2023,3 +2023,7 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .nm-mkq { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .nm-mkq input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 15px; border: 1px solid #e3d8ff; border-radius: 10px; background: #fbf9ff; color: var(--purple-ink); }
 .nm-mkq span { white-space: nowrap; font-size: 13px; }
+
+.nm-pin { display: inline-block; padding: 1px 7px; border-radius: 999px; background: linear-gradient(90deg,#f7d774,#f3b6e0); color: #5b3a00; font-size: 12px; font-weight: 700; }
+tr.nm-pinrow td { background: #fff8e6; }
+.nm-pinbtn { background: #f3e9ff; color: #6b3fd6; border: 1px solid #d9c7ff; }
