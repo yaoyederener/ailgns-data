@@ -116,19 +116,20 @@
     var potV = d.funds ? Math.floor((d.funds.dai + d.funds.ail * d.funds.px) * 100) / 100 : 0; // 奖池实际总额
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US"); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
-      '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig">' + n0(potV) + '<span>DAI</span></div>' +
+      '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></div>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点开奖</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p3"><small>🔮 神算子大奖</small><b>' + n0(potV * 0.85) + '</b><span>DAI · 3 位小数全猜中，平分</span></div>' +
-        '<div class="or-pz p1"><small>🥇 第一名</small><b>' + n0(potV * 0.1) + '</b><span>DAI · 最接近开奖价 · 奖池 10%</span></div>' +
-        '<div class="or-pz p2"><small>🥈 第二名</small><b>' + n0(potV * 0.05) + '</b><span>DAI · 第二接近 · 奖池 5%</span></div>' +
+        '<div class="or-pz p3"><small>🔮 神算子大奖</small><b class="or-cnt" data-to="' + Math.floor(potV * 0.85) + '">0</b><span>DAI · 3 位小数全猜中，平分</span></div>' +
+        '<div class="or-pz p1"><small>🥇 第一名</small><b class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</b><span>DAI · 最接近开奖价 · 奖池 10%</span></div>' +
+        '<div class="or-pz p2"><small>🥈 第二名</small><b class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</b><span>DAI · 第二接近 · 奖池 5%</span></div>' +
       "</div>" +
-      '<p class="or-pnote">本轮新增 <b>' + dai(d.allot) + "</b> = " + rd + " 域名收入 " + dai(d.rev) + " × 20%，全部进奖池（实时累加）</p></div></section>";
+      "</div></section>";
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
     html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上开奖价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + playersCard(d);
     setTimeout(liveRank, 0);
+    setTimeout(countUp, 0);
     // 最近一次结果（不在上面显示时）
     if (d.last && !(res && res.day === d.last.day && now - res.at < 20 * 3600e3)) html += resultCard(d.last, "📜 上一期结果");
     // 预言家榜
@@ -227,6 +228,20 @@
     if (!liveRows.length) return "";
     return '<section class="card or-live"><div class="card-head"><h2>📈 ' + dayCn(d.round) + ' 实时排行</h2><span class="muted">' + (d.players || []).length + " 人 · " + liveRows.length + ' 个预测</span></div>' +
       '<p class="muted">按离<b>当前链上价</b>最近排序，每 5 秒刷新；最终以当晚 9–10 点随机一刻的价格开奖。</p><div id="or-live"></div></section>';
+  }
+  // 奖池数字滚动增加：从上次看到的数（第一次从 0）滚到现在的数
+  var cntSeen = {};
+  function countUp() {
+    document.querySelectorAll(".or-cnt").forEach(function (el, k) {
+      var to = Number(el.getAttribute("data-to")) || 0, from = cntSeen[k] != null ? cntSeen[k] : 0, t0 = performance.now(), dur = from ? 900 : 1800;
+      cntSeen[k] = to;
+      if (from === to) { el.textContent = to.toLocaleString("en-US"); return; }
+      (function step(t) {
+        var x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3);
+        el.textContent = Math.floor(from + (to - from) * e).toLocaleString("en-US");
+        if (x < 1 && el.isConnected) requestAnimationFrame(step);
+      })(t0);
+    });
   }
   function liveRank() {
     var box = document.getElementById("or-live");
