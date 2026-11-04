@@ -2,6 +2,7 @@
 // GET ?board=total|month [&me=0x…] → { board, ym, end, top: [{ a, vol, n, tier }]（前 50）, me?: { rank, vol, gap, tier, tierGap, nextTier }, hof }
 // GET ?ticker=1 → { badges: { 地址: 总榜名次 }, top3, mtop3, ev, ym, end }  全站徽章 + 顶部播报用
 import { nmTop as nmTopOf } from "../../lib/nmtop.js";
+import { poolNow } from "../../lib/oracle.js";
 import { loadTotal, loadMonth, ranked, tierOf, TIERS, ymOf, nextMonthStart, hallOfFame, rankEvents } from "../../lib/honor.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
@@ -19,7 +20,7 @@ export async function onRequestGet(ctx) {
   if (u.searchParams.get("ticker")) {
     const badges = {};
     allT.slice(0, 50).forEach(([a], i) => { badges[a] = i + 1; });
-    const [orPool, orLast] = await Promise.all([kv.get("or:pool", "json"), kv.get("or:last", "json")]);
+    const [orPoolV, orLast] = await Promise.all([poolNow(kv), kv.get("or:last", "json")]), orPool = { pool: orPoolV };
     const or = { pool: (orPool && orPool.pool) || 0, last: orLast ? { day: orLast.day, px: orLast.px, c: orLast.closest && { name: orLast.closest.name, amt: orLast.closest.amt, diff: orLast.closest.diff }, j: orLast.jackpot.winners.map((w) => w.name), each: orLast.jackpot.each, at: orLast.at } : null };
     let nmTop = null;
     try { nmTop = await nmTopOf(kv); } catch (e) { nmTop = null; }

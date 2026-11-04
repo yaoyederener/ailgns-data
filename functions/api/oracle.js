@@ -4,7 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY } from "../../lib/oracle.js";
+import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -27,10 +27,10 @@ export async function onRequestGet(ctx) {
   // 到点了顺手开奖（算过就不再算）
   let res = null;
   try { res = await settle(kv, drawing, now); } catch (e) { res = null; }
-  const [g, poolObj, last, wins, al, alDraw] = await Promise.all([guessesOf(kv, round), kv.get("or:pool", "json"), kv.get("or:last", "json"), kv.get("or:wins", "json"), allotOf(kv, round), allotOf(kv, drawing)]);
+  const [g, poolV, last, wins, al, alDraw] = await Promise.all([guessesOf(kv, round), poolNow(kv), kv.get("or:last", "json"), kv.get("or:wins", "json"), allotOf(kv, round), allotOf(kv, drawing)]);
   const out = {
     now, round, cutoff: drawStart(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
-    pool: (poolObj && poolObj.pool) || 0, allot: al.allot, rev: al.rev,
+    pool: poolV, allot: al.allot, rev: al.rev,
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
     drawing: { day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),

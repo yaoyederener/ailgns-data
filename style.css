@@ -2006,3 +2006,4 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .risk-det summary { cursor: pointer; color: #7c5cff; font-weight: 600; }
 .risk-det ol { margin: 8px 0 0; padding-left: 20px; }
 .risk-det li { margin: 6px 0; }
+.or-seed { display: block; margin-top: 4px; color: #b7791f; font-size: 12.5px; }
