@@ -93,7 +93,7 @@
       svg += "<g><title>" + (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + hh + "\n开 " + x.o.toFixed(3) + "　高 " + x.h.toFixed(3) + "\n低 " + x.l.toFixed(3) + "　收 " + x.c.toFixed(3) + "</title>" +
         '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/>' +
         '<rect x="' + (cx - cw * 0.32).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (cw * 0.64).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"/></g>';
-      if (i % 6 === 0) svg += '<text x="' + cx.toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
+      if (i % 6 === 0) svg += '<text x="' + Math.max(cx, 18).toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
     });
     var lastC = c[c.length - 1];
     svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 9).toFixed(1) + '" width="62" height="18" rx="4" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(3) + "</text>";
