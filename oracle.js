@@ -20,7 +20,7 @@
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
     A.app.innerHTML =
       '<div id="or-top"></div><section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
-      '<div class="or-px"><small>AiLGNS 现价（链上实时）</small><b id="or-px">读取中…</b><span>DAI</span><div class="or-lead" id="or-lead"></div></div>' +
+      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻开奖</small></div><div class="or-lead" id="or-lead"></div></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -207,8 +207,8 @@
     if (!el || !leadRows.length) return;
     var top = leadRows.slice(0, 3), key = top.map(function (r) { return r.name + r.p; }).join("|"), moved = leadKey && key !== leadKey;
     leadKey = key;
-    el.innerHTML = '<small>🏆 按当前价开奖，最可能中奖</small>' + top.map(function (r, i) {
-      return '<div class="or-lead-in' + (moved ? " moved" : "") + '">' + ["🥇", "🥈", "🥉"][i] + " <b>" + esc(r.name) + '</b><span>预测 ' + r.p + " · 差 " + r.d + "</span></div>";
+    el.innerHTML = '<div class="or-lh"><b>🏆 如果现在开奖</b><span>最接近的 3 位</span></div>' + top.map(function (r, i) {
+      return '<div class="or-lr r' + (i + 1) + (moved ? " moved" : "") + '"><i>' + (i + 1) + '</i><div class="or-ln"><b>' + esc(r.name) + '</b><small>预测 ' + r.p + '</small></div><em>差 ' + r.d + "</em></div>";
     }).join("");
   }
 
