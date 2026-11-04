@@ -35,7 +35,8 @@
     if (!bar) {
       bar = document.createElement("a"); bar.id = "hn-tick"; bar.href = "#/rank"; bar.setAttribute("data-nb", "1");
       bar.innerHTML = '<span class="hn-tk-l">荣耀榜</span><span class="hn-tk-m" id="hn-tk-m"></span><span class="hn-tk-r">看榜 ›</span>';
-      app.parentNode.insertBefore(bar, app);
+      var wrap = document.createElement("div"); wrap.className = "wrap"; wrap.appendChild(bar); // 和页面内容同宽对齐
+      app.parentNode.insertBefore(wrap, app);
     }
     var i = 0, m = document.getElementById("hn-tk-m");
     var show = function () { m.classList.remove("in"); void m.offsetWidth; m.textContent = msgs[i++ % msgs.length]; m.classList.add("in"); };
