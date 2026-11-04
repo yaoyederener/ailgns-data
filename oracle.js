@@ -138,7 +138,11 @@
     if (d.board && d.board.length) html += '<section class="card"><div class="card-head"><h2>🏆 预言家榜</h2><span class="muted">大奖次数 · 最接近次数</span></div><ol class="or-board">' +
       d.board.map(function (x) { return "<li><b>" + esc(x.name) + "</b><span>🎯 " + x.j + " 次 · 🥇 " + x.c + " 次</span></li>"; }).join("") + "</ol></section>";
     html += rules();
+    // 🔔 最下面：关注 DeBox 机器人，开奖结果、中奖私信、每天开奖提醒
+    html += '<section class="card or-dbx"><div class="card-head"><h2>🔔 开奖通知 · DeBox</h2><span class="muted">免费 · 不错过每一期</span></div>' +
+      '<p>扫码关注 DeBox 机器人，<b>每晚开奖结果</b>、<b>中奖通知</b>、<b>每天开奖提醒</b>第一时间推送给你。绑定钱包地址后，中奖了机器人还会单独私信你。</p><div id="dbx-slot"></div></section>';
     o.innerHTML = html;
+    if (A.otcKit && A.otcKit.deboxCard) A.otcKit.deboxCard(rid, { title: "关注机器人，开奖结果 + 中奖通知 + 每日提醒", on: "开奖结果、中奖私信、每天开奖提醒都会推送到你的 DeBox" });
     var tp = document.getElementById("or-top"); if (tp) tp.innerHTML = top;
     bind(rid);
     tick();

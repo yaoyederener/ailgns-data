@@ -12,6 +12,7 @@ import { GP_MAX, SEED } from "../../lib/guide.js";
 import { addVol } from "../../lib/rank.js";
 import { addHonor } from "../../lib/honor.js";
 import { nmTop } from "../../lib/nmtop.js";
+import { oracleNotify } from "../../lib/ornotify.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -487,6 +488,7 @@ export async function onRequestGet(ctx) {
     await backfillVip(m, kv, from - 1, cache).catch(() => {});
     await kv.put(m.kv + "block", String(latest));
   }
+  const oracle = await oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 🔮 预言家：开奖结果 + 每天提醒
   const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
-  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
+  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }
