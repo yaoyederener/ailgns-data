@@ -1871,3 +1871,7 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 /* 页面顶部的长说明去掉，给荣耀榜播报留空间 */
 .sub.sub-x { display: none; }
 #app > h1:first-child { margin-top: 18px; margin-bottom: 12px; }
+
+/* 用 LGNS 付款：分 2 笔扣钱的醒目提示（浅琥珀色，不做深色块） */
+.nm-cn.nm-cn-warn { padding: 10px 12px; border-radius: 12px; background: #fff8e8; border: 1px solid #f3cf7a; color: #6b4a00; line-height: 1.75; }
+.nm-sw { margin: 4px 4px 0 0; padding: 5px 12px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 1px solid #c4b2f0; background: #f4f0ff; color: var(--purple-ink); cursor: pointer; }

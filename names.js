@@ -54,6 +54,13 @@
       .then(function (t) { return BigInt(Math.round(t * 10000)); });
     return taxP;
   }
+  // LGNS 提示里的「换成 DAI / AiLGNS 付」按钮：点了等于点上面的付款按钮
+  function lgnsSwitch() { return ' <button type="button" class="nm-sw" data-sw="DAI">换成 DAI 付</button> <button type="button" class="nm-sw" data-sw="AiLGNS">换成 AiLGNS 付</button>'; }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest(".nm-sw"); if (!b) return;
+    var p = document.querySelector('.nm-pay[data-for="nm-k"] button[data-k="' + b.getAttribute("data-sw") + '"]'); if (p) p.click();
+  });
+  var topUpAt = 0, topUpAmt = ""; // 刚补完差价：第 2 笔的大字提示里说「差价已补好」
   function topUp(q) { return lgnsTax().then(function (bp) { return q * bp / (10000n - bp); }); } // 合约收 q 个 LGNS 时要补的差价
   // 付款币种直接摊开三个按钮（下拉框客户以为只有 AiLGNS）；隐藏的 select 仍是数据来源，原有 onchange 照用
   function tokSel(id) {
@@ -142,8 +149,11 @@
         if (cr > 0n) { say("✅ 你之前补过的 " + fmt(cr, 9) + " LGNS 差价还没用上，这次直接抵扣"); e = cr * 100n >= e * 90n ? 0n : e - cr; }
         return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(function (b) {
           if (BigInt(b) < q * 102n / 100n + e) throw new Error("LGNS 不够：一共要约 " + fmt(q + e, 9) + " LGNS（含 DEX 卖出税补差），你的钱包只有 " + fmt(BigInt(b), 9) + "（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）");
-          if (!e) return;
-          return tx(t.a, "0xa9059cbb" + A.pad(PAYEE) + u256(e), say, "💸 补 DEX 卖出税差价 " + fmt(e, 9) + " LGNS（LGNS 在 DEX 卖出要扣税，这部分补给平台；转进回购分账合约）。请在钱包确认");
+          if (!e) { if (cr > 0n) { topUpAt = Date.now(); topUpAmt = fmt(cr, 9); } return; }
+          return tx(t.a, "0xa9059cbb" + A.pad(PAYEE) + u256(e), say, "💸 第 1 笔：补 DEX 卖出税差价 " + fmt(e, 9) + " LGNS（LGNS 在 DEX 卖出要扣税，这部分补给平台；转进回购分账合约）。请在钱包确认").then(function () {
+            topUpAt = Date.now(); topUpAmt = fmt(e, 9);
+            say("✅ 第 1 笔完成：差价 " + topUpAmt + " LGNS 已补好（网站记住了，不会重复扣）。马上弹第 2 笔付注册费，千万别关页面");
+          });
         }).then(function () { return q; });
       });
     }).then(function (q) {
@@ -153,7 +163,7 @@
       if (BigInt(a) >= max) return; // 额度还够：跳过授权，钱包只弹「注册」一次
       // 一次授权管以后：额度 = 这次 + 再注册 9 个 5 DAI 普通名字（有上限，不是无限授权；只是额度，用多少扣多少）
       return quote(5, k).then(function (c) { return max + c * 102n / 100n * 9n; }, function () { return max; }).then(function (amt) {
-        return tx(t.a, SEL.approve + A.pad(NAMES) + u256(amt), say, "🔒 第 1 步：授权（不扣钱）。额度 " + fmt(amt, t.d) + " " + k + "，够这次再加 9 个普通名字，以后注册只要点 1 次；用多少扣多少，随时可在钱包撤销。请在钱包确认");
+        return tx(t.a, SEL.approve + A.pad(NAMES) + u256(amt), say, "🔒 授权（不扣钱）。额度 " + fmt(amt, t.d) + " " + k + "，够这次再加 9 个普通名字，以后注册只要点 1 次；用多少扣多少，随时可在钱包撤销。请在钱包确认");
       });
     }).then(function () { return A.pad(t.a) + u256(max); });
   }
@@ -222,7 +232,7 @@
     // 每一步说清楚「扣不扣钱」：客户以为确认几次就付了几次钱
     if (Date.now() - tipAt > 180000) { tipN = 0; tipTotal = 0; } // 别的操作（挂单、设主名字）重新从第 1 次数
     tipAt = Date.now(); tipN++;
-    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /^签名$/.test(t) ? '这一步只是<b class="nm-free">签名，不扣钱、不花 Gas</b>，证明是你本人出价' : /注册|续费/.test(t) ? '这一步才是<b>真正付款</b>，付完名字就到手' : "";
+    var t = String(msg), kind = /消费上限/.test(t) ? '<b class="nm-warn">⚠️ 钱包里如果有「消费上限 / 金额」数字，千万不要改！</b><br>那是名字的编号，不是价格，直接点确定' : /授权/.test(t) ? '这一步是<b class="nm-free">授权，不扣钱</b>，只是允许合约收这一次的款' : /补 DEX/.test(t) ? "这一步是补 LGNS 卖出税差价（只有用 LGNS 付才有）" : /^签名$/.test(t) ? '这一步只是<b class="nm-free">签名，不扣钱、不花 Gas</b>，证明是你本人出价' : /注册|续费/.test(t) ? (Date.now() - topUpAt < 600000 ? '✅ 第 1 笔差价 ' + topUpAmt + ' LGNS 已补好（<b>不会重复扣</b>）<br>这是<b>第 2 笔：真正付注册费</b>，付完名字就到手，千万别取消' : '这一步才是<b>真正付款</b>，付完名字就到手') : "";
     el.innerHTML = '<div class="nm-big-in"><div class="nm-big-ico">👛</div><b>钱包马上弹出来</b><p>请点钱包<b>最下面绿色的「确定」</b></p>' +
       '<p class="nm-big-step">第 <b>' + tipN + "</b> 次确认" + (tipTotal ? "（最多 " + tipTotal + " 次）" : "") + "</p>" + (kind ? '<p class="nm-big-kind">' + kind + "</p>" : "") + '<small>' + String(msg).replace(/^🔒\s*/, "").replace(/[<>]/g, "") + "</small><em>（看不到钱包？点这里关掉提示）</em></div>";
   }
@@ -244,7 +254,7 @@
     tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
       var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
-      return tx(NAMES, data, say, "🔒 第 2 步：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
+      return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
     });
   }
 
@@ -396,7 +406,7 @@
         document.getElementById("nm-renew").onclick = function () {
           var k = document.getElementById("nm-rk").value;
           connect().then(function () { return prepay(yearPrice(v), k, say); })
-            .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(1) + p + str(v), say, "🔒 第 2 步：续费 1 年。请在钱包确认"); })
+            .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(1) + p + str(v), say, "💰 付续费：续费 1 年。请在钱包确认"); })
             .then(function () { say("✅ 续费成功"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
         };
         if (onSale) listings().then(function (ls) {
@@ -554,12 +564,19 @@
         var dai = yearPrice(v) * y.value, k = kk.value, yy = Number(y.value), ex = new Date(); ex.setFullYear(ex.getFullYear() + yy);
         var tt = document.getElementById("nm-total");
         if (tt) tt.innerHTML = "📅 买 <b>" + (yy === 100 ? "100 年（永久）" : yy + " 年") + "</b>：" + yearPrice(v) + " DAI × " + yy + " 年 = 一共 <b>" + dai + " DAI</b> · 到期 " + date(ex / 1000) + (yy === 100 ? "" : "<small>（到期前可以续费）</small>");
-        cn.innerHTML = k === "LGNS" ? "ℹ️ 钱包会弹出 <b>3 次</b>确认：① 补 LGNS 卖出税差价 ② 授权（<b>不扣钱</b>）③ 注册付款（以后再注册少一次授权）。上面显示的金额已经含差价，不会多扣。推荐用 AiLGNS / DAI 付，少一步。"
+        cn.className = "nm-cn" + (k === "LGNS" ? " nm-cn-warn" : "");
+        cn.innerHTML = k === "LGNS" ? "⚠️ <b>用 LGNS 付要多付卖出税差，分 2 笔扣钱</b>：① 先补差价 ② 再付注册费。<b>第 1 笔扣完一定要点完第 2 笔</b>，中途别关页面。<br>👉 用 <b>DAI / AiLGNS</b> 付只扣 1 笔、不多付：" + lgnsSwitch()
           : "ℹ️ 只付<b>一次钱</b>。第一次注册钱包弹 <b>2 次</b>：① 授权（<b>不扣钱</b>）② 注册付款；<b>以后再注册只弹 1 次</b>。";
         cost.textContent = dai + " DAI";
         if (k === "DAI" || preview) return;
-        quote(dai, k).then(function (q) { return k === "LGNS" ? topUp(q).then(function (e) { return q + e; }) : q; })
-          .then(function (q) { if (kk.value === k) cost.textContent = "≈ " + fmt(q, TOK[k].d) + " " + k + (k === "LGNS" ? "（含 DEX 卖出税补差）" : ""); }, function () { cost.textContent = dai + " DAI"; });
+        quote(dai, k).then(function (q) {
+          if (k !== "LGNS") return q;
+          return Promise.all([topUp(q), lgnsTax()]).then(function (z) {
+            // 把两笔各多少写清楚：客户以为「少了 51 个」是丢钱
+            if (kk.value === k) cn.innerHTML = "⚠️ <b>用 LGNS 付要多付约 " + Math.round(Number(z[1]) / 100) + "% 卖出税差，分 2 笔扣钱</b>：<br>① 先补差价约 <b>" + fmt(z[0], 9) + "</b> LGNS → ② 再付注册费约 <b>" + fmt(q, 9) + "</b> LGNS，合计约 <b>" + fmt(q + z[0], 9) + " LGNS</b>。<br><b>第 1 笔扣完一定要点完第 2 笔</b>，中途别关页面。<br>👉 用 <b>DAI / AiLGNS</b> 付只扣 1 笔、不多付：" + lgnsSwitch();
+            return q + z[0];
+          });
+        }).then(function (q) { if (kk.value === k) cost.textContent = "≈ " + fmt(q, TOK[k].d) + " " + k + (k === "LGNS" ? "（2 笔合计）" : ""); }, function () { cost.textContent = dai + " DAI"; });
       };
       kk.onchange();
       var forCb = document.getElementById("nm-for");
