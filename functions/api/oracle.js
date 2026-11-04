@@ -4,7 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS } from "../../lib/oracle.js";
+import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -35,6 +35,13 @@ export async function onRequestGet(ctx) {
     drawing: { day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: alDraw.allot },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),
   };
+  // 奖金池里实际留了多少钱（发奖程序的记账文件，公开在 GitHub）：DAI、AiLGNS，LGNS 不留（按价值记成待留）
+  try {
+    const st = await fetch("https://raw.githubusercontent.com/yaoyederener/monita/main/data/oracle_prize.json", { cf: { cacheTtl: 60 } }).then((r) => r.json());
+    const px = await priceMilli();
+    const big = (x) => Number(BigInt(x || "0") / 10n ** 12n) / 1e6;
+    out.funds = { dai: big(st.held), ail: big(st.held_ail), owed: big(st.owed), px: px.raw };
+  } catch (e) { out.funds = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
   const a = (u.searchParams.get("a") || "").toLowerCase();

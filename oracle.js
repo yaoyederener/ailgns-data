@@ -63,6 +63,7 @@
     var html = "";
     // 超级大奖池 + 本轮奖金
     html += '<section class="card or-pool"><div class="or-pl"><small>🎯 超级大奖池（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.pool) + "</b></div>" +
+      funds(d.funds) +
       '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= 昨天域名收入 " + dai(d.rev) + " × 20%：10% 给最接近的人，90% 滚进大奖池</small></div></section>";
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
@@ -86,6 +87,16 @@
     el.textContent = "距离本轮锁定还有 " + left(ms);
   }
 
+  // 奖金池里实际有多少币：DAI、AiLGNS（按现价折算）、LGNS（不留 LGNS：用 LGNS 付的部分按价值记成「待留」，等 DAI / AiLGNS 进来再留）
+  function funds(f) {
+    if (!f) return "";
+    var ailV = f.ail * f.px, tot = f.dai + ailV + f.owed;
+    return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "</b></span>" +
+      "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
+      "<span>🔸 LGNS <b>0</b>" + (f.owed > 0 ? " <small>（LGNS 付款部分待留 " + f.owed.toFixed(2) + " DAI）</small>" : "") + "</span>" +
+      '<span class="or-tot">合计约 <b>' + tot.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " DAI</b></span>" +
+      '<small class="or-fnote">奖金池里实际留着的钱（在收款钱包 0xedb9），<a href="https://github.com/yaoyederener/monita/blob/main/data/oracle_prize.json" target="_blank" rel="noopener">记账公开 ↗</a></small></div>';
+  }
   function meBox(d) {
     var me = d.me;
     if (account === SRC) return ownerBox();

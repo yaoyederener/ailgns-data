@@ -1956,3 +1956,9 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .or-rules summary { cursor: pointer; font-weight: 600; }
 .or-rules ol { padding-left: 20px; line-height: 1.75; }
 .or-poster { width: 100%; max-width: 360px; border-radius: 12px; display: block; margin-top: 6px; }
+
+.or-funds { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 4px; padding: 8px 10px; background: rgba(255,255,255,.7); border-radius: 10px; font-size: 14px; color: var(--purple-ink); }
+.or-funds small { color: var(--muted); }
+.or-funds .or-tot { width: 100%; font-size: 15px; }
+.or-funds .or-tot b { color: #c98a00; }
+.or-fnote { width: 100%; }
