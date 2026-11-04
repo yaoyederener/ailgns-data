@@ -16,7 +16,9 @@ const MARKETS = [
   { key: "lgns", name: "LGNS（Anubis）", chain: "anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", deploy: 17936478 },
   { key: "plgns", name: "LGNS（Polygon）", chain: "polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", deploy: 96510526 },
   { key: "glgns", name: "gLGNS（Anubis）", chain: "anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", deploy: 18004618 },
-  { key: "nft", name: "AWAKE NFT 卡牌", chain: "anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", deploy: 18008025 } // AwakeNftEscrow：事件结构不同（见下面 NFT_*）
+  { key: "nft", name: "AWAKE NFT 卡牌", chain: "anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", deploy: 18008025 }, // AwakeNftEscrow：事件结构不同（见下面 NFT_*）
+  { key: "nm_ailgns", name: "域名市场 .ailgns", chain: "anubis", nft: true, otc: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", deploy: 18161704 }, // 域名市场也是 AwakeNftEscrow
+  { key: "nm_lgns", name: "域名市场 .lgns", chain: "anubis", nft: true, otc: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d", deploy: 18161717 }
 ].filter((m) => m.otc);
 const RECEIVER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 原收款钱包：会员费都转到这里
 const PAY_TOKENS = { // 会员费能用的币
@@ -30,6 +32,9 @@ const CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149
 const NFT_CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff", NFT_FILLED = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
 const FILLED = "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d"; // Filled(id, taker, amount, paid, fee, giveLeft)
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+// 域名收入：两个域名合约的 Paid(payer, token, amount, costDai)（注册 + 续费都发）；用 LGNS 付时另有一笔「补 DEX 卖出税差价」直接转进分账合约
+const NM = { names: ["0xbc408e9d7350967e7247c917a086cb4ece0ed988", "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3"], deploy: 18161697, payee: "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", lgns: "0x4d1d808a081fdac440703b3765fc61f8028c06b8",
+  paid: "0x26c4308021cef5cdbc618fee8b61faf9de6b8f7e4e49fac43869dc1a26756408", own: new Set(["0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "0x89dd06754bb239b6c4c92bc47c8fa72889084e27"]) }; // 站长自己注册的不算收入
 const BUDGET = 40; // 每次调用最多访问节点多少次（免费版 Worker 一次最多 50 个外部请求）
 
 const pad = (a) => "0x" + a.slice(2).padStart(64, "0");
@@ -38,7 +43,7 @@ const dai = (v) => Number(v) / 1e18;
 const money = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const amt = (v) => v.toLocaleString("en-US", { maximumFractionDigits: v < 1 ? 6 : 4 });
 
-function emptyDay() { return { orders: 0, orderDai: 0, makers: [], fills: 0, fillDai: 0, takers: [], m: {}, pays: [] }; }
+function emptyDay() { return { orders: 0, orderDai: 0, makers: [], fills: 0, fillDai: 0, takers: [], m: {}, pays: [], nm: null }; }
 
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
@@ -87,7 +92,7 @@ async function catchUp(kv) {
   for (const c of Object.keys(CHAINS)) latest[c] = parseInt(await rpc(c, "eth_blockNumber", []), 16);
   // 追上之后每小时读一次就够了（每次读一段，省节点请求和 KV 写入）
   const behindOf = (k, c) => (st.cur[k] || 0) < latest[c] - CHAINS[c].span;
-  const anyBehind = MARKETS.some((m) => behindOf(m.key, m.chain)) || Object.keys(CHAINS).some((c) => behindOf("pay_" + c, c));
+  const anyBehind = MARKETS.some((m) => behindOf(m.key, m.chain)) || Object.keys(CHAINS).some((c) => behindOf("pay_" + c, c)) || behindOf("nm", "anubis");
   if (!anyBehind && new Date().getUTCMinutes() >= 5) return { behind: false, skipped: true };
 
   const days = {}, ts = {};
@@ -101,15 +106,16 @@ async function catchUp(kv) {
   const errors = [];
   const tot = (await kv.get("st:tot", "json")) || { orders: 0, orderDai: 0, fills: 0, fillDai: 0 };
   // 一段一段读；预算不够时停在已处理完的区块，下次接着读
-  async function walk(key, chain, start, query, handle) {
-    try { await walk1(key, chain, start, query, handle); } catch (e) { errors.push(key + ": " + String((e && e.message) || e).slice(0, 120)); } // 一条链出错不影响别的
+  async function walk(key, chain, start, query, handle, pre) {
+    try { await walk1(key, chain, start, query, handle, pre); } catch (e) { errors.push(key + ": " + String((e && e.message) || e).slice(0, 120)); } // 一条链出错不影响别的
   }
-  async function walk1(key, chain, start, query, handle) {
+  async function walk1(key, chain, start, query, handle, pre) {
     let from = (st.cur[key] || start - 1) + 1;
     while (from <= latest[chain] && budget > 3) {
       const to = Math.min(latest[chain], from + CHAINS[chain].span - 1);
       const logs = (await rpc(chain, "eth_getLogs", [{ ...query, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16) }]))
         .sort((a, b) => parseInt(a.blockNumber, 16) - parseInt(b.blockNumber, 16) || parseInt(a.logIndex, 16) - parseInt(b.logIndex, 16));
+      if (pre) pre(logs);
       let done = to;
       for (let i = 0; i < logs.length; i++) {
         const b = parseInt(logs[i].blockNumber, 16);
@@ -168,10 +174,25 @@ async function catchUp(kv) {
       if (!d.pays.some((p) => p.tx === l.transactionHash)) d.pays.push({ from, sym, chain, amt: Number(BigInt(l.data)) / 10 ** dec, tx: l.transactionHash });
     });
   }
+  // 域名收入：Paid 按 DAI 价值记；LGNS 转进分账合约、但同一笔交易里没有 Paid 的，是「补税差」
+  let paidTx = new Set();
+  const tn = tot.nm || (tot.nm = { n: 0, dai: 0, tok: {}, top: 0 });
+  await walk("nm", "anubis", NM.deploy, { address: NM.names.concat([NM.lgns]), topics: [[NM.paid, TRANSFER]] }, async (l, d) => {
+    const dn = d.nm || (d.nm = { n: 0, dai: 0, tok: {}, top: 0 });
+    if (l.topics[0] === NM.paid) {
+      const payer = "0x" + l.topics[1].slice(26), tok = "0x" + l.topics[2].slice(26), w = words(l.data);
+      if (NM.own.has(payer)) return;
+      const [sym, dec] = PAY_TOKENS.anubis[tok] || [tok.slice(0, 8), 18], a = Number(w[0]) / 10 ** dec, v = dai(w[1]);
+      for (const x of [dn, tn]) { x.n++; x.dai += v; x.tok[sym] = (x.tok[sym] || 0) + a; }
+    } else if (l.address.toLowerCase() === NM.lgns && "0x" + l.topics[2].slice(26) === NM.payee && !paidTx.has(l.transactionHash) && !NM.own.has("0x" + l.topics[1].slice(26))) {
+      const a = Number(BigInt(l.data)) / 1e9;
+      dn.top += a; tn.top += a;
+    }
+  }, (logs) => { paidTx = new Set(logs.filter((l) => l.topics[0] === NM.paid).map((l) => l.transactionHash)); });
   for (const [d, v] of Object.entries(days)) await kv.put("st:d:" + d, JSON.stringify(v), { expirationTtl: 90 * 86400 });
   await kv.put("st:tot", JSON.stringify(tot));
   await kv.put("st:cur", JSON.stringify(st));
-  const behind = MARKETS.some((m) => behindOf(m.key, m.chain)) || Object.keys(CHAINS).some((c) => behindOf("pay_" + c, c));
+  const behind = MARKETS.some((m) => behindOf(m.key, m.chain)) || Object.keys(CHAINS).some((c) => behindOf("pay_" + c, c)) || behindOf("nm", "anubis");
   return { behind, cur: st.cur, budgetLeft: budget, ...(errors.length ? { errors } : {}) };
 }
 
@@ -207,5 +228,11 @@ async function report(kv, day) {
   const paySum = Object.entries(bySym).map(([s, a]) => `${amt(a)} ${s}`).join(" + ");
   lines.push(`👑 会员付款：${d.pays.length} 笔` + (paySum ? `，共 ${paySum}` : ""));
   lines.push(`🎁 OTC 成交赠送初级 VIP：${(vip || []).length} 个`);
+  // 域名收入（注册 + 续费，按付款时的 DAI 价值；站长自己注册的不算）
+  const nm = d.nm || { n: 0, dai: 0, tok: {}, top: 0 }, tn = t.nm || { n: 0, dai: 0, tok: {}, top: 0 };
+  const tokStr = (x) => Object.entries(x.tok).map(([s, a]) => `${amt(a)} ${s}`).join(" + ");
+  lines.push("", "🌐 域名收入", `· 今日：${nm.n} 笔，合计 ${money(nm.dai)} DAI` + (nm.n ? `（${tokStr(nm)}）` : ""));
+  if (nm.top) lines.push(`· 今日 LGNS 补税差：${amt(nm.top)} LGNS`);
+  lines.push(`· 累计：${tn.n} 笔，合计 ${money(tn.dai)} DAI` + (tn.n ? `（${tokStr(tn)}）` : ""), `· 累计 LGNS 补税差：${amt(tn.top)} LGNS`);
   return lines.join("\n");
 }
