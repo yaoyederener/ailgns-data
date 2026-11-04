@@ -150,12 +150,14 @@
   function meBox(d) {
     var me = d.me;
     if (account === SRC) return ownerBox();
-    if (!account) return '<p>持有 .ailgns 域名并设为主名字，就能免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
+    if (!account) return '<p>参加资格（满足其一）：① 主名字是 <b>🌟 创世 .ailgns 域名</b> ② <b>OTC 累计成交满 5 万 DAI</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
     if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
-    if (!me.name) return '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有<b>主名字</b>。</p><p>注册一个 .ailgns 域名（5 DAI 起），再点「设为主名字」就能参加 👇</p><a class="nm-go" href="#/names">去注册域名 →</a>';
+    if (!me.ok) return '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。满足其一就能参加：</p><ul class="or-req">' +
+      '<li>' + (me.name ? "❌ 主名字 <b>" + esc(me.name) + "</b> 不是创世域名" : "❌ 还没有 .ailgns 主名字") + '：<a href="#/names">注册 / 买一个 🌟 创世 .ailgns 域名，设为主名字 →</a></li>' +
+      '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US") + "</b> / " + Number(me.need).toLocaleString("en-US") + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li></ul>';
     if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";
     var rest = me.n - me.used;
-    return '<p>你好，<b>' + esc(me.name) + "</b>！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + "域名 " + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
+    return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US") + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
       (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" : "") +
       (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="例如 827.354（3 位小数）" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔮 提交预测</button></div>' +
         '<p class="muted">还能预测 ' + rest + " 次；一次可以填多个价格，用空格或逗号隔开。只需要钱包签名，不扣钱、不花 Gas。</p>" :
@@ -199,7 +201,7 @@
   }
   function rules() {
     return '<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>' +
-      "<li><b>谁能玩</b>：持有 .ailgns 域名并设为主名字，免费参与，只需钱包签名。</li>" +
+      "<li><b>谁能玩</b>（满足其一）：① 主名字是 🌟 创世 .ailgns 域名（全站付费注册的前 1 万个）② OTC 累计成交满 5 万 DAI。免费参与，只需钱包签名。</li>" +
       "<li><b>猜什么</b>：猜开奖价，精确到小数点后 3 位，例如 827.354。</li>" +
       "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚开奖，9 点后提交的参加第二天。</li>" +
@@ -257,7 +259,7 @@
     x.textAlign = "center"; x.fillStyle = "#4b2fb8";
     x.font = "bold 54px sans-serif"; x.fillText("🔮 AiLGNS 每日预言家", W2 / 2, 120);
     x.font = "34px sans-serif"; x.fillStyle = "#6b5aa6"; x.fillText("我是", W2 / 2, 230);
-    x.font = "bold 60px sans-serif"; x.fillStyle = "#3a1f9e"; x.fillText(me.name, W2 / 2, 310);
+    x.font = "bold 60px sans-serif"; x.fillStyle = "#3a1f9e"; x.fillText(me.name || A.short(account), W2 / 2, 310);
     x.font = "34px sans-serif"; x.fillStyle = "#6b5aa6"; x.fillText("我预测 " + dayCn(data.round) + " 晚上 AiLGNS =", W2 / 2, 410);
     x.font = "bold 72px sans-serif"; x.fillStyle = "#7c5cff";
     me.ps.slice(0, 4).forEach(function (p, i) { x.fillText(p, W2 / 2, 500 + i * 80); });

@@ -4,7 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow } from "../../lib/oracle.js";
+import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -12,7 +12,7 @@ const guessText = (day, ps, a) => "AiLGNS 每日预言家\n我预测 " + day + "
 const pub = (g) => ({ name: g.name, ps: g.ps.map((x) => fmtP(x[0])) });
 
 async function quota(kv, a, name, day) {
-  const t = tierOf(name), bonus = await otcBonus(kv, a, day);
+  const t = name ? tierOf(name) : { n: 1, label: "普通" }, bonus = await otcBonus(kv, a, day);
   return { tier: t.label, base: t.n, bonus, n: Math.min(MAX_GUESS, t.n + bonus) };
 }
 
@@ -47,10 +47,10 @@ export async function onRequestGet(ctx) {
   const a = (u.searchParams.get("a") || "").toLowerCase();
   if (isAddr(a)) {
     try {
-      const name = await primaryName(a);
-      out.me = { a, name };
-      if (name) {
-        const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + name, "json");
+      const el = await eligibility(kv, a), name = el.name;
+      out.me = { a, name, gno: el.gno, vol: el.vol, ok: el.ok, need: OTC_MIN };
+      if (el.ok) {
+        const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
       }
     } catch (e) { out.me = { a, err: "读链失败" }; }
@@ -81,12 +81,13 @@ export async function onRequestPost(ctx) {
   if (new Set(ps).size !== ps.length) return json({ error: "这次提交里有重复的价格" }, 400);
   if (recoverAddress(guessText(day, raw, a), sig) !== a) return json({ error: "签名核对失败，请用当前钱包重新签名" }, 400);
   if (a === "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6" || a === "0x89dd06754bb239b6c4c92bc47c8fa72889084e27") return json({ error: "站长钱包不参加" }, 400);
-  let name;
-  try { name = await primaryName(a); } catch (e) { return json({ error: "读链失败，请稍后再试" }, 502); }
-  if (!name) return json({ error: "这个钱包还没有主名字：先注册一个 .ailgns 域名，再「设为主名字」就能参加" }, 400);
-  const key = "or:g:" + round + ":" + name, mine = (await kv.get(key, "json")) || { a, name, ps: [] };
+  let el;
+  try { el = await eligibility(kv, a); } catch (e) { return json({ error: "读链失败，请稍后再试" }, 502); }
+  if (!el.ok) return json({ error: "还没有参加资格：主名字是创世 .ailgns 域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，满足其一就能参加" }, 400);
+  const name = el.name || a.slice(0, 6) + "…" + a.slice(-4); // 没有域名、靠 OTC 成交参加的，用短地址显示
+  const key = "or:g:" + round + ":" + el.key, mine = (await kv.get(key, "json")) || { a, name, ps: [] };
   if (mine.a !== a) return json({ error: name + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次" }, 400);
-  const q = await quota(kv, a, name, round), have = new Set(mine.ps.map((x) => fmtP(x[0])));
+  const q = await quota(kv, a, el.name, round), have = new Set(mine.ps.map((x) => fmtP(x[0])));
   const fresh = ps.filter((p) => !have.has(p));
   if (!fresh.length) return json({ error: "这些价格你已经预测过了" }, 400);
   if (mine.ps.length + fresh.length > q.n) return json({ error: "次数不够：你这一轮共 " + q.n + " 次，已用 " + mine.ps.length + " 次" }, 400);
