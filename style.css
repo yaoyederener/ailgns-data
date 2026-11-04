@@ -2061,3 +2061,4 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-lead-in b { color: #5a35d6; }
 @keyframes or-lead-up { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (max-width: 640px) { .or-lead { flex-basis: 100%; margin-left: 0; } }
+.or-px .or-lead b { font-size: 14px; line-height: 1.4; color: #5a35d6; }
