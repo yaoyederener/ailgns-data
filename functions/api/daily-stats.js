@@ -131,6 +131,12 @@ async function catchUp(kv) {
       const logs = (await rpc(chain, "eth_getLogs", [{ ...query, fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16) }]))
         .sort((a, b) => parseInt(a.blockNumber, 16) - parseInt(b.blockNumber, 16) || parseInt(a.logIndex, 16) - parseInt(b.logIndex, 16));
       if (pre) pre(logs);
+      // 日志多的时候不一条条查区块时间：读这一段首尾两个区块的时间按比例估（Anubis 约 1 秒一块，误差几秒），省节点请求
+      const need = [...new Set(logs.map((l) => parseInt(l.blockNumber, 16)))].filter((b) => !ts[chain + b]);
+      if (need.length > 4 && budget > 4) {
+        const [t0, t1] = await Promise.all([from, to].map(async (b) => { budget--; return parseInt((await rpc(chain, "eth_getBlockByNumber", ["0x" + b.toString(16), false])).timestamp, 16); }));
+        for (const b of need) ts[chain + b] = Math.round(t0 + ((t1 - t0) * (b - from)) / Math.max(1, to - from));
+      }
       let done = to;
       for (let i = 0; i < logs.length; i++) {
         const b = parseInt(logs[i].blockNumber, 16);
