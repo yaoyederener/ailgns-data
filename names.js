@@ -281,7 +281,9 @@
       '<div class="nm-price nm-pc"><div><b>英文 3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>英文 4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>英文 5 位+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div><div><b>中文 2 字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>中文 3 字+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
       '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
       '<details class="nm-pdet"><summary>注册规则</summary><ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></details></section>' +
-      '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>';
+      '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
+      '<section class="card" id="nm-ord"><div class="card-head"><h2>🧾 域名订单查询</h2><span class="muted">市场买入 / 卖出记录（.ailgns + .lgns），链上可查</span></div>' +
+      '<div class="nm-rk"><input id="nm-oa" placeholder="填钱包地址 0x…，查这个地址的域名成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-ob">查询</button></div><div id="nm-ol"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
@@ -489,7 +491,7 @@
           sb.innerHTML = '<p class="nm-sale-t">🛒 <b>' + esc(v) + "." + TLD + '</b> 正在出售</p><p class="nm-sale-p"><b>' + p + ' DAI</b><small>买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + " DAI（含 3%）· 剩 " + leftT(it.expiry - Date.now() / 1000) + '</small></p><p class="muted">卖家 <span class="mono">' + (me ? "我" : A.nameTag ? A.nameTag(it.maker) : A.short(it.maker)) + '</span></p>' +
             '<button type="button" class="nm-go" id="nm-salego">' + (me ? "撤单" : "立即买入") + '</button><p class="muted nm-st" id="nm-sst"></p>';
           var sg = document.getElementById("nm-salego"), sst = document.getElementById("nm-sst");
-          sg.onclick = function () { sg.disabled = true; buyIt(it, sg, function (t) { sst.textContent = t; }).then(function () { sst.textContent = "✅ 成功"; delete infoCache[TLD + ":" + v]; show(v); market(); }, function (e) { sg.disabled = false; sst.textContent = ""; A.errTip(e.message || String(e), sg); }); };
+          sg.onclick = function () { sg.disabled = true; buyIt(it, sg, function (t) { sst.textContent = t; }).then(function () { sst.textContent = "✅ 成功"; delete infoCache[TLD + ":" + v]; show(v); market(); ordAfter(); }, function (e) { sg.disabled = false; sst.textContent = ""; A.errTip(e.message || String(e), sg); }); };
         });
         if (!mine) { stepTo(1); return; }
         guide(document.getElementById("nm-next"), v, r);
@@ -687,10 +689,11 @@
     }
     stepTo(1);
     // 已经连过钱包的，静默认出地址，打开自己的名字就直接显示第 2 / 3 步
-    if (!account && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a && !account) { account = String(a).toLowerCase(); show(q); } }, function () {});
+    if (!account && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a && !account) { account = String(a).toLowerCase(); show(q); ordInit(); } }, function () {});
     show(q);
     market();
     ranks();
+    ordInit();
     livePrices();
     genCard();
     // 菜单「域名 OTC」（#/names/otc）：直接滚到域名市场
@@ -802,6 +805,51 @@
       var px = document.getElementById("nm-px");
       if (px) px.textContent = " 现在 1 AiLGNS ≈ " + (1e18 / Number(q[0])).toFixed(2) + " DAI。用 LGNS 付要补 DEX 卖出税（现在约 " + (Number(q[2]) / 100).toFixed(0) + "%）的差价，上面 LGNS 数量已含补差。";
     }, function () {});
+  }
+
+  // 🧾 域名订单查询：按地址列出在域名市场买入 / 卖出的成交（成交 Filled + 挂单 Created 找出对方）
+  var T_CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff";
+  // 买入成功后：订单查询自动填上自己的地址并刷新（链上记录要几秒才出来）
+  function ordAfter() { var inp = document.getElementById("nm-oa"); if (!inp || !account) return; inp.value = account; setTimeout(function () { orders(account); }, 4000); }
+  function ordInit() {
+    var inp = document.getElementById("nm-oa"), btn = document.getElementById("nm-ob");
+    if (!inp || !btn) return;
+    if (account) { inp.value = account; orders(account); }
+    btn.onclick = function () { orders(inp.value.trim().toLowerCase()); };
+    inp.onkeydown = function (e) { if (e.key === "Enter") btn.click(); };
+  }
+  function orders(a) {
+    var out = document.getElementById("nm-ol"); if (!out) return;
+    if (!/^0x[0-9a-f]{40}$/.test(a)) { out.innerHTML = '<p class="muted">请填正确的钱包地址（0x 开头 42 位）</p>'; return; }
+    out.innerHTML = '<p class="muted">查询中…</p>';
+    var pad = "0x" + A.pad(a);
+    Promise.all(Object.keys(OTC).map(function (t) {
+      return Promise.all([logs(OTC[t], T_FILL, START[t]), logs(OTC[t], T_CREATED, START[t])]).then(function (x) {
+        var mk = {};
+        x[1].forEach(function (l) { mk[l[1][1]] = { maker: "0x" + l[1][2].slice(26), sell: BigInt("0x" + l[2].slice(2, 66)) === 1n }; });
+        return x[0].map(function (l) {
+          var o = mk[l[1][1]] || {}, taker = "0x" + l[1][2].slice(26), buyer = o.sell === false ? o.maker : taker, seller = o.sell === false ? taker : o.maker;
+          return { t: t, b: l[0], id: parseInt(l[1][1], 16), tid: l[2].slice(2, 66), price: BigInt("0x" + l[2].slice(66, 130)), buy: buyer === a, sell: seller === a, other: buyer === a ? seller : buyer };
+        }).filter(function (r) { return r.buy || r.sell; });
+      });
+    })).then(function (all) {
+      var rows = [].concat.apply([], all).sort(function (x, y) { return y.b - x.b; }).slice(0, 50);
+      if (!rows.length) { out.innerHTML = '<p class="muted">' + A.short(a) + ' 在域名市场还没有成交记录。</p>'; return; }
+      return Promise.all(rows.map(function (r) {
+        return Promise.all([
+          W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[r.t], data: SEL.labelOf + r.tid }, "latest"]).then(decStr).catch(function () { return "#" + r.id; }),
+          W.rpcOn("anubis", "eth_getBlockByNumber", ["0x" + r.b.toString(16), false]).then(function (b) { return parseInt(b.timestamp, 16); }).catch(function () { return 0; }),
+        ]);
+      })).then(function (info) {
+        var bought = 0, sold = 0;
+        var html = rows.map(function (r, i) {
+          var d = info[i][1] ? new Date((info[i][1] + 8 * 3600) * 1000).toISOString().slice(0, 16).replace("T", " ") : "", dai = Number(r.price / 10n ** 12n) / 1e6;
+          if (r.buy) bought += dai; else sold += dai;
+          return "<tr><td>" + d + '</td><td><b>' + esc(info[i][0]) + "." + r.t + "</b></td><td>" + (r.buy ? '<span class="nm-ob-b">买入</span>' : '<span class="nm-ob-s">卖出</span>') + "</td><td><b>" + dai + " DAI</b></td><td>" + (r.other ? A.short(r.other) : "") + '</td><td><a href="https://anubisscan.io/block/' + r.b + '" target="_blank" rel="noopener">区块 ' + r.b + " ↗</a></td></tr>";
+        }).join("");
+        out.innerHTML = '<p class="muted">共 ' + rows.length + " 笔 · 买入 " + Math.round(bought * 100) / 100 + " DAI · 卖出 " + Math.round(sold * 100) / 100 + ' DAI（成交价，不含手续费）</p><div class="nm-otbl"><table><thead><tr><th>时间（北京）</th><th>域名</th><th>方向</th><th>成交价</th><th>对方</th><th>链上凭证</th></tr></thead><tbody>' + html + "</tbody></table></div>";
+      });
+    }).catch(function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
   }
 
   // 成交排行：最贵 10 笔 + 最新 10 笔
@@ -984,7 +1032,7 @@
       el.querySelectorAll("button[data-wb]").forEach(function (b) {
         b.onclick = function () {
           var it = sale[list[Number(b.getAttribute("data-wb"))].name];
-          buyIt(it, b, function (t) { st2.textContent = t; }).then(function () { st2.textContent = "✅ 成功"; market(); wantPanel(); }, function (e) { st2.textContent = ""; A.errTip(e.message || String(e), b); });
+          buyIt(it, b, function (t) { st2.textContent = t; }).then(function () { st2.textContent = "✅ 成功"; market(); wantPanel(); ordAfter(); }, function (e) { st2.textContent = ""; A.errTip(e.message || String(e), b); });
         };
       });
     });
@@ -1072,7 +1120,7 @@
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-i]").forEach(function (b) {
         b.onclick = function () {
-          buyIt(list[Number(b.getAttribute("data-i"))], b, say).then(function () { say("✅ 成功"); market(); }, function (e) { say(""); A.errTip(e.message || String(e), b); });
+          buyIt(list[Number(b.getAttribute("data-i"))], b, say).then(function () { say("✅ 成功，订单已记录在下方「🧾 域名订单查询」"); market(); ordAfter(); }, function (e) { say(""); A.errTip(e.message || String(e), b); });
         };
       });
     }

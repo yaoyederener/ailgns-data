@@ -8,11 +8,12 @@ const OTC = { "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e": 18161697, "0x2894d4f
 const T_REG = "0xa15b66031269f1c32be8db1e4353108dc76c84574a7c6697527e431ad921462a";
 const T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const T_FILL = "0xdef4cdb91e8c5e2777b0bf9645ce2c7e0b64a3b3fb94e37c6d78cde1043f80cb";
+const T_CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff"; // 挂单 Created(id, maker, sell, tokenId, price, expiry)：订单查询用来找卖家 / 买家
 const STEP = 5000, MAX_RANGES = 40;
 
 function startOf(a, t) {
   if (NAMES[a] && (t === T_REG || t === T_XFER)) return NAMES[a];
-  if (OTC[a] && t === T_FILL) return OTC[a];
+  if (OTC[a] && (t === T_FILL || t === T_CREATED)) return OTC[a];
   return 0;
 }
 async function rpc(method, params) {

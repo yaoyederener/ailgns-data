@@ -50,6 +50,8 @@
       }
       msgs.push("🔮 预言家超级大奖池已累积 " + Number(or.pool).toLocaleString("en-US") + " DAI，猜中今晚 AiLGNS 价格就能拿走 →");
     }
+    // 💎 域名史上最高成交
+    if (d.nmTop && d.nmTop.name) msgs.unshift("💎 域名史上最高成交：" + d.nmTop.name + " 以 " + Number(d.nmTop.dai).toLocaleString("en-US") + " DAI 成交！好名字只有一个，下一个天价名字是谁？→");
     if (!msgs.length) return;
     // 穿插「注册域名」引导：上榜大哥只显示 0x 地址太可惜，亮出名字让全网知道
     var DOM = ["🌐 上了荣耀榜却只显示一串 0x？注册 .ailgns 域名，让全网知道你是谁 →",
@@ -57,7 +59,7 @@
       "💎 好名字全球只有一个，先注册先得，晚一步就是别人的 →",
       "🏆 榜上有名，更要有名！5 DAI 起注册 .ailgns，名字永久跟着你 →",
       "📣 0x 地址没人记得住，xxx.ailgns 一眼就记住：别人转账填名字就行 →"];
-    var list = msgs.map(function (t) { return { t: t, h: /^(🔮|🎯)/.test(t) ? "#/oracle" : "#/rank" }; });
+    var list = msgs.map(function (t) { return { t: t, h: /^(🔮|🎯)/.test(t) ? "#/oracle" : /^💎 域名/.test(t) ? "#/names" : "#/rank" }; });
     var mix = [];
     list.forEach(function (m, i) { mix.push(m); mix.push({ t: DOM[i % DOM.length], h: "#/names" }); });
     // 前三名、本月榜一还没域名的：点名邀请
