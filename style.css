@@ -2049,3 +2049,9 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-lc { color: #5b4a86; }
 .or-lp small, .or-lc small { font-weight: 400; color: #9a8fb8; margin-right: 4px; font-size: 12px; }
 @media (max-width: 640px) { .or-lwin li { height: auto; min-height: 41px; flex-wrap: wrap; gap: 2px 10px; } .or-lwin li b { flex-basis: calc(100% - 40px); } .or-lp { margin-left: 36px; } }
+
+.or-lnow { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 6px 0 10px; padding: 12px; border-radius: 14px; background: linear-gradient(90deg,#fff3c4,#f6e3ff); border: 1px solid #f0d78a; }
+.or-lnow small { color: #8a6d1f; }
+.or-lnow b { font-size: 30px; color: #b8860b; font-variant-numeric: tabular-nums; }
+.or-lnow span { color: #8a6d1f; }
+.or-lwin { max-height: none; }

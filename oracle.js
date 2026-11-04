@@ -199,7 +199,7 @@
       rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + "</li>"; }).join("") + "</ol></details>";
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
-  var livePxV = 0, liveRows = [], liveKey = "";
+  var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;
   function playersCard(d) {
     liveRows = []; liveKey = "";
     (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
@@ -215,9 +215,13 @@
     var key = m + ":" + rows.map(function (r) { return r.name + r.p; }).join("|");
     if (key === liveKey) return;
     liveKey = key;
-    var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp"><small>预测价格</small>' + r.p + '</span><span class="or-lc"><small>当前价格</small>' + livePxV.toFixed(3) + "</span></li>"; };
-    var html = rows.map(li).join(""), roll = rows.length > 8;
-    box.innerHTML = '<div class="or-lwin' + (roll ? " roll" : "") + '"><ol style="--n:' + rows.length + '">' + html + (roll ? html : "") + "</ol></div>";
+    var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp"><small>预测价格</small>' + r.p + '</span><span class="or-lc"><small>差</small>' + (Math.abs(r.m - m) / 1000).toFixed(3) + "</span></li>"; };
+    // 不滚动：上面高亮当前价，下面列最接近的 10 个，点「看全部」展开
+    box.innerHTML = '<div class="or-lnow"><small>当前价格</small><b>' + livePxV.toFixed(3) + '</b><span>DAI</span></div>' +
+      '<div class="or-lwin"><ol>' + rows.slice(0, liveAll ? rows.length : 10).map(li).join("") + "</ol></div>" +
+      (rows.length > 10 ? '<button type="button" class="nm-more" id="or-lall">' + (liveAll ? "收起 ▲" : "看全部 " + rows.length + " 个 ▼") + "</button>" : "");
+    var la = document.getElementById("or-lall");
+    if (la) la.onclick = function () { liveAll = !liveAll; liveKey = ""; liveRank(); };
   }
   function resultCard(r, title) {
     var px = (r.px / 1000).toFixed(3), jw = r.jackpot.winners, c = r.closest;
