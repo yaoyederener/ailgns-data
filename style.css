@@ -1907,3 +1907,6 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-morebar .nm-more { margin: 0; flex: 1; }
 .nm-morebar .nm-less { flex: 0 0 auto; padding: 11px 16px; }
 .nm-more small { font-weight: 400; color: var(--muted); }
+
+/* 手机上表格行变成卡片（display:grid）会盖掉 hidden，折叠的挂单要强制隐藏 */
+tr[hidden], .cards [hidden] { display: none !important; }
