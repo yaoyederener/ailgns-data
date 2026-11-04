@@ -2134,3 +2134,4 @@ tr.nm-pinrow td { background: #fff8e6; }
   .or-dmin input { font-size: 13px; padding: 8px 10px; }
   .or-dmin .nm-go { padding: 8px 12px; font-size: 13px; }
 }
+@media (max-width: 640px) { .or-dmsky { height: 96px; } }
