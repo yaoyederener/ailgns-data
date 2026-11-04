@@ -2062,3 +2062,11 @@ tr.nm-pinrow td { background: #fff8e6; }
 @keyframes or-lead-up { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (max-width: 640px) { .or-lead { flex-basis: 100%; margin-left: 0; } }
 .or-px .or-lead b { font-size: 14px; line-height: 1.4; color: #5a35d6; }
+
+.or-lead { flex: 1 1 300px; height: auto; overflow: visible; display: flex; flex-direction: column; gap: 4px; max-width: 460px; }
+.or-px .or-lead small { width: auto; font-size: 12px; color: #8a6d1f; }
+.or-lead-in { display: flex; gap: 8px; align-items: center; padding: 4px 12px; border-radius: 10px; font-size: 14px; animation: none; }
+.or-lead-in span { margin-left: auto; color: #6b4e00; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.or-px .or-lead b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.or-lead-in.moved { animation: or-flash .8s ease; }
+@keyframes or-flash { 0% { background: #ffe27a; transform: scale(1.02); } 100% { transform: none; } }

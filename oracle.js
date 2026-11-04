@@ -200,22 +200,18 @@
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
   var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;
-  // 现价旁边：按「离当前价最近」轮流显示前 5 名（现在开奖的话谁赢），每 2.5 秒换一个
-  var leadRows = [], leadI = 0, leadT = null;
+  // 现价旁边：如果按当前价开奖，最能中奖的前 3 名（同时显示，价格每 5 秒变一次就跟着重排，名次变了闪一下）
+  var leadRows = [], leadKey = "";
   function leadShow() {
     var el = document.getElementById("or-lead");
     if (!el || !leadRows.length) return;
-    if (!leadT) leadT = setInterval(function () {
-      var e = document.getElementById("or-lead");
-      if (!e) { clearInterval(leadT); leadT = null; return; }
-      leadI = (leadI + 1) % leadRows.length; leadPaint(e);
-    }, 2500);
-    if (!el.firstChild) leadPaint(el);
+    var top = leadRows.slice(0, 3), key = top.map(function (r) { return r.name + r.p; }).join("|"), moved = leadKey && key !== leadKey;
+    leadKey = key;
+    el.innerHTML = '<small>🏆 按当前价开奖，最可能中奖</small>' + top.map(function (r, i) {
+      return '<div class="or-lead-in' + (moved ? " moved" : "") + '">' + ["🥇", "🥈", "🥉"][i] + " <b>" + esc(r.name) + '</b><span>预测 ' + r.p + " · 差 " + r.d + "</span></div>";
+    }).join("");
   }
-  function leadPaint(el) {
-    var r = leadRows[leadI % leadRows.length]; if (!r) return;
-    el.innerHTML = '<span class="or-lead-in" key="' + leadI + '">' + ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][leadI % leadRows.length] + " <b>" + esc(r.name) + "</b> 预测 " + r.p + " · 差 " + r.d + "</span>";
-  }
+
   function playersCard(d) {
     liveRows = []; liveKey = "";
     (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
