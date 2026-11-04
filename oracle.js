@@ -21,8 +21,8 @@
     A.app.innerHTML =
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 持有域名就能玩</span></div>' +
       '<div class="or-px"><small>AiLGNS 现价（链上实时）</small><b id="or-px">读取中…</b><span>DAI</span></div>' +
-      '<svg id="or-chart" class="or-chart" viewBox="0 0 300 60" preserveAspectRatio="none"></svg>' +
-      '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 每 5 秒刷新 · 24 小时走势</p></section>' +
+      '<svg id="or-chart" class="or-chart" viewBox="0 0 360 200"><text x="180" y="100" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
+      '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
     livePx(rid); chart(rid);
     pxTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pxTimer); livePx(rid); }, 5000);
@@ -34,20 +34,55 @@
       var el = document.getElementById("or-px"); if (el && A.isCurrent(rid)) el.textContent = pxOf(r).toFixed(3);
     }, function () {});
   }
-  // 24 小时走势：每小时一个点，直接读链上历史区块（Anubis 约 1 秒一块）
+  // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
+  var SYNC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
+  function pxData(d) { var w = d.slice(2); return Number(BigInt("0x" + w.slice(64, 128)) * 1000000n / BigInt("0x" + w.slice(0, 64))) / 1e6; }
   function chart(rid) {
-    W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
-      var top = parseInt(h, 16), pts = [];
-      for (var i = 24; i >= 0; i--) pts.push(top - i * 3600);
-      return Promise.all(pts.map(function (b) { return W.rpcOn("anubis", "eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "0x" + b.toString(16)]).then(pxOf, function () { return null; }); }));
-    }).then(function (v) {
+    var N = 24, latest, tsL, h0, b0;
+    A.rpc("eth_getBlockByNumber", ["latest", false]).then(function (b) {
+      latest = parseInt(b.number, 16); tsL = parseInt(b.timestamp, 16);
+      h0 = Math.floor(tsL / 3600) * 3600 - (N - 1) * 3600; b0 = latest - (tsL - h0);
+      var calls = [A.rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "0x" + (b0 - 1).toString(16)])];
+      for (var f = b0; f <= latest; f += 5000) calls.push(A.rpc("eth_getLogs", [{ address: PAIR, topics: [SYNC], fromBlock: "0x" + f.toString(16), toBlock: "0x" + Math.min(latest, f + 4999).toString(16) }]));
+      return Promise.all(calls);
+    }).then(function (r) {
       var el = document.getElementById("or-chart"); if (!el || !A.isCurrent(rid)) return;
-      v = v.filter(function (x) { return x; }); if (v.length < 2) return;
-      var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), sp = hi - lo || 1;
-      var d = v.map(function (x, i) { return (i ? "L" : "M") + (i * 300 / (v.length - 1)).toFixed(1) + " " + (55 - (x - lo) / sp * 50).toFixed(1); }).join(" ");
-      el.innerHTML = '<path d="' + d + ' L300 60 L0 60 Z" fill="rgba(124,92,255,.12)"/><path d="' + d + '" fill="none" stroke="#7c5cff" stroke-width="2" vector-effect="non-scaling-stroke"/>' +
-        '<text x="2" y="10" class="or-ct">' + hi.toFixed(2) + '</text><text x="2" y="58" class="or-ct">' + lo.toFixed(2) + "</text>";
-    }, function () {});
+      var last = pxOf(r[0]), c = [];
+      for (var i = 0; i < N; i++) c.push({ t: h0 + i * 3600, o: last, h: last, l: last, c: last, v: 0 });
+      var cur = last, prevDai = null;
+      [].concat.apply([], r.slice(1)).forEach(function (lg) {
+        var b = parseInt(lg.blockNumber, 16), k = Math.floor((tsL - (latest - b) - h0) / 3600);
+        var p = pxData(lg.data), dai = Number(BigInt("0x" + lg.data.slice(66, 130)) / 10n ** 16n) / 100;
+        if (k >= 0 && k < N) {
+          var x = c[k];
+          if (!x.touched) { x.o = cur; x.h = Math.max(cur, p); x.l = Math.min(cur, p); x.touched = 1; } // 开盘 = 这一小时第一笔之前的价格
+          x.h = Math.max(x.h, p); x.l = Math.min(x.l, p); x.c = p;
+          if (prevDai !== null) x.v += Math.abs(dai - prevDai);
+        }
+        cur = p; prevDai = dai;
+      });
+      // 没成交的小时：一字线，沿用上一根收盘
+      for (var j = 0; j < N; j++) if (!c[j].touched) { var pc = j ? c[j - 1].c : last; c[j].o = c[j].h = c[j].l = c[j].c = pc; }
+      drawK(el, c);
+    }, function () { var el = document.getElementById("or-chart"); if (el) el.innerHTML = '<text x="180" y="100" text-anchor="middle" class="or-ct">K 线读取失败</text>'; });
+  }
+  function drawK(el, c) {
+    var W0 = 360, H0 = 200, L = 6, R = 300, T = 10, B = 172, hi = -Infinity, lo = Infinity;
+    c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
+    var pad = (hi - lo) * 0.08 || 0.5; hi += pad; lo -= pad;
+    var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
+    for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 4) + '" y="' + (gy + 3.5).toFixed(1) + '" class="or-ct">' + gp.toFixed(2) + "</text>"; }
+    c.forEach(function (x, i) {
+      var cx = L + cw * i + cw / 2, up = x.c >= x.o, col = up ? "or-up" : "or-dn", top = y(Math.max(x.o, x.c)), bot = y(Math.min(x.o, x.c));
+      var d = new Date((x.t + 8 * 3600) * 1000), hh = String(d.getUTCHours()).padStart(2, "0") + ":00";
+      svg += "<g><title>" + (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + hh + "\n开 " + x.o.toFixed(3) + "　高 " + x.h.toFixed(3) + "\n低 " + x.l.toFixed(3) + "　收 " + x.c.toFixed(3) + "</title>" +
+        '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/>' +
+        '<rect x="' + (cx - cw * 0.32).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (cw * 0.64).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"/></g>';
+      if (i % 6 === 0) svg += '<text x="' + cx.toFixed(1) + '" y="' + (H0 - 12) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
+    });
+    var lastC = c[c.length - 1];
+    svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 7).toFixed(1) + '" width="58" height="14" rx="3" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(2) + "</text>";
+    el.innerHTML = svg;
   }
 
   function load(rid) {

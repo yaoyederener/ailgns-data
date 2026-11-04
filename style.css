@@ -1962,3 +1962,13 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .or-funds .or-tot { width: 100%; font-size: 15px; }
 .or-funds .or-tot b { color: #c98a00; }
 .or-fnote { width: 100%; }
+
+/* 预言家 1 小时 K 线（浅色） */
+.or-chart { height: auto !important; aspect-ratio: 360 / 200; background: #faf8ff !important; border: 1px solid #eee6ff; }
+.or-grid { stroke: #ece6fb; stroke-width: .6; }
+.or-ct { font-size: 9px; fill: #8a7cc0; }
+.or-up { stroke: #1f9d6b; fill: #1f9d6b; stroke-width: 1; }
+.or-dn { stroke: #e0565b; fill: #e0565b; stroke-width: 1; }
+.or-lastl { stroke: #7c5cff; stroke-width: .7; stroke-dasharray: 3 2; }
+.or-lastb { fill: #7c5cff; }
+.or-lastt { font-size: 9px; fill: #fff; font-weight: 600; }
