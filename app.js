@@ -256,7 +256,7 @@
       var today = days.length ? days[days.length - 1] : null;
       var yday = days.length > 1 ? days[days.length - 2] : null;
       var price = res ? res.dai / res.ail : null;
-      var html = '<h1>资金流向</h1><p class="sub">AiLGNS/DAI 主池每天的买单、卖单，以及池子是净流入还是净流出（北京时间自然日）</p>';
+      var html = '<h1>资金流向</h1><p class="sub sub-x">AiLGNS/DAI 主池每天的买单、卖单，以及池子是净流入还是净流出（北京时间自然日）</p>';
 
       if (today) html += verdict(days, flows.updated);
       html += '<div class="kpis">';
@@ -322,7 +322,7 @@
   }
 
   function renderWallet(id, addr) {
-    var head = '<h1>钱包快查</h1><p class="sub">输入地址，查看官方等级、算力、团队、每日奖励和余额。只读查询，不连接钱包。</p>';
+    var head = '<h1>钱包快查</h1><p class="sub sub-x">输入地址，查看官方等级、算力、团队、每日奖励和余额。只读查询，不连接钱包。</p>';
     if (!addr) {
       app.innerHTML = head + searchBox("wallet") + '<div class="empty">输入一个钱包地址开始查询</div>';
       return;
@@ -419,7 +419,7 @@
   var lv_ = lv;
 
   function renderTeam(id, addr) {
-    var head = '<h1>团队与等级</h1><p class="sub">会员地址的直推线、每条线的团队地址数和入金（DAI），以及官方 P 等级。</p>';
+    var head = '<h1>团队与等级</h1><p class="sub sub-x">会员地址的直推线、每条线的团队地址数和入金（DAI），以及官方 P 等级。</p>';
     var box = function (v) { return window.AIL.ownOnly ? "" : searchBox("team", v); };
     app.innerHTML = head + box(addr) + '<div class="loading">正在读取…</div>';
     var levelP = api("/level").then(function (l) { THRESHOLDS = l.thresholds; return l; }).catch(function () { return null; });

@@ -356,7 +356,7 @@
   // ---------- 页面：会员 ----------
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = '<h1>会员</h1><p class="sub">会员开在<b>地址</b>上：填要开通的地址，点付款，在钱包里确认一笔转账就开通，<b>不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
+    var head = '<h1>会员</h1><p class="sub sub-x">会员开在<b>地址</b>上：填要开通的地址，点付款，在钱包里确认一笔转账就开通，<b>不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
     if (m && m.tier === "pro") {
       app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
       fillVol(m.addr);

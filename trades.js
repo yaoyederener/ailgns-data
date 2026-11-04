@@ -36,7 +36,7 @@
   }
   function render(id, a) {
     var app = A.app;
-    app.innerHTML = '<h1>成交查询</h1><p class="sub">输入任意钱包地址，查它在本站 OTC（四个市场）和卡牌交易的成交记录：挂单被吃、自己吃单都算，带交易链接可核对。</p>' +
+    app.innerHTML = '<h1>成交查询</h1><p class="sub sub-x">输入任意钱包地址，查它在本站 OTC（四个市场）和卡牌交易的成交记录：挂单被吃、自己吃单都算，带交易链接可核对。</p>' +
       '<section class="card"><div class="addr-box"><input id="tr-addr" class="mono" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="' + (a || "") + '"><button id="tr-go">查询</button></div><p class="note" style="margin:8px 0 0">成交后几分钟内记录会出现在这里；累计成交和会员赠送以「会员中心」的查询为准。</p></section><div id="tr-out"></div>';
     var inp = document.getElementById("tr-addr"), out = document.getElementById("tr-out");
     function go() {

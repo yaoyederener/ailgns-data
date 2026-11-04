@@ -1867,3 +1867,7 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .hn-rules ul { margin: 4px 0 8px; padding-left: 20px; line-height: 1.9; }
 @media (max-width: 640px) { .hn-podium { gap: 6px; } .hn-p { padding: 12px 4px; } .hn-pa { font-size: 12px; } .hn-list b { font-size: 13px; } }
 @media (prefers-reduced-motion: reduce) { .hn-p1, #hn-tick .hn-tk-m.in { animation: none; } }
+
+/* 页面顶部的长说明去掉，给荣耀榜播报留空间 */
+.sub.sub-x { display: none; }
+#app > h1:first-child { margin-top: 18px; margin-bottom: 12px; }
