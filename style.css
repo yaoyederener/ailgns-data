@@ -1927,9 +1927,19 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .hn-mil-t { margin: 6px 0 0; font-size: 13.5px; color: var(--purple-ink); }
 
 /* 🔮 每日预言家 */
-.tabs a.oraclet { color: #6a3fd6; font-weight: 600; }
-.tabs a.oraclet svg { width: 15px; height: 15px; vertical-align: -2px; margin-right: 3px; fill: none; stroke: currentColor; stroke-width: 2; }
-.tabs a.oraclet i { font-style: normal; font-size: 10px; margin-left: 3px; color: #fff; background: #9b7bff; border-radius: 6px; padding: 0 4px; }
+/* 🔮 预言家：和会员 / 借贷 / 域名 / 荣耀榜同一套胶囊按钮，粉紫渐变 + 角标「猜」 */
+.tabs a.oraclet { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #fff; font-weight: 800; background: linear-gradient(120deg, #ec4899, #a855f7 55%, #7c3aed); border: 0; box-shadow: 0 4px 14px rgba(168, 85, 247, .3); }
+.tabs a.oraclet svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabs a.oraclet i { font-style: normal; position: absolute; top: -7px; right: -4px; font-size: 9px; line-height: 1; font-weight: 800; color: #fff; background: linear-gradient(110deg, #f59e0b, #ef4444); padding: 2px 5px; border-radius: 6px 6px 6px 2px; }
+.tabs a.oraclet:hover { color: #fff; filter: brightness(1.08); }
+.tabs a.oraclet.on { color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #d8b4fe, 0 4px 14px rgba(168, 85, 247, .3); }
+/* 手机：6 个栏目排成 3 × 2 */
+@media (max-width: 600px) {
+  .tabs { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 10px 6px !important; overflow: visible !important; padding-top: 6px; }
+  .tabs a, .tabs a.feat, .tabs a.vipt, .tabs a.lendt, .tabs a.namet, .tabs a.rankt, .tabs a.oraclet { padding: 9px 2px !important; font-size: 14px !important; gap: 3px !important; min-width: 0; }
+  .tabs a.oraclet svg, .tabs a.rankt svg, .tabs a.namet svg, .tabs a.lendt svg, .tabs a.vipt svg { width: 14px; height: 14px; }
+  .tabs a.oraclet i { right: -2px; }
+}
 .or-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .or-h h2 { margin: 0; }
 .or-px { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
