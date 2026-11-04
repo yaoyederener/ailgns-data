@@ -1114,7 +1114,7 @@
     box.innerHTML = '<p class="muted">读取中…</p>';
     var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
     listings(true).then(function (list) {
-      list = list.filter(function (x) { return x.t !== "lgns"; }); // .lgns 暂停：市场只显示 .ailgns
+      list = list.filter(function (x) { return x.t !== "lgns" || (account && x.maker === account); }); // .lgns 暂停：市场只显示 .ailgns；自己挂的老 .lgns 单照样显示（能看到、能撤）
       if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>' + rankRules(); rankLookup(); return; }
       var makers = list.map(function (x) { return x.maker; }).filter(function (a, i, z) { return z.indexOf(a) === i; });
       return Promise.all([otcVols(makers)].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) { draw(list, r[0], r.slice(1)); });
