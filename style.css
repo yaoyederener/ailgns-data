@@ -1793,8 +1793,19 @@ tr.nm-wdim td { opacity: .5; }
 /* 域名市场：排名规则 / 卖家成交额 */
 .nm-vol { color: var(--muted, #8a84a3); font-size: 12px; font-family: inherit; }
 .nm-sort { margin: 0 0 10px; }
-.nm-rules { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--soft, #f4f1fb); border: 1px solid var(--line, #e6e0f5); font-size: 14px; line-height: 1.7; }
-.nm-rules summary { cursor: pointer; font-weight: 600; }
-.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
+details.nm-rules { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--soft, #f4f1fb); border: 1px solid var(--line, #e6e0f5); font-size: 14px; line-height: 1.7; }
+details.nm-rules summary { cursor: pointer; font-weight: 600; }
+details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-rk { display: flex; gap: 8px; margin-top: 8px; }
 .nm-rk input { flex: 1; min-width: 0; }
+
+/* 价格卡缩小：5 个价格一行，手机两列 */
+.nm-pcard .card-head h2 small { font-size: 13px; font-weight: 400; }
+.nm-price.nm-pc { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.nm-price.nm-pc div { padding: 7px 4px; }
+.nm-price.nm-pc b { font-size: 12px; font-weight: 600; }
+.nm-price.nm-pc span { font-size: 14px; margin-top: 2px; color: var(--accent, #7c5cd6); }
+.nm-price.nm-pc small.nm-q { font-size: 10.5px; margin-top: 2px; line-height: 1.4; }
+.nm-pcard > p.muted { font-size: 12.5px; margin: 8px 0 4px; }
+.nm-pdet summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+@media (max-width: 640px) { .nm-price.nm-pc { grid-template-columns: repeat(2, 1fr); } }

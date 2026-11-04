@@ -261,17 +261,16 @@
       '<p class="nm-hint">👇 输入你想要的名字，点「搜索」</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
-      '<section class="card" id="nm-mycard"><div class="card-head"><h2>📒 我的域名</h2><span class="muted">买到了在这里看</span></div>' +
-      '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入你的钱包地址 0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查看</button></form>' +
-      '<button type="button" class="nm-skip" id="nm-myw">👛 直接查我当前连接的钱包</button><div id="nm-myr"></div></section>' +
-      '<section class="card"><div class="card-head"><h2>💰 价格（每年，DAI）</h2><span class="muted">按名字长度定价</span></div>' +
-      '<p class="nm-pt">英文</p><div class="nm-price"><div><b>3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>5 位及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
-      '<p class="nm-pt">中文</p><div class="nm-price nm-p2"><div><b>2 个字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>3 个字及以上</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
-      '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
-      '<ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div>' +
         '<div class="seg" id="nm-side"><button type="button" data-side="buy" class="on">我要买域名</button><button type="button" data-side="sell" id="nm-sellgo">我要卖域名</button><button type="button" data-side="want">📢 求购意向</button></div>' +
         '<div id="nm-mk"></div><div id="nm-sp" hidden></div><div id="nm-wp" hidden></div></section>' +
+      '<section class="card" id="nm-mycard"><div class="card-head"><h2>📒 我的域名</h2><span class="muted">买到了在这里看</span></div>' +
+      '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入你的钱包地址 0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查看</button></form>' +
+      '<button type="button" class="nm-skip" id="nm-myw">👛 直接查我当前连接的钱包</button><div id="nm-myr"></div></section>' +
+      '<section class="card nm-pcard"><div class="card-head"><h2>💰 价格 <small class="muted">每年</small></h2><span class="muted">按名字长度定价</span></div>' +
+      '<div class="nm-price nm-pc"><div><b>英文 3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>英文 4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>英文 5 位+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div><div><b>中文 2 字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>中文 3 字+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
+      '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
+      '<details class="nm-pdet"><summary>注册规则</summary><ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></details></section>' +
       '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🔍 查询：地址 ⇄ 域名</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="输入 0x 地址 或 域名（如 xxx.ailgns）" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
     document.getElementById("nm-t").value = TLD;
