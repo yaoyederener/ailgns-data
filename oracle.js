@@ -160,7 +160,7 @@
     return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US") + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
       (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" : "") +
       (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="例如 827.354（3 位小数）" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔮 提交预测</button></div>' +
-        '<p class="muted">还能预测 ' + rest + " 次；一次可以填多个价格，用空格或逗号隔开。只需要钱包签名，不扣钱、不花 Gas。</p>" :
+        '<p class="muted">还能预测 ' + rest + " 次；有几次就填几个价格，用空格或逗号隔开。只需要钱包签名，不扣钱、不花 Gas。</p>" :
         '<p class="muted">本轮次数已用完' + (me.bonus ? "" : "；今天在 OTC 成交一笔满 50 DAI，可以再加 1 次") + "。</p>") +
       (me.ps.length ? '<button type="button" class="nm-sw" id="or-poster">📸 生成晒单海报</button>' : "") +
       '<p class="muted or-st" id="or-st"></p><div id="or-img"></div>';
@@ -221,7 +221,9 @@
     if (go) go.onclick = function () {
       var raw = document.getElementById("or-p").value.split(/[\s,，、]+/).filter(function (x) { return x; });
       if (!raw.length || raw.some(function (x) { return !/^\d{1,7}(\.\d{1,3})?$/.test(x); })) return A.errTip("价格格式不对，例如 827.354（最多 3 位小数）", go);
-      raw = raw.map(function (x) { return Number(x).toFixed(3); });
+      raw = raw.map(function (x) { return Number(x).toFixed(3); }).filter(function (x, i, z) { return z.indexOf(x) === i; }); // 重复的价格只算一次
+      var left = data.me ? data.me.n - data.me.used : 0;
+      if (raw.length > left) return A.errTip("你本轮只剩 " + left + " 次预测机会，但填了 " + raw.length + " 个价格。请删掉多的，只留 " + left + " 个再提交（还没扣次数）", go);
       var day = data.round;
       go.disabled = true; st.textContent = "请在钱包里签名（只是签名，不扣钱、不花 Gas）…";
       (eth ? Promise.resolve() : connect()).then(function () {
