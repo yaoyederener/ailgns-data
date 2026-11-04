@@ -126,7 +126,13 @@
     });
     root.querySelectorAll("[data-a]").forEach(function (e) {
       if (KNOWN[e.getAttribute("data-a").toLowerCase()]) return;
-      nameOf(e.getAttribute("data-a")).then(function (n) { if (n) { e.innerHTML = '<b class="sc-nm">' + esc(n) + "</b> <small>" + A.short(e.getAttribute("data-a")) + "</small>"; e.title = e.getAttribute("data-a"); } });
+      // 只显示名字（不再跟一个短地址：那个短地址又会被全站换名字逻辑换成名字，变成重复两次）；完整地址放在鼠标悬停提示里
+      var full = e.getAttribute("data-a");
+      Promise.all([nameOf(full), A.rankReady || null]).then(function (x) {
+        var n = x[0]; if (!n) return;
+        var bg = A.rankBadge && !(e.closest && e.closest("[data-nb]")) ? A.rankBadge(full) : "";
+        e.innerHTML = '<b class="sc-nm">' + bg + esc(n) + "</b>"; e.title = full + (bg ? " · " + A.rankTitle(full) : "");
+      });
     });
   }
   // 分页列表：先显示一页，「加载更多」按官方接口给的下一页参数继续读
