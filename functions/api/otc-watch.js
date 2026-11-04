@@ -11,6 +11,7 @@ import { bjDay } from "../../lib/stats.js";
 import { GP_MAX, SEED } from "../../lib/guide.js";
 import { addVol } from "../../lib/rank.js";
 import { addHonor } from "../../lib/honor.js";
+import { nmTop } from "../../lib/nmtop.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -320,7 +321,7 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
 // 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心
 // tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
-function groupText(fills, tot, { bids, asks }, since, until) {
+function groupText(fills, tot, { bids, asks }, since, until, top) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const n = Math.max(tot.fills || 0, fills.length);
   const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key), ...asks.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
@@ -328,6 +329,13 @@ function groupText(fills, tot, { bids, asks }, since, until) {
   const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "👉 钱包打开：" + (links.length === 1 ? links[0] : SITE), "",
     `✅ 累计成交 ${n.toLocaleString("en-US")} 笔` + (fills.length ? ` · ${until - since > 3600e3 ? hm(since) + "–" + hm(until) : "本小时"}新增 ${fills.length} 笔` : ""),
     "🔐 0 安全漏洞 · 0 出错 · 0 纠纷：合约无管理员、无后门，谁都改不了，链上随时可查"];
+  // 🌐 域名成交汇总：这一段新成交的名字和价格（最多 5 个）+ 史上最高成交
+  const nmf = fills.filter((f) => f.nm);
+  if (nmf.length || top) {
+    out.push("", "🌐 域名市场 · https://ailgns.dev/#/names");
+    if (nmf.length) out.push(`· 新成交 ${nmf.length} 个：` + nmf.slice(-5).reverse().map((f) => `${f.nm} ${Number(f.price).toLocaleString("en-US")} DAI`).join("、") + (nmf.length > 5 ? " 等" : ""));
+    if (top) out.push(`· 💎 史上最高成交：${top.name} ${top.dai.toLocaleString("en-US")} DAI`);
+  }
   const a = asks[0], b = bids[0];
   if (a || b) {
     out.push("", "🔥 现在的好单：");
@@ -402,7 +410,7 @@ export async function onRequestGet(ctx) {
             msgs.push([taker, o.sell
               ? `✅ 买入成功 #${id}\n收到 ${nm}，付出 ${fmt(price)} DAI（另付 3% 手续费 ${fmt(fee)}）` + link
               : `✅ 卖出成功 #${id}\n${nm} 已卖给求购方，收到 ${fmt(price)} DAI` + link]);
-            fills.push({ m, qty: 1, price, k: l.transactionHash + l.logIndex });
+            fills.push({ m, qty: 1, price, k: l.transactionHash + l.logIndex, nm: m.names ? nm : undefined });
           } else {
             const expired = BigInt("0x" + d[0]) === 1n;
             const kind = m.kind || "卡牌", nm = o.sell ? await itemName(m, o.tokenId) : "";
@@ -432,7 +440,7 @@ export async function onRequestGet(ctx) {
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
   const now = Date.now();
   const hr = (await kv.get("otcw:hr", "json")) || { since: Math.floor(now / 3600e3) * 3600e3, fills: [] };
-  for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k });
+  for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k, nm: f.nm });
   const due = Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 过了整点就发上一小时的播报
   // 北京时间夜里 23:00–8:00 不播报（站长要求）：夜里的成交先攒着，早上 8 点那条一起发
   const bjHour = new Date(now + 8 * 3600e3).getUTCHours(), quiet = bjHour >= 23 || bjHour < 8;
@@ -440,7 +448,9 @@ export async function onRequestGet(ctx) {
   const build = async (dry2) => {
     const deals = await topDeals();
     if (!hr.fills.length && !deals.bids.length && !deals.asks.length) return null; // 没成交、也没好单：这一小时不发
-    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, hr.since, until);
+    let top = null;
+    try { top = await nmTop(kv); } catch (e) { top = null; }
+    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, hr.since, until, top);
   };
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};

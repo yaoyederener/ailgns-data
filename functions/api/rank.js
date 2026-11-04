@@ -1,7 +1,7 @@
 // AiLGNS 荣耀榜（OTC 成交大户排行）：和会员卡「OTC 累计成交」同一口径，单笔满 50 DAI 才算
 // GET ?board=total|month [&me=0x…] → { board, ym, end, top: [{ a, vol, n, tier }]（前 50）, me?: { rank, vol, gap, tier, tierGap, nextTier }, hof }
 // GET ?ticker=1 → { badges: { 地址: 总榜名次 }, top3, mtop3, ev, ym, end }  全站徽章 + 顶部播报用
-import { rpc } from "../../lib/oracle.js";
+import { nmTop as nmTopOf } from "../../lib/nmtop.js";
 import { loadTotal, loadMonth, ranked, tierOf, TIERS, ymOf, nextMonthStart, hallOfFame, rankEvents } from "../../lib/honor.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
@@ -21,19 +21,8 @@ export async function onRequestGet(ctx) {
     allT.slice(0, 50).forEach(([a], i) => { badges[a] = i + 1; });
     const [orPool, orLast] = await Promise.all([kv.get("or:pool", "json"), kv.get("or:last", "json")]);
     const or = { pool: (orPool && orPool.pool) || 0, last: orLast ? { day: orLast.day, px: orLast.px, c: orLast.closest && { name: orLast.closest.name, amt: orLast.closest.amt, diff: orLast.closest.diff }, j: orLast.jackpot.winners.map((w) => w.name), each: orLast.jackpot.each, at: orLast.at } : null };
-    // 域名史上最高成交（域名页「成交排行」同一份链上记录快照）
     let nmTop = null;
-    try {
-      for (const [t, O, C] of [["ailgns", "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", "0xbc408e9d7350967e7247c917a086cb4ece0ed988"], ["lgns", "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d", "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3"]]) {
-        const c = await kv.get("nmlogs:" + O + ":def4cdb9", "json");
-        for (const l of (c && c.l) || []) { const p = BigInt("0x" + l[2].slice(66, 130)); if (!nmTop || p > nmTop.p) nmTop = { t, C, tid: l[2].slice(2, 66), p }; }
-      }
-      if (nmTop) {
-        const r = (await rpc("eth_call", [{ to: nmTop.C, data: "0x36bf1f0c" + nmTop.tid }, "latest"])).slice(2), off = parseInt(r.slice(0, 64), 16) * 2, len = parseInt(r.slice(off, off + 64), 16);
-        const label = new TextDecoder().decode(new Uint8Array((r.slice(off + 64, off + 64 + len * 2).match(/../g) || []).map((x) => parseInt(x, 16))));
-        nmTop = { name: label + "." + nmTop.t, dai: Number(nmTop.p / 10n ** 14n) / 1e4 };
-      }
-    } catch (e) { nmTop = null; }
+    try { nmTop = await nmTopOf(kv); } catch (e) { nmTop = null; }
     return json({ badges, top3: allT.slice(0, 3).map(row), mtop3: allM.slice(0, 3).map(row), ev, ym, end, or, nmTop }, true);
   }
 
