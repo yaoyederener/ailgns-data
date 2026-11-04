@@ -316,16 +316,17 @@
       ownedList(a).then(function (all) {
         var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
-        if (!list.length) { o.innerHTML = '<p class="muted">这个地址名下还没有域名。刚注册的等 10 秒再查；挂在 OTC 市场里的名字暂时在市场合约里，不显示在这里。</p>'; return; }
+        if (!list.length) { o.innerHTML = '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><div id="nm-myo"></div>'; myOpen(a, document.getElementById("nm-myo")); return; }
         var g = list.filter(function (x) { return x.no; }).length;
-        o.innerHTML = '<p class="nm-my-sum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
+        o.innerHTML = '<p class="nm-my-sum">钱包里 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "（挂单中的在最下面）</p>" + list.map(function (x) {
           var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
           var href = "#/names/" + encodeURIComponent(x.label + "." + x.t);
           return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
             (x.no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
             '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>" +
             (self ? '<span class="nm-my-btns">' + giveBtn(x.t, x.id, x.label + "." + x.t) + '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button></span>' : "") + "</div>";
-        }).join("");
+        }).join("") + '<div id="nm-myo"></div>';
+        myOpen(a, document.getElementById("nm-myo")); // 挂在市场里的名字在托管合约名下，钱包里查不到：单独列在下面
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
     // 「我要卖」：连钱包 → 列出我名下的域名 → 每个旁边「挂单出售」→ 打开这个名字的页面并直接弹出挂单设置
