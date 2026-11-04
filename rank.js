@@ -48,7 +48,7 @@
         if (or.last.j.length) msgs.unshift("🎯 神预测！" + or.last.j.join("、") + " 猜中开奖价 " + (or.last.px / 1000).toFixed(3) + "，瓜分超级大奖池！");
         else if (or.last.c) msgs.push("🔮 今日预言家 " + or.last.c.name + "：只差 " + (or.last.c.diff / 1000).toFixed(3) + "，拿下 " + or.last.c.amt + " DAI！");
       }
-      msgs.push("🔮 预言家超级大奖池已累积 " + Number(or.pool).toLocaleString("en-US") + " DAI，猜中今晚 AiLGNS 价格就能拿走 →");
+      msgs.push("🔮 预言家超级大奖池已累积 " + Math.floor(Number(or.pool)).toLocaleString("en-US") + " DAI，猜中今晚 AiLGNS 价格就能拿走 →");
     }
     // 💎 域名史上最高成交
     if (d.nmTop && d.nmTop.name) msgs.unshift("💎 域名史上最高成交：" + d.nmTop.name + " 以 " + Number(d.nmTop.dai).toLocaleString("en-US") + " DAI 成交！好名字只有一个，下一个天价名字是谁？→");
