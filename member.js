@@ -1785,7 +1785,7 @@
     var el = document.getElementById("subnav");
     if (!el) return;
     var tab = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "";
-    if (["member", "rank", "wallet", "team", "growth", "tree", "upline"].indexOf(tab) < 0) { el.hidden = true; return; }
+    if (["member", "wallet", "team", "growth", "tree", "upline"].indexOf(tab) < 0) { el.hidden = true; return; }
     var lock = member() ? "" : ' <span class="lock">🔒</span>';
     el.hidden = false;
     var mm = member();
@@ -1799,7 +1799,7 @@
       upline: '<path d="M12 21V8"/><path d="M7 12.5L12 7.5l5 5"/><circle cx="12" cy="4" r="1.6"/>',
       rank: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4"/>'
     };
-    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini ' + (mm.tier === "pro" ? "gold" : "green") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["rank", "🏆 荣耀榜", ""], ["wallet", "钱包快查", ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>']].map(function (t) {
+    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini ' + (mm.tier === "pro" ? "gold" : "green") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["wallet", "钱包快查", ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>']].map(function (t) {
       return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + '><svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[t[0]] + "</svg><span>" + t[1] + t[2] + "</span></a>";
     }).join("");
   }

@@ -1875,3 +1875,11 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 /* 用 LGNS 付款：分 2 笔扣钱的醒目提示（浅琥珀色，不做深色块） */
 .nm-cn.nm-cn-warn { padding: 10px 12px; border-radius: 12px; background: #fff8e8; border: 1px solid #f3cf7a; color: #6b4a00; line-height: 1.75; }
 .nm-sw { margin: 4px 4px 0 0; padding: 5px 12px; font-size: 13px; font-weight: 700; border-radius: 999px; border: 1px solid #c4b2f0; background: #f4f0ff; color: var(--purple-ink); cursor: pointer; }
+
+/* 顶部栏目：🏆 荣耀榜（金色，和借贷、域名同样式） */
+.tabs a.rankt { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 5px; color: #fff; font-weight: 800; background: linear-gradient(120deg, #f5b301, #f08c00 55%, #e8590c); border: 0; box-shadow: 0 4px 14px rgba(240, 140, 0, .3); }
+.tabs a.rankt svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabs a.rankt i { font-style: normal; position: absolute; top: -7px; right: -4px; font-size: 9px; line-height: 1; font-weight: 800; color: #fff; background: linear-gradient(110deg, #7c3aed, #a855f7); padding: 2px 5px; border-radius: 6px 6px 6px 0; }
+.tabs a.rankt:hover { color: #fff; filter: brightness(1.08); }
+.tabs a.rankt.on { color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f5c451, 0 4px 14px rgba(240, 140, 0, .3); }
+@media (max-width: 600px) { .tabs { grid-template-columns: repeat(5, 1fr); gap: 5px; } .tabs a, .tabs a.vipt, .tabs a.lendt, .tabs a.namet, .tabs a.rankt { padding: 8px 1px; font-size: 12.5px; gap: 2px; } .tabs a.rankt svg { width: 13px; height: 13px; } .tabs a.rankt i { right: -2px; } } /* 五个栏目一行放下 */
