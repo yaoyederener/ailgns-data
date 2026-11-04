@@ -1998,12 +1998,21 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .nm-oh { font-size: 15px; margin: 10px 0 6px; color: var(--purple-ink); }
 #nm-minep { margin-top: 10px; }
 
-/* ⚠️ 全站风险提示与免责声明（每个页面内容下方） */
-.risk-note { margin-top: 18px; margin-bottom: 18px; padding: 14px 16px; background: #faf8ff; border: 1px solid #eee6ff; border-radius: 14px; color: #6b6489; font-size: 13px; line-height: 1.75; }
+/* ⚖️ 全站风险提示与免责声明（每个页面内容下方）：浅紫卡片 + 关键词胶囊 */
+.risk-note { margin-top: 20px; margin-bottom: 20px; padding: 18px 20px; background: linear-gradient(180deg, #fbf9ff, #f6f1ff); border: 1px solid #ebe2ff; border-left: 4px solid #a78bfa; border-radius: 16px; color: #625b80; font-size: 13.5px; line-height: 1.8; box-shadow: 0 6px 18px rgba(124, 92, 255, .06); }
 .risk-note b { color: #5b3fc4; }
+.risk-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.risk-ico { width: 36px; height: 36px; flex: none; display: grid; place-items: center; font-size: 18px; background: #fff; border: 1px solid #e9dfff; border-radius: 10px; }
+.risk-head b { display: block; font-size: 15.5px; color: #3f2b96; }
+.risk-head small { display: block; font-size: 12px; color: #9a90bd; }
+.risk-chips { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.risk-chips li { padding: 3px 10px; font-size: 12.5px; color: #5b3fc4; background: #fff; border: 1px solid #e6dbff; border-radius: 999px; }
+.risk-chips li:last-child { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
 .risk-sum { margin: 0; }
-.risk-det { margin-top: 6px; }
+.risk-dev { margin: 8px 0 0; padding: 6px 10px; background: #fff; border: 1px dashed #d9ccff; border-radius: 10px; font-size: 13px; }
+.risk-det { margin-top: 10px; }
 .risk-det summary { cursor: pointer; color: #7c5cff; font-weight: 600; }
-.risk-det ol { margin: 8px 0 0; padding-left: 20px; }
-.risk-det li { margin: 6px 0; }
+.risk-det ol { margin: 10px 0 0; padding-left: 22px; }
+.risk-det li { margin: 7px 0; }
+@media (max-width: 600px) { .risk-note { padding: 14px; font-size: 13px; } .risk-chips li { font-size: 12px; } }
 .or-seed { display: block; margin-top: 4px; color: #b7791f; font-size: 12.5px; }
