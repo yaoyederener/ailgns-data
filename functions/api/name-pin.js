@@ -35,7 +35,7 @@ export async function onRequestPost(ctx) {
   try {
     rc = await rpc("eth_getTransactionReceipt", [tx]);
     ord = (await rpc("eth_call", [{ to: O[t], data: "0x8f72fc77" + u256(id) + u256(1) }, "latest"])).slice(2).match(/.{64}/g) || [];
-  } catch (e) { return json({ error: "读链失败，请稍后再试（钱已付的不会丢，刷新后点「补登记」）" }, 502); }
+  } catch (e) { return json({ error: "读链失败，请稍后再试（钱已付的不会丢，刷新后重新打开「我的挂单」会自动补登记）" }, 400); }
   if (!rc || rc.status !== "0x1") return json({ error: "这笔交易没有成功" }, 400);
   if (Number(BigInt("0x" + (ord[1] || "0"))) !== 1) return json({ error: "找不到这张挂单" }, 400);
   const o = ord.slice(2, 8), maker = "0x" + o[0].slice(24);
