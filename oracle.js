@@ -37,7 +37,20 @@
   // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
   var SYNC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
   function pxData(d) { var w = d.slice(2); return Number(BigInt("0x" + w.slice(64, 128)) * 1000000n / BigInt("0x" + w.slice(0, 64))) / 1e6; }
+  // K 线：先画本地缓存（秒开），再读 /api/kline（服务器缓存，只补新区块）；接口失败再直接读链
   function chart(rid) {
+    var toC = function (a) { return a.map(function (x) { return { t: x[0], o: x[1], h: x[2], l: x[3], c: x[4] }; }); };
+    var el0 = document.getElementById("or-chart"), cached = null;
+    try { cached = JSON.parse(localStorage.getItem("or:k") || "null"); } catch (e) {}
+    if (el0 && cached && cached.c) drawK(el0, toC(cached.c));
+    fetch("/api/kline").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
+      var el = document.getElementById("or-chart"); if (!el || !A.isCurrent(rid)) return;
+      if (!d.c) throw 0;
+      try { localStorage.setItem("or:k", JSON.stringify(d)); } catch (e) {}
+      drawK(el, toC(d.c));
+    }).catch(function () { chartChain(rid); });
+  }
+  function chartChain(rid) {
     var N = 24, latest, tsL, h0, b0;
     A.rpc("eth_getBlockByNumber", ["latest", false]).then(function (b) {
       latest = parseInt(b.number, 16); tsL = parseInt(b.timestamp, 16);
