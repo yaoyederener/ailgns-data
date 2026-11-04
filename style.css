@@ -1894,3 +1894,11 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 /* 查询域名：「查我的钱包」放到标题右边，小按钮，不挡结果 */
 .nm-myw { flex: none; padding: 5px 12px; font-size: 13px; font-weight: 600; border-radius: 999px; border: 1px solid #d9ccf5; background: #f7f3ff; color: var(--purple-ink); cursor: pointer; }
 .nm-myw:hover { background: #efe7ff; }
+
+/* 续费框：挪到名字信息下面，选年数，最长永久 */
+.nm-renewbox { margin: 10px 0; padding: 12px 14px; border-radius: 14px; background: #faf7ff; border: 1px solid #e3d8fb; }
+.nm-rb-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.nm-rb-h b { font-size: 16px; color: var(--purple-ink); }
+.nm-renewbox .nm-yrs { display: flex; flex-wrap: wrap; gap: 6px; }
+.nm-rb-f { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nm-rb-f .nm-go { flex: 1; min-width: 200px; margin-top: 0; }

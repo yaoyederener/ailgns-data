@@ -423,6 +423,15 @@
       }).catch(function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
 
+    // 续费框：选年数（最长「永久」= 合约允许的最多年数：到期时间最多到现在 + 101 年）
+    function renewBox(v, exp) {
+      var Y = 365 * 86400, now = Date.now() / 1000, max = Math.min(100, Math.floor((now + 101 * Y - exp - 86400) / Y));
+      if (max < 1) return '<div class="nm-renewbox"><b>🔄 续费</b><p class="muted">已经续满（永久），不用再续</p></div>';
+      var opts = [1, 2, 3, 5, 10].filter(function (y) { return y < max; }).concat([max]);
+      return '<div class="nm-renewbox"><div class="nm-rb-h"><b>🔄 续费</b><small class="muted">谁都能帮续 · 名字还是原主人的</small></div>' +
+        '<div class="nm-pay nm-yrs" id="nm-ry" data-max="' + max + '">' + opts.map(function (y, i) { return '<button type="button" data-y="' + y + '"' + (i ? "" : ' class="on"') + ">" + (y === max && y > 10 ? "♾️ 永久（" + y + " 年）" : y + " 年") + "</button>"; }).join("") + "</div>" +
+        '<p class="nm-total" id="nm-rtot"></p><div class="nm-rb-f"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" class="nm-go" id="nm-renew">续费</button></div></div>';
+    }
     var showSeq = 0;
     function show(v) {
       var my = ++showSeq;
@@ -448,15 +457,30 @@
         var onSale = r.owner && r.owner === OTC[TLD];
         out.innerHTML = (onSale ? '<div class="nm-sale" id="nm-sale"><p class="muted">🛒 这个名字正在市场出售，读取价格中…</p></div>' : "") + '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (anon ? "🔒 匿名" : onSale ? "🛒 域名市场托管中（挂单出售）" : r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (anon ? "🔒 匿名持有人" : onSale ? "🛒 域名市场托管中，卖出后直接过户给买家" : r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<p class="nm-gen" id="nm-gen"></p>' + (mine ? '<div id="nm-next"></div>' : anon ? "" : '<a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') + '<div class="nm-act"><label class="nm-rk">用 ' + tokSel("nm-rk") + ' 付</label><button type="button" id="nm-renew">续费 1 年（' + yearPrice(v) + " DAI，谁都能帮续）</button>" + (mine ? '<button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") : "") + '</div><p class="muted nm-st" id="nm-st"></p>';
+          '<p class="nm-gen" id="nm-gen"></p>' + (onSale ? "" : renewBox(v, r.exp)) + '<p class="muted nm-st" id="nm-st"></p>' +
+          (mine ? '<div id="nm-next"></div>' : anon ? "" : '<a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') +
+          (mine ? '<div class="nm-act"><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") + "</div>" : "");
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
         if (!anon) genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {});
-        document.getElementById("nm-renew").onclick = function () {
-          var k = document.getElementById("nm-rk").value;
-          connect().then(function () { return prepay(yearPrice(v), k, say); })
-            .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(1) + p + str(v), say, "💰 付续费：续费 1 年。请在钱包确认"); })
-            .then(function () { say("✅ 续费成功"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
-        };
+        var rn = document.getElementById("nm-renew");
+        if (rn) {
+          var ry = document.getElementById("nm-ry"), rt = document.getElementById("nm-rtot");
+          var yrs = function () { var b = ry.querySelector(".on"); return b ? Number(b.getAttribute("data-y")) : 1; };
+          var paint = function () {
+            var y = yrs(), ex = new Date((r.exp + y * 365 * 86400) * 1000);
+            rt.innerHTML = "续费 <b>" + y + " 年</b>：" + yearPrice(v) + " DAI × " + y + " = <b>" + yearPrice(v) * y + " DAI</b> · 新到期 <b>" + date(ex / 1000) + "</b>";
+            rn.textContent = "🔄 续费 " + (b100(y) ? "到永久（" + y + " 年）" : y + " 年") + " · " + yearPrice(v) * y + " DAI";
+          };
+          var b100 = function (y) { return y === Number(ry.getAttribute("data-max")) && y > 10; };
+          ry.onclick = function (e) { var b = e.target.closest("button[data-y]"); if (!b) return; ry.querySelectorAll("button").forEach(function (x) { x.className = x === b ? "on" : ""; }); paint(); };
+          paint();
+          rn.onclick = function () {
+            var k = document.getElementById("nm-rk").value, y = yrs();
+            connect().then(function () { return prepay(yearPrice(v) * y, k, say); })
+              .then(function (p) { return tx(NAMES, SEL.renew + u256(0x80) + u256(y) + p + str(v), say, "💰 付续费：续费 " + y + " 年（" + yearPrice(v) * y + " DAI）。请在钱包确认"); })
+              .then(function () { say("✅ 续费成功"); delete infoCache[TLD + ":" + v]; show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
+          };
+        }
         if (onSale) listings().then(function (ls) {
           var it = ls.filter(function (x) { return x.t === TLD && x.tid === r.id; })[0], sb = document.getElementById("nm-sale");
           if (!sb) return;
