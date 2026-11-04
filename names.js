@@ -737,14 +737,6 @@
   }
   // 创世编号：按链上顺序，每个名字第一次付费注册排一个号（官方保留名不算），前 1 万个
   var genCache = {};
-  // 每个名字注册时付了多少 DAI（NameRegistered 的 cost；官方保留名是 0）：挂单排名第 ② 条用
-  var costCache = {};
-  function regCost(t) {
-    if (!costCache[t]) costCache[t] = logs(CONTRACTS[t], T_REG, START[t]).then(function (l) {
-      var c = {}; l.forEach(function (x) { c[x[1][1].slice(2)] = Number(BigInt("0x" + x[2].slice(66, 130)) / 10n ** 14n) / 1e4; }); return c;
-    }, function (e) { delete costCache[t]; throw e; });
-    return costCache[t];
-  }
   function genesis(t) {
     var TLD = t || window.__nmTLD || "ailgns"; // 默认当前页面的后缀
     if (!genCache[TLD]) genCache[TLD] = logs(CONTRACTS[TLD], T_REG, START[TLD]).then(function (l) {
@@ -1118,21 +1110,21 @@
     var box = document.getElementById("nm-mk");
     if (!box) return;
     box.innerHTML = '<p class="muted">读取中…</p>';
-    var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; }), costs = [];
+    var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
     listings(true).then(function (list) {
       list = list.filter(function (x) { return x.t !== "lgns" || (account && x.maker === account); }); // .lgns 暂停：市场只显示 .ailgns；自己挂的老 .lgns 单照样显示（能看到、能撤）
       if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>' + rankRules(); rankLookup(); return; }
       var makers = list.map(function (x) { return x.maker; }).filter(function (a, i, z) { return z.indexOf(a) === i; });
-      return Promise.all([otcVols(makers)].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }), tlds.map(function (t) { return regCost(t).catch(function () { return {}; }); }))).then(function (r) { costs = r.slice(1 + tlds.length); draw(list, r[0], r.slice(1, 1 + tlds.length)); });
+      return Promise.all([otcVols(makers)].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) { draw(list, r[0], r.slice(1)); });
     }).catch(function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
     function draw(list, vols, gens) {
-      list.forEach(function (it) { var ti = tlds.indexOf(it.t); it.vol = vols[it.maker] || 0; it.gno = gens[ti][it.tid] || 0; it.cost = (costs[ti] || {})[it.tid] || 0; });
-      // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 名字注册时付费多的在前（3 位 640、4 位 160、中文 2 字 50…）③ 创世编号小的在前 ④ 新挂的在前
+      list.forEach(function (it) { var ti = tlds.indexOf(it.t); it.vol = vols[it.maker] || 0; it.gno = gens[ti][it.tid] || 0; it.cost = yearPrice(it.label); /* 名字一年的注册价，不看买了几年 */ });
+      // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 名字一年注册价高的在前（3 位 640、4 位 160、中文 2 字 50…）③ 创世编号小的在前 ④ 新挂的在前
       list.sort(mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册付费越多</b>，越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
+      box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
         '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
@@ -1170,7 +1162,7 @@
   function rankRules() {
     return '<details class="nm-rules"><summary>📋 规则详细说明 · 查我的 OTC 成交额</summary><ol>' +
       "<li><b>卖家 OTC 累计成交越多，排越前。</b>就是会员卡上的「OTC 累计成交」：在本站 OTC（AiLGNS / LGNS / gLGNS / NFT 卡牌 / 域名）单笔成交满 50 DAI 的金额累计。成交多说明信誉好，买家更放心。</li>" +
-      "<li><b>成交一样的，按名字注册时付的费用排</b>：英文 3 位（640 DAI）＞ 4 位（160 DAI）＞ 中文 2 字（50 DAI）＞ 普通名字（5 DAI），付费越多的稀缺名字越靠前。按链上注册记录算，谁都改不了。</li>" +
+      "<li><b>成交一样的，按名字一年的注册价排</b>：英文 3 位（640 DAI）＞ 4 位（160 DAI）＞ 中文 2 字（50 DAI）＞ 普通名字（5 DAI），越稀缺越靠前；只看名字本身，和买了几年无关。</li>" +
       "<li><b>再一样的，按创世编号排</b>：创世 #1 最前，编号越小越靠前。</li>" +
       "<li><b>都一样的，按挂单时间排</b>，新挂的在前。</li></ol>" +
       '<p class="muted">想排前面？多在 <a href="#/otc">OTC 交易</a> 成交就行。也可以点上面「价格低→高」「最新挂单」换排序。刷单每笔要付 3% 手续费，刷不划算。</p>' +
