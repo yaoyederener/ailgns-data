@@ -1981,3 +1981,5 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .nm-otbl th { color: var(--muted); font-weight: 500; background: #faf8ff; }
 .nm-ob-b { color: #1f9d6b; font-weight: 600; }
 .nm-ob-s { color: #e0565b; font-weight: 600; }
+
+.nm-tld { display: flex; align-items: center; padding: 0 10px; color: var(--purple-ink); font-weight: 600; }
