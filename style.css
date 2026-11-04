@@ -1984,3 +1984,6 @@ tr[hidden], .cards [hidden] { display: none !important; }
 
 .nm-tld { display: flex; align-items: center; padding: 0 10px; color: var(--purple-ink); font-weight: 600; }
 #nm-f .nm-tld { display: none; }
+
+.nm-oh { font-size: 15px; margin: 10px 0 6px; color: var(--purple-ink); }
+#nm-minep { margin-top: 10px; }
