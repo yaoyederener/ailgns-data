@@ -121,7 +121,7 @@
       '<div class="or-prz">' +
         '<div class="or-pz p1"><small>🥇 最接近</small><b>' + n0(potV * 0.1) + '</b><span>DAI · 奖池 10%</span></div>' +
         '<div class="or-pz p2"><small>🥈 第二名</small><b>' + n0(potV * 0.05) + '</b><span>DAI · 奖池 5%</span></div>' +
-        '<div class="or-pz p3"><small>🎯 猜中 3 位小数</small><b>' + n0(potV * 0.85) + '</b><span>DAI · 平分剩下的</span></div>' +
+        '<div class="or-pz p3"><small>🎯 超级大奖</small><b>' + n0(potV * 0.85) + '</b><span>DAI · 猜中 3 位小数平分</span></div>' +
       "</div>" +
       '<p class="or-pnote">本轮新增 <b>' + dai(d.allot) + "</b> = " + rd + " 域名收入 " + dai(d.rev) + " × 20%，全部进奖池（实时累加）</p></div></section>";
     // 正在开奖 / 刚开完
