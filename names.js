@@ -1056,13 +1056,15 @@
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
           : '<button type="button" class="act-btn btn-buy" data-i="' + i + '" data-m="0">买入</button>';
-        return '<tr' + (i >= MK_FOLD && !mkAll ? " hidden" : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
+        return '<tr' + (i >= mkShow() ? " hidden" : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l"><b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
           '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) +
           '<br><small class="nm-vol">' + (it.vol ? "OTC 累计成交 " + A.fmt(it.vol, 2) + " DAI" : "暂无 OTC 成交") + "</small></td></tr>";
-      }).join("") + '</tbody></table></div>' + (list.length > MK_FOLD ? '<button type="button" class="nm-more" id="nm-mkmore">' + (mkAll ? "收起 ▲" : "展开全部 " + list.length + " 个挂单 ▼") + "</button>" : "") + '<p class="muted nm-st" id="nm-mst"></p>' + rankRules();
+      }).join("") + '</tbody></table></div>' + (list.length > mkStep() ? '<div class="nm-morebar">' + (list.length > mkShow() ? '<button type="button" class="nm-more" id="nm-mkmore">再看 ' + Math.min(mkStep(), list.length - mkShow()) + " 个 ▼ <small>（已显示 " + mkShow() + " / " + list.length + "）</small></button>" : "") + (mkShow() > mkStep() ? '<button type="button" class="nm-more nm-less" id="nm-mkless">收起 ▲</button>' : "") + "</div>" : "") + '<p class="muted nm-st" id="nm-mst"></p>' + rankRules();
       var more = document.getElementById("nm-mkmore");
-      if (more) more.onclick = function () { mkAll = !mkAll; draw(list, vols, gens); if (!mkAll) box.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      if (more) more.onclick = function () { mkN = mkShow() + mkStep(); draw(list, vols, gens); };
+      var less = document.getElementById("nm-mkless");
+      if (less) less.onclick = function () { mkN = 0; draw(list, vols, gens); box.scrollIntoView({ behavior: "smooth", block: "start" }); };
       box.querySelectorAll("[data-g]").forEach(function (e) { var k = e.getAttribute("data-g").split(":"), n = gens[tlds.indexOf(k[0])][k[1]]; if (n) e.textContent = "🌟 创世 #" + n; });
       document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(list, vols, gens); };
       rankLookup();
@@ -1074,7 +1076,10 @@
       });
     }
   }
-  var mkSort = "rec", mkAll = false, MK_FOLD = 10; // 挂单多：先显示前 10 个，点「展开全部」再看其余
+  // 挂单多：手机先显示 5 个、电脑 10 个，点「再看」每次多显示同样多个，不一下子全铺开
+  var mkSort = "rec", mkN = 0;
+  function mkStep() { return innerWidth < 640 ? 5 : 10; }
+  function mkShow() { return mkN || mkStep(); }
   // 卖家的「OTC 累计成交」：和会员卡上同一个数（本站 OTC 单笔满 50 DAI 的成交累计）
   function otcVols(as) {
     if (!as.length) return Promise.resolve({});

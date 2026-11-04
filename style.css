@@ -1902,3 +1902,8 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-renewbox .nm-yrs { display: flex; flex-wrap: wrap; gap: 6px; }
 .nm-rb-f { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .nm-rb-f .nm-go { flex: 1; min-width: 200px; margin-top: 0; }
+
+.nm-morebar { display: flex; gap: 8px; margin-top: 10px; }
+.nm-morebar .nm-more { margin: 0; flex: 1; }
+.nm-morebar .nm-less { flex: 0 0 auto; padding: 11px 16px; }
+.nm-more small { font-weight: 400; color: var(--muted); }
