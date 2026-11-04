@@ -271,18 +271,17 @@
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t"><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><button type="submit">搜索</button></form>' +
       '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
+      '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><span class="muted">填地址看他有哪些域名，填域名看是谁的</span></div>' +
+      '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入 0x 钱包地址，或者域名（如 发财.ailgns）" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查询</button></form>' +
+      '<button type="button" class="nm-skip" id="nm-myw">👛 直接查我当前连接的钱包</button><div id="nm-myr"></div></section>' +
       '<section class="card"><div class="card-head"><h2>🛒 域名市场</h2><span class="muted">一手交钱一手交名字 · 手续费 3% 买家付</span></div>' +
         '<div class="seg" id="nm-side"><button type="button" data-side="buy" class="on">我要买域名</button><button type="button" data-side="sell" id="nm-sellgo">我要卖域名</button><button type="button" data-side="want">📢 求购意向</button></div>' +
         '<div id="nm-mk"></div><div id="nm-sp" hidden></div><div id="nm-wp" hidden></div></section>' +
-      '<section class="card" id="nm-mycard"><div class="card-head"><h2>📒 我的域名</h2><span class="muted">买到了在这里看</span></div>' +
-      '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入你的钱包地址 0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查看</button></form>' +
-      '<button type="button" class="nm-skip" id="nm-myw">👛 直接查我当前连接的钱包</button><div id="nm-myr"></div></section>' +
       '<section class="card nm-pcard"><div class="card-head"><h2>💰 价格 <small class="muted">每年</small></h2><span class="muted">按名字长度定价</span></div>' +
       '<div class="nm-price nm-pc"><div><b>英文 3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>英文 4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>英文 5 位+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div><div><b>中文 2 字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>中文 3 字+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
       '<p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p>' +
       '<details class="nm-pdet"><summary>注册规则</summary><ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></details></section>' +
-      '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>' +
-      '<section class="card"><div class="card-head"><h2>🔍 查询：地址 ⇄ 域名</h2></div><form class="nm-search" id="nm-rf"><input id="nm-ra" placeholder="输入 0x 地址 或 域名（如 xxx.ailgns）" autocomplete="off" spellcheck="false"><button type="submit">查询</button></form><div id="nm-rr"></div></section>';
+      '<section class="card"><div class="card-head"><h2>🏆 成交排行</h2><span class="muted">链上真实成交</span></div><div id="nm-rank"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
@@ -342,38 +341,41 @@
       try { sessionStorage.setItem("nm:sellpick", b.getAttribute("data-full")); } catch (x) { /* 忽略 */ }
       var sg = document.getElementById("nm-sellgo"); sg.click(); sg.scrollIntoView({ behavior: "smooth", block: "start" });
     };
-    document.getElementById("nm-myf").onsubmit = function (e) { e.preventDefault(); myNames(document.getElementById("nm-mya").value.trim().toLowerCase()); };
+    document.getElementById("nm-myf").onsubmit = function (e) {
+      e.preventDefault();
+      var a = document.getElementById("nm-mya").value.trim().toLowerCase();
+      if (/^0x[0-9a-f]{40}$/.test(a)) { myNames(a); return; }
+      if (/^0x[0-9a-f]*$/.test(a)) { A.errTip("地址不完整：0x 开头，一共 42 位", e.target); return; }
+      lookName(a);
+    };
     document.getElementById("nm-myw").onclick = function () {
       connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
     };
     if (/^#\/names\/mine/.test(location.hash)) setTimeout(function () { document.getElementById("nm-mycard").scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
-    // 反查：填 0x 地址 → 查它在 .ailgns / .lgns 的主名字；填域名 → 查它指向哪个地址（站长和保护名单显示匿名）
-    document.getElementById("nm-rf").onsubmit = function (e) {
-      e.preventDefault();
-      var a = document.getElementById("nm-ra").value.trim().toLowerCase(), o = document.getElementById("nm-rr");
+    // 查一个域名：是谁的、指向哪里、是不是创世域名（创世的大大地显示创世徽章）；站长和保护名单显示匿名
+    function lookName(a) {
+      var o = document.getElementById("nm-myr"), btn = document.getElementById("nm-myf");
       function on(c, data) { return W.rpcOn("anubis", "eth_call", [{ to: c, data: data }, "latest"]); }
-      var PROT = A.hidden || {}, HN = A.hiddenNames || {}, tlds = Object.keys(CONTRACTS);
-      if (/^0x[0-9a-f]{40}$/.test(a)) {
-        if (PROT[a]) { o.innerHTML = '<p class="muted">🔒 这个地址的持有人选择匿名</p>'; return; }
-        o.innerHTML = '<p class="muted">查询中…</p>';
-        Promise.all(tlds.map(function (t) { return on(CONTRACTS[t], SEL.nameOf + A.pad(a)).then(decStr, function () { return ""; }); })).then(function (ns) {
-          var got = ns.map(function (n, i) { return n && !HN[n + "." + tlds[i]] ? '<b>' + esc(n) + "." + tlds[i] + "</b>" : ""; }).filter(Boolean);
-          o.innerHTML = got.length ? '<p class="nm-ok">这个地址的主名字：' + got.join("、") + "</p>" : '<p class="muted">这个地址还没设主名字</p>';
-        });
-        return;
-      }
-      if (/^0x[0-9a-f]*$/.test(a)) { A.errTip("地址不完整：0x 开头，一共 42 位", e.target); return; }
-      var m = a.replace(/^\s+|\s+$/g, "").match(/^(.+?)(?:\.(ailgns|lgns))?$/), label = m && m[1], t = (m && m[2]) || TLD;
-      if (!label || /\s|\./.test(label)) { A.errTip("请输入 0x 地址，或者域名（比如 xxx.ailgns）", e.target); return; }
-      var full = label + "." + t;
+      var PROT = A.hidden || {}, HN = A.hiddenNames || {};
+      var m = a.match(/^(.+?)(?:\.(ailgns|lgns))?$/), label = m && m[1], t = (m && m[2]) || TLD;
+      if (!label || /\s|\./.test(label)) { A.errTip("请输入 0x 钱包地址，或者域名（比如 发财.ailgns）", btn); return; }
+      var full = label + "." + t, s = "0000000000000000000000000000000000000000000000000000000000000020" + str(label);
       o.innerHTML = '<p class="muted">查询中…</p>';
-      on(CONTRACTS[t], SEL.resolve + "0000000000000000000000000000000000000000000000000000000000000020" + str(label)).then(function (r) {
-        var ad = addrOf(r);
-        if (/^0x0{40}$/.test(ad)) { o.innerHTML = '<p class="muted"><b>' + esc(full) + '</b> 还没被注册，<a href="#/names/' + encodeURIComponent(full) + '">现在去注册 →</a></p>'; return; }
-        if (PROT[ad] || HN[full]) { o.innerHTML = '<p class="muted">🔒 <b>' + esc(full) + "</b> 的持有人选择匿名</p>"; return; }
-        o.innerHTML = '<p class="nm-ok"><b>' + esc(full) + '</b> 指向地址：</p><p class="mono" style="word-break:break-all">' + ad + '</p>';
-      }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
-    };
+      Promise.all([on(CONTRACTS[t], SEL.resolve + s), on(CONTRACTS[t], SEL.idOf + s)]).then(function (r) {
+        var ad = addrOf(r[0]), id = r[1].slice(2);
+        return on(CONTRACTS[t], SEL.ownerOf + id).then(function (ow) { return addrOf(ow); }, function () { return ""; }).then(function (owner) {
+          if (!owner || /^0x0{40}$/.test(owner)) { o.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(full) + '</b> 还没被注册，<a href="#/names/' + encodeURIComponent(full) + '">现在去注册 →</a></p>'; return; }
+          var anon = PROT[ad] || PROT[owner] || HN[full], sale = owner === OTC[t];
+          return genesis(t).catch(function () { return {}; }).then(function (g) {
+            var no = anon ? 0 : g[id], href = "#/names/" + encodeURIComponent(full);
+            o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
+              '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : "") +
+              "<small>" + (anon ? "🔒 持有人选择匿名" : sale ? "🛒 正在域名市场出售，点开可以买" : "主人 " + A.nameTag(owner)) + "</small></span></a></div>" +
+              (anon || sale ? "" : '<p class="muted" style="word-break:break-all">指向地址：<span class="mono">' + ad + "</span></p>");
+          });
+        });
+      }).catch(function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
+    }
 
     var showSeq = 0;
     function show(v) {
