@@ -113,8 +113,8 @@
     var html = "", top = "";
     // 超级大奖池 + 本轮奖金（放在页面最上面）
     top += '<section class="card or-pool"><div class="or-pl"><small>🎯 超级大奖池（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.pool) + "</b>" + (d.last ? "" : '<small class="or-seed">🎁 含开局奖池：11 月 4 日域名收入 × 20% 全部进大奖池（当天实时累加），第一期 11 月 6 日晚开奖</small>') + "</div>" +
-      funds(d.funds) +
-      '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= 昨天域名收入 " + dai(d.rev) + " × 20%：10% 给最接近的人，90% 滚进大奖池</small></div></section>";
+      funds(d.funds, d.pool) +
+      '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= " + dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10)) + " 域名收入 " + dai(d.rev) + " × 20%（那天实时累加）：10% 给最接近的人，90% 滚进大奖池</small></div></section>";
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
@@ -139,13 +139,13 @@
   }
 
   // 奖金池里实际有多少币：DAI、AiLGNS（按现价折算）、LGNS（不留 LGNS：用 LGNS 付的部分按价值记成「待留」，等 DAI / AiLGNS 进来再留）
-  function funds(f) {
+  function funds(f, pool) {
     if (!f) return "";
-    var ailV = f.ail * f.px, tot = f.dai + ailV;
+    var ailV = f.ail * f.px, tot = f.dai + ailV, gap = Math.max(0, pool - tot);
     return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "</b></span>" +
       "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
-      '<span class="or-tot">合计约 <b>' + tot.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " DAI</b></span>" +
-      '<small class="or-fnote">奖金池里实际留着的钱（在收款钱包 0xedb9），<a href="https://github.com/yaoyederener/monita/blob/main/data/oracle_prize.json" target="_blank" rel="noopener">记账公开 ↗</a></small></div>';
+      '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { maximumFractionDigits: 2 }) + " DAI</b></span>" +
+      '<small class="or-fnote">' + (gap >= 1 ? "上面的奖池是应得的总额；其中 " + tot.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " DAI 已经单独留出，另外 " + gap.toLocaleString("en-US", { maximumFractionDigits: 0 }) + " DAI 正从接下来的域名收入里自动陆续留出，中奖了照样足额发。" : "奖池的钱已经全部单独留出，中奖自动发到你的钱包。") + "</small></div>";
   }
   function meBox(d) {
     var me = d.me;
