@@ -125,7 +125,7 @@
     });
   }
   function prepay(dai, k, say) {
-    var t = TOK[k], max;
+    var t = TOK[k], max, lgLeft = null;
     return quote(dai, k).then(function (q) {
       // 先查余额：币不够时钱包的「确定」是灰的点不动，客户不知道为什么，这里先说清楚
       var ks = Object.keys(TOK);
@@ -148,7 +148,8 @@
         var e = z[0], cr = z[1];
         if (cr > 0n) { say("✅ 你之前补过的 " + fmt(cr, 9) + " LGNS 差价还没用上，这次直接抵扣"); e = cr * 100n >= e * 90n ? 0n : e - cr; }
         return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(function (b) {
-          if (BigInt(b) < q * 102n / 100n + e) throw new Error("LGNS 不够：一共要约 " + fmt(q + e, 9) + " LGNS（含 DEX 卖出税补差），你的钱包只有 " + fmt(BigInt(b), 9) + "（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）");
+          lgLeft = BigInt(b) - e; // 补完差价后钱包还剩多少 LGNS：付注册费的上限不能超过它
+          if (BigInt(b) < q + e) throw new Error("LGNS 不够：一共要约 " + fmt(q + e, 9) + " LGNS（含 DEX 卖出税补差），你的钱包只有 " + fmt(BigInt(b), 9) + "（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）");
           if (!e) { if (cr > 0n) { topUpAt = Date.now(); topUpAmt = fmt(cr, 9); } return; }
           return tx(t.a, "0xa9059cbb" + A.pad(PAYEE) + u256(e), say, "💸 第 1 笔：补 DEX 卖出税差价 " + fmt(e, 9) + " LGNS（LGNS 在 DEX 卖出要扣税，这部分补给平台；转进回购分账合约）。请在钱包确认").then(function () {
             topUpAt = Date.now(); topUpAmt = fmt(e, 9);
@@ -157,7 +158,8 @@
         }).then(function () { return q; });
       });
     }).then(function (q) {
-      max = k === "DAI" ? q : q * 102n / 100n; // DAI 价格固定：扣多少授权多少；AiLGNS / LGNS 按 DEX 实时价，留 2% 防价格在确认期间变动（实际只扣当时价格）
+      max = k === "DAI" ? q : q * 102n / 100n;
+      if (k === "LGNS" && lgLeft !== null && max > lgLeft) max = lgLeft; // 余额刚好够（比如要 112.8 有 113）：不再因为 2% 价格余量判成不够 // DAI 价格固定：扣多少授权多少；AiLGNS / LGNS 按 DEX 实时价，留 2% 防价格在确认期间变动（实际只扣当时价格）
       return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
     }).then(function (a) {
       if (BigInt(a) >= max) return; // 额度还够：跳过授权，钱包只弹「注册」一次
