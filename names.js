@@ -1122,14 +1122,19 @@
       var makers = list.map(function (x) { return x.maker; }).filter(function (a, i, z) { return z.indexOf(a) === i; });
       return Promise.all([otcVols(makers)].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) { draw(list, r[0], r.slice(1)); });
     }).catch(function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
-    function draw(list, vols, gens) {
+    function draw(full, vols, gens) {
+      var list = full;
       list.forEach(function (it) { var ti = tlds.indexOf(it.t); it.vol = vols[it.maker] || 0; it.gno = gens[ti][it.tid] || 0; it.cost = yearPrice(it.label); /* 名字一年的注册价，不看买了几年 */ });
+      // 🔍 搜索：按域名或卖家地址 / 名字筛选（挂单多了一页页翻找不到）
+      var q = mkQ.trim().toLowerCase().replace(/\.(ailgns|lgns)$/, "");
+      if (q) list = full.filter(function (it) { return it.label.toLowerCase().indexOf(q) >= 0 || it.maker.indexOf(q) >= 0 || ((A.nameCache || {})[it.maker] || "").toLowerCase().indexOf(q) >= 0; });
       // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 名字一年注册价高的在前（3 位 640、4 位 160、中文 2 字 50…）③ 创世编号小的在前 ④ 新挂的在前
       list.sort(mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
       box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
+        '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + list.length + " 个</span>" : "") + "</div>" +
         '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
@@ -1141,11 +1146,13 @@
           '<br><small class="nm-vol">' + (it.vol ? "OTC 累计成交 " + A.fmt(it.vol, 2) + " DAI" : "暂无 OTC 成交") + "</small></td></tr>";
       }).join("") + '</tbody></table></div>' + (list.length > mkStep() ? '<div class="nm-morebar">' + (list.length > mkShow() ? '<button type="button" class="nm-more" id="nm-mkmore">再看 ' + Math.min(mkStep(), list.length - mkShow()) + " 个 ▼ <small>（已显示 " + mkShow() + " / " + list.length + "）</small></button>" : "") + (mkShow() > mkStep() ? '<button type="button" class="nm-more nm-less" id="nm-mkless">收起 ▲</button>' : "") + "</div>" : "") + '<p class="muted nm-st" id="nm-mst"></p>' + rankRules();
       var more = document.getElementById("nm-mkmore");
-      if (more) more.onclick = function () { mkN = mkShow() + mkStep(); draw(list, vols, gens); };
+      if (more) more.onclick = function () { mkN = mkShow() + mkStep(); draw(full, vols, gens); };
       var less = document.getElementById("nm-mkless");
-      if (less) less.onclick = function () { mkN = 0; draw(list, vols, gens); box.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      if (less) less.onclick = function () { mkN = 0; draw(full, vols, gens); box.scrollIntoView({ behavior: "smooth", block: "start" }); };
       box.querySelectorAll("[data-g]").forEach(function (e) { var k = e.getAttribute("data-g").split(":"), n = gens[tlds.indexOf(k[0])][k[1]]; if (n) e.textContent = "🌟 创世 #" + n; });
-      document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(list, vols, gens); };
+      var qi = document.getElementById("nm-mkq"), qt;
+      if (qi) qi.oninput = function () { clearTimeout(qt); qt = setTimeout(function () { mkQ = qi.value; mkN = 0; draw(full, vols, gens); var n = document.getElementById("nm-mkq"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 300); };
+      document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(full, vols, gens); };
       rankLookup();
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-i]").forEach(function (b) {
@@ -1156,7 +1163,7 @@
     }
   }
   // 挂单多：手机先显示 5 个、电脑 10 个，点「再看」每次多显示同样多个，不一下子全铺开
-  var mkSort = "rec", mkN = 0;
+  var mkSort = "rec", mkN = 0, mkQ = "";
   function mkStep() { return innerWidth < 640 ? 5 : 10; }
   function mkShow() { return mkN || mkStep(); }
   // 卖家的「OTC 累计成交」：和会员卡上同一个数（本站 OTC 单笔满 50 DAI 的成交累计）
