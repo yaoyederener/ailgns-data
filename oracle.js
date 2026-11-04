@@ -109,7 +109,7 @@
 
   function render(rid) {
     var d = data, o = document.getElementById("or-out"); if (!o) return;
-    var dr = d.drawing, res = dr.res, now = Date.now(), inWin = now >= dr.from && now < dr.to + 5 * 60e3 && !res;
+    var dr = d.drawing, res = dr.res, now = Date.now(), inWin = !dr.skip && now >= dr.from && now < dr.to + 5 * 60e3 && !res; // 第一期之前（11 月 5 日）不开奖
     var html = "", top = "";
     // 超级大奖池 + 本轮奖金（放在页面最上面）
     top += '<section class="card or-pool"><div class="or-pl"><small>🎯 超级大奖池（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.pool) + "</b></div>" +
