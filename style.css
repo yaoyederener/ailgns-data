@@ -2055,3 +2055,9 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-lnow b { font-size: 30px; color: #b8860b; font-variant-numeric: tabular-nums; }
 .or-lnow span { color: #8a6d1f; }
 .or-lwin { max-height: none; }
+
+.or-lead { flex: 1 1 260px; min-width: 0; overflow: hidden; height: 34px; margin-left: 8px; }
+.or-lead-in { display: inline-block; max-width: 100%; padding: 6px 14px; border-radius: 999px; background: linear-gradient(90deg,#fff3c4,#f6e3ff); border: 1px solid #f0d78a; color: #6b4e00; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: or-lead-up .45s ease; }
+.or-lead-in b { color: #5a35d6; }
+@keyframes or-lead-up { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (max-width: 640px) { .or-lead { flex-basis: 100%; margin-left: 0; } }

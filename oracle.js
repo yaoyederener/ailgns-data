@@ -20,7 +20,7 @@
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
     A.app.innerHTML =
       '<div id="or-top"></div><section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
-      '<div class="or-px"><small>AiLGNS 现价（链上实时）</small><b id="or-px">读取中…</b><span>DAI</span></div>' +
+      '<div class="or-px"><small>AiLGNS 现价（链上实时）</small><b id="or-px">读取中…</b><span>DAI</span><div class="or-lead" id="or-lead"></div></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -200,6 +200,22 @@
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
   var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;
+  // 现价旁边：按「离当前价最近」轮流显示前 5 名（现在开奖的话谁赢），每 2.5 秒换一个
+  var leadRows = [], leadI = 0, leadT = null;
+  function leadShow() {
+    var el = document.getElementById("or-lead");
+    if (!el || !leadRows.length) return;
+    if (!leadT) leadT = setInterval(function () {
+      var e = document.getElementById("or-lead");
+      if (!e) { clearInterval(leadT); leadT = null; return; }
+      leadI = (leadI + 1) % leadRows.length; leadPaint(e);
+    }, 2500);
+    if (!el.firstChild) leadPaint(el);
+  }
+  function leadPaint(el) {
+    var r = leadRows[leadI % leadRows.length]; if (!r) return;
+    el.innerHTML = '<span class="or-lead-in" key="' + leadI + '">' + ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"][leadI % leadRows.length] + " <b>" + esc(r.name) + "</b> 预测 " + r.p + " · 差 " + r.d + "</span>";
+  }
   function playersCard(d) {
     liveRows = []; liveKey = "";
     (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
@@ -213,6 +229,8 @@
     var m = Math.round(livePxV * 1000);
     var rows = liveRows.slice().sort(function (a, b) { return Math.abs(a.m - m) - Math.abs(b.m - m); });
     var key = m + ":" + rows.map(function (r) { return r.name + r.p; }).join("|");
+    leadRows = rows.slice(0, 5).map(function (r) { return { name: r.name, p: r.p, d: (Math.abs(r.m - m) / 1000).toFixed(3) }; });
+    leadShow();
     if (key === liveKey) return;
     liveKey = key;
     var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp"><small>预测价格</small>' + r.p + '</span><span class="or-lc"><small>差</small>' + (Math.abs(r.m - m) / 1000).toFixed(3) + "</span></li>"; };
