@@ -157,14 +157,12 @@
         }).then(function () { return q; });
       });
     }).then(function (q) {
-      max = q * 102n / 100n;
+      max = k === "DAI" ? q : q * 102n / 100n; // DAI 价格固定：扣多少授权多少；AiLGNS / LGNS 按 DEX 实时价，留 2% 防价格在确认期间变动（实际只扣当时价格）
       return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
     }).then(function (a) {
       if (BigInt(a) >= max) return; // 额度还够：跳过授权，钱包只弹「注册」一次
-      // 一次授权管以后：额度 = 这次 + 再注册 9 个 5 DAI 普通名字（有上限，不是无限授权；只是额度，用多少扣多少）
-      return quote(5, k).then(function (c) { return max + c * 102n / 100n * 9n; }, function () { return max; }).then(function (amt) {
-        return tx(t.a, SEL.approve + A.pad(NAMES) + u256(amt), say, "🔒 授权（不扣钱）。额度 " + fmt(amt, t.d) + " " + k + "，够这次再加 9 个普通名字，以后注册只要点 1 次；用多少扣多少，随时可在钱包撤销。请在钱包确认");
-      });
+      // 只授权这一次要付的金额（客户反馈多授权不放心）：扣多少，授权多少
+      return tx(t.a, SEL.approve + A.pad(NAMES) + u256(max), say, "🔒 授权（不扣钱）：只授权这次要付的 " + fmt(max, t.d) + " " + k + (k === "DAI" ? "" : "（含 2% 价格波动余量，实际按付款时价格扣）") + "。请在钱包确认");
     }).then(function () { return A.pad(t.a) + u256(max); });
   }
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
