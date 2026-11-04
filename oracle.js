@@ -19,7 +19,7 @@
   function page(rid) {
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
     A.app.innerHTML =
-      '<div id="or-top"></div><section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 持有域名就能玩</span></div>' +
+      '<div id="or-top"></div><section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
       '<div class="or-px"><small>AiLGNS 现价（链上实时）</small><b id="or-px">读取中…</b><span>DAI</span></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
@@ -117,7 +117,7 @@
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
-    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上开奖价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>";
+    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上开奖价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + playersCard(d);
     // 最近一次结果（不在上面显示时）
     if (d.last && !(res && res.day === d.last.day && now - res.at < 20 * 3600e3)) html += resultCard(d.last, "📜 上一期结果");
     // 预言家榜
@@ -182,12 +182,27 @@
   }
   function drawCard(d) {
     var dr = d.drawing, res = dr.res;
-    if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 开奖结果");
     var list = dr.list || [];
+    if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 开奖结果") + (list.length ? '<section class="card">' + allGuess(list, res.px) + "</section>" : "");
     return '<section class="card or-draw"><div class="card-head"><h2>🎲 ' + dayCn(dr.day) + ' 正在开奖</h2><span class="muted">晚上 9:00–10:00 随机一刻 · 10:05 前公布</span></div>' +
       "<p>本轮已锁定，共 <b>" + list.length + "</b> 人参与。开奖价 = 9–10 点之间随机一刻的链上价格，由 10 点整那个区块的哈希决定，谁都没法提前知道。</p>" +
-      (list.length ? '<details class="or-all"><summary>看所有人的预测（' + list.reduce(function (s, g) { return s + g.ps.length; }, 0) + " 个）</summary><ul>" +
-        list.map(function (g) { return "<li><b>" + esc(g.name) + "</b>：" + g.ps.join("、") + "</li>"; }).join("") + "</ul></details>" : "") + "</section>";
+      (list.length ? allGuess(list) : "") + "</section>";
+  }
+  // 所有人的预测（完整价格，3 位小数）；开奖后按离开奖价远近排，最接近的在前
+  function allGuess(list, px) {
+    var rows = [];
+    list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: px ? Math.abs(Math.round(Number(p) * 1000) - px) : 0 }); }); });
+    if (px) rows.sort(function (a, b) { return a.d - b.d; });
+    return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离开奖价远近排" : "") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
+      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + "</li>"; }).join("") + "</ol></details>";
+  }
+  // 本轮已参加的人（价格晚上 9 点锁定后才公开）
+  function playersCard(d) {
+    var ps = d.players || [];
+    if (!ps.length) return "";
+    return '<section class="card"><div class="card-head"><h2>👥 ' + dayCn(d.round) + " 已参加 " + ps.length + ' 人</h2><span class="muted">共 ' + d.count.guesses + ' 个预测</span></div>' +
+      '<p class="muted">为了公平，预测的价格要到当晚 9 点锁定后才公开，防止别人跟着抄。</p><p class="or-players">' +
+      ps.map(function (p) { return "<span><b>" + esc(p.name) + "</b> ×" + p.n + "</span>"; }).join("") + "</p></section>";
   }
   function resultCard(r, title) {
     var px = (r.px / 1000).toFixed(3), jw = r.jackpot.winners, c = r.closest;

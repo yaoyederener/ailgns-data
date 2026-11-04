@@ -32,6 +32,7 @@ export async function onRequestGet(ctx) {
     now, round, cutoff: drawStart(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot, rev: al.rev,
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
+    players: g.map((x) => ({ name: x.name, n: x.ps.length })).sort((x, y) => y.n - x.n), // 本轮谁参加了（价格晚上 9 点锁定后才公开，防止跟着抄）
     drawing: { day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),
   };
