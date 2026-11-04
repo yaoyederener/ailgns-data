@@ -1964,11 +1964,12 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .or-fnote { width: 100%; }
 
 /* 预言家 1 小时 K 线（浅色） */
-.or-chart { height: auto !important; aspect-ratio: 360 / 150; max-width: 560px; background: #faf8ff !important; border: 1px solid #eee6ff; }
+.or-chart { height: 220px !important; width: 100%; background: #faf8ff !important; border: 1px solid #eee6ff; }
 .or-grid { stroke: #ece6fb; stroke-width: .6; }
-.or-ct { font-size: 9px; fill: #8a7cc0; }
+.or-ct { font-size: 11px; fill: #8a7cc0; }
 .or-up { stroke: #1f9d6b; fill: #1f9d6b; stroke-width: 1; }
 .or-dn { stroke: #e0565b; fill: #e0565b; stroke-width: 1; }
 .or-lastl { stroke: #7c5cff; stroke-width: .7; stroke-dasharray: 3 2; }
 .or-lastb { fill: #7c5cff; }
-.or-lastt { font-size: 9px; fill: #fff; font-weight: 600; }
+.or-lastt { font-size: 11.5px; fill: #fff; font-weight: 600; }
+@media (max-width: 640px) { .or-chart { height: 170px !important; } }

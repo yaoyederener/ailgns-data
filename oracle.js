@@ -79,8 +79,10 @@
       drawK(el, c);
     }, function () { var el = document.getElementById("or-chart"); if (el) el.innerHTML = '<text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取失败</text>'; });
   }
+  var lastK = null, rzT;
+  window.addEventListener("resize", function () { clearTimeout(rzT); rzT = setTimeout(function () { var el = document.getElementById("or-chart"); if (el && lastK) drawK(el, lastK); }, 150); });
   function drawK(el, c) {
-    var W0 = 360, H0 = 150, L = 6, R = 300, T = 8, B = 124, hi = -Infinity, lo = Infinity;
+    lastK = c; var W0 = Math.max(240, el.clientWidth || 360), H0 = Math.max(120, el.clientHeight || 150), L = 6, R = W0 - 66, T = 10, B = H0 - 24, hi = -Infinity, lo = Infinity;
     c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
     var pad = (hi - lo) * 0.08 || 0.5; hi += pad; lo -= pad;
     var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
@@ -91,11 +93,11 @@
       svg += "<g><title>" + (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + hh + "\n开 " + x.o.toFixed(3) + "　高 " + x.h.toFixed(3) + "\n低 " + x.l.toFixed(3) + "　收 " + x.c.toFixed(3) + "</title>" +
         '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/>' +
         '<rect x="' + (cx - cw * 0.32).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (cw * 0.64).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"/></g>';
-      if (i % 6 === 0) svg += '<text x="' + cx.toFixed(1) + '" y="' + (H0 - 12) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
+      if (i % 6 === 0) svg += '<text x="' + cx.toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
     });
     var lastC = c[c.length - 1];
-    svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 7).toFixed(1) + '" width="58" height="14" rx="3" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(3) + "</text>";
-    el.innerHTML = svg;
+    svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 9).toFixed(1) + '" width="62" height="18" rx="4" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(3) + "</text>";
+    el.setAttribute("viewBox", "0 0 " + W0 + " " + H0); el.innerHTML = svg;
   }
 
   function load(rid) {
