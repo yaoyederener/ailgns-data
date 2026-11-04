@@ -31,6 +31,26 @@
     var rest = d.end - Date.now();
     if (rest > 0 && rest < 3 * 86400e3) msgs.push("⏰ 本月榜一争夺战还剩 " + left(rest) + "，月底定冠军，永久刻进名人堂！");
     if (!msgs.length) return;
+    // 穿插「注册域名」引导：上榜大哥只显示 0x 地址太可惜，亮出名字让全网知道
+    var DOM = ["🌐 上了荣耀榜却只显示一串 0x？注册 .ailgns 域名，让全网知道你是谁 →",
+      "✨ 大哥都有名号！注册 .ailgns 域名，荣耀榜、OTC 挂单、成交记录，全站亮出你的名字 →",
+      "💎 好名字全球只有一个，先注册先得，晚一步就是别人的 →",
+      "🏆 榜上有名，更要有名！5 DAI 起注册 .ailgns，名字永久跟着你 →",
+      "📣 0x 地址没人记得住，xxx.ailgns 一眼就记住：别人转账填名字就行 →"];
+    var list = msgs.map(function (t) { return { t: t, h: "#/rank" }; });
+    var mix = [];
+    list.forEach(function (m, i) { mix.push(m); mix.push({ t: DOM[i % DOM.length], h: "#/names" }); });
+    // 前三名、本月榜一还没域名的：点名邀请
+    var who = [];
+    (d.top3 || []).forEach(function (x, i) { who.push([x.a, MEDAL[i] + " 榜" + "一二三"[i] + "大哥"]); });
+    if (d.mtop3 && d.mtop3[0]) who.push([d.mtop3[0].a, "👑 本月榜一"]);
+    if (A.nameOf) Promise.all(who.map(function (w) { return A.nameOf(w[0]).catch(function () { return null; }); })).then(function (ns) {
+      var seen = {};
+      ns.forEach(function (nm, i) {
+        var a = who[i][0]; if (nm || seen[a]) return; seen[a] = 1;
+        mix.splice(Math.min(mix.length, 1 + i * 2), 0, { t: who[i][1] + " " + A.short(a) + "，您还没有名字！注册一个 .ailgns 域名，让全网记住您的大名 →", h: "#/names" });
+      });
+    });
     var app = A.app, bar = document.getElementById("hn-tick");
     if (!bar) {
       bar = document.createElement("a"); bar.id = "hn-tick"; bar.href = "#/rank"; bar.setAttribute("data-nb", "1");
@@ -39,7 +59,7 @@
       app.parentNode.insertBefore(wrap, app);
     }
     var i = 0, m = document.getElementById("hn-tk-m");
-    var show = function () { m.classList.remove("in"); void m.offsetWidth; m.textContent = msgs[i++ % msgs.length]; m.classList.add("in"); };
+    var show = function () { var x = mix[i++ % mix.length]; m.classList.remove("in"); void m.offsetWidth; m.textContent = x.t; bar.href = x.h; bar.querySelector(".hn-tk-r").textContent = x.h === "#/names" ? "去注册 ›" : "看榜 ›"; m.classList.add("in"); };
     show();
     clearInterval(ticker.t); ticker.t = setInterval(show, 5000);
   }

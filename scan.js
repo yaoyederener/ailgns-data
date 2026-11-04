@@ -301,5 +301,6 @@
   // 给 OTC 等页面用：地址先显示短地址，查到主名字后换成名字
   A.nameTag = function (a) { return '<span data-a="' + a + '">' + A.short(a) + "</span>"; };
   A.fillNames = fillNames;
+  A.nameOf = nameOf; // 荣耀榜播报：没域名的大哥引导去注册
   A.pages.scan = page;
 })();
