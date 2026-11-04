@@ -34,14 +34,16 @@ async function batch(calls) {
 async function build() {
   const ts = Object.keys(M), now = Date.now() / 1000;
   const counts = await batch(ts.map((t) => [M[t].O, SEL.oCount]));
-  const froms = counts.map((c) => { const n = Number(BigInt(c)); return [Math.max(0, n - 200), n]; });
-  const pages = await batch(ts.map((t, i) => [M[t].O, SEL.oGet + u256(froms[i][0]) + u256(froms[i][1] - froms[i][0])]));
+  // 全部挂单都读（以前只读最近 200 张：早挂的单在市场里看不到，客户以为名字丢了）；每 200 张一页，一次批量请求
+  const jobs = [];
+  ts.forEach((t, k) => { const n = Number(BigInt(counts[k])); for (let f = 0; f < n; f += 200) jobs.push([t, f, Math.min(200, n - f)]); });
+  const pages = jobs.length ? await batch(jobs.map((j) => [M[j[0]].O, SEL.oGet + u256(j[1]) + u256(j[2])])) : [];
   const list = [];
-  ts.forEach((t, k) => {
+  jobs.forEach(([t, from], k) => {
     const w = pages[k].slice(2).match(/.{64}/g) || [], cnt = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0;
     for (let i = 0; i < cnt; i++) {
       const o = w.slice(2 + i * 6, 8 + i * 6);
-      const it = { t, O: M[t].O, id: froms[k][0] + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]).toString() };
+      const it = { t, O: M[t].O, id: from + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]).toString() };
       if (it.sell && it.open && it.expiry > now) { delete it.sell; delete it.open; list.push(it); }
     }
   });

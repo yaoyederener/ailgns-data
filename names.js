@@ -1084,7 +1084,7 @@
       var oc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: O, data: data }, "latest"]); };
       var nc = function (data) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: data }, "latest"]); };
       return oc(SEL.oCount).then(function (c) {
-        var n = Number(BigInt(c)), from = Math.max(0, n - 200);
+        var n = Number(BigInt(c)), from = 0; // 全部挂单都读
         return oc(SEL.oGet + u256(from) + u256(n - from)).then(function (res) {
           var w = (res.slice(2).match(/.{64}/g) || []), cnt = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, now = Date.now() / 1000, list = [];
           for (var i = 0; i < cnt; i++) {
