@@ -114,7 +114,7 @@
     var html = "", top = "";
     // 超级大奖池 + 本轮奖金（放在页面最上面）
     top += '<section class="card or-pool"><div class="or-pl"><small>🎯 奖池总额（猜中 3 位小数平分，没人中一直滚）</small><b>' + dai(d.funds ? Math.floor((d.funds.dai + d.funds.ail * d.funds.px) * 100) / 100 : d.pool) + "</b>" + (d.last ? "" : '<small class="or-seed">🎁 第一期 11 月 6 日晚开奖</small>') + "</div>" +
-      '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= " + dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10)) + " 域名收入 " + dai(d.rev) + " × 20%（那天实时累加）：10% 给最接近的人，90% 滚进大奖池</small></div></section>";
+      '<div class="or-pr"><span>本轮新增奖金 <b>' + dai(d.allot) + "</b></span><small>= " + dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10)) + " 域名收入 " + dai(d.rev) + " × 20%（那天实时累加）</small>" + '<small class="or-split">🥇 最接近 <b>' + dai(Math.floor(d.allot * 10) / 100) + '</b> · 🥈 第二名 <b>' + dai(Math.floor(d.allot * 5) / 100) + '</b> · 🎯 大奖池 +<b>' + dai(Math.floor(d.allot * 85) / 100) + "</b></small></div></section>";
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
@@ -245,6 +245,7 @@
       (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
         '<p>🎯 没人猜中 ' + px + "，大奖池滚到 <b>" + dai(r.poolAfter) + "</b>，下一期继续！</p>") +
       (c ? '<p class="or-win">🥇 今日最接近：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : '<p class="muted">这一期没人参加。</p>') +
+      (r.second ? '<p class="or-win">🥈 第二名：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
       '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 本期奖金 " + dai(r.allot) + "（前一天域名收入 " + dai(r.rev) + " × 20%）· 奖金由系统自动发到中奖钱包</p></section>";
   }
   function rules() {
@@ -254,8 +255,8 @@
       "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚开奖，9 点后提交的参加第二天。</li>" +
       "<li><b>怎么开奖</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是开奖价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
-      "<li><b>奖金</b>：每天拿出前一天域名收入的 20%。10% 给当天最接近的人（一样接近先提交的得）；90% 滚进超级大奖池，猜中 3 位小数完全一样的人平分，没人中就一直滚。</li>" +
-      "<li><b>中奖冷却</b>：中奖（最接近或大奖）的名字暂停 7 轮，第 8 轮自动恢复，让新人也有机会。</li>" +
+      "<li><b>奖金</b>：每天拿出前一天域名收入的 20%。10% 给当天最接近的人，5% 给第二接近的人（一样接近先提交的得）；85% 滚进超级大奖池，猜中 3 位小数完全一样的人平分，没人中就一直滚。</li>" +
+      "<li><b>中奖冷却</b>：拿到最接近奖或大奖的名字暂停 7 轮（第二名不冷却），第 8 轮自动恢复，让新人也有机会。</li>" +
       "<li><b>公开透明</b>：开奖区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
   }

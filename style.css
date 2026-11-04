@@ -2093,3 +2093,4 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-ldr em { flex: none; font-style: normal; font-size: 13px; font-weight: 700; color: #b8860b; font-variant-numeric: tabular-nums; }
 .or-ldr.moved { animation: or-flash .8s ease; }
 @media (max-width: 640px) { .or-px2 { grid-template-columns: 1fr; } .or-pxl b { font-size: 38px; } }
+.or-split { display: block; margin-top: 4px; color: #6b4e00; }
