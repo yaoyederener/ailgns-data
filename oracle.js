@@ -215,9 +215,9 @@
     var key = m + ":" + rows.map(function (r) { return r.name + r.p; }).join("|");
     if (key === liveKey) return;
     liveKey = key;
-    var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp">' + r.p + '</span><small>差 ' + (Math.abs(r.m - m) / 1000).toFixed(3) + "</small></li>"; };
+    var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp"><small>预测价格</small>' + r.p + '</span><span class="or-lc"><small>当前价格</small>' + livePxV.toFixed(3) + "</span></li>"; };
     var html = rows.map(li).join(""), roll = rows.length > 8;
-    box.innerHTML = '<p class="or-lnow">当前价 <b>' + livePxV.toFixed(3) + '</b> DAI</p><div class="or-lwin' + (roll ? " roll" : "") + '"><ol style="--n:' + rows.length + '">' + html + (roll ? html : "") + "</ol></div>";
+    box.innerHTML = '<div class="or-lwin' + (roll ? " roll" : "") + '"><ol style="--n:' + rows.length + '">' + html + (roll ? html : "") + "</ol></div>";
   }
   function resultCard(r, title) {
     var px = (r.px / 1000).toFixed(3), jw = r.jackpot.winners, c = r.closest;
