@@ -1814,3 +1814,11 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 #nm-f.nm-search { display: grid; grid-template-columns: 1fr; gap: 8px; }
 #nm-f.nm-search input, #nm-f.nm-search select, #nm-f.nm-search button { width: 100%; grid-column: auto; }
 #nm-f.nm-search select { padding: 11px 12px; text-align: center; }
+
+/* 抢注输入框高亮：紫色粗边 + 柔光，空着时轻轻呼吸提醒 */
+#nm-f.nm-search #nm-q { padding: 14px 16px; font-size: 18px; font-weight: 600; border: 2px solid #8b5cf6; border-radius: 12px; background: #fbf8ff; color: var(--purple-ink); box-shadow: 0 0 0 4px rgba(139, 92, 246, .14); }
+#nm-f.nm-search #nm-q::placeholder { color: #a78bda; font-weight: 500; }
+#nm-f.nm-search #nm-q:focus { outline: none; border-color: #6927db; box-shadow: 0 0 0 5px rgba(105, 39, 219, .2); }
+#nm-f.nm-search #nm-q:placeholder-shown:not(:focus) { animation: nmGlow 1.8s ease-in-out infinite; }
+@keyframes nmGlow { 0%, 100% { box-shadow: 0 0 0 4px rgba(139, 92, 246, .12); } 50% { box-shadow: 0 0 0 8px rgba(139, 92, 246, .26); } }
+@media (prefers-reduced-motion: reduce) { #nm-f.nm-search #nm-q { animation: none !important; } }
