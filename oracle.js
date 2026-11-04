@@ -121,9 +121,9 @@
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></div>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点开奖</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p3"><small>🔮 神算子大奖</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.85) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p1"><small>🥇 最接近奖</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p2"><small>🥈 次接近奖</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p3"><small>🔮 神算子</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.85) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p1"><small>🥇 天眼通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p2"><small>🥈 地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
       "</div>" +
       "</div></section>";
     // 正在开奖 / 刚开完
@@ -274,8 +274,8 @@
       '<p class="or-proof">开奖时刻 ' + hm(r.blockTime * 1000) + ' · <a href="' + SCAN + "block/" + r.block + '" target="_blank" rel="noopener">区块 #' + r.block + " ↗</a>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
       (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
         '<p>🎯 没人猜中 ' + px + "，大奖池滚到 <b>" + dai(r.poolAfter) + "</b>，下一期继续！</p>") +
-      (c ? '<p class="or-win">🥇 今日最接近：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : '<p class="muted">这一期没人参加。</p>') +
-      (r.second ? '<p class="or-win">🥈 第二名：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
+      (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : '<p class="muted">这一期没人参加。</p>') +
+      (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
       '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 本期奖金 " + dai(r.allot) + "（前一天域名收入 " + dai(r.rev) + " × 20%）· 奖金由系统自动发到中奖钱包</p></section>";
   }
   function rules() {
@@ -285,8 +285,8 @@
       "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚开奖，9 点后提交的参加第二天。</li>" +
       "<li><b>怎么开奖</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是开奖价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
-      "<li><b>奖金</b>：每天拿出前一天域名收入的 20%。全部进奖池。每晚开奖：最接近的人拿<b>奖池总额的 10%</b>，第二接近的人拿 <b>5%</b>（一样接近先提交的得）；猜中 3 位小数完全一样的人平分剩下的，没人中就一直滚。</li>" +
-      "<li><b>中奖冷却</b>：拿到最接近奖或大奖的名字暂停 7 轮（第二名不冷却），第 8 轮自动恢复，让新人也有机会。</li>" +
+      "<li><b>奖金</b>：每天拿出前一天域名收入的 20%。全部进奖池。每晚开奖：🥇 <b>天眼通</b>（最接近）拿<b>奖池总额的 10%</b>，🥈 <b>地灵通</b>（次接近）拿 <b>5%</b>（一样接近先提交的得）；🔮 <b>神算子</b>（3 位小数完全猜中）平分剩下的，没人中就一直滚。</li>" +
+      "<li><b>中奖冷却</b>：拿到神算子或天眼通的名字暂停 7 轮（地灵通不冷却），第 8 轮自动恢复，让新人也有机会。</li>" +
       "<li><b>公开透明</b>：开奖区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
   }

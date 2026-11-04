@@ -254,8 +254,8 @@ async function report(kv, day) {
   const tokStr = (x) => Object.entries(x.tok).map(([s, a]) => `${amt(a)} ${s}`).join(" + ");
   const orr = await kv.get("or:res:" + day, "json"), orPay = ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx);
   if (orr) lines.push("", "🔮 每日预言家", `· 参与 ${orr.n} 人、${orr.guesses} 个预测，开奖价 ${(orr.px / 1000).toFixed(3)}，本期奖金 ${money(orr.allot)} DAI`,
-    orr.closest ? `· 最接近：${orr.closest.name}（${orr.closest.a}）${money(orr.closest.amt)} DAI` : "· 最接近：无人参加",
-    orr.jackpot.winners.length ? `· 🎯 大奖：${orr.jackpot.winners.map((w) => w.name).join("、")} 各 ${money(orr.jackpot.each)} DAI` : `· 大奖池滚存：${money(orr.poolAfter)} DAI`);
+    orr.closest ? `· 🥇 天眼通：${orr.closest.name}（${orr.closest.a}）${money(orr.closest.amt)} DAI` : "· 最接近：无人参加",
+    orr.jackpot.winners.length ? `· 🔮 神算子：${orr.jackpot.winners.map((w) => w.name).join("、")} 各 ${money(orr.jackpot.each)} DAI` : `· 大奖池滚存：${money(orr.poolAfter)} DAI`);
   if (orPay.length) lines.push(`· ⚠️ 还没发出的奖金 ${orPay.length} 笔，共 ${money(orPay.reduce((s, x) => s + x.amt, 0))} DAI（检查发奖额度授权）`);
   lines.push("", "🌐 域名收入", `· 今日：${nm.n} 笔，合计 ${money(nm.dai)} DAI` + (nm.n ? `（${tokStr(nm)}）` : ""));
   if (nm.top) lines.push(`· 今日 LGNS 补税差：${amt(nm.top)} LGNS`);
