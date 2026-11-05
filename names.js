@@ -947,6 +947,8 @@
       var bad = 0;
       d.innerHTML = "<b>📜 这个钱包付款注册过 " + L.length + " 个域名</b>" + L.map(function (x) {
         var full = x.label + "." + x.t, here = x.owner === a, pri = x.primary === x.label, st;
+        var onMk = x.owner && x.owner === OTC[x.t];
+        if (onMk) return '<div class="nm-pr"><a href="#/names/' + encodeURIComponent(full) + '">' + esc(full) + "</a> <span>🛒 正在域名市场出售（托管在市场合约）</span></div>";
         if (!x.owner) st = "⚪ 已过期或已释放";
         else if (!here) st = "📦 现在在 <code>" + sh(x.owner) + "</code>" + (x.to !== a ? "（注册时就是给这个地址的）" : "（注册后转走了）");
         else st = "✅ 在这个钱包";
