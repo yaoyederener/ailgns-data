@@ -17,12 +17,13 @@
   function pxOf(r) { var w = r.slice(2), ail = BigInt("0x" + w.slice(0, 64)), d = BigInt("0x" + w.slice(64, 128)); return Number((d * 1000000n) / ail) / 1e6; }
 
   function page(rid) {
-    clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid;
+    clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid; if (orLive) { orLive.stop(); orLive = null; }
     A.app.innerHTML =
       '<div id="or-top"></div>' +
       '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
       '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b></p><p>🎯 整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>💰 <b>OTC 手续费前 3</b> → 贡献王（30%）</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
+      '<div class="or-ktabs"><button type="button" class="on" data-k="live">⚡ 实时 5 秒</button><button type="button" data-k="1h">1 小时</button><small class="muted" id="or-ktip">链上实时价，每 3 秒刷新</small></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -40,8 +41,23 @@
   // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
   var SYNC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
   function pxData(d) { var w = d.slice(2); return Number(BigInt("0x" + w.slice(64, 128)) * 1000000n / BigInt("0x" + w.slice(0, 64))) / 1e6; }
-  // K 线：先画本地缓存（秒开），再读 /api/kline（服务器缓存，只补新区块）；接口失败再直接读链
-  function chart(rid) {
+  var orLive = null, orKMode = "live";
+  function startOrLive() { var el = document.getElementById("or-chart"); if (!el || !A.liveK) return; if (orLive) orLive.stop(); orLive = A.liveK(el, { bucket: 5, span: 600, every: 3000 }); }
+  function bindKTabs(rid) {
+    document.querySelectorAll(".or-ktabs button").forEach(function (b) {
+      b.onclick = function () {
+        orKMode = b.getAttribute("data-k");
+        document.querySelectorAll(".or-ktabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        var tip = document.getElementById("or-ktip");
+        if (orKMode === "live") { tip.textContent = "链上实时价，每 3 秒刷新"; startOrLive(); }
+        else { if (orLive) { orLive.stop(); orLive = null; } tip.textContent = "DEX 1 小时线，最近 24 小时"; chartHourly(rid); }
+      };
+    });
+    if (orKMode === "live") startOrLive(); else chartHourly(rid);
+  }
+  function chart(rid) { bindKTabs(rid); }
+  // 1 小时 K 线：先画本地缓存（秒开），再读 /api/kline（服务器缓存，只补新区块）；接口失败再直接读链
+  function chartHourly(rid) {
     var toC = function (a) { return a.map(function (x) { return { t: x[0], o: x[1], h: x[2], l: x[3], c: x[4] }; }); };
     var el0 = document.getElementById("or-chart"), cached = null;
     try { cached = JSON.parse(localStorage.getItem("or:k") || "null"); } catch (e) {}
