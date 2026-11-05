@@ -39,7 +39,7 @@ export async function onRequestPost(ctx) {
   }
   if (!user || !kv) return new Response("ok");
   // 诊断：记最近一次收到的消息长什么样（不存正文），站长用 ?diag=1 看机器人有没有收到群消息
-  ctx.waitUntil(kv.put("dbx:lasthit", JSON.stringify({ t: Date.now(), chatType, hasGroup: !!u.group_id, keys: Object.keys(u).slice(0, 12), keyOk: keyOk(ctx), hdrs: [...ctx.request.headers.keys()].filter((k) => !/^(cf-|accept|content|host|user-agent|x-forwarded|x-real)/i.test(k)).slice(0, 10), mention: !!(u.mention_users && u.mention_users.length), len: text.length }), { expirationTtl: 86400 }));
+  ctx.waitUntil(kv.put("dbx:lasthit", JSON.stringify({ t: Date.now(), chatType, hasGroup: !!u.group_id, keys: Object.keys(u).slice(0, 12), keyOk: keyOk(ctx), hdrs: [...ctx.request.headers.keys()].filter((k) => !/^(cf-|accept|content|host|user-agent|x-forwarded|x-real)/i.test(k)).slice(0, 10), mention: !!(u.mention_users && u.mention_users.length), gid: String(u.group_id || "").slice(0, 3) + (u.group_id ? "…" : ""), len: text.length }), { expirationTtl: 86400 }));
   // 群里：机器人当客服。只接「像问题」的话（有问号 / 疑问词 / @机器人），每群 15 秒最多答 1 条、每人 10 秒 1 条、每群每天 300 条，避免刷屏
   if (/group/i.test(chatType)) {
     const gid = String(u.group_id || chatId || "");
@@ -58,8 +58,9 @@ export async function onRequestPost(ctx) {
       const msgs = hist.concat([{ role: "user", content: text.replace(/@\S+/g, "").trim() || text }]);
       const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 的 AiLGNS OTC 交流群里回答群友。纯文本、不要 Markdown、不要列表符号，2-4 句说完；只答和本站有关的问题，无关的话题一句话礼貌带过；需要人工就说「可以在网站客服窗口留言或提交工单，站长会处理」。" });
       if (!r || !r.answer) return;
-      const out = (u.name ? "@" + u.name + " " : "") + r.answer;
-      await sendDebox(ctx.env, gid, out, "group").catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
+      const needHuman = r.human || /人工|站长会处理|提交工单/.test(r.answer);
+      const out = (u.name ? "@" + u.name + " " : "") + r.answer + (needHuman && SUPPORT_USER ? "\n\n@站长 这位群友的问题需要人工看一下" : "");
+      await sendDebox(ctx.env, gid, out, "group", needHuman && SUPPORT_USER ? { mention_type: "user", mention_ids: [String(SUPPORT_USER)] } : undefined).catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
       await Promise.all([
         kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),
         kv.put("dbx:gl:" + gid, "1", { expirationTtl: 15 }), kv.put("dbx:ul:" + user, "1", { expirationTtl: 10 }),
@@ -122,6 +123,8 @@ export async function onRequestPost(ctx) {
       const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 私聊里回答一位客户。纯文本、不要 Markdown，3-5 句说完。" });
       const t = r && r.answer ? r.answer + "\n\n（把钱包地址发给我，可以绑定成交/借贷通知）" : HELP;
       await kv.put("dbx:h:" + user, JSON.stringify(msgs.concat([{ role: "assistant", content: r && r.answer || "" }]).slice(-6)), { expirationTtl: 3600 });
+      const log = (await kv.get("dbx:qa", "json")) || []; log.unshift({ t: Date.now(), g: "", u: user, n: u.name || "", q: text.slice(0, 200), a: (r && r.answer || "").slice(0, 400), e: r && r.engine });
+      await kv.put("dbx:qa", JSON.stringify(log.slice(0, 100)));
       await reply(t);
     })());
     return new Response("ok");
