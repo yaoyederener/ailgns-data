@@ -524,12 +524,62 @@
     });
     tip.style.display = "none";
     window.scrollTo(0, 0);
+    guide(tab, parts);
     if (extra[tab]) extra[tab](id, a);
     else if (tab === "wallet") renderWallet(id, a);
     else if (tab === "team") renderTeam(id, a);
     else if (tab === "custom") renderCustom();
     else renderFlows(id);
   }
+
+  // 每个页面最上面一张「这页是干嘛的 + 编号步骤」引导卡：客户一进来就知道点哪里
+  // 步骤目标：标题文字（跳到那一块）、"click:选择器"（替客户点那个按钮）、"#/路由"（跳页面）
+  var GUIDES = {
+    otc: ["💱", "AiLGNS 担保交易", "币先锁进合约、成交才放出，0 滑点，手续费 1%", [["我要买 AiLGNS", "买入 AiLGNS"], ["我要卖 AiLGNS", "卖出 AiLGNS"], ["自己定价挂单", "click:[data-goform=sell]"], ["我的挂单", "click:[data-gomine]"]]],
+    names: ["🌐", ".ailgns 域名", "注册一个属于你的名字，可以设为主号、转赠、挂单卖", [["注册新域名", ".ailgns 域名"], ["查我的域名", "查询域名"], ["买别人的域名", "域名市场"], ["卖我的域名", "click:#nm-sellgo"]]],
+    oracle: ["🔮", "每日预言家", "免费猜今晚揭晓价，猜中平分大奖", [["看奖池", "sel:.or-pool"], ["怎么玩", "sel:.or-how"], ["提交我的预言", "✍️ 预测"], ["开通获奖通知", "揭晓通知"]]],
+    lend: ["🤝", "借贷", "押 AiLGNS 借 DAI，或者出借 DAI 赚利息，合约托管", [["我要借 DAI", "押 AiLGNS 借 DAI"], ["我要出借 DAI", "想借 DAI 的人"], ["正在借的单", "借款中"], ["怎么还款", "还款怎么操作"]]],
+    member: ["👑", "会员", "开通会员享受更多权益，三步完成", [["填开通地址", "第 1 步"], ["选付款方式", "选择付款方式"], ["付款开通", "付款开通"]]],
+    rank: ["🏆", "荣耀榜", "OTC 成交大户排行，名字永久留名", [["看排行", "sel:#app .card"], ["名人堂", "名人堂"], ["段位规则", "段位规则"]]],
+    feedback: ["📮", "问题反馈", "遇到问题提交工单，客服处理后回复你", [["提交问题", "问题反馈"], ["查看处理进度", "我的反馈进度"]]]
+  };
+  function guide(tab, parts) {
+    var box = document.getElementById("guide"); if (!box) return;
+    var g = GUIDES[tab];
+    document.body.classList.toggle("has-guide", !!g && !parts[1]);
+    if (!g || parts[1]) { box.innerHTML = ""; return; }
+    box.innerHTML = '<section class="gd"><div class="gd-h"><span class="gd-i">' + g[0] + '</span><div><b>' + g[1] + "</b><small>" + g[2] + '</small></div></div><div class="gd-s">' +
+      g[3].map(function (st, i) { return '<button type="button" data-gd="' + st[1].replace(/"/g, "&quot;") + '"><i>' + (i + 1) + "</i>" + st[0] + "</button>"; }).join("") + "</div></section>";
+  }
+  function gdFind(t) {
+    if (t.indexOf("sel:") === 0) return document.querySelector(t.slice(4));
+    var hs = document.querySelectorAll("#app h1, #app h2, #app h3");
+    for (var i = 0; i < hs.length; i++) if (hs[i].textContent.indexOf(t) >= 0) return hs[i].closest("section, .card") || hs[i];
+    return null;
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-gd]"); if (!b) return;
+    var t = b.getAttribute("data-gd"), n = 0;
+    if (t.indexOf("click:") === 0) { var c = document.querySelector(t.slice(6)); if (c) c.click(); return; }
+    (function go() {
+      var el = gdFind(t);
+      if (!el) { if (++n < 20) setTimeout(go, 300); return; }
+      var top = el.getBoundingClientRect().top + window.scrollY - 70;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      el.classList.remove("gd-flash"); void el.offsetWidth; el.classList.add("gd-flash");
+    })();
+  });
+  // 手机上往下滑收起顶部导航，往上滑再出来，内容多一块屏幕
+  (function () {
+    var last = 0, top = document.querySelector("header.top");
+    if (!top) return;
+    window.addEventListener("scroll", function () {
+      var y = window.scrollY;
+      if (y > last + 6 && y > 140) top.classList.add("hid");
+      else if (y < last - 6 || y < 60) top.classList.remove("hid");
+      last = y;
+    }, { passive: true });
+  })();
 
   document.addEventListener("submit", function (e) {
     var f = e.target.closest("form.search");
