@@ -128,6 +128,7 @@
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
+      (d.funds ? '<div class="or-pmix"><span>🪙 已持有 <b>' + d.funds.ail.toFixed(4) + '</b> AiLGNS</span><span>💵 <b>' + dai0(d.funds.dai) + '</b> DAI 等待买入 AiLGNS<small>（累计满 100 DAI 自动在 OTC 买入）</small></span></div>' : "") +
       '<small class="or-porc">📡 预言机来自本站 OTC 市场：' + ocNote + '。奖池里的 DAI 会在 OTC 买成 AiLGNS，<b>奖金全部以 AiLGNS 发放</b>。</small>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       '<div class="or-prz">' +
