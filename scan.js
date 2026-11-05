@@ -288,28 +288,34 @@
   function page() {
     var segs = location.hash.split("/").slice(2).map(function (x) { return decodeURIComponent(x || "").trim(); }).filter(Boolean);
     if (segs.length > 1 && /^(tx|address|token)$/.test(segs[0])) segs.shift(); // 兼容 #/scan/tx/哈希、#/scan/address/地址（全站以前指向官方浏览器的链接）
-    var q = segs[0] || "";
+    var q = segs[0] || "", cat = CATS[segs[1]] ? segs[1] : "";
     A.app.innerHTML = '<section class="card"><h2>📒 AiLGNS 账本 <small class="muted">看得懂的链上记录</small></h2>' +
       '<form class="nm-search" id="sc-f"><input id="sc-q" placeholder="输入域名 / 钱包地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">查询</button></form>' +
-      '<p class="muted sc-tip">只显示和本站有关的事：买卖、挂单、注册域名、借贷、转账，每一笔都写成人话。例：发财.ailgns、0x 开头的地址、交易哈希。</p></section><div id="sc-out"></div>';
+      '<p class="muted sc-tip">只显示和本站有关的事：买卖、挂单、注册域名、借贷、转账，每一笔都写成人话。例：发财.ailgns、0x 开头的地址、交易哈希。</p><div id="sc-me"></div></section><div id="sc-out"></div>';
     document.getElementById("sc-f").onsubmit = function (e) {
       e.preventDefault();
       var v = document.getElementById("sc-q").value.trim();
-      if (v) location.hash = "#/scan/" + encodeURIComponent(v);
+      if (v) location.hash = "#/scan/" + encodeURIComponent(v) + (cat ? "/" + cat : "");
     };
     var out = document.getElementById("sc-out");
+    // 自动认出当前钱包：没输东西时直接给「查我的订单」四个按钮，输入框也先填上
+    if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (acc) {
+      var me = document.getElementById("sc-me"), inp = document.getElementById("sc-q"); if (!acc || !me) return;
+      if (inp && !inp.value) inp.value = acc;
+      me.innerHTML = '<div class="sc-mine"><span>👤 我的钱包 <b class="mono">' + A.short(acc) + '</b></span>' + catBtns(acc, q.toLowerCase() === acc ? (cat || "all") : "") + "</div>";
+    }).catch(function () {});
     if (!q) return;
     var low = q.toLowerCase();
     out.innerHTML = '<section class="card"><p class="muted">查询中…</p></section>';
     var job;
     if (/^0x[0-9a-f]{64}$/.test(low)) job = txView(low, out);
-    else if (/^0x[0-9a-f]{40}$/.test(low)) job = addrView(low, out, "");
-    else job = nameView(low, out);
+    else if (/^0x[0-9a-f]{40}$/.test(low)) job = addrView(low, out, "", cat);
+    else job = nameView(low, out, cat);
     job.catch(function (e) { out.innerHTML = '<section class="card"><p class="nm-bad">查询失败：' + esc(e.message || e) + "</p></section>"; });
   }
 
   // 域名：没写后缀就两个后缀都查
-  function nameView(q, out) {
+  function nameView(q, out, cat) {
     var m = q.match(/^(.+)\.(ailgns|lgns)$/), tries = m ? [[m[1], m[2]]] : [[q, "ailgns"], [q, "lgns"]];
     return Promise.all(tries.map(function (t) { return call(NAMES[t[1]], SEL.resolve + str(t[0])).then(function (r) { return { label: t[0], tld: t[1], a: "0x" + r.slice(26) }; }); })).then(function (rs) {
       var hit = rs.filter(function (r) { return r.a !== ZERO; })[0];
@@ -326,7 +332,7 @@
         });
       }
       if ((A.hidden && A.hidden[hit.a.toLowerCase()]) || (A.hiddenNames || {})[hit.label + "." + hit.tld]) { out.innerHTML = '<section class="card"><h2>🌐 ' + esc(hit.label + "." + hit.tld) + '</h2><p class="muted">🔒 这个域名的持有人选择匿名，不公开地址。</p></section>'; return; }
-      return addrView(hit.a, out, hit.label + "." + hit.tld);
+      return addrView(hit.a, out, hit.label + "." + hit.tld, cat);
     });
   }
 
@@ -485,7 +491,35 @@
   setTimeout(msgPill, 4000);
 
   // 地址：我的钱、我的域名、我做过的事
-  function addrView(a, out, via) {
+  // ===== 订单分类：OTC / 借贷 / 域名 / 其他（全站「查订单」都走这里）=====
+  var CATS = { all: "全部", otc: "💱 OTC", loan: "🤝 借贷", names: "🌐 域名", other: "✨ 其他" };
+  function catOf(txt) { return /域名|注册|续费|\.ailgns|\.lgns|主名字|转赠|置顶|名字/.test(txt) ? "names" : /借|还款|出借|抵押|逾期|利息/.test(txt) ? "loan" : /OTC|挂单|吃单|成交|撤单|买入|卖出|盘口|求购|手续费|套利|回购/.test(txt) ? "otc" : "other"; }
+  function catBtns(a, cur) { return '<div class="seg sc-cats">' + Object.keys(CATS).map(function (k) { return '<a href="#/scan/' + a + (k === "all" ? "" : "/" + k) + '"' + (k === cur ? ' class="on"' : "") + ">" + CATS[k] + "</a>"; }).join("") + "</div>"; }
+  function applyCat(root, cat) {
+    root.querySelectorAll(".lg-row").forEach(function (r) {
+      if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", r.closest("#sc-msgs") ? "other" : catOf(r.textContent || ""));
+      r.classList.toggle("sc-hide", !!cat && cat !== "all" && r.getAttribute("data-cat") !== cat);
+    });
+    root.querySelectorAll(".lg-list").forEach(function (l) {
+      var vis = l.querySelectorAll(".lg-row:not(.sc-hide)").length, none = l.querySelector(".sc-none");
+      if (!vis && cat && cat !== "all" && l.querySelector(".lg-row") && !none) { none = document.createElement("p"); none.className = "muted sc-none"; none.textContent = "这一类暂时没有"; l.appendChild(none); }
+      if (none && (vis || !cat || cat === "all")) none.remove();
+    });
+  }
+  // 给其它页面用的「查订单」条：输入框自动填当前钱包，四个分类按钮，一键到账本
+  A.orderQuery = function (host, cat) {
+    host.innerHTML = '<section class="card oq"><form class="oq-f"><span class="oq-l">📋 查我的订单</span><input class="oq-in" placeholder="钱包地址 / 域名（连过钱包会自动填）" autocomplete="off" autocapitalize="none" spellcheck="false">' +
+      '<span class="seg oq-seg">' + ["otc", "loan", "names", "other"].map(function (k) { return '<button type="button" data-c="' + k + '"' + (k === cat ? ' class="on"' : "") + ">" + CATS[k] + "</button>"; }).join("") + '</span><button type="submit" class="oq-go">查询</button></form></section>';
+    var inp = host.querySelector(".oq-in"), seg = host.querySelector(".oq-seg"), c = cat || "otc";
+    seg.onclick = function (e) { var b = e.target.closest("button[data-c]"); if (!b) return; c = b.getAttribute("data-c"); seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (inp.value.trim()) host.querySelector(".oq-f").requestSubmit ? host.querySelector(".oq-f").requestSubmit() : go(); };
+    function go() { var v = inp.value.trim(); if (!v) { inp.focus(); return A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); } location.hash = "#/scan/" + encodeURIComponent(v) + "/" + c; }
+    host.querySelector(".oq-f").onsubmit = function (e) { e.preventDefault(); go(); };
+    var fill = function (acc) { if (acc && !inp.value) inp.value = String(acc).toLowerCase(); };
+    if (A.wallets && A.wallets.silent) A.wallets.silent().then(fill).catch(function () {});
+    if (A.otcKit && A.otcKit.account && A.otcKit.account()) fill(A.otcKit.account());
+    return { set: function (k) { c = k; seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-c") === k); }); }, fill: fill };
+  };
+  function addrView(a, out, via, cat) {
     var wait = '<p class="muted">读取中…</p>';
     out.innerHTML =
       (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
@@ -496,7 +530,7 @@
       '<div class="sc-mrow"><small class="muted"><span id="sc-mn">0</span>/200 · 只有注册了 .ailgns 域名并设为主名字的钱包才能发信</small><button type="button" class="nm-go" id="sc-msend">发送留言</button></div><p class="muted nm-st" id="sc-mst"></p></div>' +
       '<div class="lg-list" id="sc-msgs">' + wait + "</div></section>" +
       '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
-      '<section class="card"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div><div class="lg-list" id="sc-pos">' + wait + "</div></section>" +
+      '<section class="card" id="sc-posc"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div>' + catBtns(a, cat || "all") + '<div class="lg-list" id="sc-pos">' + wait + "</div></section>" +
       '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>" +
       '<section class="card"><div class="card-head"><h2>📜 我做过的事</h2><span class="muted">最新的在上面 · 北京时间</span></div><div class="lg-list" id="sc-lg">' + wait + "</div></section>";
     var el = function (id) { return document.getElementById(id); };
@@ -521,6 +555,10 @@
     });
     messages(a, via);
     positions(a, el("sc-pos"));
+    // 分类筛选：列表是异步填进来的，变一次就重新打标签 + 过滤；带分类进来的直接滚到「正在进行中」
+    if (window.MutationObserver) { var mo = new MutationObserver(function () { applyCat(out, cat); }); mo.observe(out, { childList: true, subtree: true }); }
+    applyCat(out, cat);
+    if (cat) setTimeout(function () { var p = el("sc-posc"); if (p) p.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150);
     ledger(a, el("sc-lg"));
     return Promise.resolve();
   }

@@ -525,6 +525,7 @@
     tip.style.display = "none";
     window.scrollTo(0, 0);
     guide(tab, parts);
+    orderBar(tab);
     if (extra[tab]) extra[tab](id, a);
     else if (tab === "wallet") renderWallet(id, a);
     else if (tab === "team") renderTeam(id, a);
@@ -546,6 +547,16 @@
     inbox: ["🔔", "收件箱", "成交、借贷、工单回复、中奖、留言的通知都在这里，不用加任何社交软件", [["钱包签名登录", "click:#ib-go"], ["开启浏览器通知", "click:#ib-notify"], ["全部已读", "click:#ib-seen"]]],
     scan: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
   };
+  // 全站「查我的订单」条：OTC / 盘口 / 借贷 / 域名 / 会员 / 预言家 / 荣耀榜 页顶部都有，输入框自动填当前钱包
+  var OQ = { otc: "otc", trade: "otc", flows: "otc", lend: "loan", names: "names", member: "other", oracle: "other", rank: "other", wallet: "other", team: "other" }, oqCtl = null;
+  function orderBar(tab) {
+    var host = document.getElementById("oq");
+    if (!host) { host = document.createElement("div"); host.id = "oq"; host.className = "wrap"; var app = document.getElementById("app"); app.parentNode.insertBefore(host, app); }
+    var c = OQ[tab];
+    host.hidden = !c || !window.AIL.orderQuery;
+    if (host.hidden) return;
+    if (!oqCtl) oqCtl = window.AIL.orderQuery(host, c); else oqCtl.set(c);
+  }
   function guide(tab, parts) {
     var box = document.getElementById("guide"); if (!box) return;
     var g = GUIDES[tab];

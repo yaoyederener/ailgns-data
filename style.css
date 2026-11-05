@@ -2483,3 +2483,22 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .kc-cv { display: block; cursor: crosshair; touch-action: pan-y; }
 .kc-foot { margin: 6px 0 0; font-size: 12px; }
 @media (max-width: 640px) { .kc-wrap { height: 250px; } .kc-legend { font-size: 11px; gap: 2px 7px; } }
+
+/* 📋 查我的订单条 + 账本分类 */
+#oq { margin-top: 10px; }
+#oq[hidden] { display: none; }
+.oq { padding: 10px 14px; }
+.oq-f { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.oq-l { font-weight: 800; color: var(--purple-ink); white-space: nowrap; }
+.oq-in { flex: 1 1 220px; min-width: 0; padding: 9px 12px; border: 1px solid #e3d8ff; border-radius: 10px; font-size: 14px; background: #fff; font-family: ui-monospace, Menlo, monospace; }
+.oq-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.oq-seg button { padding: 6px 10px; border-radius: 999px; border: 1px solid #e3d8ff; background: #fff; color: #6b5aa6; font-size: 12.5px; box-shadow: none; }
+.oq-seg button.on { background: #efe7ff; color: #5a35d6; border-color: #c9b8ff; font-weight: 700; }
+.oq-go { padding: 9px 18px; border-radius: 10px; border: 0; background: var(--grad); color: #fff; font-weight: 700; white-space: nowrap; }
+@media (max-width: 600px) { .oq { padding: 10px 12px; } .oq-l { width: 100%; } .oq-in { flex: 1 1 100%; } .oq-go { flex: 1; } }
+.sc-mine { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e9e1ff; }
+.sc-cats { display: inline-flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.sc-cats a { padding: 5px 11px; border-radius: 999px; border: 1px solid #e3d8ff; background: #fff; color: #6b5aa6; font-size: 12.5px; text-decoration: none; }
+.sc-cats a.on { background: #efe7ff; color: #5a35d6; border-color: #c9b8ff; font-weight: 700; }
+.lg-row.sc-hide { display: none; }
+.sc-none { padding: 10px 2px; }
