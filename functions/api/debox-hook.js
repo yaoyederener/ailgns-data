@@ -58,9 +58,9 @@ export async function onRequestPost(ctx) {
       const msgs = hist.concat([{ role: "user", content: text.replace(/@\S+/g, "").trim() || text }]);
       const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 的 AiLGNS OTC 交流群里回答群友。纯文本、不要 Markdown、不要列表符号，2-4 句说完；只答和本站有关的问题，无关的话题一句话礼貌带过；需要人工就说「可以在网站客服窗口留言或提交工单，站长会处理」。" });
       if (!r || !r.answer) return;
-      const needHuman = r.human || /人工|站长会处理|提交工单/.test(r.answer);
-      const out = (u.name ? "@" + u.name + " " : "") + r.answer + (needHuman && SUPPORT_USER ? "\n\n@站长 这位群友的问题需要人工看一下" : "");
-      await sendDebox(ctx.env, gid, out, "group", needHuman && SUPPORT_USER ? { mention_type: "user", mention_ids: [String(SUPPORT_USER)] } : undefined).catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
+      // 回答结尾引导：有问题 @我（站长 2026-11-05 定：客服机器人自己接所有问题，不 @站长）
+      const out = (u.name ? "@" + u.name + " " : "") + r.answer + "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。";
+      await sendDebox(ctx.env, gid, out, "group").catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
       await Promise.all([
         kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),
         kv.put("dbx:gl:" + gid, "1", { expirationTtl: 15 }), kv.put("dbx:ul:" + user, "1", { expirationTtl: 10 }),

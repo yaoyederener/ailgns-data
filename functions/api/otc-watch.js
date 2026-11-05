@@ -506,6 +506,16 @@ export async function onRequestGet(ctx) {
     await backfillVip(m, kv, from - 1, cache).catch(() => {});
     await kv.put(m.kv + "block", String(latest));
   }
+  // 🤖 客服机器人自我介绍：每 8 小时在群里说一句「有问题 @我」，引导群友直接问（站长 2026-11-05 定）
+  let greet = 0;
+  try {
+    const last = Number(await kv.get("dbx:greet")) || 0;
+    if (Date.now() - last > 8 * 3600e3) {
+      await kv.put("dbx:greet", String(Date.now()));
+      const text = "🤖 我是 AiLGNS 客服机器人，7×24 在线。\n\nOTC 买卖、挂单、域名注册、借贷、预言家、会员……任何问题直接 @我 提问，秒回；我答不了的会转给站长。\n\n网站：https://ailgns.dev";
+      for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
+    }
+  } catch (e) {}
   const oracle = await oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 🔮 预言家：开奖结果 + 每天提醒
   const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
   return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
