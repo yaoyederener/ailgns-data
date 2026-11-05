@@ -29,8 +29,9 @@ async function rpc(c, method, params) {
 const amt = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: v < 1 ? 6 : 2 });
 const bjTime = (sec) => new Date(sec * 1000).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 
-// 一天发 3 次汇总（北京时间 0 点、8 点、16 点），每次统计前 8 小时发放的运营费用，并附当天累计
-const SLOT = 8 * 3600; // 8 小时一段；北京时间和 UTC 差 8 小时，正好对齐北京 0/8/16 点
+// 一天发 1 次汇总（站长 2026-11-05 定）：北京时间 0 点过后第一次运行，把前一天全天的运营费用发到运营群
+const SLOT = 86400; // 一天一段，按北京时间 0 点切
+const slotOf = (sec) => Math.floor((sec + 8 * 3600) / 86400) * 86400 - 8 * 3600; // 这一秒所在的北京日 0 点
 const bjDate = (sec) => new Date(sec * 1000).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric" });
 const bjHour = (sec) => new Date(sec * 1000).toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false });
 const dayKey = (sec) => new Date((sec + 8 * 3600) * 1000).toISOString().slice(0, 10); // 北京时间的日期
@@ -60,16 +61,19 @@ async function prices() {
 }
 const daiOf = (m, px) => Object.entries(m).reduce((t, [k, v]) => t + (px[k] ? v * px[k] : 0), 0);
 const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-function notice(items, start, end, day, px) {
-  const lines = ["📋 AiLGNS 运营费用发放公告", "", `⏱ 统计时段：${bjDate(start)} ${bjHour(start)}–${end % 86400 === 16 * 3600 ? "24:00" : bjHour(end)}（北京时间）`, "", `本时段收入 ${items.length} 笔，合计：`, ...listSum(sum(items))];
-  lines.push("", `💰 ${bjDate(start)} 今日总收入：`, ...listSum(day));
+// items：这一批的发放（带链上链接）；day：全天合计（按币种）；end < start + 1 天 就是「到现在」的临时汇总
+function notice(items, start, end, day, px, dayCount) {
+  const partial = end - start < 86400, d = bjDate(start), n = dayCount || items.length;
+  const lines = ["📋 AiLGNS 运营费用发放公告", "", `⏱ 统计时段：${d} ${partial ? "00:00–" + bjHour(end) + "（到现在）" : "全天 00:00–24:00"}（北京时间）`, "",
+    `💰 ${d} ${partial ? "今天到现在" : "全天"}收入 ${n} 笔，合计：`, ...listSum(day)];
   const total = daiOf(day, px || {});
   if (total) lines.push(`≈ 折合约 ${dai2(total)} DAI（按 DEX 现价）`);
-  lines.push("", "👥 按 4 : 3 : 3 分配，今日每份：", ...shareLines(day).map((l, i) => (total ? l + `（≈ ${dai2(total * SHARES[i][1])} DAI）` : l)));
+  lines.push("", "👥 按 4 : 3 : 3 分配，每份：", ...shareLines(day).map((l, i) => (total ? l + `（≈ ${dai2(total * SHARES[i][1])} DAI）` : l)));
   if (items.some((it) => it.link)) lines.push("", "🔗 转账记录：");
   items.filter((it) => it.link).slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
   if (items.length > 5 && items.some((it) => it.link)) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
-  lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益（Anubis 链 LGNS 在 DEX 卖要扣约 50% 手续费，到本站 OTC 卖更划算）；也可以在本站 OTC 买入 AiLGNS 长期持有 👉 https://ailgns.dev/#/otc");
+  lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益（Anubis 链 LGNS 在 DEX 卖要扣约 50% 手续费，到本站 OTC 卖更划算）。");
+  lines.push("", "💎 请记得定投、坚定持有 AiLGNS：每天一点点，把运营费换成 AiLGNS 长期拿着 👉 https://ailgns.dev/#/otc");
   lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费。", "—— AiLGNS 服务站");
   return lines.join("\n");
 }
@@ -90,12 +94,12 @@ async function scan(c, from, latest, items) {
   }
 }
 
-// 每 5 分钟：把新的发放记录攒进 opsw:pending；到了北京 0/8/16 点，把上一段 8 小时的汇总发到运营群
+// 每 5 分钟：把新的发放记录攒进 opsw:pending；过了北京 0 点，把前一天全天的汇总发到运营群
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
-  const now = Math.floor(Date.now() / 1000), slot = Math.floor(now / SLOT) * SLOT; // 当前这段的开始
+  const now = Math.floor(Date.now() / 1000), slot = slotOf(now); // 今天北京 0 点
   // today=1 / day=2026-11-02：站长想马上看效果，把今天到现在（或前两天里某一整天）的汇总立刻发一次；每个日期最多手动发 3 次，防止被人刷群
   const pickDay = url.searchParams.get("day");
   if (url.searchParams.get("today") === "1" || /^\d{4}-\d{2}-\d{2}$/.test(pickDay || "")) {
@@ -108,8 +112,7 @@ export async function onRequestGet(ctx) {
     const sent0 = (await kv.get("opsw:day:" + day, "json")) || [], pend = ((await kv.get("opsw:pending", "json")) || []).filter((x) => x.time >= dayStart && x.time < end);
     const all = sent0.concat(pend);
     if (!all.length) return Response.json({ error: "这天没有收入" });
-    const text = notice(all, dayStart, end, sum(all), await prices()).replace(/本时段收入 \d+ 笔/, (end === now ? "今天到现在" : "全天") + `收入 ${all.length} 笔`)
-      .replace(/⏱ 统计时段：(.*)–[^（]*（/, (m, a) => `⏱ 统计时段：${a}–${end === now ? bjHour(now) : "24:00"}（`).replace("今日总收入", end === now ? "今日总收入" : "全天总收入").replace("今日每份", end === now ? "今日每份" : "全天每份");
+    const text = notice(all, dayStart, end, sum(all), await prices());
     await kv.put(flag, String(used + 1), { expirationTtl: 3 * 86400 });
     await sendDebox(ctx.env, OPS_GROUP, text, "group");
     return Response.json({ sent: true, text });
@@ -138,16 +141,16 @@ export async function onRequestGet(ctx) {
 
   let last = parseInt((await kv.get("opsw:slot")) || "0", 10);
   if (!last) { last = slot; if (!dry) await kv.put("opsw:slot", String(slot)); } // 第一次运行：从这一段开始攒
-  const due = pending.filter((x) => x.time < slot && x.time >= slot - SLOT); // 刚结束的那 8 小时里的发放（更早的不算进这一段）
+  const due = pending.filter((x) => x.time < slot && x.time >= slot - SLOT); // 昨天（北京时间）全天的发放
   if (!dry && (slot <= last || !due.length)) {
-    if (slot > last) { await kv.put("opsw:slot", String(slot)); await kv.put("opsw:pending", JSON.stringify(pending.filter((x) => x.time >= slot))); } // 这段没有发放：不发公告
+    if (slot > last) { await kv.put("opsw:slot", String(slot)); await kv.put("opsw:pending", JSON.stringify(pending.filter((x) => x.time >= slot))); } // 昨天没有发放：不发公告
     return Response.json({ ranges, pending: pending.length, next: slot + SLOT });
   }
   // 预览：把攒着的全部当作一段来看
   const batch = dry ? pending.filter((x) => x.time >= slot) : due, start = dry ? slot : slot - SLOT, end = dry ? slot + SLOT : slot;
   if (!batch.length) return Response.json({ ranges, pending: 0, text: null });
   const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out, total: totalOf(x) })));
-  const text = notice(batch, start, end, sum(dry ? dayItems.concat(batch) : dayItems), await prices());
+  const text = notice(batch, start, dry ? now : end, sum(dry ? dayItems.concat(batch) : dayItems), await prices(), dry ? dayItems.length + batch.length : dayItems.length);
   if (dry) return Response.json({ ranges, pending: pending.length, text });
   let sent = false, err = null;
   for (let k = 0; k < 3 && !sent; k++) { // DeBox 限流时等几秒再试；还不行就下一轮（5 分钟后）再发
