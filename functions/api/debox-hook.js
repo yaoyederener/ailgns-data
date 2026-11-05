@@ -31,6 +31,8 @@ export async function onRequestPost(ctx) {
     chatId = chat.id || user;
   }
   if (!user || !kv) return new Response("ok");
+  // 诊断：记最近一次收到的消息长什么样（不存正文），站长用 ?diag=1 看机器人有没有收到群消息
+  ctx.waitUntil(kv.put("dbx:lasthit", JSON.stringify({ t: Date.now(), chatType, hasGroup: !!u.group_id, keys: Object.keys(u).slice(0, 12), keyOk: !ctx.env.DEBOX_HOOK_KEY || new URL(ctx.request.url).searchParams.get("key") === ctx.env.DEBOX_HOOK_KEY, len: text.length }), { expirationTtl: 86400 }));
   // 群里：机器人当客服。只接「像问题」的话（有问号 / 疑问词 / @机器人），每群 15 秒最多答 1 条、每人 10 秒 1 条、每群每天 300 条，避免刷屏
   if (/group/i.test(chatType)) {
     const gid = String(u.group_id || chatId || "");
@@ -122,11 +124,13 @@ export async function onRequestPost(ctx) {
 }
 
 // 浏览器打开这个地址时给个提示（DeBox 后台填 Webhook 时也可能先访问一下）
-export async function onRequestGet(ctx) {
-  if (new URL(ctx.request.url).searchParams.get("debug") === "1" && ctx.env.TEAM_KV) {
-    return Response.json({ err: await ctx.env.TEAM_KV.get("dbx:lasterr", "json") }); // 最近一次回复失败的原因
-  }
-  return new Response("AiLGNS DeBox webhook ok");
-}
 
 function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
+
+// 站长诊断：GET ?diag=1 → 最近一次收到的消息形状、最近发送错误、群问答条数（不含正文、不含密钥）
+export async function onRequestGet(ctx) {
+  const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
+  if (!kv || !(u.searchParams.get("diag") || u.searchParams.get("debug"))) return new Response("AiLGNS DeBox webhook ok");
+  const [hit, err, qa, miss] = await Promise.all([kv.get("dbx:lasthit", "json"), kv.get("dbx:lasterr", "json"), kv.get("dbx:qa", "json"), kv.get("dbx:gkeymiss")]);
+  return Response.json({ lastHit: hit, lastErr: err, qa: (qa || []).length, lastQa: qa && qa[0] ? { t: qa[0].t, e: qa[0].e } : null, keyMissAt: miss ? Number(miss) : 0, hookKeySet: !!ctx.env.DEBOX_HOOK_KEY, apiKeySet: !!ctx.env.DEBOX_API_KEY, now: Date.now() }, { headers: { "cache-control": "no-store" } });
+}
