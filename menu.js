@@ -23,10 +23,12 @@
   };
   // [分组名, 英文, [[链接, 名字, 图标, 是否外链]]]
   // 站长定（2026-11-05）：顶部导航已有的（OTC、域名、预言家、借贷、会员、荣耀榜）不在菜单里重复；以后的新功能都先加在这里
+  // 分组按「币圈玩法在前、服务在中、游戏在后」排；以后上百个功能都往对应分组里加，分组标题下只列前几个
   var GROUPS = [
-    ["销毁乐园", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/farm", "🏡 开心农场", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
-    ["工具", "TOOLS", [["#/trade", "📊 交易所盘口（专业版）", "otc"], ["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/flows", "资金流向", "flow"]]],
-    ["合作与支持", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/promo", "营销广告", "promo"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/app", "下载 App", "app"], ["https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7", "加站长 DeBox", "chat", true]]]
+    ["交易", "TRADE", [["#/trade", "📊 交易所盘口（专业版）", "otc"], ["#/flows", "📈 资金流向", "flow"]]],
+    ["链上身份", "ON-CHAIN", [["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/scan", "💬 链上留言（在账本里）", "chat"]]],
+    ["服务", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/app", "📲 下载 App", "app"], ["https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7", "加站长 DeBox", "chat", true], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/promo", "营销广告", "promo"]]],
+    ["销毁乐园（游戏）", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/farm", "🏡 开心农场", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
   ];
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
   var CHEV = '<svg class="dw-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -56,7 +58,7 @@
       var items = g[2].filter(function (it) { return !kw || it[1].toLowerCase().indexOf(kw) >= 0; });
       if (!items.length) return "";
       var isOpen = kw || open[gi];
-      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><em class="dw-sum">' + g[2].map(function (it) { return it[1]; }).join(" · ") + '</em><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
+      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><em class="dw-sum">' + g[2].slice(0, 4).map(function (it) { return it[1].replace(/（.*?）/g, ""); }).join(" · ") + (g[2].length > 4 ? " 等 " + g[2].length + " 项" : "") + '</em><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
         '<div class="dw-items">' + items.map(function (it) {
           return '<a href="' + it[0] + '"' + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + svg(it[2]) + "<span>" + it[1] + "</span>" + CHEV + "</a>";
         }).join("") + "</div></section>";
