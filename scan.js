@@ -497,10 +497,11 @@
   function catBtns(a, cur) { return '<div class="seg sc-cats">' + Object.keys(CATS).map(function (k) { return '<a href="#/scan/' + a + (k === "all" ? "" : "/" + k) + '"' + (k === cur ? ' class="on"' : "") + ">" + CATS[k] + "</a>"; }).join("") + "</div>"; }
   function applyCat(root, cat) {
     root.querySelectorAll(".lg-row").forEach(function (r) {
-      if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", r.closest("#sc-msgs") ? "other" : catOf(r.textContent || ""));
+      if (r.closest("#sc-msgs")) return; // 留言不是订单，不参与筛选
+      if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", catOf(r.textContent || ""));
       r.classList.toggle("sc-hide", !!cat && cat !== "all" && r.getAttribute("data-cat") !== cat);
     });
-    root.querySelectorAll(".lg-list").forEach(function (l) {
+    root.querySelectorAll(".lg-list:not(#sc-msgs)").forEach(function (l) {
       var vis = l.querySelectorAll(".lg-row:not(.sc-hide)").length, none = l.querySelector(".sc-none");
       if (!vis && cat && cat !== "all" && l.querySelector(".lg-row") && !none) { none = document.createElement("p"); none.className = "muted sc-none"; none.textContent = "这一类暂时没有"; l.appendChild(none); }
       if (none && (vis || !cat || cat === "all")) none.remove();
@@ -558,7 +559,7 @@
     // 分类筛选：列表是异步填进来的，变一次就重新打标签 + 过滤；带分类进来的直接滚到「正在进行中」
     if (window.MutationObserver) { var mo = new MutationObserver(function () { applyCat(out, cat); }); mo.observe(out, { childList: true, subtree: true }); }
     applyCat(out, cat);
-    if (cat) setTimeout(function () { var p = el("sc-posc"); if (p) p.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150);
+    if (cat) setTimeout(function () { var p = el("sc-posc"); if (p) window.scrollTo({ top: p.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" }); }, 700);
     ledger(a, el("sc-lg"));
     return Promise.resolve();
   }
