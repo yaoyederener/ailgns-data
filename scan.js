@@ -372,7 +372,7 @@
           for (var i = 0; i < n; i++) {
             var o = w.slice(2 + i * 10, 12 + i * 10); if (o.length < 10) break;
             var br = "0x" + o[0].slice(24), ld = "0x" + o[1].slice(24), isOffer = o[2].slice(-1) === "1", st = Number(BigInt("0x" + o[3])), exp = Number(BigInt("0x" + o[4])), term = Number(BigInt("0x" + o[5])), due = Number(BigInt("0x" + o[6]));
-            var col = big(o[7], L.dec), prin = big(o[8], 18), rep = big(o[9], 18);
+            var col = big("0x" + o[7], L.dec), prin = big("0x" + o[8], 18), rep = big("0x" + o[9], 18);
             if (br !== a && ld !== a) continue;
             if (st === 0 && exp > now) {
               if (isOffer && ld === a) out.push({ t: exp, html: "<b>出借单挂着</b>：锁定 " + fmtA(prin) + " DAI 等人来借，到期收 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "📣" });
