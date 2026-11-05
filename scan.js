@@ -285,6 +285,18 @@
     });
   }
 
+  // 地址拥有的 NFT：官方接口一页 50 个，旧版合约的保留名会占满第一页，所以翻页读完（最多 10 页）
+  function allNfts(a) {
+    var items = [];
+    function page(next, n) {
+      var q = next ? "&" + Object.keys(next).map(function (k) { return k + "=" + encodeURIComponent(next[k]); }).join("&") : "";
+      return get("/addresses/" + a + "/nft?type=ERC-721" + q).then(function (d) {
+        items = items.concat(d.items || []);
+        return d.next_page_params && n < 10 ? page(d.next_page_params, n + 1) : { items: items };
+      });
+    }
+    return page(null, 1).catch(function () { return { items: items }; });
+  }
   // 地址：我的钱、我的域名、我做过的事
   function addrView(a, out, via) {
     var wait = '<p class="muted">读取中…</p>';
