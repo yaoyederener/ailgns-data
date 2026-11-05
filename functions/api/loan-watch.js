@@ -5,6 +5,7 @@
 // ?dry=1&from=<区块>：只看消息内容，不发送、不记进度
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
+import { pushMany } from "../../lib/inbox.js";
 
 const LOANS = [ // 借款合约（每个抵押币一份）
   { key: "ailgns", sym: "AiLGNS", dec: 18, addr: "0x242ab392571d325d814a48892ac16115a6d285dc", deploy: 18016308 },
@@ -159,6 +160,7 @@ export async function onRequestGet(ctx) {
   }
   await kv.put("lnw:gq", JSON.stringify(left));
   if (queue.length) await kv.put("lnw:grouplog", JSON.stringify(glog.slice(0, 50)));
+  await pushMany(kv, msgs, "loan"); // 🔔 站内信
   for (const [addr, text] of msgs) {
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
     for (const u of users) {

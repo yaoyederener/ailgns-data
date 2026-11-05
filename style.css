@@ -2442,3 +2442,24 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .lk-orc { stroke: #d97706; stroke-width: 1; stroke-dasharray: 4 3; } .lk-orct { fill: #b45309; font-weight: 700; } .lk-ask { fill: #c6454a; } .lk-bid { fill: #1b8a5e; }
 .od-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; } .od-tabs button { padding: 6px 12px; border-radius: 999px; border: 1px solid #e3d8ff; background: #fff; color: #6b5aa6; font-size: 13px; box-shadow: none; } .od-tabs button.on { background: #efe7ff; color: #5a35d6; border-color: #c9b8ff; font-weight: 700; }
 .od-maker { padding: 8px 0; border-bottom: 1px solid #efe9ff; } .od-mh { font-size: 14px; margin-bottom: 4px; } .od-row { display: grid; grid-template-columns: 44px 1fr 1fr 1fr 60px 90px; gap: 6px; font-size: 13px; padding: 3px 0; font-variant-numeric: tabular-nums; } .od-row.ask span:first-child { color: #e0565b; } .od-row.bid span:first-child { color: #1f9d6b; } @media (max-width: 600px) { .od-row { grid-template-columns: 40px 1fr 1fr 1fr; } .od-row span:nth-child(5), .od-row span:nth-child(6) { display: none; } }
+
+/* 🔔 收件箱 */
+.ib-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 999px; background: var(--soft); border: 1px solid var(--soft-line); color: var(--purple-ink); flex: none; }
+.ib-bell svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.ib-bell:hover { text-decoration: none; background: #ece0fc; }
+.ib-bell.has { animation: ib-ring 1.2s ease 1; }
+.ib-n { position: absolute; top: -5px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; font-weight: 700; font-style: normal; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px #fff; }
+@keyframes ib-ring { 0%,100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-4deg); } }
+.ib-ops { display: inline-flex; gap: 6px; }
+.ib-who { margin: 4px 0 12px; }
+.ib-who .link { background: none; border: 0; padding: 0; color: var(--purple-ink); font-weight: 700; text-decoration: underline; cursor: pointer; box-shadow: none; }
+.ib-it { display: flex; gap: 12px; padding: 12px 10px; border-top: 1px solid var(--line); }
+.ib-it.new { background: linear-gradient(90deg, #f6efff, #fff); border-radius: 10px; }
+.ib-it.new .ib-main::before { content: "新"; display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: #e5484d; color: #fff; font-size: 11px; line-height: 17px; vertical-align: 2px; }
+.ib-ico { flex: none; font-size: 22px; line-height: 1.2; }
+.ib-main { min-width: 0; flex: 1; }
+.ib-txt { font-size: 14.5px; line-height: 1.55; word-break: break-word; }
+.ib-main small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.ib-empty { padding: 24px 8px; text-align: center; }
+.ib-login .nm-go { margin-top: 14px; }
+@media (max-width: 600px) { .ib-bell { width: 32px; height: 32px; } .ib-bell svg { width: 17px; height: 17px; } }

@@ -4,6 +4,7 @@
 //   GET  ?a=<地址>         → 这个地址收到 / 发出的留言（最近 200 条，新的在前）
 import { rpc, primaryName } from "../../lib/oracle.js";
 import { sendDebox } from "../../lib/debox.js";
+import { pushInbox } from "../../lib/inbox.js";
 
 const PREFIX = "ailgns-msg:", MAX = 300;
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -60,8 +61,9 @@ export async function onRequestPost(ctx) {
   await kv.put("msg:tx:" + h, "1", { expirationTtl: 400 * 86400 });
   // 收信人绑了 DeBox 机器人就私信他
   const users = (await kv.get("dbx:a:" + to, "json")) || [];
+  const text = "📬 " + fromName + " 在链上给你留言：\n\n" + txt + "\n\n回复 👉 https://ailgns.dev/#/scan/" + from;
+  await pushInbox(kv, to, "msg", text, "#/scan/" + from).catch(() => {}); // 🔔 站内信
   if (users.length) {
-    const text = "📬 " + fromName + " 在链上给你留言：\n\n" + txt + "\n\n回复 👉 https://ailgns.dev/#/scan/" + from;
     ctx.waitUntil(Promise.all(users.map((u) => sendDebox(ctx.env, u, text, "private").catch(() => {}))));
   }
   return json({ ok: true, item, notified: users.length });

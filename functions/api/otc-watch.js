@@ -6,6 +6,7 @@
 //    群 gid 默认是下面 GROUPS 里的两个群，也可以用 Cloudflare 环境变量 DEBOX_GROUP_ID（多个用逗号隔开）覆盖
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
+import { pushMany } from "../../lib/inbox.js";
 import { rebuildIfNeeded } from "../../lib/pixel.js";
 import { bjDay } from "../../lib/stats.js";
 import { GP_MAX, SEED } from "../../lib/guide.js";
@@ -489,6 +490,7 @@ export async function onRequestGet(ctx) {
     }
   }
   let sent = 0, failed = 0;
+  await pushMany(kv, msgs, "otc"); // 🔔 先写站内信（不依赖 DeBox）
   for (const [addr, text] of msgs) {
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
     for (const u of users) {

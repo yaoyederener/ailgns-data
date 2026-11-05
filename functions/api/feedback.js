@@ -6,6 +6,7 @@
 // POST { key, action: "set", id, st?, note? }       → 改状态 / 写回复（回复客户能在页面上看到）
 // KV：tk:seq 编号；tk:list [id…]；tk:<id> 工单；tk:img:<id>:<n> 截图
 import { sendDebox } from "../../lib/debox.js";
+import { pushInbox } from "../../lib/inbox.js";
 import { SUPPORT_USER } from "../../lib/support.js";
 
 // 后台口令：FEEDBACK_KEY（站长自己设的，专给工单后台）或 BACKUP_KEY（keeper 用的随机长串）都认
@@ -61,6 +62,7 @@ export async function onRequestPost(ctx) {
     if (b.st === "done" && t.note) {
       const users = (await kv.get("dbx:a:" + t.a, "json")) || [];
       const msg = "📮 你的反馈工单 #" + t.id + " 已处理\n\n💬 客服回复：" + t.note + "\n\n查看 👉 https://ailgns.dev/#/feedback";
+      await pushInbox(kv, t.a, "ticket", msg, "#/feedback").catch(() => {}); // 🔔 站内信
       ctx.waitUntil(Promise.all(users.map((u) => sendDebox(ctx.env, u, msg, "private").catch(() => {}))));
     }
     return json({ ok: true, t });
