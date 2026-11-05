@@ -70,7 +70,7 @@
 
   function show() {
     // 打开时分组全部收起（站长要求）：每个分组标题下面用小字列出里面有什么，一屏看到全部功能，点标题再展开
-    open = {}; GROUPS.forEach(function (g, gi) { open[gi] = true; }); // 菜单里只剩新功能，分组全部展开，一眼看到
+    open = {}; // 分组默认收起（站长 2026-11-05 定），标题下有小字列出里面有什么，点标题展开
     if (A.freshCheck) A.freshCheck(); // 点开菜单顺便查新版本，有就自动换成新版
     draw();
     wallet();
