@@ -9,11 +9,11 @@
   var MK = "ailgns", M, OTC, TOKEN, DAI, TD, SYM, PD;
   var liveCtl = null;
   function startLive() {
-    var el = document.getElementById("tr-k"); if (!el || !A.liveK) return;
+    var el = document.getElementById("tr-k"); if (!el || !A.kchart) return;
     if (liveCtl) liveCtl.stop();
-    document.getElementById("tr-ktip").textContent = "本站 OTC 实时价：买一卖一的中间价，每 3 秒刷新，5 秒一根，最近 10 分钟 · 虚线是 OTC 预言机价";
-    liveCtl = A.liveK(el, { bucket: 5, span: 600, every: 3000 });
+    liveCtl = A.kchart(el, { i: "5m", alive: function () { return A.isCurrent(rid); } });
   }
+
   var book = { asks: [], bids: [], all: [], mkt: 0 }, fills = [], side = "buy", type = "limit", account = null, rid = 0, timer = 0, kcache = null;
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -68,7 +68,7 @@
     A.app.innerHTML =
       '<section class="tr-head"><div class="tr-pair"><b>' + SYM + ' / DAI</b><small>本站 OTC 盘口 · 链上撮合 · 吃单手续费 1%</small></div><div class="tr-stats" id="tr-stats">读取中…</div></section>' +
       '<div class="tr-grid">' +
-        '<section class="card tr-k"><div class="card-head"><h2>📈 K 线</h2><span class="tr-ktabs"><button type="button" class="on" data-k="live">实时 5 秒</button><button type="button" data-k="1h">1 小时</button></span></div><svg class="or-k tr-svg" id="tr-k" preserveAspectRatio="none"></svg><p class="muted tr-tip" id="tr-ktip">本站 OTC 实时价：买一卖一的中间价，每 3 秒刷新，5 秒一根，最近 10 分钟 · 虚线是 OTC 预言机价</p></section>' +
+        '<section class="card tr-k"><div class="card-head"><h2>📈 K 线</h2></div><div id="tr-k" class="or-kc tr-kc"></div></section>' +
         '<section class="card tr-book"><div class="card-head"><h2>📊 盘口</h2><span class="muted" id="tr-mid"></span></div><div class="tr-bk" id="tr-bk">读取中…</div></section>' +
         '<section class="card tr-form"><div class="tr-side"><button type="button" class="on buy" data-side="buy">买入</button><button type="button" class="sell" data-side="sell">卖出</button></div>' +
           '<div class="tr-type"><button type="button" class="on" data-type="limit">限价</button><button type="button" data-type="market">市价</button><span class="muted" id="tr-bal"></span></div>' +
