@@ -72,8 +72,8 @@ function notice(items, start, end, day, px, dayCount) {
   if (items.some((it) => it.link)) lines.push("", "🔗 转账记录：");
   items.filter((it) => it.link).slice(-5).forEach((it) => lines.push(`· ${amt(totalOf(it))} ${it.sym}：${it.link}`));
   if (items.length > 5 && items.some((it) => it.link)) lines.push(`  （只列最近 5 笔，共 ${items.length} 笔，都可在链上查询）`);
-  lines.push("", "⚠️ 提醒：LGNS 是波动资产，价格起伏大，收到后建议及时换成 DAI 锁定收益（Anubis 链 LGNS 在 DEX 卖要扣约 50% 手续费，到本站 OTC 卖更划算）。");
-  lines.push("", "💎 请记得定投、坚定持有 AiLGNS：每天一点点，把运营费换成 AiLGNS 长期拿着 👉 https://ailgns.dev/#/otc");
+  // 内部运营群：我们是坚定的布道者（站长 2026-11-05 定），不写风险提醒，只写信念
+  lines.push("", "💎 布道者宣言：请想尽一切办法多囤 AiLGNS！", "· 收到的每一份运营费，第一时间换成 AiLGNS，一枚都不要卖", "· 我们的目标：AiLGNS 未来价值 100 万美金一枚", "· 拿得住的人才配得上这个结果，坚定信心，一起见证 👉 https://ailgns.dev/#/otc");
   lines.push("", "运营费用来自 AiLGNS 服务站的会员服务与 OTC 交易服务费。", "—— AiLGNS 服务站");
   return lines.join("\n");
 }
