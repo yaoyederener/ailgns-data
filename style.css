@@ -2367,3 +2367,4 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .or-pmix b { color: #5a35d6; font-size: 16px; }
 .or-pmix small { display: block; font-size: 11.5px; color: #9a8acc; }
 .or-pw { flex-basis: 100%; font-size: 13px; color: #6b5aa6; } .or-pw a { color: #5a35d6; } .or-pw small { color: #9a8acc; font-size: 11.5px; }
+.or-pw { font-size: 14px; word-break: break-all; } .or-pw .mono { font-size: 13px; color: #5a35d6; } .or-pw a { margin-left: 6px; font-weight: 700; }
