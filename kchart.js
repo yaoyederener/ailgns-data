@@ -16,9 +16,9 @@
     var iv = opt.i || "15m", data = [], cur = 0, orc = 0, orcAt = 0, timer = null, dead = false, done = false;
     var cw = 9, off = 0, hover = -1, drag = null, pinch = 0;
     host.classList.add("kc");
-    host.innerHTML = '<div class="kc-top"><div class="kc-ivs">' + IVS.map(function (x) { return '<button type="button" data-i="' + x[0] + '"' + (x[0] === iv ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + '</div><div class="kc-legend" id="kc-leg"></div></div><div class="kc-wrap"><canvas class="kc-cv"></canvas></div><div class="kc-foot muted">' + (opt.foot || "AiLGNS/DAI 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25 · 虚线 OTC 预言机价") + '<span id="kc-load"></span></div>';
+    host.innerHTML = '<div class="kc-top"><div class="kc-ivs">' + IVS.map(function (x) { return '<button type="button" data-i="' + x[0] + '"' + (x[0] === iv ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + '</div><div class="kc-legend" id="kc-leg"></div></div><div class="kc-price" id="kc-price"></div><div class="kc-wrap"><canvas class="kc-cv"></canvas></div><div class="kc-foot muted">' + (opt.foot || "AiLGNS/DAI 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25 · 虚线 OTC 预言机价") + '<span id="kc-load"></span></div>';
     var cv = host.querySelector("canvas"), ctx = cv.getContext("2d"), leg = host.querySelector("#kc-leg"), wrap = host.querySelector(".kc-wrap");
-    host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.onclick = function () { set(b.getAttribute("data-i")); }; });
+    host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.onclick = function () { try { sessionStorage.setItem("kc:pick", b.getAttribute("data-i")); } catch (e) {} set(b.getAttribute("data-i")); }; });
 
     // 秒开：上次看过的数据存在本机，先画出来，再用接口数据无感替换
     function cacheGet() { try { var j = JSON.parse(localStorage.getItem("kc:" + iv) || "null"); return j && j.c && j.c.length ? j : null; } catch (e) { return null; } }
@@ -77,6 +77,8 @@
       var hi_ = hover >= 0 && hover < vis.length ? vis[hover] : null, c0 = hi_ || last;
       if (hi_) { var hx = Math.round(x(hover)) + 0.5; ctx.setLineDash([3, 3]); ctx.strokeStyle = "#a89cd4"; ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, vTop + vH); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#4b3d8f"; var tw = 80; ctx.fillRect(Math.min(Math.max(0, hx - tw / 2), plotW - tw), H - AXH, tw, AXH); ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(bjFull(c0[0]), Math.min(Math.max(tw / 2, hx), plotW - tw / 2), H - AXH / 2); }
       var chg = c0[1] ? (c0[4] - c0[1]) / c0[1] * 100 : 0, colC = c0[4] >= c0[1] ? UP : DN;
+      var first = vis[0], pc = first[1] ? (lp - first[1]) / first[1] * 100 : 0, pEl = host.querySelector("#kc-price");
+      if (pEl) pEl.innerHTML = '<b style="color:' + (pc >= 0 ? UP : DN) + '">' + fmt(lp, 2) + ' <small>DAI</small></b><span style="color:' + (pc >= 0 ? UP : DN) + '">' + (pc >= 0 ? "▲ +" : "▼ ") + pc.toFixed(2) + "%</span><small class=\"muted\">本窗口 " + vis.length + " 根 · " + (IVS.filter(function (x) { return x[0] === iv; })[0] || ["", iv])[1] + "线</small>";
       leg.innerHTML = '<span class="kc-t">' + bjFull(c0[0]) + "</span><span>开 <b style=\"color:" + colC + '">' + fmt(c0[1], 2) + "</b></span><span>高 <b style=\"color:" + colC + '">' + fmt(c0[2], 2) + "</b></span><span>低 <b style=\"color:" + colC + '">' + fmt(c0[3], 2) + "</b></span><span>收 <b style=\"color:" + colC + '">' + fmt(c0[4], 2) + "</b></span><span>涨跌 <b style=\"color:" + colC + '">' + (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%</b></span><span>量 <b>" + vol(c0[5]) + " DAI</b></span>";
     }
     // 交互：拖动平移、滚轮缩放、悬停十字、触屏
@@ -90,8 +92,31 @@
     cv.addEventListener("touchmove", function (e) { if (e.touches.length === 2 && pinch) { var d = Math.abs(e.touches[0].clientX - e.touches[1].clientX); cw = Math.min(24, Math.max(3, cw * d / pinch)); pinch = d; draw(); e.preventDefault(); return; } if (!drag) return; var dn = Math.round((e.touches[0].clientX - drag.x) / cw); if (Math.abs(dn) >= 1) { off = Math.min(Math.max(0, drag.off + dn), Math.max(0, data.length - 10)); hover = -1; } else hover = px2idx(e.touches[0].clientX); draw(); if (Math.abs(dn) >= 1) e.preventDefault(); }, { passive: false });
     cv.addEventListener("touchend", function () { drag = null; pinch = 0; setTimeout(function () { hover = -1; draw(); }, 1500); });
     var ro = window.ResizeObserver ? new ResizeObserver(function () { draw(); }) : null; if (ro) ro.observe(wrap);
+    // 默认周期：自动挑「看起来在涨」的那个（窗口内涨幅 × 上涨连贯度最高），10 分钟内不换；用户手动点过的本次会话里优先
+    function autoPick() {
+      var pick = null; try { pick = sessionStorage.getItem("kc:pick"); } catch (e) {}
+      if (pick && IVS.some(function (x) { return x[0] === pick; })) { if (pick !== iv) set(pick); return; }
+      var au = null; try { au = JSON.parse(localStorage.getItem("kc:auto") || "null"); } catch (e) {}
+      if (au && au.i && Date.now() - au.at < 600e3) { if (au.i !== iv) set(au.i); return; }
+      var n = Math.max(30, Math.min(90, Math.floor((wrap.getBoundingClientRect().width - 64) / cw)));
+      Promise.all(IVS.map(function (x) { return fetch("/api/candles?i=" + x[0] + "&n=" + n).then(function (r) { return r.json(); }).then(function (d) { return d && d.c ? d : null; }).catch(function () { return null; }); })).then(function (all) {
+        if (dead) return;
+        var best = null;
+        all.forEach(function (d, k) {
+          if (!d || d.c.length < 5) return;
+          var c = d.c, f = c[0][1], l = c[c.length - 1][4], pct = f ? (l - f) / f * 100 : 0, up = 0;
+          for (var j = 1; j < c.length; j++) if (c[j][4] >= c[j - 1][4]) up++;
+          var cons = up / (c.length - 1), score = pct * (0.4 + cons);
+          try { localStorage.setItem("kc:" + IVS[k][0], JSON.stringify({ c: c, cur: d.cur, done: d.done })); } catch (e) {}
+          if (!best || score > best.score) best = { i: IVS[k][0], score: score, pct: pct };
+        });
+        if (!best) return;
+        try { localStorage.setItem("kc:auto", JSON.stringify({ i: best.i, at: Date.now() })); } catch (e) {}
+        if (best.i !== iv) set(best.i);
+      });
+    }
     var c0 = cacheGet(); if (c0) { data = c0.c; cur = c0.cur || 0; draw(); }
-    load(); timer = setInterval(load, 5000);
+    load(); timer = setInterval(load, 5000); autoPick();
     return { set: set, stop: function () { dead = true; clearInterval(timer); if (ro) ro.disconnect(); } };
   };
 })();

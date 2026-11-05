@@ -2473,6 +2473,12 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .kc-legend { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: #6b5aa6; font-variant-numeric: tabular-nums; }
 .kc-legend b { font-weight: 600; }
 .kc-legend .kc-t { color: #8d7fb8; }
+.kc-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 6px; }
+.kc-price b { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
+.kc-price b small { font-size: 13px; font-weight: 600; color: #8d7fb8; }
+.kc-price > span { font-size: 14px; font-weight: 700; }
+.kc-price > small { font-size: 12px; }
+@media (max-width: 640px) { .kc-price b { font-size: 22px; } }
 .kc-wrap { position: relative; width: 100%; height: 320px; background: #fcfbff; border: 1px solid #eee6ff; border-radius: 12px; overflow: hidden; }
 .kc-cv { display: block; cursor: crosshair; touch-action: pan-y; }
 .kc-foot { margin: 6px 0 0; font-size: 12px; }
