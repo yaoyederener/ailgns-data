@@ -232,8 +232,16 @@
         return { ico: "📥", text: "<b>收到</b> " + (mi.nft ? "域名 " + nftTag(mi) : fmtN(mi.v, mi.sym)) + " 来自 " + who(mi.other) };
       }
     }
+    // 不是本站的合约（DEX、质押、跨链桥等）：按币的进出说人话，不装懂
+    var EXT = { "0xa694fc3a": "质押", "0x2e1a7d4d": "赎回", "0x3d18b912": "领取收益", "0x38ed1739": "DEX 兑换", "0x7ff36ab5": "DEX 兑换", "0x18cbafe5": "DEX 兑换", "0x8803dbee": "DEX 兑换", "0xe8e33700": "添加流动性", "0xbaa2abde": "移除流动性" };
+    if (t && !KNOWN[to] && ms.length) {
+      var ins = ms.filter(function (m) { return m.dir === "in" && !m.nft; }), outs = ms.filter(function (m) { return m.dir === "out" && !m.nft; }), lab = EXT[sel] || "其他平台";
+      if (ins.length && outs.length) return { ico: "🔁", text: "在<b>" + lab + "</b>用 " + outs.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + " 换了 " + ins.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（非本站）" };
+      if (outs.length) return { ico: "📤", text: "<b>" + (EXT[sel] || "转入其他平台") + "</b> " + outs.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（非本站合约）" };
+      if (ins.length) return { ico: "📥", text: "从<b>" + lab + "</b>收到 " + ins.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（非本站合约）" };
+    }
     var k = KNOWN[to];
-    return { ico: "🔧", text: (k ? "与「" + esc(k) + "」交互" : "与其他合约交互") + (METHODS[sel] ? "：" + METHODS[sel] : "") + (ms.length ? "，" + ms.map(function (m) { return (m.dir === "in" ? "收到 " : "付出 ") + (m.nft ? "域名" : fmtN(m.v, m.sym)); }).join("、") : "") };
+    return { ico: "🔧", text: (k ? "与「" + esc(k) + "」交互" : (EXT[sel] ? EXT[sel] + "（其他平台）" : "与其他平台的合约交互")) + (METHODS[sel] ? "：" + METHODS[sel] : "") + (ms.length ? "，" + ms.map(function (m) { return (m.dir === "in" ? "收到 " : "付出 ") + (m.nft ? "域名" : fmtN(m.v, m.sym)); }).join("、") : "") };
   }
   function rowHtml(a, row) {
     var r = translate(a, row);
