@@ -156,7 +156,6 @@
       '<section class="cb-panel" hidden aria-label="在线客服">' +
       '<header class="cb-head"><b>AiLGNS 客服</b><button class="cb-x" aria-label="关闭">×</button></header>' +
       '<div class="cb-list"></div>' +
-      '<div class="cb-quick">' + QUICK.map(function (q) { return '<button type="button">' + esc(q) + "</button>"; }).join("") + "</div>" +
       '<form class="cb-form"><input placeholder="输入你的问题…" maxlength="300" autocomplete="off"><button type="submit">发送</button></form>' +
       "</section></div>");
     document.body.appendChild(root);
@@ -172,7 +171,6 @@
     }
     fab.onclick = function () { toggle(panel.hidden); };
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
-    root.querySelectorAll(".cb-quick button").forEach(function (b) { b.onclick = function () { ask(b.textContent); }; });
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();
   }
