@@ -4,7 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
+import { heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -60,6 +60,9 @@ export async function onRequestGet(ctx) {
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
+        const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
+        if (lk && lk !== el.key) out.me.lock = lk;
+        else if (name) { const h = await heldSince(u.origin, a, name, round); if (!h.ok) out.me.hold = h; }
       }
     } catch (e) { out.me = { a, err: "读链失败" }; }
   }
@@ -97,6 +100,14 @@ export async function onRequestPost(ctx) {
   const name = el.name || a.slice(0, 6) + "…" + a.slice(-4); // 没有域名、靠 OTC 成交参加的，用短地址显示
   const key = "or:g:" + round + ":" + el.key, mine = (await kv.get(key, "json")) || { a, name, ps: [] };
   if (mine.a !== a) return json({ error: name + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次" }, 400);
+  // 防刷 ①：一个钱包一轮只认一个名字（换主名字不给新额度）
+  const lk = await kv.get("or:w:" + round + ":" + a);
+  if (lk && lk !== el.key) return json({ error: "这个钱包本轮已经用 " + lk + " 预测过了。一个钱包每轮只认一个名字，换主名字不会多出次数" }, 400);
+  // 防刷 ②：名字要在本轮开放前就在这个钱包里（刚注册的不受限；转进来 / 买来的要等下一轮）
+  if (el.name) {
+    let h; try { h = await heldSince(new URL(ctx.request.url).origin, a, el.name, round); } catch (e) { h = { ok: true }; }
+    if (!h.ok) return json({ error: el.name + " 是本轮开放后才转进这个钱包的，要等下一轮才能用它预测（刚注册的名字不受此限）" }, 400);
+  }
   const q = await quota(kv, a, el.name, round), have = new Set(mine.ps.map((x) => fmtP(x[0])));
   const fresh = ps.filter((p) => !have.has(p));
   if (!fresh.length) return json({ error: "这些价格你已经预测过了" }, 400);
@@ -105,6 +116,7 @@ export async function onRequestPost(ctx) {
   fresh.forEach((p) => mine.ps.push([Math.round(Number(p) * 1000), t]));
   mine.tier = q.tier;
   await kv.put(key, JSON.stringify(mine), { expirationTtl: 400 * 86400 });
+  if (!lk) await kv.put("or:w:" + round + ":" + a, el.key, { expirationTtl: 3 * 86400 });
   return json({ ok: true, round, name, ps: mine.ps.map((x) => fmtP(x[0])), left: q.n - mine.ps.length });
 }
 
