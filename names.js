@@ -1184,25 +1184,38 @@
     var p; try { p = JSON.parse(localStorage.getItem("nmPinTx") || "null"); } catch (e) {}
     if (p) pinPost(p, say).catch(function (e) { if (/用过|卖掉|没有成功|找不到/.test(e.message)) try { localStorage.removeItem("nmPinTx"); } catch (x) {} });
   }
+  // 付费置顶：页面里直接弹一个输入框（以前用浏览器 prompt，很多钱包 App 里弹不出来，点了像没反应）
   function pinIt(it, b, say) {
+    var old = document.getElementById("nm-pinbox"); if (old) old.remove();
+    var box = document.createElement("div"); box.id = "nm-pinbox"; box.className = "nm-pinbox"; box.innerHTML = '<p class="muted">读取置顶行情…</p>';
+    var row = b.closest("tr"), tbl = b.closest(".nm-otbl");
+    (tbl || row).parentNode.insertBefore(box, (tbl || row).nextSibling);
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
     pinsGet().then(function (m) {
-      var top = m._top, mine = m[it.t + ":" + it.id] || 0;
-      var v = prompt("⭐ 付费置顶「" + it.label + "." + it.t + "」\n\n" +
-        "· 置顶 3 天，出价越高排越前（同一张单再付会累加）\n· 最少 " + PIN_MIN + " DAI，从你的钱包直接付\n· ⚠️ 3 天内没卖掉也不退\n\n" +
-        (top.length ? "现在置顶出价：" + top.slice(0, 5).join(" / ") + " DAI" : "现在还没有人置顶，第一个就是第 1 名") + (mine ? "\n你这张单已付 " + mine + " DAI" : "") +
-        "\n\n请输入这次付多少 DAI：", String(Math.max(PIN_MIN, top.length ? Math.floor(top[0] - mine + 1) : PIN_MIN)));
-      if (v === null) return;
-      var n = Number(v);
-      if (!(n >= PIN_MIN) || !/^\d+(\.\d{1,2})?$/.test(String(v).trim())) { say("最少 " + PIN_MIN + " DAI，最多 2 位小数"); return; }
-      b.disabled = true;
-      var wei = BigInt(Math.round(n * 100)) * 10n ** 16n;
-      return tx(DAI, "0xa9059cbb" + A.pad(BUYBACK) + u256(wei), say, "⭐ 付置顶费 " + n + " DAI（3 天，不退）。请在钱包确认").then(function (h) {
-        var p = { tx: h, t: it.t, id: it.id };
-        try { localStorage.setItem("nmPinTx", JSON.stringify(p)); } catch (e) {}
-        say("付款成功，登记置顶中…");
-        return pinPost(p, say);
-      }).then(function () { b.disabled = false; }, function (e) { b.disabled = false; say(""); A.errTip(e.message || String(e), b); });
-    });
+      var top = m._top || [], mine = m[it.t + ":" + it.id] || 0, def = Math.max(PIN_MIN, top.length ? Math.floor(top[0] - mine + 1) : PIN_MIN);
+      box.innerHTML = '<b>⭐ 付费置顶「' + esc(it.label + "." + it.t) + '」</b>' +
+        '<ul><li>置顶 3 天，出价越高排越前（同一张单再付会累加）</li><li>最少 <b>' + PIN_MIN + ' DAI</b>，从你的钱包直接付</li><li>⚠️ 3 天内没卖掉也不退</li></ul>' +
+        '<p class="nm-pin-now">' + (top.length ? "现在置顶出价：<b>" + top.slice(0, 5).join(" / ") + "</b> DAI" : "现在还没有人置顶，你付了就是第 1 名") + (mine ? "<br>你这张单已付 <b>" + mine + "</b> DAI" : "") + "</p>" +
+        '<div class="nm-pin-q">' + [PIN_MIN, 20, 50, 100].filter(function (x, k, z) { return z.indexOf(x) === k; }).map(function (x) { return '<button type="button" data-pq="' + x + '">' + x + "</button>"; }).join("") + "</div>" +
+        '<div class="nm-pin-in"><input id="nm-pinv" inputmode="decimal" value="' + def + '"><span>DAI</span></div>' +
+        '<div class="nm-pin-b"><button type="button" class="nm-go" id="nm-pinok">⭐ 确认付款置顶</button><button type="button" class="ghost" id="nm-pinno">取消</button></div><p class="nm-st" id="nm-pinst"></p>';
+      var inp = document.getElementById("nm-pinv"), st = document.getElementById("nm-pinst"), ok = document.getElementById("nm-pinok");
+      var say2 = function (t) { st.textContent = t; say(t); };
+      box.querySelectorAll("[data-pq]").forEach(function (q) { q.onclick = function () { inp.value = q.getAttribute("data-pq"); }; });
+      document.getElementById("nm-pinno").onclick = function () { box.remove(); };
+      ok.onclick = function () {
+        var v = String(inp.value || "").trim().replace(/[，,]/g, ""), n = Number(v);
+        if (!(n >= PIN_MIN) || !/^\d+(\.\d{1,2})?$/.test(v)) { st.textContent = "⚠️ 最少 " + PIN_MIN + " DAI，最多 2 位小数（例如 10 或 12.5）"; inp.focus(); return; }
+        ok.disabled = true; b.disabled = true;
+        var wei = BigInt(Math.round(n * 100)) * 10n ** 16n;
+        tx(DAI, "0xa9059cbb" + A.pad(BUYBACK) + u256(wei), say2, "⭐ 付置顶费 " + n + " DAI（3 天，不退）。请在钱包确认").then(function (h) {
+          var p = { tx: h, t: it.t, id: it.id };
+          try { localStorage.setItem("nmPinTx", JSON.stringify(p)); } catch (e) {}
+          say2("付款成功，登记置顶中…");
+          return pinPost(p, say2);
+        }).then(function () { ok.disabled = false; b.disabled = false; }, function (e) { ok.disabled = false; b.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), ok); });
+      };
+    }, function () { box.innerHTML = '<p class="muted">置顶行情读取失败，请稍后再试</p>'; });
   }
   function market() {
     var box = document.getElementById("nm-mk");

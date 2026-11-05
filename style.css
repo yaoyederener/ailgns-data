@@ -2310,3 +2310,13 @@ body.has-guide .otc-acts { display: none; }
   .nm-otbl td.nm-obp { grid-column: 2; grid-row: 2; font-size: 12px; color: var(--muted); }
   .nm-otbl td.nm-olt { grid-column: 3; grid-row: 2; font-size: 12px; color: var(--muted); white-space: nowrap; text-align: right; }
 }
+.nm-pinbox { margin: 10px 0; padding: 14px; border-radius: 16px; background: linear-gradient(135deg, #fff9e8, #f6f0ff); border: 1.5px solid #f0d78a; }
+.nm-pinbox > b { font-size: 16px; color: #5a35d6; }
+.nm-pinbox ul { margin: 6px 0; padding-left: 18px; font-size: 13px; color: #6b5aa6; line-height: 1.7; }
+.nm-pin-now { font-size: 13px; color: #8a6d1f; margin: 4px 0 8px; }
+.nm-pin-q { display: flex; gap: 6px; margin-bottom: 8px; }
+.nm-pin-q button { flex: 1; padding: 8px 0; border-radius: 10px; background: #fff; border: 1px solid #e3d8ff; color: #5a35d6; font-weight: 700; box-shadow: none; }
+.nm-pin-in { display: flex; align-items: center; gap: 8px; }
+.nm-pin-in input { flex: 1; font-size: 20px; font-weight: 800; padding: 10px 12px; border-radius: 12px; border: 1.5px solid #d9ccff; color: #2d1b69; min-width: 0; }
+.nm-pin-b { display: flex; gap: 8px; margin-top: 10px; }
+.nm-pin-b .nm-go { flex: 1; margin: 0; }
