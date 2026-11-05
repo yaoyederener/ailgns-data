@@ -1,5 +1,5 @@
 // 📮 问题反馈（#/feedback）：客户填钱包地址 + 文字 + 截图（可粘贴 / 拖进来 / 从相册选），提交后变成工单
-// 站长后台（#/feedback/admin）：输入口令（BACKUP_KEY）看工单、看截图、写回复、标记处理中 / 已解决
+// 站长后台（#/feedback/admin）：输入口令（FEEDBACK_KEY 或 BACKUP_KEY）看工单、看截图、写回复、标记处理中 / 已解决
 (function () {
   "use strict";
   var A = window.AIL;
@@ -157,7 +157,7 @@
     });
   }
   function login(rid) {
-    A.app.innerHTML = '<section class="card"><h2>📮 工单后台</h2><p>输入后台口令（BACKUP_KEY），只存在这台设备上，以后打开链接直接进。</p><div class="fb-row"><input id="fb-k" type="password" placeholder="口令"><button type="button" class="nm-go" id="fb-kgo">进入</button></div></section>';
+    A.app.innerHTML = '<section class="card"><h2>📮 工单后台</h2><p>输入后台口令（Cloudflare 里设的 FEEDBACK_KEY），只存在这台设备上，以后打开链接直接进。</p><div class="fb-row"><input id="fb-k" type="password" placeholder="口令"><button type="button" class="nm-go" id="fb-kgo">进入</button></div></section>';
     document.getElementById("fb-kgo").onclick = function () { try { localStorage.setItem("fbKey", document.getElementById("fb-k").value.trim()); } catch (e) {} admin(rid); };
   }
   function admin(rid, st) {
