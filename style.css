@@ -2386,3 +2386,4 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .lg-flow div { padding: 7px 0; border-bottom: 1px dashed #eee6ff; font-size: 14px; color: #3d2a8c; }
 .lg-arr { color: #9a8acc; margin: 0 2px; }
 .lg-raw { font-size: 12px; margin-top: 12px; word-break: break-all; }
+.sc-bal div.sc-zero { opacity: .55; }

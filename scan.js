@@ -327,6 +327,77 @@
     }
     return page(null, 1).catch(function () { return { items: items }; });
   }
+  // ===== 正在进行中：这个地址在本站的挂单、借贷、预言（机器人会告诉客户的事，这里也能看）=====
+  var MK = { ailgns: { sym: "AiLGNS", dec: 18, chain: "Anubis" }, lgns: { sym: "LGNS", dec: 9, chain: "Anubis" }, glgns: { sym: "gLGNS", dec: 18, chain: "Anubis" }, plgns: { sym: "LGNS", dec: 9, chain: "Polygon" } };
+  var LOANS = { ailgns: { c: "0x242ab392571d325d814a48892ac16115a6d285dc", sym: "AiLGNS", dec: 18 }, lgns: { c: "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b", sym: "LGNS", dec: 9 }, glgns: { c: "0x00e674bb1559557966a6c2244c36d12a63218a5f", sym: "gLGNS", dec: 18 } };
+  var big = function (x, dec) { var b = BigInt(x); return dec >= 6 ? Number(b / BigInt(10) ** BigInt(dec - 6)) / 1e6 : Number(b) / Math.pow(10, dec); };
+  var fmtA = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4); };
+  var leftT = function (sec) { if (sec <= 0) return "已到期"; var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟"; };
+  var wordsOf = function (r) { return (r || "0x").slice(2).match(/.{64}/g) || []; };
+  function posRow(ico, html, href, cta) { return '<div class="lg-row"><span class="lg-ico">' + ico + '</span><div class="lg-main"><div class="lg-txt">' + html + "</div></div>" + (href ? '<a class="lg-link" href="' + href + '">' + (cta || "去处理 ›") + "</a>" : "") + "</div>"; }
+  function positions(a, box) {
+    var now = Date.now() / 1000, out = [];
+    var jobs = [];
+    // OTC 挂单（四个币市场）
+    Object.keys(MK).forEach(function (k) {
+      jobs.push(fetch("/api/book?m=" + k).then(function (r) { return r.json(); }).then(function (d) {
+        var w = wordsOf(d.orders), n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, from = Number(d.from || 0), m = MK[k];
+        for (var i = 0; i < n; i++) {
+          var o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
+          var maker = "0x" + o[0].slice(24), sell = o[1].slice(-1) === "1", open = o[2].slice(-1) === "1", exp = Number(BigInt("0x" + o[3])), gT = BigInt("0x" + o[4]), wT = BigInt("0x" + o[5]), gL = BigInt("0x" + o[6]);
+          if (maker !== a || !open || exp <= now || gL === 0n) continue;
+          var giveLeft = big(gL, sell ? m.dec : 18), wantLeft = gT > 0n ? big(gL * wT / gT, sell ? 18 : m.dec) : 0;
+          var px = sell ? (giveLeft ? wantLeft / giveLeft : 0) : (wantLeft ? giveLeft / wantLeft : 0);
+          out.push({ t: exp, html: sell ? "📌 <b>OTC 挂单卖出</b> " + fmtA(giveLeft) + " " + m.sym + "，要价 " + fmtA(wantLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : "")
+            : "📌 <b>OTC 挂单买入</b> " + fmtA(wantLeft) + " " + m.sym + "，锁定 " + fmtA(giveLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : ""), href: "#/otc" + (k === "ailgns" ? "" : "/" + k), ico: "📌" });
+        }
+      }).catch(function () {}));
+    });
+    // 域名挂单
+    jobs.push(fetch("/api/name-market").then(function (r) { return r.json(); }).then(function (d) {
+      (d.list || []).forEach(function (x) {
+        if (x.maker !== a) return;
+        var p = big(x.price, 18);
+        out.push({ t: x.expiry, html: "🏷 <b>域名挂单出售</b> " + esc(x.label + "." + x.t) + "，标价 " + fmtA(p) + " DAI · 剩 " + leftT(x.expiry - now), href: "#/names/" + encodeURIComponent(x.label + "." + x.t), ico: "🏷" });
+      });
+    }).catch(function () {}));
+    // 借贷（借款单 / 出借单 / 借款中）
+    Object.keys(LOANS).forEach(function (k) {
+      var L = LOANS[k];
+      jobs.push(call(L.c, "0x9d11ed75").then(function (h) {
+        var count = Number(BigInt(h)), from = Math.max(0, count - 1000);
+        if (!count) return;
+        return call(L.c, "0x86b20104" + u256(from) + u256(count - from)).then(function (r) {
+          var w = wordsOf(r), n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0;
+          for (var i = 0; i < n; i++) {
+            var o = w.slice(2 + i * 10, 12 + i * 10); if (o.length < 10) break;
+            var br = "0x" + o[0].slice(24), ld = "0x" + o[1].slice(24), isOffer = o[2].slice(-1) === "1", st = Number(BigInt("0x" + o[3])), exp = Number(BigInt("0x" + o[4])), term = Number(BigInt("0x" + o[5])), due = Number(BigInt("0x" + o[6]));
+            var col = big(o[7], L.dec), prin = big(o[8], 18), rep = big(o[9], 18);
+            if (br !== a && ld !== a) continue;
+            if (st === 0 && exp > now) {
+              if (isOffer && ld === a) out.push({ t: exp, html: "📣 <b>出借单挂着</b>：锁定 " + fmtA(prin) + " DAI 等人来借，到期收 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "📣" });
+              else if (!isOffer && br === a) out.push({ t: exp, html: "🤝 <b>借款单挂着</b>：抵押 " + fmtA(col) + " " + L.sym + "，想借 " + fmtA(prin) + " DAI，到期还 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "🤝" });
+            } else if (st === 1) {
+              if (br === a) out.push({ t: due, html: "💰 <b>借款中</b>：借了 " + fmtA(prin) + " DAI，到期要还 <b>" + fmtA(rep) + " DAI</b>，抵押 " + fmtA(col) + " " + L.sym + " · " + (due > now ? "还剩 " + leftT(due - now) + "，记得按时还" : "<b class=\"nm-bad\">已过期，抵押可能被处置</b>"), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "💰" });
+              else out.push({ t: due, html: "💵 <b>出借中</b>：借出 " + fmtA(prin) + " DAI，到期收回 " + fmtA(rep) + " DAI · " + (due > now ? "还剩 " + leftT(due - now) : "<b>已到期</b>，对方没还可以处置抵押"), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "💵" });
+            }
+          }
+        });
+      }).catch(function () {}));
+    });
+    // 预言家本轮预测
+    jobs.push(fetch("/api/oracle?a=" + a).then(function (r) { return r.json(); }).then(function (d) {
+      var me = d.me || {};
+      if (me.ps && me.ps.length) out.push({ t: 0, html: "🔮 <b>预言家</b>：本轮已预测 " + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + (me.n ? "（" + me.used + "/" + me.n + " 次）" : "") + "，晚 9–10 点揭晓", href: "#/oracle", ico: "🔮", cta: "看排行 ›" });
+    }).catch(function () {}));
+    return Promise.all(jobs).then(function () {
+      if (!box.isConnected) return;
+      if (!out.length) { box.innerHTML = '<p class="muted">现在没有挂单、借贷或预测 · <a href="#/otc">去 OTC 挂一单 →</a></p>'; return; }
+      box.innerHTML = out.map(function (x) { return posRow(x.ico, x.html, x.href, x.cta); }).join("");
+      fillNames(box);
+    });
+  }
+
   // 地址：我的钱、我的域名、我做过的事
   function addrView(a, out, via) {
     var wait = '<p class="muted">读取中…</p>';
@@ -335,6 +406,7 @@
       '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2><a href="https://anubisscan.io/address/' + a + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
       '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
       '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
+      '<section class="card"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div><div class="lg-list" id="sc-pos">' + wait + "</div></section>" +
       '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>" +
       '<section class="card"><div class="card-head"><h2>📜 我做过的事</h2><span class="muted">最新的在上面 · 北京时间</span></div><div class="lg-list" id="sc-lg">' + wait + "</div></section>";
     var el = function (id) { return document.getElementById(id); };
@@ -343,9 +415,9 @@
       el("sc-who").innerHTML = primary ? '<p>主名字：<b class="sc-nm">' + esc(primary) + "</b></p>" : (KNOWN[a] ? "" : '<p class="muted">还没设主名字 · <a href="#/names">去注册一个域名 →</a></p>');
     });
     get("/addresses/" + a + "/token-balances").catch(function () { return []; }).then(function (bals) {
-      var keep = ["DAI", "AiLGNS", "LGNS", "gLGNS"], shown = (bals || []).filter(function (b) { return b.token && b.token.type === "ERC-20" && keep.indexOf(b.token.symbol) >= 0; });
-      shown.sort(function (p, q) { return keep.indexOf(p.token.symbol) - keep.indexOf(q.token.symbol); });
-      if (el("sc-bal")) el("sc-bal").innerHTML = shown.map(function (b) { return "<div><span>" + esc(b.token.symbol) + "</span><b>" + amt(b.value, b.token.decimals) + "</b></div>"; }).join("") || '<p class="muted">没有 DAI / AiLGNS / LGNS</p>';
+      var keep = ["DAI", "AiLGNS", "LGNS", "gLGNS"], have = {};
+      (bals || []).forEach(function (b) { if (b.token && b.token.type === "ERC-20" && keep.indexOf(b.token.symbol) >= 0) have[b.token.symbol] = amt(b.value, b.token.decimals); });
+      if (el("sc-bal")) el("sc-bal").innerHTML = keep.map(function (k) { return "<div" + (have[k] ? "" : ' class="sc-zero"') + "><span>" + k + "</span><b>" + (have[k] || "0") + "</b></div>"; }).join("");
     });
     allNfts(a).then(function (x) {
       var mine = (x.items || []).filter(function (n) { var t = (n.token.address_hash || "").toLowerCase(); return t === NAMES.ailgns || t === NAMES.lgns; });
@@ -357,6 +429,7 @@
         return '<a href="#/names/' + encodeURIComponent(nm) + '">' + esc(nm || "#" + String(n.id).slice(0, 8)) + "</a>";
       }).join("") + "</div>" : '<p class="muted">没有域名 · <a href="#/names">去注册 →</a></p>';
     });
+    positions(a, el("sc-pos"));
     ledger(a, el("sc-lg"));
     return Promise.resolve();
   }
