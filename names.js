@@ -321,11 +321,14 @@
         var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
         if (!list.length) {
-          var mv = (movedOf[a] || []).filter(function (x) { return x.label; }), sh = function (x) { return x.slice(0, 6) + "…" + x.slice(-4); };
-          o.innerHTML = (mv.length ? '<div class="nm-mv"><b>📦 这个钱包注册/收到过 ' + mv.length + ' 个域名，但现在不在这个钱包：</b>' + mv.map(function (x) {
+          var seen = {}, mv = (movedOf[a] || []).filter(function (x) { var k = x.t + ":" + x.label; if (!x.label || seen[k]) return false; seen[k] = 1; return true; }), sh = function (x) { return x.slice(0, 6) + "…" + x.slice(-4); };
+          var onMk = mv.filter(function (x) { return x.to === OTC[x.t]; }); mv = mv.filter(function (x) { return x.to !== OTC[x.t]; });
+          o.innerHTML = (onMk.length ? '<div class="nm-mv"><b>🛒 这个钱包有 ' + onMk.length + ' 个域名正在域名市场出售</b>' + onMk.map(function (x) {
+            return '<div><a href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' + esc(x.label) + "." + x.t + "</a> · 挂单中（暂时托管在市场合约，卖掉前随时可以撤单拿回）</div>";
+          }).join("") + "<small>挂单详情、撤单、置顶都在下面的「挂单」列表里。</small></div>" : "") + (mv.length ? '<div class="nm-mv"><b>📦 这个钱包注册/收到过 ' + mv.length + ' 个域名，但现在不在这个钱包：</b>' + mv.map(function (x) {
             return '<div><a href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' + esc(x.label) + "." + x.t + "</a> → 现在在 <code>" + sh(x.to) + "</code></div>";
           }).join("") + '<small>说明域名已经转到别的钱包（或卖掉了）。用上面显示的那个钱包登录/查询，就能看到它。</small></div>'
-            : '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><p class="muted">💡 如果你确定注册过：可能是用<b>另一个钱包</b>注册的。换成注册时付款的那个钱包地址再查一次。</p>') + '<div id="nm-myo"></div>'; paidRec(a, o, self); myOpen(a, document.getElementById("nm-myo")); return; }
+            : onMk.length ? "" : '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><p class="muted">💡 如果你确定注册过：可能是用<b>另一个钱包</b>注册的。换成注册时付款的那个钱包地址再查一次。</p>') + '<div id="nm-myo"></div>'; paidRec(a, o, self); myOpen(a, document.getElementById("nm-myo")); return; }
         var g = list.filter(function (x) { return x.no; }).length;
         o.innerHTML = '<p class="nm-my-sum" id="nm-mysum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
