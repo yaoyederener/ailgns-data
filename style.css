@@ -2186,3 +2186,5 @@ tr.nm-pinrow td { background: #fff8e6; }
 .fb-one .fb-tk { border: 2px solid #c4b5fd; }
 .fb-one .fb-ims img { width: 100%; height: auto; max-height: 520px; object-fit: contain; }
 .fb-nav { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.fb-dbx { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #f3edff; border: 1px solid #e3d8ff; }
+.fb-dbx > p { margin: 0 0 6px; font-size: 13.5px; color: #4b2fb0; }
