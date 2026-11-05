@@ -101,6 +101,7 @@ export async function onRequestPost(ctx) {
   try {
     if (b.action === "order") return await order(kv, b);
     if (b.action === "check") return await check(kv, b);
+    if (b.action === "claim") return await claim(kv, b); // 只有交易哈希、没有订单号：在未付的订单里找对得上的那张（客服用）
     if (b.action === "transfer") return await transfer(kv, b);
   } catch (e) {
     return Response.json({ error: String((e && e.message) || e) }, { status: 502 });
@@ -179,6 +180,32 @@ async function credit(kv, o, txHash, block, from) {
   await kv.put("mord:" + o.id, JSON.stringify(o), { expirationTtl: 30 * 86400 }); // 付过的订单多留一阵，方便查
   await kv.delete("mamt:" + o.method + ":" + o.units);
   return p;
+}
+
+// 按交易哈希找单：遍历还没付的订单，链、币种对得上、金额在订单金额的 100%–110% 之间、交易在下单之后 → 记到那张单上
+async function claim(kv, b) {
+  const tx = String(b.tx || "").toLowerCase();
+  if (!isTx(tx)) return Response.json({ error: "交易哈希不对" }, { status: 400 });
+  const owner = await kv.get("memtx:" + tx);
+  if (owner) return Response.json({ paid: true, target: owner, note: "这笔交易已经认过了" });
+  let cursor, cands = [];
+  do {
+    const r = await kv.list({ prefix: "mord:", cursor });
+    for (const k of r.keys) { const o = await kv.get(k.name, "json"); if (o && !o.paid) cands.push(o); }
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  for (const chain of [...new Set(cands.map((o) => o.chain))]) {
+    const r = await rpc(chain, "eth_getTransactionReceipt", [tx]).catch(() => null);
+    if (!r || r.status !== "0x1") continue;
+    const blk = parseInt(r.blockNumber, 16);
+    for (const o of cands.filter((x) => x.chain === chain && x.start <= blk).sort((x, y) => y.at - x.at)) {
+      const log = matchLog(r, o) || matchLog(r, o, true);
+      if (!log) continue;
+      const p = await credit(kv, o, tx, blk, "0x" + log.topics[1].slice(26));
+      if (p) return Response.json({ paid: true, payment: p, target: o.target, order: o.id });
+    }
+  }
+  return Response.json({ paid: false, error: "没找到对得上的订单（可能已过期，请重新下单后联系客服）" }, { status: 404 });
 }
 
 async function check(kv, b) {
