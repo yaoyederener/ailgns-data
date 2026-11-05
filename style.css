@@ -2387,3 +2387,10 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .lg-arr { color: #9a8acc; margin: 0 2px; }
 .lg-raw { font-size: 12px; margin-top: 12px; word-break: break-all; }
 .sc-bal div.sc-zero { opacity: .55; }
+/* 链上留言 */
+.sc-msgbtn { margin: 0; padding: 8px 14px; font-size: 14px; }
+#sc-msgbox textarea { width: 100%; box-sizing: border-box; border: 1.5px solid #d9ccff; border-radius: 12px; padding: 10px; font: inherit; font-size: 15px; resize: vertical; }
+.sc-mrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 4px; flex-wrap: wrap; }
+.sc-mrow .nm-go { margin: 0; padding: 9px 18px; }
+.lg-row.msg-me .lg-ico { background: #e8f3ff; }
+.msg-pill { position: fixed; left: 14px; bottom: 18px; z-index: 40; padding: 10px 14px; border-radius: 999px; background: linear-gradient(120deg, #7c4dff, #a855f7); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 8px 22px rgba(124, 77, 255, .35); }

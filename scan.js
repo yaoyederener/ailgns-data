@@ -161,6 +161,17 @@
   var firstIn = function (ms, sym) { return ms.filter(function (m) { return m.dir === "in" && (!sym || m.sym === sym); })[0]; };
   var firstOut = function (ms, sym) { return ms.filter(function (m) { return m.dir === "out" && (!sym || m.sym === sym); })[0]; };
   var pxOf = function (dai, coin) { return coin > 0 ? "，单价 " + (dai / coin).toFixed(3) : ""; };
+  // 链上留言：0 元交易，data = utf8("ailgns-msg:" + 文字)
+  var MSG_PREFIX = "ailgns-msg:";
+  function decodeMsg(input) {
+    if (!input || input.length < 2 + MSG_PREFIX.length * 2) return null;
+    try {
+      var bytes = new Uint8Array((input.slice(2).match(/../g) || []).map(function (x) { return parseInt(x, 16); }));
+      var str = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      return str.indexOf(MSG_PREFIX) === 0 ? str.slice(MSG_PREFIX.length).slice(0, 300) : null;
+    } catch (e) { return null; }
+  }
+  function encodeMsg(txt) { return "0x" + Array.prototype.map.call(new TextEncoder().encode(MSG_PREFIX + txt), function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
   // 把一笔交易翻译成一句人话：返回 { ico, text }
   function translate(a, row) {
     var t = row.tx, ms = moves(a, row.tr), sel = t && (t.raw_input || "").slice(0, 10), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "", ok = !t || t.result === "success";
@@ -168,6 +179,8 @@
     var daiIn = sumOf(ms, "in", "DAI"), daiOut = sumOf(ms, "out", "DAI");
     var coinIn = ms.filter(function (m) { return m.dir === "in" && !m.nft && m.sym !== "DAI"; })[0], coinOut = ms.filter(function (m) { return m.dir === "out" && !m.nft && m.sym !== "DAI"; })[0];
     if (t && !ok) return { ico: "❌", text: "操作没成功（链上已回滚，没扣钱）" + (METHODS[sel] ? "：" + METHODS[sel] : "") };
+    var mtxt = t && to && !KNOWN[to] && !C.tokens[to] ? decodeMsg(t.raw_input) : null;
+    if (mtxt) { var mfrom = (t.from && t.from.hash || "").toLowerCase(); return mfrom === a ? { ico: "💬", text: "给 " + who(to) + " <b>留言</b>：「" + esc(mtxt) + "」" } : { ico: "📬", text: who(mfrom) + " <b>给你留言</b>：「" + esc(mtxt) + "」" }; }
     // —— 一键扫单 / 自动撮合（合约替你一次吃多张单）——
     if (C.sweep[to] || (!t && ms.some(function (m) { return C.sweep[m.other]; }))) {
       if (coinIn && daiOut) return { ico: "🛒", text: "<b>一键扫单买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxOf(daiOut, coinIn.v) };
@@ -400,6 +413,73 @@
     });
   }
 
+  // ===== 留言：列表、写信、发送（0 元交易带 data，钱包签名，只花 Gas）=====
+  var SEEN_KEY = "msgSeen";
+  function msgRow(a, m) {
+    var mine = m.from === a, other = mine ? m.to : m.from, otherName = mine ? m.toName : m.fromName;
+    var d = new Date(m.t + 8 * 3600e3), when = (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
+    return '<div class="lg-row' + (mine ? " msg-me" : "") + '"><span class="lg-ico">' + (mine ? "💬" : "📬") + '</span><div class="lg-main"><div class="lg-txt">' + (mine ? "我 → " : "") + '<a href="#/scan/' + other + '"><b>' + esc(otherName || A.short(other)) + "</b></a>" + (mine ? "" : " → 我") + '：' + esc(m.txt) + '</div><small>' + when + "</small></div>" + (mine ? "" : '<a class="lg-link" href="#/scan/' + other + '">回复 ›</a>') + "</div>";
+  }
+  function messages(a, via) {
+    var box = document.getElementById("sc-msgs"), btn = document.getElementById("sc-msgbtn"), form = document.getElementById("sc-msgbox"), ta = document.getElementById("sc-mtxt"), st = document.getElementById("sc-mst"), n = document.getElementById("sc-mn");
+    var me = A.otcKit && A.otcKit.account && A.otcKit.account();
+    if (me && me === a) { btn.textContent = "📬 这是我的信箱"; btn.disabled = true; try { localStorage.setItem(SEEN_KEY, String(Date.now())); } catch (e) {} var pill = document.getElementById("msg-pill"); if (pill) pill.remove(); }
+    fetch("/api/msg?a=" + a).then(function (r) { return r.json(); }).then(function (d) {
+      if (!box.isConnected) return;
+      var list = d.list || [];
+      box.innerHTML = list.length ? list.slice(0, 50).map(function (m) { return msgRow(a, m); }).join("") : '<p class="muted">还没有留言。' + (me === a ? "" : "点右上角「💬 给 TA 留言」，第一个打招呼。") + "</p>";
+    }, function () { box.innerHTML = '<p class="muted">留言读取失败</p>'; });
+    btn.onclick = function () { form.hidden = !form.hidden; if (!form.hidden) ta.focus(); };
+    ta.oninput = function () { n.textContent = Array.from(ta.value).length; };
+    document.getElementById("sc-msend").onclick = function () {
+      var txt = ta.value.trim(), sb = this;
+      if (!txt) return A.errTip("先写点什么", ta);
+      if (Array.from(txt).length > 200) return A.errTip("最多 200 字", ta);
+      var say = function (t) { st.textContent = t; };
+      sb.disabled = true;
+      var acct;
+      A.otcKit.connect().then(function (acc) {
+        acct = acc;
+        if (acct === a) throw new Error("不能给自己留言");
+        say("检查发信资格…");
+        return nameOf(acct);
+      }).then(function (nm) {
+        if (!nm) throw new Error("只有注册了 .ailgns 域名并设为主名字的钱包才能发信。去「域名」页注册一个（最低 5 DAI），设为主名字后再来");
+        say("🔒 这是一笔 0 元转账，文字放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认");
+        var eth = W.get();
+        return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: acct, to: a, value: "0x0", data: encodeMsg(txt) }] });
+      }).then(function (hash) {
+        say("已提交，等待链上确认…");
+        return W.waitOn("anubis", hash).then(function () { return hash; });
+      }).then(function (hash) {
+        say("链上已确认，正在通知对方…");
+        return fetch("/api/msg", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: hash }) }).then(function (r) { return r.json(); });
+      }).then(function (r) {
+        if (r.error) throw new Error(r.error);
+        say("✅ 留言已上链" + (r.notified ? "，对方的 DeBox 已收到提醒" : "，对方进站就能看到"));
+        ta.value = ""; n.textContent = "0";
+        if (r.item) { var empty = box.querySelector("p.muted"); if (empty) empty.remove(); box.insertAdjacentHTML("afterbegin", msgRow(a, r.item)); }
+        sb.disabled = false;
+      }).catch(function (e) { sb.disabled = false; say(""); A.errTip((e && (e.message || e.reason)) || String(e), sb); });
+    };
+  }
+  // 全站：连过钱包的人有新留言时，左下角出现小提示
+  function msgPill() {
+    if (!A.wallets || !A.wallets.silent) return;
+    A.wallets.silent().then(function (acc) {
+      if (!acc) return;
+      acc = String(acc).toLowerCase();
+      var seen = 0; try { seen = Number(localStorage.getItem(SEEN_KEY) || 0); } catch (e) {}
+      return fetch("/api/msg?a=" + acc).then(function (r) { return r.json(); }).then(function (d) {
+        var fresh = (d.list || []).filter(function (m) { return m.to === acc && m.t > seen; }).length;
+        if (!fresh || document.getElementById("msg-pill")) return;
+        var el = document.createElement("a"); el.id = "msg-pill"; el.className = "msg-pill"; el.href = "#/scan/" + acc; el.textContent = "📬 " + fresh + " 条新留言";
+        document.body.appendChild(el);
+      });
+    }).catch(function () {});
+  }
+  setTimeout(msgPill, 4000);
+
   // 地址：我的钱、我的域名、我做过的事
   function addrView(a, out, via) {
     var wait = '<p class="muted">读取中…</p>';
@@ -407,6 +487,10 @@
       (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2></div>' +
       '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
+      '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
+      '<div id="sc-msgbox" hidden><textarea id="sc-mtxt" maxlength="200" rows="3" placeholder="写给 TA 的话（200 字以内）。留言会永久记录在链上，所有人可见，只花约 0.001 DAI 的 Gas。"></textarea>' +
+      '<div class="sc-mrow"><small class="muted"><span id="sc-mn">0</span>/200 · 只有注册了 .ailgns 域名并设为主名字的钱包才能发信</small><button type="button" class="nm-go" id="sc-msend">发送留言</button></div><p class="muted nm-st" id="sc-mst"></p></div>' +
+      '<div class="lg-list" id="sc-msgs">' + wait + "</div></section>" +
       '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
       '<section class="card"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div><div class="lg-list" id="sc-pos">' + wait + "</div></section>" +
       '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>" +
@@ -431,6 +515,7 @@
         return '<a href="#/names/' + encodeURIComponent(nm) + '">' + esc(nm || "#" + String(n.id).slice(0, 8)) + "</a>";
       }).join("") + "</div>" : '<p class="muted">没有域名 · <a href="#/names">去注册 →</a></p>';
     });
+    messages(a, via);
     positions(a, el("sc-pos"));
     ledger(a, el("sc-lg"));
     return Promise.resolve();
