@@ -94,7 +94,7 @@
     var wait = add("bot", '<span class="cb-typing"><i></i><i></i><i></i></span>');
     var ctl = window.AbortController ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
-    fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history.slice(-8) }), signal: ctl ? ctl.signal : undefined })
+    withCtx().then(function (c) { return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history.slice(-8), a: walletA, ctx: c }), signal: ctl ? ctl.signal : undefined }); })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; })
       .then(function (j) {
@@ -112,11 +112,22 @@
   }
   // 每次咨询（问题 + 回答）转发到站长指定的 DeBox（后台 /api/chat-log），人工能看到客户在问什么
   var SID = (function () { try { var k = "cb:sid", v = localStorage.getItem(k); if (!v) { v = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(k, v); } return v; } catch (e) { return "anon"; } })();
+  // 客户连过钱包：把他的地址和「正在进行中」一起交给机器人和人工，回答「我的钱呢」这类问题不用他自己去查
+  var walletA = null, ctxCache = { at: 0, v: [] };
+  function wallet() { if (walletA || !window.AIL || !window.AIL.wallets || !window.AIL.wallets.silent) return Promise.resolve(walletA); return window.AIL.wallets.silent().then(function (a) { walletA = a ? String(a).toLowerCase() : null; return walletA; }).catch(function () { return null; }); }
+  function withCtx() {
+    return wallet().then(function (a) {
+      if (!a || !window.AIL.myPositions) return [];
+      if (Date.now() - ctxCache.at < 60000) return ctxCache.v;
+      return Promise.race([window.AIL.myPositions(a), new Promise(function (res) { setTimeout(function () { res([]); }, 5000); })]).then(function (v) { ctxCache = { at: Date.now(), v: v || [] }; return ctxCache.v; });
+    }).catch(function () { return []; });
+  }
+  wallet();
   function forward(answer, human) {
     var q = history.filter(function (m) { return m.role === "user"; }).slice(-1)[0];
     if (!q) return;
     try {
-      fetch("/api/chat-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q: q.content, a: String(answer || "").slice(0, 600), page: location.hash || "/", sid: SID, human: !!human }), keepalive: true }).catch(function () {});
+      fetch("/api/chat-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet: walletA, q: q.content, a: String(answer || "").slice(0, 600), page: location.hash || "/", sid: SID, human: !!human }), keepalive: true }).catch(function () {});
     } catch (e) { /* 转发失败不影响聊天 */ }
   }
 

@@ -26,6 +26,7 @@ export async function onRequestPost(ctx) {
   const text = `💬 访客 ${code} 的咨询${b.human ? "（要找人工）" : ""}\n` +
     `问：${q}\n` +
     (a ? `机器人答：${a}\n` : "") +
+    (/^0x[0-9a-f]{40}$/.test(String(b.wallet || "")) ? `钱包 ${b.wallet} · 账本 https://ailgns.dev/#/scan/${b.wallet}\n` : "") +
     `—— 页面 ${page || "/"}${country ? " · " + country : ""}${ip ? " · " + ip.replace(/\.\d+$/, ".*") : ""}\n` +
     `直接回复这条消息就是回复 TA；要回别的访客，开头写 @编号`;
   try {

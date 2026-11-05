@@ -1,5 +1,6 @@
 // 机器人客服的 AI 回答：用 Cloudflare Workers AI（Pages 设置里绑定 AI，变量名 AI）。没绑定时返回 501，网页自动退回常见问题回答
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+import { UPDATES } from "../../lib/updates.js";
 
 const KNOWLEDGE = `你是「AiLGNS 服务站」(网址 ailgns.dev) 的客服机器人。只用简体中文回答，简洁、友好，3-6 句话以内。
 铁律：只能根据下面列出的内容回答；下面没写的、不确定的，直接说"这个我不确定，建议找人工"，并在回答最后单独一行写 [HUMAN]。绝不编造功能、数字、地址、时间。不提供投资建议，不预测价格，不承诺收益。
@@ -102,21 +103,41 @@ const KNOWLEDGE = `你是「AiLGNS 服务站」(网址 ailgns.dev) 的客服机�
 【人工客服】北京时间凌晨 2 点到下午 14 点（温哥华时间早上 10 点到晚上 22 点）。客户在客服窗口留言，每一条都会有人阅读并反馈；也可以点「加站长 DeBox，找人工」。遇到资金没到账、交易异常、要核对交易哈希、或上面没写的问题，请让用户找人工，并在回答最后单独一行写 [HUMAN]。`;
 
 export async function onRequestPost(ctx) {
-  if (!ctx.env.AI) return new Response("ai not bound", { status: 501 });
+  if (!ctx.env.AI && !ctx.env.ANTHROPIC_API_KEY) return new Response("ai not bound", { status: 501 });
   let body;
   try { body = await ctx.request.json(); } catch (e) { return new Response("bad json", { status: 400 }); }
+  // 客户的钱包和「正在进行中」（前端从链上/本站接口读好传来，机器人直接用来回答「我的钱 / 我的单」）
+  const a = /^0x[0-9a-f]{40}$/.test(String(body.a || "")) ? String(body.a) : "";
+  const ctxLines = (Array.isArray(body.ctx) ? body.ctx : []).slice(0, 12).map((x) => String(x).slice(0, 200));
+  const extra = (UPDATES.length ? "\n\n【最近更新（新的在前）】\n" + UPDATES.slice(0, 12).map((u) => "- " + u.d + "：" + u.t).join("\n") : "") +
+    (a ? "\n\n【这位客户（钱包 " + a.slice(0, 6) + "…" + a.slice(-4) + "）的链上实时情况】\n" + (ctxLines.length ? ctxLines.map((x) => "- " + x).join("\n") : "- 现在没有挂单、借贷或预测") + "\n如果客户问「我的钱 / 我的单 / 我的域名」，直接用上面的情况回答，并建议他到账本 ailgns.dev/#/scan/" + a + " 查看。" : "");
   const messages = (Array.isArray(body.messages) ? body.messages : []).slice(-8)
     .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .map((m) => ({ role: m.role, content: m.content.slice(0, 600) }));
   if (!messages.length || messages[messages.length - 1].role !== "user") return new Response("no question", { status: 400 });
-  try {
-    const r = await ctx.env.AI.run(MODEL, { messages: [{ role: "system", content: KNOWLEDGE }, ...messages], max_tokens: 400, temperature: 0.2 });
-    let answer = String((r && r.response) || "").trim();
-    const human = /\[HUMAN\]/i.test(answer);
-    answer = answer.replace(/\[HUMAN\]/gi, "").trim();
-    if (!answer) return new Response("empty", { status: 502 });
-    return Response.json({ answer, human });
-  } catch (e) {
-    return new Response("ai error", { status: 502 });
+  // Claude 的对话要求 user / assistant 交替、第一条是 user：合并连续同角色、去掉开头的 assistant
+  const turns = [];
+  for (const m of messages) { if (!turns.length && m.role !== "user") continue; if (turns.length && turns[turns.length - 1].role === m.role) turns[turns.length - 1].content += "\n" + m.content; else turns.push({ role: m.role, content: m.content }); }
+  let answer = "", engine = "";
+  // 优先用 Claude（站长 2026-11-05 定，中文更准、不瞎编）；没配 key 或出错时退回 Cloudflare 的 Llama，客服永远不断
+  if (ctx.env.ANTHROPIC_API_KEY && turns.length) {
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST", headers: { "x-api-key": ctx.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: ctx.env.CLAUDE_MODEL || "claude-haiku-5-5", max_tokens: 500, temperature: 0.2, system: KNOWLEDGE + extra, messages: turns }),
+      });
+      if (r.ok) { const j = await r.json(); answer = (j.content || []).map((c) => c.text || "").join("").trim(); engine = "claude"; }
+    } catch (e) { answer = ""; }
   }
+  if (!answer && ctx.env.AI) {
+    try {
+      const r = await ctx.env.AI.run(MODEL, { messages: [{ role: "system", content: KNOWLEDGE + extra }, ...messages], max_tokens: 400, temperature: 0.2 });
+      answer = String((r && r.response) || "").trim(); engine = "llama";
+    } catch (e) { answer = ""; }
+  }
+  if (!answer) return new Response("ai error", { status: 502 });
+  const human = /\[HUMAN\]/i.test(answer);
+  answer = answer.replace(/\[HUMAN\]/gi, "").trim();
+  if (!answer) return new Response("empty", { status: 502 });
+  return Response.json({ answer, human, engine });
 }

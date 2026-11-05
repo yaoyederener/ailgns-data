@@ -406,12 +406,16 @@
       if (me.ps && me.ps.length) out.push({ t: 0, html: "<b>预言家</b>：本轮已预测 " + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + (me.n ? "（" + me.used + "/" + me.n + " 次）" : "") + "，晚 9–10 点揭晓", href: "#/oracle", ico: "🔮", cta: "看排行 ›" });
     }).catch(function () {}));
     return Promise.all(jobs).then(function () {
-      if (!box.isConnected) return;
-      if (!out.length) { box.innerHTML = '<p class="muted">现在没有挂单、借贷或预测 · <a href="#/otc">去 OTC 挂一单 →</a></p>'; return; }
+      if (!box) return out;
+      if (!box.isConnected) return out;
+      if (!out.length) { box.innerHTML = '<p class="muted">现在没有挂单、借贷或预测 · <a href="#/otc">去 OTC 挂一单 →</a></p>'; return out; }
       box.innerHTML = out.map(function (x) { return posRow(x.ico, x.html, x.href, x.cta); }).join("");
       fillNames(box);
+      return out;
     });
   }
+  // 给客服机器人用：这个钱包正在进行中的事，纯文字一行一条
+  A.myPositions = function (a) { return positions(String(a).toLowerCase(), null).then(function (out) { return (out || []).map(function (x) { return x.html.replace(/<[^>]+>/g, ""); }); }).catch(function () { return []; }); };
 
   // ===== 留言：列表、写信、发送（0 元交易带 data，钱包签名，只花 Gas）=====
   var SEEN_KEY = "msgSeen";
