@@ -120,9 +120,10 @@
     var potA = d.funds ? d.funds.ail + d.funds.dai / opx : 0, potV = Math.floor(potA * opx * 100) / 100; // 奖池 AiLGNS 数量 / 折合 DAI
     var a2 = function (v) { return Math.round(v * 100); }, dai0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); };
     var ocT = oc.at ? new Date(oc.at + 8 * 3600e3) : null, ocWhen = ocT ? (ocT.getUTCMonth() + 1) + "/" + ocT.getUTCDate() + " " + String(ocT.getUTCHours()).padStart(2, "0") + ":" + String(ocT.getUTCMinutes()).padStart(2, "0") : "";
-    var ocNote = oc.src === "otc24" ? "按本站 OTC 市场 <b>24 小时内真实成交最高价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + " 成交，共 " + oc.n + " 笔）折算"
-      : oc.src === "otclast" ? "按本站 OTC 市场 <b>最近一笔真实成交价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + "）折算，24 小时内暂无新成交"
-      : "OTC 市场暂无成交记录，暂按 DEX 现价 " + opx.toFixed(3) + " DAI/枚 折算";
+    var ocRule = "（只算单笔 ≥ 10 DAI 的真实成交，且不超过 DEX 现价 +50%，防小单刷价）";
+    var ocNote = oc.src === "otc24" ? "按本站 OTC 市场 <b>24 小时内真实成交最高价 " + opx.toFixed(3) + " DAI/枚</b>" + (oc.capped ? "（实际成交 " + oc.raw.toFixed(3) + "，已按 DEX +50% 封顶）" : "（" + ocWhen + " 成交）") + "折算，24 小时共 " + oc.n + " 笔 / " + (oc.vol || 0) + " DAI" + ocRule
+      : oc.src === "otclast" ? "按本站 OTC 市场 <b>最近一笔真实成交价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + "）折算，24 小时内暂无新成交" + ocRule
+      : "OTC 市场暂无成交记录，暂按 DEX 现价 " + opx.toFixed(3) + " DAI/枚 折算" + ocRule;
     var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
