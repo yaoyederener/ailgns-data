@@ -168,7 +168,7 @@
       go.disabled = true; tip.className = "fb-kmsg"; tip.textContent = "核对中…";
       fetch("/api/feedback?list=1&st=new&key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
         go.disabled = false;
-        if (j.error) { tip.className = "fb-kmsg err"; tip.textContent = "口令不对（" + j.error + "）。用 1Password 里「AiLGNS · BACKUP_KEY」那一串，整段复制，前后别带空格。"; inp.select(); return; }
+        if (j.error) { tip.className = "fb-kmsg err"; tip.textContent = "口令不对。后台认 Cloudflare 里的 FEEDBACK_KEY（或 BACKUP_KEY），请核对后整段粘贴。"; inp.select(); return; }
         try { localStorage.setItem("fbKey", k); } catch (e) {}
         admin(rid);
       }, function () { go.disabled = false; tip.className = "fb-kmsg err"; tip.textContent = "网络没通，再点一次"; });
