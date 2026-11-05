@@ -158,9 +158,10 @@ async function order(kv, b) {
   return Response.json({ error: "现在下单的人太多，请稍后再试" }, { status: 503 });
 }
 
-// 在回执里找「转到收款地址、金额正好等于订单金额」的那笔
-function matchLog(r, o) {
-  return (r.logs || []).filter((l) => l.address.toLowerCase() === o.token && l.topics[0] === TRANSFER && l.topics[2] && "0x" + l.topics[2].slice(26) === RECEIVER && BigInt(l.data) === BigInt(o.units))[0];
+// 在回执里找「转到收款地址、金额正好等于订单金额」的那笔；loose = 客户自己粘贴了交易哈希时，多付了也认（≥ 订单金额、≤ 110%，手滑多转零头的情况）
+function matchLog(r, o, loose) {
+  const u = BigInt(o.units);
+  return (r.logs || []).filter((l) => l.address.toLowerCase() === o.token && l.topics[0] === TRANSFER && l.topics[2] && "0x" + l.topics[2].slice(26) === RECEIVER && (BigInt(l.data) === u || (loose && BigInt(l.data) >= u && BigInt(l.data) <= u * 110n / 100n)))[0];
 }
 
 async function credit(kv, o, txHash, block, from) {
@@ -187,7 +188,7 @@ async function check(kv, b) {
   const tx = String(b.tx || "").toLowerCase();
   if (isTx(tx)) { // 网页里用钱包付的：直接按交易哈希核对
     const r = await rpc(o.chain, "eth_getTransactionReceipt", [tx]);
-    const log = r && r.status === "0x1" && matchLog(r, o);
+    const log = r && r.status === "0x1" && (matchLog(r, o) || matchLog(r, o, true));
     if (log && parseInt(r.blockNumber, 16) >= o.start) {
       const p = await credit(kv, o, tx, parseInt(r.blockNumber, 16), "0x" + log.topics[1].slice(26));
       if (p) return Response.json({ paid: true, payment: p, target: o.target });
