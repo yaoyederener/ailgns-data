@@ -29,7 +29,7 @@
     ["域名", "NAME", [["#/names", "注册域名", "chain"], ["#/names/otc", "域名 OTC", "otc"], ["#/names/mine", "我的域名", "chain"]]],
     ["销毁乐园", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/farm", "🏡 开心农场", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
     ["数据", "DATA", [["#/flows", "资金流向", "flow"]]],
-    ["合作与支持", "SUPPORT", [["#/promo", "营销广告", "promo"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/app", "下载 App", "app"], ["https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7", "加站长 DeBox", "chat", true]]]
+    ["合作与支持", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/promo", "营销广告", "promo"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/app", "下载 App", "app"], ["https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7", "加站长 DeBox", "chat", true]]]
   ];
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
   var CHEV = '<svg class="dw-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
