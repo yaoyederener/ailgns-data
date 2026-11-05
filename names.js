@@ -320,7 +320,12 @@
       ownedList(a).then(function (all) {
         var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
-        if (!list.length) { o.innerHTML = '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><div id="nm-myo"></div>'; myOpen(a, document.getElementById("nm-myo")); return; }
+        if (!list.length) {
+          var mv = (movedOf[a] || []).filter(function (x) { return x.label; }), sh = function (x) { return x.slice(0, 6) + "…" + x.slice(-4); };
+          o.innerHTML = (mv.length ? '<div class="nm-mv"><b>📦 这个钱包注册/收到过 ' + mv.length + ' 个域名，但现在不在这个钱包：</b>' + mv.map(function (x) {
+            return '<div><a href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' + esc(x.label) + "." + x.t + "</a> → 现在在 <code>" + sh(x.to) + "</code></div>";
+          }).join("") + '<small>说明域名已经转到别的钱包（或卖掉了）。用上面显示的那个钱包登录/查询，就能看到它。</small></div>'
+            : '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><p class="muted">💡 如果你确定注册过：可能是用<b>另一个钱包</b>注册的。换成注册时付款的那个钱包地址再查一次。</p>') + '<div id="nm-myo"></div>'; myOpen(a, document.getElementById("nm-myo")); return; }
         var g = list.filter(function (x) { return x.no; }).length;
         o.innerHTML = '<p class="nm-my-sum" id="nm-mysum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
@@ -907,7 +912,9 @@
 
   // 域名市场：读最近 200 张单里还在卖的
   // 某个地址名下现在有哪些名字（两个后缀）：读 Transfer 记录找候选，再用 ownerOf 确认还在他手里
+  var movedOf = {}; // 曾经进过这个钱包、现在已经不在的名字（转走了 / 卖掉了）
   function ownedList(a) {
+    movedOf[a] = [];
     var pad = "0x" + A.pad(a), tlds = Object.keys(CONTRACTS);
     tlds.forEach(function (t) { delete genCache[t]; }); // 创世编号重新读（增量，很快），刚注册的名字也能拿到编号
     return Promise.all(tlds.map(function (t) {
@@ -918,7 +925,8 @@
         return Promise.all(Object.keys(ids).map(function (id) {
           var h = id.slice(2);
           return on(SEL.ownerOf + h).then(function (w) {
-            if (addrOf(w) !== a) return null;
+            var cur = addrOf(w);
+            if (cur !== a) { return on(SEL.labelOf + h).then(function (l) { (movedOf[a] = movedOf[a] || []).push({ t: t, label: decStr(l), to: cur }); return null; }, function () { return null; }); }
             return Promise.all([on(SEL.labelOf + h), on(SEL.expires + h), genesis(t)]).then(function (x) {
               return { t: t, id: h, label: decStr(x[0]), exp: Number(BigInt("0x" + word(x[1], 0))), no: x[2][h] || 0 };
             });
