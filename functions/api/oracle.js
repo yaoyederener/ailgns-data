@@ -83,7 +83,7 @@ export async function onRequestPost(ctx) {
   const a = String(b.a || "").toLowerCase(), day = String(b.day || ""), sig = String(b.sig || "");
   if (!isAddr(a)) return json({ error: "请先连接钱包" }, 400);
   const round = openRound();
-  if (day !== round) return json({ error: "这一轮已经开始开奖了，请刷新页面，预测下一轮" }, 400);
+  if (day !== round) return json({ error: "这一轮已经开始揭晓了，请刷新页面，预测下一轮" }, 400);
   const raw = Array.isArray(b.ps) ? b.ps.map((x) => String(x).trim()) : [];
   if (!raw.length || raw.some((x) => !/^\d{1,7}(\.\d{1,3})?$/.test(x))) return json({ error: "价格格式不对，例如 827.354（最多 3 位小数）" }, 400);
   const ps = raw.map((x) => Number(x).toFixed(3));
