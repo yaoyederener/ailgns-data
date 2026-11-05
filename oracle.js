@@ -23,7 +23,7 @@
       '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
       '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b></p><p>🎯 整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>💰 <b>OTC 手续费前 3</b> → 贡献王（30%）</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
-      '<div class="or-ktabs"><button type="button" class="on" data-k="live">⚡ 实时 5 秒</button><button type="button" data-k="1h">1 小时</button><small class="muted" id="or-ktip">链上实时价，每 3 秒刷新</small></div>' +
+      '<div class="or-ktabs"><button type="button" class="on" data-k="live">⚡ 实时 5 秒</button><button type="button" data-k="1h">1 小时</button><small class="muted" id="or-ktip">本站 OTC 实时价（买一卖一中间价），每 3 秒刷新</small></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -49,7 +49,7 @@
         orKMode = b.getAttribute("data-k");
         document.querySelectorAll(".or-ktabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
         var tip = document.getElementById("or-ktip");
-        if (orKMode === "live") { tip.textContent = "链上实时价，每 3 秒刷新"; startOrLive(); }
+        if (orKMode === "live") { tip.textContent = "本站 OTC 实时价（买一卖一中间价），每 3 秒刷新"; startOrLive(); }
         else { if (orLive) { orLive.stop(); orLive = null; } tip.textContent = "DEX 1 小时线，最近 24 小时"; chartHourly(rid); }
       };
     });

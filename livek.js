@@ -6,16 +6,34 @@
   var PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0"; // AiLGNS/DAI：token0 = AiLGNS，token1 = DAI（都是 18 位）
   function load(k) { try { return JSON.parse(sessionStorage.getItem("livek:" + k) || "[]"); } catch (e) { return []; } }
   function save(k, t) { try { sessionStorage.setItem("livek:" + k, JSON.stringify(t.slice(-1200))); } catch (e) {} }
-  function price() {
+  function dexPrice() {
     return A.wallet.rpcOn("anubis", "eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]).then(function (r) {
       var w = r.slice(2), r0 = Number(BigInt("0x" + w.slice(0, 64))), r1 = Number(BigInt("0x" + w.slice(64, 128)));
       return r1 / r0;
     });
   }
+  // 本站 OTC 价（站长 2026-11-05 定：K 线用我们自己的盘口，不用 DEX）：买一卖一的中间价；只有一边就用那一边；盘口空了才退回 DEX
+  function otcPrice() {
+    return fetch("/api/book?m=ailgns").then(function (r) { return r.json(); }).then(function (j) {
+      var w = (j.orders || "0x").slice(2).match(/.{64}/g) || [], n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, now = Date.now() / 1000, ask = 0, bid = 0;
+      for (var i = 0; i < n; i++) {
+        var o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
+        var sell = o[1].slice(-1) === "1", open = o[2].slice(-1) === "1", exp = Number(BigInt("0x" + o[3])), gT = Number(BigInt("0x" + o[4])), wT = Number(BigInt("0x" + o[5])), gL = BigInt("0x" + o[6]);
+        if (!open || exp <= now || gL === 0n || !gT || !wT) continue;
+        var p = sell ? wT / gT : gT / wT;
+        if (sell) { if (!ask || p < ask) ask = p; } else if (!bid || p > bid) bid = p;
+      }
+      if (ask && bid) return { p: (ask + bid) / 2, bid: bid, ask: ask };
+      if (ask || bid) return { p: ask || bid, bid: bid, ask: ask };
+      return dexPrice().then(function (p) { return { p: p, dex: true }; });
+    });
+  }
+  function oraclePx() { return fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (d) { return d.funds && d.funds.otc ? d.funds.otc.px : 0; }).catch(function () { return 0; }); }
   A.liveK = function (el, opts) {
     opts = opts || {};
-    var every = opts.every || 3000, bucket = opts.bucket || 5, span = opts.span || 600, key = opts.key || "ailgns";
-    var ticks = load(key), timer = 0, dead = false, lastP = null;
+    var every = opts.every || 3000, bucket = opts.bucket || 5, span = opts.span || 600, key = opts.key || ("ailgns-" + (opts.src || "otc"));
+    var ticks = load(key), timer = 0, dead = false, lastP = null, orc = 0, orcAt = 0, info = {};
+    var src = opts.src || "otc", price = src === "dex" ? function () { return dexPrice().then(function (p) { return { p: p }; }); } : otcPrice;
     function candles() {
       var now = Math.floor(Date.now() / 1000), from = now - span, m = {};
       ticks.forEach(function (t) {
@@ -44,18 +62,22 @@
         svg += '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/><rect x="' + (cx - cw * 0.36).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + Math.max(1, cw * 0.72).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"' + (x.gap ? ' opacity=".45"' : "") + "/>";
         if (i % lab === 0) { var d = new Date((x.t + 8 * 3600) * 1000); svg += '<text x="' + Math.max(cx, 18).toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0") + ":" + String(d.getUTCSeconds()).padStart(2, "0") + "</text>"; }
       });
+      if (orc && orc > lo && orc < hi) { var oy = y(orc); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + oy.toFixed(1) + '" y2="' + oy.toFixed(1) + '" class="lk-orc"/><text x="' + (L + 4) + '" y="' + (oy - 3).toFixed(1) + '" class="or-ct lk-orct">预言机 ' + orc.toFixed(3) + "</text>"; }
+      if (info.bid && info.ask) { if (info.ask > lo && info.ask < hi) svg += '<text x="' + (L + 4) + '" y="' + (y(info.ask) - 3).toFixed(1) + '" class="or-ct lk-ask">卖一 ' + info.ask.toFixed(3) + "</text>"; if (info.bid > lo && info.bid < hi) svg += '<text x="' + (L + 4) + '" y="' + (y(info.bid) + 11).toFixed(1) + '" class="or-ct lk-bid">买一 ' + info.bid.toFixed(3) + "</text>"; }
       var last = c[c.length - 1], ly = y(last.c);
       svg += '<line x1="' + L + '" x2="' + R + '" y1="' + ly.toFixed(1) + '" y2="' + ly.toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (ly - 9).toFixed(1) + '" width="60" height="18" rx="4" class="or-lastb lk-pulse"/><text x="' + (R + 31) + '" y="' + (ly + 4).toFixed(1) + '" text-anchor="middle" class="or-lastt">' + last.c.toFixed(3) + "</text>";
       el.setAttribute("viewBox", "0 0 " + W0 + " " + H0); el.innerHTML = svg;
     }
     function tick() {
       if (dead || !el.isConnected) return stop();
-      price().then(function (p) {
-        var now = Math.floor(Date.now() / 1000);
+      price().then(function (x) {
+        var p = x.p, now = Math.floor(Date.now() / 1000);
+        info = x;
         ticks.push([now, p]); if (ticks.length > 2000) ticks = ticks.slice(-1200);
         save(key, ticks); draw();
-        if (opts.onPrice) opts.onPrice(p, lastP); lastP = p;
+        if (opts.onPrice) opts.onPrice(p, lastP, x); lastP = p;
       }, function () {});
+      if (src !== "dex" && Date.now() - orcAt > 60000) { orcAt = Date.now(); oraclePx().then(function (v) { orc = v || orc; }); }
     }
     function stop() { dead = true; clearInterval(timer); }
     draw(); tick(); timer = setInterval(tick, every);
