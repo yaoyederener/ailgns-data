@@ -1,5 +1,5 @@
-// 轻量区块浏览器（Anubis 链）：一个搜索框搜域名（xxx.ailgns / xxx.lgns）、地址、交易哈希；
-// 链上数据借用 Anubis 官方浏览器（Blockscout）的公开接口，再把地址换成我们的域名显示
+// AiLGNS 账本（2026-11-05 起）：只服务本站的中文链上记录。搜域名 / 地址 / 交易哈希，每一笔翻译成一句人话（买入、卖出、挂单、注册、借贷、转账…）
+// 链上数据借用 Anubis 官方浏览器（Blockscout）的公开接口；区块、Gas、日志这些统统不显示
 (function () {
   "use strict";
 
@@ -135,56 +135,129 @@
       });
     });
   }
-  // 分页列表：先显示一页，「加载更多」按官方接口给的下一页参数继续读
-  function paged(box, path, row, empty) {
-    var next = null;
-    function load(first) {
-      var q = next ? (path.indexOf("?") >= 0 ? "&" : "?") + Object.keys(next).map(function (k) { return k + "=" + encodeURIComponent(next[k]); }).join("&") : "";
-      var more = box.querySelector(".sc-more");
-      if (more) more.textContent = "读取中…";
-      return get(path + q).then(function (d) {
-        var items = d.items || [];
-        if (first) box.innerHTML = "";
-      if (first && !items.length) { box.innerHTML = '<p class="muted">' + empty + "</p>"; return; }
-        if (more) more.remove();
-        box.insertAdjacentHTML("beforeend", items.map(row).join(""));
-        next = d.next_page_params;
-        if (next) {
-          box.insertAdjacentHTML("beforeend", '<button type="button" class="sc-more">加载更多</button>');
-          box.querySelector(".sc-more").onclick = function () { load(false); };
-        }
-        fillNames(box);
-      }, function () { if (more) more.textContent = "读取失败，点我重试"; else box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
+  // ===== 账本（2026-11-05 站长定：只服务本站，每一笔翻译成人话，官方浏览器那些区块 / Gas / 日志统统不要）=====
+  var C = {
+    otc: { "0x4e730be6d46be71223ded5a32dc45799f6d4bc15": "AiLGNS", "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818": "LGNS", "0x2b0ab121d60f823fffc4cef75af26055df388e2b": "gLGNS", "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed": "AWAKE NFT 卡牌" },
+    market: { "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e": 1, "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d": 1 },
+    loan: { "0x242ab392571d325d814a48892ac16115a6d285dc": "AiLGNS", "0x8d84d678d195e770caad263d1c37967ec796165c": "AiLGNS（旧）", "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b": "LGNS", "0x00e674bb1559557966a6c2244c36d12a63218a5f": "gLGNS" },
+    buyback: "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", pool: "0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4",
+    tokens: { "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14": "DAI", "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb": "AiLGNS", "0x4d1d808a081fdac440703b3765fc61f8028c06b8": "LGNS", "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c": "gLGNS" }
+  };
+  KNOWN[C.pool] = "预言家奖池钱包";
+  var who = function (a) { return a ? '<span data-a="' + a + '" class="lg-who">' + (KNOWN[a.toLowerCase()] || A.short(a)) + "</span>" : ""; };
+  var nftTag = function (m) { return m && m.nft ? '<b data-nft="' + m.nft.tld + ":" + m.nft.id + '">🌐 域名</b>' : ""; };
+  function bj(ts) { var d = new Date(new Date(ts).getTime() + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
+  // 一笔交易里和「我」有关的币怎么动：进 / 出、币种、数量、对方
+  function moves(a, tr) {
+    return (tr || []).map(function (r) {
+      var to = (r.to && r.to.hash || "").toLowerCase(), from = (r.from && r.from.hash || "").toLowerCase(), tok = (r.token && r.token.address_hash || "").toLowerCase();
+      var tld = tok === NAMES.ailgns ? "ailgns" : tok === NAMES.lgns ? "lgns" : "", id = r.total && r.total.token_id;
+      return { dir: to === a ? "in" : from === a ? "out" : "", sym: tld ? "域名" : (r.token && r.token.symbol) || "?", v: tld ? 0 : Number(r.total && r.total.value || 0) / Math.pow(10, Number(r.total && r.total.decimals || 18)), vs: tld ? "" : amt(r.total && r.total.value, r.total && r.total.decimals), nft: tld && id ? { tld: tld, id: id } : null, other: to === a ? from : to };
+    }).filter(function (m) { return m.dir; });
+  }
+  var sumOf = function (ms, dir, sym) { return ms.filter(function (m) { return m.dir === dir && (!sym || m.sym === sym) && !m.nft; }).reduce(function (t, m) { return t + m.v; }, 0); };
+  var fmtN = function (v, sym) { return "<b>" + (v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4)) + " " + esc(sym) + "</b>"; };
+  var firstIn = function (ms, sym) { return ms.filter(function (m) { return m.dir === "in" && (!sym || m.sym === sym); })[0]; };
+  var firstOut = function (ms, sym) { return ms.filter(function (m) { return m.dir === "out" && (!sym || m.sym === sym); })[0]; };
+  var pxOf = function (dai, coin) { return coin > 0 ? "，单价 " + (dai / coin).toFixed(3) : ""; };
+  // 把一笔交易翻译成一句人话：返回 { ico, text }
+  function translate(a, row) {
+    var t = row.tx, ms = moves(a, row.tr), sel = t && (t.raw_input || "").slice(0, 10), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "", ok = !t || t.result === "success";
+    var nftIn = ms.filter(function (m) { return m.nft && m.dir === "in"; })[0], nftOut = ms.filter(function (m) { return m.nft && m.dir === "out"; })[0];
+    var daiIn = sumOf(ms, "in", "DAI"), daiOut = sumOf(ms, "out", "DAI");
+    var coinIn = ms.filter(function (m) { return m.dir === "in" && !m.nft && m.sym !== "DAI"; })[0], coinOut = ms.filter(function (m) { return m.dir === "out" && !m.nft && m.sym !== "DAI"; })[0];
+    if (t && !ok) return { ico: "❌", text: "操作没成功（链上已回滚，没扣钱）" + (METHODS[sel] ? "：" + METHODS[sel] : "") };
+    // —— OTC（币 / 卡牌）——
+    if (C.otc[to]) {
+      var mk = C.otc[to];
+      if (sel === "0x6fe4a448" || sel === "0xd6febde8") { // 吃单 / 买
+        if (coinIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxOf(daiOut, coinIn.v) };
+        if (coinOut && daiIn) return { ico: "💰", text: "在 OTC <b>卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxOf(daiIn, coinOut.v) };
+        if (nftIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b>卡牌，花了 " + fmtN(daiOut, "DAI") };
+      }
+      if (sel === "0x9128a740" || sel === "0xca690ea2") { // 挂单
+        if (coinOut) return { ico: "📌", text: "在 OTC <b>挂单卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "（币先锁进合约，等买家）" };
+        if (daiOut) return { ico: "📌", text: "在 OTC <b>挂单买入</b>，锁定 " + fmtN(daiOut, "DAI") + "（等卖家来成交）" };
+        if (nftOut) return { ico: "📌", text: "在 OTC <b>挂单出售</b>卡牌" };
+      }
+      if (sel === "0x40e58ee5") return { ico: "↩️", text: "<b>撤单</b>，退回 " + (ms.filter(function (m) { return m.dir === "in"; }).map(function (m) { return m.nft ? "卡牌" : fmtN(m.v, m.sym); }).join("、") || "挂着的币") };
+      if (!t && coinIn) return { ico: "✅", text: "你的 OTC <b>买单成交</b>，收到 " + fmtN(coinIn.v, coinIn.sym) + (daiIn ? "（多余的 DAI 也退回了）" : "") };
+      if (!t && daiIn) return { ico: "✅", text: "你的 OTC <b>卖单成交</b>，收到 " + fmtN(daiIn, "DAI") };
+      return { ico: "⇄", text: "OTC（" + esc(mk) + "）操作" + (METHODS[sel] ? "：" + METHODS[sel] : "") };
     }
-    return load(true);
+    // —— 域名合约 ——
+    if (to === NAMES.ailgns || to === NAMES.lgns) {
+      if (sel === "0xd868a84f") return { ico: "🌐", text: "<b>注册域名</b> " + (nftTag(nftIn) || "") + (daiOut ? "，付 " + fmtN(daiOut, "DAI") : coinOut ? "，付 " + fmtN(coinOut.v, coinOut.sym) : "") };
+      if (sel === "0x26e43e37") return { ico: "🔄", text: "<b>续费域名</b>" + (daiOut ? "，付 " + fmtN(daiOut, "DAI") : coinOut ? "，付 " + fmtN(coinOut.v, coinOut.sym) : "") + "（给谁的域名续费，名字还是原主人的）" };
+      if (sel === "0x38e74feb") return { ico: "⭐", text: "<b>设置主名字</b>（以后别人看到这个地址就显示域名）" };
+      if (sel === "0xeba36dbd") return { ico: "🔧", text: "<b>修改域名指向</b>的地址" };
+      if (sel === "0xa22cb465" || sel === "0x095ea7b3") return { ico: "🔑", text: "<b>授权</b>域名市场代为转移域名（挂单前的准备，不花钱）" };
+      if (sel === "0x23b872dd" || sel === "0x42842e0e" || sel === "0xb88d4fde") return nftOut ? { ico: "🎁", text: "<b>转让域名</b> " + nftTag(nftOut) + " 给 " + who(nftOut.other) } : { ico: "📥", text: "<b>收到域名</b> " + nftTag(nftIn) + " 来自 " + who(nftIn && nftIn.other) };
+    }
+    // —— 域名市场 ——
+    if (C.market[to]) {
+      if (sel === "0xd6febde8") return { ico: "🛒", text: "<b>买入域名</b> " + nftTag(nftIn) + "，付 " + fmtN(daiOut, "DAI") + "（含 3% 手续费）" };
+      if (sel === "0xca690ea2") return { ico: "🏷", text: "<b>域名挂单出售</b> " + nftTag(nftOut) + "（域名托管在市场合约，卖掉前随时可撤）" };
+      if (sel === "0x40e58ee5") return { ico: "↩️", text: "<b>撤回域名挂单</b>，" + nftTag(nftIn) + " 退回钱包" };
+      return { ico: "🏷", text: "域名市场操作" };
+    }
+    if (!t && daiIn && ms.some(function (m) { return C.market[m.other]; })) return { ico: "✅", text: "你的<b>域名卖出成交</b>，收到 " + fmtN(daiIn, "DAI") };
+    // —— 借贷 ——
+    if (C.loan[to]) {
+      var L = { "0x2fedd319": ["🤝", "<b>抵押</b> " + (coinOut ? fmtN(coinOut.v, coinOut.sym) : "币") + " 发布借款单（等人出借 DAI）"], "0xa65e2cfd": ["💵", "<b>出借</b> " + fmtN(daiOut, "DAI") + " 给一张借款单（到期连本带息收回）"], "0x992001bd": ["📣", "<b>挂出借单</b>，锁定 " + fmtN(daiOut, "DAI") + "（等人来借）"], "0x4fd9efc4": ["💰", "<b>借到</b> " + fmtN(daiIn, "DAI") + (coinOut ? "，抵押 " + fmtN(coinOut.v, coinOut.sym) : "")], "0x371fd8e6": ["✅", "<b>还款</b> " + fmtN(daiOut, "DAI") + (coinIn ? "，取回抵押 " + fmtN(coinIn.v, coinIn.sym) : "")], "0x379607f5": ["⚖️", "<b>到期处置</b>：拿到 " + ms.filter(function (m) { return m.dir === "in"; }).map(function (m) { return fmtN(m.v, m.sym); }).join("、")], "0x40e58ee5": ["↩️", "<b>撤销借贷挂单</b>，退回 " + ms.filter(function (m) { return m.dir === "in"; }).map(function (m) { return fmtN(m.v, m.sym); }).join("、")] };
+      if (L[sel]) return { ico: L[sel][0], text: L[sel][1] + "（" + esc(C.loan[to]) + " 借贷）" };
+      return { ico: "🤝", text: "借贷操作（" + esc(C.loan[to]) + "）" };
+    }
+    if (!t && ms.some(function (m) { return C.loan[m.other]; })) return { ico: "✅", text: "借贷合约转来 " + ms.filter(function (m) { return m.dir === "in"; }).map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（对方还款 / 你的单成交 / 到期退回）" };
+    // —— 普通转账、授权 ——
+    if (t && C.tokens[to] && sel === "0xa9059cbb" && ms.length) { var o = firstOut(ms); return { ico: "💸", text: "<b>转出</b> " + fmtN(o.v, o.sym) + " 给 " + who(o.other) }; }
+    if (t && C.tokens[to] && sel === "0x095ea7b3") return { ico: "🔑", text: "<b>授权</b> " + esc(C.tokens[to]) + "（允许合约在交易时扣币，本身不扣钱）" };
+    if (t && (!t.raw_input || t.raw_input === "0x") && Number(t.value) > 0) return { ico: "💸", text: "<b>转出</b> " + fmtN(Number(t.value) / 1e18, "DAI") + " 给 " + who(to) };
+    if (!t && ms.length) {
+      var mi = ms.filter(function (m) { return m.dir === "in"; })[0];
+      if (mi) {
+        if (mi.other === C.buyback) return { ico: "💎", text: "<b>收到分账</b> " + fmtN(mi.v, mi.sym) + "（回购分账合约）" };
+        if (mi.other === C.pool) return { ico: "🏆", text: "<b>预言家奖金到账</b> " + fmtN(mi.v, mi.sym) + "（奖池钱包发放）" };
+        return { ico: "📥", text: "<b>收到</b> " + (mi.nft ? "域名 " + nftTag(mi) : fmtN(mi.v, mi.sym)) + " 来自 " + who(mi.other) };
+      }
+    }
+    var k = KNOWN[to];
+    return { ico: "🔧", text: (k ? "与「" + esc(k) + "」交互" : "与其他合约交互") + (METHODS[sel] ? "：" + METHODS[sel] : "") + (ms.length ? "，" + ms.map(function (m) { return (m.dir === "in" ? "收到 " : "付出 ") + (m.nft ? "域名" : fmtN(m.v, m.sym)); }).join("、") : "") };
   }
-
-  function nft(r) {
-    var t = (r.token && r.token.address_hash || "").toLowerCase(), id = r.total && r.total.token_id, tld = t === NAMES.ailgns ? "ailgns" : t === NAMES.lgns ? "lgns" : "";
-    return tld && id ? '<span data-nft="' + tld + ":" + id + '">🌐 域名</span>' : esc((r.token && r.token.name) || "NFT");
+  function rowHtml(a, row) {
+    var r = translate(a, row);
+    return '<div class="lg-row"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="https://anubisscan.io/tx/' + row.h + '" target="_blank" rel="noopener" title="链上查询">↗</a></div>';
   }
-  // 地址拥有的 NFT：官方接口一页 50 个，旧版合约的保留名会占满第一页，所以翻页读完（最多 10 页）
-  function allNfts(a) {
-    var items = [];
-    function page(next, n) {
-      var q = next ? "&" + Object.keys(next).map(function (k) { return k + "=" + encodeURIComponent(next[k]); }).join("&") : "";
-      return get("/addresses/" + a + "/nft?type=ERC-721" + q).then(function (d) {
-        items = items.concat(d.items || []);
-        return d.next_page_params && n < 10 ? page(d.next_page_params, n + 1) : { items: items };
+  // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
+  function ledger(a, box) {
+    var nextTx = null, nextTt = null, first = true, seen = {}, rows = [];
+    function qs(n) { return n ? "?" + Object.keys(n).map(function (k) { return k + "=" + encodeURIComponent(n[k]); }).join("&") : ""; }
+    function load() {
+      var more = box.querySelector(".sc-more"); if (more) more.textContent = "读取中…";
+      var pTx = first || nextTx ? get("/addresses/" + a + "/transactions" + qs(nextTx)).catch(function () { return { items: [] }; }) : Promise.resolve({ items: [] });
+      var pTt = first || nextTt ? get("/addresses/" + a + "/token-transfers" + qs(nextTt)).catch(function () { return { items: [] }; }) : Promise.resolve({ items: [] });
+      return Promise.all([pTx, pTt]).then(function (x) {
+        nextTx = x[0].next_page_params || null; nextTt = x[1].next_page_params || null;
+        var byH = {};
+        (x[1].items || []).forEach(function (r) { (byH[r.transaction_hash] = byH[r.transaction_hash] || []).push(r); });
+        (x[0].items || []).forEach(function (t) { if (seen[t.hash]) return; seen[t.hash] = 1; rows.push({ t: t.timestamp, h: t.hash, tx: t, tr: byH[t.hash] || [] }); delete byH[t.hash]; });
+        Object.keys(byH).forEach(function (h) { if (seen[h]) return; seen[h] = 1; rows.push({ t: byH[h][0].timestamp, h: h, tx: null, tr: byH[h] }); });
+        rows.sort(function (p, q) { return new Date(q.t) - new Date(p.t); });
+        if (!rows.length) { box.innerHTML = '<p class="muted">这个地址还没有和本站有关的记录</p>'; return; }
+        box.innerHTML = rows.map(function (r) { return rowHtml(a, r); }).join("") + (nextTx || nextTt ? '<button type="button" class="sc-more">再看更早的 ▾</button>' : "");
+        var mb = box.querySelector(".sc-more"); if (mb) mb.onclick = load;
+        first = false;
+        fillNames(box);
       });
     }
-    return page(null, 1).catch(function () { return { items: items }; });
+    return load();
   }
-  function addr(a) {
-    var k = a && KNOWN[a.toLowerCase()];
-    if (k) return '<a class="sc-a" href="#/scan/' + a + '" data-a="' + a + '" title="' + a + '"><b class="sc-kn">' + k + "</b></a>";
-    return a ? '<a class="sc-a mono" href="#/scan/' + a + '" data-a="' + a + '">' + A.short(a) + "</a>" : "—"; }
 
   function page() {
     var q = decodeURIComponent(location.hash.split("/")[2] || "").trim();
-    A.app.innerHTML = '<section class="card"><h2>🔎 AiLGNS 浏览器 <small class="muted">Anubis 链</small></h2>' +
-      '<form class="nm-search" id="sc-f"><input id="sc-q" placeholder="搜域名 / 地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">搜索</button></form>' +
-      '<p class="muted sc-tip">例：xxx.ailgns · 0x 开头的地址 · 交易哈希。数据来自 Anubis 官方浏览器，每项都能点去官方核对。</p></section><div id="sc-out"></div>';
+    A.app.innerHTML = '<section class="card"><h2>📒 AiLGNS 账本 <small class="muted">看得懂的链上记录</small></h2>' +
+      '<form class="nm-search" id="sc-f"><input id="sc-q" placeholder="输入域名 / 钱包地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">查询</button></form>' +
+      '<p class="muted sc-tip">只显示和本站有关的事：买卖、挂单、注册域名、借贷、转账，每一笔都写成人话。例：发财.ailgns、0x 开头的地址、交易哈希。</p></section><div id="sc-out"></div>';
     document.getElementById("sc-f").onsubmit = function (e) {
       e.preventDefault();
       var v = document.getElementById("sc-q").value.trim();
@@ -212,71 +285,47 @@
     });
   }
 
-  // 地址：主名字、余额、拥有的域名、最近交易
+  // 地址：我的钱、我的域名、我做过的事
   function addrView(a, out, via) {
-    // 先把页面骨架画出来，各块数据谁先到谁先显示（官方接口有时某一个要等十几秒，不能让整页一起等）
-    var label = esc(via || A.short(a)), wait = '<p class="muted">读取中…</p>';
+    var wait = '<p class="muted">读取中…</p>';
     out.innerHTML =
-      '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 地址") + '</h2><a href="' + WEB + "/address/" + a + '" target="_blank" rel="noopener">官方浏览器核对 ↗</a></div>' +
-      (via ? '<p class="muted">这个域名指向：</p>' : "") + '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
-      '<section class="card"><h2>💰 余额</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
-      '<section class="card"><h2 id="sc-nh">🌐 拥有的域名</h2><div id="sc-names">' + wait + "</div></section>" +
-      '<section class="card"><div class="card-head"><h2>💸 <span class="sc-lbl">' + label + '</span> 的代币收付</h2><span class="muted"><span id="sc-ntt">…</span> 笔 · 收到和转出的 DAI、LGNS 等</span></div><div class="sc-txs" id="sc-tt">' + wait + '</div></section>' +
-      '<section class="card"><div class="card-head"><h2>📜 <span class="sc-lbl">' + label + '</span> 发起的交易</h2><span class="muted"><span id="sc-ntx">…</span> 笔 · 这个地址自己签名发出的</span></div><div class="sc-txs" id="sc-tx">' + wait + '</div></section>';
+      '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2><a href="https://anubisscan.io/address/' + a + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
+      '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
+      '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
+      '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>" +
+      '<section class="card"><div class="card-head"><h2>📜 我做过的事</h2><span class="muted">最新的在上面 · 北京时间</span></div><div class="lg-list" id="sc-lg">' + wait + "</div></section>";
     var el = function (id) { return document.getElementById(id); };
     nameOf(a).then(function (primary) {
-      if (primary) out.querySelectorAll(".sc-lbl").forEach(function (e) { e.textContent = primary; });
-      get("/addresses/" + a).catch(function () { return {}; }).then(function (info) {
-        if (!el("sc-who")) return;
-        el("sc-who").innerHTML = (primary ? '<p>主名字：<b class="sc-nm">' + esc(primary) + "</b></p>" : '<p class="muted">还没设主名字</p>') +
-          (info.is_contract ? '<p class="muted">这是合约' + (info.name ? "：" + esc(info.name) : "") + "</p>" : "");
-      });
+      if (!el("sc-who")) return;
+      el("sc-who").innerHTML = primary ? '<p>主名字：<b class="sc-nm">' + esc(primary) + "</b></p>" : (KNOWN[a] ? "" : '<p class="muted">还没设主名字 · <a href="#/names">去注册一个域名 →</a></p>');
     });
     get("/addresses/" + a + "/token-balances").catch(function () { return []; }).then(function (bals) {
-      var keep = ["DAI", "LGNS", "AiLGNS", "gLGNS"], shown = (bals || []).filter(function (b) { return b.token && b.token.type === "ERC-20" && keep.indexOf(b.token.symbol) >= 0; });
-      if (el("sc-bal")) el("sc-bal").innerHTML = shown.map(function (b) { return "<div><span>" + esc(b.token.symbol) + "</span><b>" + amt(b.value, b.token.decimals) + "</b></div>"; }).join("") || '<p class="muted">没有 DAI / LGNS / AiLGNS / gLGNS</p>';
+      var keep = ["DAI", "AiLGNS", "LGNS", "gLGNS"], shown = (bals || []).filter(function (b) { return b.token && b.token.type === "ERC-20" && keep.indexOf(b.token.symbol) >= 0; });
+      shown.sort(function (p, q) { return keep.indexOf(p.token.symbol) - keep.indexOf(q.token.symbol); });
+      if (el("sc-bal")) el("sc-bal").innerHTML = shown.map(function (b) { return "<div><span>" + esc(b.token.symbol) + "</span><b>" + amt(b.value, b.token.decimals) + "</b></div>"; }).join("") || '<p class="muted">没有 DAI / AiLGNS / LGNS</p>';
     });
     allNfts(a).then(function (x) {
       var mine = (x.items || []).filter(function (n) { var t = (n.token.address_hash || "").toLowerCase(); return t === NAMES.ailgns || t === NAMES.lgns; });
       if (!el("sc-names")) return;
-      if (A.hidden && A.hidden[String(a).toLowerCase()]) { el("sc-names").innerHTML = '<p class="muted">🔒 不公开</p>'; return; } // 匿名持有人
-      el("sc-nh").textContent = "🌐 拥有的域名（" + mine.length + "）";
+      if (A.hidden && A.hidden[String(a).toLowerCase()]) { el("sc-names").innerHTML = '<p class="muted">🔒 不公开</p>'; return; }
+      el("sc-nh").textContent = "🌐 我的域名（" + mine.length + "）";
       el("sc-names").innerHTML = mine.length ? '<div class="sc-names">' + mine.map(function (n) {
         var nm = (n.metadata && n.metadata.name) || "";
         return '<a href="#/names/' + encodeURIComponent(nm) + '">' + esc(nm || "#" + String(n.id).slice(0, 8)) + "</a>";
-      }).join("") + "</div>" : '<p class="muted">没有 .ailgns / .lgns 域名 · <a href="#/names">去注册 →</a></p>';
+      }).join("") + "</div>" : '<p class="muted">没有域名 · <a href="#/names">去注册 →</a></p>';
     });
-    get("/addresses/" + a + "/counters").then(function (c) {
-      if (el("sc-ntt")) { el("sc-ntt").textContent = "共 " + (c.token_transfers_count || "?"); el("sc-ntx").textContent = "共 " + (c.transactions_count || "?"); }
-    }, function () {});
-    paged(el("sc-tt"), "/addresses/" + a + "/token-transfers", function (r) {
-      var inc = r.to && r.to.hash.toLowerCase() === a, v = r.total && r.total.value != null ? amt(r.total.value, r.total.decimals) + " " + esc(r.token.symbol) : nft(r);
-      return '<div class="sc-tx"><div>' + (inc ? '<span class="sc-in">收到 ' : '<span class="sc-out">转出 ') + "<b>" + v + "</b></span><small>" + ago(r.timestamp) + '</small> <a class="mono" href="#/scan/' + r.transaction_hash + '">' + r.transaction_hash.slice(0, 10) + "…</a></div><div>" + (inc ? "来自 " + addr(r.from && r.from.hash) : "给 " + addr(r.to && r.to.hash)) + "</div></div>";
-    }, "没有代币收付记录");
-    paged(el("sc-tx"), "/addresses/" + a + "/transactions", function (t) {
-      var sel = (t.raw_input || "").slice(0, 10), m = METHODS[sel] || t.method || (t.raw_input && t.raw_input !== "0x" ? sel : "转账");
-      var outgoing = t.from && t.from.hash.toLowerCase() === a;
-      return '<div class="sc-tx"><div><a class="mono" href="#/scan/' + t.hash + '">' + t.hash.slice(0, 10) + "…</a> <em>" + esc(m) + "</em>" + (t.result === "success" ? "" : ' <b class="nm-bad">失败</b>') +
-        "<small>" + ago(t.timestamp) + "</small></div><div>" + (outgoing ? '<span class="sc-out">发出 → </span>' + addr(t.to && t.to.hash) : '<span class="sc-in">收到 ← </span>' + addr(t.from && t.from.hash)) + "</div></div>";
-    }, "没有交易");
+    ledger(a, el("sc-lg"));
     return Promise.resolve();
   }
 
-  // 交易：状态、双方、手续费、代币转账（地址都换成域名）
+  // 交易哈希：一句人话 + 几个关键信息
   function txView(h, out) {
     return Promise.all([get("/transactions/" + h), get("/transactions/" + h + "/token-transfers").catch(function () { return { items: [] }; })]).then(function (x) {
-      var t = x[0], tt = x[1].items || [], sel = (t.raw_input || "").slice(0, 10), ok = t.result === "success";
-      out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 交易</h2><a href="' + WEB + "/tx/" + h + '" target="_blank" rel="noopener">官方浏览器核对 ↗</a></div>' +
-        '<p class="mono sc-addr">' + h + "</p>" +
-        '<dl class="nm-dl"><dt>状态</dt><dd>' + (ok ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ ' + esc(t.result || "失败") + "</b>") + "</dd>" +
-        "<dt>操作</dt><dd>" + esc(METHODS[sel] || t.method || "转账") + "</dd>" +
-        "<dt>区块</dt><dd>" + t.block_number + "（" + ago(t.timestamp) + "）</dd>" +
-        "<dt>发起</dt><dd>" + addr(t.from && t.from.hash) + "</dd><dt>对象</dt><dd>" + addr(t.to && t.to.hash) + (t.to && t.to.name ? " <small>" + esc(t.to.name) + "</small>" : "") + "</dd>" +
-        "<dt>手续费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd></dl></section>" +
-        (tt.length ? '<section class="card"><h2>🔁 代币转账</h2><div class="sc-txs">' + tt.map(function (r) {
-          var v = r.total && r.total.value != null ? amt(r.total.value, r.total.decimals) + " " + esc(r.token.symbol) : nft(r);
-          return '<div class="sc-tx"><div>' + addr(r.from && r.from.hash) + " → " + addr(r.to && r.to.hash) + "</div><div><b>" + v + "</b></div></div>";
-        }).join("") + "</div></section>" : "");
+      var t = x[0], tt = x[1].items || [], a = (t.from && t.from.hash || "").toLowerCase(), r = translate(a, { tx: t, tr: tt, h: h, t: t.timestamp });
+      out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 这笔交易</h2><a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
+        '<div class="lg-one"><span class="lg-ico">' + r.ico + '</span><div>' + r.text + "</div></div>" +
+        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>手续费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd></dl>" +
+        '<p class="mono sc-addr muted">' + h + "</p></section>";
       fillNames(out);
     });
   }
