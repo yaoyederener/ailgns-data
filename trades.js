@@ -6,7 +6,7 @@
   var TX = { plgns: "https://polygonscan.com/tx/" };
   function row(t, addr) {
     var mine = t.taker === addr, side = mine ? (t.makerSide === "卖" ? "买入" : "卖出") : (t.makerSide === "卖" ? "卖出" : "买入"); // 我是吃单人就和挂单方向相反
-    var other = mine ? t.maker : t.taker, tx = (TX[t.m] || "https://anubisscan.io/tx/") + t.tx;
+    var other = mine ? t.maker : t.taker, tx = (TX[t.m] || "#/scan/tx/") + t.tx;
     return '<tr><td data-l="时间" class="l">' + A.timeBJ(t.t * 1000) + '</td><td data-l="市场" class="l">' + (MK[t.m] || t.m) + '</td><td data-l="方向" class="' + (side === "买入" ? "up" : "down") + '">' + side + "</td>" +
       '<td data-l="数量">' + (t.nft ? "#" + t.tokenId : A.fmt(t.qty, 4) + " " + t.sym) + '</td><td data-l="单价 DAI">' + (t.nft ? "—" : A.fmt(t.price, t.m === "lgns" || t.m === "plgns" ? 4 : 2)) + '</td><td data-l="金额 DAI"><b>' + A.fmt(t.dai, 2) + "</b></td>" +
       '<td data-l="对手方" class="l mono">' + A.short(other) + '</td><td data-l="角色" class="l">' + (mine ? "吃单" : "挂单") + '</td><td data-l="交易"><a target="_blank" rel="noopener" href="' + tx + '">查看 ↗</a></td></tr>';
@@ -63,5 +63,5 @@
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter") go(); });
     if (a && A.isAddr(a)) go();
   }
-  A.pages.trades = function (id, a) { render(id, a); };
+  A.pages.trades = function (id, a) { location.replace("#/scan" + (a ? "/" + a : "")); }; // 成交查询并入「AiLGNS 账本」（站长 2026-11-05 定）
 })();

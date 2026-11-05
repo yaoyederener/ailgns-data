@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var A = window.AIL, W = A.wallet;
-  var PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0", SCAN = "https://anubisscan.io/";
+  var PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0", SCAN = "#/scan/";
   var SRC = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", KEEPER = "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";
   var eth = null, account = "", pxTimer = 0, cdTimer = 0, data = null, curRid = 0;
 
@@ -128,7 +128,7 @@
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
-      (d.funds ? '<div class="or-pmix"><span>🪙 已持有 <b>' + d.funds.ail.toFixed(4) + '</b> AiLGNS</span><span>💵 <b>' + dai0(d.funds.dai) + '</b> DAI 等待买入 AiLGNS<small>（累计满 100 DAI 自动在 OTC 买入）</small></span>' + (d.funds.wallet ? '<span class="or-pw">🏦 奖池钱包 <span class="mono">' + d.funds.wallet + '</span> <a href="https://anubisscan.io/address/' + d.funds.wallet + '" target="_blank" rel="noopener">链上查询 ↗</a></span>' : "") + '</div>' : "") +
+      (d.funds ? '<div class="or-pmix"><span>🪙 已持有 <b>' + d.funds.ail.toFixed(4) + '</b> AiLGNS</span><span>💵 <b>' + dai0(d.funds.dai) + '</b> DAI 等待买入 AiLGNS<small>（累计满 100 DAI 自动在 OTC 买入）</small></span>' + (d.funds.wallet ? '<span class="or-pw">🏦 奖池钱包 <span class="mono">' + d.funds.wallet + '</span> <a href="#/scan/' + d.funds.wallet + '">看奖池账本 ›</a></span>' : "") + '</div>' : "") +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       '<div class="or-prz">' +
         '<div class="or-pz p3"><small><u class="or-rk">大奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
@@ -326,7 +326,7 @@
     var px = (r.px / 1000).toFixed(3), jw = r.jackpot.winners, c = r.closest;
     return '<section class="card or-res"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + dayCn(r.day) + "</span></div>" +
       '<div class="or-rpx"><small>揭晓价</small><b>' + px + '</b><span>DAI</span></div>' +
-      '<p class="or-proof">揭晓时刻 ' + hm(r.blockTime * 1000) + ' · <a href="' + SCAN + "block/" + r.block + '" target="_blank" rel="noopener">区块 #' + r.block + " ↗</a>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
+      '<p class="or-proof">揭晓时刻 ' + hm(r.blockTime * 1000) + ' · <span>区块 #' + r.block + "</span>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
       (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
         '<p>🎯 没人猜中 ' + px + "，大奖池滚到 <b>" + dai(r.poolAfter) + "</b>，下一期继续！</p>") +
       (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : '<p class="muted">这一期没人参加。</p>') +

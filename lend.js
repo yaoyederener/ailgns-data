@@ -5,7 +5,7 @@
   "use strict";
 
   var A = window.AIL, W = A.wallet;
-  var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", EXPLORER = "https://anubisscan.io";
+  var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", FEE_RECIPIENT = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", EXPLORER = "#/scan";
   // loan 空着表示还没部署（显示「即将上线」）；otc：复用 otc.js 的哪个市场设置（链、钱包切链）；pair：DEX 池子，只用来显示抵押品现值参考
   var MARKETS = {
     ailgns: { sym: "AiLGNS", otc: "ailgns", loan: "0x242ab392571d325d814a48892ac16115a6d285dc", token: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", dec: 18, pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, eg: ["1", "500", "520"] },

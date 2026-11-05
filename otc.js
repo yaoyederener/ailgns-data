@@ -3,7 +3,7 @@
   "use strict";
 
   var A = window.AIL, W = A.wallet;
-  var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", ANUBIS_AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", ANUBIS_EXPLORER = "https://anubisscan.io";
+  var ANUBIS_DAI = "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", ANUBIS_AILGNS = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", ANUBIS_EXPLORER = "#/scan";
   // 各市场用同一份托管合约代码（AilgnsOtcEscrow.sol），各自部署一份，构造参数换成对应的币和 DAI
   // otc 空着时页面显示"即将上线"；pairDai：DEX 交易对里 DAI 是 token0 还是 token1；pd：单价显示几位小数
   // dexSell：在 DEX 卖 1 枚实际到手 ≈ 市价 × dexSell；dexBuy：在 DEX 买 1 枚实际成本 ≈ 市价 × dexBuy（买入不扣税，只有池子手续费 + 滑点）
@@ -421,7 +421,7 @@
     var box = document.createElement("div");
     box.className = "modal";
     box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + title + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + html +
-      (extra || "") + '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/trades/' + account + '" data-close>📜 查看我的交易记录</a></div>';
+      (extra || "") + '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/scan/' + account + '" data-close>📜 查看我的交易记录</a></div>';
     document.body.appendChild(box);
     box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
     return box;
@@ -431,7 +431,7 @@
     var box = document.createElement("div");
     box.className = "modal";
     var mine = '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单</button><p class="note" style="text-align:center">以后也可以点页面上方紫色的「📋 我的挂单」找到它</p>' +
-      (account ? '<a class="gm-big alt" href="#/trades/' + account + '" data-close>📜 查看我的交易记录</a>' : "");
+      (account ? '<a class="gm-big alt" href="#/scan/' + account + '" data-close>📜 查看我的交易记录</a>' : "");
     if (!dbx || !dbx.ready || dbx.bound || !account) {
       box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine + "</div>";
     } else box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine +
@@ -518,7 +518,7 @@
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += sweepHtml();
       html += '<div id="otc-tot">' + totalsHtml(totals) + "</div>"; // 全站累计放在挂单下面，上面留给买卖
-      html += '<p class="note" style="margin:-6px 0 14px">成交后想核对记录？<a href="#/trades' + (account ? "/" + account : "") + '">成交查询 →</a> 输入任意地址就能看它在本站的全部成交。</p>';
+      html += '<p class="note" style="margin:-6px 0 14px">成交后想核对记录？<a href="#/scan' + (account ? "/" + account : "") + '">成交查询 →</a> 输入任意地址就能看它在本站的全部成交。</p>';
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
       html += '<div class="kpis kpis-2">' +

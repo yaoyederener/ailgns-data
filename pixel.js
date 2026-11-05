@@ -10,7 +10,7 @@
   // pair：LGNS/DAI 池，算大约多少 DAI（daiFirst：token0 是 DAI）；minGas：钱包里至少要有多少 Gas 币
   var CH = {
     anubis: { name: "Anubis", lgns: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", daiFirst: false,
-      gas: "DAI", minGas: 10n ** 16n, minGasText: "0.01 DAI", explorer: "https://anubisscan.io", artifact: "LgnsPixelSink" },
+      gas: "DAI", minGas: 10n ** 16n, minGasText: "0.01 DAI", explorer: "#/scan", artifact: "LgnsPixelSink" },
     polygon: { name: "Polygon", lgns: "0xeB51D9A39AD5EEF215dC0Bf39a8821ff804A0F01", pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", daiFirst: true,
       gas: "POL", minGas: 2n * 10n ** 16n, minGasText: "0.02 POL", explorer: "https://polygonscan.com", artifact: "LgnsPixelSinkPolygon" }
   };

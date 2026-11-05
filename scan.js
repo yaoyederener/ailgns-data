@@ -273,7 +273,9 @@
   }
 
   function page() {
-    var q = decodeURIComponent(location.hash.split("/")[2] || "").trim();
+    var segs = location.hash.split("/").slice(2).map(function (x) { return decodeURIComponent(x || "").trim(); }).filter(Boolean);
+    if (segs.length > 1 && /^(tx|address|token)$/.test(segs[0])) segs.shift(); // 兼容 #/scan/tx/哈希、#/scan/address/地址（全站以前指向官方浏览器的链接）
+    var q = segs[0] || "";
     A.app.innerHTML = '<section class="card"><h2>📒 AiLGNS 账本 <small class="muted">看得懂的链上记录</small></h2>' +
       '<form class="nm-search" id="sc-f"><input id="sc-q" placeholder="输入域名 / 钱包地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">查询</button></form>' +
       '<p class="muted sc-tip">只显示和本站有关的事：买卖、挂单、注册域名、借贷、转账，每一笔都写成人话。例：发财.ailgns、0x 开头的地址、交易哈希。</p></section><div id="sc-out"></div>';
@@ -403,7 +405,7 @@
     var wait = '<p class="muted">读取中…</p>';
     out.innerHTML =
       (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
-      '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2><a href="https://anubisscan.io/address/' + a + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
+      '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2></div>' +
       '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
       '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
       '<section class="card"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div><div class="lg-list" id="sc-pos">' + wait + "</div></section>" +
@@ -438,7 +440,7 @@
   function txView(h, out) {
     return Promise.all([get("/transactions/" + h), get("/transactions/" + h + "/token-transfers").catch(function () { return { items: [] }; })]).then(function (x) {
       var t = x[0], tt = x[1].items || [], a = (t.from && t.from.hash || "").toLowerCase(), r = translate(a, { tx: t, tr: tt, h: h, t: t.timestamp });
-      out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 这笔交易</h2><a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
+      out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 这笔交易</h2></div>' +
         '<div class="lg-one"><span class="lg-ico">' + r.ico + '</span><div>' + r.text + "</div></div>" +
         '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>手续费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd>" +
         (t.to && t.to.hash ? "<dt>对象</dt><dd>" + (KNOWN[t.to.hash.toLowerCase()] ? '<b class="sc-kn">' + KNOWN[t.to.hash.toLowerCase()] + "</b>" : who(t.to.hash)) + "</dd>" : "") + "</dl>" +

@@ -12,7 +12,7 @@
   var POLY_START = 96420000; // Polygon：多付款方式上线前的转账不算
   var POLY_LOOKBACK = 14 * 43200; // Polygon 按地址找付款时最多往回查 14 天（约 2 秒一个块）
   var EXPLORER_API = "https://browser.anubispace.org/api";
-  var EXPLORER = "https://anubisscan.io";
+  var EXPLORER = "#/scan";
   var KEY = "ailgns-member-v1";
   var TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 

@@ -898,7 +898,7 @@
         var html = rows.map(function (r, i) {
           var d = info[i][1] ? new Date((info[i][1] + 8 * 3600) * 1000).toISOString().slice(0, 16).replace("T", " ") : "", dai = Number(r.price / 10n ** 12n) / 1e6;
           if (r.buy) bought += dai; else sold += dai;
-          return "<tr><td>" + d + '</td><td><b>' + esc(info[i][0]) + "." + r.t + "</b></td><td>" + (r.buy ? '<span class="nm-ob-b">买入</span>' : '<span class="nm-ob-s">卖出</span>') + "</td><td><b>" + dai + " DAI</b></td><td>" + (r.other ? A.short(r.other) : "") + '</td><td><a href="https://anubisscan.io/block/' + r.b + '" target="_blank" rel="noopener">区块 ' + r.b + " ↗</a></td></tr>";
+          return "<tr><td>" + d + '</td><td><b>' + esc(info[i][0]) + "." + r.t + "</b></td><td>" + (r.buy ? '<span class="nm-ob-b">买入</span>' : '<span class="nm-ob-s">卖出</span>') + "</td><td><b>" + dai + " DAI</b></td><td>" + (r.other ? A.short(r.other) : "") + '</td><td><span class="muted">区块 ' + r.b + "</span></td></tr>";
         }).join("");
         out.innerHTML = '<p class="muted">共 ' + rows.length + " 笔 · 买入 " + Math.round(bought * 100) / 100 + " DAI · 卖出 " + Math.round(sold * 100) / 100 + ' DAI（成交价，不含手续费）</p><div class="nm-otbl"><table><thead><tr><th>时间（北京）</th><th>域名</th><th>方向</th><th>成交价</th><th>对方</th><th>链上凭证</th></tr></thead><tbody>' + html + "</tbody></table></div>";
       });

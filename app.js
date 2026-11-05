@@ -18,7 +18,7 @@
   var FLOWS_URL = "/api/flows";
   var FLOWS_FALLBACK = "https://raw.githubusercontent.com/yaoyederener/monita/main/data/ailgns_flows.json";
   var RPCS = ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"];
-  var EXPLORER = "https://anubisscan.io";
+  var EXPLORER = "#/scan"; // 全站只用本站账本，不跳官方浏览器（站长 2026-11-05 定）
   var C = {
     PAIR: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", // token0 = AILGNS, token1 = DAI
     DAI: "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14",
