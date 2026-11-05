@@ -2336,3 +2336,10 @@ body.has-guide .otc-acts { display: none; }
 .mn-tip-b button { flex: 1; padding: 8px 0; border-radius: 10px; font-size: 13.5px; font-weight: 700; background: linear-gradient(120deg, #7c4dff, #a855f7); color: #fff; border: 0; }
 .mn-tip-b button.ghost { background: #f3edff; color: #5a35d6; }
 @keyframes mnIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+/* 借贷「借款中」默认折叠 */
+details.bk-fold > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
+details.bk-fold > summary::-webkit-details-marker { display: none; }
+details.bk-fold > summary h2 { margin: 0; }
+details.bk-fold > summary > .muted::after { content: " ▾"; }
+details.bk-fold[open] > summary > .muted::after { content: " ▴"; }
+details.bk-fold[open] > summary { margin-bottom: 10px; }

@@ -178,11 +178,13 @@
       var act = l.borrower === account ? '<button class="act-btn" data-repay="' + l.id + '">还款</button>' : l.lender === account && l.due <= now ? '<button class="act-btn btn-sell" data-claim="' + l.id + '">领取抵押品</button>' : l.due <= now ? '<span class="muted">已逾期</span>' : "";
       return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="抵押">' + tok(l.collateral) + " " + M.sym + '</td><td data-l="借款 DAI">' + dai(l.principal) + '</td><td data-l="应还 DAI" class="price"><b>' + dai(l.repayAmount) + '</b></td><td data-l="还款截止">' + A.timeBJ(l.due * 1000) + (l.due > now ? "（还剩 " + k.left(l.due - now) + "）" : '<span class="down">（已到期）</span>') + '</td><td data-l="抵押率参考">' + ratioTd(l) + '</td><td data-l="借款人 / 出借人" class="l mono">' + who(l.borrower) + " / " + who(l.lender) + "</td></tr>";
     }
-    function book(key, title, list, hint, head, row) {
+    function book(key, title, list, hint, head, row, fold) {
       var isOpen = openBook[key], more = list.length - BOOK_SHOW;
-      return '<section class="card' + (isOpen ? " bk-open" : "") + '" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 笔</small></h2><span class="muted">' + hint + "</span></div>" +
-        (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr>' + head + "</tr></thead><tbody>" + list.map(row).join("") + "</tbody></table></div>" +
-          (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (isOpen ? "收起 ▴" : "展开其余 " + more + " 笔 ▾") + "</button>" : "") : '<div class="empty">暂无</div>') + "</section>";
+      var body = (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr>' + head + "</tr></thead><tbody>" + list.map(row).join("") + "</tbody></table></div>" +
+          (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (isOpen ? "收起 ▴" : "展开其余 " + more + " 笔 ▾") + "</button>" : "") : '<div class="empty">暂无</div>');
+      // fold：整块默认收起（站长要求「借款中」折叠），点标题展开；展开状态记在 openBook，刷新列表不会又合上
+      if (fold) return '<details class="card bk-fold' + (isOpen ? " bk-open" : "") + '" id="book-' + key + '" data-fold="' + key + '"' + (openBook["fold:" + key] ? " open" : "") + '><summary><h2>' + title + ' <small class="muted book-n">' + list.length + ' 笔</small></h2><span class="muted">' + hint + ' · 点开查看</span></summary>' + body + "</details>";
+      return '<section class="card' + (isOpen ? " bk-open" : "") + '" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 笔</small></h2><span class="muted">' + hint + "</span></div>" + body + "</section>";
     }
     var html = (M.legacy
       ? '<h1>借贷 · 旧合约</h1><p class="sub sub-x">这是已下架的旧借款合约 <span class="mono">' + A.short(LOAN) + '</span>，<b>不能再挂新单</b>；之前在这里挂的单可以照常接单、撤单、还款、到期取回。新挂单请到 <a href="#/lend">借贷</a>。</p>'
@@ -193,7 +195,7 @@
     if (M.legacy) html = html.replace(/<div class="otc-acts">[\s\S]*?<\/div>/, ""); // 旧合约页不显示「我要借 / 我要出借」
     html += book("open", "想借 DAI 的人（已押 " + M.sym + "）", open, "你有 DAI 就可以出借给他 · 按年化从高到低 · 实付本金 + 1%", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">借款人</th>', openRow);
     html += book("offers", "想出借 DAI 的人", offers, "你押够要求的 " + M.sym + " 就能把 DAI 借走 · 按年化从低到高", '<th class="l">操作</th><th>出借 DAI</th><th>要求抵押</th><th>到期还</th><th>利息</th><th>期限</th><th>抵押率参考</th><th>挂单剩余</th><th class="l">出借人</th>', offerRow);
-    html += book("active", "借款中", active, "按还款截止时间排序", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>应还</th><th>还款截止（北京时间）</th><th>抵押率参考</th><th class="l">借款人 / 出借人</th>', activeRow);
+    html += book("active", "借款中", active, "按还款截止时间排序", '<th class="l">操作</th><th>抵押</th><th>借款 DAI</th><th>应还</th><th>还款截止（北京时间）</th><th>抵押率参考</th><th class="l">借款人 / 出借人</th>', activeRow, true);
     if (!M.legacy) html += '<div id="otc-tot"></div>' + form(k);
     if (mine.length) html += myLoans(mine, now);
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">借款合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + A.short(LOAN) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsLoanEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
@@ -280,9 +282,10 @@
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
     var tc = document.getElementById("otc-top-c");
     if (tc) tc.onclick = function () { k.connect().then(reload, function (e) { say(niceError(e), true); }); };
+    app.querySelectorAll("details[data-fold]").forEach(function (d) { d.ontoggle = function () { openBook["fold:" + d.getAttribute("data-fold")] = d.open; }; });
     app.querySelectorAll(".book-more").forEach(function (b) {
       b.onclick = function () {
-        var key = b.getAttribute("data-book"), sec = b.closest("section"), n = sec.querySelectorAll("tr.bk-x").length;
+        var key = b.getAttribute("data-book"), sec = b.closest("section, details"), n = sec.querySelectorAll("tr.bk-x").length;
         openBook[key] = !openBook[key]; sec.classList.toggle("bk-open", openBook[key]);
         b.textContent = openBook[key] ? "收起 ▴" : "展开其余 " + n + " 笔 ▾";
         if (!openBook[key]) sec.scrollIntoView({ block: "start" });
