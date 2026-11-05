@@ -110,6 +110,7 @@
         var tip = document.createElement("div"); tip.id = "mn-tip"; tip.className = "mn-tip";
         tip.innerHTML = '<b>👆 更多功能在这里</b><span>借贷、会员、销毁乐园、浏览器、问题反馈…<br>新功能都会先放进这个菜单</span><div class="mn-tip-b"><button type="button" id="mn-tip-go">打开看看</button><button type="button" class="ghost" id="mn-tip-x">知道了</button></div>';
         btn.parentNode.appendChild(tip);
+        tip.style.top = (btn.offsetTop + btn.offsetHeight + 10) + "px"; tip.style.left = Math.max(4, btn.offsetLeft - 4) + "px"; // 箭头对准 ☰（手机上导航在下一行，不能按整行高度放）
         document.getElementById("mn-tip-go").onclick = function () { seen(); show(); };
         document.getElementById("mn-tip-x").onclick = seen;
       }, 1500);
