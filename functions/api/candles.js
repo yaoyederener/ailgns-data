@@ -36,7 +36,7 @@ async function tick(kv) {
   const cur = Number((BigInt("0x" + w.slice(64, 128)) * 1000000n) / BigInt("0x" + w.slice(0, 64))) / 1e6;
   return { st: st || { to: latest, from: latest + 1, tsTo: tsL, tsFrom: tsL, c: {}, fresh: true }, latest, tsL, cur };
 }
-async function backfill(kv, st, latest, tsL) {
+async function backfill(kv, st, latest, tsL, cur) {
   if (await kv.get("kc:busy")) return; // 别人正在补
   await kv.put("kc:busy", "1", { expirationTtl: 50 });
   try {
@@ -45,7 +45,8 @@ async function backfill(kv, st, latest, tsL) {
     while (st.tsFrom > tsL - KEEP && st.from > 1 && budget-- > 0) { const e = st.from - 1, f = Math.max(1, e - CHUNK + 1), r = await readChunk(st, f, e); st.from = f; st.tsFrom = r.tsF; dirty = true; }
     const cut = tsL - KEEP - 3600;
     for (const k of Object.keys(st.c)) if (Number(k) < cut) { delete st.c[k]; dirty = true; }
-    if (dirty || st.to === latest) await kv.put(KEY, JSON.stringify(st)); // 块号推进也要记，不然每次都从老地方重读
+    st.cur = cur; st.tsL = tsL; st.at = Date.now(); // 快照里带上现价和时间：下次请求直接用，不碰链
+    await kv.put(KEY, JSON.stringify(st));
   } finally { await kv.delete("kc:busy").catch(() => {}); }
 }
 
@@ -73,9 +74,15 @@ export async function onRequestGet(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   const u = new URL(ctx.request.url), sec = IV[u.searchParams.get("i")] || 60, n = Math.min(500, Math.max(20, Number(u.searchParams.get("n")) || 300));
   try {
-    const m = await tick(kv), st = m.st, behind = m.latest - st.to, done = st.tsFrom <= m.tsL - KEEP;
-    if (behind > 30 || !done) ctx.waitUntil(backfill(kv, st, m.latest, m.tsL).catch(() => {})); // 后台补，不耽误这次回答
-    return Response.json({ c: aggregate(st, sec, n, m.tsL, m.cur), cur: m.cur, from: st.tsFrom, done, at: Date.now() }, { headers: { "cache-control": "public, max-age=4" } });
+    // 秒开优先：快照 60 秒内直接回（零链上请求，几十毫秒）；超过 30 秒就在后台刷新一次
+    const snap = await kv.get(KEY, "json"), age = snap && snap.at ? Date.now() - snap.at : Infinity;
+    if (snap && age < 60e3) {
+      if (age > 30e3) ctx.waitUntil(tick(kv).then((m) => backfill(kv, m.st, m.latest, m.tsL, m.cur)).catch(() => {}));
+      return Response.json({ c: aggregate(snap, sec, n, snap.tsL, snap.cur), cur: snap.cur, from: snap.tsFrom, done: snap.tsFrom <= snap.tsL - KEEP, at: snap.at }, { headers: { "cache-control": "public, max-age=5" } });
+    }
+    const m = await tick(kv), st = m.st, done = st.tsFrom <= m.tsL - KEEP;
+    ctx.waitUntil(backfill(kv, st, m.latest, m.tsL, m.cur).catch(() => {})); // 后台补，不耽误这次回答
+    return Response.json({ c: aggregate(st, sec, n, m.tsL, m.cur), cur: m.cur, from: st.tsFrom, done, at: Date.now() }, { headers: { "cache-control": "public, max-age=5" } });
   } catch (e) {
     return Response.json({ error: String(e && e.message || e).slice(0, 200) }, { status: 502 });
   }
