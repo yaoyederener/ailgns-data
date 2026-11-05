@@ -2236,3 +2236,5 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-px2 .or-how p { margin: 2px 0; }
 .or-px2 .or-how > div + div { border-left: 1px dashed #d9ccff; padding-left: 20px; }
 @media (max-width: 700px) { .or-px2 .or-how > div + div { border-left: 0; padding-left: 0; } }
+.or-px2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; }
+@media (max-width: 700px) { .or-px2 { grid-template-columns: 1fr; } }
