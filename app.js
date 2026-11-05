@@ -557,6 +557,20 @@
     if (host.hidden) return;
     if (!oqCtl) oqCtl = window.AIL.orderQuery(host, c); else oqCtl.set(c);
   }
+  // 加 OTC 交流群：弹出 DeBox 群二维码（页面任何 [data-group] 按钮都能打开）
+  var GROUP_LINK = ""; // 群链接解析出来后填这里，有链接就多一个「在 DeBox 里打开」按钮
+  function groupModal() {
+    var old = document.getElementById("grp-m"); if (old) old.remove();
+    var d = document.createElement("div"); d.id = "grp-m"; d.className = "grp-m";
+    d.innerHTML = '<div class="grp-c"><button type="button" class="grp-x" aria-label="关闭">×</button><h3>💬 加入 AiLGNS OTC 交流群</h3><p class="muted">用 <b>DeBox</b> 扫一扫，进群聊 OTC、域名、预言家；站长和机器人都在群里</p>' +
+      '<img src="icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码" width="240" height="250">' +
+      (GROUP_LINK ? '<a class="nm-go" href="' + GROUP_LINK + '" target="_blank" rel="noopener">手机上点这里直接加群 →</a>' : "") +
+      '<p class="muted grp-tip">手机：长按二维码保存 → 打开 DeBox → 扫一扫 → 相册选图。没有 DeBox？<a href="#/app">先看这里 →</a></p></div>';
+    document.body.appendChild(d);
+    var close = function () { d.remove(); };
+    d.onclick = function (e) { if (e.target === d || e.target.closest(".grp-x") || e.target.closest("a[href^='#/']")) close(); };
+  }
+  document.addEventListener("click", function (e) { if (e.target.closest("[data-group]")) { e.preventDefault(); groupModal(); } });
   function guide(tab, parts) {
     var box = document.getElementById("guide"); if (!box) return;
     var g = GUIDES[tab];
