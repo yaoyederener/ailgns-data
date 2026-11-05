@@ -482,7 +482,7 @@
 
   // ---------- 路由 ----------
   // 每个页面在浏览器标签和分享时显示的标题
-  var PAGE_TITLES = { lend: "借贷", trades: "成交查询", feedback: "问题反馈",
+  var PAGE_TITLES = { lend: "借贷", trades: "成交查询", trade: "交易所盘口", feedback: "问题反馈",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
     team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 账本", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场"
   };
@@ -535,7 +535,8 @@
   // 每个页面最上面一张「这页是干嘛的 + 编号步骤」引导卡：客户一进来就知道点哪里
   // 步骤目标：标题文字（跳到那一块）、"click:选择器"（替客户点那个按钮）、"#/路由"（跳页面）
   var GUIDES = {
-    otc: ["💱", "AiLGNS 担保交易", "币先锁进合约、成交才放出，0 滑点，手续费 1%", [["我要买 AiLGNS", "买入 AiLGNS"], ["我要卖 AiLGNS", "卖出 AiLGNS"], ["自己定价挂单", "click:[data-goform=sell]"], ["我的挂单", "click:[data-gomine]"]]],
+    otc: ["💱", "AiLGNS 担保交易", "币先锁进合约、成交才放出，0 滑点，手续费 1%", [["我要买 AiLGNS", "买入 AiLGNS"], ["我要卖 AiLGNS", "卖出 AiLGNS"], ["自己定价挂单", "click:[data-goform=sell]"], ["📊 交易所盘口", "#/trade"]]],
+    trade: ["📊", "交易所盘口", "订单簿 + K 线 + 一键买卖，撮合在链上合约里完成", [["买入", "sel:.tr-form"], ["看盘口", "sel:.tr-book"], ["我的委托", "sel:.tr-mine"], ["回普通版", "#/otc"]]],
     names: ["🌐", ".ailgns 域名", "注册一个属于你的名字，可以设为主号、转赠、挂单卖", [["注册新域名", ".ailgns 域名"], ["查我的域名", "查询域名"], ["买别人的域名", "域名市场"], ["卖我的域名", "click:#nm-sellgo"]]],
     oracle: ["🔮", "每日预言家", "免费猜今晚揭晓价，猜中平分大奖", [["看奖池", "sel:.or-pool"], ["怎么玩", "sel:.or-how"], ["提交我的预言", "✍️ 预测"], ["开通获奖通知", "揭晓通知"]]],
     lend: ["🤝", "借贷", "押 AiLGNS 借 DAI，或者出借 DAI 赚利息，合约托管", [["我要借 DAI", "押 AiLGNS 借 DAI"], ["我要出借 DAI", "想借 DAI 的人"], ["正在借的单", "借款中"], ["怎么还款", "还款怎么操作"]]],
@@ -561,6 +562,7 @@
   document.addEventListener("click", function (e) {
     var b = e.target.closest("[data-gd]"); if (!b) return;
     var t = b.getAttribute("data-gd"), n = 0;
+    if (t.indexOf("#/") === 0) { location.hash = t; return; }
     if (t.indexOf("click:") === 0) { var c = document.querySelector(t.slice(6)); if (c) c.click(); return; }
     (function go() {
       var el = gdFind(t);
