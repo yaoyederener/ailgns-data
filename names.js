@@ -325,7 +325,7 @@
           o.innerHTML = (mv.length ? '<div class="nm-mv"><b>📦 这个钱包注册/收到过 ' + mv.length + ' 个域名，但现在不在这个钱包：</b>' + mv.map(function (x) {
             return '<div><a href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' + esc(x.label) + "." + x.t + "</a> → 现在在 <code>" + sh(x.to) + "</code></div>";
           }).join("") + '<small>说明域名已经转到别的钱包（或卖掉了）。用上面显示的那个钱包登录/查询，就能看到它。</small></div>'
-            : '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><p class="muted">💡 如果你确定注册过：可能是用<b>另一个钱包</b>注册的。换成注册时付款的那个钱包地址再查一次。</p>') + '<div id="nm-myo"></div>'; myOpen(a, document.getElementById("nm-myo")); return; }
+            : '<p class="muted">这个地址钱包里没有域名（刚注册的等 10 秒再查）。</p><p class="muted">💡 如果你确定注册过：可能是用<b>另一个钱包</b>注册的。换成注册时付款的那个钱包地址再查一次。</p>') + '<div id="nm-myo"></div>'; paidRec(a, o, self); myOpen(a, document.getElementById("nm-myo")); return; }
         var g = list.filter(function (x) { return x.no; }).length;
         o.innerHTML = '<p class="nm-my-sum" id="nm-mysum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
@@ -345,7 +345,7 @@
             sm.parentNode.insertBefore(d, sm);
           });
         });
-        myOpen(a, document.getElementById("nm-myo")).then(function (k) { var sm = document.getElementById("nm-mysum"); if (sm && k) sm.innerHTML = "共 <b>" + (n0 + k) + "</b> 个域名：钱包里 <b>" + n0 + "</b> 个" + (g ? "（🌟创世 " + g + " 个）" : "") + " + <b>挂单中 " + k + "</b> 个（在最下面，卖出后就不算了）"; }); // 挂在市场里的名字在托管合约名下，钱包里查不到：单独列在下面
+        paidRec(a, o, self); myOpen(a, document.getElementById("nm-myo")).then(function (k) { var sm = document.getElementById("nm-mysum"); if (sm && k) sm.innerHTML = "共 <b>" + (n0 + k) + "</b> 个域名：钱包里 <b>" + n0 + "</b> 个" + (g ? "（🌟创世 " + g + " 个）" : "") + " + <b>挂单中 " + k + "</b> 个（在最下面，卖出后就不算了）"; }); // 挂在市场里的名字在托管合约名下，钱包里查不到：单独列在下面
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
     // 「我要卖」：连钱包 → 列出我名下的域名 → 每个旁边「挂单出售」→ 打开这个名字的页面并直接弹出挂单设置
@@ -930,6 +930,26 @@
         (p ? "持有人现在的主名字是 <b>" + esc(p + "." + TLD) + "</b>。" : "持有人还没设置任何主名字。") +
         '<small>如果这是你的名字：点右上角<b>连接钱包</b>，用持有它的钱包 <code>' + owner.slice(0, 6) + "…" + owner.slice(-4) + '</code> 连接后重新打开本页，就会出现「设为我的主名字」按钮（不花钱，只付一点 Gas）。</small></div>';
     });
+  }
+  // 付款注册记录：按这个钱包付过的注册费查（帮别人注册的、注册后转走的都能查到），并标出哪些还没设主名字
+  function paidRec(a, o, self) {
+    var d = document.createElement("div"); d.className = "nm-mv nm-paid"; d.innerHTML = "<b>📜 付款注册记录</b><small>查询中…</small>"; o.appendChild(d);
+    var sh = function (x) { return x ? x.slice(0, 6) + "…" + x.slice(-4) : "?"; };
+    fetch("/api/name-paid?a=" + a).then(function (r) { return r.json(); }).then(function (j) {
+      if (!document.body.contains(d)) return;
+      var L = (j.list || []).filter(function (x) { return x.kind === "reg"; });
+      if (j.error) { d.innerHTML = "<b>📜 付款注册记录</b><small>" + esc(j.error) + "</small>"; return; }
+      if (!L.length) { d.innerHTML = "<b>📜 付款注册记录</b><small>这个钱包没有付款注册过域名。如果你确定注册过，请换成当时付款的钱包地址再查。</small>"; return; }
+      var bad = 0;
+      d.innerHTML = "<b>📜 这个钱包付款注册过 " + L.length + " 个域名</b>" + L.map(function (x) {
+        var full = x.label + "." + x.t, here = x.owner === a, pri = x.primary === x.label, st;
+        if (!x.owner) st = "⚪ 已过期或已释放";
+        else if (!here) st = "📦 现在在 <code>" + sh(x.owner) + "</code>" + (x.to !== a ? "（注册时就是给这个地址的）" : "（注册后转走了）");
+        else st = "✅ 在这个钱包";
+        if (x.owner && !pri) { bad++; st += " · <em>⚠️ 未设主名字</em>"; }
+        return '<div class="nm-pr"><a href="#/names/' + encodeURIComponent(full) + '">' + esc(full) + "</a> <span>" + st + "</span></div>";
+      }).join("") + (bad ? "<small>⚠️ 标「未设主名字」的：用它<b>现在所在的钱包</b>连接本站，点进名字按「设为我的主名字」（不花钱，只付一点 Gas）。一个钱包只能有一个主名字。</small>" : "");
+    }, function () { if (document.body.contains(d)) d.innerHTML = "<b>📜 付款注册记录</b><small>查询失败，请稍后再试</small>"; });
   }
   var movedOf = {}; // 曾经进过这个钱包、现在已经不在的名字（转走了 / 卖掉了）
   function ownedList(a) {

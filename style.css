@@ -2198,3 +2198,7 @@ tr.nm-pinrow td { background: #fff8e6; }
 .nm-mv { padding: 10px 12px; border-radius: 12px; background: #f3edff; border: 1px solid #e3d8ff; font-size: 14px; line-height: 1.8; color: #3d2a8c; }
 .nm-mv > b { display: block; color: #5a35d6; }
 .nm-mv small { display: block; color: #7a68b8; margin-top: 4px; }
+.nm-paid { margin-top: 12px; }
+.nm-pr { padding: 4px 0; border-bottom: 1px dashed #e3d8ff; font-size: 14px; }
+.nm-pr span { color: #6b5aa6; font-size: 13px; }
+.nm-pr em { color: #d94a7a; font-style: normal; }
