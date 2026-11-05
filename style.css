@@ -2425,3 +2425,4 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 @media (min-width: 901px) { .tr-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 300px; } }
 .tr-th, .tr-row { grid-template-columns: 1fr .9fr .9fr; }
 .tr-in span { white-space: nowrap; }
+.arb-t { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0 10px; } .arb-t th, .arb-t td { padding: 7px 8px; border-bottom: 1px solid #efe9ff; text-align: left; } .arb-t th { color: #9a8acc; font-weight: 500; } .arb-ul { font-size: 13px; line-height: 1.7; padding-left: 18px; }
