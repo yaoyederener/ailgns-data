@@ -127,6 +127,7 @@
         '<div class="or-pz p2"><small><u class="or-rk">第二接近 · 5%</u>🌿 地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
       "</div>" +
       "</div></section>";
+    html += cdCard(d);
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
@@ -149,7 +150,37 @@
     tick();
     clearInterval(cdTimer); cdTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(cdTimer); tick(); }, 1000);
   }
+  // 倒计时卡：下注截止 → 开奖窗口（21:00–22:00 随机一刻）→ 结果公布
+  function cdCard(d) {
+    return '<section class="card or-cdc"><div class="or-cdh"><b id="or-cdph">⏳ 下注进行中</b><span id="or-cdsub"></span></div>' +
+      '<div class="or-cdbig" id="or-cdbig"><span><i>00</i><small>天</small></span><span><i>00</i><small>时</small></span><span><i>00</i><small>分</small></span><span><i>00</i><small>秒</small></span></div>' +
+      '<div class="or-cdbar"><i id="or-cdfill"></i></div>' +
+      '<ol class="or-cdst"><li id="or-cs1"><b>✍️ 下注</b><small id="or-cs1t"></small></li><li id="or-cs2"><b>🔒 截止</b><small id="or-cs2t"></small></li><li id="or-cs3"><b>🎲 开奖</b><small>21:00–22:00 随机一刻</small></li><li id="or-cs4"><b>📣 公布</b><small>22:00 后几分钟</small></li></ol></section>';
+  }
+  function cdTick() {
+    var big = document.getElementById("or-cdbig"); if (!big || !data) return;
+    var now = Date.now(), cut = data.cutoff, end = cut + 3600e3, open = cut - 24 * 3600e3, ph, target, sub, step;
+    // 北京时间今晚的开奖窗口（下注轮已经切到明天时，今晚可能正在开奖）
+    var bj = new Date(now + 8 * 3600e3), t21 = Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate(), 13), t22 = t21 + 3600e3;
+    if (now >= t21 && now < t22 && cut > t22) { ph = "🎲 今晚开奖进行中"; target = t22; sub = "21:00–22:00 之间随机一刻的价格就是开奖价 · 明晚的下注已经开始"; step = 3; }
+    else if (now >= t22 && now < t22 + 15 * 60e3 && cut > t22) { ph = "📣 正在公布结果"; target = t22 + 15 * 60e3; sub = "几分钟内出结果，DeBox 会推送"; step = 4; }
+    else { ph = "⏳ 下注进行中"; target = cut; sub = dayCn(data.round) + " 晚 9 点截止，之后 9–10 点随机一刻开奖"; step = 1; }
+    var ms = Math.max(0, target - now), dd = Math.floor(ms / 864e5), hh = Math.floor(ms % 864e5 / 36e5), mm = Math.floor(ms % 36e5 / 6e4), ss = Math.floor(ms % 6e4 / 1e3);
+    var is = big.querySelectorAll("i"), v = [dd, hh, mm, ss];
+    for (var k = 0; k < 4; k++) { var t = String(v[k]).padStart(2, "0"); if (is[k].textContent !== t) { is[k].textContent = t; is[k].classList.remove("tk"); void is[k].offsetWidth; is[k].classList.add("tk"); } }
+    big.firstChild.style.display = dd ? "" : "none";
+    big.classList.toggle("hot", step === 1 && ms < 3600e3);
+    document.getElementById("or-cdph").textContent = ph + (step === 1 ? " · 距截止" : step === 3 ? " · 距揭晓" : "");
+    document.getElementById("or-cdsub").textContent = sub;
+    var a = step === 1 ? open : t21, b = step === 1 ? cut : target;
+    document.getElementById("or-cdfill").style.width = Math.min(100, Math.max(2, (now - a) / (b - a) * 100)) + "%";
+    var hm = function (x) { var z = new Date(x + 8 * 3600e3); return (z.getUTCMonth() + 1) + "/" + z.getUTCDate() + " " + String(z.getUTCHours()).padStart(2, "0") + ":" + String(z.getUTCMinutes()).padStart(2, "0"); };
+    document.getElementById("or-cs1t").textContent = "现在 · 免费";
+    document.getElementById("or-cs2t").textContent = hm(cut);
+    for (var j = 1; j <= 4; j++) { var li = document.getElementById("or-cs" + j); li.className = j < step ? "done" : j === step ? "on" : ""; }
+  }
   function tick() {
+    cdTick();
     var el = document.getElementById("or-cd"); if (!el || !data) return;
     var ms = data.cutoff - Date.now();
     if (ms <= 0) { clearInterval(cdTimer); if (A.isCurrent(curRid)) setTimeout(function () { load(curRid); }, 3000); return; }
