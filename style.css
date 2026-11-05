@@ -2294,3 +2294,19 @@ body.has-guide .otc-acts { display: none; }
 .tabs a.feat:hover { filter: brightness(1.08); }
 .tabs a.feat.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #fdba74, 0 4px 14px rgba(239, 68, 68, .3) !important; }
 @media (max-width: 640px) { .tabs a.feat { flex-direction: column !important; } .tabs a.feat svg { width: 18px; height: 18px; } }
+/* 我的域名挂单：操作按钮放最前；手机上每个挂单两行看全 */
+.nm-oact { white-space: nowrap; }
+.nm-oact button { margin-right: 4px; padding: 6px 10px !important; font-size: 13px; }
+@media (max-width: 640px) {
+  .nm-otbl { overflow: visible; }
+  .nm-otbl table, .nm-otbl tbody { display: block; white-space: normal; }
+  .nm-otbl thead { display: none; }
+  .nm-otbl tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eee6ff; }
+  .nm-otbl td { padding: 0; border: 0; }
+  .nm-otbl td.nm-oact { grid-column: 1; grid-row: 1 / span 2; display: flex; flex-direction: column; gap: 4px; }
+  .nm-otbl td.nm-oact button { margin: 0; width: 64px; padding: 6px 0 !important; }
+  .nm-otbl td.nm-onm { grid-column: 2; grid-row: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .nm-otbl td.nm-opx { grid-column: 3; grid-row: 1; font-size: 15px; color: #5a35d6; white-space: nowrap; }
+  .nm-otbl td.nm-obp { grid-column: 2; grid-row: 2; font-size: 12px; color: var(--muted); }
+  .nm-otbl td.nm-olt { grid-column: 3; grid-row: 2; font-size: 12px; color: var(--muted); white-space: nowrap; text-align: right; }
+}

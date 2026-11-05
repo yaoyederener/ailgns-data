@@ -841,10 +841,10 @@
     return listings(true).then(function (all) {
       var list = all.filter(function (x) { return x.maker === a; }), me = account && a === account, now2 = Date.now() / 1000;
       if (!list.length) { box.innerHTML = '<p class="muted">📋 ' + (me ? "你" : A.short(a)) + ' 现在没有在挂的单。' + (me ? '点上面「我要卖域名」就能挂。' : "") + "</p>"; return 0; }
-      box.innerHTML = '<h3 class="nm-oh">📋 ' + (me ? "我的" : A.short(a) + " 的") + "挂单（" + list.length + ' 个在卖）</h3><div class="nm-otbl"><table><thead><tr><th>域名</th><th>标价</th><th>买家付（含 3%）</th><th>剩余时间</th><th>操作</th></tr></thead><tbody>' +
+      box.innerHTML = '<h3 class="nm-oh">📋 ' + (me ? "我的" : A.short(a) + " 的") + "挂单（" + list.length + ' 个在卖）</h3><div class="nm-otbl"><table><thead><tr><th>操作</th><th>域名</th><th>标价</th><th>买家付（含 3%）</th><th>剩余时间</th></tr></thead><tbody>' +
         list.map(function (it, i) {
           var p = Number(it.price / 10n ** 12n) / 1e6;
-          return '<tr><td><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + "</b></a></td><td><b>" + p + " DAI</b></td><td>" + Math.round(p * 1.03 * 1e6) / 1e6 + " DAI</td><td>" + leftT(it.expiry - now2) + "</td><td>" + (me ? '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button> <button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + "</td></tr>";
+          return '<tr><td class="nm-oact">' + (me ? '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button><button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + '</td><td class="nm-onm"><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + '</b></a></td><td class="nm-opx"><b>' + p + ' DAI</b></td><td class="nm-obp">买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + ' DAI</td><td class="nm-olt">⏱ ' + leftT(it.expiry - now2) + "</td></tr>";
         }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-ost"></p>';
       var st = document.getElementById("nm-ost"), say = function (t) { if (st) st.textContent = t; };
       if (me) pinRetry(say);
