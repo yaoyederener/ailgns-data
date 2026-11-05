@@ -118,7 +118,7 @@ export async function onRequestPost(ctx) {
   // Claude 的对话要求 user / assistant 交替、第一条是 user：合并连续同角色、去掉开头的 assistant
   const turns = [];
   for (const m of messages) { if (!turns.length && m.role !== "user") continue; if (turns.length && turns[turns.length - 1].role === m.role) turns[turns.length - 1].content += "\n" + m.content; else turns.push({ role: m.role, content: m.content }); }
-  let answer = "", engine = "";
+  let answer = "", engine = "", claudeErr = "";
   // 优先用 Claude（站长 2026-11-05 定，中文更准、不瞎编）；没配 key 或出错时退回 Cloudflare 的 Llama，客服永远不断
   if (ctx.env.ANTHROPIC_API_KEY && turns.length) {
     try {
@@ -127,7 +127,8 @@ export async function onRequestPost(ctx) {
         body: JSON.stringify({ model: ctx.env.CLAUDE_MODEL || "claude-haiku-5-5", max_tokens: 500, temperature: 0.2, system: KNOWLEDGE + extra, messages: turns }),
       });
       if (r.ok) { const j = await r.json(); answer = (j.content || []).map((c) => c.text || "").join("").trim(); engine = "claude"; }
-    } catch (e) { answer = ""; }
+      else claudeErr = r.status + " " + (await r.text()).slice(0, 200);
+    } catch (e) { answer = ""; claudeErr = String(e && e.message || e).slice(0, 200); }
   }
   if (!answer && ctx.env.AI) {
     try {
@@ -139,5 +140,5 @@ export async function onRequestPost(ctx) {
   const human = /\[HUMAN\]/i.test(answer);
   answer = answer.replace(/\[HUMAN\]/gi, "").trim();
   if (!answer) return new Response("empty", { status: 502 });
-  return Response.json({ answer, human, engine });
+  return Response.json(body.debug ? { answer, human, engine, claudeErr, hasKey: !!ctx.env.ANTHROPIC_API_KEY } : { answer, human, engine });
 }
