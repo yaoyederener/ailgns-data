@@ -120,46 +120,87 @@
   }
 
   // ===== 站长后台 =====
+  // #/feedback/admin          工单列表（每 20 秒自动刷新，有新工单响一声、标红）
+  // #/feedback/admin/<编号>   单张工单：看截图 → 写回复 → 「确认已处理」→ 自动跳下一张待处理
   function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
+  var adTimer = null, adSeen = null;
+  function beep() { try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.value = 0.08; o.start(); setTimeout(function () { o.stop(); c.close(); }, 250); } catch (e) {} }
+  function api(q) { return fetch("/api/feedback?" + q + "&key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }); }
+  function imgUrl(id, i) { return "/api/feedback?img=" + id + ":" + i + "&key=" + encodeURIComponent(key()); }
+  function card(t, one) {
+    var ims = ""; for (var i = 0; i < t.n; i++) ims += '<a href="' + imgUrl(t.id, i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, i) + '"></a>';
+    var s = ST[t.st] || ST["new"];
+    return '<div class="fb-tk" data-id="' + t.id + '"><div class="fb-tkh"><b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> <span class="fb-tag" style="background:' + s[1] + '">' + s[0] + "</span>" +
+      (one ? "" : ' <a href="#/feedback/admin/' + t.id + '">打开处理 →</a>') + "</div>" +
+      '<div class="fb-addr"><span class="mono">' + t.a + '</span> <button type="button" class="ghost" data-cp="' + t.a + '">复制</button> <a href="https://anubisscan.io/address/' + t.a + '?tab=token_transfers" target="_blank" rel="noopener">链上记录 ↗</a> <a href="#/trades/' + t.a + '">成交查询 ↗</a></div>' +
+      '<p class="fb-txt">' + esc(t.txt || "（只有截图）") + "</p>" + (ims ? '<div class="fb-ims">' + ims + "</div>" : "") +
+      '<textarea rows="' + (one ? 4 : 2) + '" placeholder="回复客户（客户在反馈页面能看到；绑定了 DeBox 的还会收到私信）">' + esc(t.note || "") + "</textarea>" +
+      '<div class="fb-act"><button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button></div></div>';
+  }
+  function bindCards(box, after) {
+    box.querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(b.getAttribute("data-cp")); b.textContent = "已复制"; }; });
+    box.querySelectorAll("[data-set]").forEach(function (b) {
+      b.onclick = function () {
+        var cd = b.closest(".fb-tk"), s = b.getAttribute("data-set"), note = cd.querySelector("textarea").value.trim(), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), note: note };
+        if (s === "done" && !note && !confirm("还没写回复，确定直接标「已解决」吗？")) return;
+        if (s !== "save") body.st = s;
+        b.disabled = true;
+        fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j2) {
+          b.disabled = false;
+          if (j2.error) return A.errTip(j2.error, b);
+          if (s === "save") { b.textContent = "已保存 ✓"; return; }
+          after(cd, s);
+        }, function () { b.disabled = false; A.errTip("网络不好，再点一次", b); });
+      };
+    });
+  }
+  function login(rid) {
+    A.app.innerHTML = '<section class="card"><h2>📮 工单后台</h2><p>输入后台口令（BACKUP_KEY），只存在这台设备上，以后打开链接直接进。</p><div class="fb-row"><input id="fb-k" type="password" placeholder="口令"><button type="button" class="nm-go" id="fb-kgo">进入</button></div></section>';
+    document.getElementById("fb-kgo").onclick = function () { try { localStorage.setItem("fbKey", document.getElementById("fb-k").value.trim()); } catch (e) {} admin(rid); };
+  }
   function admin(rid, st) {
+    clearInterval(adTimer);
+    if (!key()) return login(rid);
+    var m = location.hash.match(/feedback\/admin\/(\d+)/);
+    if (m) return one(rid, Number(m[1]));
     st = st || "new";
-    var k = key();
-    if (!k) {
-      A.app.innerHTML = '<section class="card"><h2>📮 工单后台</h2><p>输入后台口令（BACKUP_KEY），只存在这台设备上。</p><div class="fb-row"><input id="fb-k" type="password" placeholder="口令"><button type="button" class="nm-go" id="fb-kgo">进入</button></div></section>';
-      document.getElementById("fb-kgo").onclick = function () { try { localStorage.setItem("fbKey", document.getElementById("fb-k").value.trim()); } catch (e) {} admin(rid); };
-      return;
-    }
-    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台</h2><span><button type="button" class="ghost" id="fb-out">退出</button></span></div><div class="seg" id="fb-seg"></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
+    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span><button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
+      '<p class="muted">每 20 秒自动刷新，有新工单会响一声。点「打开处理」一张一张处理，处理完自动跳下一张。</p><div class="seg" id="fb-seg"></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
-    fetch("/api/feedback?list=1&st=" + st + "&key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
-      if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return admin(rid); }
-      var c = j.cnt || {};
-      document.getElementById("fb-seg").innerHTML = ["new", "doing", "done"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("");
-      document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
-      var l = j.list || [], box = document.getElementById("fb-list");
-      box.innerHTML = l.length ? l.map(function (t) {
-        var ims = ""; for (var i = 0; i < t.n; i++) ims += '<a href="/api/feedback?img=' + t.id + ":" + i + "&key=" + encodeURIComponent(k) + '" target="_blank"><img loading="lazy" src="/api/feedback?img=' + t.id + ":" + i + "&key=" + encodeURIComponent(k) + '"></a>';
-        return '<div class="fb-tk" data-id="' + t.id + '"><div class="fb-tkh"><b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> <span class="fb-tag" style="background:' + ST[t.st][1] + '">' + ST[t.st][0] + "</span></div>" +
-          '<div class="fb-addr"><span class="mono">' + t.a + '</span> <button type="button" class="ghost" data-cp="' + t.a + '">复制</button> <a href="https://anubisscan.io/address/' + t.a + '?tab=token_transfers" target="_blank" rel="noopener">链上记录 ↗</a> <a href="#/trades/' + t.a + '">成交查询 ↗</a></div>' +
-          '<p class="fb-txt">' + esc(t.txt || "（只有截图）") + "</p>" + (ims ? '<div class="fb-ims">' + ims + "</div>" : "") +
-          '<textarea rows="2" placeholder="回复客户（客户在反馈页面能看到）">' + esc(t.note || "") + "</textarea>" +
-          '<div class="fb-act"><button type="button" class="ghost" data-set="doing">处理中</button><button type="button" class="nm-go" data-set="done">✅ 已解决</button><button type="button" class="ghost" data-set="save">只保存回复</button></div></div>';
-      }).join("") : '<p class="muted">没有' + ST[st][0] + "的工单 🎉</p>";
-      box.querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(b.getAttribute("data-cp")); b.textContent = "已复制"; }; });
-      box.querySelectorAll("[data-set]").forEach(function (b) {
-        b.onclick = function () {
-          var card = b.closest(".fb-tk"), s = b.getAttribute("data-set"), body = { key: k, action: "set", id: Number(card.getAttribute("data-id")), note: card.querySelector("textarea").value };
-          if (s !== "save") body.st = s;
-          b.disabled = true;
-          fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j2) {
-            b.disabled = false;
-            if (j2.error) return A.errTip(j2.error, b);
-            if (s === "save") { b.textContent = "已保存"; return; }
-            card.remove();
-          }, function () { b.disabled = false; });
-        };
+    function load(first) {
+      var box = document.getElementById("fb-list"); if (!box) return clearInterval(adTimer);
+      if (!first && box.querySelector("textarea:focus")) return; // 正在写回复：不刷新
+      api("list=1&st=" + st).then(function (j) {
+        if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid); }
+        var c = j.cnt || {}, maxId = (j.list || []).reduce(function (x, t) { return Math.max(x, t.id); }, 0);
+        if (adSeen !== null && st === "new" && maxId > adSeen) { beep(); var nw = document.getElementById("fb-nw"); if (nw) nw.innerHTML = '<span class="fb-new">🔔 新工单</span>'; }
+        if (st === "new") adSeen = Math.max(adSeen || 0, maxId);
+        document.getElementById("fb-seg").innerHTML = ["new", "doing", "done"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("");
+        document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
+        var l = j.list || [];
+        box.innerHTML = l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">没有' + ST[st][0] + "的工单 🎉</p>";
+        bindCards(box, function (cd) { cd.remove(); });
+      }, function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
+    }
+    load(true);
+    adTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(adTimer); load(false); }, 20000);
+  }
+  function one(rid, id) {
+    A.app.innerHTML = '<section class="card fb-one"><div class="fb-nav"><a href="#/feedback/admin">← 全部工单</a><span class="muted" id="fb-left"></span></div><div id="fb-1"><p class="muted">读取中…</p></div></section>';
+    api("list=1").then(function (j) {
+      if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid); }
+      var l = j.list || [], t = l.filter(function (x) { return x.id === id; })[0], box = document.getElementById("fb-1");
+      var todo = l.filter(function (x) { return x.st !== "done"; }).sort(function (a, b) { return a.id - b.id; });
+      document.getElementById("fb-left").textContent = "还有 " + todo.length + " 张没处理完";
+      if (!t) { box.innerHTML = '<p class="muted">找不到工单 #' + id + "</p>"; return; }
+      box.innerHTML = card(t, true);
+      bindCards(box, function (cd, s) {
+        if (s !== "done") { cd.querySelector(".fb-tag").textContent = ST[s][0]; return; }
+        var next = todo.filter(function (x) { return x.id !== id; })[0];
+        box.innerHTML = '<p class="fb-st ok">✅ #' + id + " 已处理，回复已发给客户</p>" + (next ? '<p class="muted">正在打开下一张 #' + next.id + "…</p>" : '<p class="muted">全部处理完了 🎉</p><a href="#/feedback/admin">← 回到工单列表</a>');
+        if (next) setTimeout(function () { location.hash = "#/feedback/admin/" + next.id; }, 900);
       });
-    }, function () { document.getElementById("fb-list").innerHTML = '<p class="muted">读取失败</p>'; });
+    });
   }
   A.pages.feedback = page;
 })();

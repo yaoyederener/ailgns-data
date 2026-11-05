@@ -67,6 +67,7 @@
     var h = hours();
     return "人工客服时间：<b>" + esc(h.text) + "</b><br>" + (h.online ? '<span class="cb-on">● 现在人工在线</span>' : '<span class="cb-off">● 现在不在人工时间，留言后上班第一时间回复</span>') +
       '<br><a class="cb-human" href="' + DEBOX + '" target="_blank" rel="noopener">加站长 DeBox，找人工 →</a>' +
+      '<br><a class="cb-human" href="#/feedback">📮 提交问题工单（附截图）→</a>' +
       '<br><span class="muted">也可以直接在这里留言，你的每一条留言我们都会阅读并反馈。</span>';
   }
   function add(who, html) {
@@ -137,6 +138,7 @@
       '<button class="cb-fab" aria-label="在线客服"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="12" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="15" cy="9.6" r="1.2" fill="#7027d9"/></svg><span>客服</span></button>' +
       '<section class="cb-panel" hidden aria-label="在线客服">' +
       '<header class="cb-head"><div><b>AiLGNS 服务站客服</b><small>机器人 7×24 秒回 · 人工 ' + esc(hours().text) + '</small></div><button class="cb-x" aria-label="关闭">×</button></header>' +
+      '<a class="cb-fb" href="#/feedback">📮 遇到问题？点这里<b>提交工单</b>（可附截图），客服挨个处理 →</a>' +
       '<div class="cb-list"></div>' +
       '<div class="cb-quick">' + QUICK.map(function (q) { return '<button type="button">' + esc(q) + "</button>"; }).join("") + "</div>" +
       '<form class="cb-form"><input placeholder="输入你的问题…" maxlength="300" autocomplete="off"><button type="submit">发送</button></form>' +
@@ -157,6 +159,7 @@
     }
     fab.onclick = function () { toggle(panel.hidden); };
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
+    root.querySelector(".cb-fb").onclick = function () { toggle(false); };
     root.querySelectorAll(".cb-quick button").forEach(function (b) { b.onclick = function () { ask(b.textContent); }; });
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();

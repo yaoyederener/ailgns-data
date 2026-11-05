@@ -54,6 +54,12 @@ export async function onRequestPost(ctx) {
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);
     t.up = Date.now();
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+    // 处理完：客户绑定过 DeBox 机器人的，私信告诉他回复内容
+    if (b.st === "done" && t.note) {
+      const users = (await kv.get("dbx:a:" + t.a, "json")) || [];
+      const msg = "📮 你的反馈工单 #" + t.id + " 已处理\n\n💬 客服回复：" + t.note + "\n\n查看 👉 https://ailgns.dev/#/feedback";
+      ctx.waitUntil(Promise.all(users.map((u) => sendDebox(ctx.env, u, msg, "private").catch(() => {}))));
+    }
     return json({ ok: true, t });
   }
   const a = String(b.a || "").trim().toLowerCase(), txt = String(b.txt || "").trim();
@@ -75,7 +81,7 @@ export async function onRequestPost(ctx) {
   await kv.put("tk:list", JSON.stringify(list));
   const mine = ((await kv.get("tk:a:" + a, "json")) || []).concat(id).slice(-50);
   await kv.put("tk:a:" + a, JSON.stringify(mine));
-  const msg = "📮 新工单 #" + id + "\n钱包：" + a + "\n截图：" + imgs.length + " 张\n内容：" + (txt || "（只有截图）").slice(0, 300) + "\n\n处理 👉 https://ailgns.dev/#/feedback/admin";
+  const msg = "📮 新工单 #" + id + "\n钱包：" + a + "\n截图：" + imgs.length + " 张\n内容：" + (txt || "（只有截图）").slice(0, 300) + "\n\n处理 👉 https://ailgns.dev/#/feedback/admin/" + id;
   ctx.waitUntil(sendDebox(ctx.env, SUPPORT_USER, msg, "private").catch(() => {}));
   return json({ ok: true, id });
 }
