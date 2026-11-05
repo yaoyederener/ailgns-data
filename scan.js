@@ -299,6 +299,17 @@
     return Promise.all(tries.map(function (t) { return call(NAMES[t[1]], SEL.resolve + str(t[0])).then(function (r) { return { label: t[0], tld: t[1], a: "0x" + r.slice(26) }; }); })).then(function (rs) {
       var hit = rs.filter(function (r) { return r.a !== ZERO; })[0];
       if (!hit) { out.innerHTML = '<section class="card"><p class="nm-bad">没找到「' + esc(q) + '」：这个域名还没注册或已过期</p><p><a href="#/names/' + encodeURIComponent(m ? q : q + ".ailgns") + '">去注册 →</a></p></section>'; return; }
+      // 域名正在市场挂单：它暂时托管在市场合约里，别把合约当成主人显示（合约名下是所有在卖的域名）
+      if (C.market[hit.a.toLowerCase()]) {
+        return fetch("/api/name-market").then(function (r) { return r.json(); }).catch(function () { return {}; }).then(function (j) {
+          var it = ((j && j.list) || []).filter(function (x) { return x.label === hit.label && x.t === hit.tld; })[0], full = hit.label + "." + hit.tld;
+          var p = it ? Number(BigInt(it.price) / 10n ** 12n) / 1e6 : 0;
+          out.innerHTML = '<section class="card"><h2>🏷 ' + esc(full) + '</h2><div class="lg-one"><span class="lg-ico">🏷</span><div>这个域名<b>正在域名市场挂单出售</b>' + (it ? "，标价 <b>" + p + " DAI</b>（买家付 " + Math.round(p * 1.03 * 100) / 100 + "，含 3% 手续费）" : "") + "，暂时托管在市场合约里，卖掉前卖家随时可以撤回。</div></div>" +
+            (it ? "<p>卖家：" + who(it.maker) + "</p>" : "") +
+            '<p><a class="nm-go" href="#/names/' + encodeURIComponent(full) + '">去看这个域名 / 买下它 →</a></p>' + (it ? '<p><a href="#/scan/' + it.maker + '">看卖家的账本 →</a></p>' : "") + "</section>";
+          fillNames(out);
+        });
+      }
       if ((A.hidden && A.hidden[hit.a.toLowerCase()]) || (A.hiddenNames || {})[hit.label + "." + hit.tld]) { out.innerHTML = '<section class="card"><h2>🌐 ' + esc(hit.label + "." + hit.tld) + '</h2><p class="muted">🔒 这个域名的持有人选择匿名，不公开地址。</p></section>'; return; }
       return addrView(hit.a, out, hit.label + "." + hit.tld);
     });
@@ -320,6 +331,7 @@
   function addrView(a, out, via) {
     var wait = '<p class="muted">读取中…</p>';
     out.innerHTML =
+      (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2><a href="https://anubisscan.io/address/' + a + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
       '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
       '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
