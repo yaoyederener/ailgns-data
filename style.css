@@ -2179,3 +2179,4 @@ tr.nm-pinrow td { background: #fff8e6; }
 .fb-ims img { width: 110px; height: 110px; object-fit: cover; border-radius: 8px; border: 1px solid #e3d8ff; }
 .fb-act { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .fb-act .nm-go { width: auto; margin: 0; }
+.fb-hint { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #fff7e0; color: #8a5a00; font-size: 13px; }

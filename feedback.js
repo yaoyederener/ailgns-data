@@ -50,7 +50,8 @@
       '<div class="fb-row"><input id="fb-a" placeholder="0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" class="ghost" id="fb-pa">📋 粘贴</button></div>' +
       '<label class="fb-l"><b>② 截图</b><small>最多 4 张：交易记录、报错提示、钱包页面都可以</small></label>' +
       '<div class="fb-zone" id="fb-zone"><input type="file" id="fb-f" accept="image/*" multiple hidden>' +
-        '<button type="button" class="fb-pick" id="fb-pick">🖼️ 点这里选截图（手机从相册选）</button>' +
+        '<button type="button" class="fb-pick" id="fb-pick">🖼️ 点这里选截图</button>' +
+        '<p class="fb-hint">📱 弹出菜单后，请点 <b>「照片图库」</b>（安卓点 <b>「相册 / 图库」</b>），选好截图后点右上角「添加 / 完成」</p>' +
         '<button type="button" class="ghost fb-pimg" id="fb-pimg">📋 粘贴刚才的截图</button>' +
         '<small>电脑上截图后，直接按 <b>Ctrl+V</b>（苹果 ⌘+V）就能贴进来，也可以把图片拖到这里</small><div class="fb-th" id="fb-th"></div></div>' +
       '<label class="fb-l"><b>③ 遇到了什么问题</b><small>什么时间、在哪个页面、做了什么、提示了什么</small></label>' +
