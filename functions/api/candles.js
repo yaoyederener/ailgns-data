@@ -50,7 +50,8 @@ async function backfill(kv, st, latest, tsL) {
 }
 
 function aggregate(st, sec, n, tsL, cur) {
-  const ks = Object.keys(st.c).map(Number).sort((a, b) => a - b), end = Math.floor(tsL / sec) * sec, start = end - (n - 1) * sec, out = [];
+  const ks = Object.keys(st.c).map(Number).sort((a, b) => a - b), end = Math.floor(tsL / sec) * sec, out = [];
+  const start = Math.max(end - (n - 1) * sec, Math.floor((st.tsFrom || 0) / sec) * sec); // 没读到的历史不画平线
   let prev = null, i = 0;
   while (i < ks.length && ks[i] < start) { prev = st.c[ks[i]][3]; i++; }
   if (prev === null) prev = ks.length ? st.c[ks[0]][0] : cur;

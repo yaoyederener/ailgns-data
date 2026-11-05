@@ -14,7 +14,7 @@
   A.kchart = function (host, opt) {
     opt = opt || {};
     var iv = opt.i || "15m", data = [], cur = 0, orc = 0, orcAt = 0, timer = null, dead = false, done = false;
-    var cw = 9, off = 0, hover = -1, drag = null, pinch = 0;
+    var cw = 9, cwDraw = 9, off = 0, hover = -1, drag = null, pinch = 0;
     host.classList.add("kc");
     host.innerHTML = '<div class="kc-top"><div class="kc-ivs">' + IVS.map(function (x) { return '<button type="button" data-i="' + x[0] + '"' + (x[0] === iv ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + '</div><div class="kc-legend" id="kc-leg"></div></div><div class="kc-price" id="kc-price"></div><div class="kc-wrap"><canvas class="kc-cv"></canvas></div><div class="kc-foot muted">' + (opt.foot || "AiLGNS/DAI 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25 · 虚线 OTC 预言机价") + '<span id="kc-load"></span></div>';
     var cv = host.querySelector("canvas"), ctx = cv.getContext("2d"), leg = host.querySelector("#kc-leg"), wrap = host.querySelector(".kc-wrap");
@@ -42,25 +42,26 @@
       var r = size(), W = r.width, H = r.height, AXW = 64, AXH = 20, plotW = W - AXW, pH = Math.floor((H - AXH) * 0.74), vTop = pH + 6, vH = H - AXH - vTop;
       ctx.clearRect(0, 0, W, H);
       if (!data.length) { ctx.fillStyle = TXT; ctx.font = "13px system-ui"; ctx.textAlign = "center"; ctx.fillText("K 线读取中…", W / 2, H / 2); return; }
-      var n = Math.max(10, Math.floor(plotW / cw)), end = data.length - off, start = Math.max(0, end - n), vis = data.slice(start, end);
+      var cwE = data.length * cw < plotW ? Math.min(26, plotW / data.length) : cw; // 数据不够铺满时自动撑开（币安也这样）
+      var n = Math.max(5, Math.floor(plotW / cwE)), end = data.length - off, start = Math.max(0, end - n), vis = data.slice(start, end);
       if (!vis.length) return;
       var hi = -Infinity, lo = Infinity, vmax = 0;
       vis.forEach(function (c, k) { hi = Math.max(hi, c[2]); lo = Math.min(lo, c[3]); vmax = Math.max(vmax, c[5]); var m = ma(data, 25, start + k); if (m) { hi = Math.max(hi, m); lo = Math.min(lo, m); } });
       if (orc && orc > lo * 0.9 && orc < hi * 1.1) { hi = Math.max(hi, orc); lo = Math.min(lo, orc); }
       var pad = Math.max((hi - lo) * 0.08, hi * 0.0002); hi += pad; lo -= pad;
-      var y = function (p) { return pH - (p - lo) / (hi - lo) * pH; }, x = function (k) { return k * cw + cw / 2; };
+      var y = function (p) { return pH - (p - lo) / (hi - lo) * pH; }, x = function (k) { return k * cwE + cwE / 2; }; cwDraw = cwE;
       // 网格 + 右轴
       ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
       for (var g = 0; g <= 5; g++) { var yy = Math.round(pH * g / 5) + 0.5, pv = hi - (hi - lo) * g / 5; ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(plotW, yy); ctx.stroke(); ctx.fillStyle = AX; ctx.fillText(fmt(pv, 2), plotW + 6, yy); }
       // 成交量
-      vis.forEach(function (c, k) { var up = c[4] >= c[1], h = vmax ? c[5] / vmax * vH : 0; ctx.fillStyle = up ? "rgba(14,203,129,.45)" : "rgba(246,70,93,.45)"; ctx.fillRect(x(k) - cw * 0.35, vTop + vH - h, cw * 0.7, h); });
+      vis.forEach(function (c, k) { var up = c[4] >= c[1], h = vmax ? c[5] / vmax * vH : 0; ctx.fillStyle = up ? "rgba(14,203,129,.45)" : "rgba(246,70,93,.45)"; ctx.fillRect(x(k) - cwE * 0.35, vTop + vH - h, cwE * 0.7, h); });
       ctx.fillStyle = AX; ctx.fillText("量 " + vol(vmax), plotW + 6, vTop + 6);
       // 时间轴
-      var step = Math.ceil(70 / cw); ctx.textAlign = "center"; ctx.fillStyle = AX;
+      var step = Math.ceil(70 / cwE); ctx.textAlign = "center"; ctx.fillStyle = AX;
       vis.forEach(function (c, k) { if ((start + k) % step === 0) { ctx.fillText(bj(c[0], iv), x(k), H - AXH / 2); ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(Math.round(x(k)) + 0.5, 0); ctx.lineTo(Math.round(x(k)) + 0.5, vTop + vH); ctx.stroke(); } });
       // 蜡烛
       vis.forEach(function (c, k) {
-        var up = c[4] >= c[1], col = up ? UP : DN, cx = Math.round(x(k)) + 0.5, bw = Math.max(1, cw * 0.62);
+        var up = c[4] >= c[1], col = up ? UP : DN, cx = Math.round(x(k)) + 0.5, bw = Math.max(1, cwE * 0.62);
         ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(cx, y(c[2])); ctx.lineTo(cx, y(c[3])); ctx.stroke();
         var top = y(Math.max(c[1], c[4])), bh = Math.max(1, Math.abs(y(c[1]) - y(c[4])));
@@ -82,7 +83,7 @@
       leg.innerHTML = '<span class="kc-t">' + bjFull(c0[0]) + "</span><span>开 <b style=\"color:" + colC + '">' + fmt(c0[1], 2) + "</b></span><span>高 <b style=\"color:" + colC + '">' + fmt(c0[2], 2) + "</b></span><span>低 <b style=\"color:" + colC + '">' + fmt(c0[3], 2) + "</b></span><span>收 <b style=\"color:" + colC + '">' + fmt(c0[4], 2) + "</b></span><span>涨跌 <b style=\"color:" + colC + '">' + (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%</b></span><span>量 <b>" + vol(c0[5]) + " DAI</b></span>";
     }
     // 交互：拖动平移、滚轮缩放、悬停十字、触屏
-    function px2idx(clientX) { var r = cv.getBoundingClientRect(); return Math.floor((clientX - r.left) / cw); }
+    function px2idx(clientX) { var r = cv.getBoundingClientRect(); return Math.floor((clientX - r.left) / cwDraw); }
     cv.addEventListener("mousemove", function (e) { if (drag) { var dx = e.clientX - drag.x; var dn = Math.round(dx / cw); if (dn) { off = Math.min(Math.max(0, drag.off + dn), Math.max(0, data.length - 10)); draw(); } return; } hover = px2idx(e.clientX); draw(); });
     cv.addEventListener("mouseleave", function () { hover = -1; drag = null; draw(); });
     cv.addEventListener("mousedown", function (e) { drag = { x: e.clientX, off: off }; e.preventDefault(); });
@@ -103,7 +104,7 @@
         if (dead) return;
         var best = null;
         all.forEach(function (d, k) {
-          if (!d || d.c.length < 5) return;
+          if (!d || d.c.length < 20) return; // 根数太少的周期不参与（历史还没补够）
           var c = d.c, f = c[0][1], l = c[c.length - 1][4], pct = f ? (l - f) / f * 100 : 0, up = 0;
           for (var j = 1; j < c.length; j++) if (c[j][4] >= c[j - 1][4]) up++;
           var cons = up / (c.length - 1), score = pct * (0.4 + cons);
