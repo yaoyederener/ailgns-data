@@ -139,6 +139,11 @@ async function recordTrades(m, kv, logs, cache) {
       rec = { m: m.key, id, t: ts, tx: l.transactionHash, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker, makerSide: o.sell ? "卖" : "买" };
     }
     await addFee(kv, rec).catch(() => {});
+    // AiLGNS/DAI 真实成交记录（全站一份，最近 300 笔）：预言家奖池用「24 小时真实成交最高价」做预言机
+    if (m.key === "ailgns" && rec.price > 0 && rec.dai >= 0.5) {
+      const fl = (await kv.get("otc:fills:ailgns", "json")) || [];
+      if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(rec.price * 1000) / 1000, dai: rec.dai, tx: rec.tx, id: rec.id }); await kv.put("otc:fills:ailgns", JSON.stringify(fl.slice(0, 300))); }
+    }
     for (const a of new Set([o.maker, taker])) {
       const list = (await kv.get("tr:" + a, "json")) || [];
       if (!list.some((x) => x.tx === rec.tx && x.id === rec.id && x.m === rec.m)) { list.unshift(rec); await kv.put("tr:" + a, JSON.stringify(list.slice(0, TR_MAX))); }

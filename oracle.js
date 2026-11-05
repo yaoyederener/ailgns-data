@@ -115,16 +115,26 @@
     var dr = d.drawing, res = dr.res, now = Date.now(), inWin = !dr.skip && now >= dr.from && now < dr.to + 5 * 60e3 && !res; // 第一期之前（11 月 5 日）不揭晓
     var html = "", top = "";
     // 超级大奖池 + 本轮奖金（放在页面最上面）
-    var potV = d.funds ? Math.floor((d.funds.dai + d.funds.ail * d.funds.px) * 100) / 100 : 0; // 奖池实际总额
+    // 奖池按 AiLGNS 计（奖金全部发 AiLGNS）：DAI 部分按 OTC 预言机价折成 AiLGNS；旁边再标折合多少 DAI
+    var oc = (d.funds && d.funds.otc) || { px: d.funds ? d.funds.px : 0, n: 0, src: "dex" }, opx = oc.px || (d.funds ? d.funds.px : 0) || 1;
+    var potA = d.funds ? d.funds.ail + d.funds.dai / opx : 0, potV = Math.floor(potA * opx * 100) / 100; // 奖池 AiLGNS 数量 / 折合 DAI
+    var a2 = function (v) { return Math.round(v * 100); }, dai0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); };
+    var ocT = oc.at ? new Date(oc.at + 8 * 3600e3) : null, ocWhen = ocT ? (ocT.getUTCMonth() + 1) + "/" + ocT.getUTCDate() + " " + String(ocT.getUTCHours()).padStart(2, "0") + ":" + String(ocT.getUTCMinutes()).padStart(2, "0") : "";
+    var ocNote = oc.src === "otc24" ? "按本站 OTC 市场 <b>24 小时内真实成交最高价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + " 成交，共 " + oc.n + " 笔）折算"
+      : oc.src === "otclast" ? "按本站 OTC 市场 <b>最近一笔真实成交价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + "）折算，24 小时内暂无新成交"
+      : "OTC 市场暂无成交记录，暂按 DEX 现价 " + opx.toFixed(3) + " DAI/枚 折算";
+    var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
-      '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></div>' +
+      '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></div>' +
+      '<div class="or-pdai">≈ <b>' + dai0(potV) + '</b> DAI</div>' +
+      '<small class="or-porc">📡 预言机来自本站 OTC 市场：' + ocNote + '。奖池里的 DAI 会在 OTC 买成 AiLGNS，<b>奖金全部以 AiLGNS 发放</b>。</small>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 55%</u>🔮 神算子</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.55) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p4"><small><u class="or-rk">OTC 前 3 · 30%</u>💰 贡献王</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.3) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p1"><small><u class="or-rk">最接近 · 10%</u>👁 天眼通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p2"><small><u class="or-rk">第二接近 · 5%</u>🌿 地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
+        '<div class="or-pz p4"><small><u class="or-rk">OTC 前 3 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" +
+        '<div class="or-pz p1"><small><u class="or-rk">最接近 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
+        '<div class="or-pz p2"><small><u class="or-rk">第二接近 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
       "</div>" +
       "</div></section>";
     // 正在揭晓 / 刚开完
@@ -283,11 +293,12 @@
   function countUp() {
     document.querySelectorAll(".or-cnt").forEach(function (el, k) {
       var to = Number(el.getAttribute("data-to")) || 0, from = cntSeen[k] != null ? cntSeen[k] : 0, t0 = performance.now(), dur = from ? 900 : 1800;
+      var dec = Number(el.getAttribute("data-dec")) || 0, fmt = function (v) { return dec ? (v / Math.pow(10, dec)).toFixed(dec) : v.toLocaleString("en-US", { useGrouping: false }); };
       cntSeen[k] = to;
-      if (from === to) { el.textContent = to.toLocaleString("en-US", { useGrouping: false }); return; }
+      if (from === to) { el.textContent = fmt(to); return; }
       (function step(t) {
         var x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3);
-        el.textContent = Math.floor(from + (to - from) * e).toLocaleString("en-US", { useGrouping: false });
+        el.textContent = fmt(Math.floor(from + (to - from) * e));
         if (x < 1 && el.isConnected) requestAnimationFrame(step);
       })(t0);
     });

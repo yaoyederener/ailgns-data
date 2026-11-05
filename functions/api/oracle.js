@@ -4,7 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
+import { otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -42,6 +42,7 @@ export async function onRequestGet(ctx) {
     const px = await priceMilli();
     const big = (x) => Number(BigInt(x || "0") / 10n ** 12n) / 1e6;
     out.funds = { dai: big(st.held), ail: big(st.held_ail), owed: big(st.owed), px: px.raw };
+    try { out.funds.otc = await otcHi(kv); } catch (e) { out.funds.otc = { px: px.raw, at: Date.now(), n: 0, src: "dex" }; }
   } catch (e) { out.funds = null; }
   // 本周期贡献榜（上次大奖清空起到今天的 OTC 手续费前 3）
   try {
