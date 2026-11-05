@@ -2202,3 +2202,6 @@ tr.nm-pinrow td { background: #fff8e6; }
 .nm-pr { padding: 4px 0; border-bottom: 1px dashed #e3d8ff; font-size: 14px; }
 .nm-pr span { color: #6b5aa6; font-size: 13px; }
 .nm-pr em { color: #d94a7a; font-style: normal; }
+.nm-taken { margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: #fff0f4; border: 1px solid #ffd0dc; color: #b3264f; font-size: 14.5px; }
+.nm-rdet { margin: 6px 0 10px; font-size: 13px; color: #7a68b8; }
+.nm-rdet summary { cursor: pointer; }

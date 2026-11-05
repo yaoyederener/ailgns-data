@@ -484,7 +484,7 @@
         var onSale = r.owner && r.owner === OTC[TLD];
         out.innerHTML = (onSale ? '<div class="nm-sale" id="nm-sale"><p class="muted">🛒 这个名字正在市场出售，读取价格中…</p></div>' : "") + '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (anon ? "🔒 匿名" : onSale ? "🛒 域名市场托管中（挂单出售）" : r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (anon ? "🔒 匿名持有人" : onSale ? "🛒 域名市场托管中，卖出后直接过户给买家" : r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<p class="nm-gen" id="nm-gen"></p>' + (onSale ? "" : renewBox(v, r.exp)) + '<p class="muted nm-st" id="nm-st"></p>' +
+          '<p class="nm-gen" id="nm-gen"></p>' + (onSale ? "" : mine ? renewBox(v, r.exp) : '<div class="nm-taken">❌ <b>' + esc(v + "." + TLD) + '</b> 已经被别人注册了，<b>不能注册</b>。请换一个名字。</div><details class="nm-rdet"><summary>我是持有人的朋友，要帮他续费（名字不会变成你的）</summary>' + renewBox(v, r.exp) + '</details>') + '<p class="muted nm-st" id="nm-st"></p>' +
           (mine ? '<div id="nm-next"></div>' : anon ? "" : '<div id="nm-next"></div><a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') +
           (mine ? '<div class="nm-act"><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] && TLD === "ailgns" ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") + "</div>" : "");
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };
@@ -937,9 +937,10 @@
     var sh = function (x) { return x ? x.slice(0, 6) + "…" + x.slice(-4) : "?"; };
     fetch("/api/name-paid?a=" + a).then(function (r) { return r.json(); }).then(function (j) {
       if (!document.body.contains(d)) return;
-      var L = (j.list || []).filter(function (x) { return x.kind === "reg"; });
+      var RN = (j.list || []).filter(function (x) { return x.kind === "renew" && x.owner !== a; }), L = (j.list || []).filter(function (x) { return x.kind === "reg"; });
+      var rnHtml = RN.length ? '<div class="nm-pr"><em>⚠️ 这个钱包还付过 ' + RN.length + " 次「续费」，续的是别人的名字（钱付了，名字还是原主人的）：</em>" + RN.map(function (x) { return " " + esc(x.label + "." + x.t) + "（持有人 <code>" + sh(x.owner) + "</code>）"; }).join("，") + "</div>" : "";
       if (j.error) { d.innerHTML = "<b>📜 付款注册记录</b><small>" + esc(j.error) + "</small>"; return; }
-      if (!L.length) { d.innerHTML = "<b>📜 付款注册记录</b><small>这个钱包没有付款注册过域名。如果你确定注册过，请换成当时付款的钱包地址再查。</small>"; return; }
+      if (!L.length) { d.innerHTML = "<b>📜 付款注册记录</b>" + rnHtml + "<small>这个钱包没有付款<b>注册</b>过域名。如果你确定注册过，请换成当时付款的钱包地址再查。</small>"; return; }
       var bad = 0;
       d.innerHTML = "<b>📜 这个钱包付款注册过 " + L.length + " 个域名</b>" + L.map(function (x) {
         var full = x.label + "." + x.t, here = x.owner === a, pri = x.primary === x.label, st;
@@ -948,7 +949,7 @@
         else st = "✅ 在这个钱包";
         if (x.owner && !pri) { bad++; st += " · <em>⚠️ 未设主名字</em>"; }
         return '<div class="nm-pr"><a href="#/names/' + encodeURIComponent(full) + '">' + esc(full) + "</a> <span>" + st + "</span></div>";
-      }).join("") + (bad ? "<small>⚠️ 标「未设主名字」的：用它<b>现在所在的钱包</b>连接本站，点进名字按「设为我的主名字」（不花钱，只付一点 Gas）。一个钱包只能有一个主名字。</small>" : "");
+      }).join("") + rnHtml + (bad ? "<small>⚠️ 标「未设主名字」的：用它<b>现在所在的钱包</b>连接本站，点进名字按「设为我的主名字」（不花钱，只付一点 Gas）。一个钱包只能有一个主名字。</small>" : "");
     }, function () { if (document.body.contains(d)) d.innerHTML = "<b>📜 付款注册记录</b><small>查询失败，请稍后再试</small>"; });
   }
   var movedOf = {}; // 曾经进过这个钱包、现在已经不在的名字（转走了 / 卖掉了）
