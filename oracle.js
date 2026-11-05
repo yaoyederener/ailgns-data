@@ -127,7 +127,6 @@
         '<div class="or-pz p2"><small><u class="or-rk">第二接近 · 5%</u>🌿 地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
       "</div>" +
       "</div></section>";
-    html += cdCard(d);
     // 正在揭晓 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
@@ -145,6 +144,7 @@
       '<p>扫码关注 DeBox 机器人，<b>每晚揭晓结果</b>、<b>获奖通知</b>、<b>每天揭晓提醒</b>第一时间推送给你。绑定钱包地址后，获奖了机器人还会单独私信你。</p><div id="dbx-slot"></div></section>';
     o.innerHTML = html;
     if (A.otcKit && A.otcKit.deboxCard) A.otcKit.deboxCard(rid, { title: "关注机器人，揭晓结果 + 获奖通知 + 每日提醒", on: "揭晓结果、获奖私信、每天揭晓提醒都会推送到你的 DeBox" });
+    top += cdCard(d); // 倒计时放在奖池下面、弹幕上面
     var tp = document.getElementById("or-top"); if (tp) tp.innerHTML = top;
     bind(rid);
     tick();
