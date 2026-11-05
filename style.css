@@ -2157,6 +2157,11 @@ tr.nm-pinrow td { background: #fff8e6; }
 .fb-row { display: flex; gap: 8px; }
 .fb-row input { flex: 1; min-width: 0; padding: 11px 12px; border: 1px solid #e3d8ff; border-radius: 10px; font-size: 15px; background: #fff; }
 .fb-row button { flex: none; white-space: nowrap; }
+.fb-login .fb-row input { font-size: 16px; padding: 13px 14px; font-family: ui-monospace, Menlo, monospace; letter-spacing: .5px; }
+.fb-login .fb-row button.ghost { padding: 0 12px; font-size: 18px; }
+.fb-kmsg { margin: 10px 0 0; min-height: 1.4em; font-size: 13.5px; color: var(--muted); }
+.fb-kmsg.err { color: #b42318; }
+@media (max-width: 600px) { .fb-login .fb-row { flex-wrap: wrap; } .fb-login .fb-row input { flex: 1 1 100%; } .fb-login .fb-row .nm-go { flex: 1; } }
 .fb-zone { border: 2px dashed #d9c7ff; border-radius: 14px; padding: 14px; text-align: center; background: #fbf8ff; }
 .fb-zone.drag { background: #f1e8ff; border-color: #a78bfa; }
 .fb-zone small { display: block; margin-top: 8px; color: var(--muted); font-size: 12.5px; }

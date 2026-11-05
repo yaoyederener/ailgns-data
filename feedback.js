@@ -156,9 +156,26 @@
       };
     });
   }
-  function login(rid) {
-    A.app.innerHTML = '<section class="card"><h2>📮 工单后台</h2><p>输入后台口令（Cloudflare 里设的 FEEDBACK_KEY），只存在这台设备上，以后打开链接直接进。</p><div class="fb-row"><input id="fb-k" type="password" placeholder="口令"><button type="button" class="nm-go" id="fb-kgo">进入</button></div></section>';
-    document.getElementById("fb-kgo").onclick = function () { try { localStorage.setItem("fbKey", document.getElementById("fb-k").value.trim()); } catch (e) {} admin(rid); };
+  function login(rid, msg) {
+    A.app.innerHTML = '<section class="card fb-login"><h2>📮 工单后台</h2><p class="muted">输入后台口令，只存在这台设备上，以后打开直接进。</p>' +
+      '<div class="fb-row"><input id="fb-k" type="password" placeholder="粘贴口令" autocomplete="current-password" autocapitalize="off" spellcheck="false"><button type="button" class="ghost" id="fb-eye" aria-label="显示口令">👁</button><button type="button" class="nm-go" id="fb-kgo">进入</button></div>' +
+      '<p id="fb-kmsg" class="fb-kmsg' + (msg ? " err" : "") + '">' + esc(msg || "") + "</p></section>";
+    var inp = document.getElementById("fb-k"), go = document.getElementById("fb-kgo"), tip = document.getElementById("fb-kmsg");
+    document.getElementById("fb-eye").onclick = function () { inp.type = inp.type === "password" ? "text" : "password"; inp.focus(); };
+    function submit() {
+      var k = inp.value.trim();
+      if (!k) { tip.className = "fb-kmsg err"; tip.textContent = "口令是空的，先粘贴再点进入"; inp.focus(); return; }
+      go.disabled = true; tip.className = "fb-kmsg"; tip.textContent = "核对中…";
+      fetch("/api/feedback?list=1&st=new&key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
+        go.disabled = false;
+        if (j.error) { tip.className = "fb-kmsg err"; tip.textContent = "口令不对（" + j.error + "）。用 1Password 里「AiLGNS · BACKUP_KEY」那一串，整段复制，前后别带空格。"; inp.select(); return; }
+        try { localStorage.setItem("fbKey", k); } catch (e) {}
+        admin(rid);
+      }, function () { go.disabled = false; tip.className = "fb-kmsg err"; tip.textContent = "网络没通，再点一次"; });
+    }
+    go.onclick = submit;
+    inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); submit(); } };
+    setTimeout(function () { inp.focus(); }, 50);
   }
   function admin(rid, st) {
     clearInterval(adTimer);
@@ -173,7 +190,7 @@
       var box = document.getElementById("fb-list"); if (!box) return clearInterval(adTimer);
       if (!first && box.querySelector("textarea:focus")) return; // 正在写回复：不刷新
       api("list=1&st=" + st).then(function (j) {
-        if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid); }
+        if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
         var c = j.cnt || {}, maxId = (j.list || []).reduce(function (x, t) { return Math.max(x, t.id); }, 0);
         if (adSeen !== null && st === "new" && maxId > adSeen) { beep(); var nw = document.getElementById("fb-nw"); if (nw) nw.innerHTML = '<span class="fb-new">🔔 新工单</span>'; }
         if (st === "new") adSeen = Math.max(adSeen || 0, maxId);
@@ -190,7 +207,7 @@
   function one(rid, id) {
     A.app.innerHTML = '<section class="card fb-one"><div class="fb-nav"><a href="#/feedback/admin">← 全部工单</a><span class="muted" id="fb-left"></span></div><div id="fb-1"><p class="muted">读取中…</p></div></section>';
     api("list=1").then(function (j) {
-      if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid); }
+      if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
       var l = j.list || [], t = l.filter(function (x) { return x.id === id; })[0], box = document.getElementById("fb-1");
       var todo = l.filter(function (x) { return x.st !== "done"; }).sort(function (a, b) { return a.id - b.id; });
       document.getElementById("fb-left").textContent = "还有 " + todo.length + " 张没处理完";
