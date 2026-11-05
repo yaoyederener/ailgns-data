@@ -245,7 +245,7 @@
   }
   function rowHtml(a, row) {
     var r = translate(a, row);
-    return '<div class="lg-row"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="https://anubisscan.io/tx/' + row.h + '" target="_blank" rel="noopener" title="链上查询">↗</a></div>';
+    return '<div class="lg-row"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
   }
   // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
   function ledger(a, box) {
@@ -367,8 +367,17 @@
       var t = x[0], tt = x[1].items || [], a = (t.from && t.from.hash || "").toLowerCase(), r = translate(a, { tx: t, tr: tt, h: h, t: t.timestamp });
       out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 这笔交易</h2><a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上查询 ↗</a></div>' +
         '<div class="lg-one"><span class="lg-ico">' + r.ico + '</span><div>' + r.text + "</div></div>" +
-        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>手续费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd></dl>" +
-        '<p class="mono sc-addr muted">' + h + "</p></section>";
+        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>手续费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd>" +
+        (t.to && t.to.hash ? "<dt>对象</dt><dd>" + (KNOWN[t.to.hash.toLowerCase()] ? '<b class="sc-kn">' + KNOWN[t.to.hash.toLowerCase()] + "</b>" : who(t.to.hash)) + "</dd>" : "") + "</dl>" +
+        (tt.length ? '<h3 class="lg-h3">🔁 这笔交易里币的流向</h3><div class="lg-flow">' + tt.map(function (x) {
+          var tok = (x.token && x.token.address_hash || "").toLowerCase(), tld = tok === NAMES.ailgns ? "ailgns" : tok === NAMES.lgns ? "lgns" : "", id = x.total && x.total.token_id;
+          var v = tld && id ? '<b data-nft="' + tld + ":" + id + '">🌐 域名</b>' : "<b>" + amt(x.total && x.total.value, x.total && x.total.decimals) + " " + esc(x.token && x.token.symbol || "") + "</b>";
+          var f = (x.from && x.from.hash || "").toLowerCase(), g = (x.to && x.to.hash || "").toLowerCase();
+          var nm = function (z) { return /^0x0+$/.test(z) ? "<b>🆕 新铸造</b>" : KNOWN[z] ? '<b class="sc-kn">' + KNOWN[z] + "</b>" : who(z); };
+          return "<div>" + nm(f) + ' <span class="lg-arr">→</span> ' + nm(g) + "：" + v + "</div>";
+        }).join("") + "</div>" : "") +
+        '<p class="muted lg-raw">交易编号 <span class="mono">' + h + '</span> · <a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上原始记录 ↗</a></p></section>' +
+        '<p class="muted" style="text-align:center"><a href="#/scan/' + a + '">← 回到 ' + (KNOWN[a] || "这个钱包") + ' 的账本</a></p>';
       fillNames(out);
     });
   }

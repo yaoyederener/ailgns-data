@@ -2381,3 +2381,8 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .lg-one { display: flex; gap: 10px; align-items: center; font-size: 17px; line-height: 1.5; padding: 10px 0 14px; color: #2d1b69; }
 .lg-one b { color: #5a35d6; }
 .sc-more { width: 100%; margin-top: 10px; padding: 10px; border-radius: 12px; background: #f3edff; color: #5a35d6; border: 0; font-weight: 700; }
+.lg-link { font-size: 13px; color: #7c4dff; white-space: nowrap; }
+.lg-h3 { font-size: 15px; margin: 12px 0 6px; color: #3d2a8c; }
+.lg-flow div { padding: 7px 0; border-bottom: 1px dashed #eee6ff; font-size: 14px; color: #3d2a8c; }
+.lg-arr { color: #9a8acc; margin: 0 2px; }
+.lg-raw { font-size: 12px; margin-top: 12px; word-break: break-all; }
