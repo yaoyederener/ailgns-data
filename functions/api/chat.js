@@ -124,7 +124,7 @@ export async function onRequestPost(ctx) {
     try {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: { "x-api-key": ctx.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: ctx.env.CLAUDE_MODEL || "claude-haiku-5-5", max_tokens: 500, temperature: 0.2, system: KNOWLEDGE + extra, messages: turns }),
+        body: JSON.stringify({ model: ctx.env.CLAUDE_MODEL || "claude-haiku-5-5", max_tokens: 500, system: KNOWLEDGE + extra, messages: turns }),
       });
       if (r.ok) { const j = await r.json(); answer = (j.content || []).map((c) => c.text || "").join("").trim(); engine = "claude"; }
       else claudeErr = r.status + " " + (await r.text()).slice(0, 200);
