@@ -3,6 +3,7 @@
 // 绑定关系存在 KV：dbx:u:<用户> → [地址…]，dbx:a:<地址> → [用户…]
 import { sendDebox } from "../../lib/debox.js";
 import { SUPPORT_USER } from "../../lib/support.js";
+import { answer } from "../../lib/chatbot.js";
 
 const MAX_ADDR = 10;
 const HELP = "👋 这里是 AiLGNS 服务站通知机器人。\n\n把你挂单用的钱包地址（0x 开头）直接发给我，就能绑定。之后这个钱包的 OTC 挂单：\n• 成交（包括部分成交）\n• 撤单退回\n• 到期自动退回\n都会第一时间私信通知你。\n\n其他指令：\n• 解绑 0x…  取消某个地址\n• 我的绑定  查看已绑定的地址\n\n👉 交易：https://ailgns.dev/#/otc";
@@ -30,7 +31,37 @@ export async function onRequestPost(ctx) {
     chatId = chat.id || user;
   }
   if (!user || !kv) return new Response("ok");
-  if (/group/i.test(chatType)) return new Response("ok"); // 只处理私聊，群里的消息不管
+  // 群里：机器人当客服。只接「像问题」的话（有问号 / 疑问词 / @机器人），每群 15 秒最多答 1 条、每人 10 秒 1 条、每群每天 300 条，避免刷屏
+  if (/group/i.test(chatType)) {
+    const gid = String(u.group_id || chatId || "");
+    if (!gid || !text || text.length < 2 || text.length > 400) return new Response("ok");
+    // 安全：Webhook 谁都能 POST，群回复只认带正确 key 的请求（机器人 Webhook 地址 ?key=DEBOX_HOOK_KEY），防止有人伪造消息让机器人刷群
+    if (ctx.env.DEBOX_HOOK_KEY && new URL(ctx.request.url).searchParams.get("key") !== ctx.env.DEBOX_HOOK_KEY) { ctx.waitUntil(kv.put("dbx:gkeymiss", String(Date.now()), { expirationTtl: 86400 })); return new Response("ok"); }
+    const asked = /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
+    if (!asked || (text.match(/0x[0-9a-fA-F]{40}/g) || []).length > 1) return new Response("ok");
+    const lastBot = await kv.get("dbx:gbot:" + gid); if (lastBot && text === lastBot) return new Response("ok"); // 自己的话不接
+    const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+    const [gl, ul, dn] = await Promise.all([kv.get("dbx:gl:" + gid), kv.get("dbx:ul:" + user), kv.get("dbx:gd:" + gid + ":" + day)]);
+    if (gl || ul || Number(dn || 0) >= 300) return new Response("ok");
+    await Promise.all([kv.put("dbx:gl:" + gid, "1", { expirationTtl: 60 }), kv.put("dbx:ul:" + user, "1", { expirationTtl: 60 })]);
+    ctx.waitUntil((async () => {
+      const hist = (await kv.get("dbx:h:" + user, "json")) || [];
+      const msgs = hist.concat([{ role: "user", content: text.replace(/@\S+/g, "").trim() || text }]);
+      const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 的 AiLGNS OTC 交流群里回答群友。纯文本、不要 Markdown、不要列表符号，2-4 句说完；只答和本站有关的问题，无关的话题一句话礼貌带过；需要人工就说「可以在网站客服窗口留言或提交工单，站长会处理」。" });
+      if (!r || !r.answer) return;
+      const out = (u.name ? "@" + u.name + " " : "") + r.answer;
+      await sendDebox(ctx.env, gid, out, "group").catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
+      await Promise.all([
+        kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),
+        kv.put("dbx:gl:" + gid, "1", { expirationTtl: 15 }), kv.put("dbx:ul:" + user, "1", { expirationTtl: 10 }),
+        kv.put("dbx:gd:" + gid + ":" + day, String(Number(dn || 0) + 1), { expirationTtl: 2 * 86400 }),
+        kv.put("dbx:h:" + user, JSON.stringify(msgs.concat([{ role: "assistant", content: r.answer }]).slice(-6)), { expirationTtl: 3600 }),
+      ]);
+      const log = (await kv.get("dbx:qa", "json")) || []; log.unshift({ t: Date.now(), g: gid, u: user, n: u.name || "", q: text.slice(0, 200), a: r.answer.slice(0, 400), e: r.engine });
+      await kv.put("dbx:qa", JSON.stringify(log.slice(0, 100)));
+    })());
+    return new Response("ok");
+  }
   const reply = (t) => sendDebox(ctx.env, chatId, t, "private").catch((e) => kv && kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
 
   // 「我的ID」：把发信人的 DeBox 用户 id 告诉他（站长设置客服接收人时要用）
@@ -73,8 +104,18 @@ export async function onRequestPost(ctx) {
     }
   } else if (/我的绑定|绑定列表|list/i.test(text)) {
     out = mine.length ? "已绑定 " + mine.length + " 个地址：\n" + mine.join("\n") : "还没有绑定地址。把你的钱包地址（0x 开头）直接发给我就能绑定。";
-  } else {
+  } else if (!text || /^(帮助|help|菜单|开始|start|你好|hi|hello)$/i.test(text)) {
     out = HELP;
+  } else {
+    // 私聊问别的：机器人当客服回答（知识库同网站客服），答完顺带提醒怎么绑定通知
+    ctx.waitUntil((async () => {
+      const hist = (await kv.get("dbx:h:" + user, "json")) || [], msgs = hist.concat([{ role: "user", content: text }]);
+      const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 私聊里回答一位客户。纯文本、不要 Markdown，3-5 句说完。" });
+      const t = r && r.answer ? r.answer + "\n\n（把钱包地址发给我，可以绑定成交/借贷通知）" : HELP;
+      await kv.put("dbx:h:" + user, JSON.stringify(msgs.concat([{ role: "assistant", content: r && r.answer || "" }]).slice(-6)), { expirationTtl: 3600 });
+      await reply(t);
+    })());
+    return new Response("ok");
   }
   ctx.waitUntil(reply(out));
   return new Response("ok");
