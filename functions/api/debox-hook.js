@@ -9,6 +9,13 @@ const MAX_ADDR = 10;
 const HELP = "👋 这里是 AiLGNS 服务站通知机器人。\n\n把你挂单用的钱包地址（0x 开头）直接发给我，就能绑定。之后这个钱包的 OTC 挂单：\n• 成交（包括部分成交）\n• 撤单退回\n• 到期自动退回\n都会第一时间私信通知你。\n\n其他指令：\n• 解绑 0x…  取消某个地址\n• 我的绑定  查看已绑定的地址\n\n👉 交易：https://ailgns.dev/#/otc";
 
 async function getList(kv, key) { return (await kv.get(key, "json")) || []; }
+// Webhook 的 key：机器人后台既可以写在地址 ?key=… 里，也可以填在「Webhook Key」栏（DeBox 会放到请求头里）
+function keyOk(ctx) {
+  const want = ctx.env.DEBOX_HOOK_KEY; if (!want) return true;
+  if (new URL(ctx.request.url).searchParams.get("key") === want) return true;
+  const h = ctx.request.headers;
+  return ["x-webhook-key", "webhook-key", "x-debox-key", "x-api-key", "authorization", "x-signature", "key"].some((n) => { const v = h.get(n) || ""; return v === want || v === "Bearer " + want; });
+}
 
 export async function onRequestPost(ctx) {
   const kv = ctx.env.TEAM_KV;
@@ -32,14 +39,14 @@ export async function onRequestPost(ctx) {
   }
   if (!user || !kv) return new Response("ok");
   // 诊断：记最近一次收到的消息长什么样（不存正文），站长用 ?diag=1 看机器人有没有收到群消息
-  ctx.waitUntil(kv.put("dbx:lasthit", JSON.stringify({ t: Date.now(), chatType, hasGroup: !!u.group_id, keys: Object.keys(u).slice(0, 12), keyOk: !ctx.env.DEBOX_HOOK_KEY || new URL(ctx.request.url).searchParams.get("key") === ctx.env.DEBOX_HOOK_KEY, len: text.length }), { expirationTtl: 86400 }));
+  ctx.waitUntil(kv.put("dbx:lasthit", JSON.stringify({ t: Date.now(), chatType, hasGroup: !!u.group_id, keys: Object.keys(u).slice(0, 12), keyOk: keyOk(ctx), hdrs: [...ctx.request.headers.keys()].filter((k) => !/^(cf-|accept|content|host|user-agent|x-forwarded|x-real)/i.test(k)).slice(0, 10), mention: !!(u.mention_users && u.mention_users.length), len: text.length }), { expirationTtl: 86400 }));
   // 群里：机器人当客服。只接「像问题」的话（有问号 / 疑问词 / @机器人），每群 15 秒最多答 1 条、每人 10 秒 1 条、每群每天 300 条，避免刷屏
   if (/group/i.test(chatType)) {
     const gid = String(u.group_id || chatId || "");
     if (!gid || !text || text.length < 2 || text.length > 400) return new Response("ok");
     // 安全：Webhook 谁都能 POST，群回复只认带正确 key 的请求（机器人 Webhook 地址 ?key=DEBOX_HOOK_KEY），防止有人伪造消息让机器人刷群
-    if (ctx.env.DEBOX_HOOK_KEY && new URL(ctx.request.url).searchParams.get("key") !== ctx.env.DEBOX_HOOK_KEY) { ctx.waitUntil(kv.put("dbx:gkeymiss", String(Date.now()), { expirationTtl: 86400 })); return new Response("ok"); }
-    const asked = /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
+    if (!keyOk(ctx)) { ctx.waitUntil(kv.put("dbx:gkeymiss", String(Date.now()), { expirationTtl: 86400 })); return new Response("ok"); }
+    const asked = (u.mention_users && u.mention_users.length) || /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
     if (!asked || (text.match(/0x[0-9a-fA-F]{40}/g) || []).length > 1) return new Response("ok");
     const lastBot = await kv.get("dbx:gbot:" + gid); if (lastBot && text === lastBot) return new Response("ok"); // 自己的话不接
     const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
@@ -72,7 +79,7 @@ export async function onRequestPost(ctx) {
   // 站长（客服接收人）直接回复机器人 = 回复网站上最近咨询的访客；开头写「@编号 」可以指定访客
   // 安全：Webhook 没有来源校验，任何人都能伪造 POST，所以只有带正确 key（Cloudflare 环境变量 DEBOX_HOOK_KEY，机器人 Webhook 地址 ?key=… 里同一个值）的请求才算站长回复
   if (user === SUPPORT_USER && text && !addrs.length && !/^(我的绑定|绑定列表|list|解绑|取消|unbind|帮助|help)/i.test(text)) {
-    const key = new URL(ctx.request.url).searchParams.get("key"), ok = ctx.env.DEBOX_HOOK_KEY && key === ctx.env.DEBOX_HOOK_KEY;
+    const ok = ctx.env.DEBOX_HOOK_KEY && keyOk(ctx);
     if (!ok) { ctx.waitUntil(reply("⚠️ 客服回复还没开启：请在 Cloudflare 设置环境变量 DEBOX_HOOK_KEY，并把机器人的 Webhook 地址改成 https://ailgns.dev/api/debox-hook?key=（同一个值），之后在这里直接回复就能发给客户。")); return new Response("ok"); }
     const m = text.match(/^@?([a-z0-9]{8})\s+([\s\S]+)$/i);
     const sid = m ? await kv.get("cl:code:" + m[1].toLowerCase()) : await kv.get("cl:last"), body = (m ? m[2] : text).trim().slice(0, 600);
