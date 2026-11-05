@@ -2287,4 +2287,4 @@ body.has-guide .otc-acts { display: none; }
   table.cards.book td { font-size: 13.5px; }
   table.cards.book td.price b { font-size: 17px; }
 }
-@media (max-width: 640px) { .tabs a, .tabs a.feat { display: flex !important; align-items: center; justify-content: center; } .tabs a.feat { -webkit-text-fill-color: currentColor; } }
+@media (max-width: 640px) { .tabs a, .tabs a.feat { display: flex !important; align-items: center; justify-content: center; } }
