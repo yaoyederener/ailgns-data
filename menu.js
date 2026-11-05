@@ -22,13 +22,10 @@
     chat: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z"/>'
   };
   // [分组名, 英文, [[链接, 名字, 图标, 是否外链]]]
+  // 站长定（2026-11-05）：顶部导航已有的（OTC、域名、预言家、借贷、会员、荣耀榜）不在菜单里重复；以后的新功能都先加在这里
   var GROUPS = [
-    ["OTC 交易", "TRADE", [["#/otc", "AiLGNS OTC", "otc"], ["#/otc/lgns", "LGNS OTC · Anubis", "chain"], ["#/otc/plgns", "LGNS OTC · Polygon", "chain"], ["#/otc/glgns", "gLGNS OTC · Anubis", "chain"], ["#/otc/nft", "AWAKE NFT 卡牌", "grid"], ["#/names/otc", "域名 OTC", "chain"], ["#/trades", "成交查询", "wallet"], ["#/rank", "🏆 荣耀榜", "grid"]]],
-    ["会员", "MEMBER", [["#/member", "会员中心", "member"], ["#/rank", "🏆 荣耀榜", "member"], ["#/wallet", "钱包快查", "wallet"], ["#/team", "团队与等级", "team"], ["#/growth", "团队新增业绩", "growth"], ["#/tree", "团队结构图", "tree"], ["#/upline", "上级查询", "upline"]]],
-    ["借贷", "LEND", [["#/lend", "AiLGNS 抵押借款", "otc"], ["#/lend/lgns", "LGNS 抵押借款（即将上线）", "chain"], ["#/lend/glgns", "gLGNS 抵押借款（即将上线）", "chain"]]],
-    ["域名", "NAME", [["#/names", "注册域名", "chain"], ["#/names/otc", "域名 OTC", "otc"], ["#/names/mine", "我的域名", "chain"]]],
     ["销毁乐园", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/farm", "🏡 开心农场", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
-    ["数据", "DATA", [["#/flows", "资金流向", "flow"]]],
+    ["工具", "TOOLS", [["#/trades", "成交查询", "wallet"], ["#/flows", "资金流向", "flow"]]],
     ["合作与支持", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/promo", "营销广告", "promo"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/app", "下载 App", "app"], ["https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7", "加站长 DeBox", "chat", true]]]
   ];
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
@@ -48,14 +45,13 @@
   dw.innerHTML = '<div class="dw-mask" data-close></div><aside class="dw-panel" role="dialog" aria-modal="true" aria-label="菜单">' +
     '<div class="dw-head"><div class="dw-top"><img class="hx-logo" src="icons/helix-logo.svg?v=1" alt="HELIX Protocol" width="119" height="40"><button type="button" class="dw-x" data-close aria-label="关闭菜单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
     '<button type="button" class="dw-wallet" id="dw-wallet"><span class="dw-wi">' + svg("wallet") + '</span><b id="dw-wt">连接钱包</b>' + CHEV + "</button>" +
-    '<label class="dw-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input id="dw-q" type="search" placeholder="搜索功能" autocomplete="off"></label></div>' +
     '<div class="dw-body" id="dw-body"></div>' +
     '<p class="dw-foot">AWAKE HELIX 官方认证 AiLGNS OTC 服务站</p></aside>';
   document.body.appendChild(dw);
-  var body = document.getElementById("dw-body"), q = document.getElementById("dw-q"), open = {};
+  var body = document.getElementById("dw-body"), open = {};
 
   function draw() {
-    var cur = current(), kw = q.value.trim().toLowerCase();
+    var cur = current(), kw = "";
     body.innerHTML = GROUPS.map(function (g, gi) {
       var items = g[2].filter(function (it) { return !kw || it[1].toLowerCase().indexOf(kw) >= 0; });
       if (!items.length) return "";
@@ -71,13 +67,11 @@
     if (h) { var gi = h.getAttribute("data-g"); open[gi] = !open[gi]; draw(); return; }
     if (e.target.closest("a")) close();
   };
-  q.oninput = draw;
 
   function show() {
     // 打开时分组全部收起（站长要求）：每个分组标题下面用小字列出里面有什么，一屏看到全部功能，点标题再展开
-    open = {};
+    open = {}; GROUPS.forEach(function (g, gi) { open[gi] = true; }); // 菜单里只剩新功能，分组全部展开，一眼看到
     if (A.freshCheck) A.freshCheck(); // 点开菜单顺便查新版本，有就自动换成新版
-    q.value = "";
     draw();
     wallet();
     dw.hidden = false;
@@ -108,7 +102,7 @@
       setTimeout(function () {
         if (document.getElementById("mn-tip")) return;
         var tip = document.createElement("div"); tip.id = "mn-tip"; tip.className = "mn-tip";
-        tip.innerHTML = '<b>👆 更多功能在这里</b><span>借贷、会员、销毁乐园、浏览器、问题反馈…<br>新功能都会先放进这个菜单</span><div class="mn-tip-b"><button type="button" id="mn-tip-go">打开看看</button><button type="button" class="ghost" id="mn-tip-x">知道了</button></div>';
+        tip.innerHTML = '<b>👆 更多功能在这里</b><span>销毁乐园、开心农场、成交查询、问题反馈…<br>新功能都会先放进这个菜单</span><div class="mn-tip-b"><button type="button" id="mn-tip-go">打开看看</button><button type="button" class="ghost" id="mn-tip-x">知道了</button></div>';
         btn.parentNode.appendChild(tip);
         tip.style.top = (btn.offsetTop + btn.offsetHeight + 10) + "px"; tip.style.left = Math.max(4, btn.offsetLeft - 4) + "px"; // 箭头对准 ☰（手机上导航在下一行，不能按整行高度放）
         document.getElementById("mn-tip-go").onclick = function () { seen(); show(); };
