@@ -893,11 +893,12 @@
     }
 
     // ---------- 土豪扫单：按价格从优到差一口气吃下挂单簿的一部分，滑块选扫多少（按 DAI 金额占全部挂单的百分比），实时算均价 ----------
+    var SW_CAP = 9000; // 一键扫单最多扫全部挂单的 90%：别人同时在吃的单会让整笔扫单失败（客户反馈），留 10% 余量
     function sweepHtml() {
       return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>💰 土豪扫单</h2><span class="muted">按价格从优到差，一次吃下多张单</span></div>' +
         '<div class="sw-side"><button type="button" data-sw="buy" class="on">扫卖单 · 买入 ' + SYM + '</button><button type="button" data-sw="sell">扫买单 · 卖出 ' + SYM + "</button></div>" +
-        '<div class="sw-pct"><b id="sw-pv">100%</b><input type="range" id="sw-r" min="1" max="10000" value="10000" step="1" aria-label="扫单比例"></div>' +
-        '<div class="sw-quick">' + [10, 20, 30, 50, 100].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +
+        '<div class="sw-pct"><b id="sw-pv">90%</b><input type="range" id="sw-r" min="1" max="9000" value="9000" step="1" aria-label="扫单比例"></div>' +
+        '<div class="sw-quick">' + [10, 20, 30, 50, 90].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +
         '<div class="sw-out" id="sw-out"></div><div class="sw-ladder" id="sw-ladder"></div>' +
         '<button type="button" id="sw-go" class="sw-go">👉 点击确认付款</button><p class="note" id="sw-st"></p><div id="sw-rec"></div></section>';
     }
@@ -964,12 +965,12 @@
       }
       function maxBp(l) {
         var t = total(l), f = full(l);
-        if (!f || !t) return 10000;
-        return f.dai >= t ? 10000 : Number(f.dai * 10000n / t);
+        if (!f || !t) return SW_CAP;
+        return f.dai >= t ? SW_CAP : Math.min(SW_CAP, Number(f.dai * 10000n / t));
       }
       function plan(bp) {
         var l = list(), m = maxBp(l);
-        if (bp >= m && m < 10000) return full(l); // 拖到头 = 余额全部用上（按币数精确算，不会差一点）
+        if (bp >= m && m < SW_CAP && full(l)) return full(l); // 拖到头 = 余额全部用上（按币数精确算，不会差一点）
         return sweepPlan(l, total(l) * BigInt(bp) / 10000n);
       }
       function pctText(bp) { return (bp >= 100 ? (bp / 100).toFixed(bp % 100 ? 1 : 0) : (bp / 100).toFixed(2)) + "%"; }
@@ -985,7 +986,7 @@
         var buy = side === "buy", b = bal[side];
         if (b === null) return '<p class="muted sw-bal">' + (account ? "正在读取钱包余额…" : "连上钱包后，进度条最多只能拖到你余额扫得起的地方") + "</p>";
         return '<p class="muted sw-bal">钱包里有 <b>' + (buy ? show(b, 2) + " DAI" : tShow(b) + " " + SYM) + "</b>" + (buy && M.gas === "DAI" ? "（留约 " + show(gasKeep(list().length), 2) + " DAI 付 Gas）" : "") +
-          (m >= 10000 ? " · 够把全部挂单扫完" : " · 最多能扫全部挂单的 <b>" + pctText(m) + "</b>，再往右余额不够") + "</p>";
+          (m >= SW_CAP ? " · 最多扫全部挂单的 90%（留 10%，防止别人同时成交导致扫单失败）" : " · 最多能扫全部挂单的 <b>" + pctText(m) + "</b>，再往右余额不够") + "</p>";
       }
       function draw() {
         var l = list(), m = maxBp(l);
