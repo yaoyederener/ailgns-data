@@ -484,7 +484,7 @@
   // 每个页面在浏览器标签和分享时显示的标题
   var PAGE_TITLES = { lend: "借贷", trades: "成交查询", feedback: "问题反馈",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
-    team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 浏览器", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场"
+    team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 账本", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场"
   };
 
   // ---------- 页面：私人定制 · 商户合作（海报） ----------
@@ -541,7 +541,8 @@
     lend: ["🤝", "借贷", "押 AiLGNS 借 DAI，或者出借 DAI 赚利息，合约托管", [["我要借 DAI", "押 AiLGNS 借 DAI"], ["我要出借 DAI", "想借 DAI 的人"], ["正在借的单", "借款中"], ["怎么还款", "还款怎么操作"]]],
     member: ["👑", "会员", "开通会员享受更多权益，三步完成", [["填开通地址", "第 1 步"], ["选付款方式", "选择付款方式"], ["付款开通", "付款开通"]]],
     rank: ["🏆", "荣耀榜", "OTC 成交大户排行，名字永久留名", [["看排行", "sel:#app .card"], ["名人堂", "名人堂"], ["段位规则", "段位规则"]]],
-    feedback: ["📮", "问题反馈", "遇到问题提交工单，客服处理后回复你", [["提交问题", "问题反馈"], ["查看处理进度", "我的反馈进度"]]]
+    feedback: ["📮", "问题反馈", "遇到问题提交工单，客服处理后回复你", [["提交问题", "问题反馈"], ["查看处理进度", "我的反馈进度"]]],
+    scan: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
   };
   function guide(tab, parts) {
     var box = document.getElementById("guide"); if (!box) return;

@@ -140,6 +140,7 @@
     otc: { "0x4e730be6d46be71223ded5a32dc45799f6d4bc15": "AiLGNS", "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818": "LGNS", "0x2b0ab121d60f823fffc4cef75af26055df388e2b": "gLGNS", "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed": "AWAKE NFT 卡牌" },
     market: { "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e": 1, "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d": 1 },
     loan: { "0x242ab392571d325d814a48892ac16115a6d285dc": "AiLGNS", "0x8d84d678d195e770caad263d1c37967ec796165c": "AiLGNS（旧）", "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b": "LGNS", "0x00e674bb1559557966a6c2244c36d12a63218a5f": "gLGNS" },
+    sweep: { "0xdcc5354175d60ffc8364e71e792fcd66366f00fe": 1, "0x6ec474047a6c12d0cab53855a990c1c8b3996c20": 1 }, play: "0xf1fb8f098979dc29a3020070ac93ef24f1b2ca4c",
     buyback: "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", pool: "0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4",
     tokens: { "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14": "DAI", "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb": "AiLGNS", "0x4d1d808a081fdac440703b3765fc61f8028c06b8": "LGNS", "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c": "gLGNS" }
   };
@@ -167,6 +168,16 @@
     var daiIn = sumOf(ms, "in", "DAI"), daiOut = sumOf(ms, "out", "DAI");
     var coinIn = ms.filter(function (m) { return m.dir === "in" && !m.nft && m.sym !== "DAI"; })[0], coinOut = ms.filter(function (m) { return m.dir === "out" && !m.nft && m.sym !== "DAI"; })[0];
     if (t && !ok) return { ico: "❌", text: "操作没成功（链上已回滚，没扣钱）" + (METHODS[sel] ? "：" + METHODS[sel] : "") };
+    // —— 一键扫单 / 自动撮合（合约替你一次吃多张单）——
+    if (C.sweep[to] || (!t && ms.some(function (m) { return C.sweep[m.other]; }))) {
+      if (coinIn && daiOut) return { ico: "🛒", text: "<b>一键扫单买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxOf(daiOut, coinIn.v) };
+      if (coinOut && daiIn) return { ico: "💰", text: "<b>一键扫单卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxOf(daiIn, coinOut.v) };
+      if (coinIn) return { ico: "🛒", text: "<b>扫单买入</b>到账 " + fmtN(coinIn.v, coinIn.sym) };
+      if (daiIn) return { ico: "💰", text: "<b>扫单卖出</b>到账 " + fmtN(daiIn, "DAI") };
+      if (daiOut) return { ico: "🛒", text: "<b>一键扫单</b>，付出 " + fmtN(daiOut, "DAI") };
+      return { ico: "⇄", text: "一键扫单操作" + (t && sel === "0x095ea7b3" ? "：授权（不扣钱）" : "") };
+    }
+    if (to === C.play) return { ico: "🎮", text: "<b>销毁乐园</b>" + (coinOut ? "：投入 " + fmtN(coinOut.v, coinOut.sym) : "：玩游戏 / 像素墙") };
     // —— OTC（币 / 卡牌）——
     if (C.otc[to]) {
       var mk = C.otc[to];
