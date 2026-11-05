@@ -20,19 +20,22 @@
     var cv = host.querySelector("canvas"), ctx = cv.getContext("2d"), leg = host.querySelector("#kc-leg"), wrap = host.querySelector(".kc-wrap");
     host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.onclick = function () { set(b.getAttribute("data-i")); }; });
 
+    // 秒开：上次看过的数据存在本机，先画出来，再用接口数据无感替换
+    function cacheGet() { try { var j = JSON.parse(localStorage.getItem("kc:" + iv) || "null"); return j && j.c && j.c.length ? j : null; } catch (e) { return null; } }
+    function cacheSet(d) { try { localStorage.setItem("kc:" + iv, JSON.stringify({ c: d.c.slice(-300), cur: d.cur, done: d.done })); } catch (e) {} }
     function load() {
       if (opt.alive && !opt.alive()) { dead = true; clearInterval(timer); return; }
       if (dead) return;
       var want = iv;
       fetch("/api/candles?i=" + iv + "&n=500").then(function (r) { return r.json(); }).then(function (d) {
         if (dead || want !== iv || !d || !d.c) return;
-        data = d.c; cur = d.cur || cur; done = !!d.done;
+        data = d.c; cur = d.cur || cur; done = !!d.done; cacheSet(d);
         var l = host.querySelector("#kc-load"); if (l) l.textContent = done ? "" : " · 历史数据补读中…";
         draw();
       }).catch(function () {});
       if (Date.now() - orcAt > 60000) { orcAt = Date.now(); fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (d) { orc = d.funds && d.funds.otc ? d.funds.otc.px || 0 : 0; }).catch(function () {}); }
     }
-    function set(i) { iv = i; off = 0; hover = -1; host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-i") === i); }); data = []; draw(); load(); }
+    function set(i) { iv = i; off = 0; hover = -1; host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-i") === i); }); var c = cacheGet(); data = c ? c.c : []; if (c) cur = c.cur || cur; draw(); load(); }
     function size() { var r = wrap.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); cv.style.width = r.width + "px"; cv.style.height = r.height + "px"; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return r; }
 
     function draw() {
@@ -87,6 +90,7 @@
     cv.addEventListener("touchmove", function (e) { if (e.touches.length === 2 && pinch) { var d = Math.abs(e.touches[0].clientX - e.touches[1].clientX); cw = Math.min(24, Math.max(3, cw * d / pinch)); pinch = d; draw(); e.preventDefault(); return; } if (!drag) return; var dn = Math.round((e.touches[0].clientX - drag.x) / cw); if (Math.abs(dn) >= 1) { off = Math.min(Math.max(0, drag.off + dn), Math.max(0, data.length - 10)); hover = -1; } else hover = px2idx(e.touches[0].clientX); draw(); if (Math.abs(dn) >= 1) e.preventDefault(); }, { passive: false });
     cv.addEventListener("touchend", function () { drag = null; pinch = 0; setTimeout(function () { hover = -1; draw(); }, 1500); });
     var ro = window.ResizeObserver ? new ResizeObserver(function () { draw(); }) : null; if (ro) ro.observe(wrap);
+    var c0 = cacheGet(); if (c0) { data = c0.c; cur = c0.cur || 0; draw(); }
     load(); timer = setInterval(load, 5000);
     return { set: set, stop: function () { dead = true; clearInterval(timer); if (ro) ro.disconnect(); } };
   };

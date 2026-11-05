@@ -8,7 +8,6 @@ const SWAP = "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822
 const KEY = "kc:1m:v2", KEEP = 7 * 86400, CHUNK = 5000, MAXC = 10, FRESH = 8e3;
 const IV = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 };
 const big = (h) => Number(BigInt("0x" + h) / 1000000000000n) / 1e6; // 18 位小数 → 数字（6 位精度）
-let mem = null; // 同一个实例里缓存一下，省 KV 读
 const blockTs = async (n) => parseInt((await rpc("eth_getBlockByNumber", ["0x" + n.toString(16), false])).timestamp, 16);
 
 async function readChunk(st, f, e) {
@@ -30,31 +29,24 @@ async function readChunk(st, f, e) {
   return { changed, tsF, tsE };
 }
 
-async function refresh(kv) {
-  const now = Date.now();
-  if (mem && now - mem.at < FRESH) return mem;
-  let st = (await kv.get(KEY, "json")) || null;
-  const [b, res] = await Promise.all([rpc("eth_getBlockByNumber", ["latest", false]), rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"])]);
+// 先答后补：请求只读 KV + 2 次快速 RPC（最新块、池子储备）立刻返回；补新块 / 补历史放到后台（waitUntil），同一时刻只跑一个
+async function tick(kv) {
+  const [st, b, res] = await Promise.all([kv.get(KEY, "json"), rpc("eth_getBlockByNumber", ["latest", false]), rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"])]);
   const latest = parseInt(b.number, 16), tsL = parseInt(b.timestamp, 16), w = res.slice(2);
   const cur = Number((BigInt("0x" + w.slice(64, 128)) * 1000000n) / BigInt("0x" + w.slice(0, 64))) / 1e6;
-  if (!st) st = { to: latest, from: latest + 1, tsTo: tsL, tsFrom: tsL, c: {} };
-  let budget = MAXC, dirty = !(await kv.get(KEY)), fills = 0;
-  // ① 往后补新块
-  while (st.to < latest && budget-- > 0) {
-    const f = st.to + 1, e = Math.min(latest, f + CHUNK - 1), r = await readChunk(st, f, e);
-    st.to = e; st.tsTo = r.tsE; fills += r.changed; if (r.changed) dirty = true;
-  }
-  // ② 往前补历史，直到 7 天
-  while (st.tsFrom > tsL - KEEP && st.from > 1 && budget-- > 0) {
-    const e = st.from - 1, f = Math.max(1, e - CHUNK + 1), r = await readChunk(st, f, e);
-    st.from = f; st.tsFrom = r.tsF; fills += r.changed; dirty = true;
-  }
-  // 只留 7 天
-  const cut = tsL - KEEP - 3600;
-  for (const k of Object.keys(st.c)) if (Number(k) < cut) { delete st.c[k]; dirty = true; }
-  if (dirty) await kv.put(KEY, JSON.stringify(st));
-  mem = { st, cur, tsL, at: now, fills };
-  return mem;
+  return { st: st || { to: latest, from: latest + 1, tsTo: tsL, tsFrom: tsL, c: {}, fresh: true }, latest, tsL, cur };
+}
+async function backfill(kv, st, latest, tsL) {
+  if (await kv.get("kc:busy")) return; // 别人正在补
+  await kv.put("kc:busy", "1", { expirationTtl: 50 });
+  try {
+    let budget = MAXC, dirty = !!st.fresh; delete st.fresh;
+    while (st.to < latest && budget-- > 0) { const f = st.to + 1, e = Math.min(latest, f + CHUNK - 1), r = await readChunk(st, f, e); st.to = e; st.tsTo = r.tsE; if (r.changed) dirty = true; }
+    while (st.tsFrom > tsL - KEEP && st.from > 1 && budget-- > 0) { const e = st.from - 1, f = Math.max(1, e - CHUNK + 1), r = await readChunk(st, f, e); st.from = f; st.tsFrom = r.tsF; dirty = true; }
+    const cut = tsL - KEEP - 3600;
+    for (const k of Object.keys(st.c)) if (Number(k) < cut) { delete st.c[k]; dirty = true; }
+    if (dirty || st.to === latest) await kv.put(KEY, JSON.stringify(st)); // 块号推进也要记，不然每次都从老地方重读
+  } finally { await kv.delete("kc:busy").catch(() => {}); }
 }
 
 function aggregate(st, sec, n, tsL, cur) {
@@ -80,8 +72,9 @@ export async function onRequestGet(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   const u = new URL(ctx.request.url), sec = IV[u.searchParams.get("i")] || 60, n = Math.min(500, Math.max(20, Number(u.searchParams.get("n")) || 300));
   try {
-    const m = await refresh(kv);
-    return Response.json({ c: aggregate(m.st, sec, n, m.tsL, m.cur), cur: m.cur, from: m.st.tsFrom, done: m.st.tsFrom <= m.tsL - KEEP, at: m.at, fills: m.fills }, { headers: { "cache-control": "public, max-age=4" } });
+    const m = await tick(kv), st = m.st, behind = m.latest - st.to, done = st.tsFrom <= m.tsL - KEEP;
+    if (behind > 30 || !done) ctx.waitUntil(backfill(kv, st, m.latest, m.tsL).catch(() => {})); // 后台补，不耽误这次回答
+    return Response.json({ c: aggregate(st, sec, n, m.tsL, m.cur), cur: m.cur, from: st.tsFrom, done, at: Date.now() }, { headers: { "cache-control": "public, max-age=4" } });
   } catch (e) {
     return Response.json({ error: String(e && e.message || e).slice(0, 200) }, { status: 502 });
   }
