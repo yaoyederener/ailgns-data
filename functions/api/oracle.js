@@ -4,7 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN } from "../../lib/oracle.js";
+import { priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -43,6 +43,12 @@ export async function onRequestGet(ctx) {
     const big = (x) => Number(BigInt(x || "0") / 10n ** 12n) / 1e6;
     out.funds = { dai: big(st.held), ail: big(st.held_ail), owed: big(st.owed), px: px.raw };
   } catch (e) { out.funds = null; }
+  // 本周期贡献榜（上次大奖清空起到今天的 OTC 手续费前 3）
+  try {
+    const cyc = await cycleStart(kv), fb = await feeBoard(kv, cyc, bjDay(now)), top = [];
+    for (const x of fb.slice(0, 3)) top.push({ a: x.a, name: await showName(kv, x.a), fee: x.fee });
+    out.kings = { cyc, n: fb.length, top, share: KING, split: KING_SPLIT, all: fb }; // all 只在服务端用，返回前删掉
+  } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
   const a = (u.searchParams.get("a") || "").toLowerCase();
@@ -50,12 +56,14 @@ export async function onRequestGet(ctx) {
     try {
       const el = await eligibility(kv, a), name = el.name;
       out.me = { a, name, gno: el.gno, vol: el.vol, ok: el.ok, need: OTC_MIN, cool: el.cool };
+      if (out.kings) { const i = out.kings.all.findIndex((x) => x.a === a); out.me.king = i >= 0 ? { rank: i + 1, fee: out.kings.all[i].fee } : null; }
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
       }
     } catch (e) { out.me = { a, err: "读链失败" }; }
   }
+  if (out.kings) delete out.kings.all;
   return json(out);
 }
 

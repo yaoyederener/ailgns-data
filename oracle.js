@@ -22,7 +22,7 @@
       '<div id="or-top"></div>' +
       '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
-      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻开奖</small><div class="or-how"><b>🎯 怎么玩？</b>猜<b>今晚开奖那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b>。<br>整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能：<br>🔮 <b>完全猜中</b> → 神算子，平分大奖<br>👁 <b>最接近</b> → 天眼通（奖池 10%）　🌿 <b>第二接近</b> → 地灵通（奖池 5%）<br><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div><div class="or-lead" id="or-lead"></div></div>' +
+      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻开奖</small><div class="or-how"><b>🎯 怎么玩？</b>猜<b>今晚开奖那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b>。<br>整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能：<br>🔮 <b>完全猜中</b> → 神算子，平分大奖；同时奖池 30% 给本周期 OTC 手续费前 3 名 💰<br>👁 <b>最接近</b> → 天眼通（奖池 10%）　🌿 <b>第二接近</b> → 地灵通（奖池 5%）<br><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div><div class="or-lead" id="or-lead"></div></div>' +
       '<svg id="or-chart" class="or-chart" viewBox="0 0 360 150"><text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取中…</text></svg>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 现价每 5 秒刷新 · 1 小时 K 线（最近 24 小时）</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -121,7 +121,8 @@
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></div>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点开奖</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p3"><small><u class="or-rk">第一名</u>神算子</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.85) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p3"><small><u class="or-rk">第一名</u>神算子</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.55) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p4"><small><u class="or-rk">贡献王</u>OTC 前 3 名</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.3) + '">0</i><em>DAI</em></b></div>' +
         '<div class="or-pz p1"><small><u class="or-rk">第二名</u>天眼通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</i><em>DAI</em></b></div>' +
         '<div class="or-pz p2"><small><u class="or-rk">第三名</u>地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
       "</div>" +
@@ -129,7 +130,7 @@
     // 正在开奖 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
-    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上开奖价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + playersCard(d);
+    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上开奖价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + kingsCard(d, potV) + playersCard(d);
     setTimeout(liveRank, 0);
     setTimeout(countUp, 0);
     // 最近一次结果（不在上面显示时）
@@ -228,6 +229,15 @@
     }).join("");
   }
 
+  // 本周期贡献榜：奖池 30% 给 OTC 手续费前 3 名
+  function kingsCard(d, potV) {
+    var k = d.kings; if (!k) return "";
+    var total = Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king;
+    var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + " <b>" + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + "</span><b>" + dai(Math.floor(total * k.split[i] * 100) / 100) + "</b></li>"; }).join("");
+    return '<section class="card"><div class="card-head"><h2>💰 本周期贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 奖池 30% = " + dai(total) + "</span></div>" +
+      (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周期还没有 OTC 成交，第一笔就是第一名。</p>') +
+      '<p class="muted">有人猜中大奖的那天，这 3 位按 50 / 30 / 20 分走奖池的 30%，然后重新排。在 OTC 吃单付的手续费（成交额 1%）都算，卡牌按 3%。' + (me ? " 你现在排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周期还没有成交。" : "")) + "</p></section>";
+  }
   function playersCard(d) {
     liveRows = []; liveKey = "";
     (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
@@ -276,6 +286,7 @@
         '<p>🎯 没人猜中 ' + px + "，大奖池滚到 <b>" + dai(r.poolAfter) + "</b>，下一期继续！</p>") +
       (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : '<p class="muted">这一期没人参加。</p>') +
       (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
+      (r.kings && r.kings.length ? '<p class="or-win">💰 贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付 " + dai(k.fee) + "，得 " + dai(k.amt); }).join("；") + "</p>" : "") +
       '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 本期奖金 " + dai(r.allot) + "（前一天域名收入 " + dai(r.rev) + " × 70%）· 奖金由系统自动发到中奖钱包</p></section>";
   }
   function rules() {
@@ -286,6 +297,7 @@
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚开奖，9 点后提交的参加第二天。</li>" +
       "<li><b>怎么开奖</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是开奖价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
       "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b>，全部进奖池，回馈参与的朋友。每晚开奖：🥇 <b>天眼通</b>（最接近）拿<b>奖池总额的 10%</b>，🥈 <b>地灵通</b>（次接近）拿 <b>5%</b>（一样接近先提交的得）；🔮 <b>神算子</b>（3 位小数完全猜中）平分剩下的，没人中就一直滚。</li>" +
+      "<li><b>💰 贡献王</b>：有人猜中的那天，奖池 <b>30%</b> 给<b>本周期</b>（上次大奖清空的第二天起到当天）在 OTC 付手续费最多的前 3 名，按 50 / 30 / 20 分；发完周期清零，重新排。手续费按成交额算：币 OTC 吃单付 1%，卡牌买家付 3%。贡献王不占名额、不禁赛。</li>" +
       "<li><b>每个名字、每个钱包只能中一次</b>：拿到神算子、天眼通或地灵通后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。</li>" +
       "<li><b>公开透明</b>：开奖区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';

@@ -112,6 +112,16 @@ async function blockTime(m, bn) {
   if (!tsCache[k]) tsCache[k] = parseInt((await rpc(m, "eth_getBlockByNumber", ["0x" + bn.toString(16), false])).timestamp, 16);
   return tsCache[k];
 }
+// 预言家「贡献榜」：按北京日、按市场记每个地址付的手续费（币 OTC 吃单方付 1%，卡牌买家付 3%，都按 DAI 金额算）→ or:fee:<日>:<市场> = { 地址: DAI }
+const feeDay = (ts) => new Date((ts + 8 * 3600) * 1000).toISOString().slice(0, 10);
+async function addFee(kv, rec) {
+  const payer = rec.nft ? (rec.makerSide === "卖" ? rec.taker : rec.maker) : rec.taker;
+  const fee = Math.round(rec.dai * (rec.nft ? 0.03 : 0.01) * 100) / 100;
+  if (!(fee > 0) || !payer) return;
+  const k = "or:fee:" + feeDay(rec.t) + ":" + rec.m, f = (await kv.get(k, "json")) || {};
+  f[payer] = Math.round(((f[payer] || 0) + fee) * 100) / 100;
+  await kv.put(k, JSON.stringify(f));
+}
 async function recordTrades(m, kv, logs, cache) {
   for (const l of logs) {
     if (l.topics[0] !== filledTopic(m)) continue;
@@ -128,6 +138,7 @@ async function recordTrades(m, kv, logs, cache) {
       const qty = o.sell ? amount : paid, dai = o.sell ? paid : amount; // 挂单币数量 / DAI 金额
       rec = { m: m.key, id, t: ts, tx: l.transactionHash, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker, makerSide: o.sell ? "卖" : "买" };
     }
+    await addFee(kv, rec).catch(() => {});
     for (const a of new Set([o.maker, taker])) {
       const list = (await kv.get("tr:" + a, "json")) || [];
       if (!list.some((x) => x.tx === rec.tx && x.id === rec.id && x.m === rec.m)) { list.unshift(rec); await kv.put("tr:" + a, JSON.stringify(list.slice(0, TR_MAX))); }

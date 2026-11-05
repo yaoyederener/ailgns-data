@@ -2102,7 +2102,7 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-pbig { font-size: 64px; font-weight: 900; line-height: 1.05; margin: 4px 0; background: linear-gradient(90deg, #f59e0b, #ef4444 45%, #a855f7); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
 .or-pbig span { font-size: 24px; margin-left: 6px; }
 .or-pdate { display: inline-block; margin: 2px 0 12px; padding: 4px 14px; border-radius: 999px; background: #fff; border: 1px solid #f3dc8f; color: #b7791f; font-size: 13px; }
-.or-prz { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 720px; margin: 0 auto; }
+.or-prz { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; max-width: 720px; margin: 0 auto; }
 .or-pz { border-radius: 16px; padding: 12px 8px; color: #fff; box-shadow: 0 6px 18px rgba(120, 80, 200, .15); }
 .or-pz small { display: block; font-size: 13px; opacity: .95; }
 .or-pz b { display: block; font-size: 32px; font-weight: 900; line-height: 1.15; font-variant-numeric: tabular-nums; }
@@ -2110,6 +2110,8 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-pz.p1 { background: linear-gradient(135deg, #fbbf24, #f97316); }
 .or-pz.p2 { background: linear-gradient(135deg, #a78bfa, #7c3aed); }
 .or-pz.p3 { background: linear-gradient(135deg, #f472b6, #db2777); }
+.or-pz.p4 { background: linear-gradient(135deg, #34d399, #059669); }
+@media (max-width: 600px) { .or-prz { grid-template-columns: repeat(2, 1fr); gap: 8px; } .or-pz b { font-size: 24px; } }
 .or-pnote { margin: 12px 0 0; font-size: 12.5px; color: var(--muted); }
 @media (max-width: 640px) { .or-pbig { font-size: 46px; } .or-prz { gap: 6px; } .or-pz b { font-size: 22px; } .or-pz small { font-size: 12px; } .or-pz span { font-size: 10.5px; } }
 .or-pbig i { font-style: normal; }
