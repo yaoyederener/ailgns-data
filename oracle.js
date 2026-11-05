@@ -173,8 +173,9 @@
     var now = Date.now(), cut = data.cutoff, end = cut + 3600e3, open = cut - 24 * 3600e3, ph, target, sub, step;
     // 北京时间今晚的揭晓窗口（预言轮已经切到明天时，今晚可能正在揭晓）
     var bj = new Date(now + 8 * 3600e3), t21 = Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate(), 13), t22 = t21 + 3600e3;
-    if (now >= t21 && now < t22 && cut > t22) { ph = "🔮 今晚揭晓中"; target = t22; sub = "21:00–22:00 之间随机一刻的价格就是揭晓价 · 明晚的预言已经开始"; step = 3; }
-    else if (now >= t22 && now < t22 + 15 * 60e3 && cut > t22) { ph = "🏅 正在放榜"; target = t22 + 15 * 60e3; sub = "几分钟内放榜，DeBox 会推送"; step = 4; }
+    var canDraw = !(data.drawing && data.drawing.skip); // 第一期之前的晚上不揭晓，倒计时只显示距下一期封卷
+    if (canDraw && now >= t21 && now < t22 && cut > t22) { ph = "🔮 今晚揭晓中"; target = t22; sub = "21:00–22:00 之间随机一刻的价格就是揭晓价 · 明晚的预言已经开始"; step = 3; }
+    else if (canDraw && now >= t22 && now < t22 + 15 * 60e3 && cut > t22) { ph = "🏅 正在放榜"; target = t22 + 15 * 60e3; sub = "几分钟内放榜，DeBox 会推送"; step = 4; }
     else { ph = "✍️ 预言进行中"; target = cut; sub = dayCn(data.round) + " 晚 9 点封卷，9–10 点随机一刻揭晓"; step = 1; }
     var ms = Math.max(0, target - now), dd = Math.floor(ms / 864e5), hh = Math.floor(ms % 864e5 / 36e5), mm = Math.floor(ms % 36e5 / 6e4), ss = Math.floor(ms % 6e4 / 1e3);
     var is = big.querySelectorAll("i"), v = [dd, hh, mm, ss];
