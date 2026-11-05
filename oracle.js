@@ -121,10 +121,10 @@
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></div>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点开奖</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p3"><small><u class="or-rk">第一名</u>神算子</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.55) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p4"><small><u class="or-rk">贡献王</u>OTC 前 3 名</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.3) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p1"><small><u class="or-rk">第二名</u>天眼通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</i><em>DAI</em></b></div>' +
-        '<div class="or-pz p2"><small><u class="or-rk">第三名</u>地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 55%</u>🔮 神算子</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.55) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p4"><small><u class="or-rk">OTC 前 3 · 30%</u>💰 贡献王</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.3) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p1"><small><u class="or-rk">最接近 · 10%</u>👁 天眼通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.1) + '">0</i><em>DAI</em></b></div>' +
+        '<div class="or-pz p2"><small><u class="or-rk">第二接近 · 5%</u>🌿 地灵通</small><b><i class="or-cnt" data-to="' + Math.floor(potV * 0.05) + '">0</i><em>DAI</em></b></div>' +
       "</div>" +
       "</div></section>";
     // 正在开奖 / 刚开完
