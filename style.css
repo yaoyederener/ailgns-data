@@ -2191,3 +2191,7 @@ tr.nm-pinrow td { background: #fff8e6; }
 .or-how { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #f3edff; border: 1px solid #e3d8ff; font-size: 13.5px; line-height: 1.75; color: #3d2a8c; }
 .or-how > b:first-child { display: block; font-size: 15px; color: #5b3fd6; }
 .or-how small { color: #7a68b8; }
+.or-pxl .or-how { display: block; margin: 10px 0 0; }
+.or-pxl .or-how b { font-size: inherit; line-height: inherit; color: #5a35d6; font-variant-numeric: normal; }
+.or-pxl .or-how > b:first-child { display: block; font-size: 15px; margin-bottom: 2px; }
+.or-pxl .or-how small { display: block; margin-top: 2px; font-size: 12.5px; }
