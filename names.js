@@ -336,6 +336,15 @@
             (self ? '<span class="nm-my-btns">' + giveBtn(x.t, x.id, x.label + "." + x.t) + '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button></span>' : "") + "</div>";
         }).join("") + '<div id="nm-myo"></div>';
         var n0 = list.length;
+        var ts = {}; list.forEach(function (x) { ts[x.t] = 1; });
+        Object.keys(ts).forEach(function (t) {
+          W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[t], data: SEL.nameOf + A.pad(a) }, "latest"]).then(function (x) { try { return decStr(x); } catch (e) { return ""; } }, function () { return null; }).then(function (p) {
+            var sm = document.getElementById("nm-mysum"); if (p !== "" || !sm) return;
+            var d = document.createElement("div"); d.className = "nm-mv";
+            d.innerHTML = "<b>⚠️ 这个钱包还没设 ." + t + " 主名字（主号）</b>" + (self ? "点下面任意一个名字进去，按「设为我的主名字」就行（不花钱，只付一点 Gas）。" : "<small>如果这是你的钱包：点右上角<b>连接钱包</b>（连这个钱包），再点下面任意一个名字进去，按「设为我的主名字」。</small>");
+            sm.parentNode.insertBefore(d, sm);
+          });
+        });
         myOpen(a, document.getElementById("nm-myo")).then(function (k) { var sm = document.getElementById("nm-mysum"); if (sm && k) sm.innerHTML = "共 <b>" + (n0 + k) + "</b> 个域名：钱包里 <b>" + n0 + "</b> 个" + (g ? "（🌟创世 " + g + " 个）" : "") + " + <b>挂单中 " + k + "</b> 个（在最下面，卖出后就不算了）"; }); // 挂在市场里的名字在托管合约名下，钱包里查不到：单独列在下面
       }, function () { o.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
     }
@@ -509,7 +518,7 @@
           var sg = document.getElementById("nm-salego"), sst = document.getElementById("nm-sst");
           sg.onclick = function () { sg.disabled = true; buyIt(it, sg, function (t) { sst.textContent = t; }).then(function () { sst.textContent = "✅ 成功"; delete infoCache[TLD + ":" + v]; show(v); market(); ordAfter(); }, function (e) { sg.disabled = false; sst.textContent = ""; A.errTip(e.message || String(e), sg); }); };
         });
-        if (!mine) { stepTo(1); return; }
+        if (!mine) { stepTo(1); if (r.owner && !/^0x0+$/.test(r.owner)) priHint(document.getElementById("nm-next"), v, r.owner); return; }
         guide(document.getElementById("nm-next"), v, r);
         document.getElementById("nm-set").onclick = function () {
           var a = (prompt("让 " + v + "." + TLD + " 指向哪个地址？", account) || "").trim().toLowerCase();
@@ -912,6 +921,16 @@
 
   // 域名市场：读最近 200 张单里还在卖的
   // 某个地址名下现在有哪些名字（两个后缀）：读 Transfer 记录找候选，再用 ownerOf 确认还在他手里
+  // 名字已注册但还不是持有人的主名字（主号）→ 提示用持有钱包连接本页设置
+  function priHint(box, v, owner) {
+    if (!box) return;
+    call(SEL.nameOf + A.pad(owner)).then(function (x) { try { return decStr(x); } catch (e) { return ""; } }, function () { return null; }).then(function (p) {
+      if (p === null || p === v || !document.body.contains(box)) return;
+      box.innerHTML = '<div class="nm-mv"><b>⚠️ ' + esc(v + "." + TLD) + ' 还没设为主名字（主号）</b>' +
+        (p ? "持有人现在的主名字是 <b>" + esc(p + "." + TLD) + "</b>。" : "持有人还没设置任何主名字。") +
+        '<small>如果这是你的名字：点右上角<b>连接钱包</b>，用持有它的钱包 <code>' + owner.slice(0, 6) + "…" + owner.slice(-4) + '</code> 连接后重新打开本页，就会出现「设为我的主名字」按钮（不花钱，只付一点 Gas）。</small></div>';
+    });
+  }
   var movedOf = {}; // 曾经进过这个钱包、现在已经不在的名字（转走了 / 卖掉了）
   function ownedList(a) {
     movedOf[a] = [];
