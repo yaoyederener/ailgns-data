@@ -128,7 +128,7 @@
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
       '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
-      (d.funds ? '<div class="or-pmix"><span>🪙 已持有 <b>' + d.funds.ail.toFixed(4) + '</b> AiLGNS</span><span>💵 <b>' + dai0(d.funds.dai) + '</b> DAI 等待买入 AiLGNS<small>（累计满 100 DAI 自动在 OTC 买入）</small></span></div>' : "") +
+      (d.funds ? '<div class="or-pmix"><span>🪙 已持有 <b>' + d.funds.ail.toFixed(4) + '</b> AiLGNS</span><span>💵 <b>' + dai0(d.funds.dai) + '</b> DAI 等待买入 AiLGNS<small>（累计满 100 DAI 自动在 OTC 买入）</small></span>' + (d.funds.wallet ? '<span class="or-pw">🏦 奖池钱包 <a href="https://anubisscan.io/address/' + d.funds.wallet + '" target="_blank" rel="noopener" class="mono">' + d.funds.wallet.slice(0, 6) + "…" + d.funds.wallet.slice(-4) + '</a> <small>链上公开可查 · 只放奖池的钱</small></span>' : "") + '</div>' : "") +
       '<small class="or-porc">📡 预言机来自本站 OTC 市场：' + ocNote + '。奖池里的 DAI 会在 OTC 买成 AiLGNS，<b>奖金全部以 AiLGNS 发放</b>。</small>' +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       '<div class="or-prz">' +
@@ -344,6 +344,7 @@
       "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
       "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b>，全部进奖池，回馈参与的朋友。<b>有人完全猜中那天，四个奖一起发</b>：🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖；💰 <b>贡献王</b> 拿 30%；🥇 <b>天眼通</b>（除神算子外最接近）拿 <b>10%</b>；🥈 <b>地灵通</b>（第二接近）拿 <b>5%</b>（一样接近先提交的得）。<b>没人猜中就一个奖都不发，全部留在奖池继续滚大。</b></li>" +
       "<li><b>💰 贡献王</b>：有人猜中的那天，奖池 <b>30%</b> 给<b>本周期</b>（上次大奖清空的第二天起到当天）在 OTC 付手续费最多的前 3 名，按 50 / 30 / 20 分；发完周期清零，重新排。手续费按成交额算：币 OTC 吃单付 1%，卡牌买家付 3%。贡献王不占名额、不禁赛。</li>" +
+      "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
       "<li><b>每个名字、每个钱包只能中一次</b>：拿到神算子、天眼通或地灵通后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。</li>" +
       "<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
