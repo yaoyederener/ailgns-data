@@ -93,7 +93,28 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !dw.hidden) close(); });
   window.addEventListener("hashchange", function () { if (!dw.hidden) close(); });
   var btn = document.getElementById("menu-btn");
-  if (btn) btn.onclick = show;
+  if (btn) btn.onclick = function () { seen(); show(); };
+  // ☰ 引导：以后新功能都先放菜单里。☰ 下面常驻「更多」两个字；没打开过菜单的客户，再弹一个气泡提示 + 呼吸光圈
+  function seen() {
+    try { localStorage.setItem("mnSeen", "1"); } catch (e) {}
+    if (btn) btn.classList.remove("nudge");
+    var t = document.getElementById("mn-tip"); if (t) t.remove();
+  }
+  if (btn) {
+    btn.insertAdjacentHTML("beforeend", '<span class="mn-lb">更多</span>');
+    var was = null; try { was = localStorage.getItem("mnSeen"); } catch (e) {}
+    if (was !== "1") {
+      btn.classList.add("nudge");
+      setTimeout(function () {
+        if (document.getElementById("mn-tip")) return;
+        var tip = document.createElement("div"); tip.id = "mn-tip"; tip.className = "mn-tip";
+        tip.innerHTML = '<b>👆 更多功能在这里</b><span>借贷、会员、销毁乐园、浏览器、问题反馈…<br>新功能都会先放进这个菜单</span><div class="mn-tip-b"><button type="button" id="mn-tip-go">打开看看</button><button type="button" class="ghost" id="mn-tip-x">知道了</button></div>';
+        btn.parentNode.appendChild(tip);
+        document.getElementById("mn-tip-go").onclick = function () { seen(); show(); };
+        document.getElementById("mn-tip-x").onclick = seen;
+      }, 1500);
+    }
+  }
 
   // 钱包：已连接就显示地址，点一下去会员中心；没连接就连接
   var addr = null;

@@ -2320,3 +2320,19 @@ body.has-guide .otc-acts { display: none; }
 .nm-pin-in input { flex: 1; font-size: 20px; font-weight: 800; padding: 10px 12px; border-radius: 12px; border: 1.5px solid #d9ccff; color: #2d1b69; min-width: 0; }
 .nm-pin-b { display: flex; gap: 8px; margin-top: 10px; }
 .nm-pin-b .nm-go { flex: 1; margin: 0; }
+
+/* ☰ 更多功能引导：图标下面常驻「更多」，第一次来的客户弹气泡 + 呼吸光圈 */
+.top-in { position: relative; }
+.menu-btn { position: relative; display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 0; height: 44px !important; }
+.menu-btn svg { width: 22px !important; height: 22px !important; }
+.mn-lb { font-size: 10px; font-weight: 700; color: #7c4dff; line-height: 1; margin-top: 1px; }
+.menu-btn.nudge::after { content: ""; position: absolute; inset: -2px; border-radius: 14px; border: 2px solid #a98bff; animation: mnPulse 1.6s ease-out infinite; pointer-events: none; }
+@keyframes mnPulse { 0% { transform: scale(.9); opacity: 1; } 100% { transform: scale(1.35); opacity: 0; } }
+.mn-tip { position: absolute; left: 0; top: calc(100% + 4px); z-index: 30; width: 250px; padding: 12px 14px; border-radius: 16px; background: #fff; border: 1.5px solid #d9ccff; box-shadow: 0 12px 32px rgba(76, 52, 160, .22); animation: mnIn .3s ease; }
+.mn-tip::before { content: ""; position: absolute; top: -8px; left: 14px; width: 14px; height: 14px; background: #fff; border-left: 1.5px solid #d9ccff; border-top: 1.5px solid #d9ccff; transform: rotate(45deg); }
+.mn-tip b { display: block; font-size: 15px; color: #5a35d6; }
+.mn-tip span { display: block; font-size: 12.5px; color: #7a68b8; line-height: 1.6; margin-top: 4px; }
+.mn-tip-b { display: flex; gap: 8px; margin-top: 10px; }
+.mn-tip-b button { flex: 1; padding: 8px 0; border-radius: 10px; font-size: 13.5px; font-weight: 700; background: linear-gradient(120deg, #7c4dff, #a855f7); color: #fff; border: 0; }
+.mn-tip-b button.ghost { background: #f3edff; color: #5a35d6; }
+@keyframes mnIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
