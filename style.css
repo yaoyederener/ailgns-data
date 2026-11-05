@@ -2351,3 +2351,8 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .or-pz b { font-size: 26px; }
 .or-pbig { font-size: 56px; }
 @media (max-width: 480px) { .or-pbig { font-size: 44px; } .or-pz b { font-size: 22px; } }
+.or-pbig { font-size: 84px; }
+.or-pbig span { font-size: 28px; }
+.or-pdai { font-size: 26px; }
+.or-pdai b { font-size: 34px; }
+@media (max-width: 480px) { .or-pbig { font-size: 60px; } .or-pbig span { font-size: 20px; } .or-pdai { font-size: 20px; } .or-pdai b { font-size: 26px; } }
