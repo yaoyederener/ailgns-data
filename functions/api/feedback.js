@@ -26,6 +26,13 @@ export async function onRequestGet(ctx) {
     const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter(Boolean).reverse();
     return json({ list: ts.map(pub) });
   }
+  // 站长电脑上的提醒小程序用：只给「还没处理的工单数」，不给内容，不用口令
+  if (u.searchParams.get("pending")) {
+    const ids = ((await kv.get("tk:list", "json")) || []).slice(-100);
+    const ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter(Boolean);
+    const open = ts.filter((t) => t.st !== "done");
+    return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
+  }
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
   const img = u.searchParams.get("img");
   if (img) {
