@@ -51,21 +51,21 @@
     function draw() {
       if (!el || !el.isConnected) return;
       var c = candles(); if (!c.length) return;
-      var W0 = Math.max(240, el.clientWidth || 360), H0 = Math.max(120, el.clientHeight || 160), L = 6, R = W0 - 66, T = 10, B = H0 - 24, hi = -Infinity, lo = Infinity;
+      var W0 = Math.max(240, el.clientWidth || 360), H0 = Math.max(120, el.clientHeight || 160), L = 6, R = W0 - 74, T = 10, B = H0 - 24, hi = -Infinity, lo = Infinity;
       c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
-      var pad = Math.max((hi - lo) * 0.25, hi * 0.0004); hi += pad; lo -= pad; // 波动很小时也撑开一点，看得见起伏
+      var pad = Math.max((hi - lo) * 0.06, hi * 0.00004); hi += pad; lo -= pad; // 区间贴着数据（站长要求：区间小、波动看起来大）
       var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
-      for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 6) + '" y="' + (gy + 4).toFixed(1) + '" class="or-ct">' + gp.toFixed(3) + "</text>"; }
+      for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 6) + '" y="' + (gy + 4).toFixed(1) + '" class="or-ct">' + gp.toFixed(4) + "</text>"; }
       var lab = Math.max(1, Math.round(c.length / 6));
       c.forEach(function (x, i) {
         var cx = L + cw * i + cw / 2, up = x.c >= x.o, col = up ? "or-up" : "or-dn", top = y(Math.max(x.o, x.c)), bot = y(Math.min(x.o, x.c));
         svg += '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/><rect x="' + (cx - cw * 0.36).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + Math.max(1, cw * 0.72).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"' + (x.gap ? ' opacity=".45"' : "") + "/>";
         if (i % lab === 0) { var d = new Date((x.t + 8 * 3600) * 1000); svg += '<text x="' + Math.max(cx, 18).toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0") + ":" + String(d.getUTCSeconds()).padStart(2, "0") + "</text>"; }
       });
-      if (orc && orc > lo && orc < hi) { var oy = y(orc); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + oy.toFixed(1) + '" y2="' + oy.toFixed(1) + '" class="lk-orc"/><text x="' + (L + 4) + '" y="' + (oy - 3).toFixed(1) + '" class="or-ct lk-orct">预言机 ' + orc.toFixed(3) + "</text>"; }
-      if (info.bid && info.ask) { if (info.ask > lo && info.ask < hi) svg += '<text x="' + (L + 4) + '" y="' + (y(info.ask) - 3).toFixed(1) + '" class="or-ct lk-ask">卖一 ' + info.ask.toFixed(3) + "</text>"; if (info.bid > lo && info.bid < hi) svg += '<text x="' + (L + 4) + '" y="' + (y(info.bid) + 11).toFixed(1) + '" class="or-ct lk-bid">买一 ' + info.bid.toFixed(3) + "</text>"; }
+      if (orc && orc > lo && orc < hi) { var oy = y(orc); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + oy.toFixed(1) + '" y2="' + oy.toFixed(1) + '" class="lk-orc"/><text x="' + (L + 4) + '" y="' + (oy - 3).toFixed(1) + '" class="or-ct lk-orct">预言机 ' + orc.toFixed(4) + "</text>"; }
+      if (info.bid && info.ask) { if (info.ask > lo && info.ask < hi) svg += '<text x="' + (L + 4) + '" y="' + (y(info.ask) - 3).toFixed(1) + '" class="or-ct lk-ask">卖一 ' + info.ask.toFixed(4) + "</text>"; if (info.bid > lo && info.bid < hi) svg += '<text x="' + (L + 4) + '" y="' + (y(info.bid) + 11).toFixed(1) + '" class="or-ct lk-bid">买一 ' + info.bid.toFixed(4) + "</text>"; }
       var last = c[c.length - 1], ly = y(last.c);
-      svg += '<line x1="' + L + '" x2="' + R + '" y1="' + ly.toFixed(1) + '" y2="' + ly.toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (ly - 9).toFixed(1) + '" width="60" height="18" rx="4" class="or-lastb lk-pulse"/><text x="' + (R + 31) + '" y="' + (ly + 4).toFixed(1) + '" text-anchor="middle" class="or-lastt">' + last.c.toFixed(3) + "</text>";
+      svg += '<line x1="' + L + '" x2="' + R + '" y1="' + ly.toFixed(1) + '" y2="' + ly.toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (ly - 9).toFixed(1) + '" width="66" height="18" rx="4" class="or-lastb lk-pulse"/><text x="' + (R + 34) + '" y="' + (ly + 4).toFixed(1) + '" text-anchor="middle" class="or-lastt">' + last.c.toFixed(4) + "</text>";
       el.setAttribute("viewBox", "0 0 " + W0 + " " + H0); el.innerHTML = svg;
     }
     function tick() {
