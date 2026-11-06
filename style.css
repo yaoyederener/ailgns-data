@@ -2841,7 +2841,7 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .ptn-risks{display:grid;gap:8px;margin-bottom:6px}
 .ptn-risk{border-radius:12px;padding:10px 12px;border:1px solid #eee6ff;background:#faf7ff;font-size:13.5px;line-height:1.5}
 .ptn-risk.red{background:#fff1f1;border-color:#ffc9c9}.ptn-risk.yellow{background:#fff8e6;border-color:#ffe2a8}.ptn-risk.green{background:#eefbf3;border-color:#bfead2}
-.ptn-rh{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:15px}.ptn-rh i{font-style:normal;font-size:12px;color:#8a7fb0;white-space:nowrap}
+.ptn-rh{display:flex;gap:8px;align-items:baseline;font-size:15px}.ptn-rh b{flex:1}.ptn-rh i{font-style:normal;font-size:12px;color:#8a7fb0;white-space:nowrap}
 .ptn-risk p{margin:4px 0 0;color:#4b3d8f}.ptn-todo{font-weight:700;color:#191839!important}
 .ad-tile.warn{background:#fff1f1}.ad-tile.warn b{color:#c6454a}
 .ptn-t td small{display:block;font-weight:400;color:#8a7fb0;font-size:11px}.ptn-t td:first-child{white-space:nowrap}.ptn-real td{background:#eefbf3}
