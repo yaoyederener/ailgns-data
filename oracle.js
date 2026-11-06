@@ -193,7 +193,7 @@
     rows.sort(function (x, y) { return x.d - y.d; });
     var top = rows.slice(0, 3).map(function (r, i) { return '<span class="or-cdl' + (r.d === 0 ? " hit" : "") + '">' + ["🥇", "🥈", "🥉"][i] + " " + esc(r.name.replace(/\.ailgns$/, "")) + " <b>" + r.p + "</b><small>" + (r.d === 0 ? "猜中" : "差 " + (r.d / 1000).toFixed(3)) + "</small></span>"; }).join("");
     var no = Math.round((Date.UTC(+dr.day.slice(0, 4), +dr.day.slice(5, 7) - 1, +dr.day.slice(8, 10)) - Date.UTC(2026, 10, 6)) / 864e5) + 1; // 第几期：2026-11-06 是第 1 期
-    return '<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 ' + no + ' 期（' + dayCn(dr.day) + '）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">' + (res.px / 1000).toFixed(3) + '</b><span>DAI</span></div><div class="or-cdlm">' + (res.jackpot && res.jackpot.winners.length ? '<i class="ok">🎯 ' + res.jackpot.winners.map(function (w) { return esc(w.name); }).join("、") + ' 猜中！</i>' : '<i>没人猜中 · 奖池滚到 <b>' + Math.round(res.poolAfter).toLocaleString("en-US") + " DAI</b></i>") + '</div>' + (top ? '<div class="or-cdlr">最接近的 3 位：' + top + "</div>" : "") + "</div>";
+    return '<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 ' + no + ' 期（' + dayCn(dr.day) + '）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">' + (res.px / 1000).toFixed(3) + '</b><span>DAI</span></div><div class="or-cdlm">' + (res.jackpot && res.jackpot.winners.length ? '<i class="ok">🎯 ' + res.jackpot.winners.map(function (w) { return esc(w.name); }).join("、") + ' 猜中！</i>' : '<i>没人猜中 · 奖金全部留在奖池，下一期继续</i>') + '</div>' + (top ? '<div class="or-cdlr">最接近的 3 位：' + top + "</div>" : "") + "</div>";
   }
   function cdTick() {
     var big = document.getElementById("or-cdbig"); if (!big || !data) return;
@@ -229,11 +229,11 @@
   // 奖金池里实际有多少币：DAI、AiLGNS（按现价折算）、LGNS（不留 LGNS：用 LGNS 付的部分按价值记成「待留」，等 DAI / AiLGNS 进来再留）
   function funds(f, pool) {
     if (!f) return "";
-    var ailV = f.ail * f.px, tot = f.dai + ailV, gap = Math.max(0, pool - tot);
+    var ailV = f.ail * f.px, tot = f.dai + ailV;
     return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + "</b></span>" +
       "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
       '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI</b></span>" +
-      '<small class="or-fnote">' + (gap >= 1 ? "上面的奖池是应得的总额；其中 " + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 }) + " DAI 已经单独留出，另外 " + gap.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 }) + " DAI 正从接下来的域名收入里自动陆续留出，获奖了照样足额发。" : "奖池的钱已经全部单独留出，获奖自动发到你的钱包。") + "</small></div>";
+      '<small class="or-fnote">奖池数字就是奖池钱包里的实际余额（AiLGNS 按现价折算），有多少发多少，获奖自动发到你的钱包；每天域名收入的 70% 会自动转进来。</small></div>';
   }
   // 注册了域名却没设主名字的客户：直接告诉他名字在、差一步，一键跳到名字页去设（最常见的「不能参加」原因）
   function fixHint() {
@@ -414,12 +414,14 @@
     if (la) la.onclick = function () { liveAll = !liveAll; liveKey = ""; liveRank(); };
   }
   function resultCard(r, title) {
+    // 奖池现在实际有多少：奖池钱包余额（AiLGNS 按现价折算），不用应得账
+    var fd = data && data.funds, fpx = fd ? ((fd.otc && fd.otc.px) || fd.px || 1) : 1, curPotV = fd ? Math.floor((fd.dai + fd.ail * fpx) * 100) / 100 : 0;
     var px = (r.px / 1000).toFixed(3), jw = r.jackpot.winners, c = r.closest;
     return '<section class="card or-res"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + dayCn(r.day) + "</span></div>" +
       '<div class="or-rpx"><small>揭晓价</small><b>' + px + '</b><span>DAI</span></div>' +
       '<p class="or-proof">揭晓时刻 ' + hm(r.blockTime * 1000) + ' · <span>区块 #' + r.block + "</span>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
       (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
-        '<p>🎯 没人猜中 ' + px + "，大奖池滚到 <b>" + dai(r.poolAfter) + "</b>，下一期继续！</p>") +
+        '<p>🎯 没人猜中 ' + px + "，奖金全部留在奖池，下一期继续！奖池现在实际有 <b>" + dai(curPotV) + "</b>（按奖池钱包余额）。</p>") +
       (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + (r.nearInfo.diff / 1000).toFixed(3) + "。没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
       (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
       (r.kings && r.kings.length ? '<p class="or-win">💰 贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付 " + dai(k.fee) + "，得 " + dai(k.amt); }).join("；") + "</p>" : "") +
