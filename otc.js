@@ -69,12 +69,12 @@
   var DURATIONS = [[600, "10 分钟"], [1800, "30 分钟"], [3600, "1 小时"], [7200, "2 小时"], [21600, "6 小时"], [43200, "12 小时"],
     [86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]];
   var DUR_MIN = 600, DUR_MAX = 30 * 86400;
-  var DUR_DEFAULT = 7 * 86400; // 默认挂 7 天：订单簿上挂单多，看着热闹
+  var DUR_DEFAULT = 30 * 86400; // 站长 2026-11-06：默认挂满 30 天（合约允许的上限），订单簿更厚；随时可撤单
   // 有效期滑块（站长 2026-11-06：做成进度条的感觉）：11 个档位拖着选，下面有刻度，右边一个「自定义」小按钮
   function durText(sec) { return sec % 86400 === 0 ? sec / 86400 + " 天" : sec % 3600 === 0 ? sec / 3600 + " 小时" : sec >= 3600 ? Math.floor(sec / 3600) + " 小时 " + Math.round(sec % 3600 / 60) + " 分钟" : Math.round(sec / 60) + " 分钟"; }
   function durSlider(host, opt) {
     opt = opt || {}; var val = opt.value || DUR_DEFAULT, unit = 3600;
-    var idx = DURATIONS.findIndex(function (d) { return d[0] === val; }); if (idx < 0) idx = 8;
+    var idx = DURATIONS.findIndex(function (d) { return d[0] === val; }); if (idx < 0) idx = DURATIONS.length - 1;
     host.innerHTML = '<div class="ds"><div class="ds-top"><span class="ds-t">' + (opt.label || "有效期") + ' <small class="muted">到期没成交，币自动退回</small></span><b class="ds-v"></b></div>' +
       '<div class="ds-track"><input type="range" class="ds-r" min="0" max="' + (DURATIONS.length - 1) + '" step="1" value="' + idx + '"><div class="ds-fill"></div></div>' +
       '<div class="ds-ticks">' + [0, 2, 6, 8, 10].map(function (i) { return "<span>" + DURATIONS[i][1] + "</span>"; }).join("") + '</div>' +
