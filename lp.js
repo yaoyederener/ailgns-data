@@ -9,8 +9,18 @@
   function toWei(s, d) { s = String(s || "0").trim(); if (!/^\d*(\.\d*)?$/.test(s) || s === "" || s === ".") return 0n; var p = s.split("."), a = p[0] || "0", b = (p[1] || "").slice(0, d).padEnd(d, "0"); return BigInt(a) * 10n ** BigInt(d) + BigInt(b || "0"); }
   var account = null, rid = 0, mkt = 0, M, OTC, TOKEN, DAI, TD, SYM, R = { FEE: 0.01, SHARE: 0.7 };
 
+  // 站长 2026-11-06：先不开放给客户，优化好再说。默认显示「待开放」页；内部测试在浏览器控制台 localStorage.lpdev="1" 后可看完整页
+  function soon(id) {
+    A.app.innerHTML = '<section class="card lp-hero lp-soon"><div class="lp-ht"><h2>💧 做市返佣 <span class="lp-tag">即将开放</span></h2>' +
+      '<p>在本站 OTC 挂单，有人吃你的单，<b>吃单方付的 1% 手续费，70% 返给挂单方</b>，每天自动结算到你钱包。挂单即参与，不用报名，资金全程在你自己的钱包和 OTC 合约里。</p>' +
+      '<p class="muted">正在做最后的打磨和安全测试，开放时间会在「☰ 更多 → 服务 → 更新日志」和收件箱通知。现在在 OTC 正常挂单不受影响。</p></div>' +
+      '<div class="lp-kpi"><div><small>返佣比例</small><b>70%</b><span>手续费的 70% 归挂单方</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>随时撤单，不托管</span></div></div>' +
+      '<p style="margin-top:14px"><a class="nm-go" href="#/trade">先去交易所盘口挂单 →</a></p></section>';
+  }
   function page(id) {
     rid = id;
+    var dev = false; try { dev = localStorage.getItem("lpdev") === "1"; } catch (e) {}
+    if (!dev) return soon(id);
     M = K().M(); if (M.otc !== "0x4e730be6d46be71223ded5a32dc45799f6d4bc15") { K().useMarket("ailgns"); M = K().M(); }
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym;
     A.app.innerHTML =
