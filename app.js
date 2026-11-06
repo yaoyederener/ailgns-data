@@ -572,7 +572,7 @@
   }
   document.addEventListener("click", function (e) { if (e.target.closest("[data-group]")) { e.preventDefault(); groupModal(); } });
   // 刚挂单 / 刚操作的标记：10 分钟内在「我的挂单」和账本里高亮，解决「挂完找不到」
-  window.AIL.just = {
+  var just = {
     set: function (kind, key) { try { var l = JSON.parse(localStorage.getItem("just") || "[]").filter(function (x) { return Date.now() - x.at < 600e3; }); l.push({ k: kind, key: String(key || "").toLowerCase(), at: Date.now() }); localStorage.setItem("just", JSON.stringify(l.slice(-10))); } catch (e) {} },
     list: function (kind) { try { return JSON.parse(localStorage.getItem("just") || "[]").filter(function (x) { return Date.now() - x.at < 600e3 && (!kind || x.k === kind); }); } catch (e) { return []; } },
     has: function (kind, key) { key = String(key || "").toLowerCase(); return this.list(kind).some(function (x) { return !x.key || x.key === key; }); }
@@ -671,7 +671,7 @@
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
     hiddenNames: { "加拿大局长.ailgns": 1, "aiotc.ailgns": 1, "四哥.ailgns": 1, "觉醒人生.ailgns": 1, "加拿大局长.lgns": 1 },
     pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
-    allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv,
+    allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv, just: just,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
     track: track,
     start: function () {
