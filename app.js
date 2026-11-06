@@ -688,7 +688,7 @@
         } catch (x) { /* 无痕模式 */ }
       }
       // 自动刷新带的 ?v=… 只为绕过缓存，加载完就从地址栏抹掉，复制出去只剩 https://ailgns.dev/#/页面
-      if (/[?&]v=/.test(location.search)) { try { history.replaceState(null, "", location.pathname + location.hash); } catch (x) { /* 忽略 */ } }
+      if (/[?&]v=/.test(location.search)) { try { var sp = new URLSearchParams(location.search); sp.delete("v"); var rest = sp.toString(); history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch (x) { /* 忽略 */ } } // 只抹掉 v，别把 chat= / full= 一起抹了
       window.addEventListener("hashchange", route); route();
       freshCheck(true);
       window.addEventListener("hashchange", function () { freshCheck(); });
@@ -709,7 +709,7 @@
         var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
         if (!latest || latest === mine || sessionStorage.getItem("fresh:to") === latest) return;
         sessionStorage.setItem("fresh:to", latest);
-        location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+        var sp2 = new URLSearchParams(location.search); sp2.set("v", String(Date.now())); location.replace(location.pathname + "?" + sp2.toString() + location.hash);
       }).catch(function () {});
     } catch (e) { /* 忽略 */ }
   }
