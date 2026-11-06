@@ -75,8 +75,9 @@
   function durSlider(host, opt) {
     // 站长 2026-11-07：不要滑块，默认 30 天一行字，旁边一个小小的「自定义」；订单簿要热闹，单子别一会儿就没了
     opt = opt || {}; var val = opt.value || DUR_DEFAULT, unit = 86400;
-    host.innerHTML = '<div class="dl"><span class="dl-t">' + (opt.label || "有效期") + '</span><b class="dl-v"></b><small class="muted dl-st"></small><button type="button" class="link dl-cus">自定义</button>' +
-      '<span class="dl-custom" hidden><input class="dl-n" inputmode="decimal" placeholder="数字"><span class="seg dl-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600">小时</button><button type="button" data-u="86400" class="on">天</button></span><button type="button" class="link dl-back">用默认 30 天</button></span></div>';
+    var old = host.querySelector(".dl"); if (old) old.remove(); // 不用 innerHTML：宿主里还有 <input hidden id="otc-dur">，清掉会让发布挂单读到 null
+    host.insertAdjacentHTML("beforeend", '<div class="dl"><span class="dl-t">' + (opt.label || "有效期") + '</span><b class="dl-v"></b><small class="muted dl-st"></small><button type="button" class="link dl-cus">自定义</button>' +
+      '<span class="dl-custom" hidden><input class="dl-n" inputmode="decimal" placeholder="数字"><span class="seg dl-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600">小时</button><button type="button" data-u="86400" class="on">天</button></span><button type="button" class="link dl-back">用默认 30 天</button></span></div>');
     var v = host.querySelector(".dl-v"), st = host.querySelector(".dl-st"), cus = host.querySelector(".dl-custom"), n = host.querySelector(".dl-n");
     function paint(sec) {
       var ok = sec >= DUR_MIN && sec <= DUR_MAX;
