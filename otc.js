@@ -1262,6 +1262,8 @@
   // 收入分账：原收款钱包在这里授权分账合约；之后每 5 分钟自动把新到的收入分出去
   function renderSplit(id) {
     var app = A.app, MAX = (1n << 256n) - 1n, totalSel = "0x0399205c"; // totalSplit(address)
+    // 🔒 团队内部页：只有收款钱包本人连上才显示（站长 2026-11-07：不公开收入分配）
+    if (String(account || "").toLowerCase() !== FEE_RECIPIENT) { app.innerHTML = '<section class="card"><h2>🔧 运营维护</h2><p class="muted">这是团队内部的运营维护页面，需要用团队钱包登录。</p><p><a href="#/otc">← 回 OTC</a></p></section>'; return; }
     var TOKS = [
       { name: "LGNS", chain: "anubis", token: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", dec: 9 },
       { name: "AiLGNS", chain: "anubis", token: ANUBIS_AILGNS, dec: 18 },

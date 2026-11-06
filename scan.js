@@ -15,7 +15,11 @@
   // 平台自己的合约：直接显示中文名，客户一眼看懂钱去哪了
   var KNOWN = {};
   KNOWN[ZERO] = "🆕 新注册";
-  KNOWN["0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3"] = "回购分账合约";
+  // 🔒 团队运营地址（站长 2026-11-07：维护团队隐私，账本里统一显示为「运营维护」，不展示明细）
+  var TEAM = {};
+  ["0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", "0xeee877c1b6285b82890bdcd027d2715f658ecf23", "0xcc274e07847a6a86917b6ccd4e67706170d4036f",
+   "0xd53a00bb90bb606f10d888419a14eca779f17285", "0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", "0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322",
+   "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", "0x06cc2a46d7ad17496c2de9c61362808e06b44437"].forEach(function (x) { TEAM[x] = 1; KNOWN[x] = "🔧 运营维护"; });
   KNOWN["0xdcc5354175d60ffc8364e71e792fcd66366f00fe"] = "OTC 自动撮合合约";
   KNOWN["0x6ec474047a6c12d0cab53855a990c1c8b3996c20"] = "OTC 批量扫单合约";
   KNOWN["0xb6a7a3be9a17ad241665ab9bddbd9a573d488818"] = "LGNS OTC";
@@ -246,7 +250,7 @@
     if (!t && ms.length) {
       var mi = ms.filter(function (m) { return m.dir === "in"; })[0];
       if (mi) {
-        if (mi.other === C.buyback) return { ico: "💎", text: "<b>收到分账</b> " + fmtN(mi.v, mi.sym) + "（回购分账合约）" };
+        if (TEAM[mi.other]) return { ico: "🔧", text: "<b>运营费用支出</b> " + fmtN(mi.v, mi.sym) + "（服务器、节点、客服等运营维护）" };
         if (mi.other === C.pool) return { ico: "🏆", text: "<b>预言家奖金到账</b> " + fmtN(mi.v, mi.sym) + "（奖池钱包发放）" };
         return { ico: "📥", text: "<b>收到</b> " + (mi.nft ? "域名 " + nftTag(mi) : fmtN(mi.v, mi.sym)) + " 来自 " + who(mi.other) };
       }
@@ -580,6 +584,7 @@
   };
   function addrView(a, out, via, cat) {
     var wait = '<p class="muted">读取中…</p>';
+    if (TEAM[a]) { out.innerHTML = '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营费用支出</b>用的地址（服务器、节点、客服、开发等日常维护）。属于团队内部账务，账本不展示明细。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>'; return; }
     var S = { head: (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
       (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
