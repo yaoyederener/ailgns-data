@@ -2694,3 +2694,12 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
   table.book td[data-l="挂单人"] > span { font-size: 14px; }
   table.book td[data-l="剩余时间"] { grid-column: 1 / -1; }
 }
+
+/* 手机挂单簿：挂单人独占第 4 行——认证标志在上、域名在下（覆盖上面 3 行布局里第 7 格的省略号规则） */
+@media (max-width: 640px) {
+  table.cards.book td:nth-child(7) { grid-column: 1 / 3 !important; grid-row: 4 !important; flex-direction: column-reverse !important; align-items: flex-start !important; gap: 2px !important; overflow: visible !important; white-space: normal !important; text-overflow: clip; padding-top: 4px; border-top: 1px dashed #efe9ff; font-size: 14px !important; color: var(--text) !important; }
+  table.cards.book td:nth-child(7)::before { content: none !important; }
+  table.cards.book td:nth-child(7) .cred { margin: 0 0 1px; font-size: 11.5px; padding: 2px 9px; }
+  table.cards.book td.act { grid-row: 1 / span 4 !important; }
+  table.cards.book td:nth-child(6) { grid-column: 1 / 3 !important; }
+}
