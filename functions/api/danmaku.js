@@ -3,7 +3,7 @@
 // POST { a, txt, ts, sig } → 发一条；30 秒一条；1–30 个字；过滤链接、联系方式、地址、敏感词
 // GET ?del=<id>&key=BACKUP_KEY → 删除一条（站长用）
 import { recoverAddress } from "../../lib/evmsig.js";
-import { primaryName } from "../../lib/oracle.js";
+import { primaryName, openRound, prevDay, drawStart } from "../../lib/oracle.js";
 
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const dmText = (txt, ts, a) => "AiLGNS 弹幕\n" + txt + "\n时间：" + ts + "\n地址：" + a; // 和前端 oracle.js 一字不差
@@ -20,8 +20,10 @@ export async function onRequestGet(ctx) {
     await kv.put("dm:list", JSON.stringify(list));
     return json({ ok: true, n: list.length });
   }
-  const list = ((await kv.get("dm:list", "json")) || []).slice(-80).map((x) => ({ id: x.id, name: x.name, txt: x.txt, t: x.t }));
-  return Response.json({ list }, { headers: { "cache-control": "public, max-age=5" } });
+  // 站长 2026-11-07：弹幕每期清一次——只显示本期开放（上一期揭晓 21:00）之后发的，开奖后自然重新开始；老弹幕仍留在 KV 里不删
+  const since = drawStart(prevDay(openRound(Date.now())));
+  const list = ((await kv.get("dm:list", "json")) || []).filter((x) => x.t >= since).slice(-80).map((x) => ({ id: x.id, name: x.name, txt: x.txt, t: x.t }));
+  return Response.json({ list, since }, { headers: { "cache-control": "public, max-age=5" } });
 }
 
 export async function onRequestPost(ctx) {

@@ -376,7 +376,7 @@
       (j.list || []).forEach(function (m) { if (!dmSeen[m.id]) { dmSeen[m.id] = 1; dmAdd(m); fresh = true; } });
       if (fresh || !dmFetched) dmI = 0; // 有人发新弹幕：从头滚一遍
       dmFetched = true;
-      var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = dmList.length ? "" : "💬 还没有弹幕，来发第一条吧！";
+      var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = dmList.length ? "" : "💬 本期还没有弹幕，来发第一条吧！（每期揭晓后重新开始）";
     }, function () {});
   }
   var dmFetched = false;
