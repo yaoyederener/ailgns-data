@@ -697,7 +697,7 @@
     errTip(m || (e && (e.message || e.reason)) || "操作没完成，请刷新页面再试一次");
   }
   window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
-  var BAN_RE = /习近平|习大大|习主席|习总|近平|习远平|彭丽媛|李强|李克强|胡锦涛|江泽民|温家宝|朱镕基|邓小平|毛泽东|毛主席|周恩来|赵紫阳|胡耀邦|华国锋|刘少奇|王沪宁|赵乐际|蔡奇|丁薛祥|李希|韩正|栗战书|汪洋|王岐山|李鹏|乔石|李瑞环|贾庆林|吴邦国|曾庆红|张德江|俞正声|刘云山|张高丽|xijinping|xidada|xizhuxi|jinping|maozedong|dengxiaoping|jiangzemin|hujintao|wenjiabao|likeqiang|liqiang|zhurongji|zhouenlai|中南海|共产党|国家主席|总书记|党中央|政治局|中央军委|国务院|人大常委|政协|zhongnanhai|gongchandang/i;
+  var BAN_RE = /毛泽东|刘少奇|李先念|杨尚昆|江泽民|胡锦涛|习近平|maozedong|liushaoqi|lixiannian|yangshangkun|jiangzemin|hujintao|xijinping/i;
   window.addEventListener("error", function (ev) { if (ev.error) oops(ev.error); });
   window.AIL = { errTip: errTip, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
