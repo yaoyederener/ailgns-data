@@ -2,6 +2,25 @@
 // 发到「运营费用」专用 DeBox 群（只发这个群，和行情播报群分开）。写今日总收入和按 4:3:3 每份分多少（不写收款地址），并提醒 LGNS 及时换 DAI。
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
+import { SUPPORT_USER } from "../../lib/support.js";
+
+// ⛽ 触发钱包 Gas 看门狗（站长 2026-11-07：没钱就一直提醒）：keeper 每 5 分钟调一次本接口，顺手查一下
+// 低于 GAS_MIN DAI → 开一张 0 级工单（铃铛 + Mac 提醒会一直催）+ DeBox 私信站长；每 6 小时催一次，补够了自动安静
+const KEEPER = "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", GAS_MIN = 8;
+async function gasWatch(ctx, kv) {
+  const r = await fetch("https://rpc.anubispace.org", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getBalance", params: [KEEPER, "latest"] }) }).then((x) => x.json());
+  const bal = Number(BigInt(r.result || "0x0")) / 1e18;
+  if (!(bal < GAS_MIN)) return;
+  if (await kv.get("gas:nag")) return;
+  await kv.put("gas:nag", "1", { expirationTtl: 6 * 3600 });
+  const txt = "⛽ 触发钱包 Gas 快没了：0x89dd…4e27 只剩 " + bal.toFixed(2) + " DAI（低于 " + GAS_MIN + "）。退款、撮合、奖池、存证都靠它付 Gas，请马上转 30–50 DAI（Anubis 链）到 " + KEEPER + "。补够后提醒自动停。";
+  const id = Number((await kv.get("tk:seq")) || "0") + 1;
+  await kv.put("tk:seq", String(id));
+  const t = { id, a: "system", txt, n: 0, t: Date.now(), st: "new", note: "", tri: { ok: true, lv: 0, cat: "资金", topic: "触发钱包Gas不足", why: "系统自动", dup: 0, ai: false } };
+  await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+  await kv.put("tk:list", JSON.stringify(((await kv.get("tk:list", "json")) || []).concat(id).slice(-1000)));
+  await sendDebox(ctx.env, SUPPORT_USER, txt + "\n\n工单 #" + id + " 👉 https://ailgns.dev/#/feedback/admin", "private").catch(() => {});
+}
 
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
 const SPLIT = "0xb1fafb8bf72e6705dba1b22c347f53d50b1b8539bc5f9ce17a1cf52973dfbe79"; // Split(token, amount, toPayee1, toPayee2, toPayee3, by)
@@ -99,6 +118,7 @@ async function scan(c, from, latest, items) {
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
+  ctx.waitUntil(gasWatch(ctx, kv).catch(() => {}));
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
   const now = Math.floor(Date.now() / 1000), slot = slotOf(now); // 今天北京 0 点
   // today=1 / day=2026-11-02：站长想马上看效果，把今天到现在（或前两天里某一整天）的汇总立刻发一次；每个日期最多手动发 3 次，防止被人刷群
