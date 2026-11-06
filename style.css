@@ -2685,3 +2685,12 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .sc-cred { margin: 6px 0 10px; font-size: 13px; }
 
 @media (max-width: 760px) { table.book td[data-l="挂单人"] { white-space: normal; overflow: visible; } table.book td[data-l="挂单人"] .cred { margin: 2px 0 0 4px; } }
+
+/* 手机订单簿：挂单人一格整行显示——上面认证标志，下面域名/地址（站长 2026-11-07） */
+@media (max-width: 760px) {
+  table.book td[data-l="挂单人"] { grid-column: 1 / -1; flex-direction: column-reverse; align-items: flex-start; gap: 2px; padding-top: 4px; border-top: 1px dashed #efe9ff; }
+  table.book td[data-l="挂单人"]::before { content: none; }
+  table.book td[data-l="挂单人"] .cred { margin: 0; font-size: 11.5px; padding: 2px 9px; }
+  table.book td[data-l="挂单人"] > span { font-size: 14px; }
+  table.book td[data-l="剩余时间"] { grid-column: 1 / -1; }
+}
