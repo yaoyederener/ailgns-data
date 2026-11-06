@@ -2672,3 +2672,6 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .ds-custom[hidden] { display: none; }
 .tr2-durbox .ds-t small { display: none; }
 .tr2-durbox .ds-ticks { font-size: 10px; }
+
+/* 2026-11-07 客户反馈：扫光像屏幕坏了，去掉；只留深度条 */
+.bk-sweep::after, .tr2-book #tr-bk::after { display: none !important; animation: none !important; }
