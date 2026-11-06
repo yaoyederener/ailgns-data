@@ -181,7 +181,18 @@
     return '<section class="card or-cdc"><div class="or-cdh"><b id="or-cdph">✍️ 预言进行中</b><span id="or-cdsub"></span></div>' +
       '<div class="or-cdbig" id="or-cdbig"><span><i>00</i><small>天</small></span><span><i>00</i><small>时</small></span><span><i>00</i><small>分</small></span><span><i>00</i><small>秒</small></span></div>' +
       '<div class="or-cdbar"><i id="or-cdfill"></i></div>' +
-      '<ol class="or-cdst"><li id="or-cs1"><b>✍️ 预言</b><small id="or-cs1t"></small></li><li id="or-cs2"><b>🔒 封卷</b><small id="or-cs2t"></small></li><li id="or-cs3"><b>🔮 揭晓</b><small>21:00–22:00 随机一刻</small></li><li id="or-cs4"><b>🏅 放榜</b><small>22:00 后几分钟</small></li></ol></section>';
+      '<ol class="or-cdst"><li id="or-cs1"><b>✍️ 预言</b><small id="or-cs1t"></small></li><li id="or-cs2"><b>🔒 封卷</b><small id="or-cs2t"></small></li><li id="or-cs3"><b>🔮 揭晓</b><small>21:00–22:00 随机一刻</small></li><li id="or-cs4"><b>🏅 放榜</b><small>22:00 后几分钟</small></li></ol>' + lastLine(d) + '</section>';
+  }
+  // 倒计时下面一行：上期揭晓价 + 最接近的前 3 名（没人猜中的日子也让大家看到谁最准）
+  function lastLine(d) {
+    var dr = d.drawing, res = dr && dr.res, list = (dr && dr.list) || [];
+    if (!dr || dr.skip || (!res && !list.length)) return "";
+    if (!res) return '<div class="or-cdlast"><b>上期 ' + dayCn(dr.day) + '</b> 已封卷，' + list.length + ' 人参加，今晚 21–22 点揭晓</div>';
+    var rows = [];
+    list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: Math.abs(Math.round(Number(p) * 1000) - res.px) }); }); });
+    rows.sort(function (x, y) { return x.d - y.d; });
+    var top = rows.slice(0, 3).map(function (r, i) { return '<span class="or-cdl' + (r.d === 0 ? " hit" : "") + '">' + ["🥇", "🥈", "🥉"][i] + " " + esc(r.name.replace(/\.ailgns$/, "")) + " <b>" + r.p + "</b><small>" + (r.d === 0 ? "猜中" : "差 " + (r.d / 1000).toFixed(3)) + "</small></span>"; }).join("");
+    return '<div class="or-cdlast"><div class="or-cdlp">上期 <b>' + dayCn(dr.day) + '</b> 揭晓价 <b class="or-cdpx">' + (res.px / 1000).toFixed(3) + ' DAI</b>' + (res.jackpot && res.jackpot.winners.length ? ' <i class="ok">🎯 有人猜中</i>' : ' <i>没人猜中 · 奖池滚到 ' + Math.round(res.poolAfter).toLocaleString("en-US") + " DAI</i>") + '</div>' + (top ? '<div class="or-cdlr">最接近的 3 位：' + top + "</div>" : "") + "</div>";
   }
   function cdTick() {
     var big = document.getElementById("or-cdbig"); if (!big || !data) return;

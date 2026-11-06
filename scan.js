@@ -543,13 +543,22 @@
   // ===== 订单分类：OTC / 借贷 / 域名 / 其他（全站「查订单」都走这里）=====
   var CATS = { all: "全部", otc: "💱 OTC", loan: "🤝 借贷", names: "🌐 域名", other: "✨ 其他" };
   function catOf(txt) { return /域名|注册|续费|\.ailgns|\.lgns|主名字|转赠|置顶|名字/.test(txt) ? "names" : /借|还款|出借|抵押|逾期|利息/.test(txt) ? "loan" : /OTC|挂单|吃单|成交|撤单|买入|卖出|盘口|求购|手续费|套利|回购/.test(txt) ? "otc" : "other"; }
-  function catBtns(a, cur) { return '<div class="seg sc-cats">' + Object.keys(CATS).map(function (k) { return '<a href="#/scan/' + a + (k === "all" ? "" : "/" + k) + '"' + (k === cur ? ' class="on"' : "") + ">" + CATS[k] + "</a>"; }).join("") + "</div>"; }
+  function catBtns(a, cur) { return '<div class="seg sc-cats">' + Object.keys(CATS).map(function (k) { return '<a href="#/scan/' + a + (k === "all" ? "" : "/" + k) + '" data-cat="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + CATS[k] + '<b class="sc-n" hidden></b></a>'; }).join("") + "</div>"; }
+  // 「在本站的事」：每个分类按钮上标出有几单（OTC 2 · 借贷 0…），一眼看到有没有订单挂着
+  function posCounts(root) {
+    var pos = root.querySelector("#sc-pos"); if (!pos) return;
+    var n = { all: 0, otc: 0, loan: 0, names: 0, other: 0 };
+    pos.querySelectorAll(".lg-row").forEach(function (r) { if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", catOf(r.textContent || "")); n.all++; n[r.getAttribute("data-cat")] = (n[r.getAttribute("data-cat")] || 0) + 1; });
+    root.querySelectorAll("#sc-posc .sc-cats a").forEach(function (b) { var k = b.getAttribute("data-cat"), c = n[k] || 0, e = b.querySelector(".sc-n"); e.hidden = false; e.textContent = c ? c + " 单" : "0"; b.classList.toggle("has", c > 0); });
+    var sum = document.getElementById("sc-possum"); if (sum) sum.textContent = n.all ? "共 " + n.all + " 单在挂" : "没有在挂的订单";
+  }
   function applyCat(root, cat) {
     root.querySelectorAll(".lg-row").forEach(function (r) {
       if (r.closest("#sc-msgs")) return; // 留言不是订单，不参与筛选
       if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", catOf(r.textContent || ""));
       r.classList.toggle("sc-hide", !!cat && cat !== "all" && r.getAttribute("data-cat") !== cat);
     });
+    posCounts(root);
     root.querySelectorAll(".lg-list:not(#sc-msgs)").forEach(function (l) {
       var vis = l.querySelectorAll(".lg-row:not(.sc-hide)").length, none = l.querySelector(".sc-none");
       if (!vis && cat && cat !== "all" && l.querySelector(".lg-row") && !none) { none = document.createElement("p"); none.className = "muted sc-none"; none.textContent = "这一类暂时没有"; l.appendChild(none); }
