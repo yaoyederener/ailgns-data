@@ -355,13 +355,13 @@
   var fmtA = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4); };
   var leftT = function (sec) { if (sec <= 0) return "已到期"; var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟"; };
   var wordsOf = function (r) { return (r || "0x").slice(2).match(/.{64}/g) || []; };
-  function posRow(ico, html, href, cta) { return '<div class="lg-row"><span class="lg-ico">' + ico + '</span><div class="lg-main"><div class="lg-txt">' + html + "</div></div>" + (href ? '<a class="lg-link" href="' + href + '">' + (cta || "去处理 ›") + "</a>" : "") + "</div>"; }
+  function posRow(ico, html, href, cta, just) { return '<div class="lg-row' + (just ? " lg-just" : "") + '"><span class="lg-ico">' + (just ? '<i class="lg-justtag">刚挂的</i>' : "") + '' + ico + '</span><div class="lg-main"><div class="lg-txt">' + html + "</div></div>" + (href ? '<a class="lg-link" href="' + href + '">' + (cta || "去处理 ›") + "</a>" : "") + "</div>"; }
   function positions(a, box) {
     var now = Date.now() / 1000, out = [];
     var jobs = [];
     // OTC 挂单（四个币市场）
     Object.keys(MK).forEach(function (k) {
-      jobs.push(fetch("/api/book?m=" + k).then(function (r) { return r.json(); }).then(function (d) {
+      jobs.push(fetch("/api/book?m=" + k + (A.otcKit && A.otcKit.account && A.otcKit.account() === a && A.just && A.just.list("otc").length ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (d) {
         var w = wordsOf(d.orders), n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, from = Number(d.from || 0), m = MK[k];
         for (var i = 0; i < n; i++) {
           var o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
@@ -369,17 +369,18 @@
           if (maker !== a || !open || exp <= now || gL === 0n) continue;
           var giveLeft = big(gL, sell ? m.dec : 18), wantLeft = gT > 0n ? big(gL * wT / gT, sell ? 18 : m.dec) : 0;
           var px = sell ? (giveLeft ? wantLeft / giveLeft : 0) : (wantLeft ? giveLeft / wantLeft : 0);
-          out.push({ t: exp, html: sell ? "<b>OTC 挂单卖出</b> " + fmtA(giveLeft) + " " + m.sym + "，要价 " + fmtA(wantLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : "")
+          out.push({ t: exp, k: k, id: from + i, html: sell ? "<b>OTC 挂单卖出</b> " + fmtA(giveLeft) + " " + m.sym + "，要价 " + fmtA(wantLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : "")
             : "<b>OTC 挂单买入</b> " + fmtA(wantLeft) + " " + m.sym + "，锁定 " + fmtA(giveLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : ""), href: "#/otc" + (k === "ailgns" ? "" : "/" + k), ico: "📌" });
         }
       }).catch(function () {}));
     });
     // 域名挂单
-    jobs.push(fetch("/api/name-market").then(function (r) { return r.json(); }).then(function (d) {
+    var meNow = A.otcKit && A.otcKit.account && A.otcKit.account() === a; // 查自己：跳过缓存，刚挂的单马上能看到
+    jobs.push(fetch("/api/name-market" + (meNow ? "?f=1" : "")).then(function (r) { return r.json(); }).then(function (d) {
       (d.list || []).forEach(function (x) {
         if (x.maker !== a) return;
-        var p = big(x.price, 18);
-        out.push({ t: x.expiry, html: "<b>域名挂单出售</b> " + esc(x.label + "." + x.t) + "，标价 " + fmtA(p) + " DAI · 剩 " + leftT(x.expiry - now), href: "#/names/" + encodeURIComponent(x.label + "." + x.t), ico: "🏷" });
+        var p = big(x.price, 18), just = A.just && A.just.has("names", x.label + "." + x.t);
+        out.push({ t: x.expiry, just: just, html: "<b>域名挂单出售</b> " + esc(x.label + "." + x.t) + "，标价 " + fmtA(p) + " DAI · 剩 " + leftT(x.expiry - now), href: "#/names/" + encodeURIComponent(x.label + "." + x.t), ico: just ? "🆕" : "🏷" });
       });
     }).catch(function () {}));
     // 借贷（借款单 / 出借单 / 借款中）
@@ -415,7 +416,10 @@
       if (!box) return out;
       if (!box.isConnected) return out;
       if (!out.length) { box.innerHTML = '<p class="muted">现在没有挂单、借贷或预测 · <a href="#/otc">去 OTC 挂一单 →</a></p>'; return out; }
-      box.innerHTML = out.map(function (x) { return posRow(x.ico, x.html, x.href, x.cta); }).join("");
+      // 刚挂的 OTC 单：同一市场里编号最大的那张高亮
+      if (A.just) A.just.list("otc").forEach(function (j) { var cand = out.filter(function (x) { return x.k && (!j.key || x.k === j.key); }); if (cand.length) { var top = cand.reduce(function (m, x) { return x.id > m.id ? x : m; }); top.just = true; top.ico = "🆕"; } });
+      out.sort(function (x, y) { return (y.just ? 1 : 0) - (x.just ? 1 : 0); }); // 刚操作的排最前
+      box.innerHTML = out.map(function (x) { return posRow(x.ico, x.html, x.href, x.cta, x.just); }).join("");
       fillNames(box);
       return out;
     });
@@ -522,18 +526,20 @@
   };
   function addrView(a, out, via, cat) {
     var wait = '<p class="muted">读取中…</p>';
-    out.innerHTML =
-      (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
+    var S = { head: (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       '<section class="card"><div class="card-head"><h2>' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "钱包")) + '</h2></div>' +
-      '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>' +
-      '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
+      '<p class="mono sc-addr">' + a + '</p><div id="sc-who"></div></section>',
+      msg: '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
       '<div id="sc-msgbox" hidden><textarea id="sc-mtxt" maxlength="200" rows="3" placeholder="写给 TA 的话（200 字以内）。留言会永久记录在链上，所有人可见，只花约 0.001 DAI 的 Gas。"></textarea>' +
       '<div class="sc-mrow"><small class="muted"><span id="sc-mn">0</span>/200 · 只有注册了 .ailgns 域名并设为主名字的钱包才能发信</small><button type="button" class="nm-go" id="sc-msend">发送留言</button></div><p class="muted nm-st" id="sc-mst"></p></div>' +
-      '<div class="lg-list" id="sc-msgs">' + wait + "</div></section>" +
-      '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>" +
-      '<section class="card" id="sc-posc"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div>' + catBtns(a, cat || "all") + '<div class="lg-list" id="sc-pos">' + wait + "</div></section>" +
-      '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>" +
-      '<section class="card"><div class="card-head"><h2>📜 我做过的事</h2><span class="muted">最新的在上面 · 北京时间</span></div><div class="lg-list" id="sc-lg">' + wait + "</div></section>";
+      '<div class="lg-list" id="sc-msgs">' + wait + "</div></section>",
+      bal: '<section class="card"><h2>💰 我的钱</h2><div class="sc-bal" id="sc-bal">' + wait + "</div></section>",
+      pos: '<section class="card" id="sc-posc"><div class="card-head"><h2>📌 正在进行中</h2><span class="muted">挂单 · 借贷 · 预言</span></div>' + catBtns(a, cat || "all") + '<div class="lg-list" id="sc-pos">' + wait + "</div></section>",
+      names: '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>",
+      hist: '<section class="card"><div class="card-head"><h2>📜 我做过的事</h2><span class="muted">最新的在上面 · 北京时间</span></div><div class="lg-list" id="sc-lg">' + wait + "</div></section>" };
+    // 顺序：查订单（带分类）或查自己的钱包时，「正在进行中」紧跟在钱包信息后面，一打开就看到；查别人才先看留言
+    var mine = A.otcKit && A.otcKit.account && A.otcKit.account() === a;
+    out.innerHTML = (cat || mine ? ["head", "pos", "names", "hist", "bal", "msg"] : ["head", "msg", "bal", "pos", "names", "hist"]).map(function (k) { return S[k]; }).join("");
     var el = function (id) { return document.getElementById(id); };
     nameOf(a).then(function (primary) {
       if (!el("sc-who")) return;

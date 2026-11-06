@@ -2512,3 +2512,13 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .grp-c .nm-go { margin: 4px 0 8px; }
 .grp-tip { font-size: 12.5px; line-height: 1.5; margin: 6px 0 0; }
 .grp-x { position: absolute; top: 8px; right: 10px; width: 32px; height: 32px; border: 0; border-radius: 999px; background: #f3eefe; color: #5a35d6; font-size: 20px; line-height: 1; box-shadow: none; }
+
+/* 🆕 刚挂的单高亮（10 分钟内） */
+@keyframes just-pulse { 0% { box-shadow: 0 0 0 0 rgba(240, 185, 11, .55); } 70% { box-shadow: 0 0 0 10px rgba(240, 185, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(240, 185, 11, 0); } }
+.lg-row.lg-just { background: linear-gradient(90deg, #fff7d6, #fffdf3); border: 1px solid #f5d77a; border-radius: 12px; padding: 12px 10px; margin: 4px 0 8px; animation: just-pulse 1.6s ease-out 3; }
+.lg-justtag, .nm-justtag { display: inline-block; margin-right: 6px; padding: 1px 7px; border-radius: 6px; background: #f0b90b; color: #3b2b00; font-size: 11px; font-weight: 800; font-style: normal; vertical-align: 2px; white-space: nowrap; }
+tr.nm-just td { background: #fff7d6 !important; }
+tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
+.nm-done-row { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 12px; background: #fff7d6; border: 1px solid #f5d77a; }
+.nm-done-ico { font-size: 28px; }
+.nm-done .gm-big.alt { background: #efe7ff; color: #5a35d6; }

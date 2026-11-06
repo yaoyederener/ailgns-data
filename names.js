@@ -573,7 +573,7 @@
         go.disabled = true;
         nftOk(NAMES, O, r.id, say).then(function () {
           return tx(O, SEL.oList + r.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
-        }).then(function () { say("✅ 已挂到市场"); market(); show(v); }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
+        }).then(function () { say("✅ 已挂到市场"); listedDone(v, p); market(); show(v); }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
       };
     }
     // 傻瓜式三步：① 注册 ② 设为主名字 ③ OTC 出售（站长要求去掉「链上查询」）。每步做完都能「继续注册下一个」，并显示我注册了几个、排第几
@@ -838,6 +838,22 @@
   // 🧾 域名订单查询：按地址列出在域名市场买入 / 卖出的成交（成交 Filled + 挂单 Created 找出对方）
   var T_CREATED = "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff";
   // 📋 某个地址正在挂的单（.ailgns + 老的 .lgns 挂单都显示）；是自己的可以直接撤单
+  // 挂单成功：一直停留的醒目弹窗（客户反馈挂完找不到单）。两个按钮：看我的挂单（高亮刚挂的）/ 去账本
+  function listedDone(full, price) {
+    full = String(full || "").toLowerCase(); if (!/\./.test(full)) full += "." + TLD;
+    if (A.just) A.just.set("names", full);
+    var box = document.createElement("div"); box.className = "modal";
+    box.innerHTML = '<div class="modal-box nm-done"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+      '<div class="nm-done-row"><span class="nm-done-ico">🏷</span><div><b>' + A.esc(full) + '</b><br><span class="muted">标价 ' + A.esc(String(price)) + ' DAI · 已存进市场合约，有人买下 DAI 直接到你钱包</span></div></div>' +
+      '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单（刚挂的会高亮）</button>' +
+      (account ? '<a class="gm-big alt" style="text-align:center;text-decoration:none" href="#/scan/' + account + '/names" data-close>📒 去账本看「域名」类订单</a>' : "") +
+      '<p class="note" style="text-align:center">以后在任何页面顶部「📋 查我的订单 → 域名」都能找到它</p></div>';
+    document.body.appendChild(box);
+    box.addEventListener("click", function (e) {
+      if (e.target.closest("[data-seemine]")) { box.remove(); var b = document.querySelector('#nm-side button[data-side="mine"]'); if (b) { b.click(); setTimeout(function () { var m = document.getElementById("nm-minep"); if (m) m.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100); } return; }
+      if (e.target === box || e.target.closest("[data-close]")) box.remove();
+    });
+  }
   function myOpen(a, box) {
     if (!box || !/^0x[0-9a-f]{40}$/.test(a || "")) return;
     box.innerHTML = '<p class="muted">读取挂单中…</p>';
@@ -847,9 +863,11 @@
       box.innerHTML = '<h3 class="nm-oh">📋 ' + (me ? "我的" : A.short(a) + " 的") + "挂单（" + list.length + ' 个在卖）</h3><div class="nm-otbl"><table><thead><tr><th>操作</th><th>域名</th><th>标价</th><th>买家付（含 3%）</th><th>剩余时间</th></tr></thead><tbody>' +
         list.map(function (it, i) {
           var p = Number(it.price / 10n ** 12n) / 1e6;
-          return '<tr><td class="nm-oact">' + (me ? '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button><button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + '</td><td class="nm-onm"><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + '</b></a></td><td class="nm-opx"><b>' + p + ' DAI</b></td><td class="nm-obp">买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + ' DAI</td><td class="nm-olt">⏱ ' + leftT(it.expiry - now2) + "</td></tr>";
+          var just = A.just && A.just.has("names", it.label + "." + it.t);
+          return '<tr' + (just ? ' class="nm-just"' : '') + '><td class="nm-oact">' + (just ? '<span class="nm-justtag">🆕 刚挂的</span>' : '') + (me ? '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button><button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + '</td><td class="nm-onm"><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + '</b></a></td><td class="nm-opx"><b>' + p + ' DAI</b></td><td class="nm-obp">买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + ' DAI</td><td class="nm-olt">⏱ ' + leftT(it.expiry - now2) + "</td></tr>";
         }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-ost"></p>';
       var st = document.getElementById("nm-ost"), say = function (t) { if (st) st.textContent = t; };
+      var jr = box.querySelector("tr.nm-just"); if (jr) setTimeout(function () { jr.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
       if (me) pinRetry(say);
       box.querySelectorAll("button[data-op]").forEach(function (b) {
         b.onclick = function () { pinIt(list[Number(b.getAttribute("data-op"))], b, say); };
@@ -1032,7 +1050,7 @@
         return tx(O, SEL.oList + id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
       }).then(function () {
         say("✅ 已挂到市场"); go.disabled = false; ni.value = ""; pi.value = "";
-        var b = document.querySelector('#nm-side button[data-side="buy"]'); if (b) b.click(); market();
+        listedDone(label + "." + t, p); market();
       }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
     };
   }

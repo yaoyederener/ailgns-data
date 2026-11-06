@@ -571,6 +571,12 @@
     d.onclick = function (e) { if (e.target === d || e.target.closest(".grp-x") || e.target.closest("a[href^='#/']")) close(); };
   }
   document.addEventListener("click", function (e) { if (e.target.closest("[data-group]")) { e.preventDefault(); groupModal(); } });
+  // 刚挂单 / 刚操作的标记：10 分钟内在「我的挂单」和账本里高亮，解决「挂完找不到」
+  window.AIL.just = {
+    set: function (kind, key) { try { var l = JSON.parse(localStorage.getItem("just") || "[]").filter(function (x) { return Date.now() - x.at < 600e3; }); l.push({ k: kind, key: String(key || "").toLowerCase(), at: Date.now() }); localStorage.setItem("just", JSON.stringify(l.slice(-10))); } catch (e) {} },
+    list: function (kind) { try { return JSON.parse(localStorage.getItem("just") || "[]").filter(function (x) { return Date.now() - x.at < 600e3 && (!kind || x.k === kind); }); } catch (e) { return []; } },
+    has: function (kind, key) { key = String(key || "").toLowerCase(); return this.list(kind).some(function (x) { return !x.key || x.key === key; }); }
+  };
   function guide(tab, parts) {
     var box = document.getElementById("guide"); if (!box) return;
     var g = GUIDES[tab];

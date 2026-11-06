@@ -428,6 +428,7 @@
   }
   // 客户反馈挂完找不到自己的单：成功弹窗里放一个大按钮，点了直接跳到「我的挂单」
   function dbxAfterCreate() {
+    if (A.just) A.just.set("otc", MK || "");
     var box = document.createElement("div");
     box.className = "modal";
     var mine = '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单</button><p class="note" style="text-align:center">以后也可以点页面上方紫色的「📋 我的挂单」找到它</p>' +
