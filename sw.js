@@ -1,11 +1,11 @@
 // 最小的 Service Worker：只为了让安卓 Chrome / Edge / 三星浏览器出现「一键安装到桌面」。
 // 不缓存任何东西：页面照常从网络拿最新版；只有断网时给一个提示页，免得白屏。
-var SHELL = ["/app.html", "/icons/otc-group-qr.png?v=1", "/favicon.png?v=hx2"]; // App 壳页：缓存起来，网站全被封也能打开（联系方式、备用网址）
+var SHELL = ["/app", "/icons/otc-group-qr.png?v=1", "/favicon.png?v=hx2"]; // App 壳页：缓存起来，网站全被封也能打开（联系方式、备用网址）
 self.addEventListener("install", function (e) { self.skipWaiting(); e.waitUntil(caches.open("shell-v1").then(function (c) { return c.addAll(SHELL).catch(function () {}); })); });
 self.addEventListener("activate", function (e) { e.waitUntil(self.clients.claim()); });
 self.addEventListener("fetch", function (e) {
   var u = new URL(e.request.url);
-  if (u.origin === location.origin && (u.pathname === "/app.html" || u.pathname === "/icons/otc-group-qr.png" || u.pathname === "/favicon.png")) {
+  if (u.origin === location.origin && (u.pathname === "/app" || u.pathname === "/app.html" || u.pathname === "/icons/otc-group-qr.png" || u.pathname === "/favicon.png")) {
     // 壳页和二维码：先给缓存（秒开、离线可用），后台再更新
     e.respondWith(caches.open("shell-v1").then(function (c) { return c.match(e.request, { ignoreSearch: true }).then(function (hit) {
       var net = fetch(e.request).then(function (r) { if (r.ok) c.put(e.request, r.clone()); return r; }).catch(function () { return hit; });

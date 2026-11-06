@@ -78,12 +78,12 @@
   function load() {
     try { var c = JSON.parse(localStorage.getItem("doms") || "null"); if (c && c.length) list = c; } catch (e) {}
     if (!list.length) list = FALLBACK.map(function (h, i) { return { h: h, main: i === 0 }; });
-    render(); check();
+    paint(); check();
     // 从任意一个能通的网址拉最新网址池（新域名不用更新 App）
     (function pull(i) {
       if (i >= list.length) return;
       fetchT("https://" + list[i].h + "/api/domains", 5000).then(function (r) { return r.json(); }).then(function (j) {
-        if (j && j.list && j.list.length) { list = j.list; try { localStorage.setItem("doms", JSON.stringify(list)); } catch (e) {} render(); check(); }
+        if (j && j.list && j.list.length) { list = j.list; try { localStorage.setItem("doms", JSON.stringify(list)); } catch (e) {} paint(); check(); }
       }).catch(function () { pull(i + 1); });
     })(0);
   }
