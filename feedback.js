@@ -113,15 +113,38 @@
   function mine(a) {
     var box = document.getElementById("fb-mine"); if (!box) return;
     fetch("/api/feedback?mine=" + a).then(function (r) { return r.json(); }).then(function (j) {
-      var l = j.list || [];
+      var l = j.list || [], seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + a) || 0); } catch (e) {}
+      // 客户看进度：像聊天一样——左边我说的，右边客服回的；状态大字；新回复高亮
       box.innerHTML = l.length ? l.map(function (t) {
-        var s = ST[t.st] || ST["new"];
-        return '<div class="fb-my"><div><b>#' + t.id + '</b> <span class="fb-tag" style="background:' + s[1] + '">' + s[0] + '</span> <small class="muted">' + tm(t.t) + '</small></div><p>' + esc(t.txt || "（截图 " + t.n + " 张）") + "</p>" +
-          (t.bot && !t.note ? '<p class="fb-reply fb-bot">🤖 机器人初步答复：' + esc(t.bot) + '<br><small class="muted">人工客服会再确认，有补充可以再提交</small></p>' : "") + (t.note ? '<p class="fb-reply">💬 客服回复：' + esc(t.note) + "</p>" : "") + "</div>";
+        var s = ST[t.st] || ST["new"], fresh = t.note && t.up > seen;
+        return '<div class="fb-th' + (fresh ? " fresh" : "") + '" id="fb-t' + t.id + '"><div class="fb-thh"><span class="fb-tag" style="background:' + s[1] + '">' + (t.st === "done" ? "✅ " : t.st === "doing" ? "⏳ " : "📮 ") + s[0] + '</span><b>工单 #' + t.id + '</b><small class="muted">' + tm(t.t) + "</small>" + (fresh ? '<i class="fb-new">新回复</i>' : "") + "</div>" +
+          '<div class="fb-bub me"><small>我</small>' + esc(t.txt || "（截图 " + t.n + " 张）") + "</div>" +
+          (t.bot && !t.note ? '<div class="fb-bub bot"><small>🤖 机器人初步答复</small>' + esc(t.bot) + '<em>人工客服会再确认</em></div>' : "") +
+          (t.note ? '<div class="fb-bub cs"><small>💬 客服' + (t.up ? " · " + tm(t.up) : "") + "</small>" + esc(t.note) + "</div>" : '<div class="fb-wait">客服还没回复，会按轻重缓急处理；回复了这里会亮起来，页面右下角也会提醒</div>') +
+          (t.st !== "done" || t.note ? '<div class="fb-thf"><button type="button" class="link fb-more" data-id="' + t.id + '">补充说明 / 追问</button></div>' : "") + "</div>";
       }).join("") : '<p class="muted">这个地址还没有提交过反馈</p>';
+      try { var mx = Math.max.apply(null, [0].concat(l.map(function (t) { return t.up || 0; }))); if (mx) localStorage.setItem("fb:seen:" + a, String(mx)); } catch (e) {}
+      var pill = document.getElementById("fb-pill"); if (pill) pill.remove();
+      box.querySelectorAll(".fb-more").forEach(function (b) { b.onclick = function () { var x = document.getElementById("fb-x"); if (x) { x.value = "关于工单 #" + b.getAttribute("data-id") + "：" + x.value; x.focus(); x.scrollIntoView({ behavior: "smooth", block: "center" }); } }; });
+      var h = location.hash.match(/feedback\/(\d+)/); if (h) { var el = document.getElementById("fb-t" + h[1]); if (el) setTimeout(function () { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("fresh"); }, 200); }
     }, function () {});
   }
-
+  // 全站：连过钱包的客户有新客服回复时，右下角弹一个漂亮的提醒气泡（60 秒查一次，看过就消失）
+  function replyPill() {
+    if (!A.wallets || !A.wallets.silent || /feedback/.test(location.hash)) return;
+    A.wallets.silent().then(function (acc) {
+      if (!acc) return; acc = String(acc).toLowerCase();
+      var seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + acc) || 0); } catch (e) {}
+      return fetch("/api/feedback?mine=" + acc).then(function (r) { return r.json(); }).then(function (j) {
+        var fresh = (j.list || []).filter(function (t) { return t.note && t.up > seen; });
+        if (!fresh.length || document.getElementById("fb-pill")) return;
+        var t = fresh[0], el = document.createElement("a"); el.id = "fb-pill"; el.className = "fb-pill"; el.href = "#/feedback/" + t.id;
+        el.innerHTML = '<span class="fb-pill-i">💬</span><span class="fb-pill-t"><b>客服回复了你的工单 #' + t.id + "</b><small>" + esc(String(t.note).slice(0, 40)) + (t.note.length > 40 ? "…" : "") + '</small></span><span class="fb-pill-go">查看 ›</span>';
+        document.body.appendChild(el);
+      });
+    }).catch(function () {});
+  }
+  setTimeout(replyPill, 3500); setInterval(replyPill, 60000);
   // ===== 站长后台 =====
   // #/feedback/admin          工单列表（每 20 秒自动刷新，有新工单响一声、标红）
   // #/feedback/admin/<编号>   单张工单：看截图 → 写回复 → 「确认已处理」→ 自动跳下一张待处理

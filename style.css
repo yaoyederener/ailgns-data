@@ -2769,3 +2769,20 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .sc-cancel { padding: 6px 12px; border-radius: 999px; border: 1px solid #f6465d; background: #fff; color: #f6465d; font-size: 12.5px; font-weight: 700; box-shadow: none; white-space: nowrap; }
 .sc-cancel:disabled { opacity: .6; }
 @media (max-width: 600px) { .lg-acts { flex-direction: row; align-items: center; } }
+
+/* 📮 客户看工单进度：对话式 + 新回复高亮 + 右下角提醒气泡 */
+.fb-th { padding: 12px; border-radius: 14px; border: 1px solid #efe9ff; background: #fff; margin-bottom: 10px; }
+.fb-th.fresh { border-color: #7c5cff; box-shadow: 0 0 0 3px rgba(124,92,255,.15); animation: just-pulse 1.6s ease-out 2; }
+.fb-thh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; } .fb-thh b { font-size: 14px; }
+.fb-new { font-style: normal; padding: 1px 8px; border-radius: 6px; background: #e5484d; color: #fff; font-size: 11px; font-weight: 800; }
+.fb-bub { position: relative; max-width: 92%; padding: 9px 12px; border-radius: 14px; margin: 6px 0; font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.fb-bub small { display: block; font-size: 11px; color: #8d7fb8; margin-bottom: 2px; } .fb-bub em { display: block; font-style: normal; font-size: 11.5px; color: #8d7fb8; margin-top: 4px; }
+.fb-bub.me { background: #f3f0ff; border-top-left-radius: 4px; }
+.fb-bub.cs { background: linear-gradient(135deg, #e8fbf2, #f0fff8); border: 1px solid #bfeedd; margin-left: auto; border-top-right-radius: 4px; color: #103d2a; }
+.fb-bub.bot { background: #fbfaff; border: 1px dashed #d9ccff; }
+.fb-wait { font-size: 12.5px; color: #8d7fb8; padding: 6px 0 0; }
+.fb-thf { margin-top: 4px; } .fb-more { background: none; border: 0; padding: 0; color: #5a35d6; font-size: 12.5px; text-decoration: underline; box-shadow: none; cursor: pointer; }
+.fb-pill { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 950; display: flex; align-items: center; gap: 10px; max-width: min(92vw, 420px); padding: 10px 14px; border-radius: 999px; background: linear-gradient(120deg, #7c5cff, #5a35d6); color: #fff; text-decoration: none; box-shadow: 0 12px 30px rgba(90,53,214,.35); animation: fb-pill-in .4s ease; }
+.fb-pill-i { font-size: 22px; } .fb-pill-t { flex: 1; min-width: 0; } .fb-pill-t b { display: block; font-size: 14px; } .fb-pill-t small { display: block; font-size: 11.5px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb-pill-go { flex: none; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 12.5px; font-weight: 700; }
+@keyframes fb-pill-in { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
