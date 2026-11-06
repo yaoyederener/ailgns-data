@@ -7,6 +7,7 @@
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 import { pushMany } from "../../lib/inbox.js";
+import { addRebate } from "../../lib/lp.js";
 import { rebuildIfNeeded } from "../../lib/pixel.js";
 import { bjDay } from "../../lib/stats.js";
 import { GP_MAX, SEED } from "../../lib/guide.js";
@@ -140,10 +141,11 @@ async function recordTrades(m, kv, logs, cache) {
       rec = { m: m.key, id, t: ts, tx: l.transactionHash, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker, makerSide: o.sell ? "卖" : "买" };
     }
     await addFee(kv, rec).catch(() => {});
+    await addRebate(kv, rec).catch(() => {}); // 💧 做市返佣记账（挂单方 70%）
     // AiLGNS/DAI 真实成交记录（全站一份，最近 300 笔）：预言家奖池用「24 小时真实成交最高价」做预言机
     if (m.key === "ailgns" && rec.price > 0 && rec.dai >= 0.5) {
       const fl = (await kv.get("otc:fills:ailgns", "json")) || [];
-      if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(rec.price * 1000) / 1000, dai: rec.dai, tx: rec.tx, id: rec.id }); await kv.put("otc:fills:ailgns", JSON.stringify(fl.slice(0, 300))); }
+      if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(rec.price * 1000) / 1000, dai: rec.dai, tx: rec.tx, id: rec.id, mk: rec.maker }); await kv.put("otc:fills:ailgns", JSON.stringify(fl.slice(0, 300))); }
     }
     for (const a of new Set([o.maker, taker])) {
       const list = (await kv.get("tr:" + a, "json")) || [];
