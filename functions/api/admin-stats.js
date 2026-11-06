@@ -28,6 +28,9 @@ async function balances() {
 }
 
 export async function onRequestGet(ctx) {
+  try { return await main(ctx); } catch (e) { return Response.json({ error: "面板接口出错：" + String((e && e.stack) || e).slice(0, 600) }, { status: 500 }); }
+}
+async function main(ctx) {
   const env = ctx.env, kv = env.TEAM_KV, u = new URL(ctx.request.url), key = u.searchParams.get("key");
   if (!key || !((env.FEEDBACK_KEY && key === env.FEEDBACK_KEY) || (env.BACKUP_KEY && key === env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
   if (!kv) return Response.json({ error: "no kv" }, { status: 503 });
