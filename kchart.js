@@ -36,7 +36,7 @@
       if (Date.now() - orcAt > 60000) { orcAt = Date.now(); fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (d) { orc = d.funds && d.funds.otc ? d.funds.otc.px || 0 : 0; }).catch(function () {}); }
     }
     function set(i) { iv = i; off = 0; hover = -1; host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-i") === i); }); var c = cacheGet(); data = c ? c.c : []; if (c) cur = c.cur || cur; draw(); load(); }
-    function size() { var r = wrap.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); cv.style.width = r.width + "px"; cv.style.height = r.height + "px"; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return r; }
+    function size() { var r = wrap.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; var lim = host.parentElement ? host.parentElement.clientWidth : 0; if (lim && r.width > lim) r = { width: lim, height: r.height }; /* 别被自己撑大 */ cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); cv.style.width = r.width + "px"; cv.style.height = r.height + "px"; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return r; }
 
     function draw() {
       var r = size(), W = r.width, H = r.height, AXW = 64, AXH = 20, plotW = W - AXW, pH = Math.floor((H - AXH) * 0.74), vTop = pH + 6, vH = H - AXH - vTop;
