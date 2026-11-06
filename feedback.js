@@ -260,6 +260,7 @@
     if (!key()) return login(rid);
     var m = location.hash.match(/feedback\/admin\/(\d+)/);
     if (m) return one(rid, Number(m[1]));
+    if (!st && /feedback\/admin\/stats/.test(location.hash)) st = "stats"; // 直达数据面板：#/feedback/admin/stats
     st = st || "new";
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg"></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
