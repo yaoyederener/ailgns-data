@@ -568,12 +568,13 @@
         if (main.indexOf(b.token.symbol) >= 0) num[b.token.symbol] = v; else others.push({ sym: b.token.symbol, v: v });
       });
       var box = el("sc-bal"); if (!box) return;
+      var fb = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 100 ? v.toFixed(2) : v >= 1 ? (+v.toFixed(4)).toString() : v ? (+v.toPrecision(4)).toString() : "0"; }; // 大字余额：数字别太长，手机上不换行
       var total = (num.DAI || 0) + (num.AiLGNS || 0) * px.AiLGNS + (num.LGNS || 0) * px.LGNS;
       box.innerHTML = main.map(function (k) {
         var v = num[k] || 0, worth = k === "DAI" ? v : v * (px[k] || 0);
-        return '<div class="sc-coin' + (v ? "" : " sc-zero") + '"><span>' + k + (k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + amt(String(Math.round(v * 1e6)), 6) + "</b>" + (k !== "DAI" && v ? "<small>≈ " + amt(String(Math.round(worth * 1e6)), 6) + " DAI</small>" : "") + "</div>";
+        return '<div class="sc-coin' + (v ? "" : " sc-zero") + '"><span>' + k + (k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(v) + "</b>" + (k !== "DAI" && v ? "<small>≈ " + fb(worth) + " DAI</small>" : "") + "</div>";
       }).join("");
-      var sum = el("sc-balsum"); if (sum) sum.textContent = total ? "一共约 " + amt(String(Math.round(total * 1e6)), 6) + " DAI" : "这个钱包现在没有钱";
+      var sum = el("sc-balsum"); if (sum) sum.textContent = total ? "一共约 " + fb(total) + " DAI" : "这个钱包现在没有钱";
       var bx = el("sc-balx"); if (bx) bx.innerHTML = others.length ? '<p class="muted sc-others">其它：' + others.sort(function (x, y) { return y.v - x.v; }).slice(0, 8).map(function (o) { return esc(o.sym) + " " + amt(String(Math.round(o.v * 1e6)), 6); }).join(" · ") + "</p>" : "";
     });
     allNfts(a).then(function (x) {
