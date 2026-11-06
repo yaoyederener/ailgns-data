@@ -499,7 +499,7 @@
       '<h1 class="poster-title">你要的<br>都能做！</h1>' +
       '<div class="poster-en">WHATEVER YOU NEED, WE BUILD IT.</div>' +
       '<div class="poster-tags">' + tags.map(function (t) { return "<span>" + t + "</span>"; }).join("") + "</div>" +
-      '<a class="poster-cta" href="' + debox + '" target="_blank" rel="noopener">联系站长 DeBox　→</a>' +
+      '<button type="button" class="poster-cta" data-group>加 OTC 交流群，群里找我　→</button>' +
       '<div class="poster-foot">一对一沟通 · 方案报价面议 · 交付后持续调整</div>' +
       "</div></section>" +
       '<p class="note" style="text-align:center">本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。本站不会索取私钥或助记词。</p>';

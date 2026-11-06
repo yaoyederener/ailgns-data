@@ -76,7 +76,7 @@
     var h = hours();
     return "人工客服时间：<b>" + esc(h.text) + "</b><br>" + (h.online ? '<span class="cb-on">● 现在人工在线</span>' : '<span class="cb-off">● 现在不在人工时间，留言后上班第一时间回复</span>') +
       '<br><a class="cb-human" href="#/feedback">📮 提交问题工单（附截图，按轻重缓急处理）→</a>' +
-      '<br><a class="cb-human" href="' + DEBOX + '" target="_blank" rel="noopener">加站长 DeBox →</a>' +
+      '<br><a class="cb-human" href="#" data-group>💬 加 OTC 交流群（群里 @客服 秒回）→</a>' +
       '<br><span class="muted">也可以直接在这里留言，你的每一条留言我们都会阅读并反馈。</span>';
   }
   function add(who, html) {
