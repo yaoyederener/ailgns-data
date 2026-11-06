@@ -45,28 +45,30 @@
   function login(btn) {
     var st = document.getElementById("ib-st"), say = function (t) { if (st) st.textContent = t; };
     btn.disabled = true; say("正在连接钱包…");
-    var K = A.otcKit, Wt = A.wallet, ts = Date.now();
-    // 和 OTC / 账本留言同一套连接流程（手机钱包浏览器、EIP-6963、切链都在里面）
-    var conn = K && K.connect ? K.connect() : W.choose().then(function (p) { eth = p; return W.ask(p, { method: "eth_requestAccounts" }); }).then(function (a) { return a[0]; });
-    return conn.then(function (acc) {
-      account = String(acc || "").toLowerCase();
-      if (!account) throw new Error("没有拿到钱包地址");
-      eth = (Wt && Wt.get && Wt.get()) || W.current() || eth;
+    var ts = Date.now();
+    // 签名不需要切链：只要拿到地址就签（之前走 OTC 的连接流程会先切 Anubis 链，钱包切链失败就被当成「没有钱包」，在 OKX 里死循环）
+    return W.choose().then(function (p) {
+      eth = p;
+      return W.ask(eth, { method: "eth_requestAccounts" });
+    }).then(function (a) {
+      account = String((a && a[0]) || "").toLowerCase();
+      if (!account) throw new Error("钱包没有给出地址，请在钱包里解锁后再试");
       say("请在钱包里点「签名」（免费，不是交易，不花 Gas）");
       var msg = utf8hex(text(account, ts));
       return W.ask(eth, { method: "personal_sign", params: [msg, account] }).catch(function (e) {
-        if (/reject|denied|取消|拒绝/i.test(String(e && (e.message || e)))) throw e;
+        if (/reject|denied|取消|拒绝|cancel/i.test(String(e && (e.message || e)))) throw e;
         return W.ask(eth, { method: "personal_sign", params: [account, msg] }); // 个别钱包参数顺序相反
       });
     }).then(function (sig) {
+      if (!sig || !/^0x[0-9a-fA-F]{100,}$/.test(String(sig))) throw new Error("钱包返回的签名不对，请换个钱包试试");
       auth = { a: account, ts: ts, sig: sig }; try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (e) {}
       btn.disabled = false; lastMax = 0; schedule(); say("✅ 已登录");
       return pull(paint).then(function () { if (location.hash.indexOf("#/inbox") === 0 && A.pages.inbox) A.pages.inbox(cur); });
     }).catch(function (e) {
       btn.disabled = false; say("");
       var m = String(e && (e.message || e.reason || e)) || "";
-      if (!eth && !(K && K.account && K.account()) && W.openIn && !/reject|denied|取消|拒绝/i.test(m)) return W.openIn();
-      A.errTip(m || "钱包没有响应，请在钱包 App 内置浏览器里打开本站再试", btn);
+      if (/没有检测到钱包/.test(m)) return; // choose() 已经弹了「到钱包 App 里操作」
+      A.errTip(/reject|denied|取消|拒绝|cancel/i.test(m) ? "你在钱包里取消了签名，再点一次就行" : m || "钱包没有响应，请换个钱包或刷新再试", btn);
     });
   }
 
