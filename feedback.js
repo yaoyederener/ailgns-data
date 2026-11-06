@@ -275,8 +275,9 @@
           if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
           document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="stats" class="on">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
-          box.innerHTML = statsHtml(j);
-        }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
+          try { box.innerHTML = statsHtml(j); } catch (e) { box.innerHTML = '<p class="nm-bad">面板渲染出错：' + esc(e.message) + "</p>"; }
+        }).catch(function (e) { box.innerHTML = '<p class="nm-bad">数据读取失败：' + esc(e.message || e) + '，<a href="#/feedback/admin/stats" onclick="location.reload()">点这里重试</a></p>'; });
+        box.innerHTML = '<p class="muted">正在汇总 30 天数据和 6 个钱包的链上余额，约 5–10 秒…</p>';
         return;
       }
       if (st === "err") { // 前端自动上报的程序错误（客户看到英文报错时我们这边同步有记录）

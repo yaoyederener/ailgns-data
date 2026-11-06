@@ -17,14 +17,14 @@ const pad = (a) => a.slice(2).padStart(64, "0");
 const r2 = (x) => Math.round(x * 100) / 100;
 
 async function balances() {
-  const out = [];
-  for (const [name, a, note] of WALLETS) {
+  // 全部并行读，6 个钱包 × 4 个余额，不然串行要十几秒
+  return Promise.all(WALLETS.map(async ([name, a, note]) => {
     const w = { name, a, note, gas: 0, tok: {} };
-    try { w.gas = r2(Number(BigInt(await rpc("eth_getBalance", [a, "latest"]))) / 1e18); } catch (e) {}
-    for (const [sym, t, dec] of TOK) { try { const v = Number(BigInt(await rpc("eth_call", [{ to: t, data: "0x70a08231" + pad(a) }, "latest"]))) / 10 ** dec; if (v) w.tok[sym] = r2(v); } catch (e) {} }
-    out.push(w);
-  }
-  return out;
+    const [g, ...ts] = await Promise.all([rpc("eth_getBalance", [a, "latest"]).catch(() => "0x0")].concat(TOK.map(([, t]) => rpc("eth_call", [{ to: t, data: "0x70a08231" + pad(a) }, "latest"]).catch(() => "0x0"))));
+    try { w.gas = r2(Number(BigInt(g)) / 1e18); } catch (e) {}
+    TOK.forEach(([sym, , dec], i) => { try { const v = Number(BigInt(ts[i] || "0x0")) / 10 ** dec; if (v) w.tok[sym] = r2(v); } catch (e) {} });
+    return w;
+  }));
 }
 
 export async function onRequestGet(ctx) {
@@ -35,12 +35,17 @@ export async function onRequestGet(ctx) {
   const today = bjDay(), days = [];
   for (let i = 0; i < n; i++) days.push(bjDay(Date.now() - i * 86400e3));
   const rows = await Promise.all(days.map(async (day) => {
+    // 过去的日子不会再变：算一次存 adm:d:<日期>，以后直接读（今天和昨天每次重算，昨天的链上数据可能还在补）
+    const old = day < bjDay(Date.now() - 86400e3) ? await kv.get("adm:d:" + day, "json") : null;
+    if (old) return old;
     const [d, c] = await Promise.all([kv.get("st:d:" + day, "json"), counts(kv, day).catch(() => ({}))]);
     const nm = (d && d.nm) || { n: 0, dai: 0 }, pays = (d && d.pays) || [];
     const member = r2(pays.reduce((s, p) => s + (p.amt || 0), 0)); // 会员付款（各币种按面值相加，主要是 DAI）
     const fillDai = (d && d.fillDai) || 0, fee = r2(fillDai * 0.01);
-    return { day, fills: (d && d.fills) || 0, fillDai: r2(fillDai), orders: (d && d.orders) || 0, nmN: nm.n || 0, nmDai: r2(nm.dai || 0), member, fee,
+    const row = { day, fills: (d && d.fills) || 0, fillDai: r2(fillDai), orders: (d && d.orders) || 0, nmN: nm.n || 0, nmDai: r2(nm.dai || 0), member, fee,
       income: r2(fee + (nm.dai || 0) + member), v: c.v || 0, v1: c.v1 || 0, an: c.an || 0, a1: c.a1 || 0, q: Object.keys(c).filter((k) => k.startsWith("q_")).reduce((s, k) => s + c[k], 0) };
+    if (day < bjDay(Date.now() - 86400e3)) ctx.waitUntil(kv.put("adm:d:" + day, JSON.stringify(row), { expirationTtl: 100 * 86400 }));
+    return row;
   }));
   const tot = (await kv.get("st:tot", "json")) || {}, tn = tot.nm || { n: 0, dai: 0 };
   // 总收入：OTC 手续费 1% × 累计成交 + 域名累计 + 会员（会员只有按天的记录，把有记录的天加起来）
