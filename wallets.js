@@ -558,8 +558,24 @@
   (function installBanner() {
     var el = document.getElementById("a2hs"), off = 0;
     try { off = Number(localStorage.getItem("ailgns-a2hs-off")) || 0; } catch (e) { /* 忽略 */ }
-    if (!el || standalone() || !(ENV.ios || ENV.android) || Date.now() - off < 3 * 86400000) return;
+    if (!el || standalone() || Date.now() - off < 3 * 86400000) return;
     if (location.hash.indexOf("#/app") === 0) return; // 下载 App 页本身就是教程
+    // 电脑：引导装成桌面 App（Chrome / Edge 一键安装；Safari 文件 → 添加到程序坞）。失联保险：网站被封时只有 App 和群能找到我们
+    if (!(ENV.ios || ENV.android)) {
+      var mac = /Macintosh/.test(UA), isSafari = /Safari/.test(UA) && !/Chrome|Chromium|Edg/.test(UA);
+      function drawPc() {
+        el.innerHTML = '<div class="a2hs"><div class="a2hs-head"><img src="/favicon.png?v=hx2" alt="" width="44" height="44"><div class="a2hs-t"><b>把 AiLGNS 装到电脑桌面</b><span>🛡 失联保险：网站被封时，只有 App 和交流群能找到我们' + (installPrompt ? " · 可以一键安装" : "") + "</span></div>" +
+          '<button id="a2hs-go">' + (installPrompt ? "一键安装" : "怎么装") + '</button><button class="a2hs-x" id="a2hs-x" aria-label="关闭">×</button></div></div>';
+        document.getElementById("a2hs-x").onclick = function () { el.innerHTML = ""; try { localStorage.setItem("ailgns-a2hs-off", String(Date.now())); } catch (e) { /* 忽略 */ } };
+        document.getElementById("a2hs-go").onclick = function () {
+          if (installPrompt) { installPrompt.prompt(); installPrompt.userChoice.then(function (c) { if (c && c.outcome === "accepted") el.innerHTML = ""; }); }
+          else location.hash = "#/app";
+        };
+      }
+      drawPc();
+      window.addEventListener("beforeinstallprompt", drawPc);
+      return;
+    }
     function draw() {
       var k = detect(), g = GUIDES[k];
       el.innerHTML = '<div class="a2hs"><div class="a2hs-head"><img src="/favicon.png?v=hx2" alt="" width="44" height="44"><div class="a2hs-t"><b>把 AiLGNS 放到手机桌面</b><span>' +
@@ -587,17 +603,30 @@
 
   // ---------- 页面：下载 App（其实是把网站装到手机桌面，打开和 App 一样）----------
   // #/app/huawei 这种带教程名的链接可以直接发给客户，打开就是对应的步骤
+  // 电脑端安装教程（Chrome / Edge 一键；Safari 程序坞；其它浏览器复制网址到 Chrome）
+  function pcGuide() {
+    var isSafari = /Safari/.test(UA) && !/Chrome|Chromium|Edg/.test(UA), isEdge = /Edg\//.test(UA), isChrome = /Chrome|Chromium/.test(UA) && !isEdge, mac = /Macintosh/.test(UA);
+    var h = '<p class="g-note" style="margin:0 0 10px">🛡 <b>失联保险</b>：网站被封、被墙的时候，只有桌面上这个 App 和交流群能找到我们。装一次，图标永远在。</p>';
+    if (installPrompt) h += '<button type="button" class="nm-go" id="app-pc-install">⬇️ 一键安装到电脑桌面</button><p class="g-note">点了会弹出浏览器的安装确认，点「安装」就好；装好桌面 / 启动台 / 开始菜单里都会有 AiLGNS 图标。</p>';
+    else if (isChrome || isEdge) h += '<ol class="steps"><li>看浏览器<b>地址栏右侧</b>：有一个「安装」小图标（电脑屏幕带 ⬇ 的样子），点它 → 「安装」</li><li>没看到的话：右上角 <b>⋮ 菜单</b> → 「保存并分享」/「更多工具」 → <b>「安装 AiLGNS…」</b></li><li>装好后桌面' + (mac ? "和启动台" : "和开始菜单") + '里会有 AiLGNS 图标，打开就是 App</li></ol>';
+    else if (isSafari && mac) h += '<ol class="steps"><li>Safari 顶部菜单 <b>文件</b> → <b>「添加到程序坞…」</b></li><li>名字保持 AiLGNS，点「添加」</li><li>程序坞（Dock）最右边会出现 AiLGNS 图标，以后点它打开</li></ol><p class="g-note">需要 macOS 14 以上；老系统请用 Chrome 打开本页按上面装。</p>';
+    else h += '<p class="g-note">这个浏览器不支持装桌面 App。请用 <b>Chrome</b> 或 <b>Edge</b> 打开 <span class="mono">ailgns.dev/#/app</span>，地址栏右侧点「安装」。</p>';
+    h += '<p class="g-note" style="margin-top:10px">装好后从图标打开的是「永久入口」页：自动显示能用的网址、一键进钱包、交流群二维码。交易仍在钱包里完成。</p>';
+    setTimeout(function () { var b = document.getElementById("app-pc-install"); if (b) b.onclick = function () { installPrompt.prompt(); installPrompt.userChoice.then(function (c) { if (c && c.outcome === "accepted") b.outerHTML = '<div class="app-done">✅ 已安装，去桌面找 AiLGNS 图标吧</div>'; }); }; }, 0);
+    return h;
+  }
   A.pages.app = function () {
     var want = (location.hash.split("/")[2] || "").toLowerCase(), k = GUIDES[want] ? want : detect();
     var html = '<section class="app-hero"><img src="/favicon.png?v=hx2" alt="" width="88" height="88">' +
-      '<div><h1>AiLGNS OTC App</h1><p>官方认证 AiLGNS OTC 服务站 · 装到手机桌面，和 App 一样用</p>' +
+      '<div><h1>AiLGNS App · 永久入口</h1><p>🛡 失联保险：网站被封、被墙时，只有这个 App 和交流群能找到我们。装到手机 / 电脑桌面，图标永远在</p>' +
       '<div class="app-feats"><span>📲 桌面一点就开</span><span>🔎 不用再找网址</span><span>🖥️ 全屏像 App</span><span>⚡ 自动更新</span></div></div></section>';
     html += '<section class="card"><div class="card-head"><h2>安装到手机桌面</h2><span class="muted">不用下载安装包，不要任何权限</span></div>' +
-      (standalone() ? '<div class="app-done">✅ 你已经是从桌面图标打开的，App 已经装好了。</div>' : '<div id="app-wz"></div>') + "</section>";
+      (standalone() ? '<div class="app-done">✅ 你已经是从桌面图标打开的，App 已经装好了。</div>' : (ENV.ios || ENV.android) ? '<div id="app-wz"></div>' : pcGuide()) + "</section>";
     html += '<section class="card"><div class="card-head"><h2>发给客户</h2></div><p class="g-note" style="margin:0">客户用自己的手机打开 <span class="mono">ailgns.dev/#/app</span>，会自动认出他的手机和浏览器。知道他用什么手机的话，可以直接发对应链接：</p>' +
       '<div class="g-tabs" style="margin-top:8px">' + PICK[0][1].concat(PICK[1][1]).map(function (x) { return '<a href="#/app/' + x + '">' + GUIDES[x].name + "</a>"; }).join("") + "</div></section>";
     html += '<section class="card"><div class="card-head"><h2>装好后怎么交易</h2></div><p class="g-note" style="margin:0">从桌面图标打开后，点「连接钱包」或「在钱包 App 里打开」，会自动跳到你的钱包（OKX、TokenPocket、MetaMask 等）里签名交易。</p></section>';
     html += '<section class="card"><div class="card-head"><h2>常见问题</h2></div><dl class="app-faq">' +
+      "<dt>为什么要装？</dt><dd>失联保险。域名随时可能被封被墙，装了 App，图标一点开就自动显示当时能用的网址、一键进钱包、交流群二维码——网站全被封也能找到我们。</dd>" +
       "<dt>安全吗？</dt><dd>就是官方认证网站 ailgns.dev 本身，不下载任何安装包，不要任何手机权限，也不会索取私钥或助记词。</dd>" +
       "<dt>点了添加，桌面上没图标？</dt><dd>安卓手机多半是浏览器没有「桌面快捷方式」权限：设置 → 应用管理 → 浏览器 → 权限 → 桌面快捷方式 → 允许，再加一次。</dd>" +
       "<dt>怎么删除？</dt><dd>和删 App 一样：长按桌面图标 → 删除 / 移除。</dd>" +
