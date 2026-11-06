@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f2f4ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AiLGNS">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.png?v=hx2">
+<title>AiLGNS 永久入口</title>
+<style>
+  /* 独立壳页：不依赖主站任何文件，能离线打开。目的只有三个：永远找得到我们、一键跳进钱包操作、联系上我们 */
+  :root { --ink: #2d1b69; --muted: #7a68b8; --line: #e6dcff; --purple: #5a35d6; --bg: #f2f4ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: calc(14px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom)); }
+  .hd { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .hd img { width: 48px; height: 48px; border-radius: 14px; background: #fff; padding: 4px; box-shadow: 0 4px 14px rgba(90,53,214,.15); }
+  .hd b { display: block; font-size: 20px; } .hd small { color: var(--muted); font-size: 12.5px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 12px; }
+  h2 { margin: 0 0 8px; font-size: 16px; }
+  .muted { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+  .dom { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-radius: 12px; border: 1px solid transparent; }
+  .dom.ok { } .dom.bad { opacity: .55; } .dom.hot { background: linear-gradient(90deg, #f3efff, #eaf6ff); border-color: #c9b8ff; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #d6ccf2; flex: none; } .ok .dot { background: #0ecb81; } .bad .dot { background: #f6465d; } .wait .dot { animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .dom .h { flex: 1; font-size: 15px; font-weight: 700; word-break: break-all; } .dom .h small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; }
+  .dom button { flex: none; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #faf8ff; color: var(--purple); font-size: 12.5px; }
+  .big { display: block; width: 100%; padding: 14px; border: 0; border-radius: 14px; background: linear-gradient(120deg, #7c5cff, #5a35d6); color: #fff; font-size: 16px; font-weight: 800; text-align: center; text-decoration: none; margin-top: 10px; }
+  .wl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .wl a { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 8px; border-radius: 12px; background: #f6f1ff; color: var(--ink); font-weight: 700; text-decoration: none; font-size: 14px; border: 1px solid var(--line); }
+  .qr { display: block; width: 220px; max-width: 100%; margin: 8px auto; border-radius: 14px; border: 1px solid var(--line); }
+  .up { padding: 8px 0; border-top: 1px dashed var(--line); font-size: 13.5px; line-height: 1.5; } .up small { color: var(--muted); }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; background: #e8fbf2; color: #0a7a52; font-size: 11px; font-weight: 700; margin-left: 6px; }
+  .foot { text-align: center; margin-top: 14px; }
+  .toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); background: #2d1b69; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="hd"><img src="/favicon.png?v=hx2" alt=""><div><b>AiLGNS 服务站 · 永久入口</b><small>这个图标永远能打开我们。交易在钱包里做，这里负责带路和联系。</small></div></div>
+
+<section class="card">
+  <h2>🌐 现在能用的网址 <span class="muted" id="st">检测中…</span></h2>
+  <div id="doms"></div>
+  <a class="big" id="go" href="#">正在找最快的网址…</a>
+  <p class="muted" style="margin:8px 0 0">主网址打不开时，上面任何一个绿点的都能用，内容数据完全一样。</p>
+</section>
+
+<section class="card">
+  <h2>👛 在钱包里打开（交易、挂单、查单都在钱包里）</h2>
+  <div class="wl" id="wl"></div>
+  <p class="muted" style="margin:8px 0 0">点了没反应：先点上面「复制网址」，打开钱包 App 的「发现 / DApp 浏览器」粘贴。</p>
+</section>
+
+<section class="card">
+  <h2>💬 联系我们</h2>
+  <p class="muted" style="margin:0">用 DeBox 扫一扫进 OTC 交流群，群里 @客服 秒回；网站全被封了，群里也会发新网址。</p>
+  <img class="qr" src="/icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码">
+  <p class="muted" style="margin:0;text-align:center">手机：长按二维码保存 → DeBox 扫一扫 → 相册选图</p>
+</section>
+
+<section class="card">
+  <h2>🆕 最近更新</h2>
+  <div id="ups" class="muted">读取中…</div>
+</section>
+
+<p class="foot muted">本页可以离线打开 · <a id="full" href="/#/otc?full=1">在这里浏览网站（只能看，不能交易）</a></p>
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var FALLBACK = ["ailgns.dev", "ailgnsotc.com", "ailgnsotc.net", "ailgnsotc.org", "ailgnsotc.cc", "ailgnsotc.xyz", "ailgns-data.pages.dev"];
+  var list = [], status = {}, best = "", timer = null;
+  function $(id) { return document.getElementById(id); }
+  function toast(t) { var el = $("toast"); el.textContent = t; el.style.opacity = 1; setTimeout(function () { el.style.opacity = 0; }, 1600); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function load() {
+    try { var c = JSON.parse(localStorage.getItem("doms") || "null"); if (c && c.length) list = c; } catch (e) {}
+    if (!list.length) list = FALLBACK.map(function (h, i) { return { h: h, main: i === 0 }; });
+    render(); check();
+    // 从任意一个能通的网址拉最新网址池（新域名不用更新 App）
+    (function pull(i) {
+      if (i >= list.length) return;
+      fetchT("https://" + list[i].h + "/api/domains", 5000).then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.list && j.list.length) { list = j.list; try { localStorage.setItem("doms", JSON.stringify(list)); } catch (e) {} render(); check(); }
+      }).catch(function () { pull(i + 1); });
+    })(0);
+  }
+  function fetchT(url, ms) { var ac = window.AbortController ? new AbortController() : null; var t = setTimeout(function () { ac && ac.abort(); }, ms); return fetch(url, { signal: ac && ac.signal, cache: "no-store" }).then(function (r) { clearTimeout(t); return r; }, function (e) { clearTimeout(t); throw e; }); }
+  function check() {
+    var started = Date.now();
+    list.forEach(function (d) {
+      status[d.h] = "wait"; paint();
+      fetchT("https://" + d.h + "/api/domains", 6000).then(function (r) { status[d.h] = r.ok ? "ok" : "bad"; }, function () { status[d.h] = "bad"; }).then(function () { paint(); pick(); });
+    });
+    $("st").textContent = "检测中…";
+  }
+  function pick() {
+    var oks = list.filter(function (d) { return status[d.h] === "ok"; });
+    if (!oks.length) { if (list.every(function (d) { return status[d.h] === "bad"; })) { $("st").textContent = "都打不开？看下面联系方式"; $("go").textContent = "网站暂时都打不开，请到群里拿新网址"; $("go").href = "#"; } return; }
+    best = (oks.filter(function (d) { return d.main; })[0] || oks[0]).h;
+    $("st").textContent = oks.length + " 个可用";
+    $("go").textContent = "打开 " + best + " →"; $("go").href = "https://" + best + "/#/otc";
+    wallets();
+    // 轮动：可用的网址轮流高亮，提醒客户「不止一个」
+    clearInterval(timer); var k = 0;
+    timer = setInterval(function () { var rows = document.querySelectorAll(".dom.ok"); if (!rows.length) return; rows.forEach(function (r) { r.classList.remove("hot"); }); rows[k % rows.length].classList.add("hot"); k++; }, 1800);
+  }
+  function paint() {
+    $("doms").innerHTML = list.map(function (d) {
+      var s = status[d.h] || "wait";
+      return '<div class="dom ' + s + '" data-h="' + esc(d.h) + '"><span class="dot"></span><span class="h">' + esc(d.h) + (d.main ? '<span class="tag">主网址</span>' : "") + (d.note ? "<small>" + esc(d.note) + "</small>" : "") + "</span>" +
+        '<button type="button" data-cp="' + esc(d.h) + '">复制网址</button></div>';
+    }).join("");
+    $("doms").querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function () { var u = "https://" + b.getAttribute("data-cp") + "/"; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { toast("已复制 " + u); }, function () { prompt("复制这个网址", u); }); }; });
+  }
+  function wallets() {
+    var url = "https://" + best + "/#/otc", bare = url.replace(/^https?:\/\//, "");
+    var apps = [["OKX 钱包", "okx://wallet/dapp/url?dappUrl=" + encodeURIComponent(url)], ["Bitget 钱包", "bitkeep://bkconnect?action=dapp&url=" + encodeURIComponent(url)], ["TokenPocket", "tpdapp://open?params=" + encodeURIComponent(JSON.stringify({ url: url }))], ["imToken", "imtokenv2://navigate/DappView?url=" + encodeURIComponent(url)], ["MetaMask", "https://metamask.app.link/dapp/" + bare], ["Trust 钱包", "https://link.trustwallet.com/open_url?coin_id=60&url=" + encodeURIComponent(url)]];
+    $("wl").innerHTML = apps.map(function (a) { return '<a href="' + a[1] + '">' + a[0] + "</a>"; }).join("");
+    $("full").href = "https://" + best + "/#/otc?full=1";
+    fetchT("https://" + best + "/api/updates", 6000).then(function (r) { return r.json(); }).then(function (j) {
+      var l = (j.list || []).slice(0, 6); if (!l.length) return;
+      try { localStorage.setItem("ups", JSON.stringify(l)); } catch (e) {}
+      $("ups").innerHTML = l.map(function (u) { return '<div class="up">' + esc(u.t) + "<br><small>" + esc(u.d) + "</small></div>"; }).join("");
+    }).catch(function () {});
+  }
+  try { var cu = JSON.parse(localStorage.getItem("ups") || "null"); if (cu && cu.length) $("ups").innerHTML = cu.map(function (u) { return '<div class="up">' + esc(u.t) + "<br><small>" + esc(u.d) + "</small></div>"; }).join(""); } catch (e) {}
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function () {});
+  load();
+})();
+</script>
+</body>
+</html>

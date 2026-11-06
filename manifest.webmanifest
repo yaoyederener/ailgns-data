@@ -4,7 +4,7 @@
   "description": "AiLGNS 数据监测、OTC 担保交易、团队查询",
   "lang": "zh-CN",
   "id": "/",
-  "start_url": "/#/otc",
+  "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f2f4ff",
