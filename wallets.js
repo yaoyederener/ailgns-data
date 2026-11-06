@@ -523,7 +523,7 @@
         if (!arrow) { arrow = document.createElement("div"); arrow.id = "wx-arrow"; arrow.innerHTML = "<b>↗</b><span>点这里「···」</span>"; document.body.appendChild(arrow); }
       } else if (arrow) arrow.remove();
       var q = function (s) { return box.querySelector(s); };
-      q(".wz-pick").onclick = function () { picker(box, k, onPick); };
+      q(".wz-pick").onclick = function () { guidePicker(box, k, onPick); };
       if (q(".wz-prev")) q(".wz-prev").onclick = function () { i--; draw(); };
       if (q(".wz-next")) q(".wz-next").onclick = function () { i++; draw(); window.scrollTo(0, Math.max(0, box.offsetTop - 60)); };
       if (q(".wz-done")) q(".wz-done").onclick = function () {
@@ -538,7 +538,7 @@
     }
     draw();
   }
-  function picker(box, cur, onPick) {
+  function guidePicker(box, cur, onPick) { // 安装教程的「选手机/浏览器」；以前也叫 picker，把上面选钱包的 picker 覆盖了，装了两个钱包的人一连接就报 querySelectorAll 错
     box.innerHTML = '<div class="wz"><p class="g-note" style="margin-top:0">选你现在用的<b>手机</b>和<b>浏览器</b>（看屏幕上方的 App 名字，或问一下发链接给你的人）：</p>' +
       PICK.map(function (grp) {
         return '<div class="wz-grp"><b>' + grp[0] + '</b><div class="g-tabs">' + grp[1].map(function (x) { return '<button type="button" data-g="' + x + '" class="' + (x === cur ? "on" : "") + '">' + GUIDES[x].name.replace(/^(iPhone|安卓) · /, "") + "</button>"; }).join("") + "</div></div>";
