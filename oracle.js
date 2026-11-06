@@ -262,6 +262,7 @@
   function drawCard(d) {
     var dr = d.drawing, res = dr.res;
     var list = dr.list || [];
+    if (res && !res.closest && !res.nearInfo && list.length) { var nr = null; list.forEach(function (g) { g.ps.forEach(function (p) { var d = Math.abs(Math.round(Number(p) * 1000) - res.px); if (!nr || d < nr.diff) nr = { name: g.name, p: p, diff: d }; }); }); res.nearInfo = nr; }
     if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 揭晓结果") + (list.length ? '<section class="card">' + proofBar(dr) + allGuess(list, res.px, dr) + "</section>" : "");
     drRows = []; list.forEach(function (g) { (g.ps || []).forEach(function (p) { drRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
     drKings = (d.kings && d.kings.top) || []; drPot = (dr.allot || 0) + ((d.pool && d.pool.pool) || 0);
@@ -311,17 +312,17 @@
   }
   function allGuess(list, px, dr) {
     var rows = [];
-    var myName = (data && data.me && data.me.name ? String(data.me.name) : "").toLowerCase(), cur = px || livePxV;
+    var myName = (data && data.me && data.me.name ? String(data.me.name) : "").toLowerCase(), cur = px || Math.round(livePxV * 1000);
     list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, tx: g.tx || "", me: myName && g.name.toLowerCase() === myName, d: cur ? Math.abs(Math.round(Number(p) * 1000) - cur) : 0 }); }); });
     if (cur) rows.sort(function (a, b) { return a.d - b.d; });
-    return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "，离当前价最近的在最上面，实时变") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
+    return '<details class="or-all"' + (px ? "" : ' open data-live="1"') + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "，离当前价最近的在最上面，实时变") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
       rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '" data-p="' + r.p + '"' + (r.me ? ' data-me="1" class="me"' : "") + '><b>' + esc(r.name) + '</b>：<b class="or-px">' + r.p + " DAI</b>" + (cur ? ' <small class="muted or-d">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + (r.tx ? ' <a class="or-pf-btn" href="#/scan/' + r.tx + '" title="在本站账本里验证这条预测的链上交易">🔗 链上证据</a>' : dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol></details>";
   }
   // 开放期间：价格每次变动就把列表按离当前价远近重排（最接近的滚到最上面），并刷新「差」
   function allResort() {
-    var ol = document.querySelector(".or-all ol"); if (!ol || !livePxV) return;
-    var lis = [].slice.call(ol.children);
-    lis.forEach(function (li) { li._d = Math.abs(Math.round(Number(li.getAttribute("data-p")) * 1000) - livePxV); var d = li.querySelector(".or-d"); if (!d) { d = document.createElement("small"); d.className = "muted or-d"; li.querySelector(".or-px").insertAdjacentElement("afterend", d); } d.textContent = " 差 " + (li._d / 1000).toFixed(3); });
+    var ol = document.querySelector('.or-all[data-live] ol'); if (!ol || !livePxV) return;
+    var lis = [].slice.call(ol.children), k = Math.round(livePxV * 1000);
+    lis.forEach(function (li) { li._d = Math.abs(Math.round(Number(li.getAttribute("data-p")) * 1000) - k); var d = li.querySelector(".or-d"); if (!d) { d = document.createElement("small"); d.className = "muted or-d"; li.querySelector(".or-px").insertAdjacentElement("afterend", d); } d.textContent = " 差 " + (li._d / 1000).toFixed(3); });
     lis.sort(function (a, b) { return a._d - b._d; }).forEach(function (li) { ol.appendChild(li); });
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
@@ -394,7 +395,7 @@
       '<p class="or-proof">揭晓时刻 ' + hm(r.blockTime * 1000) + ' · <span>区块 #' + r.block + "</span>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
       (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
         '<p>🎯 没人猜中 ' + px + "，大奖池滚到 <b>" + dai(r.poolAfter) + "</b>，下一期继续！</p>") +
-      (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : '<p class="muted">这一期没人参加。</p>') +
+      (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + (r.nearInfo.diff / 1000).toFixed(3) + "。没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
       (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
       (r.kings && r.kings.length ? '<p class="or-win">💰 贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付 " + dai(k.fee) + "，得 " + dai(k.amt); }).join("；") + "</p>" : "") +
       '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 本期奖金 " + dai(r.allot) + "（前一天域名收入 " + dai(r.rev) + " × 70%）· 奖金由系统自动发到获奖钱包</p></section>";

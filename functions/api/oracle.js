@@ -10,7 +10,7 @@ import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, pr
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const guessText = (day, ps, a) => "AiLGNS 每日预言家\n我预测 " + day + " 晚上 9-10 点 AiLGNS 价格：\n" + ps.join(", ") + " DAI\n地址：" + a;
-const pub = (g) => ({ name: g.name, ps: g.ps.map((x) => fmtP(x[0])) });
+const pub = (g) => ({ name: g.name, ps: g.ps.map((x) => fmtP(x[0])), tx: g.tx || "" });
 
 async function quota(kv, a, name, day) {
   const t = name ? tierOf(name) : { n: 1, label: "普通" }, bonus = await otcBonus(kv, a, day);
