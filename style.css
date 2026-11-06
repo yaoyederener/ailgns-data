@@ -2616,3 +2616,16 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
 .lp-soon .lp-kpi { margin-top: 12px; }
 
 button.poster-cta, button.debox { border: 0; cursor: pointer; font-family: inherit; }
+
+/* 📒 账本地址页（白居易原则） */
+.sc-head h2 { margin-bottom: 4px; } .sc-head h2 small { font-size: 12px; font-weight: 500; }
+.sc-addr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 4px; font-size: 13px; } .sc-addr .mono { word-break: break-all; color: #6b5aa6; } .sc-copy { padding: 2px 10px; font-size: 12px; }
+.sc-balc .sc-bal { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sc-coin { padding: 12px 12px 10px; border-radius: 14px; background: linear-gradient(135deg, #f6f1ff, #eef7ff); border: 1px solid #e6dcff; }
+.sc-coin span { display: block; font-size: 11.5px; color: #7a68b8; opacity: 1; } .sc-coin b { display: block; font-size: 24px; color: #2d1b69; margin: 4px 0 0; font-variant-numeric: tabular-nums; letter-spacing: -.3px; word-break: break-all; } .sc-coin small { display: block; color: #0ea371; font-size: 12px; margin-top: 2px; }
+.sc-coin.sc-zero { background: #faf8ff; } .sc-coin.sc-zero b { color: #b8aee0; }
+.sc-others { margin: 10px 0 0; font-size: 12.5px; }
+.sc-soon { display: inline-block; padding: 1px 7px; border-radius: 6px; background: #fff3c4; color: #8a5a00; font-size: 11.5px; font-weight: 700; margin-right: 4px; }
+.sc-moneyonly .lg-row[data-kind="other"] { display: none; }
+.sc-other { padding: 8px 2px 0; font-size: 12.5px; }
+@media (max-width: 600px) { .sc-balc .sc-bal { grid-template-columns: 1fr 1fr 1fr; gap: 6px; } .sc-coin { padding: 10px 8px; } .sc-coin b { font-size: 18px; } .sc-coin span { font-size: 10.5px; } }
