@@ -145,7 +145,7 @@ export async function onRequestGet(ctx) {
   const glog = (await kv.get("lnw:grouplog", "json")) || [];
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((x) => x.trim()).filter(Boolean);
   // 待发队列：上次发失败的（DeBox 限流等）+ 这次新的；每条记录发给哪些群还没成功
-  const queue = ((await kv.get("lnw:gq", "json")) || []).concat(groupPosts.map((text) => ({ text, tries: 0 })));
+  const queue = []; // 2026-11-06 站长：借贷群播报停掉（私信通知照发）；原来是 ((await kv.get("lnw:gq","json"))||[]).concat(groupPosts…)
   const left = [];
   for (const item of queue) {
     item.pending = item.pending || gids.slice();

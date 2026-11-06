@@ -246,7 +246,8 @@ async function order(m, id) {
 //   买单（客户卖币）：卖给这张单拿到的 DAI（扣 1%），和在 DEX 卖同样多的币（扣卖出税、按池子深度算滑点）比，多得多就推；从 DEX 买币再卖给这张单有钱赚的，写出约赚多少
 // 都按池子当前储备精确算（含 0.3% 池子手续费和滑点），不是简单比市价
 // 每张单推一次；之后币价继续往有利方向走、好处又多了 3 个百分点以上（且隔了 30 分钟），再推一次
-const PP_ON = true; // 2026-11-02 站长确认重新开启（有好单就带详细利润推到营销群，夜里也推）
+const PP_ON = false; // 2026-11-06 站长：营销群播报全部停掉，机器人只做客服。好单推送关
+const GROUP_BROADCAST = false; // 2026-11-06 站长：群里不再发成交时报 / 自我介绍等营销内容；私信通知（个人成交、到期）照发
 const PP_MIN_PCT = 0.005, PP_MIN_DAI = 1, PP_AGAIN_PCT = 0.03, PP_AGAIN_SEC = 1800;
 const PP_GAP = 3600; // 站长要求：好单播报全站一小时最多发一次（各市场共用一个间隔），每次最多 3 张
 const OTC_FEE = 0.01;
@@ -474,7 +475,7 @@ export async function onRequestGet(ctx) {
   };
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
-  if (due && !quiet) {
+  if (due && !quiet && GROUP_BROADCAST) {
     const text = await build(false);
     if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
@@ -512,7 +513,7 @@ export async function onRequestGet(ctx) {
   let greet = 0;
   try {
     const last = Number(await kv.get("dbx:greet")) || 0;
-    if (Date.now() - last > 8 * 3600e3) {
+    if (GROUP_BROADCAST && Date.now() - last > 8 * 3600e3) {
       await kv.put("dbx:greet", String(Date.now()));
       const text = "🤖 我是 AiLGNS 客服机器人，7×24 在线。\n\nOTC 买卖、挂单、域名注册、借贷、预言家、会员……任何问题直接 @我 提问，秒回；我答不了的请到网站提交工单（https://ailgns.dev/#/feedback），按轻重缓急处理。\n\n网站：https://ailgns.dev";
       for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
