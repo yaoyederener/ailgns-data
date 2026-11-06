@@ -241,8 +241,8 @@
     return p;
   }
   function walletError(e) {
-    if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里取消了操作";
-    return (e && (e.message || e.reason)) || "操作失败，请重试";
+    if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次。";
+    return (e && (e.message || e.reason)) || "操作没完成，请刷新页面再试一次；还不行就提交工单。";
   }
   // 已经在这条链上就不再切换（有些钱包 App 切到「当前同一条链」时不回应，按钮就一直灰着没反应）；钱包 20 秒不回应就提示客户手动切链
   function switchTo(eth, chain) {

@@ -634,11 +634,35 @@
   // 给 member.js 等扩展页面用的公共工具
   // 出错时：屏幕底部弹出原因（不会被滚走），同时把页面滚到出问题的地方，客户照着提示改了再点
   // 合约报错翻译成客户看得懂的话（去掉一长串 0x 数据）
+  // 把钱包 / 合约 / 网络 / 程序抛出来的英文错误，翻成客户看得懂的中文 + 原因 + 怎么办（站长 2026-11-07 定）；程序自身错误顺手上报，我们能看到
+  var ERRS = [
+    [/NOTHING_FILLED/, "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。"],
+    [/user rejected|user denied|rejected the request|cancel|取消|拒绝|4001/i, "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次，在钱包里点「确认」。"],
+    [/insufficient funds for gas|insufficient funds|gas required exceeds|out of gas/i, "钱包里的 DAI 不够付这笔交易的 Gas（Anubis 链的 Gas 就是 DAI）。留 0.5 DAI 以上再试。"],
+    [/insufficient allowance|transfer amount exceeds allowance|ERC20: insufficient/i, "授权额度不够：请先点「授权」把币授权给托管合约（只需一次），再重新提交。"],
+    [/transfer amount exceeds balance|exceeds balance|BALANCE/i, "余额不够：钱包里的币比你要用的少。先充值或改小数量。"],
+    [/nonce too low|replacement transaction underpriced|already known/i, "钱包里有一笔还没确认的交易挡住了。等它确认（一般几秒），或者在钱包里取消那笔再试。"],
+    [/execution reverted|revert/i, "合约拒绝了这笔交易：多半是单子刚被别人成交/撤单、金额不够最低要求、或授权不够。刷新页面看最新状态再试。"],
+    [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT/i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
+    [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
+    [/No wallet|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
+    [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们，会尽快修）。请刷新页面重试；还不行就提交工单，告诉我们你点的是哪一步。"],
+  ];
   function friendly(t) {
     t = String(t || "");
-    if (/NOTHING_FILLED/.test(t)) return "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。";
-    return t.replace(/:?\s*0x[0-9a-f]{40,}/gi, "").trim() || "操作没完成，请刷新页面再试一次";
+    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) report(t); return ERRS[i][1]; }
+    var s = t.replace(/:?\s*0x[0-9a-f]{40,}/gi, "").trim();
+    if (!s) return "操作没完成，请刷新页面再试一次；还不行就提交工单。";
+    if (/^[\x00-\x7f]+$/.test(s)) { report(s); return "操作没成功（原因：" + s.slice(0, 120) + "）。请刷新重试；还不行请提交工单并附截图，我们会按轻重缓急处理。"; } // 纯英文：翻不了的也要给出路
+    return s;
   }
+  // 程序错误自动上报（只记页面、错误文字、浏览器，不记钱包地址），站长在工单后台能看到
+  var reported = {};
+  function report(msg) {
+    try { var k = location.hash.split("/")[1] + "|" + msg.slice(0, 80); if (reported[k]) return; reported[k] = 1; navigator.sendBeacon && navigator.sendBeacon("/api/err", JSON.stringify({ p: location.hash.slice(0, 60), m: msg.slice(0, 300), ua: navigator.userAgent.slice(0, 120), v: (document.querySelector('script[src*="app.js"]') || {}).src })); } catch (e) {}
+  }
+  window.addEventListener("error", function (e) { if (e && e.message) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
+  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) report(m); });
   function errTip(t, el) {
     var old = document.getElementById("err-tip");
     if (old) old.remove();
