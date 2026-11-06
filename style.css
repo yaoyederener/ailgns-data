@@ -2740,3 +2740,22 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .or-pf-big.on { background: #e8fbf2; color: #0a7a52; }
 .or-pf-k { font-size: 13px; } .or-pf-k .mono { word-break: break-all; font-size: 12px; }
 .or-pf-steps { padding-left: 20px; line-height: 1.7; font-size: 13.5px; }
+
+/* 🎲 如果此刻揭晓（模拟） */
+.or-sim { margin: 8px 0 12px; padding: 12px; border-radius: 16px; background: linear-gradient(135deg, #fff7d6, #f3f0ff); border: 1px solid #f0d78a; }
+.or-simh { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; } .or-simh > b { font-size: 15px; color: #6b4e00; }
+.or-simpx { font-size: 12.5px; color: #6b5aa6; } .or-simpx b { color: #5a35d6; font-variant-numeric: tabular-nums; }
+.or-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #0ecb81; margin-left: 6px; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.or-simg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.or-simc { position: relative; padding: 10px 10px 9px; border-radius: 12px; background: #fff; border: 1px solid #efe4c2; transition: transform .25s, box-shadow .25s; }
+.or-simc.r1 { background: linear-gradient(135deg, #fff3c4, #fffdf3); border-color: #f0b90b; box-shadow: 0 6px 16px rgba(240,185,11,.25); }
+.or-simc small { display: block; font-size: 11px; color: #8a5a00; } .or-simc b { display: block; font-size: 15px; margin: 2px 0; color: #2d1b69; word-break: break-all; } .or-simc em { display: block; font-style: normal; font-size: 11.5px; color: #6b5aa6; }
+.or-simc.moved { animation: simpop .5s ease; } @keyframes simpop { 0% { transform: scale(.96); box-shadow: 0 0 0 0 rgba(240,185,11,.6); } 100% { transform: scale(1); } }
+.or-simc.hit { border-color: #0ecb81; box-shadow: 0 0 0 3px rgba(14,203,129,.3); }
+.or-simk { margin-top: 10px; padding-top: 8px; border-top: 1px dashed #f0d78a; }
+.or-simkh { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 4px; } .or-simkh span { font-size: 11.5px; color: #8a5a00; }
+.or-simkr { display: inline-block; margin: 2px 8px 2px 0; padding: 3px 9px; border-radius: 999px; background: #fff; border: 1px solid #efe4c2; font-size: 12.5px; } .or-simkr small { color: #8d7fb8; }
+.or-simcta { display: block; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(120deg, #7c5cff, #5a35d6); color: #fff; font-weight: 700; text-align: center; text-decoration: none; font-size: 13.5px; }
+.or-all li.hot { background: #fff3c4; border-radius: 8px; padding: 2px 6px; margin-left: -6px; } .or-all li.hot.h1 { background: #ffe9a0; } .or-all li.hot::after { content: " ← 此刻领先"; color: #8a5a00; font-size: 11.5px; }
+@media (max-width: 480px) { .or-simg { grid-template-columns: 1fr; } .or-simc { display: flex; align-items: center; gap: 8px; } .or-simc small { flex: none; width: 92px; } .or-simc b { flex: 1; margin: 0; font-size: 14px; } }

@@ -34,7 +34,7 @@
   function livePx(rid) {
     W.rpcOn("anubis", "eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]).then(function (r) {
       var el = document.getElementById("or-px"); if (el && A.isCurrent(rid)) el.textContent = pxOf(r).toFixed(3);
-      if (A.isCurrent(rid)) { livePxV = pxOf(r); liveRank(); }
+      if (A.isCurrent(rid)) { livePxV = pxOf(r); liveRank(); simShow(); }
     }, function () {});
   }
   // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
@@ -263,8 +263,11 @@
     var dr = d.drawing, res = dr.res;
     var list = dr.list || [];
     if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 揭晓结果") + (list.length ? '<section class="card">' + proofBar(dr) + allGuess(list, res.px, dr) + "</section>" : "");
+    drRows = []; list.forEach(function (g) { (g.ps || []).forEach(function (p) { drRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
+    drKings = (d.kings && d.kings.top) || []; drPot = (dr.allot || 0) + ((d.pool && d.pool.pool) || 0);
     return '<section class="card or-draw"><div class="card-head"><h2>🎲 ' + dayCn(dr.day) + ' 正在揭晓</h2><span class="muted">晚上 9:00–10:00 随机一刻 · 10:05 前公布</span></div>' +
       "<p>本轮已锁定，共 <b>" + list.length + "</b> 人参与。揭晓价 = 9–10 点之间随机一刻的链上价格，由 10 点整那个区块的哈希决定，谁都没法提前知道。</p>" +
+      '<div class="or-sim" id="or-sim"><p class="muted">按当前价格模拟中…</p></div>' +
       (list.length ? proofBar(dr) + allGuess(list, 0, dr) : "") + "</section>";
   }
   // 🔗 链上存证说明条 + 弹窗
@@ -289,12 +292,28 @@
   }
   document.addEventListener("click", function (e) { var b = e.target.closest(".or-pf-btn"); if (b) proofModal(b.getAttribute("data-day")); });
   // 所有人的预测（完整价格，3 位小数）；揭晓后按离揭晓价远近排，最接近的在前
+  // 🎲 「如果此刻揭晓」：按当前链上价实时模拟谁会中奖（神算子/天眼通/地灵通候选）+ 贡献王（OTC 大户）候选，每 5 秒跟价滚；引导去 OTC 交易
+  var drRows = [], drKings = [], drPot = 0, simKey = "";
+  function simShow() {
+    var el = document.getElementById("or-sim"); if (!el || !drRows.length || !livePxV) return;
+    var m = Math.round(livePxV * 1000), rows = drRows.slice().sort(function (a, b) { return Math.abs(a.m - m) - Math.abs(b.m - m); }), top = rows.slice(0, 3);
+    var key = top.map(function (r) { return r.name + r.p; }).join("|") + "|" + m, moved = simKey && key !== simKey; simKey = key;
+    var hit = top[0] && top[0].m === m;
+    var tags = [["🔮 神算子候选", "最接近"], ["👁 天眼通候选", "第二"], ["🌿 地灵通候选", "第三"]];
+    el.innerHTML = '<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>' + livePxV.toFixed(3) + '</b> DAI<i class="or-dot"></i></span></div>' +
+      '<div class="or-simg">' + top.map(function (r, i) { var d = Math.abs(r.m - m); return '<div class="or-simc r' + (i + 1) + (moved ? " moved" : "") + (i === 0 && hit ? " hit" : "") + '"><small>' + tags[i][0] + '</small><b>' + esc(r.name) + '</b><em>预测 ' + r.p + (d === 0 ? " · 🎯 完全猜中！" : " · 差 " + (d / 1000).toFixed(3)) + "</em></div>"; }).join("") + "</div>" +
+      (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 贡献王候选 · OTC 大户</b><span>奖池 30% 按 50/30/20 分</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
+      '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>';
+    // 名单里把当前最接近的 3 个点亮
+    var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
+    document.querySelectorAll(".or-all li[data-k]").forEach(function (li) { var r = names[li.getAttribute("data-k")]; li.className = r ? "hot h" + r : ""; });
+  }
   function allGuess(list, px, dr) {
     var rows = [];
     list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: px ? Math.abs(Math.round(Number(p) * 1000) - px) : 0 }); }); });
     if (px) rows.sort(function (a, b) { return a.d - b.d; });
     return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
-      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + (dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol></details>";
+      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + (dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol></details>";
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
   var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;
