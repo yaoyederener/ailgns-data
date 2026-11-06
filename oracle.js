@@ -192,7 +192,8 @@
     list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: Math.abs(Math.round(Number(p) * 1000) - res.px) }); }); });
     rows.sort(function (x, y) { return x.d - y.d; });
     var top = rows.slice(0, 3).map(function (r, i) { return '<span class="or-cdl' + (r.d === 0 ? " hit" : "") + '">' + ["🥇", "🥈", "🥉"][i] + " " + esc(r.name.replace(/\.ailgns$/, "")) + " <b>" + r.p + "</b><small>" + (r.d === 0 ? "猜中" : "差 " + (r.d / 1000).toFixed(3)) + "</small></span>"; }).join("");
-    return '<div class="or-cdlast"><div class="or-cdlp">上期 <b>' + dayCn(dr.day) + '</b> 揭晓价 <b class="or-cdpx">' + (res.px / 1000).toFixed(3) + ' DAI</b>' + (res.jackpot && res.jackpot.winners.length ? ' <i class="ok">🎯 有人猜中</i>' : ' <i>没人猜中 · 奖池滚到 ' + Math.round(res.poolAfter).toLocaleString("en-US") + " DAI</i>") + '</div>' + (top ? '<div class="or-cdlr">最接近的 3 位：' + top + "</div>" : "") + "</div>";
+    var no = Math.round((Date.UTC(+dr.day.slice(0, 4), +dr.day.slice(5, 7) - 1, +dr.day.slice(8, 10)) - Date.UTC(2026, 10, 6)) / 864e5) + 1; // 第几期：2026-11-06 是第 1 期
+    return '<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 ' + no + ' 期（' + dayCn(dr.day) + '）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">' + (res.px / 1000).toFixed(3) + '</b><span>DAI</span></div><div class="or-cdlm">' + (res.jackpot && res.jackpot.winners.length ? '<i class="ok">🎯 ' + res.jackpot.winners.map(function (w) { return esc(w.name); }).join("、") + ' 猜中！</i>' : '<i>没人猜中 · 奖池滚到 <b>' + Math.round(res.poolAfter).toLocaleString("en-US") + " DAI</b></i>") + '</div>' + (top ? '<div class="or-cdlr">最接近的 3 位：' + top + "</div>" : "") + "</div>";
   }
   function cdTick() {
     var big = document.getElementById("or-cdbig"); if (!big || !data) return;
