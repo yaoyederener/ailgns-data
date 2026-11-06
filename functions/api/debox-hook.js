@@ -3,6 +3,8 @@
 // 绑定关系存在 KV：dbx:u:<用户> → [地址…]，dbx:a:<地址> → [用户…]
 import { sendDebox } from "../../lib/debox.js";
 import { SUPPORT_USER } from "../../lib/support.js";
+import { domainsText, pushDomains } from "../../lib/domains.js";
+import { pushInbox } from "../../lib/inbox.js";
 import { answer } from "../../lib/chatbot.js";
 
 const MAX_ADDR = 10;
@@ -46,6 +48,8 @@ export async function onRequestPost(ctx) {
     if (!gid || !text || text.length < 2 || text.length > 400) return new Response("ok");
     // 安全：Webhook 谁都能 POST，群回复只认带正确 key 的请求（机器人 Webhook 地址 ?key=DEBOX_HOOK_KEY），防止有人伪造消息让机器人刷群
     if (!keyOk(ctx)) { ctx.waitUntil(kv.put("dbx:gkeymiss", String(Date.now()), { expirationTtl: 86400 })); return new Response("ok"); }
+    ctx.waitUntil(kv.put("dbx:g:" + gid, "1", { expirationTtl: 90 * 86400 })); // 记住这个群，群发新网址时用
+    if (/^@?\S*\s*(网址|新网址|备用网址|最新网址|网站打不开|打不开)\s*[?？!！]*$/.test(text)) { ctx.waitUntil(sendDebox(ctx.env, gid, domainsText(), "group").catch(() => {})); return new Response("ok"); }
     const asked = (u.mention_users && u.mention_users.length) || /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
     if (!asked || (text.match(/0x[0-9a-fA-F]{40}/g) || []).length > 1) return new Response("ok");
     const lastBot = await kv.get("dbx:gbot:" + gid); if (lastBot && text === lastBot) return new Response("ok"); // 自己的话不接
@@ -77,6 +81,13 @@ export async function onRequestPost(ctx) {
 
   // 「我的ID」：把发信人的 DeBox 用户 id 告诉他（站长设置客服接收人时要用）
   if (/^(我的\s*id|id|我的编号|编号)$/i.test(text)) { ctx.waitUntil(reply("你的 DeBox 用户 ID 是：" + user + "\n把这个 ID 发给站长，就能把网站客服的咨询转发到你这里。")); return new Response("ok"); }
+  if (/^(网址|新网址|备用网址|最新网址|网站打不开|打不开)\s*[?？!！]*$/.test(text)) { ctx.waitUntil(reply(domainsText())); return new Response("ok"); }
+  // 站长发「推送网址」：给所有绑定过的用户私信 + 所有群 + 所有收件箱群发最新网址（被封当天用）
+  if (user === SUPPORT_USER && /^推送网址$/.test(text)) {
+    if (!keyOk(ctx)) { ctx.waitUntil(reply("⚠️ 没带 key，不执行")); return new Response("ok"); }
+    ctx.waitUntil(pushDomains(ctx.env, kv, sendDebox, pushInbox).then((o) => reply("📣 已群发最新网址：私信 " + o.users + " 人 · " + o.groups + " 个群 · 站内信 " + o.inbox + " 个钱包")).catch((e) => reply("群发出错：" + String(e.message || e))));
+    return new Response("ok");
+  }
   const addrs = [...new Set((text.match(/0x[0-9a-fA-F]{40}/g) || []).map((a) => a.toLowerCase()))];
   // 站长（客服接收人）直接回复机器人 = 回复网站上最近咨询的访客；开头写「@编号 」可以指定访客
   // 安全：Webhook 没有来源校验，任何人都能伪造 POST，所以只有带正确 key（Cloudflare 环境变量 DEBOX_HOOK_KEY，机器人 Webhook 地址 ?key=… 里同一个值）的请求才算站长回复
