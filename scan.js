@@ -552,6 +552,10 @@
     var el = function (id) { return document.getElementById(id); };
     nameOf(a).then(function (primary) {
       if (!el("sc-who")) return;
+      if (A.credOf) A.credOf(a).then(function (c) {
+        var bc = out.querySelector(".sc-balc .card-head"); if (!bc || KNOWN[a]) return;
+        bc.insertAdjacentHTML("afterend", '<p class="sc-cred"><i class="cred cred' + c.lv + '">' + c.name + '</i> 本站 OTC 累计成交 <b>' + c.vol.toLocaleString("en-US") + ' DAI</b> · ' + c.n + ' 笔' + (c.next ? '<span class="muted"> · 再做到 ' + c.next.vol.toLocaleString("en-US") + ' DAI 且 ' + c.next.n + ' 笔升「' + c.next.name + '」</span>' : "") + "</p>");
+      }).catch(function () {});
       var slot = el("sc-head-slot");
       if (primary && !via && slot) slot.outerHTML = '<section class="card sc-head"><h2>🌐 ' + esc(primary) + ' <small class="muted">这个钱包的名字</small></h2></section>';
       else if (slot) slot.remove();
@@ -648,6 +652,23 @@
   // 给 OTC 等页面用：地址先显示短地址，查到主名字后换成名字
   A.nameTag = function (a) { return '<span data-a="' + a + '">' + A.short(a) + "</span>"; };
   A.fillNames = fillNames;
+  // 🏅 信誉标志：按累计成交给挂单人加「信誉商家」等芯片（OTC 订单簿、账本头部用）。等级在 /api/cred 里定
+  var CREDN = ["新手", "常客", "信誉商家", "金牌商家", "至尊商家"], credCache = {}, credAt = 0;
+  A.credFill = function (root) {
+    var els = Array.prototype.slice.call(root.querySelectorAll("[data-a]:not([data-cred])")), as = {};
+    els.forEach(function (e) { var a = e.getAttribute("data-a").toLowerCase(); if (!KNOWN[a]) as[a] = 1; });
+    var need = Object.keys(as).filter(function (a) { return !credCache[a] || Date.now() - credAt > 120000; });
+    var p = need.length ? fetch("/api/cred?a=" + need.slice(0, 40).join(",")).then(function (r) { return r.json(); }).then(function (j) { Object.keys(j).forEach(function (a) { credCache[a] = j[a]; }); credAt = Date.now(); }).catch(function () {}) : Promise.resolve();
+    p.then(function () {
+      els.forEach(function (e) {
+        var a = e.getAttribute("data-a").toLowerCase(), c = credCache[a]; e.setAttribute("data-cred", "1");
+        if (!c || c.lv < 1) return;
+        var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = "本站 OTC 累计成交 " + c.vol.toLocaleString("en-US") + " DAI · " + c.n + " 笔";
+        e.insertAdjacentElement("afterend", chip);
+      });
+    });
+  };
+  A.credOf = function (a) { return fetch("/api/cred?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var c = j[String(a).toLowerCase()] || { vol: 0, n: 0, lv: 0 }; c.name = CREDN[c.lv]; var nx = c.lv < 4 ? [[1000, 5], [10000, 20], [100000, 50], [1000000, 100]][c.lv] : null; c.next = nx ? { name: CREDN[c.lv + 1], vol: nx[0], n: nx[1] } : null; return c; }); };
   A.nameOf = nameOf; // 荣耀榜播报：没域名的大哥引导去注册
   A.pages.scan = page;
 })();

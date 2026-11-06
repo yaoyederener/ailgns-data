@@ -548,6 +548,7 @@
       var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
+      setTimeout(function () { if (A.credFill) A.credFill(app); }, 0); // 🏅 挂单人后面加信誉芯片
       html += sweepHtml();
       html += '<div id="otc-tot">' + totalsHtml(totals) + "</div>"; // 全站累计放在挂单下面，上面留给买卖
       html += '<p class="note" style="margin:-6px 0 14px">成交后想核对记录？<a href="#/scan' + (account ? "/" + account : "") + '">成交查询 →</a> 输入任意地址就能看它在本站的全部成交。</p>';
