@@ -2,7 +2,7 @@
 // 数据来源：st:d:<日期>（daily-stats 每 5 分钟扫链写的）、st:c:*（/api/hit 打点）、st:tot（累计）、链上余额实时读
 // GET ?key=<FEEDBACK_KEY 或 BACKUP_KEY>[&days=30]
 import { bjDay, counts } from "../../lib/stats.js";
-import { rpc } from "../../lib/oracle.js";
+import { RPCS } from "../../lib/teamlib.js";
 
 const WALLETS = [
   ["收款钱包（所有收入）", "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "谷歌社交登录钱包"],
@@ -17,16 +17,19 @@ const pad = (a) => a.slice(2).padStart(64, "0");
 const r2 = (x) => Math.round(x * 100) / 100;
 
 async function balances() {
-  // 全部并行读，6 个钱包 × 4 个余额，不然串行要十几秒
-  return Promise.all(WALLETS.map(async ([name, a, note]) => {
-    const w = { name, a, note, gas: 0, tok: {} };
-    const [g, ...ts] = await Promise.all([rpc("eth_getBalance", [a, "latest"]).catch(() => "0x0")].concat(TOK.map(([, t]) => rpc("eth_call", [{ to: t, data: "0x70a08231" + pad(a) }, "latest"]).catch(() => "0x0"))));
-    try { w.gas = r2(Number(BigInt(g)) / 1e18); } catch (e) {}
-    TOK.forEach(([sym, , dec], i) => { try { const v = Number(BigInt(ts[i] || "0x0")) / 10 ** dec; if (v) w.tok[sym] = r2(v); } catch (e) {} });
+  // 一次 JSON-RPC 批量请求把 6 个钱包 × 4 个余额全读回来（Worker 单次调用的子请求数有上限，不能一个个发）
+  const calls = [];
+  WALLETS.forEach(([, a]) => { calls.push({ jsonrpc: "2.0", id: calls.length, method: "eth_getBalance", params: [a, "latest"] }); TOK.forEach(([, t]) => calls.push({ jsonrpc: "2.0", id: calls.length, method: "eth_call", params: [{ to: t, data: "0x70a08231" + pad(a) }, "latest"] })); });
+  let res = [];
+  try { res = await fetch(RPCS[0], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(calls) }).then((r) => r.json()); } catch (e) { res = []; }
+  const by = {}; (Array.isArray(res) ? res : []).forEach((x) => { by[x.id] = x.result; });
+  return WALLETS.map(([name, a, note], i) => {
+    const base = i * (1 + TOK.length), w = { name, a, note, gas: 0, tok: {} };
+    try { w.gas = r2(Number(BigInt(by[base] || "0x0")) / 1e18); } catch (e) {}
+    TOK.forEach(([sym, , dec], k) => { try { const v = Number(BigInt(by[base + 1 + k] || "0x0")) / 10 ** dec; if (v) w.tok[sym] = r2(v); } catch (e) {} });
     return w;
-  }));
+  });
 }
-
 export async function onRequestGet(ctx) {
   try { return await main(ctx); } catch (e) { return Response.json({ error: "面板接口出错：" + String((e && e.stack) || e).slice(0, 600) }, { status: 500 }); }
 }
@@ -37,25 +40,32 @@ async function main(ctx) {
   const n = Math.min(90, Math.max(7, Number(u.searchParams.get("days")) || 30));
   const today = bjDay(), days = [];
   for (let i = 0; i < n; i++) days.push(bjDay(Date.now() - i * 86400e3));
-  const rows = await Promise.all(days.map(async (day) => {
-    // 过去的日子不会再变：算一次存 adm:d:<日期>，以后直接读（今天和昨天每次重算，昨天的链上数据可能还在补）
-    const old = day < bjDay(Date.now() - 86400e3) ? await kv.get("adm:d:" + day, "json") : null;
-    if (old) return old;
+  // KV 操作也算子请求（单次调用有上限）：过去的日子算一次永久缓存，今天/昨天缓存 2 分钟；每次最多现算 2 天，其余标 pending 让前端再拉
+  const yday = bjDay(Date.now() - 86400e3);
+  let budget = 2;
+  const rows = [];
+  for (const day of days) {
+    const fresh = day >= yday, ck = (fresh ? "adm:t:" : "adm:d:") + day;
+    const hit = await kv.get(ck, "json");
+    if (hit) { rows.push(hit); continue; }
+    if (budget <= 0) { rows.push({ day, pending: true }); continue; }
+    budget--;
     const [d, c] = await Promise.all([kv.get("st:d:" + day, "json"), counts(kv, day).catch(() => ({}))]);
     const nm = (d && d.nm) || { n: 0, dai: 0 }, pays = (d && d.pays) || [];
     const member = r2(pays.reduce((s, p) => s + (p.amt || 0), 0)); // 会员付款（各币种按面值相加，主要是 DAI）
     const fillDai = (d && d.fillDai) || 0, fee = r2(fillDai * 0.01);
     const row = { day, fills: (d && d.fills) || 0, fillDai: r2(fillDai), orders: (d && d.orders) || 0, nmN: nm.n || 0, nmDai: r2(nm.dai || 0), member, fee,
       income: r2(fee + (nm.dai || 0) + member), v: c.v || 0, v1: c.v1 || 0, an: c.an || 0, a1: c.a1 || 0, q: Object.keys(c).filter((k) => k.startsWith("q_")).reduce((s, k) => s + c[k], 0) };
-    if (day < bjDay(Date.now() - 86400e3)) ctx.waitUntil(kv.put("adm:d:" + day, JSON.stringify(row), { expirationTtl: 100 * 86400 }));
-    return row;
-  }));
+    await kv.put(ck, JSON.stringify(row), fresh ? { expirationTtl: 120 } : { expirationTtl: 100 * 86400 });
+    rows.push(row);
+  }
+  const pending = rows.filter((r) => r.pending).length;
   const tot = (await kv.get("st:tot", "json")) || {}, tn = tot.nm || { n: 0, dai: 0 };
   // 总收入：OTC 手续费 1% × 累计成交 + 域名累计 + 会员（会员只有按天的记录，把有记录的天加起来）
-  const memberAll = rows.reduce((s, r) => s + r.member, 0);
+  const memberAll = rows.reduce((s, r) => s + (r.member || 0), 0);
   const totals = { fillDai: r2(tot.fillDai || 0), fills: tot.fills || 0, orders: tot.orders || 0, fee: r2((tot.fillDai || 0) * 0.01), nmN: tn.n || 0, nmDai: r2(tn.dai || 0), member: r2(memberAll),
-    income: r2((tot.fillDai || 0) * 0.01 + (tn.dai || 0) + memberAll), installs: rows.reduce((s, r) => s + r.an, 0) };
+    income: r2((tot.fillDai || 0) * 0.01 + (tn.dai || 0) + memberAll), installs: rows.reduce((s, r) => s + (r.an || 0), 0) };
   let wallets = await kv.get("adm:wal", "json");
   if (!wallets || Date.now() - wallets.at > 120e3) { wallets = { at: Date.now(), list: await balances() }; ctx.waitUntil(kv.put("adm:wal", JSON.stringify(wallets), { expirationTtl: 3600 })); }
-  return Response.json({ today, rows, totals, wallets: wallets.list, walletsAt: wallets.at, note: "成交额 = OTC 四个市场成交（DAI 计）；收入 = 成交额×1% 手续费 + 域名销售 + 会员付款；装机 = 第一次从手机桌面图标打开的设备数（an）；访问 = 打开网站次数（v）/ 当天首次打开的人数（v1）" }, { headers: { "cache-control": "no-store" } });
+  return Response.json({ today, rows, pending, totals, wallets: wallets.list, walletsAt: wallets.at, note: "成交额 = OTC 四个市场成交（DAI 计）；收入 = 成交额×1% 手续费 + 域名销售 + 会员付款；装机 = 第一次从手机桌面图标打开的设备数（an）；访问 = 打开网站次数（v）/ 当天首次打开的人数（v1）" }, { headers: { "cache-control": "no-store" } });
 }

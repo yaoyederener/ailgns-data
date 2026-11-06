@@ -235,8 +235,9 @@
   function fm(v, d) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }); }
   function statsHtml(j) {
     var t = j.totals, rows = j.rows, td = rows[0] || {}, y = rows[1] || {};
+    if (j.pending) rows = rows.slice(); var pend = j.pending ? '<p class="muted">还有 ' + j.pending + ' 天的历史数据在计算（每次补 2 天，自动刷新）…</p>' : "";
     var tile = function (k, v, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + k + "</small><b>" + v + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; };
-    var h = '<div class="ad-tiles">' +
+    var h = pend + '<div class="ad-tiles">' +
       tile("今日成交额", fm(td.fillDai, 0) + " DAI", td.fills + " 笔 · 昨日 " + fm(y.fillDai, 0), "big") +
       tile("今日收入", fm(td.income) + " DAI", "手续费 " + fm(td.fee) + " + 域名 " + fm(td.nmDai, 0) + " + 会员 " + fm(td.member, 0), "big money") +
       tile("今日域名销售", td.nmN + " 个", fm(td.nmDai, 0) + " DAI") +
@@ -251,17 +252,18 @@
       return '<div class="ad-w"><div><b>' + esc(w.name) + '</b> <small class="muted">' + esc(w.note) + '</small><br><a class="mono" href="#/scan/' + w.a + '">' + w.a.slice(0, 8) + "…" + w.a.slice(-6) + "</a></div><div class=\"ad-wb\">" + (toks.length ? toks.join(" · ") : '<span class="muted">0</span>') + "</div></div>";
     }).join("") + "</div>";
     h += '<h3 class="ad-h">📅 每日明细（北京时间，最近 ' + rows.length + ' 天）</h3><div class="ad-tw"><table class="ad-t"><thead><tr><th>日期</th><th>成交额</th><th>笔数</th><th>域名</th><th>域名 DAI</th><th>会员</th><th>收入</th><th>新装</th><th>访问</th><th>首次</th></tr></thead><tbody>' +
-      rows.map(function (r) { return "<tr><td>" + r.day.slice(5) + "</td><td>" + fm(r.fillDai, 0) + "</td><td>" + r.fills + "</td><td>" + r.nmN + "</td><td>" + fm(r.nmDai, 0) + "</td><td>" + fm(r.member, 0) + "</td><td><b>" + fm(r.income) + "</b></td><td>" + r.an + "</td><td>" + r.v + "</td><td>" + r.v1 + "</td></tr>"; }).join("") + "</tbody></table></div>" +
+      rows.map(function (r) { if (r.pending) return "<tr><td>" + r.day.slice(5) + '</td><td colspan="9" class="muted">计算中…</td></tr>'; return "<tr><td>" + r.day.slice(5) + "</td><td>" + fm(r.fillDai, 0) + "</td><td>" + r.fills + "</td><td>" + r.nmN + "</td><td>" + fm(r.nmDai, 0) + "</td><td>" + fm(r.member, 0) + "</td><td><b>" + fm(r.income) + "</b></td><td>" + r.an + "</td><td>" + r.v + "</td><td>" + r.v1 + "</td></tr>"; }).join("") + "</tbody></table></div>" +
       '<p class="muted">' + esc(j.note) + "</p>";
     return h;
   }
+  var adminSt = "";
   function admin(rid, st) {
     clearInterval(adTimer);
     if (!key()) return login(rid);
     var m = location.hash.match(/feedback\/admin\/(\d+)/);
     if (m) return one(rid, Number(m[1]));
     if (!st && /feedback\/admin\/stats/.test(location.hash)) st = "stats"; // 直达数据面板：#/feedback/admin/stats
-    st = st || "new";
+    st = st || "new"; adminSt = st;
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/feedback/admin/stats" class="ad-nb' + (st === "stats" ? " on" : "") + '" data-s="stats">📊 数据面板（成交 · 收入 · 钱包）</a></div>' +
       '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
@@ -280,6 +282,7 @@
           document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="stats" class="on">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
           try { box.innerHTML = statsHtml(j); } catch (e) { box.innerHTML = '<p class="nm-bad">面板渲染出错：' + esc(e.message) + "</p>"; }
+          if (j.pending && adminSt === "stats") setTimeout(function () { load(true); }, 1200); // 历史日子还没算完：继续拉，每次补 2 天
         }).catch(function (e) { box.innerHTML = '<p class="nm-bad">数据读取失败：' + esc(e.message || e) + '，<a href="#/feedback/admin/stats" onclick="location.reload()">点这里重试</a></p>'; });
         box.innerHTML = '<p class="muted">正在汇总 30 天数据和 6 个钱包的链上余额，约 5–10 秒…</p>';
         return;
