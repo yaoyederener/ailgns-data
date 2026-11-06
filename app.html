@@ -46,6 +46,7 @@
   details { max-width: 520px; margin: 0 auto; width: 100%; } summary { cursor: pointer; font-size: 13px; color: var(--muted); text-align: center; list-style: none; padding: 6px; } summary::-webkit-details-marker { display: none; }
   .qr { display: block; width: 180px; margin: 10px auto 4px; border-radius: 14px; border: 1px solid var(--line); }
   .toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: #1f1a33; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.grp{margin:14px 0;padding:16px 14px;border-radius:16px;background:#fff;border:2px solid #d9c9ff;text-align:center}.grp h2{margin:0 0 10px;font-size:17px;color:#5a35d6}.grp .qr{display:block;margin:0 auto;width:200px;height:auto;border-radius:12px}
 </style>
 </head>
 <body>
@@ -63,10 +64,12 @@
 </main>
 
 <div class="doms" id="doms"></div>
-<details><summary>💬 加 OTC 交流群 · 更多网址与联系方式</summary>
+<section class="grp">
+  <h2>💬 加 OTC 交流群</h2>
   <img class="qr" src="/icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码">
-  <p class="foot">用 DeBox 扫一扫进群（手机：长按保存 → DeBox 扫一扫 → 相册选图）<br>网站全被封时，群里会发新网址 · <a id="full" href="/#/otc?full=1">在这里浏览网站</a></p>
-</details>
+  <p class="foot"><b>长按二维码保存</b> → 打开 DeBox → 扫一扫 → 相册选图<br>网站全被封时，群里第一时间发新网址</p>
+</section>
+<p class="foot" style="text-align:center"><a id="full" href="/#/otc?full=1">在这里浏览网站</a></p>
 <div class="toast" id="toast"></div>
 <script src="/app-shell.js?v=2"></script>
 </body>
