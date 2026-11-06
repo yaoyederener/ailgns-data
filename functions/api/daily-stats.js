@@ -10,6 +10,7 @@ const OPS_GROUP = "uqw6tsqb"; // 内部运营群（不要和行情群 oes8etcm�
 const ENABLED = true; // 2026-11-01 站长确认模板后打开
 const FIRST_DAY = "2026-11-01"; // 访问统计 10-31 晚上才上线：从 11-01 整天开始发
 const SEND_HOUR = 9; // 北京时间几点后发前一天的日报
+const SKIP_DAYS = ["2026-11-06"]; // 站长 2026-11-06：今天先停收入汇总日报（数据照常统计，只是不发）
 const POLY_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
 const CHAINS = { anubis: { rpcs: RPCS, span: 5000, name: "Anubis" }, polygon: { rpcs: POLY_RPCS, span: 2000, name: "Polygon" } };
 const MARKETS = [
@@ -76,7 +77,7 @@ export async function onRequestGet(ctx) {
   const hour = new Date(Date.now() + 8 * 3600e3).getUTCHours();
   if (ENABLED && yesterday >= FIRST_DAY && hour >= SEND_HOUR && !scan.behind && (await kv.get("st:sent")) !== yesterday) {
     try {
-      await sendDebox(ctx.env, OPS_GROUP, await report(kv, yesterday), "group");
+      if (!SKIP_DAYS.includes(yesterday)) await sendDebox(ctx.env, OPS_GROUP, await report(kv, yesterday), "group");
       await kv.put("st:sent", yesterday);
       sent = yesterday;
     } catch (e) { err = String(e.message || e).slice(0, 200); }

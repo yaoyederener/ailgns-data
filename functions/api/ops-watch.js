@@ -30,6 +30,7 @@ const amt = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximum
 const bjTime = (sec) => new Date(sec * 1000).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 
 // 一天发 1 次汇总（站长 2026-11-05 定）：北京时间 0 点过后第一次运行，把前一天全天的运营费用发到运营群
+const SKIP_DAYS = ["2026-11-06"]; // 站长 2026-11-06：今天先停收入汇总（这一天的分账记录照常记账，只是不发公告）
 const SLOT = 86400; // 一天一段，按北京时间 0 点切
 const slotOf = (sec) => Math.floor((sec + 8 * 3600) / 86400) * 86400 - 8 * 3600; // 这一秒所在的北京日 0 点
 const bjDate = (sec) => new Date(sec * 1000).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric" });
@@ -152,7 +153,7 @@ export async function onRequestGet(ctx) {
   const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out, total: totalOf(x) })));
   const text = notice(batch, start, dry ? now : end, sum(dry ? dayItems.concat(batch) : dayItems), await prices(), dry ? dayItems.length + batch.length : dayItems.length);
   if (dry) return Response.json({ ranges, pending: pending.length, text });
-  let sent = false, err = null;
+  let sent = SKIP_DAYS.includes(day), err = null; // 停发的那天：当作已发，记录照常落盘
   for (let k = 0; k < 3 && !sent; k++) { // DeBox 限流时等几秒再试；还不行就下一轮（5 分钟后）再发
     if (k) await sleep(4000 * k);
     try { await sendDebox(ctx.env, OPS_GROUP, text, "group"); sent = true; } catch (e) { err = String(e.message || e).slice(0, 200); }
