@@ -168,7 +168,7 @@
     // 🔔 最下面：关注 DeBox 机器人，揭晓结果、获奖私信、每天揭晓提醒
     html += '<section class="card or-dbx"><div class="card-head"><h2>🔔 揭晓通知 · DeBox</h2><span class="muted">免费 · 不错过每一期</span></div>' +
       '<p>扫码关注 DeBox 机器人，<b>每晚揭晓结果</b>、<b>获奖通知</b>、<b>每天揭晓提醒</b>第一时间推送给你。绑定钱包地址后，获奖了机器人还会单独私信你。</p><div id="dbx-slot"></div></section>';
-    o.innerHTML = html;
+    o.innerHTML = html; fixHint();
     if (A.otcKit && A.otcKit.deboxCard) A.otcKit.deboxCard(rid, { title: "关注机器人，揭晓结果 + 获奖通知 + 每日提醒", on: "揭晓结果、获奖私信、每天揭晓提醒都会推送到你的 DeBox" });
     top += cdCard(d); // 倒计时放在奖池下面、弹幕上面
     var tp = document.getElementById("or-top"); if (tp) tp.innerHTML = top;
@@ -235,13 +235,26 @@
       '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI</b></span>" +
       '<small class="or-fnote">' + (gap >= 1 ? "上面的奖池是应得的总额；其中 " + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 }) + " DAI 已经单独留出，另外 " + gap.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 0 }) + " DAI 正从接下来的域名收入里自动陆续留出，获奖了照样足额发。" : "奖池的钱已经全部单独留出，获奖自动发到你的钱包。") + "</small></div>";
   }
+  // 注册了域名却没设主名字的客户：直接告诉他名字在、差一步，一键跳到名字页去设（最常见的「不能参加」原因）
+  function fixHint() {
+    var box = document.getElementById("or-fix"), a = account; if (!box || !a) return;
+    fetch("/api/name-paid?a=" + a).then(function (r) { return r.json(); }).then(function (j) {
+      if (!document.body.contains(box) || account !== a) return;
+      var L = (j.list || []).filter(function (x) { return x.kind === "reg" && x.t === "ailgns" && x.owner === a && x.primary !== x.label; });
+      if (!L.length) return;
+      var full = L[0].label + ".ailgns";
+      box.hidden = false;
+      box.innerHTML = '<div class="or-fixc"><b>⚠️ 你已经注册了 ' + esc(full) + (L.length > 1 ? " 等 " + L.length + " 个名字" : "") + '，只差一步：设为主名字</b><small>名字在你钱包里，但钱包还没「认」它，所以提示没有资格。设一下就能参加，免费，只付一点 Gas。</small>' +
+        '<a class="nm-go" href="#/names/' + encodeURIComponent(full) + '?pri=1">👉 去设为主名字（点进去按蓝色按钮）</a></div>';
+    }, function () {});
+  }
   function meBox(d) {
     var me = d.me;
     if (account === SRC) return ownerBox();
     if (!account) return '<p>参加资格（满足其一）：① 主名字是 <b>🌟 创世 .ailgns 域名</b> ② <b>OTC 累计成交满 5 万 DAI</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
     if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
     if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，<a href="#/names">买一个新的 🌟 创世 .ailgns 域名</a>，设为主名字就能再参加。</p>';
-    if (!me.ok) return '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。满足其一就能参加：</p><ul class="or-req">' +
+    if (!me.ok) return (me.name ? "" : '<div id="or-fix" hidden></div>') + '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。满足其一就能参加：</p><ul class="or-req">' +
       '<li>' + (me.name ? "❌ 主名字 <b>" + esc(me.name) + "</b> 不是创世域名" : "❌ 还没有 .ailgns 主名字") + '：<a href="#/names">注册 / 买一个 🌟 创世 .ailgns 域名，设为主名字 →</a></li>' +
       '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li></ul>';
     if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";

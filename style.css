@@ -2807,3 +2807,12 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .ad-wal { display: grid; gap: 8px; } .ad-w { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; border: 1px solid #e3d8ff; background: #fff; font-size: 13px; } .ad-wb { text-align: right; color: #5a35d6; }
 .ad-tw { overflow-x: auto; } .ad-t { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; } .ad-t th, .ad-t td { padding: 6px 8px; text-align: right; border-bottom: 1px solid #efe9ff; } .ad-t th:first-child, .ad-t td:first-child { text-align: left; } .ad-t th { color: #6b5aa6; font-weight: 600; }
 .ad-nav { display: flex; gap: 8px; margin: 4px 0 10px; } .ad-nb { flex: 1; text-align: center; padding: 12px 10px; border-radius: 12px; background: #f6f2ff; color: #5a35d6; font-weight: 800; text-decoration: none; font-size: 15px; border: 2px solid transparent; } .ad-nb.on { background: #7027d9; color: #fff; } .ad-nb:hover { border-color: #c9b5ff; }
+
+/* 注册后「设主名字」引导：预言家页 / 域名页 */
+.nm-pri-box{border:2px solid #f59e0b;background:#fffbeb;border-radius:14px;padding:14px}
+.nm-pri-why{margin:0 0 8px;font-size:16px;line-height:1.5}.nm-pri-why small{display:block;font-size:13px;color:#7c5a10;margin-top:4px}
+.nm-go-pri{font-size:17px;padding:14px 16px;background:#1677ff}
+.nm-go-or{display:block;text-align:center;text-decoration:none;background:var(--grad)}
+.or-fixc{border:2px solid #f59e0b;background:#fffbeb;border-radius:14px;padding:14px;margin-bottom:12px;font-size:15px;line-height:1.5}
+.or-fixc small{display:block;color:#7c5a10;font-size:13px;margin:4px 0 8px}
+.or-fixc .nm-go{text-decoration:none;text-align:center;font-size:16px}

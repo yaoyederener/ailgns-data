@@ -262,7 +262,7 @@
 
   function page(rid, arg) {
     // 路由只保留 0x 地址参数，名字自己从网址里取
-    var q = decodeURIComponent(location.hash.split("/")[2] || "").toLowerCase(), m = q.match(/\.(ailgns|lgns)$/);
+    var q = decodeURIComponent((location.hash.split("/")[2] || "").split("?")[0]).toLowerCase(), m = q.match(/\.(ailgns|lgns)$/); // ?pri=1 是预言家页跳过来设主名字的标记
     if (q === "otc" || q === "mine") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
     TLD = m ? m[1] : "ailgns";
     NAMES = CONTRACTS[TLD]; window.__nmTLD = TLD;
@@ -344,7 +344,7 @@
           W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[t], data: SEL.nameOf + A.pad(a) }, "latest"]).then(function (x) { try { return decStr(x); } catch (e) { return ""; } }, function () { return null; }).then(function (p) {
             var sm = document.getElementById("nm-mysum"); if (p !== "" || !sm) return;
             var d = document.createElement("div"); d.className = "nm-mv";
-            d.innerHTML = "<b>⚠️ 这个钱包还没设 ." + t + " 主名字（主号）</b>" + (self ? "点下面任意一个名字进去，按「设为我的主名字」就行（不花钱，只付一点 Gas）。" : "<small>如果这是你的钱包：点右上角<b>连接钱包</b>（连这个钱包），再点下面任意一个名字进去，按「设为我的主名字」。</small>");
+            d.innerHTML = "<b>⚠️ 这个钱包还没设 ." + t + " 主名字（主号）</b>" + (self ? "不设主名字就<b>不能玩预言家、不能发站内信</b>。点下面任意一个名字进去，按「设为我的主名字」就行（免费，只付一点 Gas）。" : "<small>如果这是你的钱包：点右上角<b>连接钱包</b>（连这个钱包），再点下面任意一个名字进去，按「设为我的主名字」。</small>");
             sm.parentNode.insertBefore(d, sm);
           });
         });
@@ -596,7 +596,7 @@
       call(SEL.nameOf + A.pad(account)).then(function (x) { return decStr(x) === v; }, function () { return false; }).then(function (done) {
         if (done) {
           stepTo(3);
-          box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字，你的地址在本站会显示成这个名字</p><div id="nm-mine"></div>' +
+          box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字，你的地址在本站会显示成这个名字</p>' + (TLD === "ailgns" ? '<a class="nm-go nm-go-or" href="#/oracle">🔮 现在就能玩预言家了，去预测 →</a>' : "") + '<div id="nm-mine"></div>' +
             (OTC[TLD] ? '<button type="button" class="nm-go nm-go4" id="nm-go4">第 3 步：挂到 OTC 市场出售</button><p class="muted">想转手赚钱就挂单：你定价格，买家付 DAI 后名字自动过户，你拿完整标价（买家另付 3% 手续费）。不卖就不用做这一步。</p>' : "") +
             '<button type="button" class="nm-go nm-again" id="nm-again">➕ 继续注册下一个</button></div>';
           mine(document.getElementById("nm-mine"));
@@ -621,9 +621,10 @@
           };
           return;
         }
-        box.innerHTML = '<div class="nm-guide"><div id="nm-mine"></div><button type="button" class="nm-go" id="nm-pri">第 2 步：设为我的主名字</button>' +
-          '<p class="muted">不花钱，只付一点 Gas。设好后，别人在本站看到你的地址，就显示 <b>' + esc(full) + '</b>。一个地址只有一个主名字，已经有主名字的可以跳过。</p><p class="muted nm-st" id="nm-pst"></p>' +
-          '<button type="button" class="nm-skip" id="nm-again">跳过，继续注册下一个 →</button></div>';
+        box.innerHTML = '<div class="nm-guide nm-pri-box"><p class="nm-pri-why">⚠️ <b>还差最后一步才能玩预言家、发站内信</b><small>注册好了，但钱包还没「认」这个名字。不设主名字，预言家页会提示「没有资格」。</small></p><div id="nm-mine"></div><button type="button" class="nm-go nm-go-pri" id="nm-pri">第 2 步：设为我的主名字（免费）</button>' +
+          '<p class="muted">点了之后钱包会弹出来，按「确认」就好。不花钱，只付一点 Gas。设好后，别人在本站看到你的地址，就显示 <b>' + esc(full) + '</b>，预言家页马上就能参加。一个钱包只有一个主名字。</p><p class="muted nm-st" id="nm-pst"></p>' +
+          '<button type="button" class="nm-skip" id="nm-again">这个钱包已经有主名字了，跳过 →</button></div>';
+        if (/[?&]pri=1/.test(location.hash)) setTimeout(function () { var e = document.getElementById("nm-pri"); if (e) e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 200);
         mine(document.getElementById("nm-mine"));
         document.getElementById("nm-again").onclick = again;
         var b = document.getElementById("nm-pri"), pst = document.getElementById("nm-pst");
