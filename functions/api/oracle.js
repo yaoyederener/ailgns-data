@@ -37,6 +37,7 @@ export async function onRequestGet(ctx) {
   if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
   if (u.searchParams.get("pay")) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
+    ctx.waitUntil(kv.put("kp:at", String(Date.now()), { expirationTtl: 7 * 86400 }).catch(() => {})); // 🤝 合伙人面板用的机器人心跳
     return json({ pay: ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx) });
   }
   const now = Date.now(), round = openRound(now), drawing = prevDay(round); // drawing：今晚 9–10 点正在开奖 / 刚开完的那一轮

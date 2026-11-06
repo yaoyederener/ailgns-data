@@ -4,6 +4,7 @@ import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 import { SUPPORT_USER } from "../../lib/support.js";
 import { build as buildAdminStats } from "../../lib/adminstats.js";
+import { build as buildPartner } from "../../lib/partner.js";
 
 // ⛽ 触发钱包 Gas 看门狗（站长 2026-11-07：没钱就一直提醒）：keeper 每 5 分钟调一次本接口，顺手查一下
 // 低于 GAS_MIN DAI → 开一张 0 级工单（铃铛 + Mac 提醒会一直催）+ DeBox 私信站长；每 6 小时催一次，补够了自动安静
@@ -120,7 +121,7 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   ctx.waitUntil(gasWatch(ctx, kv).catch(() => {}));
-  ctx.waitUntil(buildAdminStats(ctx.env, kv, ctx).catch(() => {})); // 📊 站长数据面板：每 5 分钟算好缓存，后台秒开
+  ctx.waitUntil(buildAdminStats(ctx.env, kv, ctx).then(() => buildPartner(ctx.env, kv, ctx)).catch(() => {})); // 🤝 合伙人面板：接着站长面板算（要用它的日表）
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
   const now = Math.floor(Date.now() / 1000), slot = slotOf(now); // 今天北京 0 点
   // today=1 / day=2026-11-02：站长想马上看效果，把今天到现在（或前两天里某一整天）的汇总立刻发一次；每个日期最多手动发 3 次，防止被人刷群

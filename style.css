@@ -2835,3 +2835,17 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .fb-mkft{display:flex;gap:10px;padding:8px 12px calc(12px + env(safe-area-inset-bottom))}
 .fb-mkft button{flex:1;margin:0;padding:12px;font-size:16px}
 .fb-mkft .ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:10px}
+
+/* 🤝 合伙人面板 */
+.ptn-login input{display:block;width:100%;margin:10px 0;padding:12px;border-radius:12px;border:1px solid #e3d8ff;font-size:16px}
+.ptn-risks{display:grid;gap:8px;margin-bottom:6px}
+.ptn-risk{border-radius:12px;padding:10px 12px;border:1px solid #eee6ff;background:#faf7ff;font-size:13.5px;line-height:1.5}
+.ptn-risk.red{background:#fff1f1;border-color:#ffc9c9}.ptn-risk.yellow{background:#fff8e6;border-color:#ffe2a8}.ptn-risk.green{background:#eefbf3;border-color:#bfead2}
+.ptn-rh{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:15px}.ptn-rh i{font-style:normal;font-size:12px;color:#8a7fb0;white-space:nowrap}
+.ptn-risk p{margin:4px 0 0;color:#4b3d8f}.ptn-todo{font-weight:700;color:#191839!important}
+.ad-tile.warn{background:#fff1f1}.ad-tile.warn b{color:#c6454a}
+.ptn-t td small{display:block;font-weight:400;color:#8a7fb0;font-size:11px}.ptn-t td:first-child{white-space:nowrap}.ptn-real td{background:#eefbf3}
+.ptn-cfg{font-size:13px}.ptn-cfg input{padding:6px 8px;border-radius:8px;border:1px solid #e3d8ff}
+.ptn-tk div,.ptn-upd div{font-size:13px;padding:4px 0;border-bottom:1px dashed #eee6ff}
+.ptn-plan label{display:block;padding:6px 0;font-size:14px}.ptn-plan label.done{color:#9a8acc;text-decoration:line-through}
+.ptn-note{font-size:11.5px;margin-top:12px}
