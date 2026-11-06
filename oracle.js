@@ -262,18 +262,39 @@
   function drawCard(d) {
     var dr = d.drawing, res = dr.res;
     var list = dr.list || [];
-    if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 揭晓结果") + (list.length ? '<section class="card">' + allGuess(list, res.px) + "</section>" : "");
+    if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 揭晓结果") + (list.length ? '<section class="card">' + proofBar(dr) + allGuess(list, res.px, dr) + "</section>" : "");
     return '<section class="card or-draw"><div class="card-head"><h2>🎲 ' + dayCn(dr.day) + ' 正在揭晓</h2><span class="muted">晚上 9:00–10:00 随机一刻 · 10:05 前公布</span></div>' +
       "<p>本轮已锁定，共 <b>" + list.length + "</b> 人参与。揭晓价 = 9–10 点之间随机一刻的链上价格，由 10 点整那个区块的哈希决定，谁都没法提前知道。</p>" +
-      (list.length ? allGuess(list) : "") + "</section>";
+      (list.length ? proofBar(dr) + allGuess(list, 0, dr) : "") + "</section>";
   }
+  // 🔗 链上存证说明条 + 弹窗
+  function proofBar(dr) {
+    var an = dr.anchor;
+    return '<div class="or-proof' + (an ? " on" : "") + '"><span class="or-pf-i">🔗</span><div><b>' + (an ? "本期全部预测已写入链上，任何人可查、不可篡改" : "封卷后本期全部预测将打包写入链上，不可篡改") + "</b><small>" + (an ? "交易 " + an.tx.slice(0, 10) + "… · 指纹 " + an.hash.slice(0, 12) + "… · " + an.n + " 人 " + an.guesses + " 个预测" : "每个预测都有钱包签名；21:00 封卷后奖池钱包发一笔 0 元交易，把全部预测的 SHA-256 指纹永久记在链上") + '</small></div><button type="button" class="ghost or-pf-btn" data-day="' + dr.day + '">' + (an ? "查看 / 验证" : "怎么验证") + "</button></div>";
+  }
+  function proofModal(day) {
+    var box = document.createElement("div"); box.className = "modal"; box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔗 预测上链存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><p class="muted">读取中…</p></div>';
+    document.body.appendChild(box); box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
+    fetch("/api/oracle?proof=" + day).then(function (r) { return r.json(); }).then(function (p) {
+      var an = p.anchor, bx = box.querySelector(".modal-box");
+      var dl = "data:application/json;charset=utf-8," + encodeURIComponent(p.canon);
+      bx.innerHTML = '<div class="card-head"><h2>🔗 ' + dayCn(day) + ' 预测存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        '<div class="or-pf-big' + (an ? " on" : "") + '">' + (an ? "✅ 已写入链上 · 不可篡改" : "⏳ 封卷后写入链上") + "</div>" +
+        '<p><b>' + p.n + " 人 · " + p.guesses + ' 个预测</b></p>' +
+        '<p class="or-pf-k">本期指纹（SHA-256）<br><span class="mono">' + p.hash + "</span></p>" +
+        (an ? '<p class="or-pf-k">链上交易<br><a class="mono" href="#/scan/' + an.tx + '">' + an.tx + '</a><br><small class="muted">交易 data 里写的是 ailgns-oracle:' + day + ":" + an.hash.slice(0, 16) + "…，由奖池钱包发出，" + A.timeBJ(an.at) + ' 上链</small></p>' : '<p class="muted">每个预测提交时都经钱包签名；今晚 21:00 封卷后，奖池钱包会把上面这个指纹写进链上，之后这里显示交易哈希。</p>') +
+        '<ol class="steps or-pf-steps"><li><a href="' + dl + '" download="ailgns-oracle-' + day + '.json">下载本期预测清单（JSON）</a></li><li>用任何工具算它的 SHA-256（电脑终端：<span class="mono">shasum -a 256 文件名</span>）</li><li>和上面的指纹、链上交易里的指纹对比——一致就说明名单没被改过一个字</li></ol>' +
+        '<p class="muted">清单包含每个名字、钱包、预测价和提交时间，和页面显示一致。</p>';
+    }).catch(function () { box.querySelector("p").textContent = "读取失败，请稍后再试"; });
+  }
+  document.addEventListener("click", function (e) { var b = e.target.closest(".or-pf-btn"); if (b) proofModal(b.getAttribute("data-day")); });
   // 所有人的预测（完整价格，3 位小数）；揭晓后按离揭晓价远近排，最接近的在前
-  function allGuess(list, px) {
+  function allGuess(list, px, dr) {
     var rows = [];
     list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: px ? Math.abs(Math.round(Number(p) * 1000) - px) : 0 }); }); });
     if (px) rows.sort(function (a, b) { return a.d - b.d; });
     return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
-      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + "</li>"; }).join("") + "</ol></details>";
+      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + (dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol></details>";
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
   var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;

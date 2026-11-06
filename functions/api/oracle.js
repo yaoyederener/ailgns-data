@@ -16,9 +16,19 @@ async function quota(kv, a, name, day) {
   return { tier: t.label, base: t.n, bonus, n: Math.min(MAX_GUESS, t.n + bonus) };
 }
 
+// 🔗 链上存证：封卷（21:00）后把本期全部预测按固定格式排好、算 SHA-256 指纹，奖池钱包发一笔 0 元交易把指纹写进链上（keeper oracle_anchor.py 做）
+// 任何人都能：下载本期清单 → 自己算 SHA-256 → 和链上交易 data 里的指纹对比 → 证明名单没被改过
+async function proofOf(kv, day) {
+  const g = await guessesOf(kv, day);
+  const entries = g.map((x) => ({ name: x.name, a: x.a, ps: (x.ps || []).map((p) => [p[0], p[1]]) })).sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+  const canon = JSON.stringify({ day, entries });
+  const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  return { day, n: entries.length, guesses: entries.reduce((s, e) => s + e.ps.length, 0), canon, hash, anchor: (await kv.get("or:anchor:" + day, "json")) || null };
+}
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv) return new Response("no kv", { status: 503 });
+  if (u.searchParams.get("proof")) return json(await proofOf(kv, String(u.searchParams.get("proof")).slice(0, 10)));
   if (u.searchParams.get("pay")) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     return json({ pay: ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx) });
@@ -33,7 +43,7 @@ export async function onRequestGet(ctx) {
     pool: poolV, allot: al.allot, rev: al.rev,
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
     players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0])) })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
-    drawing: { day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
+    drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),
   };
   // 奖金池里实际留了多少钱（发奖程序的记账文件，公开在 GitHub）：DAI、AiLGNS，LGNS 不留（按价值记成待留）
@@ -70,6 +80,22 @@ export async function onRequestGet(ctx) {
 }
 
 export async function onRequestPost(ctx) {
+  // keeper 写入链上存证：{ action: "anchor", key: BACKUP_KEY, day, tx, hash }（指纹必须和服务器现算的一致）
+  const req0 = ctx.request.clone();
+  try {
+    const b0 = await req0.json();
+    if (b0 && b0.action === "anchor") {
+      const kv0 = ctx.env.TEAM_KV;
+      if (!ctx.env.BACKUP_KEY || b0.key !== ctx.env.BACKUP_KEY) return json({ error: "forbidden" }, 403);
+      const day = String(b0.day || "").slice(0, 10), tx = String(b0.tx || "").toLowerCase();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^0x[0-9a-f]{64}$/.test(tx)) return json({ error: "参数不对" }, 400);
+      const pf = await proofOf(kv0, day);
+      if (pf.hash !== String(b0.hash || "").toLowerCase()) return json({ error: "指纹不一致", server: pf.hash }, 409);
+      const rec = { tx, hash: pf.hash, n: pf.n, guesses: pf.guesses, at: Date.now() };
+      await kv0.put("or:anchor:" + day, JSON.stringify(rec));
+      return json({ ok: true, anchor: rec });
+    }
+  } catch (e) { /* 不是 anchor 请求，往下走 */ }
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   let b = {};
