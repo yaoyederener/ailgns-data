@@ -232,6 +232,29 @@
     inp.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); submit(); } };
     setTimeout(function () { inp.focus(); }, 50);
   }
+  function fm(v, d) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }); }
+  function statsHtml(j) {
+    var t = j.totals, rows = j.rows, td = rows[0] || {}, y = rows[1] || {};
+    var tile = function (k, v, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + k + "</small><b>" + v + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; };
+    var h = '<div class="ad-tiles">' +
+      tile("今日成交额", fm(td.fillDai, 0) + " DAI", td.fills + " 笔 · 昨日 " + fm(y.fillDai, 0), "big") +
+      tile("今日收入", fm(td.income) + " DAI", "手续费 " + fm(td.fee) + " + 域名 " + fm(td.nmDai, 0) + " + 会员 " + fm(td.member, 0), "big money") +
+      tile("今日域名销售", td.nmN + " 个", fm(td.nmDai, 0) + " DAI") +
+      tile("今日新装 App", td.an + " 台", "桌面打开 " + td.a1 + " 次") +
+      tile("今日访问", fm(td.v, 0) + " 次", td.v1 + " 人首次 · 查询 " + td.q + " 次") +
+      tile("总收入（上线至今）", fm(t.income) + " DAI", "手续费 " + fm(t.fee, 0) + " + 域名 " + fm(t.nmDai, 0) + " + 会员 " + fm(t.member, 0), "money") +
+      tile("总成交额", fm(t.fillDai, 0) + " DAI", t.fills + " 笔 · 挂单 " + t.orders + " 张") +
+      tile("累计装机", t.installs + " 台", "最近 " + rows.length + " 天") + "</div>";
+    h += '<h3 class="ad-h">🏦 钱托管在哪（链上实时，每 2 分钟刷新）</h3><div class="ad-wal">' + j.wallets.map(function (w) {
+      var toks = Object.keys(w.tok).map(function (s) { return "<b>" + fm(w.tok[s], s === "LGNS" ? 0 : 2) + "</b> " + s; });
+      if (w.gas) toks.unshift("<b>" + fm(w.gas) + "</b> DAI(Gas)");
+      return '<div class="ad-w"><div><b>' + esc(w.name) + '</b> <small class="muted">' + esc(w.note) + '</small><br><a class="mono" href="#/scan/' + w.a + '">' + w.a.slice(0, 8) + "…" + w.a.slice(-6) + "</a></div><div class=\"ad-wb\">" + (toks.length ? toks.join(" · ") : '<span class="muted">0</span>') + "</div></div>";
+    }).join("") + "</div>";
+    h += '<h3 class="ad-h">📅 每日明细（北京时间，最近 ' + rows.length + ' 天）</h3><div class="ad-tw"><table class="ad-t"><thead><tr><th>日期</th><th>成交额</th><th>笔数</th><th>域名</th><th>域名 DAI</th><th>会员</th><th>收入</th><th>新装</th><th>访问</th><th>首次</th></tr></thead><tbody>' +
+      rows.map(function (r) { return "<tr><td>" + r.day.slice(5) + "</td><td>" + fm(r.fillDai, 0) + "</td><td>" + r.fills + "</td><td>" + r.nmN + "</td><td>" + fm(r.nmDai, 0) + "</td><td>" + fm(r.member, 0) + "</td><td><b>" + fm(r.income) + "</b></td><td>" + r.an + "</td><td>" + r.v + "</td><td>" + r.v1 + "</td></tr>"; }).join("") + "</tbody></table></div>" +
+      '<p class="muted">' + esc(j.note) + "</p>";
+    return h;
+  }
   function admin(rid, st) {
     clearInterval(adTimer);
     if (!key()) return login(rid);
@@ -245,12 +268,22 @@
     function load(first) {
       var box = document.getElementById("fb-list"); if (!box) return clearInterval(adTimer);
       if (!first && box.querySelector("textarea:focus")) return; // 正在写回复：不刷新
+      if (st === "stats") { // 📊 站长数据面板：成交、域名、装机、访问、收入、钱包
+        if (!first) return; // 不用 20 秒刷新
+        fetch("/api/admin-stats?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
+          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="stats" class="on">📊 数据</button>';
+          document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
+          box.innerHTML = statsHtml(j);
+        }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
+        return;
+      }
       if (st === "err") { // 前端自动上报的程序错误（客户看到英文报错时我们这边同步有记录）
         fetch("/api/err?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
           if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
           var l = j.list || [];
           box.innerHTML = l.length ? l.map(function (x) { return '<div class="fb-tk lv2"><div class="fb-tkh"><b>' + esc(x.p || "") + '</b> <small class="muted">' + tm(x.t) + (x.n > 1 ? " · " + x.n + " 次" : "") + (x.v ? " · v" + esc(x.v) : "") + '</small></div><p class="fb-txt mono">' + esc(x.m) + '</p><p class="muted" style="font-size:11.5px">' + esc(x.ua) + "</p></div>"; }).join("") : '<p class="muted">没有程序报错 🎉</p>';
-          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err" class="on">🐞 程序报错</button>';
+          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err" class="on">🐞 程序报错</button><button type="button" data-s="stats">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
         return;
@@ -260,7 +293,7 @@
         var c = j.cnt || {}, maxId = (j.list || []).reduce(function (x, t) { return Math.max(x, t.id); }, 0);
         if (adSeen !== null && st === "new" && maxId > adSeen) { beep(); var nw = document.getElementById("fb-nw"); if (nw) nw.innerHTML = '<span class="fb-new">🔔 新工单</span>'; }
         if (st === "new") adSeen = Math.max(adSeen || 0, maxId);
-        document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button>';
+        document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="stats">📊 数据</button>';
         document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         var l = j.list || [];
         box.innerHTML = l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">没有' + ST[st][0] + "的工单 🎉</p>";

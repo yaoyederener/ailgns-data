@@ -7,7 +7,7 @@ import { bjDay, counts } from "../../lib/stats.js";
 import { keccak256 } from "../../lib/evmsig.js";
 
 const OPS_GROUP = "uqw6tsqb"; // 内部运营群（不要和行情群 oes8etcm、fvg4wksw 混用）
-const ENABLED = true; // 2026-11-01 站长确认模板后打开
+const ENABLED = false; // 2026-11-07 站长：内部群先暂停汇总通报，改在工单后台「📊 数据」看（数据照常记）
 const FIRST_DAY = "2026-11-01"; // 访问统计 10-31 晚上才上线：从 11-01 整天开始发
 const SEND_HOUR = 9; // 北京时间几点后发前一天的日报
 const SKIP_DAYS = ["2026-11-06"]; // 站长 2026-11-06：今天先停收入汇总日报（数据照常统计，只是不发）

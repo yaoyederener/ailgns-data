@@ -173,7 +173,7 @@ export async function onRequestGet(ctx) {
   const day = dayKey(start), dayItems = ((await kv.get("opsw:day:" + day, "json")) || []).concat(dry ? [] : batch.map((x) => ({ sym: x.sym, chain: x.chain, out: x.out, total: totalOf(x) })));
   const text = notice(batch, start, dry ? now : end, sum(dry ? dayItems.concat(batch) : dayItems), await prices(), dry ? dayItems.length + batch.length : dayItems.length);
   if (dry) return Response.json({ ranges, pending: pending.length, text });
-  let sent = SKIP_DAYS.includes(day), err = null; // 停发的那天：当作已发，记录照常落盘
+  let sent = true, err = null; // 2026-11-07 站长：运营费用公告暂停（分账也停了），记录照常落盘，后台看 // 停发的那天：当作已发，记录照常落盘
   for (let k = 0; k < 3 && !sent; k++) { // DeBox 限流时等几秒再试；还不行就下一轮（5 分钟后）再发
     if (k) await sleep(4000 * k);
     try { await sendDebox(ctx.env, OPS_GROUP, text, "group"); sent = true; } catch (e) { err = String(e.message || e).slice(0, 200); }
