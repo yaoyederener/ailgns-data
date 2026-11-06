@@ -116,6 +116,19 @@
       // 诊断行：这台设备检测到了哪些钱包（排查「点了没反应」用）
       setTimeout(function () { var d = document.getElementById("ib-diag"); if (!d) return; var ws = (W.list && W.list()) || []; d.textContent = "诊断 v2 · " + (ws.length ? "检测到钱包：" + ws.map(function (w) { return w.name; }).join("、") : "没检测到钱包（当前不是钱包内置浏览器，或钱包还没注入）") + (W.standalone && W.standalone() ? " · 桌面图标模式" : ""); }, 600);
       document.getElementById("ib-go").onclick = function () { login(this); };
+      // iPhone 桌面图标 / 别的设备：没钱包也能用 6 位码登录
+      var box = document.querySelector(".ib-login");
+      box.insertAdjacentHTML("beforeend", '<div class="ib-code"><p class="muted">已经在钱包里登录过？在那边点「生成 6 位码」，这里输入就能登录（iPhone 桌面图标 App 里没有钱包，用这个）：</p><form class="ib-codef"><input inputmode="numeric" maxlength="6" placeholder="6 位数字" autocomplete="one-time-code"><button type="submit" class="ghost">用码登录</button></form></div>');
+      box.querySelector(".ib-codef").onsubmit = function (e) {
+        e.preventDefault(); var inp = this.querySelector("input"), b = this.querySelector("button"), code = inp.value.replace(/\D/g, "");
+        if (code.length !== 6) return A.errTip("输入 6 位数字", inp);
+        b.disabled = true;
+        fetch("/api/inbox?code=" + code).then(function (r) { return r.json(); }).then(function (j) {
+          b.disabled = false; if (j.error) return A.errTip(j.error, inp);
+          auth = j.auth; try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (x) {}
+          lastMax = 0; schedule(); A.pages.inbox(id);
+        }).catch(function () { b.disabled = false; A.errTip("网络不好，再试一次", inp); });
+      };
       return;
     }
     var canN = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, perm = canN ? Notification.permission : "denied";
@@ -129,6 +142,18 @@
       fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "seen" }) }).then(function (r) { return r.json(); }).then(function (j) { b.disabled = false; if (j.error) return A.errTip(j.error, b); badge(0); paint(j); });
     };
     document.getElementById("ib-out").onclick = function () { logout(true); A.pages.inbox(id); };
+    // 生成 6 位码：拿到 iPhone 桌面图标 App（或电脑）里登录，不用再签名
+    var who = document.querySelector(".ib-who");
+    if (who) {
+      who.insertAdjacentHTML("beforeend", ' · <button type="button" class="link" id="ib-code">生成 6 位码</button><span class="muted">（在 iPhone 桌面图标 / 电脑上登录用）</span>');
+      document.getElementById("ib-code").onclick = function () {
+        var b = this; b.disabled = true;
+        fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "code" }) }).then(function (r) { return r.json(); }).then(function (j) {
+          b.disabled = false; if (j.error) return A.errTip(j.error, b);
+          b.outerHTML = '<b class="ib-codev">' + j.code + '</b><span class="muted">（10 分钟内有效，只能用一次：到另一台设备的收件箱页输入）</span>';
+        }).catch(function () { b.disabled = false; A.errTip("网络不好，再试一次", b); });
+      };
+    }
     var nb = document.getElementById("ib-notify");
     if (nb) nb.onclick = function () { subscribePush(nb, id); };
     pull(paint); schedule();

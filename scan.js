@@ -555,7 +555,7 @@
       var slot = el("sc-head-slot");
       if (primary && !via && slot) slot.outerHTML = '<section class="card sc-head"><h2>🌐 ' + esc(primary) + ' <small class="muted">这个钱包的名字</small></h2></section>';
       else if (slot) slot.remove();
-      var bx0 = el("sc-balx"); if (bx0 && !primary && !KNOWN[a]) bx0.insertAdjacentHTML("beforeend", '<p class="muted sc-noname">这个钱包还没有名字 · <a href="#/names">花 5 DAI 起一个 →</a></p>');
+      var bc = out.querySelector(".sc-balc"); if (bc && !primary && !KNOWN[a]) bc.insertAdjacentHTML("beforeend", '<p class="muted sc-noname">这个钱包还没有名字 · <a href="#/names">花 5 DAI 起一个 →</a></p>');
       if (el("sc-who")) el("sc-who").remove();
     });
     // 余额：最值钱的三种大字（AiLGNS / LGNS / DAI），折算成 DAI 合计；其它币小字列出；Gas 不单列（这条链 Gas 就是 DAI）

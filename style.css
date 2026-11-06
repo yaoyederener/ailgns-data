@@ -2629,3 +2629,7 @@ button.poster-cta, button.debox { border: 0; cursor: pointer; font-family: inher
 .sc-moneyonly .lg-row[data-kind="other"] { display: none; }
 .sc-other { padding: 8px 2px 0; font-size: 12.5px; }
 @media (max-width: 600px) { .sc-balc .sc-bal { grid-template-columns: 1fr 1fr 1fr; gap: 6px; } .sc-coin { padding: 10px 8px; } .sc-coin b { font-size: 18px; } .sc-coin span { font-size: 10.5px; } }
+
+.ib-code { margin-top: 16px; padding-top: 12px; border-top: 1px dashed #e9e1ff; }
+.ib-codef { display: flex; gap: 8px; } .ib-codef input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #e3d8ff; border-radius: 10px; font-size: 18px; letter-spacing: 4px; text-align: center; font-variant-numeric: tabular-nums; }
+.ib-codev { display: inline-block; padding: 2px 10px; border-radius: 8px; background: #efe7ff; color: #5a35d6; font-size: 20px; letter-spacing: 4px; font-variant-numeric: tabular-nums; }

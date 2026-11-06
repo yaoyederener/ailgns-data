@@ -18,7 +18,17 @@ async function view(kv, a) {
 }
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV; if (!kv) return json({ error: "没有存储" }, 500);
-  const u = new URL(ctx.request.url), a = auth(u.searchParams.get("a"), u.searchParams.get("ts"), u.searchParams.get("sig"));
+  const u = new URL(ctx.request.url);
+  // 6 位码换登录：拿一次就作废
+  const code = String(u.searchParams.get("code") || "").replace(/\D/g, "");
+  if (code) {
+    if (code.length !== 6) return json({ error: "码是 6 位数字" }, 400);
+    const rec = await kv.get("ib:code:" + code, "json");
+    if (!rec) return json({ error: "这个码不对或已过期（10 分钟内有效，只能用一次）" }, 404);
+    await kv.delete("ib:code:" + code);
+    return json({ auth: rec });
+  }
+  const a = auth(u.searchParams.get("a"), u.searchParams.get("ts"), u.searchParams.get("sig"));
   if (!a) return json({ error: "登录已过期，请重新用钱包签名" }, 401);
   return json(await view(kv, a));
 }
@@ -28,5 +38,10 @@ export async function onRequestPost(ctx) {
   const a = auth(b.a, b.ts, b.sig);
   if (!a) return json({ error: "登录已过期，请重新用钱包签名" }, 401);
   if (b.action === "seen") { await kv.put("ib:seen:" + a, String(Date.now())); return json(await view(kv, a)); }
+  if (b.action === "code") { // 生成 6 位码，10 分钟有效，拿去别的设备 / 桌面图标 App 里登录
+    let code; for (let i = 0; i < 5; i++) { code = String(Math.floor(100000 + Math.random() * 900000)); if (!(await kv.get("ib:code:" + code))) break; }
+    await kv.put("ib:code:" + code, JSON.stringify({ a, ts: Number(b.ts), sig: String(b.sig) }), { expirationTtl: 600 });
+    return json({ code, ttl: 600 });
+  }
   return json({ error: "不认识的操作" }, 400);
 }
