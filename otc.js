@@ -1330,9 +1330,11 @@
           BB_TOKS.map(function (t, i) {
             var c = allowCell(r[i] ? r[i][0] : null, t);
             return '<tr><td class="l"><b>' + t.name + "</b> Anubis</td><td>" + c[1] + "</td><td>" + (r[i] ? amt(r[i][1], t.dec) : "—") + "</td><td>" +
-              (c[0] ? "" : '<button data-bb="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
-          }).join("") + "</tbody></table></div>";
+              (c[0] ? '<button class="ghost" data-bbrv="' + i + '" style="padding:6px 14px">撤销</button>' : '<button data-bb="' + i + '" style="padding:6px 14px">授权</button>') + "</td></tr>";
+          }).join("") + "</tbody></table></div>" +
+          '<p class="note">分账暂停期间建议把三个币的授权都「撤销」（额度改成 0）：撤销后机器人动不了收款钱包里的币，域名收入照样自动退回收款钱包，不影响任何功能。以后要恢复分账再点「授权」。</p>';
         el.querySelectorAll("[data-bb]").forEach(function (b) { b.onclick = function () { approve(BB_TOKS[+b.getAttribute("data-bb")], b, BUYBACK, MAX, "授权回购合约使用 "); }; });
+        el.querySelectorAll("[data-bbrv]").forEach(function (b) { b.onclick = function () { approve(BB_TOKS[+b.getAttribute("data-bbrv")], b, BUYBACK, 0n, "撤销回购合约对 "); }; });
       });
       else { var e0 = document.getElementById("bb-state"); e0.className = "note"; e0.textContent = "回购合约部署后，这里会出现授权按钮。"; }
       Promise.all(TOKS.map(function (t) {
