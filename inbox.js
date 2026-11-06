@@ -43,19 +43,31 @@
 
   // ---------- 钱包签名登录 ----------
   function login(btn) {
-    btn.disabled = true;
-    return W.choose().then(function (p) {
-      eth = p; return W.ask(eth, { method: "eth_requestAccounts" });
-    }).then(function (acc) {
-      account = String(acc[0] || "").toLowerCase();
+    var st = document.getElementById("ib-st"), say = function (t) { if (st) st.textContent = t; };
+    btn.disabled = true; say("正在连接钱包…");
+    var K = A.otcKit, Wt = A.wallet, ts = Date.now();
+    // 和 OTC / 账本留言同一套连接流程（手机钱包浏览器、EIP-6963、切链都在里面）
+    var conn = K && K.connect ? K.connect() : W.choose().then(function (p) { eth = p; return W.ask(p, { method: "eth_requestAccounts" }); }).then(function (a) { return a[0]; });
+    return conn.then(function (acc) {
+      account = String(acc || "").toLowerCase();
       if (!account) throw new Error("没有拿到钱包地址");
-      var ts = Date.now();
-      return W.ask(eth, { method: "personal_sign", params: [utf8hex(text(account, ts)), account] }).then(function (sig) { return { a: account, ts: ts, sig: sig }; });
-    }).then(function (au) {
-      auth = au; try { localStorage.setItem(KEY, JSON.stringify(au)); } catch (e) {}
-      btn.disabled = false; lastMax = 0; schedule();
-      return pull(paint);
-    }).catch(function (e) { btn.disabled = false; if (!eth && W.openIn) return W.openIn(); A.errTip(e && (e.message || e), btn); });
+      eth = (Wt && Wt.get && Wt.get()) || W.current() || eth;
+      say("请在钱包里点「签名」（免费，不是交易，不花 Gas）");
+      var msg = utf8hex(text(account, ts));
+      return W.ask(eth, { method: "personal_sign", params: [msg, account] }).catch(function (e) {
+        if (/reject|denied|取消|拒绝/i.test(String(e && (e.message || e)))) throw e;
+        return W.ask(eth, { method: "personal_sign", params: [account, msg] }); // 个别钱包参数顺序相反
+      });
+    }).then(function (sig) {
+      auth = { a: account, ts: ts, sig: sig }; try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (e) {}
+      btn.disabled = false; lastMax = 0; schedule(); say("✅ 已登录");
+      return pull(paint).then(function () { if (location.hash.indexOf("#/inbox") === 0 && A.pages.inbox) A.pages.inbox(cur); });
+    }).catch(function (e) {
+      btn.disabled = false; say("");
+      var m = String(e && (e.message || e.reason || e)) || "";
+      if (!eth && !(K && K.account && K.account()) && W.openIn && !/reject|denied|取消|拒绝/i.test(m)) return W.openIn();
+      A.errTip(m || "钱包没有响应，请在钱包 App 内置浏览器里打开本站再试", btn);
+    });
   }
 
   // ---------- 页面 ----------
@@ -71,14 +83,15 @@
     cur = id;
     if (!auth) {
       A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱</h2><p>成交、借贷、工单回复、预言家中奖、链上留言……所有和你钱包有关的通知都在这里，<b>不用加任何社交软件</b>。</p>' +
-        '<p class="muted">用钱包签一次名证明是你本人（免费、不花 Gas、不是交易），管 30 天。</p><button type="button" class="nm-go" id="ib-go">🔏 钱包签名，打开我的收件箱</button></section>';
+        '<p class="muted">用钱包签一次名证明是你本人（免费、不花 Gas、不是交易），管 30 天。</p><button type="button" class="nm-go" id="ib-go">🔏 钱包签名，打开我的收件箱</button><p class="muted nm-st" id="ib-st"></p>' +
+        '<p class="muted ib-tip">手机请在钱包 App（OKX / Bitget / TokenPocket / MetaMask 等）内置浏览器里打开 ailgns.dev 再点；点了弹出钱包就选「签名」。</p></section>';
       document.getElementById("ib-go").onclick = function () { login(this); };
       return;
     }
     var canN = "Notification" in window, perm = canN ? Notification.permission : "denied";
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>🔔 收件箱 <small class="muted" id="ib-un"></small></h2><span class="ib-ops"><button type="button" class="ghost" id="ib-seen">全部已读</button><button type="button" class="ghost" id="ib-out" title="换一个钱包">退出</button></span></div>' +
       '<p class="muted ib-who">钱包 <a class="mono" href="#/scan/' + auth.a + '">' + A.short(auth.a) + "</a>" +
-      (canN && perm === "default" ? ' · <button type="button" class="link" id="ib-notify">开启浏览器通知</button>（新消息弹到桌面/手机）' : perm === "granted" ? " · ✅ 浏览器通知已开" : "") + "</p>" +
+      (canN && perm === "default" ? ' · <button type="button" class="link" id="ib-notify">开启浏览器通知</button>（新消息弹到桌面/手机）' : perm === "granted" ? " · ✅ 浏览器通知已开" : (/iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone ? ' · <span class="muted">iPhone 要先把本站「添加到主屏幕」再从桌面图标打开，才能开通知（<a href="#/app">怎么加 →</a>）</span>' : "")) + "</p>" +
       '<div id="ib-list"><p class="muted">读取中…</p></div></section>';
     document.getElementById("ib-seen").onclick = function () {
       var b = this; b.disabled = true;
