@@ -2683,3 +2683,5 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .cred3 { background: #fff3c4; color: #8a5a00; border-color: #f5d77a; }
 .cred4 { background: linear-gradient(90deg, #fde68a, #f59e0b); color: #4a2a00; border-color: #f59e0b; }
 .sc-cred { margin: 6px 0 10px; font-size: 13px; }
+
+@media (max-width: 760px) { table.book td[data-l="挂单人"] { white-space: normal; overflow: visible; } table.book td[data-l="挂单人"] .cred { margin: 2px 0 0 4px; } }
