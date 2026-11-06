@@ -4,6 +4,7 @@
   "use strict";
   var A = window.AIL, KEY = "ibAuth", W = A.wallets;
   var ICO = { otc: "💱", loan: "🤝", ticket: "📮", msg: "📬", oracle: "🔮", sys: "📣" };
+  var PAUSED = true; // 站长 2026-11-06：手机 App 里连不上钱包，先暂停对客户开放，方案想好再开（改成 false 即恢复）
   var auth = null, lastMax = 0, timer = null, eth = null, account = "";
   try { auth = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { auth = null; }
   if (auth && (!auth.a || !auth.sig || Date.now() - auth.ts > 29 * 86400e3)) auth = null;
@@ -19,7 +20,7 @@
   var bell = document.createElement("a");
   bell.className = "ib-bell"; bell.href = "#/inbox"; bell.title = "收件箱"; bell.setAttribute("aria-label", "收件箱");
   bell.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><i class="ib-n" hidden></i>';
-  var right = document.querySelector(".top-r"); if (right) right.insertBefore(bell, right.firstChild);
+  var right = document.querySelector(".top-r"); if (right && !PAUSED) right.insertBefore(bell, right.firstChild);
   function badge(n) { var i = bell.querySelector(".ib-n"); i.hidden = !n; i.textContent = n > 99 ? "99+" : n; bell.classList.toggle("has", !!n); }
 
   function pull(render) {
@@ -109,6 +110,10 @@
   }
   A.pages.inbox = function (id) {
     cur = id;
+    if (PAUSED) {
+      A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱 <span class="lp-tag">调整中，暂未开放</span></h2><p>成交、借贷、工单回复、预言家中奖、链上留言的通知功能正在重新设计（手机 App 里登录体验还不够顺），弄好会在「更新日志」公布。</p><p class="muted">这期间通知不会丢：所有消息都在后台替你存着，开放后一次看到。成交 / 到期提醒现在仍可通过 DeBox 机器人接收（OTC 页「DeBox 私信」卡片）。</p><p><a class="nm-go" href="#/scan">去账本查我的单 →</a></p></section>';
+      return;
+    }
     if (!auth) {
       A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱</h2><p>成交、借贷、工单回复、预言家中奖、链上留言……所有和你钱包有关的通知都在这里，<b>不用加任何社交软件</b>。</p>' +
         '<p class="muted">用钱包签一次名证明是你本人（免费、不花 Gas、不是交易），管 30 天。</p><button type="button" class="nm-go" id="ib-go">🔏 钱包签名，打开我的收件箱</button><p class="muted nm-st" id="ib-st"></p>' +
@@ -159,7 +164,7 @@
     pull(paint); schedule();
   };
   // 开站就拉一次（已登录的），之后按节奏
-  if (auth) { setTimeout(function () { pull(null); schedule(); }, 1500); }
+  if (auth && !PAUSED) { setTimeout(function () { pull(null); schedule(); }, 1500); }
   window.addEventListener("hashchange", schedule);
   A.inbox = { login: function (b) { return login(b); }, authed: function () { return !!auth; } };
 })();
