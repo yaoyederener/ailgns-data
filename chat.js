@@ -173,7 +173,7 @@
       if (open && matchMedia("(min-width: 601px)").matches) input.focus();
     }
     fab.onclick = function () { toggle(panel.hidden); };
-    A.chatOpen = function (q) { toggle(true); if (q && input) { input.value = q; input.focus(); } }; // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
+    if (window.AIL) window.AIL.chatOpen = function (q) { toggle(true); if (q && input) { input.value = q; input.focus(); } }; // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();
