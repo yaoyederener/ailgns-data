@@ -44,7 +44,7 @@ export async function onRequestGet(ctx) {
     now, round, cutoff: drawStart(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot, rev: al.rev,
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
-    players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0])) })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
+    players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0])), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
     drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),
   };
@@ -83,6 +83,7 @@ export async function onRequestGet(ctx) {
 }
 
 export async function onRequestPost(ctx) {
+  let chainSubmit = null; // 客户自己上链的预测（0 元自转账）
   // keeper 写入链上存证：{ action: "anchor", key: BACKUP_KEY, day, tx, hash }（指纹必须和服务器现算的一致）
   const req0 = ctx.request.clone();
   try {
@@ -107,8 +108,11 @@ export async function onRequestPost(ctx) {
       const m = txt.match(/^ailgns-oracle-guess:(\d{4}-\d{2}-\d{2}):([\d.,]+)$/);
       if (!m) return json({ error: "这笔交易不是预测存证" }, 400);
       const a0 = String(t.from).toLowerCase();
+      if (await kv0.get("or:gtx:tx:" + tx)) return json({ error: "这笔交易已经提交过了" }, 400);
+      await kv0.put("or:gtx:tx:" + tx, "1", { expirationTtl: 400 * 86400 });
       await kv0.put("or:gtx:" + m[1] + ":" + a0, JSON.stringify({ tx, ps: m[2], at: Date.now() }), { expirationTtl: 400 * 86400 });
-      return json({ ok: true, day: m[1], ps: m[2] });
+      // 站长 2026-11-07：上链 = 提交。交易本身就是钱包签名，不再另外要 personal_sign；其它规则（资格、次数、一钱包一名字）一样
+      chainSubmit = { a: a0, day: m[1], ps: m[2].split(","), tx };
     }
   } catch (e) { /* 不是 anchor 请求，往下走 */ }
   const kv = ctx.env.TEAM_KV;
@@ -123,15 +127,15 @@ export async function onRequestPost(ctx) {
     await kv.put("or:pay", JSON.stringify(pay));
     return json({ ok: true });
   }
-  const a = String(b.a || "").toLowerCase(), day = String(b.day || ""), sig = String(b.sig || "");
+  const a = chainSubmit ? chainSubmit.a : String(b.a || "").toLowerCase(), day = chainSubmit ? chainSubmit.day : String(b.day || ""), sig = String(b.sig || "");
   if (!isAddr(a)) return json({ error: "请先连接钱包" }, 400);
   const round = openRound();
   if (day !== round) return json({ error: "这一轮已经开始揭晓了，请刷新页面，预测下一轮" }, 400);
-  const raw = Array.isArray(b.ps) ? b.ps.map((x) => String(x).trim()) : [];
+  const raw = chainSubmit ? chainSubmit.ps : Array.isArray(b.ps) ? b.ps.map((x) => String(x).trim()) : [];
   if (!raw.length || raw.some((x) => !/^\d{1,7}(\.\d{1,3})?$/.test(x))) return json({ error: "价格格式不对，例如 827.354（最多 3 位小数）" }, 400);
   const ps = raw.map((x) => Number(x).toFixed(3));
   if (new Set(ps).size !== ps.length) return json({ error: "这次提交里有重复的价格" }, 400);
-  if (recoverAddress(guessText(day, raw, a), sig) !== a) return json({ error: "签名核对失败，请用当前钱包重新签名" }, 400);
+  if (!chainSubmit && recoverAddress(guessText(day, raw, a), sig) !== a) return json({ error: "签名核对失败，请用当前钱包重新签名" }, 400);
   if (a === "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6" || a === "0x89dd06754bb239b6c4c92bc47c8fa72889084e27") return json({ error: "站长钱包不参加" }, 400);
   let el;
   try { el = await eligibility(kv, a); } catch (e) { return json({ error: "读链失败，请稍后再试" }, 502); }
@@ -154,7 +158,7 @@ export async function onRequestPost(ctx) {
   if (mine.ps.length + fresh.length > q.n) return json({ error: "次数不够：你这一轮共 " + q.n + " 次，已用 " + mine.ps.length + " 次" }, 400);
   const t = Date.now();
   fresh.forEach((p) => mine.ps.push([Math.round(Number(p) * 1000), t]));
-  mine.tier = q.tier;
+  mine.tier = q.tier; if (chainSubmit) mine.tx = chainSubmit.tx;
   await kv.put(key, JSON.stringify(mine), { expirationTtl: 400 * 86400 });
   if (!lk) await kv.put("or:w:" + round + ":" + a, el.key, { expirationTtl: 3 * 86400 });
   return json({ ok: true, round, name, ps: mine.ps.map((x) => fmtP(x[0])), left: q.n - mine.ps.length });

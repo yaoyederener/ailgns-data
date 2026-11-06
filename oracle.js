@@ -237,9 +237,9 @@
     if (me.hold) return '<p class="nm-bad">' + esc(me.name) + " 是本轮开放后才转进这个钱包的，要等<b>下一轮</b>才能用它预测（刚注册的名字不受此限）。</p>";
     var rest = me.n - me.used;
     return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US", { useGrouping: false }) + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
-      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" + (me.chain ? '<p class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/' + me.chain.tx + '">在账本里看 ›</a></p>' : '<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把我的预测写进链上（约 0.001 DAI）</button><small class="muted">写进去后账本里永久显示「你在几点预测了几期多少价」，谁都能查、改不了</small></p>') : "") +
-      (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="填 1 个价格，例如 831.462" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔮 提交预测</button></div>' +
-        '<p class="muted">还能预测 ' + rest + " 次；有几次就填几个价格，用空格或逗号隔开。只需要钱包签名，不扣钱、不花 Gas。</p>" :
+      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" + (me.chain ? '<p class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/' + me.chain.tx + '">在账本里看 ›</a></p>' : '<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把这些预测补写到链上（约 0.001 DAI）</button></p>') : "") +
+      (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="填 1 个价格，例如 831.462" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔗 上链预测</button></div>' +
+        '<p class="muted">还能预测 ' + rest + ' 次；有几次就填几个价格，用空格或逗号隔开。预测直接写进链上（给自己发一笔 0 元转账，Gas 约 0.001 DAI），<b>本站不收任何费用</b>，谁都能查、改不了。<a href="#" id="or-sig">钱包没 DAI 付 Gas？用签名方式</a></p>' :
         '<p class="muted">本轮次数已用完' + (me.bonus ? "" : "；今天在 OTC 成交一笔满 50 DAI，可以再加 1 次") + "。</p>") +
       (me.ps.length ? '<button type="button" class="nm-sw" id="or-poster">📸 生成晒单海报</button>' : "") +
       '<p class="muted or-st" id="or-st"></p><div id="or-img"></div>';
@@ -483,20 +483,34 @@
       raw = raw.map(function (x) { return Number(x).toFixed(3); }).filter(function (x, i, z) { return z.indexOf(x) === i; }); // 重复的价格只算一次
       var left = data.me ? data.me.n - data.me.used : 0;
       if (raw.length > left) return A.errTip("你本轮只剩 " + left + " 次预测机会，但我们读到了 " + raw.length + " 个价格：" + raw.join("、") + "。\n一次只填 1 个价格，小数点用英文点，例如 831.462（还没扣次数）", go);
-      var day = data.round;
-      go.disabled = true; st.textContent = "请在钱包里签名（只是签名，不扣钱、不花 Gas）…";
-      (eth ? Promise.resolve() : connect()).then(function () {
-        return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(guessText(day, raw, account)), account] });
-      }).then(function (sig) {
-        st.textContent = "正在提交…";
-        return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: account, ps: raw, day: day, sig: sig }) }).then(function (x) { return x.json(); });
-      }).then(function (j) {
+      var day = data.round, bySig = !!(window.__orSig);
+      go.disabled = true;
+      // 站长 2026-11-07：预测直接写上链（给自己发一笔 0 元转账，文字放交易里，只花约 0.001 DAI 的 Gas），链上永久留存、谁都能查；本站不收任何费用
+      var chainGo = function () {
+        st.textContent = "🔒 这是一笔 0 元转账（发给自己），预测写在交易里，只花约 0.001 DAI 的 Gas，本站不收费。请在钱包确认";
+        var txt = "ailgns-oracle-guess:" + day + ":" + raw.join(","), hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+        return (eth ? Promise.resolve() : connect()).then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
+          .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
+          .then(function (hash) { st.textContent = "已上链，等待确认…"; return (A.wallet && A.wallet.waitOn ? A.wallet.waitOn("anubis", hash) : Promise.resolve()).then(function () { return hash; }); })
+          .then(function (hash) { st.textContent = "链上已确认，正在登记…"; return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "chain", tx: hash }) }).then(function (x) { return x.json(); }); });
+      };
+      var sigGo = function () {
+        st.textContent = "请在钱包里签名（只是签名，不扣钱、不花 Gas）…";
+        return (eth ? Promise.resolve() : connect()).then(function () {
+          return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(guessText(day, raw, account)), account] });
+        }).then(function (sig) {
+          st.textContent = "正在提交…";
+          return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: account, ps: raw, day: day, sig: sig }) }).then(function (x) { return x.json(); });
+        });
+      };
+      (bySig ? sigGo() : chainGo()).then(function (j) {
         go.disabled = false;
         if (j.error) throw new Error(j.error);
-        st.textContent = "✅ 已提交！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
+        st.textContent = "✅ 已提交" + (bySig ? "" : "并写入链上") + "！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
         load(rid);
       }, function (e) { go.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), go); });
     };
+    var sg = document.getElementById("or-sig"); if (sg) sg.onclick = function (e) { e.preventDefault(); window.__orSig = !window.__orSig; sg.textContent = window.__orSig ? "已切换为签名提交（不上链）· 改回上链" : "钱包没 DAI 付 Gas？用签名方式"; var g = document.getElementById("or-go"); if (g) g.textContent = window.__orSig ? "✍️ 签名预测" : "🔗 上链预测"; };
     var oc = document.getElementById("or-chain");
     if (oc) oc.onclick = function () {
       var ps = (data.me && data.me.ps || []).join(","), day = data.round; if (!ps) return;
