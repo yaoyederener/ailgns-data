@@ -10,3 +10,17 @@ self.addEventListener("fetch", function (e) {
       { headers: { "content-type": "text/html; charset=utf-8" } });
   }));
 });
+
+// 🔔 推送：收到就弹系统通知；点了打开对应页面
+self.addEventListener("push", function (e) {
+  var d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) { d = { t: "AiLGNS 新消息", b: e.data ? e.data.text() : "" }; }
+  e.waitUntil(self.registration.showNotification(d.t || "AiLGNS 新消息", { body: d.b || "", icon: "/favicon.png?v=hx2", badge: "/favicon.png?v=hx2", data: { u: d.u || "/#/inbox" }, tag: d.tag || ("ib-" + Date.now()) }));
+});
+self.addEventListener("notificationclick", function (e) {
+  e.notification.close();
+  var u = (e.notification.data && e.notification.data.u) || "/#/inbox";
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (cs) {
+    for (var i = 0; i < cs.length; i++) { if ("focus" in cs[i]) { cs[i].navigate && cs[i].navigate(u); return cs[i].focus(); } }
+    return self.clients.openWindow(u);
+  }));
+});

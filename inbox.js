@@ -28,7 +28,8 @@
       if (j.error) { if (/过期/.test(j.error)) logout(false); return null; }
       badge(j.unread);
       var top = j.list.length ? j.list[0].t : 0;
-      if (lastMax && top > lastMax && "Notification" in window && Notification.permission === "granted") {
+      var hasPush = false; try { hasPush = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
+      if (!hasPush && lastMax && top > lastMax && "Notification" in window && Notification.permission === "granted") {
         j.list.filter(function (x) { return x.t > lastMax; }).slice(0, 3).forEach(function (x) {
           try { var n = new Notification("AiLGNS " + (ICO[x.k] || "📣") + " 新消息", { body: x.txt.split("\n")[0].slice(0, 90), tag: x.id }); n.onclick = function () { location.hash = x.link || "#/inbox"; window.focus(); }; } catch (e) {}
         });
@@ -72,6 +73,31 @@
     });
   }
 
+  // ---------- 真·推送订阅（Service Worker + Web Push）：手机不开网站也能收到 ----------
+  function subscribePush(btn, id) {
+    if (!auth) return;
+    btn.disabled = true; btn.textContent = "开启中…";
+    var fail = function (m) { btn.disabled = false; btn.textContent = "开启通知"; A.errTip(m, btn); };
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return fail(/iPhone|iPad/.test(navigator.userAgent) ? "iPhone 需要先把本站「添加到主屏幕」，再从桌面图标打开才能开通知（iOS 16.4 以上）" : "这个浏览器不支持通知，换 Chrome / Edge / Safari 试试");
+    Notification.requestPermission().then(function (perm) {
+      if (perm !== "granted") throw new Error("你没有允许通知。想开的话到浏览器设置里允许本站通知，再回来点一次");
+      return navigator.serviceWorker.register("/sw.js").then(function () { return navigator.serviceWorker.ready; });
+    }).then(function (reg) {
+      return fetch("/api/push").then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.pub) throw new Error("服务器没准备好，稍后再试");
+        var raw = atob(j.pub.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(j.pub.length / 4) * 4, "=")), key = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
+        return reg.pushManager.getSubscription().then(function (s) { return s || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }); });
+      });
+    }).then(function (sub) {
+      return fetch("/api/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, sub: sub.toJSON() }) }).then(function (r) { return r.json(); });
+    }).then(function (j) {
+      if (j.error) throw new Error(j.error);
+      try { localStorage.setItem("ib:push:" + auth.a, "1"); } catch (e) {}
+      btn.textContent = "✅ 已开启"; btn.disabled = false;
+      if (j.test && !j.test.ok) A.errTip("订阅成功，但测试推送没发出去（" + (j.test.status || j.test.err || "未知") + "），稍后再试", btn);
+      setTimeout(function () { if (A.isCurrent(id)) A.pages.inbox(id); }, 1500);
+    }).catch(function (e) { fail(String(e && (e.message || e)) || "开启失败"); });
+  }
   // ---------- 页面 ----------
   var cur = null;
   function paint(j) {
@@ -92,10 +118,11 @@
       document.getElementById("ib-go").onclick = function () { login(this); };
       return;
     }
-    var canN = "Notification" in window, perm = canN ? Notification.permission : "denied";
+    var canN = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, perm = canN ? Notification.permission : "denied";
+    var pushed = false; try { pushed = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>🔔 收件箱 <small class="muted" id="ib-un"></small></h2><span class="ib-ops"><button type="button" class="ghost" id="ib-seen">全部已读</button><button type="button" class="ghost" id="ib-out" title="换一个钱包">退出</button></span></div>' +
       '<p class="muted ib-who">钱包 <a class="mono" href="#/scan/' + auth.a + '">' + A.short(auth.a) + "</a>" +
-      (canN && perm === "default" ? ' · <button type="button" class="link" id="ib-notify">开启浏览器通知</button>（新消息弹到桌面/手机）' : perm === "granted" ? " · ✅ 浏览器通知已开" : (/iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone ? ' · <span class="muted">iPhone 要先把本站「添加到主屏幕」再从桌面图标打开，才能开通知（<a href="#/app">怎么加 →</a>）</span>' : "")) + "</p>" +
+      (canN && (perm === "default" || (perm === "granted" && !pushed)) ? ' · <button type="button" class="link" id="ib-notify">开启通知</button>（新消息像微信一样弹到手机/电脑）' : perm === "granted" && pushed ? ' · ✅ 通知已开 <button type="button" class="link" id="ib-notify">重新开启</button>' : perm === "denied" && canN ? ' · <span class="muted">通知被浏览器拒绝了，去浏览器设置里允许本站通知后再来</span>' : (/iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone ? ' · <span class="muted">iPhone 要先把本站「添加到主屏幕」再从桌面图标打开，才能开通知（<a href="#/app">怎么加 →</a>）</span>' : "")) + "</p>" +
       '<div id="ib-list"><p class="muted">读取中…</p></div></section>';
     document.getElementById("ib-seen").onclick = function () {
       var b = this; b.disabled = true;
@@ -103,7 +130,7 @@
     };
     document.getElementById("ib-out").onclick = function () { logout(true); A.pages.inbox(id); };
     var nb = document.getElementById("ib-notify");
-    if (nb) nb.onclick = function () { Notification.requestPermission().then(function () { if (A.isCurrent(id)) A.pages.inbox(id); }); };
+    if (nb) nb.onclick = function () { subscribePush(nb, id); };
     pull(paint); schedule();
   };
   // 开站就拉一次（已登录的），之后按节奏
