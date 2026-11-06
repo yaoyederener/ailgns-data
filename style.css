@@ -2759,3 +2759,13 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .or-simcta { display: block; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(120deg, #7c5cff, #5a35d6); color: #fff; font-weight: 700; text-align: center; text-decoration: none; font-size: 13.5px; }
 .or-all li.hot { background: #fff3c4; border-radius: 8px; padding: 2px 6px; margin-left: -6px; } .or-all li.hot.h1 { background: #ffe9a0; } .or-all li.hot::after { content: " ← 此刻领先"; color: #8a5a00; font-size: 11.5px; }
 @media (max-width: 480px) { .or-simg { grid-template-columns: 1fr; } .or-simc { display: flex; align-items: center; gap: 8px; } .or-simc small { flex: none; width: 92px; } .or-simc b { flex: 1; margin: 0; font-size: 14px; } }
+
+/* 📒 账本：资金状态一眼看懂 + 撤单按钮 */
+.sc-stl { margin-top: 5px; }
+.sc-st { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.5; font-weight: 600; }
+.sc-st.ok { background: #e8fbf2; color: #0a7a52; border: 1px solid #bfeedd; }
+.sc-st.warn { background: #fff3c4; color: #8a5a00; border: 1px solid #f5d77a; }
+.lg-acts { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+.sc-cancel { padding: 6px 12px; border-radius: 999px; border: 1px solid #f6465d; background: #fff; color: #f6465d; font-size: 12.5px; font-weight: 700; box-shadow: none; white-space: nowrap; }
+.sc-cancel:disabled { opacity: .6; }
+@media (max-width: 600px) { .lg-acts { flex-direction: row; align-items: center; } }

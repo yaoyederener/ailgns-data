@@ -359,7 +359,27 @@
   var fmtA = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4); };
   var leftT = function (sec) { if (sec <= 0) return "已到期"; var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟"; };
   var wordsOf = function (r) { return (r || "0x").slice(2).match(/.{64}/g) || []; };
-  function posRow(ico, html, href, cta, just) { return '<div class="lg-row' + (just ? " lg-just" : "") + '"><span class="lg-ico">' + (just ? '<i class="lg-justtag">刚挂的</i>' : "") + '' + ico + '</span><div class="lg-main"><div class="lg-txt">' + html + "</div></div>" + (href ? '<a class="lg-link" href="' + href + '">' + (cta || "去处理 ›") + "</a>" : "") + "</div>"; }
+  function posRow(ico, html, href, cta, just, x) {
+    x = x || {};
+    var me = A.otcKit && A.otcKit.account && A.otcKit.account();
+    var btn = x.cancel && me && x.owner === me ? '<button type="button" class="sc-cancel" data-cancel="' + x.id + '" data-k="' + x.k + '">撤单</button>' : "";
+    return '<div class="lg-row' + (just ? " lg-just" : "") + '"><span class="lg-ico">' + (just ? '<i class="lg-justtag">刚挂的</i>' : "") + '' + ico + '</span><div class="lg-main"><div class="lg-txt">' + html + "</div>" + (x.st ? '<div class="sc-stl">' + x.st + "</div>" : "") + "</div><span class=\"lg-acts\">" + btn + (href ? '<a class="lg-link" href="' + href + '">' + (cta || "去处理 ›") + "</a>" : "") + "</span></div>";
+  }
+  // 账本里直接撤单：切到对应市场，走 OTC 同一套 cancel（普通用户操作，不碰管理权限）
+  function bindCancel(box, a, reload) {
+    box.querySelectorAll("[data-cancel]").forEach(function (b) {
+      b.onclick = function () {
+        var K = A.otcKit, id = b.getAttribute("data-cancel"), k = b.getAttribute("data-k");
+        if (!K || !K.useMarket) return;
+        if (!confirm("确定撤单 #" + id + "？撤了币马上退回你的钱包。")) return;
+        b.disabled = true; b.textContent = "撤单中…";
+        K.useMarket(k);
+        K.ready().then(function () { return K.send(K.OTC(), "0x40e58ee5" + K.u256(id), function (t) { b.textContent = t.slice(0, 12); }, "撤单 #" + id); })
+          .then(function () { b.textContent = "✅ 已撤回"; if (A.just) A.just.set("otc", k); setTimeout(reload, 2500); })
+          .catch(function (e) { b.disabled = false; b.textContent = "撤单"; A.errTip(K.niceError ? K.niceError(e) : (e && e.message) || e, b); });
+      };
+    });
+  }
   function positions(a, box) {
     var now = Date.now() / 1000, out = [];
     var jobs = [];
@@ -373,8 +393,10 @@
           if (maker !== a || !open || exp <= now || gL === 0n) continue;
           var giveLeft = big(gL, sell ? m.dec : 18), wantLeft = gT > 0n ? big(gL * wT / gT, sell ? 18 : m.dec) : 0;
           var px = sell ? (giveLeft ? wantLeft / giveLeft : 0) : (wantLeft ? giveLeft / wantLeft : 0);
-          out.push({ t: exp, k: k, id: from + i, html: sell ? "<b>OTC 挂单卖出</b> " + fmtA(giveLeft) + " " + m.sym + "，要价 " + fmtA(wantLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : "")
-            : "<b>OTC 挂单买入</b> " + fmtA(wantLeft) + " " + m.sym + "，锁定 " + fmtA(giveLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : ""), href: "#/otc" + (k === "ailgns" ? "" : "/" + k), ico: "📌" });
+          var lockTxt = sell ? fmtA(giveLeft) + " " + m.sym : fmtA(giveLeft) + " DAI";
+          out.push({ t: exp, k: k, id: from + i, cancel: true, st: '<span class="sc-st ok">✅ 挂单中 · 你的 ' + lockTxt + ' 安全锁在 OTC 托管合约里，没成交随时撤回，到期自动退回</span>',
+            html: sell ? "<b>OTC 挂单卖出</b> " + fmtA(giveLeft) + " " + m.sym + "，要价 " + fmtA(wantLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : "")
+            : "<b>OTC 挂单买入</b> " + fmtA(wantLeft) + " " + m.sym + "，锁定 " + fmtA(giveLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : ""), href: "#/otc" + (k === "ailgns" ? "" : "/" + k), cta: "去 OTC 看 ›", ico: "📌" });
         }
       }).catch(function () {}));
     });
@@ -384,7 +406,7 @@
       (d.list || []).forEach(function (x) {
         if (x.maker !== a) return;
         var p = big(x.price, 18), just = A.just && A.just.has("names", x.label + "." + x.t);
-        out.push({ t: x.expiry, just: just, html: "<b>域名挂单出售</b> " + esc(x.label + "." + x.t) + "，标价 " + fmtA(p) + " DAI · 剩 " + leftT(x.expiry - now), href: "#/names/" + encodeURIComponent(x.label + "." + x.t), ico: just ? "🆕" : "🏷" });
+        out.push({ t: x.expiry, just: just, st: '<span class="sc-st ok">✅ 在卖 · 名字安全托管在域名市场合约里，没卖掉随时撤回（到「域名 → 我的挂单」撤单）</span>', html: "<b>域名挂单出售</b> " + esc(x.label + "." + x.t) + "，标价 " + fmtA(p) + " DAI · 剩 " + leftT(x.expiry - now), href: "#/names/" + encodeURIComponent(x.label + "." + x.t), ico: just ? "🆕" : "🏷" });
       });
     }).catch(function () {}));
     // 借贷（借款单 / 出借单 / 借款中）
@@ -401,11 +423,11 @@
             var col = big("0x" + o[7], L.dec), prin = big("0x" + o[8], 18), rep = big("0x" + o[9], 18);
             if (br !== a && ld !== a) continue;
             if (st === 0 && exp > now) {
-              if (isOffer && ld === a) out.push({ t: exp, html: "<b>出借单挂着</b>：锁定 " + fmtA(prin) + " DAI 等人来借，到期收 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "📣" });
-              else if (!isOffer && br === a) out.push({ t: exp, html: "<b>借款单挂着</b>：抵押 " + fmtA(col) + " " + L.sym + "，想借 " + fmtA(prin) + " DAI，到期还 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "🤝" });
+              if (isOffer && ld === a) out.push({ t: exp, st: '<span class="sc-st ok">✅ 等人来借 · 你的 DAI 安全锁在借贷合约里，没人借随时撤回</span>', html: "<b>出借单挂着</b>：锁定 " + fmtA(prin) + " DAI 等人来借，到期收 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "📣" });
+              else if (!isOffer && br === a) out.push({ t: exp, st: '<span class="sc-st ok">✅ 等人来借给你 · 你的抵押币安全锁在借贷合约里，没人接随时撤回</span>', html: "<b>借款单挂着</b>：抵押 " + fmtA(col) + " " + L.sym + "，想借 " + fmtA(prin) + " DAI，到期还 " + fmtA(rep) + " DAI（" + Math.round(term / 86400) + " 天）· 剩 " + leftT(exp - now), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "🤝" });
             } else if (st === 1) {
-              if (br === a) out.push({ t: due, html: "<b>借款中</b>：借了 " + fmtA(prin) + " DAI，到期要还 <b>" + fmtA(rep) + " DAI</b>，抵押 " + fmtA(col) + " " + L.sym + " · " + (due > now ? "还剩 " + leftT(due - now) + "，记得按时还" : "<b class=\"nm-bad\">已过期，抵押可能被处置</b>"), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "💰" });
-              else out.push({ t: due, html: "<b>出借中</b>：借出 " + fmtA(prin) + " DAI，到期收回 " + fmtA(rep) + " DAI · " + (due > now ? "还剩 " + leftT(due - now) : "<b>已到期</b>，对方没还可以处置抵押"), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "💵" });
+              if (br === a) out.push({ t: due, st: '<span class="sc-st warn">⏳ 借款中 · 抵押币锁在借贷合约里，到期前还款就退回</span>', html: "<b>借款中</b>：借了 " + fmtA(prin) + " DAI，到期要还 <b>" + fmtA(rep) + " DAI</b>，抵押 " + fmtA(col) + " " + L.sym + " · " + (due > now ? "还剩 " + leftT(due - now) + "，记得按时还" : "<b class=\"nm-bad\">已过期，抵押可能被处置</b>"), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "💰" });
+              else out.push({ t: due, st: '<span class="sc-st ok">✅ 出借中 · 本金已借出，到期对方还款直接到你钱包；逾期抵押币归你</span>', html: "<b>出借中</b>：借出 " + fmtA(prin) + " DAI，到期收回 " + fmtA(rep) + " DAI · " + (due > now ? "还剩 " + leftT(due - now) : "<b>已到期</b>，对方没还可以处置抵押"), href: "#/lend" + (k === "ailgns" ? "" : "/" + k), ico: "💵" });
             }
           }
         });
@@ -426,7 +448,8 @@
       var soon = out.filter(function (x) { return x.t && x.t * 1000 - Date.now() < 86400e3 && x.t * 1000 > Date.now(); }).length, expired = out.filter(function (x) { return x.t && x.t * 1000 <= Date.now(); }).length;
       out.forEach(function (x) { if (x.t && x.t * 1000 - Date.now() < 86400e3 && x.t * 1000 > Date.now()) x.html = '<span class="sc-soon">⏰ 24 小时内到期</span> ' + x.html; });
       var ps = document.getElementById("sc-possum"); if (ps) ps.textContent = "共 " + out.length + " 件" + (soon ? " · ⏰ " + soon + " 件快到期" : "") + (expired ? " · " + expired + " 件已到期（会自动退回）" : "");
-      box.innerHTML = out.map(function (x) { return posRow(x.ico, x.html, x.href, x.cta, x.just); }).join("");
+      box.innerHTML = out.map(function (x) { x.owner = a; return posRow(x.ico, x.html, x.href, x.cta, x.just, x); }).join("");
+      bindCancel(box, a, function () { positions(a, box); });
       fillNames(box);
       return out;
     });
