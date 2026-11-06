@@ -534,7 +534,8 @@
   function addrView(a, out, via, cat) {
     var wait = '<p class="muted">读取中…</p>';
     var S = { head: (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
-      '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + (KNOWN[a] || "这个钱包")) + '</h2><p class="sc-addr"><span class="mono">' + a + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制</button></p><div id="sc-who"></div></section>',
+      // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
+      (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
       msg: '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
       '<div id="sc-msgbox" hidden><textarea id="sc-mtxt" maxlength="200" rows="3" placeholder="写给 TA 的话（200 字以内）。留言会永久记录在链上，所有人可见，只花约 0.001 DAI 的 Gas。"></textarea>' +
       '<div class="sc-mrow"><small class="muted"><span id="sc-mn">0</span>/200 · 只有注册了 .ailgns 域名并设为主名字的钱包才能发信</small><button type="button" class="nm-go" id="sc-msend">发送留言</button></div><p class="muted nm-st" id="sc-mst"></p></div>' +
@@ -551,8 +552,11 @@
     var el = function (id) { return document.getElementById(id); };
     nameOf(a).then(function (primary) {
       if (!el("sc-who")) return;
-      if (primary && !via && el("sc-h2")) el("sc-h2").innerHTML = "🌐 " + esc(primary) + ' <small class="muted">这个钱包的名字</small>';
-      el("sc-who").innerHTML = primary || KNOWN[a] ? "" : '<p class="muted">这个钱包还没有名字 · <a href="#/names">花 5 DAI 起一个 →</a></p>';
+      var slot = el("sc-head-slot");
+      if (primary && !via && slot) slot.outerHTML = '<section class="card sc-head"><h2>🌐 ' + esc(primary) + ' <small class="muted">这个钱包的名字</small></h2></section>';
+      else if (slot) slot.remove();
+      var bx0 = el("sc-balx"); if (bx0 && !primary && !KNOWN[a]) bx0.insertAdjacentHTML("beforeend", '<p class="muted sc-noname">这个钱包还没有名字 · <a href="#/names">花 5 DAI 起一个 →</a></p>');
+      if (el("sc-who")) el("sc-who").remove();
     });
     // 余额：最值钱的三种大字（AiLGNS / LGNS / DAI），折算成 DAI 合计；其它币小字列出；Gas 不单列（这条链 Gas 就是 DAI）
     var px = { AiLGNS: 0, LGNS: 0 };
