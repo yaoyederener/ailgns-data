@@ -73,26 +73,20 @@
   // 有效期滑块（站长 2026-11-06：做成进度条的感觉）：11 个档位拖着选，下面有刻度，右边一个「自定义」小按钮
   function durText(sec) { return sec % 86400 === 0 ? sec / 86400 + " 天" : sec % 3600 === 0 ? sec / 3600 + " 小时" : sec >= 3600 ? Math.floor(sec / 3600) + " 小时 " + Math.round(sec % 3600 / 60) + " 分钟" : Math.round(sec / 60) + " 分钟"; }
   function durSlider(host, opt) {
-    opt = opt || {}; var val = opt.value || DUR_DEFAULT, unit = 3600;
-    var idx = DURATIONS.findIndex(function (d) { return d[0] === val; }); if (idx < 0) idx = DURATIONS.length - 1;
-    host.innerHTML = '<div class="ds"><div class="ds-top"><span class="ds-t">' + (opt.label || "有效期") + ' <small class="muted">到期没成交，币自动退回</small></span><b class="ds-v"></b></div>' +
-      '<div class="ds-track"><input type="range" class="ds-r" min="0" max="' + (DURATIONS.length - 1) + '" step="1" value="' + idx + '"><div class="ds-fill"></div></div>' +
-      '<div class="ds-ticks">' + [0, 2, 6, 8, 10].map(function (i) { return "<span>" + DURATIONS[i][1] + "</span>"; }).join("") + '</div>' +
-      '<div class="ds-foot"><small class="muted ds-st"></small><button type="button" class="link ds-cus">自定义</button></div>' +
-      '<div class="ds-custom" hidden><input class="ds-n" inputmode="decimal" placeholder="数字"><div class="seg ds-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div></div>';
-    var r = host.querySelector(".ds-r"), fill = host.querySelector(".ds-fill"), v = host.querySelector(".ds-v"), st = host.querySelector(".ds-st"), cus = host.querySelector(".ds-custom"), n = host.querySelector(".ds-n");
+    // 站长 2026-11-07：不要滑块，默认 30 天一行字，旁边一个小小的「自定义」；订单簿要热闹，单子别一会儿就没了
+    opt = opt || {}; var val = opt.value || DUR_DEFAULT, unit = 86400;
+    host.innerHTML = '<div class="dl"><span class="dl-t">' + (opt.label || "有效期") + '</span><b class="dl-v"></b><small class="muted dl-st"></small><button type="button" class="link dl-cus">自定义</button>' +
+      '<span class="dl-custom" hidden><input class="dl-n" inputmode="decimal" placeholder="数字"><span class="seg dl-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600">小时</button><button type="button" data-u="86400" class="on">天</button></span><button type="button" class="link dl-back">用默认 30 天</button></span></div>';
+    var v = host.querySelector(".dl-v"), st = host.querySelector(".dl-st"), cus = host.querySelector(".dl-custom"), n = host.querySelector(".dl-n");
     function paint(sec) {
       var ok = sec >= DUR_MIN && sec <= DUR_MAX;
       v.textContent = ok ? durText(sec) : "—";
-      st.innerHTML = ok ? "约 " + A.timeBJ(Date.now() + sec * 1000) + " 到期（北京时间）" : '<span class="down">有效期要在 10 分钟到 30 天之间</span>';
-      var i = DURATIONS.findIndex(function (d) { return d[0] === sec; });
-      if (i >= 0) { r.value = i; }
-      fill.style.width = (Number(r.value) / (DURATIONS.length - 1) * 100) + "%";
+      st.innerHTML = ok ? "到期没成交币自动退回 · 约 " + A.timeBJ(Date.now() + sec * 1000) + " 到期" : '<span class="down">要在 10 分钟到 30 天之间</span>';
       val = ok ? sec : 0; if (opt.onChange) opt.onChange(val);
     }
-    r.oninput = function () { cus.hidden = true; paint(DURATIONS[Number(r.value)][0]); };
-    host.querySelector(".ds-cus").onclick = function () { cus.hidden = !cus.hidden; if (!cus.hidden) n.focus(); };
-    host.querySelectorAll(".ds-u button").forEach(function (b) { b.onclick = function () { host.querySelectorAll(".ds-u button").forEach(function (x) { x.classList.toggle("on", x === b); }); unit = Number(b.getAttribute("data-u")); var x = Number(n.value); if (x > 0) paint(Math.round(x * unit)); }; });
+    host.querySelector(".dl-cus").onclick = function () { cus.hidden = false; this.hidden = true; n.focus(); };
+    host.querySelector(".dl-back").onclick = function () { cus.hidden = true; host.querySelector(".dl-cus").hidden = false; n.value = ""; paint(DUR_DEFAULT); };
+    host.querySelectorAll(".dl-u button").forEach(function (b) { b.onclick = function () { host.querySelectorAll(".dl-u button").forEach(function (x) { x.classList.toggle("on", x === b); }); unit = Number(b.getAttribute("data-u")); var x = Number(n.value); if (x > 0) paint(Math.round(x * unit)); }; });
     n.oninput = function () { var x = Number(n.value); paint(x > 0 ? Math.round(x * unit) : NaN); };
     paint(val);
     return { value: function () { return val; }, set: function (sec) { paint(sec); } };

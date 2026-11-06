@@ -175,8 +175,7 @@
       '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要卖卡</button><button data-side="buy">我要求购</button></div>' +
       '<div id="nft-cards" class="nft-cards"></div>' +
       '<div class="form-grid"><label>价格（DAI / 张）<input id="nft-price" inputmode="decimal" placeholder="例如 500"></label></div>' +
-      '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，自动退回</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
-      '<div class="dur-opts" id="otc-durs">' + k.DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === k.DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
+      '<div class="dur" id="otc-durbox"><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '"></div>' + "</div></div>" +
       '<p class="note" id="otc-sum">选一张卡、填好价格后显示明细</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
   }
 
@@ -240,12 +239,7 @@
         showCards(); calc();
       };
     });
-    document.querySelectorAll("#otc-durs button").forEach(function (b) {
-      b.onclick = function () {
-        document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); });
-        document.getElementById("otc-dur").value = b.getAttribute("data-d");
-      };
-    });
+    if (k.durSlider) k.durSlider(document.getElementById("otc-durbox"), { value: k.DUR_DEFAULT, onChange: function (sec) { document.getElementById("otc-dur").value = sec ? String(sec) : ""; } });
     showCards();
     document.getElementById("otc-create").onclick = function () {
       var btn = this, v = calc(), dur = Number(document.getElementById("otc-dur").value);
