@@ -80,7 +80,7 @@
             '<label class="tr2-in"><span>数量 (' + SYM + ')</span><input id="tr-a" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
             '<div class="tr-pct tr2-pct"><button type="button" data-pct="25">25%</button><button type="button" data-pct="50">50%</button><button type="button" data-pct="75">75%</button><button type="button" data-pct="100">100%</button></div>' +
             '<label class="tr2-in"><span>总额 (DAI)</span><input id="tr-t" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
-            '<div class="tr2-meta"><span class="muted" id="tr-bal"></span><span class="tr-dur tr2-dur" id="tr-durbox"><span class="muted">有效</span><select id="tr-dur">' + K().DURATIONS.map(function (d) { return '<option value="' + d[0] + '"' + (d[0] === K().DUR_DEFAULT ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></span></div>" +
+            '<div class="tr2-meta"><span class="muted" id="tr-bal"></span><input type="hidden" id="tr-dur" value="' + K().DUR_DEFAULT + '"></div><div class="tr2-durbox" id="tr-durbox"></div>' +
             '<p class="muted tr-note" id="tr-note"></p>' +
             '<button type="button" class="tr-go buy" id="tr-go">买入 ' + SYM + '</button><p class="muted nm-st" id="tr-st"></p>' +
           '</section>' +
@@ -122,6 +122,9 @@
     var row = function (r, cls) { return '<div class="tr2-row ' + cls + '" data-p="' + r.p + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + fq(r.coin) + "</span></div>"; };
     var last = fills[0], prev = fills[1], lcls = last && prev && last.px < prev.px ? "dn" : "up";
     var fill = function (list, cls) { var h = list.map(function (r) { return row(r, cls); }).join(""); for (var k = list.length; k < N; k++) h += '<div class="tr2-row empty"><span>—</span><span></span></div>'; return h; };
+    var sig = JSON.stringify([asks, bids].map(function (l) { return l.map(function (r) { return [r.p, r.coin]; }); }));
+    if (el.getAttribute("data-sig") && el.getAttribute("data-sig") !== sig) { el.classList.remove("tick"); void el.offsetWidth; el.classList.add("tick"); } // 有变化：整块闪一下，像扫单
+    el.setAttribute("data-sig", sig);
     el.innerHTML = '<div class="tr2-asks">' + fill(asks.slice().reverse(), "ask") + '</div>' +
       '<div class="tr2-last2"><b class="' + lcls + '">' + (last ? f2(last.px) : bestAsk() && bestBid() ? f2((bestAsk() + bestBid()) / 2) : "—") + (last ? (lcls === "up" ? " ↑" : " ↓") : "") + "</b><small>≈ DEX " + (book.mkt ? f2(book.mkt) : "—") + "</small></div>" +
       '<div class="tr2-bids">' + fill(bids, "bid") + "</div>";
@@ -216,6 +219,7 @@
     });
     document.getElementById("tr-conn").onclick = connectBtn;
     document.getElementById("tr-go").onclick = submit;
+    if (K().durSlider) K().durSlider(document.getElementById("tr-durbox"), { value: K().DUR_DEFAULT, label: "有效期", onChange: function (sec) { document.getElementById("tr-dur").value = sec ? String(sec) : ""; } });
     // 顶级标签：交易 / K 线 / 成交
     document.querySelectorAll("#tr2-tabs button").forEach(function (b) {
       b.onclick = function () {

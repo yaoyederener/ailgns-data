@@ -70,6 +70,33 @@
     [86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]];
   var DUR_MIN = 600, DUR_MAX = 30 * 86400;
   var DUR_DEFAULT = 7 * 86400; // 默认挂 7 天：订单簿上挂单多，看着热闹
+  // 有效期滑块（站长 2026-11-06：做成进度条的感觉）：11 个档位拖着选，下面有刻度，右边一个「自定义」小按钮
+  function durText(sec) { return sec % 86400 === 0 ? sec / 86400 + " 天" : sec % 3600 === 0 ? sec / 3600 + " 小时" : sec >= 3600 ? Math.floor(sec / 3600) + " 小时 " + Math.round(sec % 3600 / 60) + " 分钟" : Math.round(sec / 60) + " 分钟"; }
+  function durSlider(host, opt) {
+    opt = opt || {}; var val = opt.value || DUR_DEFAULT, unit = 3600;
+    var idx = DURATIONS.findIndex(function (d) { return d[0] === val; }); if (idx < 0) idx = 8;
+    host.innerHTML = '<div class="ds"><div class="ds-top"><span class="ds-t">' + (opt.label || "有效期") + ' <small class="muted">到期没成交，币自动退回</small></span><b class="ds-v"></b></div>' +
+      '<div class="ds-track"><input type="range" class="ds-r" min="0" max="' + (DURATIONS.length - 1) + '" step="1" value="' + idx + '"><div class="ds-fill"></div></div>' +
+      '<div class="ds-ticks">' + [0, 2, 6, 8, 10].map(function (i) { return "<span>" + DURATIONS[i][1] + "</span>"; }).join("") + '</div>' +
+      '<div class="ds-foot"><small class="muted ds-st"></small><button type="button" class="link ds-cus">自定义</button></div>' +
+      '<div class="ds-custom" hidden><input class="ds-n" inputmode="decimal" placeholder="数字"><div class="seg ds-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div></div>';
+    var r = host.querySelector(".ds-r"), fill = host.querySelector(".ds-fill"), v = host.querySelector(".ds-v"), st = host.querySelector(".ds-st"), cus = host.querySelector(".ds-custom"), n = host.querySelector(".ds-n");
+    function paint(sec) {
+      var ok = sec >= DUR_MIN && sec <= DUR_MAX;
+      v.textContent = ok ? durText(sec) : "—";
+      st.innerHTML = ok ? "约 " + A.timeBJ(Date.now() + sec * 1000) + " 到期（北京时间）" : '<span class="down">有效期要在 10 分钟到 30 天之间</span>';
+      var i = DURATIONS.findIndex(function (d) { return d[0] === sec; });
+      if (i >= 0) { r.value = i; }
+      fill.style.width = (Number(r.value) / (DURATIONS.length - 1) * 100) + "%";
+      val = ok ? sec : 0; if (opt.onChange) opt.onChange(val);
+    }
+    r.oninput = function () { cus.hidden = true; paint(DURATIONS[Number(r.value)][0]); };
+    host.querySelector(".ds-cus").onclick = function () { cus.hidden = !cus.hidden; if (!cus.hidden) n.focus(); };
+    host.querySelectorAll(".ds-u button").forEach(function (b) { b.onclick = function () { host.querySelectorAll(".ds-u button").forEach(function (x) { x.classList.toggle("on", x === b); }); unit = Number(b.getAttribute("data-u")); var x = Number(n.value); if (x > 0) paint(Math.round(x * unit)); }; });
+    n.oninput = function () { var x = Number(n.value); paint(x > 0 ? Math.round(x * unit) : NaN); };
+    paint(val);
+    return { value: function () { return val; }, set: function (sec) { paint(sec); } };
+  }
   var account = null;
   var sweeping = false; // 正在一键扫单：不自动刷新页面
   // 扫单方向：扫完刷新后停在原来的「扫卖单 / 扫买单」，不跳回买入（客户反馈）。存进 sessionStorage：有的钱包浏览器成交后会整页重新加载
@@ -498,14 +525,18 @@
         var act = o.maker === account
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
-        return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + '><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
+        return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + ' style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
           '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.nameTag(o.maker)) + "</td></tr>";
       }
       function book(key, title, list, hint) {
         var bk = MK + key, open = openBook[bk], more = list.length - BOOK_SHOW;
+        // 深度条：每一行背景按「到这一档为止累计多少 DAI」铺色，一眼看出哪边厚；配合扫光动画有「扫单」的感觉
+        var daiOf = function (o) { return o.sellAilgns ? tNum(o.giveLeft) * priceOf(o) : num(o.giveLeft); }; // 这一档还剩多少 DAI 的量
+        var cum = 0, tot = list.reduce(function (sum, o) { return sum + daiOf(o); }, 0) || 1;
+        list.forEach(function (o) { cum += daiOf(o); o._w = Math.min(100, cum / tot * 100).toFixed(1); });
         return '<section class="card' + (open ? " bk-open" : "") + '" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 张</small></h2><span class="muted">' + hint + "</span></div>" +
-          (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
+          (list.length ? '<div class="tbl-wrap bk-sweep"><table class="cards book ' + key + '"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
             list.map(row).join("") + "</tbody></table></div>" +
             (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + bk + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
       }
@@ -612,11 +643,7 @@
         '<div class="form-grid"><label>数量（' + SYM + '）<input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
-        '<div class="dur"><span class="dur-t">有效期 <small class="muted">到期没成交，币自动退回</small></span><input type="hidden" id="otc-dur" value="' + DUR_DEFAULT + '">' +
-        '<div class="dur-opts" id="otc-durs">' + DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") +
-        '<button type="button" data-d="custom">自定义</button></div>' +
-        '<div class="dur-custom" id="otc-dur-custom" hidden><input id="otc-dur-n" inputmode="numeric" placeholder="数字"><div class="seg" id="otc-dur-u"><button type="button" data-u="60">分钟</button><button type="button" data-u="3600" class="on">小时</button><button type="button" data-u="86400">天</button></div></div>' +
-        '<p class="note" id="otc-dur-st">有效期 7 天</p></div>' +
+        '<div class="dur" id="otc-durbox"><input type="hidden" id="otc-dur" value="' + DUR_DEFAULT + '"></div>' +
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="otc-match"></div><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
     }
 
@@ -817,32 +844,9 @@
       }
       pick();
       if (account) Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) { bal = { ail: b[0], dai: b[1] }; pick(); }, function () { bal = null; });
-      // 有效期按钮
-      var durIn = document.getElementById("otc-dur"), durSt = document.getElementById("otc-dur-st"), custom = document.getElementById("otc-dur-custom");
-      var durN = document.getElementById("otc-dur-n"), unit = 3600;
-      function durText(sec) {
-        return sec % 86400 === 0 ? sec / 86400 + " 天" : sec % 3600 === 0 ? sec / 3600 + " 小时" : sec >= 3600 ? Math.floor(sec / 3600) + " 小时 " + Math.round(sec % 3600 / 60) + " 分钟" : Math.round(sec / 60) + " 分钟";
-      }
-      function setDur(sec) {
-        if (!(sec >= DUR_MIN && sec <= DUR_MAX)) { durIn.value = ""; durSt.innerHTML = '<span class="down">有效期要在 10 分钟到 30 天之间</span>'; return; }
-        durIn.value = String(sec);
-        durSt.textContent = "有效期 " + durText(sec) + "，约 " + A.timeBJ(Date.now() + sec * 1000) + " 到期（北京时间）";
-      }
-      function customDur() { var n = Number(durN.value); setDur(n > 0 ? Math.round(n * unit) : NaN); }
-      document.querySelectorAll("#otc-durs button").forEach(function (b) {
-        b.onclick = function () {
-          document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); });
-          var d = b.getAttribute("data-d");
-          custom.hidden = d !== "custom";
-          if (d === "custom") { customDur(); durN.focus(); } else setDur(Number(d));
-        };
-      });
-      document.querySelectorAll("#otc-dur-u button").forEach(function (b) {
-        b.onclick = function () {
-          document.querySelectorAll("#otc-dur-u button").forEach(function (x) { x.classList.toggle("on", x === b); });
-          unit = Number(b.getAttribute("data-u")); customDur();
-        };
-      });
+      // 有效期滑块
+      var durIn = document.getElementById("otc-dur");
+      durSlider(document.getElementById("otc-durbox"), { value: DUR_DEFAULT, onChange: function (sec) { durIn.value = sec ? String(sec) : ""; } });
       durN.oninput = customDur;
       setDur(DUR_DEFAULT);
       document.getElementById("otc-create").onclick = function () {
@@ -1360,7 +1364,7 @@
   // 给 nft.js 用：钱包、发交易、读链、数字格式、市场切换（都按当前市场）
   A.otcKit = {
     account: function () { return account; }, connect: connect, ready: ready, silentAccount: silentAccount, send: send, read: read, balance: balance, allowance: allowance,
-    u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT,
+    u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT, durSlider: durSlider,
     M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; },
     useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
     deboxCard: deboxCard // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
