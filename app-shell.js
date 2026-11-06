@@ -13,6 +13,12 @@
     try { var c = JSON.parse(localStorage.getItem("doms") || "null"); if (c && c.length) list = c; } catch (e) {}
     if (!list.length) list = FALLBACK.map(function (x, i) { return { h: x, main: i === 0 }; });
     paint(); check(); walletsPaint();
+    // 📈 装机统计：从桌面图标打开的，每天记一次「桌面打开」(a1)，这台手机第一次记「新装」(an)。主站以前记这个，现在桌面打开直接进壳页，所以搬到这里
+    try {
+      var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone, today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+      var hit = function (e) { try { navigator.sendBeacon("/api/hit?e=" + e); } catch (x) {} };
+      if (sa) { if (localStorage.getItem("st:a1") !== today) { localStorage.setItem("st:a1", today); hit("a1"); } if (!localStorage.getItem("st:app")) { localStorage.setItem("st:app", today); hit("an"); } }
+    } catch (e) {}
     (function pull(i) {
       if (i >= list.length) return;
       fetchT("https://" + list[i].h + "/api/domains", 5000).then(function (r) { return r.json(); }).then(function (j) {
