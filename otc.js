@@ -847,7 +847,6 @@
       // 有效期滑块
       var durIn = document.getElementById("otc-dur");
       durSlider(document.getElementById("otc-durbox"), { value: DUR_DEFAULT, onChange: function (sec) { durIn.value = sec ? String(sec) : ""; } });
-      setDur(DUR_DEFAULT);
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
