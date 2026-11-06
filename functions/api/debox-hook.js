@@ -59,7 +59,8 @@ export async function onRequestPost(ctx) {
       const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 的 AiLGNS OTC 交流群里回答群友。纯文本、不要 Markdown、不要列表符号，2-4 句说完；只答和本站有关的问题，无关的话题一句话礼貌带过；需要人工就说「可以在网站客服窗口留言或提交工单，站长会处理」。" });
       if (!r || !r.answer) return;
       // 回答结尾引导：有问题 @我（站长 2026-11-05 定：客服机器人自己接所有问题，不 @站长）
-      const out = (u.name ? "@" + u.name + " " : "") + r.answer + "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。";
+      // 答不了的：直接把工单入口甩给对方（站长 2026-11-05 定），答得了的：引导继续 @我
+      const out = (u.name ? "@" + u.name + " " : "") + r.answer + (r.human ? "\n\n📮 这个问题需要人工核实，请提交工单（填钱包地址 + 截图），会按轻重缓急处理：https://ailgns.dev/#/feedback" : "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。");
       await sendDebox(ctx.env, gid, out, "group").catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
       await Promise.all([
         kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),
@@ -121,7 +122,7 @@ export async function onRequestPost(ctx) {
     ctx.waitUntil((async () => {
       const hist = (await kv.get("dbx:h:" + user, "json")) || [], msgs = hist.concat([{ role: "user", content: text }]);
       const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 私聊里回答一位客户。纯文本、不要 Markdown，3-5 句说完。" });
-      const t = r && r.answer ? r.answer + "\n\n（把钱包地址发给我，可以绑定成交/借贷通知）" : HELP;
+      const t = r && r.answer ? r.answer + (r.human ? "\n\n📮 请提交工单（填钱包地址 + 截图）：https://ailgns.dev/#/feedback" : "\n\n（把钱包地址发给我，可以绑定成交/借贷通知）") : HELP;
       await kv.put("dbx:h:" + user, JSON.stringify(msgs.concat([{ role: "assistant", content: r && r.answer || "" }]).slice(-6)), { expirationTtl: 3600 });
       const log = (await kv.get("dbx:qa", "json")) || []; log.unshift({ t: Date.now(), g: "", u: user, n: u.name || "", q: text.slice(0, 200), a: (r && r.answer || "").slice(0, 400), e: r && r.engine });
       await kv.put("dbx:qa", JSON.stringify(log.slice(0, 100)));

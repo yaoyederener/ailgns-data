@@ -512,7 +512,7 @@ export async function onRequestGet(ctx) {
     const last = Number(await kv.get("dbx:greet")) || 0;
     if (Date.now() - last > 8 * 3600e3) {
       await kv.put("dbx:greet", String(Date.now()));
-      const text = "🤖 我是 AiLGNS 客服机器人，7×24 在线。\n\nOTC 买卖、挂单、域名注册、借贷、预言家、会员……任何问题直接 @我 提问，秒回；我答不了的会转给站长。\n\n网站：https://ailgns.dev";
+      const text = "🤖 我是 AiLGNS 客服机器人，7×24 在线。\n\nOTC 买卖、挂单、域名注册、借贷、预言家、会员……任何问题直接 @我 提问，秒回；我答不了的请到网站提交工单（https://ailgns.dev/#/feedback），按轻重缓急处理。\n\n网站：https://ailgns.dev";
       for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
     }
   } catch (e) {}
