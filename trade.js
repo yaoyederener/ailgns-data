@@ -76,7 +76,7 @@
           '<section class="tr2-form tr-form">' +
             '<div class="tr-side tr2-side"><button type="button" class="on buy" data-side="buy">买入</button><button type="button" class="sell" data-side="sell">卖出</button></div>' +
             '<div class="tr-type tr2-type"><button type="button" class="on" data-type="limit">限价</button><button type="button" data-type="market">市价</button></div>' +
-            '<div class="tr2-in tr2-step" id="tr-pbox"><button type="button" class="tr2-pm" data-step="-1">−</button><label><span>价格 (DAI)</span><input id="tr-p" inputmode="decimal" autocomplete="off"></label><button type="button" class="tr2-pm" data-step="1">+</button></div>' +
+            '<div class="tr2-in tr2-step" id="tr-pbox"><button type="button" class="tr2-pm" data-step="-1">−</button><label><span>价格</span><input id="tr-p" inputmode="decimal" autocomplete="off"></label><button type="button" class="tr2-pm" data-step="1">+</button></div>' +
             '<label class="tr2-in"><span>数量 (' + SYM + ')</span><input id="tr-a" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
             '<div class="tr-pct tr2-pct"><button type="button" data-pct="25">25%</button><button type="button" data-pct="50">50%</button><button type="button" data-pct="75">75%</button><button type="button" data-pct="100">100%</button></div>' +
             '<label class="tr2-in"><span>总额 (DAI)</span><input id="tr-t" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +

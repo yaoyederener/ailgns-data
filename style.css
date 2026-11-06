@@ -2596,3 +2596,6 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
   .tr2 .tr-kc .kc-wrap { height: 340px; }
   .tr2-row { font-size: 13px; padding: 4px 8px; }
 }
+
+.tr2-step input { font-size: 15px; } .tr2-step label span { font-size: 11px; }
+@media (max-width: 380px) { .tr2-main { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } .tr2-row { font-size: 11.5px; padding: 3px 4px; } }
