@@ -542,7 +542,12 @@
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
+      html += '<div class="saved-bar" id="saved-bar" hidden></div>';
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
+      fetch("/api/saved" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
+        var el = document.getElementById("saved-bar"); if (!el || !j.all || !(j.all.dai > 0)) return;
+        el.hidden = false; el.innerHTML = '<span>💚 本站客户累计比 DEX <b>多赚 ' + A.fmt(j.all.dai, 0) + ' DAI</b>（' + j.all.n + ' 笔）</span>' + (j.me && j.me.dai > 0 ? '<span class="saved-me">你多赚 <b>' + A.fmt(j.me.dai, 2) + ' DAI</b></span>' : '<span class="muted">卖币先来这里，每一单都比 DEX 划算</span>');
+      }).catch(function () {});
       setTimeout(function () { if (A.credFill) A.credFill(app); }, 0); // 🏅 挂单人后面加信誉芯片
       html += sweepHtml();
       html += '<div id="otc-tot">' + totalsHtml(totals) + "</div>"; // 全站累计放在挂单下面，上面留给买卖
@@ -938,6 +943,25 @@
     function gasKeep(n) { return M.gas === "DAI" ? GAS_RESERVE + GAS_RESERVE / 10n * BigInt(n + 1) : 0n; } // Anubis 上 Gas 用 DAI 付：固定留 0.1，每张再留 0.01
     // 赚了多少：和同样数量在 DEX 买 / 卖比（已算 DEX 手续费、卖出税和本站 1% 手续费）。只在真的比 DEX 划算时显示，不划算就不显示（不能把亏的说成赚的）
     // buy=true：tok = 到手的币，dai = 付的 DAI；buy=false：tok = 卖出的币，dai = 到手的 DAI
+    var lastPnl = null; // 最近一次报价算出来的「比 DEX 多赚」，成交后拿去记账 + 庆祝
+    function pnlOf(buy, tok, dai, mkt) {
+      if (!mkt || !tok || !dai) return null;
+      var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
+      return d > 0 && dex > 0 ? { d: d, dex: dex, pct: d / dex * 100, dai: buy ? mine : mine } : null;
+    }
+    // 成交后：记一笔「比 DEX 多赚」到后台（全站合计 + 个人累计），返回庆祝文案
+    function savedRecord(tx, pnl) {
+      if (!pnl || !account || !tx || typeof tx !== "string") return Promise.resolve(null);
+      return fetch("/api/saved", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: account, tx: tx, d: Math.round(pnl.d * 100) / 100, dai: Math.round(pnl.dai * 100) / 100 }) }).then(function (r) { return r.json(); }).catch(function () { return null; });
+    }
+    function winHtml(pnl, rec) {
+      if (!pnl) return "";
+      var me = rec && rec.me, all = rec && rec.all;
+      return '<div class="win-big"><div class="win-t">🎉 这一单比去 DEX <b>多赚 +' + A.fmt(pnl.d, 2) + ' DAI</b><small>多 ' + pnl.pct.toFixed(1) + '%</small></div>' +
+        (me ? '<div class="win-me">你在本站累计多赚 <b>' + A.fmt(me.dai, 2) + ' DAI</b>（' + me.n + ' 笔）</div>' : "") +
+        (all ? '<div class="win-all muted">全站客户累计比 DEX 多赚 ' + A.fmt(all.dai, 0) + ' DAI</div>' : "") +
+        '<div class="win-tip">以后卖币先来这里挂一单或吃一单，每一单都比 DEX 划算 💚</div></div>';
+    }
     function pnlHtml(buy, tok, dai, mkt) {
       if (!mkt || !tok || !dai) return "";
       // AiLGNS 不能直接从底池买，只能场外收，买入按场外行情算：DEX 价 + 30% 溢价（站长定的标准，buyRef）
@@ -1000,7 +1024,7 @@
         if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
         if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI</small>"; // 分两行：付多少一行，得多少一行
-        var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
+        var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt); lastPnl = pnlOf(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
         out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + " · 吃掉 " + p.steps.length + " 张单</small></div>"; // 平均单价和明细表去掉了（站长要求）
         ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
@@ -1026,7 +1050,9 @@
               '<table class="sw-tbl"><thead><tr><th>订单</th><th>付出</th><th>到手</th><th>交易</th></tr></thead><tbody>' +
               recs.map(function (x) { return "<tr><td>#" + x.id + "</td><td>" + show(x.pay, 4, payDec) + "</td><td><b>" + show(x.get, 4, getDec) + "</b></td><td>" + (x.tx ? '<a href="' + M.explorer + "/tx/" + x.tx + '" target="_blank" rel="noopener">查看</a>' : "") + "</td></tr>"; }).join("") +
               "</tbody></table>";
-            doneModal("✅ 扫单成功！", html); // 弹窗里显示，页面刷新也不会消失，客户自己点关闭（以前写在页面里，2 秒后刷新就没了）
+            var pnlNow2 = lastPnl, lastTx = (recs.filter(function (x) { return x.tx; }).slice(-1)[0] || {}).tx;
+            savedRecord(typeof lastTx === "string" ? lastTx : "", pnlNow2).then(function (rec) { var w = document.querySelector(".modal .win-slot"); if (w) w.innerHTML = winHtml(pnlNow2, rec); });
+            doneModal("✅ 扫单成功！", '<div class="win-slot">' + winHtml(pnlNow2, null) + "</div>" + html); // 弹窗里显示，页面刷新也不会消失，客户自己点关闭
             setTimeout(reload, 2000);
           }
         }
@@ -1140,6 +1166,7 @@
         quote.innerHTML = o.sellAilgns
           ? "你付 <b>" + show(pay, 4) + " DAI</b>，收到 <b>" + tShow(get) + " " + SYM + "</b><br><span class=\"muted\">手续费 1%：" + tShow(fee) + " " + SYM + "</span>"
           : "你付 <b>" + tShow(pay) + " " + SYM + "</b>，收到 <b>" + show(get, 4) + " DAI</b><br><span class=\"muted\">手续费 1%：" + show(fee, 4) + " DAI</span>";
+        lastPnl = pnlOf(o.sellAilgns, o.sellAilgns ? get : pay, o.sellAilgns ? pay : get, mkt);
         quote.innerHTML = pnlHtml(o.sellAilgns, o.sellAilgns ? get : pay, o.sellAilgns ? pay : get, mkt) + quote.innerHTML;
         if (capped) quote.innerHTML += '<br><span class="muted">这张单只剩这么多，已按剩下的全部算</span>';
         else if (swept) quote.innerHTML += '<br><span class="muted">这张单买完后只剩不到 1 DAI，已一起算上</span>';
@@ -1182,7 +1209,9 @@
         }).then(function (tx) {
           say("成交成功！币已到你的钱包");
           m.hidden = true; // 换成停留的结果弹窗，带成交记录入口（客户自己点关闭）
-          doneModal("✅ 成交成功！", '<p style="font-size:16px">币已到你的钱包（订单 #' + o.id + "）" + ((tx = tx && (tx.transactionHash || tx)) && typeof tx === "string" ? '，<a href="' + M.explorer + "/tx/" + tx + '" target="_blank" rel="noopener">查看链上交易</a>' : "") + "。</p>");
+          var pnlNow = lastPnl, txh = tx && (tx.transactionHash || tx);
+          savedRecord(typeof txh === "string" ? txh : "", pnlNow).then(function (rec) { var w = document.querySelector(".modal .win-slot"); if (w) w.innerHTML = winHtml(pnlNow, rec); });
+          doneModal("✅ 成交成功！", '<div class="win-slot">' + winHtml(pnlNow, null) + '</div><p style="font-size:16px">币已到你的钱包（订单 #' + o.id + "）" + ((tx = tx && (tx.transactionHash || tx)) && typeof tx === "string" ? '，<a href="' + M.explorer + "/tx/" + tx + '" target="_blank" rel="noopener">查看链上交易</a>' : "") + "。</p>");
           setTimeout(reload, 1500);
         }, function (e) { say(niceError(e), true); btn.disabled = false; });
       };
