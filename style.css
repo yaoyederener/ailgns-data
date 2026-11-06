@@ -2816,3 +2816,18 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .or-fixc{border:2px solid #f59e0b;background:#fffbeb;border-radius:14px;padding:14px;margin-bottom:12px;font-size:15px;line-height:1.5}
 .or-fixc small{display:block;color:#7c5a10;font-size:13px;margin:4px 0 8px}
 .or-fixc .nm-go{text-decoration:none;text-align:center;font-size:16px}
+
+/* ✏️ 工单截图标注画板 */
+.fb-t .fb-tmk{top:auto;bottom:0;left:0;right:0;width:100%;height:22px;border-radius:0;background:rgba(112,39,217,.85);font-size:12px;font-weight:700}
+.fb-t img{cursor:pointer}
+.fb-mkhint{width:100%;margin:4px 0 0;font-size:12px;color:#6b5a99;text-align:center}
+.fb-mk{position:fixed;inset:0;z-index:9999;background:#1b1530;display:flex;flex-direction:column;color:#fff}
+.fb-mkbar{display:flex;gap:6px;padding:10px 10px 6px;justify-content:center;flex-wrap:wrap}
+.fb-mkbar button{padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font-size:14px;font-weight:700}
+.fb-mkbar button.on{background:#ff2d2d;border-color:#ff2d2d}
+.fb-mkc{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:0 8px}
+.fb-mkc canvas{max-width:100%;max-height:100%;touch-action:none;border-radius:8px;background:#fff}
+.fb-mktip{margin:6px 12px;font-size:13px;color:#d9d0ff;text-align:center}
+.fb-mkft{display:flex;gap:10px;padding:8px 12px calc(12px + env(safe-area-inset-bottom))}
+.fb-mkft button{flex:1;margin:0;padding:12px;font-size:16px}
+.fb-mkft .ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:10px}

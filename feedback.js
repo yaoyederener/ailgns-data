@@ -34,10 +34,50 @@
     if (room <= 0) return say("截图最多 4 张");
     Promise.all(fs.slice(0, room).map(shrink)).then(function (r) { imgs = imgs.concat(r); thumbs(); say(""); }, function () { say("这张图片读不出来，请换一张"); });
   }
+  // ✏️ 图片标注画板：画圈 / 箭头 / 随手画，红色粗线，可撤销；完成后替换原图（白居易原则：手指一划就行，不用学）
+  function markImg(src, done) {
+    var im = new Image();
+    im.onload = function () {
+      var ov = document.createElement("div"); ov.className = "fb-mk";
+      ov.innerHTML = '<div class="fb-mkbar"><button type="button" data-t="circle" class="on">⭕ 画圈</button><button type="button" data-t="arrow">➡️ 箭头</button><button type="button" data-t="pen">✏️ 随手画</button><button type="button" id="fb-mkundo">↩️ 撤销</button></div>' +
+        '<div class="fb-mkc"><canvas id="fb-mkcv"></canvas></div>' +
+        '<p class="fb-mktip">在图上用手指（或鼠标）按住拖一下，就画出一个圈 / 箭头，标出有问题的地方</p>' +
+        '<div class="fb-mkft"><button type="button" class="ghost" id="fb-mkx">取消</button><button type="button" class="nm-go" id="fb-mkok">✅ 完成标注</button></div>';
+      document.body.appendChild(ov); document.body.style.overflow = "hidden";
+      var cv = document.getElementById("fb-mkcv"), cx = cv.getContext("2d"), W = im.width, H = im.height, tool = "circle", shapes = [], cur = null;
+      cv.width = W; cv.height = H;
+      var lw = Math.max(4, Math.round(Math.max(W, H) / 180));
+      function draw() {
+        cx.clearRect(0, 0, W, H); cx.drawImage(im, 0, 0);
+        cx.strokeStyle = "#ff2d2d"; cx.lineWidth = lw; cx.lineCap = "round"; cx.lineJoin = "round"; cx.shadowColor = "rgba(0,0,0,.35)"; cx.shadowBlur = 2;
+        shapes.concat(cur ? [cur] : []).forEach(function (sh) {
+          cx.beginPath();
+          if (sh.t === "pen") { sh.p.forEach(function (q, i) { i ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); }); cx.stroke(); return; }
+          var x0 = sh.p[0][0], y0 = sh.p[0][1], x1 = sh.p[1][0], y1 = sh.p[1][1];
+          if (sh.t === "circle") { var rx = Math.max(6, Math.abs(x1 - x0) / 2), ry = Math.max(6, Math.abs(y1 - y0) / 2); cx.ellipse((x0 + x1) / 2, (y0 + y1) / 2, rx, ry, 0, 0, Math.PI * 2); cx.stroke(); return; }
+          cx.moveTo(x0, y0); cx.lineTo(x1, y1); cx.stroke();
+          var ang = Math.atan2(y1 - y0, x1 - x0), hl = lw * 4;
+          cx.beginPath(); cx.moveTo(x1, y1); cx.lineTo(x1 - hl * Math.cos(ang - 0.5), y1 - hl * Math.sin(ang - 0.5)); cx.moveTo(x1, y1); cx.lineTo(x1 - hl * Math.cos(ang + 0.5), y1 - hl * Math.sin(ang + 0.5)); cx.stroke();
+        });
+      }
+      function pt(e) { var r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * H / r.height]; }
+      cv.onpointerdown = function (e) { e.preventDefault(); cv.setPointerCapture(e.pointerId); var q = pt(e); cur = { t: tool, p: tool === "pen" ? [q] : [q, q] }; draw(); };
+      cv.onpointermove = function (e) { if (!cur) return; e.preventDefault(); var q = pt(e); if (cur.t === "pen") cur.p.push(q); else cur.p[1] = q; draw(); };
+      cv.onpointerup = cv.onpointercancel = function (e) { if (!cur) return; var q = pt(e); if (cur.t !== "pen" && Math.abs(q[0] - cur.p[0][0]) < 4 && Math.abs(q[1] - cur.p[0][1]) < 4) { cur.p[1] = [q[0] + W / 12, q[1] + W / 12]; } shapes.push(cur); cur = null; draw(); };
+      ov.querySelectorAll("[data-t]").forEach(function (b) { b.onclick = function () { tool = b.getAttribute("data-t"); ov.querySelectorAll("[data-t]").forEach(function (x) { x.classList.toggle("on", x === b); }); }; });
+      document.getElementById("fb-mkundo").onclick = function () { shapes.pop(); draw(); };
+      function close() { ov.remove(); document.body.style.overflow = ""; }
+      document.getElementById("fb-mkx").onclick = close;
+      document.getElementById("fb-mkok").onclick = function () { cur = null; draw(); var u = cv.toDataURL("image/jpeg", 0.8); close(); done(u); };
+      draw();
+    };
+    im.src = src;
+  }
   function thumbs() {
     var box = document.getElementById("fb-th"); if (!box) return;
-    box.innerHTML = imgs.map(function (u, i) { return '<div class="fb-t"><img src="' + u + '"><button type="button" data-rm="' + i + '">✕</button></div>'; }).join("");
+    box.innerHTML = imgs.map(function (u, i) { return '<div class="fb-t"><img src="' + u + '" data-ed="' + i + '" title="点图片画圈标注"><button type="button" data-rm="' + i + '">✕</button><button type="button" class="fb-tmk" data-ed="' + i + '">✏️ 标注</button></div>'; }).join("") + (imgs.length ? '<p class="fb-mkhint">点图片上的「✏️ 标注」可以画圈、画箭头，标出有问题的地方</p>' : "");
     box.querySelectorAll("[data-rm]").forEach(function (b) { b.onclick = function () { imgs.splice(Number(b.getAttribute("data-rm")), 1); thumbs(); }; });
+    box.querySelectorAll("[data-ed]").forEach(function (b) { b.onclick = function () { var i = Number(b.getAttribute("data-ed")); markImg(imgs[i], function (u) { imgs[i] = u; thumbs(); }); }; });
     var z = document.getElementById("fb-zone"); if (z) z.classList.toggle("has", imgs.length > 0);
   }
   function say(t, good) { var s = document.getElementById("fb-st"); if (s) { s.textContent = t; s.className = "fb-st" + (good ? " ok" : ""); } }
