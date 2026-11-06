@@ -653,7 +653,7 @@
   A.nameTag = function (a) { return '<span data-a="' + a + '">' + A.short(a) + "</span>"; };
   A.fillNames = fillNames;
   // 🏅 信誉标志：按累计成交给挂单人加「信誉商家」等芯片（OTC 订单簿、账本头部用）。等级在 /api/cred 里定
-  var CREDN = ["新手", "常客", "信誉商家", "金牌商家", "至尊商家"], credCache = {}, credAt = 0;
+  var CREDN = ["新手", "常客", "✔ 认证商家", "✔ OTC 大户", "👑 至尊大户"], credCache = {}, credAt = 0;
   A.credFill = function (root) {
     var els = Array.prototype.slice.call(root.querySelectorAll("[data-a]:not([data-cred])")), as = {};
     els.forEach(function (e) { var a = e.getAttribute("data-a").toLowerCase(); if (!KNOWN[a]) as[a] = 1; });
@@ -663,7 +663,7 @@
       els.forEach(function (e) {
         var a = e.getAttribute("data-a").toLowerCase(), c = credCache[a]; e.setAttribute("data-cred", "1");
         if (!c || c.lv < 1) return;
-        var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = "本站 OTC 累计成交 " + c.vol.toLocaleString("en-US") + " DAI · " + c.n + " 笔";
+        var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = "官方认证 · 本站 OTC 累计真实成交 " + c.vol.toLocaleString("en-US") + " DAI · " + c.n + " 笔";
         e.insertAdjacentElement("afterend", chip);
       });
     });
