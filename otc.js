@@ -847,7 +847,6 @@
       // 有效期滑块
       var durIn = document.getElementById("otc-dur");
       durSlider(document.getElementById("otc-durbox"), { value: DUR_DEFAULT, onChange: function (sec) { durIn.value = sec ? String(sec) : ""; } });
-      durN.oninput = customDur;
       setDur(DUR_DEFAULT);
       document.getElementById("otc-create").onclick = function () {
         var btn = this, v = calc();
