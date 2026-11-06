@@ -162,7 +162,7 @@
   var firstOut = function (ms, sym) { return ms.filter(function (m) { return m.dir === "out" && (!sym || m.sym === sym); })[0]; };
   var pxOf = function (dai, coin) { return coin > 0 ? "，单价 " + (dai / coin).toFixed(3) : ""; };
   // 链上留言：0 元交易，data = utf8("ailgns-msg:" + 文字)
-  var MSG_PREFIX = "ailgns-msg:";
+  var MSG_PREFIX = "ailgns-msg:", GUESS_PREFIX = "ailgns-oracle-guess:", ANCHOR_PREFIX = "ailgns-oracle:";
   function decodeMsg(input) {
     if (!input || input.length < 2 + MSG_PREFIX.length * 2) return null;
     try {
@@ -179,6 +179,12 @@
     var daiIn = sumOf(ms, "in", "DAI"), daiOut = sumOf(ms, "out", "DAI");
     var coinIn = ms.filter(function (m) { return m.dir === "in" && !m.nft && m.sym !== "DAI"; })[0], coinOut = ms.filter(function (m) { return m.dir === "out" && !m.nft && m.sym !== "DAI"; })[0];
     if (t && !ok) return { ico: "❌", text: "操作没成功（链上已回滚，没扣钱）" + (METHODS[sel] ? "：" + METHODS[sel] : "") };
+    // 🔮 预言家存证：客户自己写上链的预测 / 奖池钱包封卷后写的全期指纹
+    var rawIn = t && t.raw_input && t.raw_input.length > 2 ? (function () { try { return decodeURIComponent(t.raw_input.slice(2).replace(/(..)/g, "%$1")); } catch (e) { return ""; } })() : "";
+    var gm = rawIn.indexOf(GUESS_PREFIX) === 0 ? rawIn.slice(GUESS_PREFIX.length).match(/^(\d{4}-\d{2}-\d{2}):([\d.,]+)/) : null;
+    if (gm) { var gday = gm[1], gps = gm[2].split(","), md = gday.slice(5).replace("-", "/"); return { ico: "🔮", cls: "lg-oracle", text: "<b>预言家链上存证</b>：" + (t.from && t.from.hash.toLowerCase() === a ? "我" : who(t.from.hash.toLowerCase())) + "预测 <b>" + md + " 期</b>揭晓价 <b>" + gps.join("、") + " DAI</b><span class=\"lg-orc\" data-day=\"" + gday + "\" data-ps=\"" + esc(gm[2]) + "\">…</span>" }; }
+    var am = rawIn.indexOf(ANCHOR_PREFIX) === 0 ? rawIn.slice(ANCHOR_PREFIX.length).match(/^(\d{4}-\d{2}-\d{2}):([0-9a-f]{64})/) : null;
+    if (am) return { ico: "🔗", cls: "lg-oracle", text: "<b>预言家封卷存证</b>：" + am[1].slice(5).replace("-", "/") + " 期全部预测的指纹 <span class=\"mono\">" + am[2].slice(0, 16) + "…</span> 写入链上（<a href=\"#/oracle\">去验证 ›</a>）" };
     var mtxt = t && to && !KNOWN[to] && !C.tokens[to] ? decodeMsg(t.raw_input) : null;
     if (mtxt) { var mfrom = (t.from && t.from.hash || "").toLowerCase(); return mfrom === a ? { ico: "💬", text: "给 " + who(to) + " <b>留言</b>：「" + esc(mtxt) + "」" } : { ico: "📬", text: who(mfrom) + " <b>给你留言</b>：「" + esc(mtxt) + "」" }; }
     // —— 一键扫单 / 自动撮合（合约替你一次吃多张单）——
@@ -258,7 +264,7 @@
   }
   function rowHtml(a, row) {
     var r = translate(a, row), money = (row.tr && row.tr.length) || (row.tx && row.tx.value && Number(row.tx.value) > 0) || /收到|付出|转出|转入|买入|卖出|成交|退回|注册|续费/.test(r.text);
-    return '<div class="lg-row" data-kind="' + (money ? "money" : "other") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
+    return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
   }
   // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
   function ledger(a, box) {
@@ -282,6 +288,15 @@
         box.classList.toggle("sc-moneyonly", !all);
         var sa = box.querySelector(".sc-showall"); if (sa) sa.onclick = function (e) { e.preventDefault(); box.setAttribute("data-all", "1"); box.classList.remove("sc-moneyonly"); sa.parentNode.remove(); };
         var mb = box.querySelector(".sc-more"); if (mb) mb.onclick = load;
+        box.querySelectorAll('[data-cls="lg-oracle"]').forEach(function (r) { r.classList.add("lg-oracle"); });
+        box.querySelectorAll(".lg-orc").forEach(function (el) { // 揭晓了就对照：差多少、有没有猜中
+          var day = el.getAttribute("data-day"), ps = el.getAttribute("data-ps").split(",");
+          fetch("/api/oracle?res=" + day).then(function (r) { return r.json(); }).then(function (j) {
+            if (!j.px) { el.innerHTML = ' <i class="lg-orw">⏳ 等揭晓</i>'; return; }
+            var px = j.px / 1000, best = Math.min.apply(null, ps.map(function (p) { return Math.abs(Number(p) - px); }));
+            el.innerHTML = " <b>揭晓 " + px.toFixed(3) + "</b>" + (best < 0.0005 ? ' <i class="lg-orhit">🎯 完全猜中</i>' : " · 差 " + best.toFixed(3));
+          }).catch(function () { el.textContent = ""; });
+        });
         first = false;
         fillNames(box);
       });

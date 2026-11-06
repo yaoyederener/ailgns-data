@@ -237,7 +237,7 @@
     if (me.hold) return '<p class="nm-bad">' + esc(me.name) + " 是本轮开放后才转进这个钱包的，要等<b>下一轮</b>才能用它预测（刚注册的名字不受此限）。</p>";
     var rest = me.n - me.used;
     return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US", { useGrouping: false }) + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
-      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" : "") +
+      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" + (me.chain ? '<p class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/' + me.chain.tx + '">在账本里看 ›</a></p>' : '<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把我的预测写进链上（约 0.001 DAI）</button><small class="muted">写进去后账本里永久显示「你在几点预测了几期多少价」，谁都能查、改不了</small></p>') : "") +
       (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="填 1 个价格，例如 831.462" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔮 提交预测</button></div>' +
         '<p class="muted">还能预测 ' + rest + " 次；有几次就填几个价格，用空格或逗号隔开。只需要钱包签名，不扣钱、不花 Gas。</p>" :
         '<p class="muted">本轮次数已用完' + (me.bonus ? "" : "；今天在 OTC 成交一笔满 50 DAI，可以再加 1 次") + "。</p>") +
@@ -496,6 +496,18 @@
         st.textContent = "✅ 已提交！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
         load(rid);
       }, function (e) { go.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), go); });
+    };
+    var oc = document.getElementById("or-chain");
+    if (oc) oc.onclick = function () {
+      var ps = (data.me && data.me.ps || []).join(","), day = data.round; if (!ps) return;
+      oc.disabled = true; st.textContent = "🔒 这是一笔 0 元转账（发给自己），文字放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认";
+      var txt = "ailgns-oracle-guess:" + day + ":" + ps, hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+      (eth ? Promise.resolve() : connect()).then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
+        .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
+        .then(function (hash) { st.textContent = "已提交，等待链上确认…"; return (A.wallet && A.wallet.waitOn ? A.wallet.waitOn("anubis", hash) : Promise.resolve()).then(function () { return hash; }); })
+        .then(function (hash) { return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "chain", tx: hash }) }).then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); return hash; }); })
+        .then(function (hash) { st.textContent = "✅ 已写进链上，永久可查"; oc.outerHTML = '<span class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/' + hash + '">在账本里看 ›</a></span>'; })
+        .catch(function (e) { oc.disabled = false; st.textContent = ""; A.errTip(e && (e.message || e.reason) || String(e), oc); });
     };
     document.querySelectorAll(".or-approve").forEach(function (ap) { ap.onclick = function () {
       var isA = ap.getAttribute("data-t") === "AIL", v = Number(document.getElementById(isA ? "or-amt2" : "or-amt").value);

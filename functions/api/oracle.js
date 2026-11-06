@@ -4,6 +4,7 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
+import { rpc } from "../../lib/oracle.js";
 import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
@@ -29,6 +30,7 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv) return new Response("no kv", { status: 503 });
   if (u.searchParams.get("proof")) return json(await proofOf(kv, String(u.searchParams.get("proof")).slice(0, 10)));
+  if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
   if (u.searchParams.get("pay")) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     return json({ pay: ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx) });
@@ -69,6 +71,7 @@ export async function onRequestGet(ctx) {
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
+        const gtx = await kv.get("or:gtx:" + round + ":" + a, "json"); out.me && (out.me.chain = gtx || null);
         const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
         if (lk && lk !== el.key) out.me.lock = lk;
         else if (name) { const h = await heldSince(u.origin, a, name, round); if (!h.ok) out.me.hold = h; }
@@ -94,6 +97,18 @@ export async function onRequestPost(ctx) {
       const rec = { tx, hash: pf.hash, n: pf.n, guesses: pf.guesses, at: Date.now() };
       await kv0.put("or:anchor:" + day, JSON.stringify(rec));
       return json({ ok: true, anchor: rec });
+    }
+    if (b0 && b0.action === "chain") { // 客户自己花一点 Gas 把预测写上链：核对交易确实是他发的、data 带本站前缀，记下哈希（名单里显示 🔗）
+      const kv0 = ctx.env.TEAM_KV, tx = String(b0.tx || "").toLowerCase();
+      if (!/^0x[0-9a-f]{64}$/.test(tx)) return json({ error: "交易哈希不对" }, 400);
+      const t = await rpc("eth_getTransactionByHash", [tx]).catch(() => null);
+      if (!t || !t.from) return json({ error: "链上还没找到这笔交易，等几秒再试" }, 404);
+      const hex = String(t.input || "0x").slice(2), txt = hex ? new TextDecoder().decode(new Uint8Array(hex.match(/../g).map((x) => parseInt(x, 16)))) : "";
+      const m = txt.match(/^ailgns-oracle-guess:(\d{4}-\d{2}-\d{2}):([\d.,]+)$/);
+      if (!m) return json({ error: "这笔交易不是预测存证" }, 400);
+      const a0 = String(t.from).toLowerCase();
+      await kv0.put("or:gtx:" + m[1] + ":" + a0, JSON.stringify({ tx, ps: m[2], at: Date.now() }), { expirationTtl: 400 * 86400 });
+      return json({ ok: true, day: m[1], ps: m[2] });
     }
   } catch (e) { /* 不是 anchor 请求，往下走 */ }
   const kv = ctx.env.TEAM_KV;
