@@ -650,16 +650,21 @@
   ];
   function friendly(t) {
     t = String(t || "");
-    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) report(t); return ERRS[i][1]; }
+    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) { report(t); lastRaw = t; } return ERRS[i][1]; }
     var s = t.replace(/:?\s*0x[0-9a-f]{40,}/gi, "").trim();
     if (!s) return "操作没完成，请刷新页面再试一次；还不行就提交工单。";
     if (/^[\x00-\x7f]+$/.test(s)) { report(s); return "操作没成功（原因：" + s.slice(0, 120) + "）。请刷新重试；还不行请提交工单并附截图，我们会按轻重缓急处理。"; } // 纯英文：翻不了的也要给出路
     return s;
   }
   // 程序错误自动上报（只记页面、错误文字、浏览器，不记钱包地址），站长在工单后台能看到
-  var reported = {};
+  var reported = {}, lastRaw = "";
   function report(msg) {
-    try { var k = location.hash.split("/")[1] + "|" + msg.slice(0, 80); if (reported[k]) return; reported[k] = 1; navigator.sendBeacon && navigator.sendBeacon("/api/err", JSON.stringify({ p: location.hash.slice(0, 60), m: msg.slice(0, 300), ua: navigator.userAgent.slice(0, 120), v: (document.querySelector('script[src*="app.js"]') || {}).src })); } catch (e) {}
+    try {
+      var k = location.hash.split("/")[1] + "|" + msg.slice(0, 80); if (reported[k]) return; reported[k] = 1;
+      var body = JSON.stringify({ p: location.hash.slice(0, 60), m: msg.slice(0, 300), ua: navigator.userAgent.slice(0, 120), v: (document.querySelector('script[src*="app.js"]') || {}).src });
+      var ok = navigator.sendBeacon && navigator.sendBeacon("/api/err", body);
+      if (!ok) fetch("/api/err", { method: "POST", body: body, keepalive: true }).catch(function () {});
+    } catch (e) {}
   }
   window.addEventListener("error", function (e) { if (e && e.message) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
   window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) report(m); });
@@ -670,7 +675,9 @@
     d.id = "err-tip";
     d.className = "err-tip";
     d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><button type="button">知道了</button>';
+    lastRaw = "";
     d.querySelector("span").textContent = friendly(t);
+    if (lastRaw) d.querySelector("span").insertAdjacentHTML("afterend", '<small class="err-raw">技术信息（截图给客服）：' + String(lastRaw).replace(/[<>]/g, "").slice(0, 160) + "</small>"); // 程序错误：中文解释在上，原始错误小字在下，方便定位
     d.querySelector("button").onclick = function () { d.remove(); };
     document.body.appendChild(d);
     setTimeout(function () { if (d.parentNode) d.remove(); }, 15000);
