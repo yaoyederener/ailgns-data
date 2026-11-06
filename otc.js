@@ -764,7 +764,7 @@
         var m = mp, btn = document.getElementById("otc-mgo"), mst = document.getElementById("otc-mst");
         if (!m) return;
         function msay(t, bad) { mst.className = "note" + (bad ? " down" : ""); mst.textContent = t; if (bad) errTip(t, mst); }
-        var token = m.sell ? AILGNS : DAI, name = m.sell ? SYM : "DAI", dur = Number(document.getElementById("otc-dur").value);
+        var token = m.sell ? AILGNS : DAI, name = m.sell ? SYM : "DAI", dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT; // 扫单面板里没有有效期控件（剩余部分挂单用默认 30 天）
         var need = m.p.steps.reduce(function (t, x) { return t + x.pay; }, 0n) + m.restGive, done = 0;
         btn.disabled = true; sweeping = true;
         ready().then(function () {
@@ -851,7 +851,7 @@
         var btn = this, v = calc();
         if (!v || v.total === 0n) { say("请填写数量和单价", true); return; }
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
-        var dur = Number(document.getElementById("otc-dur").value);
+        var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
         btn.disabled = true;
         ready().then(function () {
