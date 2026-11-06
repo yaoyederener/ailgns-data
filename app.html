@@ -2,71 +2,70 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f2f4ff">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="AiLGNS">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/favicon.png?v=hx2">
-<title>AiLGNS 永久入口</title>
+<title>AiLGNS</title>
 <style>
-  /* 独立壳页：不依赖主站任何文件，能离线打开。目的只有三个：永远找得到我们、一键跳进钱包操作、联系上我们 */
-  :root { --ink: #2d1b69; --muted: #7a68b8; --line: #e6dcff; --purple: #5a35d6; --bg: #f2f4ff; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: calc(14px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom)); }
-  .hd { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-  .hd img { width: 48px; height: 48px; border-radius: 14px; background: #fff; padding: 4px; box-shadow: 0 4px 14px rgba(90,53,214,.15); }
-  .hd b { display: block; font-size: 20px; } .hd small { color: var(--muted); font-size: 12.5px; }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 14px; margin-bottom: 12px; }
-  h2 { margin: 0 0 8px; font-size: 16px; }
-  .muted { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
-  .dom { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border-radius: 12px; border: 1px solid transparent; }
-  .dom.ok { } .dom.bad { opacity: .55; } .dom.hot { background: linear-gradient(90deg, #f3efff, #eaf6ff); border-color: #c9b8ff; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: #d6ccf2; flex: none; } .ok .dot { background: #0ecb81; } .bad .dot { background: #f6465d; } .wait .dot { animation: blink 1s infinite; }
+  /* 极简壳页（站长 2026-11-06：照 Claude 新对话页那种留白、居中、一个输入框）。不依赖主站文件，可离线 */
+  :root { --ink: #1f1a33; --muted: #8a80a8; --line: #ece7f7; --purple: #5a35d6; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; background: #fff; color: var(--ink); touch-action: manipulation; -webkit-text-size-adjust: 100%; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom)); }
+  .top { display: flex; align-items: center; justify-content: space-between; height: 40px; }
+  .top img { width: 28px; height: 28px; border-radius: 8px; }
+  .top b { font-size: 14px; color: var(--muted); font-weight: 600; }
+  .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .st i { width: 8px; height: 8px; border-radius: 50%; background: #d6ccf2; display: inline-block; } .st.ok i { background: #0ecb81; } .st.bad i { background: #f6465d; }
+  main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 22px; padding: 10px 0 20px; }
+  h1 { margin: 0; font-size: 30px; font-weight: 500; letter-spacing: .5px; font-family: "Songti SC", "Noto Serif SC", Georgia, serif; }
+  h1 em { font-style: normal; color: var(--purple); }
+  .ask { width: 100%; max-width: 520px; border: 1px solid var(--line); border-radius: 22px; padding: 14px 14px 10px; box-shadow: 0 10px 30px rgba(90,53,214,.06); text-align: left; background: #fff; }
+  .ask input { width: 100%; border: 0; outline: 0; font-size: 17px; padding: 4px 2px 10px; background: transparent; color: var(--ink); }
+  .ask input::placeholder { color: #b3abc9; }
+  .ask .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ask .hint { font-size: 12px; color: var(--muted); }
+  .ask button { border: 0; border-radius: 999px; background: var(--purple); color: #fff; font-weight: 700; padding: 8px 16px; font-size: 14px; }
+  .wl { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; width: 100%; max-width: 520px; }
+  .wl a { display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: var(--ink); font-size: 12px; width: 64px; }
+  .wl img { width: 48px; height: 48px; border-radius: 14px; box-shadow: 0 4px 12px rgba(31,26,51,.10); background: #fff; }
+  .wl span { white-space: nowrap; }
+  .foot { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.7; }
+  .foot a { color: var(--purple); text-decoration: none; font-weight: 600; }
+  .doms { max-width: 520px; margin: 0 auto; width: 100%; }
+  .dom { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13.5px; }
+  .dom i { width: 8px; height: 8px; border-radius: 50%; background: #d6ccf2; flex: none; } .dom.ok i { background: #0ecb81; } .dom.bad i { background: #f6465d; opacity: .6; } .dom.wait i { animation: blink 1s infinite; }
+  .dom.bad { color: var(--muted); } .dom.hot { background: #f6f1ff; border-radius: 10px; }
+  .dom .h { flex: 1; text-align: left; } .dom button { border: 1px solid var(--line); background: #fff; color: var(--purple); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
   @keyframes blink { 50% { opacity: .3; } }
-  .dom .h { flex: 1; font-size: 15px; font-weight: 700; word-break: break-all; } .dom .h small { display: block; font-weight: 500; color: var(--muted); font-size: 11.5px; }
-  .dom button { flex: none; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #faf8ff; color: var(--purple); font-size: 12.5px; }
-  .big { display: block; width: 100%; padding: 14px; border: 0; border-radius: 14px; background: linear-gradient(120deg, #7c5cff, #5a35d6); color: #fff; font-size: 16px; font-weight: 800; text-align: center; text-decoration: none; margin-top: 10px; }
-  .wl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-  .wl a { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 12px 8px; border-radius: 12px; background: #f6f1ff; color: var(--ink); font-weight: 700; text-decoration: none; font-size: 14px; border: 1px solid var(--line); }
-  .qr { display: block; width: 220px; max-width: 100%; margin: 8px auto; border-radius: 14px; border: 1px solid var(--line); }
-  .up { padding: 8px 0; border-top: 1px dashed var(--line); font-size: 13.5px; line-height: 1.5; } .up small { color: var(--muted); }
-  .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; background: #e8fbf2; color: #0a7a52; font-size: 11px; font-weight: 700; margin-left: 6px; }
-  .foot { text-align: center; margin-top: 14px; }
-  .toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); background: #2d1b69; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  details { max-width: 520px; margin: 0 auto; width: 100%; } summary { cursor: pointer; font-size: 13px; color: var(--muted); text-align: center; list-style: none; padding: 6px; } summary::-webkit-details-marker { display: none; }
+  .qr { display: block; width: 180px; margin: 10px auto 4px; border-radius: 14px; border: 1px solid var(--line); }
+  .toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: #1f1a33; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
 </style>
 </head>
 <body>
-<div class="hd"><img src="/favicon.png?v=hx2" alt=""><div><b>AiLGNS 服务站 · 永久入口</b><small>这个图标永远能打开我们。交易在钱包里做，这里负责带路和联系。</small></div></div>
+<div class="top"><div style="display:flex;align-items:center;gap:8px"><img src="/favicon.png?v=hx2" alt=""><b>AiLGNS</b></div><span class="st wait" id="st"><i></i><span>检测网址…</span></span></div>
 
-<section class="card">
-  <h2>🌐 现在能用的网址 <span class="muted" id="st">检测中…</span></h2>
-  <div id="doms"></div>
-  <a class="big" id="go" href="#">正在找最快的网址…</a>
-  <p class="muted" style="margin:8px 0 0">主网址打不开时，上面任何一个绿点的都能用，内容数据完全一样。</p>
-</section>
-
-<section class="card">
-  <h2>👛 在钱包里打开（交易、挂单、查单都在钱包里）</h2>
+<main>
+  <h1>您好，<em id="hi">欢迎回来</em></h1>
+  <form class="ask" id="ask">
+    <input id="q" placeholder="有问题？直接问客服，例如：怎么挂单" autocomplete="off" enterkeyhint="send">
+    <div class="row"><span class="hint">AI 客服秒回，答不了转人工工单</span><button type="submit">问客服</button></div>
+  </form>
   <div class="wl" id="wl"></div>
-  <p class="muted" style="margin:8px 0 0">点了没反应：先点上面「复制网址」，打开钱包 App 的「发现 / DApp 浏览器」粘贴。</p>
-</section>
+  <p class="foot">交易、挂单、查单都在钱包里做 · 点上面图标直接进</p>
+</main>
 
-<section class="card">
-  <h2>💬 联系我们</h2>
-  <p class="muted" style="margin:0">用 DeBox 扫一扫进 OTC 交流群，群里 @客服 秒回；网站全被封了，群里也会发新网址。</p>
+<div class="doms" id="doms"></div>
+<details><summary>💬 加 OTC 交流群 · 更多网址与联系方式</summary>
   <img class="qr" src="/icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码">
-  <p class="muted" style="margin:0;text-align:center">手机：长按二维码保存 → DeBox 扫一扫 → 相册选图</p>
-</section>
-
-<section class="card">
-  <h2>🆕 最近更新</h2>
-  <div id="ups" class="muted">读取中…</div>
-</section>
-
-<p class="foot muted">本页可以离线打开 · <a id="full" href="/#/otc?full=1">在这里浏览网站（只能看，不能交易）</a></p>
+  <p class="foot">用 DeBox 扫一扫进群（手机：长按保存 → DeBox 扫一扫 → 相册选图）<br>网站全被封时，群里会发新网址 · <a id="full" href="/#/otc?full=1">在这里浏览网站</a></p>
+</details>
 <div class="toast" id="toast"></div>
-
-<script src="/app-shell.js?v=1"></script>
+<script src="/app-shell.js?v=2"></script>
 </body>
 </html>

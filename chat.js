@@ -173,7 +173,9 @@
       if (open && matchMedia("(min-width: 601px)").matches) input.focus();
     }
     fab.onclick = function () { toggle(panel.hidden); };
-    if (window.AIL) window.AIL.chatOpen = function (q) { toggle(true); if (q && input) { input.value = q; input.focus(); } }; // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
+    if (window.AIL) window.AIL.chatOpen = function (q) { toggle(true); if (q && input) { input.value = q; input.focus(); } };
+    // 从 App 壳页带问题过来：?chat=问题 → 打开窗口直接问
+    try { var cq = new URLSearchParams(location.search).get("chat"); if (cq) { setTimeout(function () { toggle(true); ask(cq); }, 600); } } catch (e) {} // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();
