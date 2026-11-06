@@ -34,7 +34,7 @@
   function livePx(rid) {
     W.rpcOn("anubis", "eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]).then(function (r) {
       var el = document.getElementById("or-px"); if (el && A.isCurrent(rid)) el.textContent = pxOf(r).toFixed(3);
-      if (A.isCurrent(rid)) { livePxV = pxOf(r); liveRank(); simShow(); }
+      if (A.isCurrent(rid)) { livePxV = pxOf(r); liveRank(); simShow(); allResort(); }
     }, function () {});
   }
   // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
@@ -237,7 +237,7 @@
     if (me.hold) return '<p class="nm-bad">' + esc(me.name) + " 是本轮开放后才转进这个钱包的，要等<b>下一轮</b>才能用它预测（刚注册的名字不受此限）。</p>";
     var rest = me.n - me.used;
     return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US", { useGrouping: false }) + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
-      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" + (me.chain ? '<p class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/' + me.chain.tx + '">在账本里看 ›</a></p>' : '<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把这些预测补写到链上（约 0.001 DAI）</button></p>') : "") +
+      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" + (me.chain ? '<p class="or-chain on">🔗 ' + A.timeBJ(me.chain.at) + ' 已写进链上存证 · <a href="#/scan/' + me.chain.tx + '">在账本里看 ›</a></p>' : '<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把这些预测补写到链上（约 0.001 DAI）</button></p>') : "") +
       (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="填 1 个价格，例如 831.462" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔗 上链预测</button></div>' +
         '<p class="muted">还能预测 ' + rest + ' 次；有几次就填几个价格，用空格或逗号隔开。预测直接写进链上（给自己发一笔 0 元转账，Gas 约 0.001 DAI），<b>本站不收任何费用</b>，谁都能查、改不了。<a href="#" id="or-sig">钱包没 DAI 付 Gas？用签名方式</a></p>' :
         '<p class="muted">本轮次数已用完' + (me.bonus ? "" : "；今天在 OTC 成交一笔满 50 DAI，可以再加 1 次") + "。</p>") +
@@ -278,11 +278,12 @@
   function proofModal(day) {
     var box = document.createElement("div"); box.className = "modal"; box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔗 预测上链存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><p class="muted">读取中…</p></div>';
     document.body.appendChild(box); box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
-    fetch("/api/oracle?proof=" + day).then(function (r) { return r.json(); }).then(function (p) {
-      var an = p.anchor, bx = box.querySelector(".modal-box");
+    fetch("/api/oracle?proof=" + day + (account ? "&a=" + account : "")).then(function (r) { return r.json(); }).then(function (p) {
+      var an = p.anchor, bx = box.querySelector(".modal-box"), mi = p.mine;
+      var mine = mi ? '<div class="or-pf-me"><b>🔮 你的链上存证</b><p>你在 <b>' + A.timeBJ(mi.at) + '</b> 预测 <b>' + dayCn(day) + ' 期</b>揭晓价 <b class="or-pf-px">' + esc(String(mi.ps).split(",").join(" / ")) + ' DAI</b>，<b class="ok">✅ 已上链</b></p><a class="nm-go" href="#/scan/' + mi.tx + '">在账本里看链上证据 ›</a><small class="muted">交易 ' + mi.tx.slice(0, 10) + '…' + mi.tx.slice(-6) + '，是你自己钱包发出的 0 元交易，任何人可查、改不了</small></div>' : "";
       var dl = "data:application/json;charset=utf-8," + encodeURIComponent(p.canon);
       bx.innerHTML = '<div class="card-head"><h2>🔗 ' + dayCn(day) + ' 预测存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        '<div class="or-pf-big' + (an ? " on" : "") + '">' + (an ? "✅ 已写入链上 · 不可篡改" : "⏳ 封卷后写入链上") + "</div>" +
+        mine + '<div class="or-pf-big' + (an ? " on" : "") + '">' + (an ? "✅ 已写入链上 · 不可篡改" : "⏳ 封卷后写入链上") + "</div>" +
         '<p><b>' + p.n + " 人 · " + p.guesses + ' 个预测</b></p>' +
         '<p class="or-pf-k">本期指纹（SHA-256）<br><span class="mono">' + p.hash + "</span></p>" +
         (an ? '<p class="or-pf-k">链上交易<br><a class="mono" href="#/scan/' + an.tx + '">' + an.tx + '</a><br><small class="muted">交易 data 里写的是 ailgns-oracle:' + day + ":" + an.hash.slice(0, 16) + "…，由奖池钱包发出，" + A.timeBJ(an.at) + ' 上链</small></p>' : '<p class="muted">每个预测提交时都经钱包签名；今晚 21:00 封卷后，奖池钱包会把上面这个指纹写进链上，之后这里显示交易哈希。</p>') +
@@ -306,14 +307,22 @@
       '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>';
     // 名单里把当前最接近的 3 个点亮
     var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
-    document.querySelectorAll(".or-all li[data-k]").forEach(function (li) { var r = names[li.getAttribute("data-k")]; li.className = r ? "hot h" + r : ""; });
+    document.querySelectorAll(".or-all li[data-k]").forEach(function (li) { var r = names[li.getAttribute("data-k")]; li.className = (r ? "hot h" + r : "") + (li.hasAttribute("data-me") ? " me" : ""); });
   }
   function allGuess(list, px, dr) {
     var rows = [];
-    list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: px ? Math.abs(Math.round(Number(p) * 1000) - px) : 0 }); }); });
-    if (px) rows.sort(function (a, b) { return a.d - b.d; });
-    return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
-      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '"><b>' + esc(r.name) + "</b>：" + r.p + " DAI" + (px ? ' <small class="muted">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + (dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol></details>";
+    var myName = (data && data.me && data.me.name ? String(data.me.name) : "").toLowerCase(), cur = px || livePxV;
+    list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, tx: g.tx || "", me: myName && g.name.toLowerCase() === myName, d: cur ? Math.abs(Math.round(Number(p) * 1000) - cur) : 0 }); }); });
+    if (cur) rows.sort(function (a, b) { return a.d - b.d; });
+    return '<details class="or-all"' + (px ? "" : " open") + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "，离当前价最近的在最上面，实时变") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase();this.nextElementSibling.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
+      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '" data-p="' + r.p + '"' + (r.me ? ' data-me="1" class="me"' : "") + '><b>' + esc(r.name) + '</b>：<b class="or-px">' + r.p + " DAI</b>" + (cur ? ' <small class="muted or-d">差 ' + (r.d / 1000).toFixed(3) + "</small>" : "") + (r.tx ? ' <a class="or-pf-btn" href="#/scan/' + r.tx + '" title="在本站账本里验证这条预测的链上交易">🔗 链上证据</a>' : dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol></details>";
+  }
+  // 开放期间：价格每次变动就把列表按离当前价远近重排（最接近的滚到最上面），并刷新「差」
+  function allResort() {
+    var ol = document.querySelector(".or-all ol"); if (!ol || !livePxV) return;
+    var lis = [].slice.call(ol.children);
+    lis.forEach(function (li) { li._d = Math.abs(Math.round(Number(li.getAttribute("data-p")) * 1000) - livePxV); var d = li.querySelector(".or-d"); if (!d) { d = document.createElement("small"); d.className = "muted or-d"; li.querySelector(".or-px").insertAdjacentElement("afterend", d); } d.textContent = " 差 " + (li._d / 1000).toFixed(3); });
+    lis.sort(function (a, b) { return a._d - b._d; }).forEach(function (li) { ol.appendChild(li); });
   }
   // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
   var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;

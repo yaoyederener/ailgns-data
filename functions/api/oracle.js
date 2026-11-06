@@ -29,7 +29,11 @@ async function proofOf(kv, day) {
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv) return new Response("no kv", { status: 503 });
-  if (u.searchParams.get("proof")) return json(await proofOf(kv, String(u.searchParams.get("proof")).slice(0, 10)));
+  if (u.searchParams.get("proof")) {
+    const day = String(u.searchParams.get("proof")).slice(0, 10), pf = await proofOf(kv, day), qa = String(u.searchParams.get("a") || "").toLowerCase();
+    if (/^0x[0-9a-f]{40}$/.test(qa)) pf.mine = (await kv.get("or:gtx:" + day + ":" + qa, "json")) || null; // 查看者自己的链上存证（时间、预测价、交易）
+    return json(pf);
+  }
   if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
   if (u.searchParams.get("pay")) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });

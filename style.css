@@ -2736,6 +2736,8 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .or-pf-i { font-size: 22px; } .or-proof > div { flex: 1; min-width: 0; } .or-proof b { display: block; font-size: 14px; } .or-proof small { display: block; color: var(--muted); font-size: 12px; line-height: 1.4; word-break: break-all; }
 .or-pf-btn { flex: none; padding: 5px 10px; font-size: 12.5px; }
 .or-all li .or-pf-btn { background: none; border: 0; padding: 0 0 0 6px; color: #5a35d6; font-size: 12px; text-decoration: underline; box-shadow: none; cursor: pointer; }
+.or-pf-me { margin: 0 0 12px; padding: 14px; border-radius: 14px; background: linear-gradient(135deg, #f3edff, #e8fbf2); border: 2px solid #c9b5ff; font-size: 14px; } .or-pf-me p { margin: 6px 0 10px; line-height: 1.6; } .or-pf-me .or-pf-px { color: #5a35d6; font-size: 20px; } .or-pf-me .ok { color: #0a7a52; } .or-pf-me .nm-go { display: block; text-align: center; text-decoration: none; } .or-pf-me small { display: block; margin-top: 8px; }
+.or-all li .or-px { color: #5a35d6; } .or-all li.me { background: #efe9ff; border-left: 3px solid #7027d9; border-radius: 8px; padding: 4px 8px; margin: 4px 0 4px -6px; } .or-all li.me .or-px { font-size: 17px; } .or-all li.me::before { content: "⭐ 你的预测 "; color: #7027d9; font-weight: 800; font-size: 12px; } .or-all li a.or-pf-btn { padding-left: 6px; font-size: 12px; }
 .or-pf-big { padding: 14px; border-radius: 14px; background: #fff3c4; color: #8a5a00; font-weight: 800; text-align: center; font-size: 16px; }
 .or-pf-big.on { background: #e8fbf2; color: #0a7a52; }
 .or-pf-k { font-size: 13px; } .or-pf-k .mono { word-break: break-all; font-size: 12px; }
