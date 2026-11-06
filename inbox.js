@@ -86,7 +86,9 @@
     if (!auth) {
       A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱</h2><p>成交、借贷、工单回复、预言家中奖、链上留言……所有和你钱包有关的通知都在这里，<b>不用加任何社交软件</b>。</p>' +
         '<p class="muted">用钱包签一次名证明是你本人（免费、不花 Gas、不是交易），管 30 天。</p><button type="button" class="nm-go" id="ib-go">🔏 钱包签名，打开我的收件箱</button><p class="muted nm-st" id="ib-st"></p>' +
-        '<p class="muted ib-tip">手机请在钱包 App（OKX / Bitget / TokenPocket / MetaMask 等）内置浏览器里打开 ailgns.dev 再点；点了弹出钱包就选「签名」。</p></section>';
+        '<p class="muted ib-tip">手机请在钱包 App（OKX / Bitget / TokenPocket / MetaMask 等）内置浏览器里打开 ailgns.dev 再点；点了弹出钱包就选「签名」。</p><p class="muted ib-diag" id="ib-diag"></p></section>';
+      // 诊断行：这台设备检测到了哪些钱包（排查「点了没反应」用）
+      setTimeout(function () { var d = document.getElementById("ib-diag"); if (!d) return; var ws = (W.list && W.list()) || []; d.textContent = "诊断 v2 · " + (ws.length ? "检测到钱包：" + ws.map(function (w) { return w.name; }).join("、") : "没检测到钱包（当前不是钱包内置浏览器，或钱包还没注入）") + (W.standalone && W.standalone() ? " · 桌面图标模式" : ""); }, 600);
       document.getElementById("ib-go").onclick = function () { login(this); };
       return;
     }
