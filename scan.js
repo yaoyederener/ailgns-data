@@ -549,8 +549,8 @@
     var pos = root.querySelector("#sc-pos"); if (!pos) return;
     var n = { all: 0, otc: 0, loan: 0, names: 0, other: 0 };
     pos.querySelectorAll(".lg-row").forEach(function (r) { if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", catOf(r.textContent || "")); n.all++; n[r.getAttribute("data-cat")] = (n[r.getAttribute("data-cat")] || 0) + 1; });
-    root.querySelectorAll("#sc-posc .sc-cats a").forEach(function (b) { var k = b.getAttribute("data-cat"), c = n[k] || 0, e = b.querySelector(".sc-n"); e.hidden = false; e.textContent = c ? c + " 单" : "0"; b.classList.toggle("has", c > 0); });
-    var sum = document.getElementById("sc-possum"); if (sum) sum.textContent = n.all ? "共 " + n.all + " 单在挂" : "没有在挂的订单";
+    root.querySelectorAll("#sc-posc .sc-cats a").forEach(function (b) { var k = b.getAttribute("data-cat"), c = n[k] || 0, e = b.querySelector(".sc-n"); var t = c ? c + " 单" : "0"; e.hidden = false; if (e.textContent !== t) e.textContent = t; b.classList.toggle("has", c > 0); }); // 只在变了才写，不然会触发 MutationObserver 死循环
+    var sum = document.getElementById("sc-possum"), st = n.all ? "共 " + n.all + " 单在挂" : "没有在挂的订单"; if (sum && sum.textContent !== st) sum.textContent = st;
   }
   function applyCat(root, cat) {
     root.querySelectorAll(".lg-row").forEach(function (r) {
