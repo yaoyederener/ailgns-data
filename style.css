@@ -2713,3 +2713,10 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .dl-custom { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; } .dl-custom[hidden] { display: none; }
 .dl-n { width: 72px; padding: 6px 8px; border: 1px solid #e3d8ff; border-radius: 8px; font-size: 14px; } .dl-u button { padding: 4px 9px; font-size: 12px; }
 .tr2-durbox .dl { margin: 2px 0 6px; } .tr2-durbox .dl-st { display: none; }
+
+/* 📮 工单后台右上角铃铛 */
+.fb-bell { position: fixed; top: calc(10px + env(safe-area-inset-top)); right: 14px; z-index: 900; width: 44px; height: 44px; border-radius: 999px; background: #fff; border: 1px solid #e3d8ff; box-shadow: 0 6px 18px rgba(90,53,214,.18); display: grid; place-items: center; text-decoration: none; font-size: 20px; }
+.fb-bell .fb-bn { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 12px; font-weight: 800; font-style: normal; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px #fff; }
+.fb-bell.has .fb-bi { animation: ib-ring 1.2s ease infinite; }
+.fb-bell.lv0 { border-color: #f6465d; box-shadow: 0 0 0 4px rgba(246,70,93,.18), 0 6px 18px rgba(246,70,93,.25); }
+.fb-bell.lv1 { border-color: #f59e0b; }

@@ -126,7 +126,37 @@
   // #/feedback/admin          工单列表（每 20 秒自动刷新，有新工单响一声、标红）
   // #/feedback/admin/<编号>   单张工单：看截图 → 写回复 → 「确认已处理」→ 自动跳下一张待处理
   function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  var adTimer = null, adSeen = null;
+  var adTimer = null, adSeen = null, nagTimer = null, titleTimer = null, baseTitle = document.title;
+  // 右上角铃铛：固定在页面右上角，显示待处理数；有 0/1 级没处理就按级别节奏响一声 + 标题闪烁 + 浏览器通知（站长开着这一页就够了，不用开新页）
+  var NAG = { 0: 60e3, 1: 300e3, 2: 1800e3, 3: 6 * 3600e3 };
+  function bellEl() {
+    var b = document.getElementById("fb-bell");
+    if (!b) { b = document.createElement("a"); b.id = "fb-bell"; b.className = "fb-bell"; b.href = "#/feedback/admin"; b.innerHTML = '<span class="fb-bi">🔔</span><i class="fb-bn" hidden></i>'; document.body.appendChild(b); }
+    return b;
+  }
+  function bellPaint(p) {
+    var b = bellEl(), n = (p && p.n) || 0, lv = p && p.top ? p.top.lv : 3;
+    b.querySelector(".fb-bn").hidden = !n; b.querySelector(".fb-bn").textContent = n; b.className = "fb-bell" + (n ? " has lv" + lv : "");
+    b.title = n ? "待处理 " + n + " 张，最紧急：" + (p.top.topic || "") : "没有待处理工单";
+    clearInterval(titleTimer); document.title = baseTitle;
+    if (n && lv <= 1) { var on = false; titleTimer = setInterval(function () { on = !on; document.title = on ? "（" + n + "）⚠️ 待处理工单" : baseTitle; }, 1000); }
+  }
+  var lastNag = 0, lastTop = 0;
+  function nag(p) {
+    if (!p || !p.n) return;
+    var lv = p.top ? p.top.lv : 2, gap = NAG[lv] || NAG[2], now = Date.now();
+    if (p.top && p.top.id !== lastTop) { lastTop = p.top.id; lastNag = 0; } // 来了更紧急的新单：立刻响
+    if (now - lastNag < gap) return;
+    lastNag = now; beep();
+    if ("Notification" in window && Notification.permission === "granted") { try { new Notification("📮 待处理工单 " + p.n + " 张", { body: (p.top ? ["🚨 资金安全", "🔴 交易故障", "🟠 功能问题", "🟢 咨询建议"][lv] + "：#" + p.top.id + " " + (p.top.topic || "") : ""), tag: "fb-nag" }); } catch (e) {}
+    }
+  }
+  function pendingPoll() {
+    fetch("/api/feedback?pending=1").then(function (r) { return r.json(); }).then(function (p) { bellPaint(p); nag(p); }).catch(function () {});
+  }
+  function startNag() { clearInterval(nagTimer); pendingPoll(); nagTimer = setInterval(pendingPoll, 30000); }
+  if (/feedback\/admin/.test(location.hash)) setTimeout(startNag, 500);
+  window.addEventListener("hashchange", function () { if (/feedback\/admin/.test(location.hash)) startNag(); else { clearInterval(nagTimer); clearInterval(titleTimer); document.title = baseTitle; var b = document.getElementById("fb-bell"); if (b) b.remove(); } });
   function beep() { try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.value = 0.08; o.start(); setTimeout(function () { o.stop(); c.close(); }, 250); } catch (e) {} }
   function api(q) { return fetch("/api/feedback?" + q + "&key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }); }
   function imgUrl(id, i) { return "/api/feedback?img=" + id + ":" + i + "&key=" + encodeURIComponent(key()); }
@@ -185,9 +215,10 @@
     var m = location.hash.match(/feedback\/admin\/(\d+)/);
     if (m) return one(rid, Number(m[1]));
     st = st || "new";
-    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span><button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
+    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg"></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
+    var nb = document.getElementById("fb-notify"); if (nb) nb.onclick = function () { Notification.requestPermission().then(function () { admin(rid, st); }); };
     function load(first) {
       var box = document.getElementById("fb-list"); if (!box) return clearInterval(adTimer);
       if (!first && box.querySelector("textarea:focus")) return; // 正在写回复：不刷新
