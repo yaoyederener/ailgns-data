@@ -116,8 +116,13 @@ async function blockTime(m, bn) {
 }
 // 预言家「贡献榜」：按北京日、按市场记每个地址付的手续费（币 OTC 吃单方付 1%，卡牌买家付 3%，都按 DAI 金额算）→ or:fee:<日>:<市场> = { 地址: DAI }
 const feeDay = (ts) => new Date((ts + 8 * 3600) * 1000).toISOString().slice(0, 10);
-async function addFee(kv, rec) {
-  const payer = rec.nft ? (rec.makerSide === "卖" ? rec.taker : rec.maker) : rec.taker;
+const SWEEP_ROUTER = "0x6ec474047a6c12d0cab53855a990c1c8b3996c20", MATCHER = "0xdcc5354175d60ffc8364e71e792fcd66366f00fe";
+async function addFee(kv, rec, m) {
+  let payer = rec.nft ? (rec.makerSide === "卖" ? rec.taker : rec.maker) : rec.taker;
+  if (payer === MATCHER) return; // 我们自己的撮合机器人，不计贡献
+  if (payer === SWEEP_ROUTER && m && rec.tx) { // 批量扫单：手续费是发起这笔交易的人付的，记到他名下
+    try { const t = await rpc(m, "eth_getTransactionByHash", [rec.tx]); if (t && t.from) payer = String(t.from).toLowerCase(); else return; } catch (e) { return; }
+  }
   const fee = Math.round(rec.dai * (rec.nft ? 0.03 : 0.01) * 100) / 100;
   if (!(fee > 0) || !payer) return;
   const k = "or:fee:" + feeDay(rec.t) + ":" + rec.m, f = (await kv.get(k, "json")) || {};
@@ -140,7 +145,7 @@ async function recordTrades(m, kv, logs, cache) {
       const qty = o.sell ? amount : paid, dai = o.sell ? paid : amount; // 挂单币数量 / DAI 金额
       rec = { m: m.key, id, t: ts, tx: l.transactionHash, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker, makerSide: o.sell ? "卖" : "买" };
     }
-    await addFee(kv, rec).catch(() => {});
+    await addFee(kv, rec, m).catch(() => {});
     await addRebate(kv, rec).catch(() => {}); // 💧 做市返佣记账（挂单方 70%）
     // AiLGNS/DAI 真实成交记录（全站一份，最近 300 笔）：预言家奖池用「24 小时真实成交最高价」做预言机
     if (m.key === "ailgns" && rec.price > 0 && rec.dai >= 0.5) {
