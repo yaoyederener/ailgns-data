@@ -20,7 +20,7 @@
     clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid; if (orLive) { orLive.stop(); orLive = null; }
     A.app.innerHTML =
       '<div id="or-top"></div>' +
-      '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button></div></section>' +
+      '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button><button type="button" class="ghost or-dmcs" id="or-dmcs">💬 在线客服</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
       '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b></p><p>🎯 整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>💰 <b>OTC 手续费前 3</b> → 贡献王（30%）</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
       '<div id="or-chart" class="or-kc"></div>' +
@@ -380,29 +380,32 @@
     }, function () {});
   }
   var dmFetched = false;
-  function dmAdd(m) { // 每人只留最新一条
-    dmList = dmList.filter(function (x) { return x.name !== m.name; }); dmList.push(m);
+  function dmAdd(m) { // 每人只留最新一条；新的排前面（最近发的先飞）
+    dmList = dmList.filter(function (x) { return x.name !== m.name; }); dmList.unshift(m); dmList.sort(function (x, y) { return (y.t || 0) - (x.t || 0); });
     if (dmList.length > 60) dmList.shift();
   }
   function dmFly(m, mine) {
     var sky = document.getElementById("or-dmsky"); if (!sky) return;
     var el = document.createElement("div");
     el.className = "or-dmi" + (mine ? " mine" : "");
-    el.style.top = (8 + (dmLane++ % 3) * 30) + "px";
+    el.style.top = (6 + (dmLane++ % 4) * 24) + "px";
     el.innerHTML = "<b>" + esc(m.name) + "</b>：" + esc(m.txt);
-    el.style.animationDuration = (9 + Math.random() * 4).toFixed(1) + "s";
+    el.style.animationDuration = (5.5 + Math.random() * 2).toFixed(1) + "s"; // 快一点：6 秒左右飞完
     el.addEventListener("animationend", function () { el.remove(); });
     sky.appendChild(el);
   }
   function dmInit(rid) {
     dmFetched = false; dmSeen = {}; dmList = []; dmQ = [];
     dmFetch();
+    var idle = 0;
     var tick = setInterval(function () {
       if (!A.isCurrent(rid) || !document.getElementById("or-dmsky")) return clearInterval(tick);
-      if (dmI < dmList.length) dmFly(dmList[dmI++], false); // 滚完一遍就停，等有人发新的再从头滚
-    }, 1800);
+      if (dmI < dmList.length) { dmFly(dmList[dmI++], false); idle = 0; } // 密集：每 0.45 秒一条，4 条车道，一轮很快看完
+      else if (++idle > 44) { dmI = 0; idle = 0; } // 滚完一轮歇 20 秒再来一轮
+    }, 450);
     var pull = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pull); dmFetch(); }, 15000);
-    var inp = document.getElementById("or-dmt"), btn = document.getElementById("or-dmgo");
+    var inp = document.getElementById("or-dmt"), btn = document.getElementById("or-dmgo"), cs = document.getElementById("or-dmcs");
+    if (cs) cs.onclick = function () { if (A.chatOpen) A.chatOpen("预言家怎么玩？"); };
     if (!btn) return;
     var send = function () {
       var txt = inp.value.replace(/\s+/g, " ").trim();

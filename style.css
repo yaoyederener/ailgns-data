@@ -2636,3 +2636,8 @@ button.poster-cta, button.debox { border: 0; cursor: pointer; font-family: inher
 
 /* OTC 引导卡图标：一个「信」字——担保交易，交易看的是信用（站长 2026-11-06） */
 .gd-xin { display: inline-flex; align-items: center; justify-content: center; width: 1em; height: 1em; font-style: normal; font-weight: 900; font-size: .86em; line-height: 1; color: #fff; background: linear-gradient(135deg, #7c5cff, #5a35d6); border-radius: 22%; box-shadow: 0 4px 10px rgba(90, 53, 214, .25); font-family: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", serif; letter-spacing: 0; }
+
+.or-dmsky { height: 108px; }
+.or-dmi { font-size: 13.5px; padding: 2px 10px; }
+.or-dmcs { flex: none; white-space: nowrap; padding: 9px 12px; }
+@media (max-width: 480px) { .or-dmin { flex-wrap: wrap; } .or-dmin input { flex: 1 1 100%; } .or-dmin .nm-go, .or-dmcs { flex: 1; } }
