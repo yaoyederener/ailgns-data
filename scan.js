@@ -584,7 +584,7 @@
   };
   function addrView(a, out, via, cat) {
     var wait = '<p class="muted">读取中…</p>';
-    if (TEAM[a]) { out.innerHTML = '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营费用支出</b>用的地址（服务器、节点、客服、开发等日常维护）。属于团队内部账务，账本不展示明细。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>'; return; }
+    if (TEAM[a]) { out.innerHTML = '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营费用支出</b>用的地址（服务器、节点、客服、开发等日常维护）。属于团队内部账务，账本不展示明细。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>'; return Promise.resolve(); }
     var S = { head: (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
       (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
