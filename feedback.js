@@ -235,7 +235,7 @@
   function fm(v, d) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }); }
   function statsHtml(j) {
     var t = j.totals, rows = j.rows, td = rows[0] || {}, y = rows[1] || {};
-    if (j.pending) rows = rows.slice(); var pend = j.pending ? '<p class="muted">还有 ' + j.pending + ' 天的历史数据在计算（每次补 2 天，自动刷新）…</p>' : "";
+    var pend = '<p class="muted">数据更新于 ' + tm(j.at || j.walletsAt) + '，每 5 分钟自动更新一次' + (j.pending ? '；还有 ' + j.pending + ' 天历史在后台补算' : "") + '</p>';
     var tile = function (k, v, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + k + "</small><b>" + v + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; };
     var h = pend + '<div class="ad-tiles">' +
       tile("今日成交额", fm(td.fillDai, 0) + " DAI", td.fills + " 笔 · 昨日 " + fm(y.fillDai, 0), "big") +
@@ -282,9 +282,9 @@
           document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="stats" class="on">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
           try { box.innerHTML = statsHtml(j); } catch (e) { box.innerHTML = '<p class="nm-bad">面板渲染出错：' + esc(e.message) + "</p>"; }
-          if (j.pending && adminSt === "stats") setTimeout(function () { load(true); }, 1200); // 历史日子还没算完：继续拉，每次补 2 天
+
         }).catch(function (e) { box.innerHTML = '<p class="nm-bad">数据读取失败：' + esc(e.message || e) + '，<a href="#/feedback/admin/stats" onclick="location.reload()">点这里重试</a></p>'; });
-        box.innerHTML = '<p class="muted">正在汇总 30 天数据和 6 个钱包的链上余额，约 5–10 秒…</p>';
+        box.innerHTML = '<p class="muted">读取中…</p>';
         return;
       }
       if (st === "err") { // 前端自动上报的程序错误（客户看到英文报错时我们这边同步有记录）
