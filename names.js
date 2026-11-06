@@ -318,7 +318,7 @@
       if ((A.hidden || {})[a] && !self) { o.innerHTML = '<p class="muted">🔒 这个地址的持有人选择匿名</p>'; return; }
       o.innerHTML = '<p class="muted">查询中…（第一次要读链上记录，稍等几秒）</p>';
       ownedList(a).then(function (all) {
-        var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && (self || !HN[x.label + "." + x.t]); });
+        var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && !(A.nameBanned && A.nameBanned(x.label)) && (self || !HN[x.label + "." + x.t]); }); // 涉政名字连自己的列表都不显示
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
         if (!list.length) {
           var seen = {}, mv = (movedOf[a] || []).filter(function (x) { var k = x.t + ":" + x.label; if (!x.label || seen[k]) return false; seen[k] = 1; return true; }), sh = function (x) { return x.slice(0, 6) + "…" + x.slice(-4); };
@@ -464,6 +464,7 @@
     function show(v) {
       var my = ++showSeq;
       if (!v) { out.innerHTML = ""; return; }
+      if (A.nameBanned && A.nameBanned(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」这个名字本站不开放注册，也不会显示，请换一个。</p>'; return; }
       if (!valid(v)) { out.innerHTML = '<p class="nm-bad">「' + esc(v) + '」不能用：可以用中文、小写字母、数字、-；英文最少 3 位，中文最少 2 个字，最多 32 个字，不能以 - 开头或结尾</p>'; return; }
       var buy = '<div class="nm-yr"><span class="nm-yr-t">买几年</span><select id="nm-y" hidden>' + [1, 2, 3, 5, 10, 100].map(function (y) { return '<option value="' + y + '">' + y + " 年</option>"; }).join("") + "</select>" +
         '<span class="nm-pay nm-yrs" data-for="nm-y">' + [1, 2, 3, 5, 10, 100].map(function (y, i) { return '<button type="button" data-k="' + y + '"' + (i ? "" : ' class="on"') + ">" + (y === 100 ? "100 年<small>永久</small>" : y + " 年") + "</button>"; }).join("") + "</span></div>" +

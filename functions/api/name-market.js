@@ -2,6 +2,7 @@
 // 以前每个访客自己读：每个挂单 2 次（名字、到期），70 个挂单就是 140 多次请求，很慢
 // GET [?f=1 跳过缓存] → { list: [{ t, O, id, maker, expiry, tid, price, label, exp }] }（price 是 wei 字符串）
 import { RPCS } from "../../lib/teamlib.js";
+import { banned } from "../../lib/ban.js";
 
 const M = {
   ailgns: { O: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", C: "0xbc408e9d7350967e7247c917a086cb4ece0ed988" },
@@ -51,7 +52,7 @@ async function build() {
     const res = await batch(list.flatMap((it) => [[M[it.t].C, SEL.labelOf + it.tid], [M[it.t].C, SEL.expires + it.tid]]));
     list.forEach((it, i) => { it.label = decStr(res[2 * i]); it.exp = Number(BigInt("0x" + word(res[2 * i + 1], 0))); });
   }
-  return list;
+  return list.filter((it) => !banned(it.label)); // 🚫 涉政名字不进市场
 }
 
 export async function onRequestGet(ctx) {
