@@ -83,6 +83,7 @@
   function say(t, good) { var s = document.getElementById("fb-st"); if (s) { s.textContent = t; s.className = "fb-st" + (good ? " ok" : ""); } }
 
   function page(rid) {
+    if (/feedback\/admin\/stats/.test(location.hash)) { location.replace("#/partner"); return; } // 旧数据面板网址已发给合伙人：不用先登工单后台，直接换成合伙人面板
     if (/feedback\/admin/.test(location.hash)) return admin(rid);
     imgs = [];
     A.app.innerHTML = '<section class="card fb"><div class="card-head"><h2>📮 问题反馈</h2><span class="muted">提交后生成工单，客服挨个处理</span></div>' +
