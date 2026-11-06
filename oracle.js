@@ -233,7 +233,7 @@
     return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + "</b></span>" +
       "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
       '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI</b></span>" +
-      '<small class="or-fnote">奖池数字就是奖池钱包里的实际余额（AiLGNS 按现价折算），有多少发多少，获奖自动发到你的钱包；每天域名收入的 70% 会自动转进来。</small></div>';
+      '<small class="or-fnote">奖池数字就是奖池钱包里的实际余额（AiLGNS 按现价折算），有多少发多少，获奖自动发到你的钱包。</small></div>';
   }
   // 注册了域名却没设主名字的客户：直接告诉他名字在、差一步，一键跳到名字页去设（最常见的「不能参加」原因）
   function fixHint() {
@@ -425,7 +425,7 @@
       (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + (r.nearInfo.diff / 1000).toFixed(3) + "。没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
       (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
       (r.kings && r.kings.length ? '<p class="or-win">💰 贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付 " + dai(k.fee) + "，得 " + dai(k.amt); }).join("；") + "</p>" : "") +
-      '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 本期奖金 " + dai(r.allot) + "（域名收入的 70%）· 奖金由系统自动发到获奖钱包</p></section>";
+      '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 奖金由系统自动发到获奖钱包</p></section>";
   }
   function rules() {
     return '<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>' +
@@ -435,7 +435,7 @@
       "<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（前一晚 9 点前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>" +
       "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚揭晓，9 点后提交的参加第二天。</li>" +
       "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
-      "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b>，全部进奖池，回馈参与的朋友。<b>有人完全猜中那天，四个奖一起发</b>：🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖；💰 <b>贡献王</b> 拿 30%；🥇 <b>天眼通</b>（除神算子外最接近）拿 <b>10%</b>；🥈 <b>地灵通</b>（第二接近）拿 <b>5%</b>（一样接近先提交的得）。<b>没人猜中就一个奖都不发，全部留在奖池继续滚大。</b></li>" +
+      "<li><b>奖金</b>：奖池由站方注入，页面大字显示的就是奖池钱包的实际余额，有多少发多少。<b>有人完全猜中那天，四个奖一起发</b>：🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖；💰 <b>贡献王</b> 拿 30%；🥇 <b>天眼通</b>（除神算子外最接近）拿 <b>10%</b>；🥈 <b>地灵通</b>（第二接近）拿 <b>5%</b>（一样接近先提交的得）。<b>没人猜中就一个奖都不发，全部留在奖池继续滚大。</b></li>" +
       "<li><b>💰 贡献王</b>：有人猜中的那天，奖池 <b>30%</b> 给<b>本周期</b>（上次大奖清空的第二天起到当天）在 OTC 付手续费最多的前 3 名，按 50 / 30 / 20 分；发完周期清零，重新排。手续费按成交额算：币 OTC 吃单付 1%，卡牌买家付 3%。贡献王不占名额、不禁赛。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
       "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
