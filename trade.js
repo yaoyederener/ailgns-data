@@ -66,25 +66,37 @@
     M = A.otcKit.M(); if (M.otc !== "0x4e730be6d46be71223ded5a32dc45799f6d4bc15") { K().useMarket("ailgns"); M = K().M(); }
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym; PD = M.pd;
     A.app.innerHTML =
-      '<section class="tr-head"><div class="tr-pair"><b>' + SYM + ' / DAI</b><small>本站 OTC 盘口 · 链上撮合 · 吃单手续费 1%</small></div><div class="tr-stats" id="tr-stats">读取中…</div></section>' +
-      '<div class="tr-grid">' +
-        '<section class="card tr-k"><div class="card-head"><h2>📈 K 线</h2></div><div id="tr-k" class="or-kc tr-kc"></div></section>' +
-        '<section class="card tr-book"><div class="card-head"><h2>📊 盘口</h2><span class="muted" id="tr-mid"></span></div><div class="tr-bk" id="tr-bk">读取中…</div></section>' +
-        '<section class="card tr-form"><div class="tr-side"><button type="button" class="on buy" data-side="buy">买入</button><button type="button" class="sell" data-side="sell">卖出</button></div>' +
-          '<div class="tr-type"><button type="button" class="on" data-type="limit">限价</button><button type="button" data-type="market">市价</button><span class="muted" id="tr-bal"></span></div>' +
-          '<label class="tr-in" id="tr-pbox"><span>价格</span><input id="tr-p" inputmode="decimal" autocomplete="off"><em>DAI</em></label>' +
-          '<label class="tr-in"><span>数量</span><input id="tr-a" inputmode="decimal" autocomplete="off" placeholder="0"><em>' + SYM + '</em></label>' +
-          '<div class="tr-pct"><button type="button" data-pct="25">25%</button><button type="button" data-pct="50">50%</button><button type="button" data-pct="75">75%</button><button type="button" data-pct="100">全部</button></div>' +
-          '<label class="tr-in"><span>总额</span><input id="tr-t" inputmode="decimal" autocomplete="off" placeholder="0"><em>DAI</em></label>' +
-          '<div class="tr-dur" id="tr-durbox"><span class="muted">有效期</span><select id="tr-dur">' + K().DURATIONS.map(function (d) { return '<option value="' + d[0] + '"' + (d[0] === K().DUR_DEFAULT ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></div>" +
-          '<p class="muted tr-note" id="tr-note"></p>' +
-          '<button type="button" class="tr-go buy" id="tr-go">买入 ' + SYM + '</button><p class="muted nm-st" id="tr-st"></p></section>' +
-        '<section class="card tr-mine"><div class="card-head"><h2>📋 我的委托</h2><button type="button" class="ghost" id="tr-conn">连接钱包</button></div><div id="tr-my">连接钱包后显示你在挂的单</div></section>' +
-        '<section class="card tr-trades"><div class="card-head"><h2>🕒 最近成交</h2><span class="muted">全站 · 北京时间</span></div><div class="tr-tl" id="tr-tl">读取中…</div></section>' +
-      "</div>";
+      '<div class="tr2">' +
+      // 顶部价格条（交易所手机版样式：币对 + 大字最新价 + 24h 数据）
+      '<section class="tr2-top"><div class="tr2-pair"><b>' + SYM + '/DAI</b><small>OTC 担保 · 吃单费 1%</small></div><div class="tr2-last" id="tr-stats"><b>—</b></div></section>' +
+      '<nav class="tr2-tabs" id="tr2-tabs"><button type="button" class="on" data-pane="trade">交易</button><button type="button" data-pane="k">K 线</button><button type="button" data-pane="fills">成交</button></nav>' +
+      // 交易面板：左下单、右盘口
+      '<div class="tr2-pane" data-pane="trade">' +
+        '<div class="tr2-main">' +
+          '<section class="tr2-form tr-form">' +
+            '<div class="tr-side tr2-side"><button type="button" class="on buy" data-side="buy">买入</button><button type="button" class="sell" data-side="sell">卖出</button></div>' +
+            '<div class="tr-type tr2-type"><button type="button" class="on" data-type="limit">限价</button><button type="button" data-type="market">市价</button></div>' +
+            '<div class="tr2-in tr2-step" id="tr-pbox"><button type="button" class="tr2-pm" data-step="-1">−</button><label><span>价格 (DAI)</span><input id="tr-p" inputmode="decimal" autocomplete="off"></label><button type="button" class="tr2-pm" data-step="1">+</button></div>' +
+            '<label class="tr2-in"><span>数量 (' + SYM + ')</span><input id="tr-a" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
+            '<div class="tr-pct tr2-pct"><button type="button" data-pct="25">25%</button><button type="button" data-pct="50">50%</button><button type="button" data-pct="75">75%</button><button type="button" data-pct="100">100%</button></div>' +
+            '<label class="tr2-in"><span>总额 (DAI)</span><input id="tr-t" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
+            '<div class="tr2-meta"><span class="muted" id="tr-bal"></span><span class="tr-dur tr2-dur" id="tr-durbox"><span class="muted">有效</span><select id="tr-dur">' + K().DURATIONS.map(function (d) { return '<option value="' + d[0] + '"' + (d[0] === K().DUR_DEFAULT ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></span></div>" +
+            '<p class="muted tr-note" id="tr-note"></p>' +
+            '<button type="button" class="tr-go buy" id="tr-go">买入 ' + SYM + '</button><p class="muted nm-st" id="tr-st"></p>' +
+          '</section>' +
+          '<section class="tr2-book"><div class="tr2-bh"><span>价格(DAI)</span><span>数量(' + SYM + ')</span></div><div id="tr-bk">读取中…</div><p class="muted tr2-mid" id="tr-mid"></p></section>' +
+        '</div>' +
+        '<section class="card tr2-orders"><div class="tr2-otabs"><button type="button" class="on" data-o="my">当前委托<i id="tr2-myn"></i></button><button type="button" data-o="fills">最近成交</button><button type="button" class="ghost tr2-conn" id="tr-conn">连接钱包</button></div>' +
+          '<div id="tr-my" class="tr2-opane">连接钱包后显示你在挂的单</div><div id="tr-tl" class="tr2-opane" hidden>读取中…</div></section>' +
+      '</div>' +
+      '<div class="tr2-pane" data-pane="k" hidden><section class="card tr-k"><div id="tr-k" class="or-kc tr-kc"></div></section></div>' +
+      '<div class="tr2-pane" data-pane="fills" hidden><section class="card"><div class="card-head"><h2>🕒 最近成交</h2><span class="muted">全站 · 北京时间</span></div><div id="tr-tl2"></div></section></div>' +
+      // 手机底部固定买卖按钮
+      '<div class="tr2-bar"><button type="button" class="buy" data-bar="buy">买入</button><button type="button" class="sell" data-bar="sell">卖出</button></div>' +
+      '</div>';
     bind();
     refresh(true);
-    startLive();
+    if (matchMedia("(min-width: 901px)").matches) startLive(); // 电脑：K 线常驻；手机：点「K 线」标签再画
     document.querySelectorAll(".tr-ktabs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll(".tr-ktabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (b.getAttribute("data-k") === "live") startLive(); else { if (liveCtl) { liveCtl.stop(); liveCtl = null; } document.getElementById("tr-ktip").textContent = "参考：DEX 1 小时线，最近 24 小时"; drawKline(); } }; });
     timer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(timer); refresh(false); }, 8000);
     K().silentAccount().then(function () { account = K().account(); if (account) afterConnect(); });
@@ -95,31 +107,34 @@
   function bestAsk() { return book.asks.length ? priceOf(book.asks[0]) : 0; }
   function bestBid() { return book.bids.length ? priceOf(book.bids[0]) : 0; }
   function renderStats() {
-    var last = fills[0], vol = 0, hi = 0, lo = Infinity, since = Date.now() / 1000 - 86400;
-    fills.forEach(function (x) { if (x.t >= since) { vol += x.dai; hi = Math.max(hi, x.px); lo = Math.min(lo, x.px); } });
+    var last = fills[0], vol = 0, hi = 0, lo = Infinity, since = Date.now() / 1000 - 86400, first24 = null;
+    fills.forEach(function (x) { if (x.t >= since) { vol += x.dai; hi = Math.max(hi, x.px); lo = Math.min(lo, x.px); first24 = x; } });
     var el = document.getElementById("tr-stats"); if (!el) return;
-    el.innerHTML = '<div><small>最新成交</small><b class="' + (last && fills[1] && last.px < fills[1].px ? "dn" : "up") + '">' + (last ? f2(last.px) : "—") + "</b></div>" +
-      "<div><small>买一 / 卖一</small><b>" + (bestBid() ? f2(bestBid()) : "—") + " / " + (bestAsk() ? f2(bestAsk()) : "—") + "</b></div>" +
-      "<div><small>24h 最高 / 最低</small><b>" + (hi ? f2(hi) + " / " + f2(lo) : "—") + "</b></div>" +
-      "<div><small>24h 成交额</small><b>" + f(vol, 0) + " DAI</b></div>" +
-      "<div><small>DEX 现价</small><b>" + (book.mkt ? f2(book.mkt) : "—") + "</b></div>";
-    var mid = document.getElementById("tr-mid"); if (mid) mid.textContent = bestAsk() && bestBid() ? "价差 " + f2(bestAsk() - bestBid()) + " DAI" : "";
+    var px = last ? last.px : (bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : book.mkt), chg = last && first24 && first24.px ? (last.px / first24.px - 1) * 100 : 0, up = chg >= 0;
+    el.innerHTML = '<div class="tr2-px"><b class="' + (up ? "up" : "dn") + '">' + (px ? f2(px) : "—") + '</b><small>≈ DEX ' + (book.mkt ? f2(book.mkt) : "—") + ' · <span class="' + (up ? "up" : "dn") + '">' + (up ? "+" : "") + chg.toFixed(2) + "%</span></small></div>" +
+      '<div class="tr2-24"><div><small>24h 高</small><b>' + (hi ? f2(hi) : "—") + '</b></div><div><small>24h 低</small><b>' + (lo < Infinity ? f2(lo) : "—") + '</b></div><div><small>24h 量(DAI)</small><b>' + f(vol, 0) + "</b></div></div>";
+    var mid = document.getElementById("tr-mid"); if (mid) mid.textContent = "买 " + book.bids.length + " 张 · 卖 " + book.asks.length + " 张" + (bestAsk() && bestBid() ? " · 价差 " + f2(bestAsk() - bestBid()) : "");
   }
   function renderBook() {
     var el = document.getElementById("tr-bk"); if (!el) return;
-    var asks = agg(book.asks, 12), bids = agg(book.bids, 12), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
-    var row = function (r, cls) { return '<div class="tr-row ' + cls + '" data-p="' + r.p + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + fq(r.coin) + "</span><span>" + f(r.dai, 0) + "</span></div>"; };
-    el.innerHTML = '<div class="tr-cols"><div class="tr-col"><div class="tr-th"><span>买入价</span><span>数量</span><span>DAI</span></div>' + (bids.map(function (r) { return row(r, "bid"); }).join("") || '<p class="muted">暂无买单</p>') + "</div>" +
-      '<div class="tr-col"><div class="tr-th"><span>卖出价</span><span>数量</span><span>DAI</span></div>' + (asks.map(function (r) { return row(r, "ask"); }).join("") || '<p class="muted">暂无卖单</p>') + "</div></div>" +
-      '<p class="muted tr-tip">点一行价格自动填到下单框 · 数量按价格合并，含多张挂单 · 共 ' + book.bids.length + " 张买单、" + book.asks.length + " 张卖单</p>";
-    el.querySelectorAll(".tr-row").forEach(function (r) { r.onclick = function () { setSide(r.classList.contains("ask") ? "buy" : "sell"); setType("limit"); document.getElementById("tr-p").value = r.getAttribute("data-p"); recalc("p"); }; });
+    var N = matchMedia("(min-width: 901px)").matches ? 9 : 6;
+    var asks = agg(book.asks, N), bids = agg(book.bids, N), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
+    var row = function (r, cls) { return '<div class="tr2-row ' + cls + '" data-p="' + r.p + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + fq(r.coin) + "</span></div>"; };
+    var last = fills[0], prev = fills[1], lcls = last && prev && last.px < prev.px ? "dn" : "up";
+    var fill = function (list, cls) { var h = list.map(function (r) { return row(r, cls); }).join(""); for (var k = list.length; k < N; k++) h += '<div class="tr2-row empty"><span>—</span><span></span></div>'; return h; };
+    el.innerHTML = '<div class="tr2-asks">' + fill(asks.slice().reverse(), "ask") + '</div>' +
+      '<div class="tr2-last2"><b class="' + lcls + '">' + (last ? f2(last.px) : bestAsk() && bestBid() ? f2((bestAsk() + bestBid()) / 2) : "—") + (last ? (lcls === "up" ? " ↑" : " ↓") : "") + "</b><small>≈ DEX " + (book.mkt ? f2(book.mkt) : "—") + "</small></div>" +
+      '<div class="tr2-bids">' + fill(bids, "bid") + "</div>";
+    el.querySelectorAll(".tr2-row[data-p]").forEach(function (r) { r.onclick = function () { setSide(r.classList.contains("ask") ? "buy" : "sell"); setType("limit"); document.getElementById("tr-p").value = r.getAttribute("data-p"); recalc("p"); }; });
   }
   function renderTrades() {
     var el = document.getElementById("tr-tl"); if (!el) return;
+    var el2 = document.getElementById("tr-tl2");
     el.innerHTML = fills.length ? '<div class="tr-th"><span>时间</span><span>价格</span><span>数量</span><span>DAI</span></div>' + fills.slice(0, 30).map(function (x, i) {
       var prev = fills[i + 1], cls = prev && x.px < prev.px ? "dn" : "up";
       return '<div class="tr-trow ' + cls + '"><span>' + bj(x.t) + "</span><span>" + f2(x.px) + "</span><span>" + fq(x.dai / x.px) + "</span><span>" + f(x.dai, 2) + "</span></div>";
     }).join("") : '<p class="muted">最近还没有成交记录（从盘口上线起统计）</p>';
+    if (el2) el2.innerHTML = el.innerHTML;
   }
   function setDefaultPrice() { var p = document.getElementById("tr-p"); if (p && !p.value) { p.value = (side === "buy" ? bestAsk() || bestBid() || book.mkt : bestBid() || bestAsk() || book.mkt).toFixed(PD); recalc("p"); } }
 
@@ -147,7 +162,7 @@
   }
 
   // ---------- 下单框 ----------
-  function setSide(s) { side = s; document.querySelectorAll(".tr-side button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-side") === s); }); var go = document.getElementById("tr-go"); go.className = "tr-go " + s; go.textContent = (s === "buy" ? "买入 " : "卖出 ") + SYM; updateBal(); recalc("a"); }
+  function setSide(s) { side = s; var root = document.querySelector(".tr2"); if (root) root.setAttribute("data-side", s); document.querySelectorAll(".tr-side button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-side") === s); }); var go = document.getElementById("tr-go"); go.className = "tr-go " + s; go.textContent = (s === "buy" ? "买入 " : "卖出 ") + SYM; updateBal(); recalc("a"); }
   function setType(t) { type = t; document.querySelectorAll(".tr-type button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-type") === t); }); document.getElementById("tr-pbox").style.display = t === "market" ? "none" : ""; document.getElementById("tr-durbox").style.display = t === "market" ? "none" : ""; recalc("a"); }
   var bal = { dai: 0n, coin: 0n };
   function updateBal() {
@@ -201,6 +216,28 @@
     });
     document.getElementById("tr-conn").onclick = connectBtn;
     document.getElementById("tr-go").onclick = submit;
+    // 顶级标签：交易 / K 线 / 成交
+    document.querySelectorAll("#tr2-tabs button").forEach(function (b) {
+      b.onclick = function () {
+        var p = b.getAttribute("data-pane");
+        document.querySelectorAll("#tr2-tabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        document.querySelectorAll(".tr2-pane").forEach(function (x) { x.hidden = x.getAttribute("data-pane") !== p; });
+        if (p === "k") startLive(); else if (liveCtl && !matchMedia("(min-width: 901px)").matches) { liveCtl.stop(); liveCtl = null; }
+        if (p === "fills") renderTrades();
+      };
+    });
+    // 当前委托 / 最近成交
+    document.querySelectorAll(".tr2-otabs button[data-o]").forEach(function (b) {
+      b.onclick = function () { var o = b.getAttribute("data-o"); document.querySelectorAll(".tr2-otabs button[data-o]").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("tr-my").hidden = o !== "my"; document.getElementById("tr-tl").hidden = o !== "fills"; };
+    });
+    // 价格 ± 步进
+    document.querySelectorAll(".tr2-pm").forEach(function (b) {
+      b.onclick = function () { var p = document.getElementById("tr-p"), step = Math.pow(10, -PD), v = (Number(p.value) || book.mkt || 0) + Number(b.getAttribute("data-step")) * step; if (v > 0) { p.value = v.toFixed(PD); recalc("p"); } };
+    });
+    // 手机底部固定买 / 卖：切方向并滚到下单框
+    document.querySelectorAll(".tr2-bar button").forEach(function (b) {
+      b.onclick = function () { var tb = document.querySelector('#tr2-tabs button[data-pane="trade"]'); if (tb && !tb.classList.contains("on")) tb.click(); setSide(b.getAttribute("data-bar")); document.getElementById("tr-p").value = ""; setDefaultPrice(); var f = document.querySelector(".tr2-form"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" }); };
+    });
   }
   function connectBtn() { return K().connect().then(function (a) { account = a; afterConnect(); }, function (e) { A.errTip(K().niceError(e), document.getElementById("tr-conn")); }); }
   function afterConnect() { var c = document.getElementById("tr-conn"); if (c) c.textContent = A.short(account); updateBal(); renderMine(); }
@@ -255,6 +292,7 @@
   function renderMine() {
     var el = document.getElementById("tr-my"); if (!el || !account) return;
     var now = Date.now() / 1000, mine = book.all.filter(function (o) { return o.maker === account && o.open && o.giveLeft > 0n; });
+    var nb = document.getElementById("tr2-myn"); if (nb) nb.textContent = mine.length ? " " + mine.length : "";
     el.innerHTML = mine.length ? mine.map(function (o) {
       var sell = o.sellAilgns, p = priceOf(o);
       return '<div class="tr-myrow"><span class="' + (sell ? "dn" : "up") + '">' + (sell ? "卖出" : "买入") + "</span><span>" + f2(p) + "</span><span>" + fq(num(leftCoin(o), TD)) + " " + SYM + "</span><span>" + f(num(leftDai(o)), 2) + ' DAI</span><span class="muted">' + (o.expiry > now ? K().left(o.expiry - now) : "已到期") + '</span><button type="button" class="ghost" data-cancel="' + o.id + '">撤单</button></div>';
