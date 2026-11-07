@@ -2915,3 +2915,10 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .or-all ol > li > .or-px { display: inline; margin: 0 2px 0 0; gap: 0; }
 .or-all ol:not(.exp):not(.q) > li:nth-child(n+11) { display: none; }
 .or-more { display: block; margin: 10px auto 2px; padding: 7px 18px; font-size: 13.5px; }
+
+/* 💰 账户余额：只显示有钱的币，高亮显眼；按张数自适应列数（站长 2026-11-07） */
+.sc-balc .sc-bal.sc-n1 { grid-template-columns: 1fr; } .sc-balc .sc-bal.sc-n2 { grid-template-columns: 1fr 1fr; }
+.sc-coin.sc-has { background: linear-gradient(135deg, #fff7d6, #ffe9a6 55%, #ffd978); border: 1px solid #e2b64a; box-shadow: 0 6px 18px rgba(226, 182, 74, .28); }
+.sc-coin.sc-has span { color: #7a4d00; font-weight: 700; } .sc-coin.sc-has b { color: #3a2400; font-size: 30px; } .sc-coin.sc-has small { color: #0b7a4b; font-weight: 700; }
+.sc-coin.sc-top { background: linear-gradient(135deg, #ffe9a6, #ffd45c 55%, #ffb648); } .sc-coin.sc-top b { font-size: 36px; }
+@media (max-width: 600px) { .sc-balc .sc-bal.sc-n1, .sc-balc .sc-bal.sc-n2 { grid-template-columns: 1fr; } .sc-coin.sc-has b { font-size: 26px; } .sc-coin.sc-top b { font-size: 30px; } }
