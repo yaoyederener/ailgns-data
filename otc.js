@@ -25,7 +25,7 @@
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "plgns", "glgns", "nft"];
+  var MKEYS = ["ailgns", "lgns", "nft", "plgns", "glgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余折进「更多币种」
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -337,10 +337,11 @@
 
   // 市场切换：AiLGNS · LGNS（Anubis）· LGNS（Polygon）
   function marketTabs() {
-    return '<nav class="mkt-tabs" aria-label="选择交易币种">' + MKEYS.map(function (k) {
-      var m = MARKETS[k];
-      return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + "><b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>";
-    }).join("") + "</nav>";
+    var tab = function (k) { var m = MARKETS[k]; return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + "><b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
+    var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0;
+    return '<nav class="mkt-tabs" aria-label="选择交易币种">' + main.map(tab).join("") + "</nav>" +
+      (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "）</summary>" +
+        '<nav class="mkt-tabs mkt-tabs-more">' + rest.map(tab).join("") + "</nav></details>" : "");
   }
 
   var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
