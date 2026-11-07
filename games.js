@@ -1,5 +1,5 @@
 // 销毁乐园 · 免费小游戏：2048、贪吃蛇、俄罗斯方块、飞翔小鸟、扫雷、打砖块
-// 免费练习：不花币，最高分存在本机；排位赛：每局付 LGNS（80% 销毁、20% 进分账），分数上全站排行榜（后台 /api/game，规则见 lib/game.js）
+// 免费练习：不花币，最高分存在本机；排位赛：每局付 LGNS（80% 销毁、20% 作为运营费用），分数上全站排行榜（后台 /api/game，规则见 lib/game.js）
 (function () {
   var A = window.AIL;
   var LIST = [
@@ -22,7 +22,7 @@
     } catch (e) { return v || 0; }
   }
 
-  // ---------- 排位赛：每局付 10 LGNS 进收款合约（80% 销毁、20% 进分账），分数上全站排行榜；不赢币、没有奖品 ----------
+  // ---------- 排位赛：每局付 10 LGNS 进收款合约（80% 销毁、20% 作为运营费用），分数上全站排行榜；不赢币、没有奖品 ----------
   var W = A.wallet, CHN = { anubis: "Anubis", polygon: "Polygon" };
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
   function sha(t) { return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function (d) { return Array.prototype.map.call(new Uint8Array(d), function (x) { return x.toString(16).padStart(2, "0"); }).join(""); }); }
@@ -42,7 +42,7 @@
       say("正在检查 LGNS 余额…");
       return W.rpcOn(ch, "eth_call", [{ from: account, to: C.token, data: data }, "latest"]).catch(function () { throw new Error("LGNS 不够或 Gas 不够：每局要 " + info.price + " LGNS（" + CHN[ch] + " 链），还要一点 " + (ch === "polygon" ? "POL" : "DAI") + " 付 Gas"); });
     }).then(function () {
-      say("🔒 80% 直接销毁、20% 进分账合约。请在钱包确认支付 " + info.price + " LGNS");
+      say("🔒 80% 直接销毁、20% 作为运营费用。请在钱包确认支付 " + info.price + " LGNS");
       return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: C.token, data: data }] });
     }).then(function (tx) {
       saved(g, { tx: tx, ch: ch });
@@ -80,7 +80,7 @@
       '<div class="gm-ch" id="gm-ch"><span>用哪条链的 LGNS：</span><button type="button" data-ch="anubis" class="on">Anubis</button><button type="button" data-ch="polygon">Polygon</button></div>' +
       '<p class="note" id="gm-st"></p><p class="note">' + howto + "</p></section>" +
       '<div id="gm-board"></div>' +
-      '<p class="note">每个游戏可以免费练习 3 次，分数只存在本机；之后排位赛每局 10 LGNS：<b>80% 直接销毁</b>，20% 进分账合约用于平台运营，分数进全站排行榜。</p>';
+      '<p class="note">每个游戏可以免费练习 3 次，分数只存在本机；之后排位赛每局 10 LGNS：<b>80% 直接销毁</b>，20% 作为运营开支，分数进全站排行榜。</p>';
     var stage = document.getElementById("gm-stage"), sEl = document.getElementById("gm-s"), bEl = document.getElementById("gm-b"), st = document.getElementById("gm-st"), rk = document.getElementById("gm-rk");
     var info = null, ch = "anubis", ranked = null, cur = 0;
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad && A.errTip) A.errTip(t, st); }
@@ -448,7 +448,7 @@
     function hunger() { return Math.min(100, Math.floor((Date.now() - pet.fed) / 36e5 * 4)); } // 每小时饿 4 点
     A.app.innerHTML = '<a class="px-back" href="#/play">← 销毁乐园</a><section class="card gm-card"><div class="gm-head"><h2>🌱 HELIX 宠物</h2></div><div id="pt-box"></div>' +
       '<div class="gm-ch" id="gm-ch"><span>用哪条链的 LGNS：</span><button type="button" data-ch="anubis" class="on">Anubis</button><button type="button" data-ch="polygon">Polygon</button></div>' +
-      '<p class="note" id="gm-st"></p><p class="note">每份高级饲料 10 LGNS：<b>80% 直接销毁</b>，20% 进分账合约用于平台运营。宠物存在你这台手机上，成长值进全站「宠物成长榜」。</p></section><div id="gm-board"></div>';
+      '<p class="note" id="gm-st"></p><p class="note">每份高级饲料 10 LGNS：<b>80% 直接销毁</b>，20% 作为运营开支。宠物存在你这台手机上，成长值进全站「宠物成长榜」。</p></section><div id="gm-board"></div>';
     var box = document.getElementById("pt-box"), st = document.getElementById("gm-st"), info = null, ch = "anubis";
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad && A.errTip) A.errTip(t, st); }
     function draw() {
