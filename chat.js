@@ -159,6 +159,7 @@
       '<button class="cb-fab" aria-label="在线客服"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="12" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="15" cy="9.6" r="1.2" fill="#7027d9"/></svg><span>客服</span></button>' +
       '<section class="cb-panel" hidden aria-label="在线客服">' +
       '<header class="cb-head"><b>AiLGNS 客服</b><button class="cb-x" aria-label="关闭">×</button></header>' +
+      '<div class="cb-notice">💡 温馨提示：团队在后台随时更新网站、不另行通知，页面偶尔有变化很正常。遇到 bug 请<a href="#/feedback">提交工单</a>，我们按先后顺序逐一回复。</div>' +
       '<div class="cb-list"></div>' +
       '<form class="cb-form"><input placeholder="输入你的问题…" maxlength="300" autocomplete="off"><button type="submit">发送</button></form>' +
       "</section></div>");
