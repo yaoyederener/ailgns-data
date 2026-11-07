@@ -10,6 +10,8 @@ const PREFIX = "ailgns-msg:", MAX = 300;
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const BAD = [/习近平|共产党|六四|法轮|台独|藏独|游行|革命/];
+// 🛡️ 站长 2026-11-07：留言里禁止网址和联系方式（骗子靠这个把客户引到站外）。前端发之前也会拦，这里是兜底：绕过前端直接上链的，本站不显示、不通知
+const CONTACT = /https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|xyz|io|app|cc|top|vip|cn|me|link|site|online|shop|pro)\b|t\.me|微信|微信号|vx|wx|weixin|wechat|qq|扣扣|电报|telegram|tg|飞机|whatsapp|line\b|手机号|电话|加我|加一下|私聊|私信我|联系方式|联系我|\d{11}/i;
 const hexBytes = (h) => new Uint8Array((h.replace(/^0x/, "").match(/../g) || []).map((x) => parseInt(x, 16)));
 
 export function decodeMsg(input) {
@@ -49,6 +51,7 @@ export async function onRequestPost(ctx) {
   const from = String(tx.from || "").toLowerCase(), to = String(tx.to || "").toLowerCase(), txt = decodeMsg(tx.input);
   if (!isAddr(to) || !txt) return json({ error: "这不是一条留言交易" }, 400);
   if (BAD.some((r) => r.test(txt))) return json({ error: "留言里有不允许的内容" }, 400);
+  if (CONTACT.test(txt)) return json({ error: "留言里不能有网址或联系方式（微信、QQ、电报、手机号等）。为了防骗，所有交流只在链上进行" }, 400);
   const [fromName, toName] = await Promise.all([primaryName(from).catch(() => ""), primaryName(to).catch(() => "")]);
   if (!fromName) return json({ error: "只有设了 .ailgns 主名字的钱包才能发信" }, 403);
   const blk = await rpc("eth_getBlockByNumber", [rc.blockNumber, false]).catch(() => null);

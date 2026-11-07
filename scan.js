@@ -504,6 +504,7 @@
       var txt = ta.value.trim(), sb = this;
       if (!txt) return A.errTip("先写点什么", ta);
       if (Array.from(txt).length > 200) return A.errTip("最多 200 字", ta);
+      if (/https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|xyz|io|app|cc|top|vip|cn|me|link|site|online|shop|pro)\b|t\.me|微信|微信号|vx|wx|weixin|wechat|qq|扣扣|电报|telegram|tg|飞机|whatsapp|line\b|手机号|电话|加我|加一下|私聊|私信我|联系方式|联系我|\d{11}/i.test(txt)) return A.errTip("🛡️ 留言里不能有网址或联系方式（微信、QQ、电报、手机号等）。为了防骗，所有交流只在链上进行，骗子才会让你加联系方式。请删掉再发。", ta);
       var say = function (t) { st.textContent = t; };
       sb.disabled = true;
       var acct;
