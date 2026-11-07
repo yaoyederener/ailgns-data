@@ -2863,3 +2863,4 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 /* OTC 市场卡：前 3 个常驻，其余折叠 */
 .mkt-more{margin:-4px 0 12px}.mkt-more summary{cursor:pointer;font-size:12.5px;color:#8a7fb0;padding:4px 2px;list-style:none}.mkt-more summary::-webkit-details-marker{display:none}.mkt-more summary::before{content:"▸ ";}.mkt-more[open] summary::before{content:"▾ ";}
 .mkt-tabs-more{margin:6px 0 0}
+.mkt-tabs a{position:relative}.mkt-hot{position:absolute;top:-7px;right:8px;font-style:normal;font-size:10.5px;font-weight:800;color:#fff;background:linear-gradient(90deg,#ff6a3d,#ff2d55);padding:1px 7px;border-radius:999px;box-shadow:0 2px 6px rgba(255,45,85,.35)}

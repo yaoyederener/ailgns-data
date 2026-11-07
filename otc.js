@@ -337,7 +337,8 @@
 
   // 市场切换：AiLGNS · LGNS（Anubis）· LGNS（Polygon）
   function marketTabs() {
-    var tab = function (k) { var m = MARKETS[k]; return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + "><b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
+    var HOT = { ailgns: 1, lgns: 1 }; // 成交量最大的两个市场挂「🔥 热」角标
+    var tab = function (k) { var m = MARKETS[k]; return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + ">" + (HOT[k] ? '<i class="mkt-hot">🔥 热</i>' : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
     var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0;
     return '<nav class="mkt-tabs" aria-label="选择交易币种">' + main.map(tab).join("") + "</nav>" +
       (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "）</summary>" +
