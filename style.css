@@ -2907,3 +2907,11 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .or-prz { margin-top: 10px; padding-top: 14px; border-top: 2px dashed #ecd48f; }
 .or-pz { position: relative; border-radius: 18px; box-shadow: 0 8px 22px rgba(120, 80, 200, .18); }
 .or-pz::after { content: ""; position: absolute; inset: 4px; border: 1px dashed rgba(255,255,255,.55); border-radius: 14px; pointer-events: none; }
+
+/* 📜 所有人的预测：一行一条（原来价格用了 .or-px 这个 flex 块，每条被拆成三行）；默认只露前 10 条，其余折叠（站长 2026-11-07） */
+.or-all ol { margin: 6px 0 0; padding-left: 26px; font-size: 14px; }
+.or-all ol > li { padding: 5px 0; border-bottom: 1px dashed var(--line); line-height: 1.5; }
+.or-all ol > li > b, .or-all ol > li > small, .or-all ol > li > a, .or-all ol > li > button { display: inline; }
+.or-all ol > li > .or-px { display: inline; margin: 0 2px 0 0; gap: 0; }
+.or-all ol:not(.exp):not(.q) > li:nth-child(n+11) { display: none; }
+.or-more { display: block; margin: 10px auto 2px; padding: 7px 18px; font-size: 13.5px; }
