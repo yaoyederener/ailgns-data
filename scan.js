@@ -594,7 +594,7 @@
     if (TEAM[a]) { out.innerHTML = '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营费用支出</b>用的地址（服务器、节点、客服、开发等日常维护）。属于团队内部账务，账本不展示明细。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>'; return Promise.resolve(); }
     var S = { head: (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
-      (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
+      (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a.slice(0, 6) + "…" + a.slice(-4) + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制完整地址</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
       msg: '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
       '<div id="sc-msgbox" hidden><textarea id="sc-mtxt" maxlength="200" rows="3" placeholder="写给 TA 的话（200 字以内）。留言会永久记录在链上，所有人可见，只花约 0.001 DAI 的 Gas。"></textarea>' +
       '<div class="sc-mrow"><small class="muted"><span id="sc-mn">0</span>/200 · 只有注册了 .ailgns 域名并设为主名字的钱包才能发信</small><button type="button" class="nm-go" id="sc-msend">发送留言</button></div><p class="muted nm-st" id="sc-mst"></p></div>' +
@@ -637,10 +637,11 @@
       var box = el("sc-bal"); if (!box) return;
       var fb = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 100 ? v.toFixed(2) : v >= 1 ? (+v.toFixed(4)).toString() : v ? (+v.toPrecision(4)).toString() : "0"; }; // 大字余额：数字别太长，手机上不换行
       var total = (num.DAI || 0) + (num.AiLGNS || 0) * px.AiLGNS + (num.LGNS || 0) * px.LGNS;
-      box.innerHTML = main.map(function (k) {
-        var v = num[k] || 0, worth = k === "DAI" ? v : v * (px[k] || 0);
-        return '<div class="sc-coin' + (v ? "" : " sc-zero") + '"><span>' + k + (k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(v) + "</b>" + (k !== "DAI" && v ? "<small>≈ " + fb(worth) + " DAI</small>" : "") + "</div>";
-      }).join("");
+      var have = main.map(function (k) { var v = num[k] || 0; return { k: k, v: v, worth: k === "DAI" ? v : v * (px[k] || 0) }; }).filter(function (c) { return c.v > 0; }).sort(function (x, y) { return y.worth - x.worth; }); // 站长 2026-11-07：为 0 的不显示，有钱的高亮、按价值排
+      box.className = "sc-bal sc-n" + Math.min(have.length, 3);
+      box.innerHTML = have.length ? have.map(function (c, i) {
+        return '<div class="sc-coin sc-has' + (i === 0 ? " sc-top" : "") + '"><span>' + c.k + (c.k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(c.v) + "</b>" + (c.k !== "DAI" ? "<small>≈ " + fb(c.worth) + " DAI</small>" : "") + "</div>";
+      }).join("") : '<div class="sc-coin sc-zero"><span>AiLGNS · LGNS · DAI</span><b>0</b></div>';
       var sum = el("sc-balsum"); if (sum) sum.textContent = total ? "一共约 " + fb(total) + " DAI" : "这个钱包现在没有钱";
       var bx = el("sc-balx"); if (bx) bx.innerHTML = others.length ? '<p class="muted sc-others">其它：' + others.sort(function (x, y) { return y.v - x.v; }).slice(0, 8).map(function (o) { return esc(o.sym) + " " + amt(String(Math.round(o.v * 1e6)), 6); }).join(" · ") + "</p>" : "";
     });
