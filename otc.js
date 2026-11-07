@@ -872,12 +872,6 @@
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
-        // 🛡️ 离市价超过 10% 的亏损单不让提交（站长 2026-11-07 定：不赚客户手滑的钱）。买单出价太高 / 卖单要价太低才拦，对自己有利的方向不拦
-        var pxIn = Number(price.value) || 0, dev = mkt && pxIn ? pxIn / mkt - 1 : 0;
-        if (mkt && (sell ? dev < -0.10 : dev > 0.10)) {
-          say("🛡️ 先别急：你" + (sell ? "的要价 " + A.fmt(pxIn, PD) + " 比市价 " + A.fmt(mkt, PD) + " 低了 " + Math.round(-dev * 100) + "%，挂出去马上会被低价买走，你会亏 " + Math.round(-dev * 100) + "%" : "的出价 " + A.fmt(pxIn, PD) + " 比市价 " + A.fmt(mkt, PD) + " 高了 " + Math.round(dev * 100) + "%，挂出去马上会被高价卖给你，你会多付 " + Math.round(dev * 100) + "%") + "。是不是小数点填错了？本站不让离市价超过 10% 的亏损单提交，请改一下单价（指导价 " + A.fmt(mkt, PD) + "）。", true);
-          price.focus(); return;
-        }
         btn.disabled = true;
         ready().then(function () {
           walletCard();
