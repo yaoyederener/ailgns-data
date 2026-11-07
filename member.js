@@ -448,6 +448,9 @@
       }
       // 查询：是会员就直接恢复；不是会员就在输入框下面直接给付款按钮
       var q = document.getElementById("mem-q"), qOut = document.getElementById("q-out");
+      // 连过钱包：第 1 步地址框自动填当前钱包地址并自动查一次（客户不用再粘贴）；没连钱包或已有订单地址的照旧
+      var memIn = document.getElementById("mem-addr"), memAcc = (A.otcKit && A.otcKit.account && A.otcKit.account()) || "";
+      if (q && memIn && memAcc && !memIn.value) { memIn.value = memAcc; setTimeout(function () { if (document.body.contains(q) && !q.disabled) q.click(); }, 0); }
       if (q) q.onclick = function () {
         var a = addrNow();
         if (!a) { qOut.innerHTML = '<p class="note down">地址格式不对</p>'; return; }
