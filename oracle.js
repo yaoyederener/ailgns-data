@@ -143,14 +143,15 @@
     var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
-      '<small class="or-pcl">🎯 奖池总额</small><div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
-      (d.funds ? '<div class="or-pmix"><span>🪙 已持有 <b>' + d.funds.ail.toFixed(4) + '</b> AiLGNS</span><span>💵 <b>' + dai0(d.funds.dai) + '</b> DAI 等待买入 AiLGNS<small>（累计满 100 DAI 自动在 OTC 买入）</small></span>' + (d.funds.wallet ? '<span class="or-pw">🏦 奖池钱包 <span class="mono">' + d.funds.wallet + '</span> <a href="#/scan/' + d.funds.wallet + '">看奖池账本 ›</a></span>' : "") + '</div>' : "") +
+      '<div class="or-pcl"><span>🎯 本期奖池累计</span></div>' +
+      '<div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
+      (d.funds && d.funds.wallet ? '<a class="or-pwal" href="#/scan/' + d.funds.wallet + '">🏦 查看奖池钱包 ›</a>' : "") +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       '<div class="or-prz">' +
-        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
-        '<div class="or-pz p4"><small><u class="or-rk">OTC 前 3 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" +
-        '<div class="or-pz p1"><small><u class="or-rk">最接近 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
-        '<div class="or-pz p2"><small><u class="or-rk">第二接近 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
+        '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
+        '<div class="or-pz p4"><small><u class="or-rk">二等奖 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" +
+        '<div class="or-pz p1"><small><u class="or-rk">三等奖 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
+        '<div class="or-pz p2"><small><u class="or-rk">四等奖 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
       "</div>" +
       "</div></section>";
     // 正在揭晓 / 刚开完

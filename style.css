@@ -2892,3 +2892,19 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .sq-back{margin:8px 2px}.sq-back a{color:#5a35d6;text-decoration:none;font-weight:700}
 
 .fb-slow{padding:10px 12px;border-radius:12px;background:#fff8e6;border:1px solid #ffe2a8;color:#7c5a10;font-size:13px;line-height:1.55;margin-bottom:10px}
+
+/* 🎫 奖池：福利彩票开奖风（站长 2026-11-07）：票根样式、两侧缺口、金线分隔；去掉持有/等待买入提示，地址不显示只给「查看奖池钱包」 */
+.or-pool { position: relative; border: 2px solid #f0d58a; border-radius: 22px; background: radial-gradient(circle at 50% -10%, #fff1b8 0%, #fff9ee 42%, #f7f1ff 100%); overflow: visible; }
+.or-pool::before, .or-pool::after { content: ""; position: absolute; top: 50%; width: 26px; height: 26px; margin-top: -13px; border-radius: 50%; background: var(--bg, #f6f3ff); border: 2px solid #f0d58a; }
+.or-pool::before { left: -15px; border-left-color: transparent; border-bottom-color: transparent; transform: rotate(45deg); }
+.or-pool::after { right: -15px; border-right-color: transparent; border-top-color: transparent; transform: rotate(45deg); }
+.or-pcl { display: flex; align-items: center; gap: 12px; justify-content: center; font-size: 15px; color: #8a5a00; letter-spacing: 3px; margin-bottom: 2px; }
+.or-pcl::before, .or-pcl::after { content: ""; flex: 0 0 56px; height: 2px; background: linear-gradient(90deg, transparent, #e2b64a); }
+.or-pcl::after { background: linear-gradient(90deg, #e2b64a, transparent); }
+.or-pcl span { padding: 2px 14px; border-radius: 999px; background: #fff; border: 1px solid #f0d58a; font-weight: 700; }
+.or-pbig { text-shadow: 0 6px 18px rgba(220, 120, 20, .18); }
+.or-pwal { display: inline-block; margin: 6px 0 10px; padding: 7px 18px; border-radius: 999px; background: linear-gradient(90deg, #fff3c4, #ffe9a6); border: 1px solid #e2b64a; color: #7a4d00; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 4px 12px rgba(226, 182, 74, .25); }
+.or-pwal:hover { background: linear-gradient(90deg, #ffe9a6, #ffd978); }
+.or-prz { margin-top: 10px; padding-top: 14px; border-top: 2px dashed #ecd48f; }
+.or-pz { position: relative; border-radius: 18px; box-shadow: 0 8px 22px rgba(120, 80, 200, .18); }
+.or-pz::after { content: ""; position: absolute; inset: 4px; border: 1px dashed rgba(255,255,255,.55); border-radius: 14px; pointer-events: none; }
