@@ -61,7 +61,12 @@ export async function onRequestPost(ctx) {
   await kv.put("msg:tx:" + h, "1", { expirationTtl: 400 * 86400 });
   // 收信人绑了 DeBox 机器人就私信他
   const users = (await kv.get("dbx:a:" + to, "json")) || [];
-  const text = "📬 " + fromName + " 在链上给你留言：\n\n" + txt + "\n\n回复 👉 https://ailgns.dev/#/scan/" + from;
+  // 🛡️ 防骗：留言里有网址、钱包地址、要私钥/助记词/转账这类词，通知里打醒目提示（留言照样送达，不替客户做判断）
+  const risky = /https?:\/\/|www\.|\.(com|net|org|xyz|io|app|cc|top|vip)\b|0x[0-9a-f]{40}|私钥|助记词|密码|验证码|转账|打款|汇款|空投|领取|返利|客服|官方|解冻|升级账户|保证金|手续费先/i.test(txt);
+  const warn = risky ? "\n\n⚠️ 这条留言里有网址 / 地址 / 要你转账或给密钥之类的内容。记住：本站从不私信要你转账、私钥、助记词或验证码；任何「官方客服」「空投领取」「账户解冻」都是骗子。不点陌生链接，不给任何人转钱。" : "";
+  // 没有 .ailgns 主名字的收信人回不了信：多一句怎么注册（只对这类人说，有名字的一个字不加）
+  const tip = toName ? "" : "\n\n你还没有 .ailgns 名字，回不了信：5 DAI 起注册一个 👉 https://ailgns.dev/#/names ，顺便就能免费玩预言家。";
+  const text = "📬 " + fromName + " 在链上给你留言：\n\n" + txt + warn + "\n\n回复 👉 https://ailgns.dev/#/scan/" + from + tip;
   await pushInbox(kv, to, "msg", text, "#/scan/" + from).catch(() => {}); // 🔔 站内信
   if (users.length) {
     ctx.waitUntil(Promise.all(users.map((u) => sendDebox(ctx.env, u, text, "private").catch(() => {}))));
