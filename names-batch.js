@@ -155,6 +155,7 @@
     function finish() {
       busy = false; sum();
       if (done.length) {
+        try { fetch("/api/batch-mark", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: h.account(), names: done }) }); } catch (e) {} // 🏷️ 标记为批量注册（费用 10% 平台 / 90% 极速预言家资金池）
         say("✅ 注册成功 " + done.length + " 个：" + done.join("、") + (fail.length ? "；没成功 " + fail.length + " 个：" + fail.join("、") : ""));
         if (A.just) done.forEach(function (n) { A.just.set("names", n + ".ailgns"); });
         if (A.inbox && A.inbox.authed && A.inbox.authed()) { /* 收件箱会收到链上记录 */ }
