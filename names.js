@@ -438,7 +438,7 @@
           if (!owner || /^0x0{40}$/.test(owner)) { o.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(full) + '</b> 还没被注册，<a href="#/names/' + encodeURIComponent(full) + '">现在去注册 →</a></p>'; return; }
           var anon = PROT[ad] || PROT[owner] || HN[full], sale = owner === OTC[t];
           // 页面打开后才注册的名字不在旧的创世编号表里：查不到就重新读一次链（刚注册的也能马上显示创世编号）
-          var gP = genesis(t).then(function (g) { if (g[id]) return g; delete genCache[t]; return genesis(t); }).catch(function () { return {}; });
+          var gP = genesis(t).then(function (g) { if (g[id]) return g; delete genCache[t]; genApi = null; return genesis(t); }).catch(function () { return {}; });
           return gP.then(function (g) {
             var no = anon ? 0 : g[id], href = "#/names/" + encodeURIComponent(full);
             o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
@@ -762,8 +762,22 @@
   }
   // 创世编号：按链上顺序，每个名字第一次付费注册排一个号（官方保留名不算），前 1 万个
   var genCache = {};
+  // 服务器算好的创世数据（/api/name-genesis，30 秒缓存，秒开）：{ n, day, recent, g }；拿不到就退回自己读链
+  var genApi = null, genApiAt = 0;
+  function genesisApi() {
+    if (genApi && Date.now() - genApiAt < 15000) return genApi;
+    genApiAt = Date.now();
+    genApi = fetch("/api/name-genesis").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) { if (!j || !j.g) throw new Error("bad"); return j; });
+    genApi.catch(function () { genApi = null; });
+    return genApi;
+  }
   function genesis(t) {
     var TLD = t || window.__nmTLD || "ailgns"; // 默认当前页面的后缀
+    if (!genCache[TLD] && TLD === "ailgns") genCache[TLD] = genesisApi().then(function (j) { return j.g; }, function () { delete genCache[TLD]; return genesisChain(TLD); });
+    if (!genCache[TLD]) genCache[TLD] = genesisChain(TLD);
+    return genCache[TLD];
+  }
+  function genesisChain(TLD) {
     if (!genCache[TLD]) genCache[TLD] = logs(CONTRACTS[TLD], T_REG, START[TLD]).then(function (l) {
       var g = {}, n = 0;
       l.forEach(function (x) { var id = x[1][1].slice(2); if (!g[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && n < GENESIS) g[id] = ++n; });
@@ -785,6 +799,10 @@
     return s.split("").map(function (d, i) { return (s.length - i === 3 && i ? '<em class="gc-sep">,</em>' : "") + '<span class="gc-d">' + d + "</span>"; }).join("");
   }
   function gcRead() {
+    if (TLD === "ailgns") return genesisApi().then(function (j) { return { n: j.n, day: j.day, recent: j.recent }; }, function () { return gcReadChain(); });
+    return gcReadChain();
+  }
+  function gcReadChain() {
     return logs(NAMES, T_REG, START[TLD]).then(function (l) {
       var seen = {}, list = [];
       l.forEach(function (x) { var id = x[1][1]; if (!seen[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && list.length < GENESIS) { seen[id] = 1; list.push(x); } });
