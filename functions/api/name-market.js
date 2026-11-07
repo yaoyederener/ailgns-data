@@ -16,7 +16,7 @@ function decStr(r) {
   return new TextDecoder().decode(new Uint8Array((h.match(/../g) || []).map((x) => parseInt(x, 16))));
 }
 // 批量 eth_call：一次 HTTP 请求带很多个调用
-async function batch(calls) {
+async function batch(calls, loose) { // loose=true：个别调用失败（比如名字已释放，labelOf 回滚）给 null，不整批报错
   let err;
   for (let k = 0; k < RPCS.length * 2; k++) {
     try {
@@ -24,8 +24,9 @@ async function batch(calls) {
       const r = await fetch(RPCS[k % RPCS.length], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const j = await r.json(), out = [];
       if (!Array.isArray(j)) throw new Error("rpc");
-      j.forEach((x) => { out[x.id] = x.result; });
-      if (out.length !== calls.length || out.some((x) => x === undefined)) throw new Error("rpc 缺结果");
+      j.forEach((x) => { out[x.id] = x.result === undefined ? null : x.result; });
+      for (let i = 0; i < calls.length; i++) if (out[i] === undefined) out[i] = null;
+      if (!loose && out.some((x) => x === null)) throw new Error("rpc 缺结果");
       return out;
     } catch (e) { err = e; }
   }
@@ -49,8 +50,12 @@ async function build() {
     }
   });
   if (list.length) {
-    const res = await batch(list.flatMap((it) => [[M[it.t].C, SEL.labelOf + it.tid], [M[it.t].C, SEL.expires + it.tid]]));
-    list.forEach((it, i) => { it.label = decStr(res[2 * i]); it.exp = Number(BigInt("0x" + word(res[2 * i + 1], 0))); });
+    const res = await batch(list.flatMap((it) => [[M[it.t].C, SEL.labelOf + it.tid], [M[it.t].C, SEL.expires + it.tid]]), true);
+    list.forEach((it, i) => {
+      try { it.label = res[2 * i] ? decStr(res[2 * i]) : ""; } catch (e) { it.label = ""; }
+      it.exp = res[2 * i + 1] ? Number(BigInt("0x" + word(res[2 * i + 1], 0))) : 0;
+      if (!it.label) it.label = "名字已释放"; // 名字注册到期被释放了，但挂单还在合约里：只给卖家看、能取回
+    });
   }
   return list.filter((it) => !banned(it.label)); // 🚫 涉政名字不进市场
 }
