@@ -2943,3 +2943,25 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
   .ptn-t td[data-l="今天"] { font-size: 15px; } .ptn-t td[data-l="今天"] b { font-size: 20px; } .ptn-t td[data-l="近7天"]::before { content: "近 7 天"; }
   .ptn-real td { background: transparent; }
 }
+
+/* 📦 批量注册域名（2026-11-08） */
+.nm-batchrow { margin: 8px 0 0; font-size: 13.5px; } .nm-batchrow .link { padding: 0; }
+.nb-box { max-width: 560px; max-height: 92vh; overflow: auto; }
+.nb-seg { display: flex; margin: 8px 0 10px; } .nb-seg button { flex: 1; padding: 8px 6px; font-size: 13px; }
+.nb-f { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
+.nb-f label { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.nb-f input[type=number], .nb-f input[type=text], .nb-f input:not([type]) { width: 72px; padding: 6px 8px; } .nb-f select { padding: 6px 8px; }
+.nb-f textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+.nb-chk input { width: auto; }
+.nb-gen { padding: 8px 16px; font-size: 14px; }
+.nb-tools { font-size: 12.5px; color: var(--muted); margin: 4px 0 6px; } .nb-tools .link { padding: 0; }
+.nb-list { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+.nb-list li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px dashed var(--line); font-size: 14px; }
+.nb-list li:last-child { border-bottom: 0; } .nb-list li.off { opacity: .55; }
+.nb-list label { flex: 1; display: flex; align-items: center; gap: 6px; } .nb-list label input { width: auto; }
+.nb-list small { color: var(--muted); } .nb-list em { font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.nb-ok { font-style: normal; font-size: 11.5px; padding: 1px 7px; border-radius: 6px; background: #e8fbf2; color: #0a7a52; }
+.nb-no { font-style: normal; font-size: 11.5px; padding: 1px 7px; border-radius: 6px; background: #fdecec; color: #b42318; }
+.nb-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.nb-sum { font-size: 14px; } .nb-st { margin: 8px 0 0; min-height: 1.2em; word-break: break-all; } .nb-note { font-size: 12px; margin: 10px 0 0; }
+@media (max-width: 600px) { .nb-box { padding: 14px; } .nb-seg button { font-size: 12px; padding: 8px 2px; } .nb-f input[type=number] { width: 60px; } }

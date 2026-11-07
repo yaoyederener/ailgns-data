@@ -252,6 +252,23 @@
       });
     });
   } // 大字提示里的「第几次确认 / 最多几次」
+  // 📦 批量注册（names-batch.js）要用的内部函数
+  function regData(label, years, k, to) { var t = TOK[k]; return SEL.register + u256(0xa0) + A.pad(to) + u256(years) + A.pad(t.a) + u256(BigInt(yearPrice(label) * years) * 10n ** 18n) + str(label); }
+  // 钱包支持「一次确认发一串」（EIP-5792 wallet_sendCalls）就用它：返回 true；不支持返回 false
+  function sendCalls(calls, say) {
+    if (!eth || !eth.request) return Promise.resolve(false);
+    var chainId = "0x" + (6714).toString(16);
+    return eth.request({ method: "wallet_getCapabilities", params: [account] }).then(function (cap) {
+      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); if (!c || !(c.atomicBatch && c.atomicBatch.supported) && !c.atomic) return false;
+      say("钱包支持一次确认发 " + calls.length + " 笔，请在钱包确认一次");
+      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) {
+        var bid = typeof id === "string" ? id : (id && id.id);
+        say("已提交，等待链上确认…");
+        return new Promise(function (ok, no) { var n = 0; (function poll() { eth.request({ method: "wallet_getCallsStatus", params: [bid] }).then(function (st) { var s = st && (st.status || st.state); if (s === 200 || s === "CONFIRMED" || s === "success") return ok(true); if (s >= 400 || s === "FAILED" || s === "failure") return no(new Error("打包交易失败")); if (++n > 120) return no(new Error("等待超时")); setTimeout(poll, 2000); }, no); })(); });
+      });
+    }, function () { return false; });
+  }
+  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, account: function () { return account; }, NAMES: function () { return NAMES; } };
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
     tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
@@ -272,7 +289,7 @@
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t" hidden><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><span class="nm-tld">.ailgns</span><button type="submit">搜索</button></form>' +
-      '<div id="nm-r"></div><div id="nm-genc"></div></section>' +
+      '<div id="nm-r"></div><p class="nm-batchrow"><button type="button" class="link" id="nm-batch">📦 想一次注册一批？批量注册（AI 起名 / 5 位数号码 / 自己填）→</button></p><div id="nm-genc"></div></section>' +
       '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><button type="button" class="nm-myw" id="nm-myw">👛 查我的钱包</button></div>' +
       '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入 0x 钱包地址，或者域名（如 发财.ailgns）" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查询</button></form>' +
       '<div id="nm-myr"></div></section>' +
@@ -287,6 +304,7 @@
       '<section class="card" id="nm-ord"><div class="card-head"><h2>🧾 域名订单查询</h2><span class="muted">在挂的单 + 买入 / 卖出记录，链上可查</span></div>' +
       '<div class="nm-rk"><input id="nm-oa" placeholder="填钱包地址 0x…，查挂单和成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-ob">查询</button></div><div id="nm-olo"></div><div id="nm-ol"></div></section>';
     document.getElementById("nm-t").value = TLD;
+    var nbb = document.getElementById("nm-batch"); if (nbb) nbb.onclick = function () { if (A.namesBatch) A.namesBatch.open(); };
     var tl = document.querySelector(".nm-tld"); if (tl) tl.textContent = "." + TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
