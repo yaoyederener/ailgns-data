@@ -127,9 +127,9 @@
     var el = document.getElementById("nb-sum"), go = document.getElementById("nb-go"); if (!el || !go) return;
     var n = list().length, t = total();
     el.innerHTML = n ? "选了 <b>" + n + "</b> 个 · 1 年 · 共 <b>" + t + " DAI</b>" : "还没选";
-    go.disabled = !n || busy; go.textContent = n ? "注册这 " + n + " 个（" + t + " DAI）" : "注册选中的";
+    go.disabled = !n || busy; go.innerHTML = n ? "自己点：注册这 " + n + " 个（" + t + " DAI）<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : "注册选中的";
     go.onclick = run;
-    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.onclick = robot; }
+    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.innerHTML = n ? "🤖 交给机器人代点<small>钱包只确认 2 次（授权 1 次 + 签名 1 次），几分钟内替你注册完</small>" : "🤖 交给机器人代点"; bt.onclick = robot; }
   }
   // ---------- 🤖 机器人代点：客户授权 DAI 给机器人钱包 + 签名委托，机器人用客户的钱替客户注册（名字直接归客户） ----------
   var REG = "0x21425f852a1e0fb798fb9ebeb288def27bc0f2d1"; // 代注册机器人钱包（只放 Gas）

@@ -2967,3 +2967,4 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 @media (max-width: 600px) { .nb-box { padding: 14px; } .nb-seg button { font-size: 12px; padding: 8px 2px; } .nb-f input[type=number] { width: 60px; } }
 
 .nb-foot .nm-go{margin-top:6px}.nb-bot{background:#7c5cff}.nb-botst{margin:4px 0 0;font-size:13px}
+.nb-foot .nm-go small{display:block;font-size:12px;font-weight:400;opacity:.9;margin-top:3px}
