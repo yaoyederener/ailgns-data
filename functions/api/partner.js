@@ -11,8 +11,9 @@ export async function onRequestGet(ctx) {
   if (!canRead(env, key)) return json({ error: "口令不对" }, 403);
   if (!kv) return json({ error: "no kv" }, 503);
   let out = await kv.get("ptn:res", "json");
-  // 缓存超过 10 分钟就当场重算（钱包余额要是实时的，站长 2026-11-07 反馈「后台没有实时更新」）；重算失败就先给旧的
-  if (!out || Date.now() - (out.at || 0) > 10 * 60e3) { try { out = await build(env, kv, ctx); } catch (e) { if (!out) return json({ error: "面板第一次生成出错：" + String(e.message || e).slice(0, 300) }, 500); out.stale = String(e.message || e).slice(0, 200); } }
+  // 先给缓存、后台刷新（站长 2026-11-07：「余额读取太慢」）：缓存超过 2 分钟就在后台重算，这次先把旧的给出去，下次打开就是新的；没有缓存才当场算
+  if (!out) { try { out = await build(env, kv, ctx); } catch (e) { return json({ error: "面板第一次生成出错：" + String(e.message || e).slice(0, 300) }, 500); } }
+  else if (Date.now() - (out.at || 0) > 2 * 60e3) ctx.waitUntil(build(env, kv, ctx).catch(() => {}));
   out.canWrite = canWrite(env, key);
   return json(out);
 }
