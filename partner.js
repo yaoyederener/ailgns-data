@@ -30,7 +30,7 @@
       // 风险与建议移到「网站优化」页（#/ops），这里不再重复
       // 2. 钱
       '<h3 class="ad-h">💰 钱（当前余额，不是历史累计）</h3><div class="ad-tiles">' +
-      tile("待分配余额（收款钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
+      tile("待分配余额（谷歌社交账号钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
       tile("技术费用 " + j.cfg.tech + "%", fm(j.split.tech, 0) + " DAI", "", "money") +
       tile("销售费用 " + j.cfg.sales + "%", fm(j.split.sales, 0) + " DAI", "", "money") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
@@ -44,7 +44,7 @@
       "<tr><td>域名销售</td><td><b>" + (d0.nmN || 0) + "</b> 个 · " + fm(d0.nmDai, 0) + " DAI</td><td>" + (d1.nmN || 0) + " 个 · " + fm(d1.nmDai, 0) + "</td><td>" + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + "</td></tr>" +
       "<tr><td>会员付款</td><td><b>" + fm(d0.member, 0) + "</b> DAI</td><td>" + fm(d1.member, 0) + "</td><td>" + fm(sum("member"), 0) + "</td></tr>" +
       '<tr><td>估算收入<small>成交×1% + 域名 + 会员</small></td><td><b>' + fm(d0.income, 0) + "</b> DAI</td><td>" + fm(d1.income, 0) + "</td><td>" + fm(sum("income"), 0) + "</td></tr>" +
-      '<tr class="ptn-real"><td>实际到账<small>链上真转进收款钱包的</small></td><td><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td>" + fm(inSum, 0) + "</td></tr>" +
+      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的</small></td><td><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td>" + fm(inSum, 0) + "</td></tr>" +
       "</tbody></table></div>" +
       // 4. 客户
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
