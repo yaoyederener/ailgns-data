@@ -74,11 +74,9 @@
   function el(html) { var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function linkify(s) { return esc(s).replace(/(https?:\/\/[^\s，。）)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, "<br>"); }
-  function humanHtml() {
-    var h = hours();
-    return "人工客服时间：<b>" + esc(h.text) + "</b><br>" + (h.online ? '<span class="cb-on">● 现在人工在线</span>' : '<span class="cb-off">● 现在不在人工时间，留言后上班第一时间回复</span>') +
-      '<br><a class="cb-human" href="#/feedback">📮 提交问题工单（附截图，按轻重缓急处理）→</a>' +
-      '<br><a class="cb-human" href="#" data-group>💬 加 OTC 交流群（群里 @客服 秒回）→</a>' +
+  function humanHtml() { // 站长 2026-11-07：不写人工时间；先引导加群，再提交工单
+    return '<a class="cb-human" href="#" data-group>💬 加 OTC 交流群（群里 @客服，最快）→</a>' +
+      '<br><a class="cb-human" href="#/feedback">📮 群里没解决？提交问题工单（附截图，技术人员按轻重缓急处理）→</a>' +
       '<br><span class="muted">也可以直接在这里留言，你的每一条留言我们都会阅读并反馈。</span>';
   }
   function add(who, html) {
