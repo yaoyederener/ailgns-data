@@ -75,13 +75,14 @@
         addCands(genNums(f));
       };
     } else if (mode === "ai") {
-      p.innerHTML = '<div class="nb-f"><textarea id="nb-desc" rows="2" maxlength="80" placeholder="描述一下：比如「做茶叶生意的，想要招财的中文名」或「和 AI、宇宙有关的英文」"></textarea>' +
-        '<label>要几个 <input id="nb-cnt" type="number" min="5" max="40" value="20" inputmode="numeric"></label><button type="button" class="nm-go nb-gen" id="nb-gen">让 AI 出主意</button></div>';
+      p.innerHTML = '<div class="nb-f"><textarea id="nb-desc" rows="2" maxlength="80" placeholder="不填就随机生成。也可以描述一下：比如「做茶叶生意的，想要招财的中文名」或「和 AI、宇宙有关的英文」"></textarea>' +
+        '<label>要几个 <input id="nb-cnt" type="number" min="5" max="40" value="20" inputmode="numeric"></label><button type="button" class="nm-go nb-gen" id="nb-gen">🎲 随机生成能注册的名字</button></div>';
+      document.getElementById("nb-desc").oninput = function () { var b = document.getElementById("nb-gen"); if (b) b.textContent = this.value.trim() ? "让 AI 按描述出主意" : "🎲 随机生成能注册的名字"; };
       document.getElementById("nb-gen").onclick = function () {
-        var d = document.getElementById("nb-desc").value.trim(); if (!d) return say("先写一句想要什么样的名字", true);
+        var d = document.getElementById("nb-desc").value.trim() || "随机生成：吉利、好记、口语化的中文名";
         var b = document.getElementById("nb-gen"); b.disabled = true; say("AI 想名字中…");
         fetch("/api/name-ideas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ desc: d, n: Number(document.getElementById("nb-cnt").value) || 20 }) }).then(function (r) { return r.json(); }).then(function (j) {
-          b.disabled = false; if (j.error) return say(j.error, true); if (!j.names || !j.names.length) return say("AI 没想出合规的名字，换个说法再试", true);
+          b.disabled = false; if (j.error) return say(j.error, true); if (!j.names || !j.names.length) return say("AI 没想出合规的名字，再点一次或换个说法", true);
           say(""); addCands(j.names);
         }).catch(function () { b.disabled = false; say("AI 现在没空，稍后再试", true); });
       };
