@@ -22,7 +22,7 @@
       '<div id="or-top"></div>' +
       '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button><button type="button" class="ghost or-dmcs" id="or-dmcs">💬 在线客服</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
-      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b></p><p>🎯 整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>💰 <b>本周 OTC 手续费前 3</b> → 贡献王（周日结算，分奖池 30%，每人最多拿回手续费 3 倍，认证商家以上）</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
+      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 5 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 3 位</b>，例如 <b>830.962</b></p><p>🎯 整数猜对后，小数点后 3 位有 <b>000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>💰 <b>本周 OTC 手续费前 3</b> → 贡献王（周日结算；11-10 起分本周新进奖池的 15%，大奖池只进不出；每人最多拿回手续费 3 倍，认证商家以上）</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
       '<div id="or-chart" class="or-kc"></div>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 真实成交 K 线，最近 7 天，每 5 秒刷新</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -369,11 +369,11 @@
   // 本周期贡献榜：奖池 30% 给 OTC 手续费前 3 名
   function kingsCard(d, potV) {
     var k = d.kings; if (!k) return "";
-    var total = Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king, cap = k.cap || 3;
+    var b = k.budget, inflowMode = b && b.mode === "inflow", total = b ? b.total : Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king, cap = k.cap || 3;
     var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + ' <b data-a="' + esc(x.a || "") + '">' + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + (x.share ? ' <small class="muted">占 ' + Math.round(x.share * 100) + "%" + (x.demoted ? " · 上周第一，连庄按第二算" : "") + "</small>" : "") + "</span><b>" + dai(x.amt != null ? x.amt : 0) + "</b></li>"; }).join("");
     return '<section class="card"><div class="card-head"><h2>💰 本周贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 周日揭晓时结算</span></div>" +
       (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周还没有认证商家成交，第一笔就是第一名。</p>') +
-      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = 奖池 30%（现在约 ' + dai(total) + '）按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
+      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
       '<p class="muted or-rulenote">📐 规则会随数据不断优化，以页面公布为准。</p></section>';
   }
   function playersCard(d) {

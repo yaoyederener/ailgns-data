@@ -5,7 +5,7 @@
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { rpc } from "../../lib/oracle.js";
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -53,11 +53,12 @@ async function buildPub(kv, ctx, now) {
     // 提速（站长 2026-11-08「读取太慢」）：手续费表只扫一次，并缓存 60 秒；算出来的榜单大家共用
     let kc = await kv.get("or:kcache", "json");
     if (!kc || kc.cyc !== cyc || Date.now() - kc.at > 60e3) {
-      const all = await feeBoard(kv, cyc, bjDay(now)), kb = await kingsOf(kv, cyc, bjDay(now), Math.floor(held * KING * 100) / 100, all);
-      kc = { at: Date.now(), cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt, demoted: !!x.demoted })), all };
+      const today = bjDay(now), bud = await kingBudget(kv, cyc, today, held);
+      const all = await feeBoard(kv, cyc, today), kb = await kingsOf(kv, cyc, today, bud.total, all);
+      kc = { at: Date.now(), cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt, demoted: !!x.demoted })), all, budget: bud };
       ctx.waitUntil(kv.put("or:kcache", JSON.stringify(kc), { expirationTtl: 600 }));
     }
-    out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, all: kc.all }; // all 只在服务端用，返回前删掉
+    out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, budget: kc.budget || null, inRate: KING_IN, inFrom: KING_IN_FROM, all: kc.all }; // all 只在服务端用，返回前删掉
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
