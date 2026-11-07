@@ -22,7 +22,7 @@ const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "do
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
   if (t.vip) { // ⭐ 产品优化员的反馈：不分诊、不判无效、不自动答复，直接推给站长亲审
-    t.tri = { ok: true, lv: 1, cat: "review", topic: "⭐ " + t.vip + "反馈", why: "站长亲自审查", dup: 0 };
+    t.tri = { ok: true, lv: 2, cat: "review", topic: "⭐ " + t.vip + "反馈", why: "站长亲自审查", dup: 0 };
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
     await pushInbox(kv, OWNER, "ticket", "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200), "#/feedback/admin/" + t.id).catch(() => {});
     return;
