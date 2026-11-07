@@ -2929,3 +2929,17 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .cred5 { background: linear-gradient(90deg, #fde68a, #f59e0b); color: #4a2a00; border-color: #f59e0b; }
 .cred6 { background: linear-gradient(90deg, #1e1b4b, #4c1d95); color: #fde68a; border-color: #7c3aed; }
 .credking { background: linear-gradient(90deg, #fff1b8, #ffd45c); color: #7a4d00; border-color: #e2b64a; }
+
+/* 📱 合伙人面板「今天的生意」手机版：表格变成一行一张卡（站长 2026-11-08：显示不全；以后更新先适配手机） */
+@media (max-width: 600px) {
+  .ptn-t thead { display: none; }
+  .ptn-t, .ptn-t tbody { display: block; white-space: normal; }
+  .ptn-t tr { display: block; margin: 8px 0; padding: 8px 12px; border: 1px solid #e6dcff; border-radius: 12px; background: #fff; }
+  .ptn-t tr.ptn-real { background: #eefbf3; border-color: #bfeedd; }
+  .ptn-t td { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; text-align: left; border: 0; padding: 3px 0; font-size: 13px; }
+  .ptn-t td:first-child { display: block; font-weight: 700; font-size: 14px; color: var(--purple-ink, #2d1b69); border-bottom: 1px dashed #e6dcff; padding-bottom: 5px; margin-bottom: 4px; white-space: normal; }
+  .ptn-t td:first-child small { display: inline; margin-left: 6px; }
+  .ptn-t td[data-l]::before { content: attr(data-l); color: #8a7fb0; flex: 0 0 auto; }
+  .ptn-t td[data-l="今天"] { font-size: 15px; } .ptn-t td[data-l="今天"] b { font-size: 20px; } .ptn-t td[data-l="近7天"]::before { content: "近 7 天"; }
+  .ptn-real td { background: transparent; }
+}

@@ -40,11 +40,11 @@
       (j.canWrite ? '<p class="muted ptn-cfg">分配比例（站长可改）：技术 <input id="ptn-tech" type="number" min="0" max="100" value="' + j.cfg.tech + '" style="width:60px"> % ，销售 = 100 − 技术 <button type="button" class="ghost" id="ptn-cfg-save">保存</button><span id="ptn-cfg-st"></span></p>' : "") +
       // 3. 生意
       '<h3 class="ad-h">📈 今天的生意（今天 · 昨天 · 近 7 天合计）</h3><div class="ad-tw"><table class="ad-t ptn-t"><thead><tr><th></th><th>今天 ' + dayCn(d0.day) + "</th><th>昨天 " + dayCn(d1.day) + "</th><th>近 7 天</th></tr></thead><tbody>" +
-      "<tr><td>OTC 成交额</td><td><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
-      "<tr><td>域名销售</td><td><b>" + (d0.nmN || 0) + "</b> 个 · " + fm(d0.nmDai, 0) + " DAI</td><td>" + (d1.nmN || 0) + " 个 · " + fm(d1.nmDai, 0) + "</td><td>" + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + "</td></tr>" +
-      "<tr><td>会员付款</td><td><b>" + fm(d0.member, 0) + "</b> DAI</td><td>" + fm(d1.member, 0) + "</td><td>" + fm(sum("member"), 0) + "</td></tr>" +
-      '<tr><td>估算收入<small>成交×1% + 域名 + 会员</small></td><td><b>' + fm(d0.income, 0) + "</b> DAI</td><td>" + fm(d1.income, 0) + "</td><td>" + fm(sum("income"), 0) + "</td></tr>" +
-      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的</small></td><td><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td>" + fm(inSum, 0) + "</td></tr>" +
+      "<tr><td>OTC 成交额</td><td data-l=今天><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td data-l=昨天>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td data-l=近7天>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
+      "<tr><td>域名销售</td><td data-l=今天><b>" + (d0.nmN || 0) + "</b> 个 · " + fm(d0.nmDai, 0) + " DAI</td><td data-l=昨天>" + (d1.nmN || 0) + " 个 · " + fm(d1.nmDai, 0) + "</td><td data-l=近7天>" + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + "</td></tr>" +
+      "<tr><td>会员付款</td><td data-l=今天><b>" + fm(d0.member, 0) + "</b> DAI</td><td data-l=昨天>" + fm(d1.member, 0) + "</td><td data-l=近7天>" + fm(sum("member"), 0) + "</td></tr>" +
+      '<tr><td>估算收入<small>成交×1% + 域名 + 会员</small></td><td data-l=今天><b>' + fm(d0.income, 0) + "</b> DAI</td><td data-l=昨天>" + fm(d1.income, 0) + "</td><td data-l=近7天>" + fm(sum("income"), 0) + "</td></tr>" +
+      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的</small></td><td data-l=今天><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td data-l=昨天>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td data-l=近7天>" + fm(inSum, 0) + "</td></tr>" +
       "</tbody></table></div>" +
       // 4. 客户
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
