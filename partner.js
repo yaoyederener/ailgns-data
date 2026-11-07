@@ -31,8 +31,8 @@
       // 2. 钱
       '<h3 class="ad-h">💰 钱（当前余额，不是历史累计）</h3><div class="ad-tiles">' +
       tile("待分配余额（谷歌社交账号钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
-      tile("技术费用 " + j.cfg.tech + "%", fm(j.split.tech, 0) + " DAI", "", "money") +
-      tile("销售费用 " + j.cfg.sales + "%", fm(j.split.sales, 0) + " DAI", "", "money") +
+      tile("技术费用 " + j.cfg.tech + "%", fm(j.split.tech, 0) + " DAI", j.price ? "≈ " + fm(j.split.tech / j.price, 2) + " AiLGNS（按现价 " + fm(j.price, 0) + "）" : "", "money") +
+      tile("销售费用 " + j.cfg.sales + "%", fm(j.split.sales, 0) + " DAI", j.price ? "≈ " + fm(j.split.sales / j.price, 2) + " AiLGNS（按现价 " + fm(j.price, 0) + "）" : "", "money") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
       (j.bal.fast ? tile("⚡ 极速资金池（批量注册 90%，分开放）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
