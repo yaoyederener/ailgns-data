@@ -36,7 +36,9 @@
   function sortGames(counts) {
     if (!GAME_GROUP || !counts) return;
     gameHot = counts;
-    GAME_GROUP[2].sort(function (a, b) { return (counts[a[0].slice(2)] || 0) - (counts[b[0].slice(2)] || 0); }).reverse();
+    var any = GAME_GROUP[2].some(function (it) { return counts[it[0].slice(2)] > 0; });
+    if (!any) return; // 还没有数据就保持默认顺序
+    GAME_GROUP[2].sort(function (a, b) { return (counts[b[0].slice(2)] || 0) - (counts[a[0].slice(2)] || 0); }); // 多的在前，相同的保持原顺序
   }
   try { fetch("/api/games-top").then(function (r) { return r.json(); }).then(function (j) { if (j && j.counts) sortGames(j.counts); }).catch(function () {}); } catch (e) {}
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
