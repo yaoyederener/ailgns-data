@@ -513,6 +513,7 @@
   var tracked = {};
   // 桌面图标（PWA）里没有钱包，主站交易做不了：从图标打开时直接进 App 壳页（网址墙 + 钱包直达 + 联系方式）；地址里带 full=1 才留在主站看
   (function () { try { var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone; if (sa && !/[?&]full=1/.test(location.search + location.hash) && !sessionStorage.getItem("full")) location.replace("/app"); if (/[?&]full=1/.test(location.search + location.hash)) sessionStorage.setItem("full", "1"); } catch (e) {} })();
+  var GAMES = { play: 1, farm: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
   function route() {
     var id = ++renderId;
     var parts = location.hash.replace(/^#\/?/, "").split("/");
@@ -522,6 +523,7 @@
     document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS 服务站";
     if (a && !isAddr(a)) a = "";
     if (a && ["wallet", "team", "growth", "tree", "upline"].indexOf(tab) >= 0 && !tracked[tab + a]) { tracked[tab + a] = 1; track("q_" + tab); }
+    if (GAMES[tab] && !tracked["g" + tab]) { tracked["g" + tab] = 1; track("g_" + tab); } // 🎮 游戏打开计数（菜单按热度排、面板看哪个最火）
     document.querySelectorAll(".tabs a").forEach(function (el) {
       var on = (el.getAttribute("data-tabs") || el.getAttribute("data-tab")).split(" ").indexOf(tab) >= 0;
       el.classList.toggle("on", on);

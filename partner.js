@@ -47,6 +47,7 @@
       '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的</small></td><td data-l=今天><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td data-l=昨天>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td data-l=近7天>" + fm(inSum, 0) + "</td></tr>" +
       "</tbody></table></div>" +
       // 4. 客户
+      '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
       tile("同时在线（5 分钟内打开）", (j.traffic ? j.traffic.now : 0) + " 人", "今天峰值 " + (j.traffic ? j.traffic.peak + "（" + j.traffic.peakAt + "）" : "—") + " · 容量约 " + (j.cap ? j.cap.conc : "—"), j.traffic && j.cap && j.traffic.now >= j.cap.conc * 0.5 ? "warn" : "") +
       tile("今日访客", fm(d0.v, 0) + " 次", (d0.v1 || 0) + " 人首次 · 昨天 " + fm(d1.v, 0)) +
@@ -80,10 +81,19 @@
   function load(rid) {
     var k = key(); if (!k) return login(rid);
     A.app.innerHTML = '<section class="card"><p class="muted">读取中…</p></section>';
+    var GN = { play: "销毁乐园", farm: "开心农场", pixel: "LGNS 像素墙", g2048: "2048", snake: "贪吃蛇", tetris: "俄罗斯方块", flappy: "飞翔小鸟", mines: "扫雷", brick: "打砖块", merge: "DNA 合成", pet: "HELIX 宠物" };
+    function gamesLine() {
+      fetch("/api/games-top").then(function (r) { return r.json(); }).then(function (j) {
+        var el = document.getElementById("ptn-games"); if (!el) return;
+        var rows = Object.keys(j.counts || {}).map(function (k) { return [GN[k] || k, j.counts[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
+        el.innerHTML = rows.length ? rows.map(function (r, i) { return (i < 3 ? ["🥇", "🥈", "🥉"][i] : "·") + " <b>" + esc(r[0]) + "</b> " + r[1] + " 次"; }).join("　") : "还没有数据（从今天开始统计）";
+      }).catch(function () {});
+    }
     fetch("/api/partner?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
       if (!A.isCurrent(rid)) return;
       if (j.error) { if (/口令/.test(j.error)) { try { localStorage.removeItem("ptnKey"); } catch (e) {} return login(rid, j.error); } A.app.innerHTML = '<section class="card"><p class="nm-bad">' + esc(j.error) + "</p></section>"; return; }
       render(rid, j);
+      gamesLine();
     }, function (e) { if (A.isCurrent(rid)) A.app.innerHTML = '<section class="card"><p class="nm-bad">读取失败：' + esc(e.message || e) + "</p></section>"; });
   }
   A.pages.partner = function (rid) { load(rid); };
