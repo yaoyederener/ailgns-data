@@ -19,7 +19,7 @@
           (done ? '<button type="button" class="ghost" data-act="undo" data-slot="' + slot + '">点错了，撤销</button>' :
             '<div class="med-btns"><button type="button" class="med-yes" data-act="taken" data-slot="' + slot + '">吃了 ✅</button><button type="button" class="med-no" data-act="skip" data-slot="' + slot + '">没吃，15 分钟后再催</button></div>') + "</div>";
       }
-      document.getElementById("med-box").innerHTML = '<p class="muted">今天 ' + esc(cur.bjDay || "") + "（北京时间）</p>" + slotHtml("am", "🌞 早上那粒（10 点后）") + slotHtml("pm", "🌙 晚上那粒（22 点后）");
+      document.getElementById("med-box").innerHTML = '<p class="muted">今天 ' + esc(cur.bjDay || "") + "（温哥华时间）</p>" + slotHtml("am", "🌞 早上那粒（10 点后）") + slotHtml("pm", "🌙 晚上那粒（22 点后）");
       var days = (j.days || []).slice(1);
       document.getElementById("med-hist").innerHTML = days.length ? '<h2 style="margin-top:14px">最近 7 天</h2><ul class="med-ul">' + days.map(function (x) { var d = x.d || {}; return "<li><span>" + esc(x.day) + "</span><em>" + (d.am && d.am.taken ? "🌞 ✅ " + tm(d.am.taken) : "🌞 ❌") + "</em><em>" + (d.pm && d.pm.taken ? "🌙 ✅ " + tm(d.pm.taken) : "🌙 ❌") + "</em></li>"; }).join("") + "</ul>" : "";
       app.querySelectorAll("[data-act]").forEach(function (b) {
