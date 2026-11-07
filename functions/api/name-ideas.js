@@ -10,7 +10,7 @@ export async function onRequestPost(ctx) {
   let b = {}; try { b = await ctx.request.json(); } catch (e) {}
   const desc = String(b.desc || "").trim().slice(0, 80), n = Math.min(Math.max(Number(b.n) || 20, 5), 40);
   if (desc.length < 1) return Response.json({ error: "先说说想要什么样的名字" }, { status: 400 });
-  const sys = "你是 .ailgns 域名起名助手。根据客户描述给出 " + n + " 个候选名字，只输出一个 JSON 数组，不要任何解释。规则：中文名字至少 3 个汉字（不要 2 个字，2 个字价格贵），英文/数字名字至少 5 位且只能用小写字母、数字、连字符；不要空格、不要点、不要后缀；好记、吉利、口语化，适合中国用户；不要涉政、不要人名、不要脏话；每个不一样。";
+  const sys = "你是 .ailgns 域名起名助手。根据客户描述给出 " + n + " 个候选名字，只输出一个 JSON 数组，不要任何解释。规则：中文名字至少 3 个汉字（不要 2 个字，2 个字价格贵），英文/数字名字至少 5 位且只能用小写字母、数字、连字符；不要空格、不要点、不要后缀；好记、吉利、口语化，适合中国用户；不要涉政、不要人名、不要脏话；每个不一样。客户描述很简短、很模糊或者只说「随机 / 随便 / 都行」时不要追问，直接自由发挥，出一批吉利、好记、口语化的中文名字。输出的第一个字符必须是 [，最后一个字符必须是 ]。";
   let raw = "";
   if (env.ANTHROPIC_API_KEY) {
     try {
@@ -24,6 +24,21 @@ export async function onRequestPost(ctx) {
   }
   let arr = [];
   try { const m = raw.match(/\[[\s\S]*\]/); arr = m ? JSON.parse(m[0]) : []; } catch (e) { arr = []; }
-  const names = [...new Set(arr.map((x) => String(x || "").trim().toLowerCase().replace(/\.(ailgns|lgns)$/, "")))].filter((s) => valid(s) && cheap(s) && !banned(s)).slice(0, n);
-  return Response.json({ names }, { headers: { "cache-control": "no-store" } });
+  // JSON 没解析出来（模型多说了话 / 截断）：按引号、逗号、顿号、换行拆
+  if (!arr.length && raw) arr = raw.split(/[\s,，、"'“”\[\]{}:：]+/).filter((x) => x && !/^(json|names?)$/i.test(x));
+  const names0 = [...new Set(arr.map((x) => String(x || "").trim().toLowerCase().replace(/\.(ailgns|lgns)$/, "")))].filter((s) => valid(s) && cheap(s) && !banned(s)).slice(0, n);
+  // AI 还是没给够：本地吉利词库兜底，保证客户永远能拿到一批
+  const names = names0.length >= Math.min(5, n) ? names0 : [...new Set(names0.concat(lucky(n * 2)))].slice(0, n);
+  return Response.json({ names, ai: names0.length }, { headers: { "cache-control": "no-store" } });
+}
+
+const L1 = ["发财", "好运", "招财", "富贵", "吉祥", "鸿运", "财源", "福星", "旺旺", "金玉", "财运", "顺风", "大吉", "喜事", "平安", "如意", "兴旺", "红红", "福气", "牛气"];
+const L2 = ["到家", "满堂", "滚滚", "亨通", "高照", "临门", "连连", "发发", "不断", "来了", "当头", "常在", "顺水", "大利", "多多", "满满", "冲天", "火火", "无边", "哄哄"];
+function lucky(n) {
+  const out = new Set(), tries = n * 20;
+  for (let i = 0; i < tries && out.size < n; i++) {
+    const s = L1[Math.floor(Math.random() * L1.length)] + L2[Math.floor(Math.random() * L2.length)];
+    if (valid(s) && cheap(s) && !banned(s)) out.add(s);
+  }
+  return [...out];
 }
