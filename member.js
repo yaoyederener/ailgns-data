@@ -450,8 +450,11 @@
       // 查询：是会员就直接恢复；不是会员就在输入框下面直接给付款按钮
       var q = document.getElementById("mem-q"), qOut = document.getElementById("q-out");
       // 连过钱包：第 1 步地址框自动填当前钱包地址并自动查一次（客户不用再粘贴）；没连钱包或已有订单地址的照旧
-      var memIn = document.getElementById("mem-addr"), memAcc = (A.otcKit && A.otcKit.account && A.otcKit.account()) || "", memAuto = false;
-      if (q && memIn && memAcc && !memIn.value) { memIn.value = memAcc; setTimeout(function () { if (document.body.contains(q) && !q.disabled) { memAuto = true; q.click(); } }, 0); }
+      var memIn = document.getElementById("mem-addr"), memAuto = false;
+      function memFill(acc) { if (acc && q && memIn && !memIn.value && document.body.contains(q) && !q.disabled) { memIn.value = acc; memAuto = true; q.click(); } }
+      var memAcc = (A.otcKit && A.otcKit.account && A.otcKit.account()) || "";
+      if (memAcc) setTimeout(function () { memFill(memAcc); }, 0);
+      else if (A.otcKit && A.otcKit.silentAccount) A.otcKit.silentAccount().then(function () { if (A.isCurrent(id)) memFill(A.otcKit.account()); }).catch(function () {}); // 没先开过 OTC 页：静默问一次钱包（授权过的不弹窗）
       if (q) q.onclick = function () {
         var a = addrNow();
         if (!a) { qOut.innerHTML = '<p class="note down">地址格式不对</p>'; return; }
