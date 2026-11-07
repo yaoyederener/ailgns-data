@@ -268,7 +268,12 @@
       });
     }, function () { return false; });
   }
-  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, account: function () { return account; }, NAMES: function () { return NAMES; } };
+  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, account: function () { return account; }, NAMES: function () { return NAMES; },
+    tx: tx, DAI: DAI,
+    allowance: function (token, spender) { return call2(token, SEL.allowance + A.pad(account) + A.pad(spender)).then(BigInt); },
+    balance: function (token) { return call2(token, "0x70a08231" + A.pad(account)).then(BigInt); },
+    sign: function (text) { return connect().then(function () { bigTip("签名"); return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(text), account] }); }).then(function (r) { bigTip(""); return r; }, function (e) { bigTip(""); throw e; }); } };
+  function call2(to, data) { return W.rpcOn("anubis", "eth_call", [{ to: to, data: data }, "latest"]); }
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
     tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
     return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {

@@ -53,9 +53,9 @@
       '<div class="seg nb-seg"><button type="button" data-m="num" class="on">🔢 5 位数号码</button><button type="button" data-m="ai">🤖 让 AI 出主意</button><button type="button" data-m="own">✍️ 自己填</button></div>' +
       '<div id="nb-pane"></div>' +
       '<div class="nb-cand" id="nb-cand"></div>' +
-      '<div class="nb-foot"><div class="nb-sum" id="nb-sum">还没选</div><button type="button" class="nm-go" id="nb-go" disabled>注册选中的</button></div>' +
+      '<div class="nb-foot"><div class="nb-sum" id="nb-sum">还没选</div><button type="button" class="nm-go" id="nb-go" disabled>注册选中的</button><button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button></div><p class="muted nb-botst" id="nb-botst"></p>' +
       '<p class="muted nb-st" id="nb-st"></p>' +
-      '<p class="muted nb-note">便宜档 <b>5 DAI / 年</b>：中文 3 字及以上、英文数字 5 位及以上。3 位英文 640、4 位 160、中文 2 字 50。批量只用 DAI 付，先授权一次总额，再逐个注册；钱包支持「一次确认」的只按一次，否则一个名字按一下，中途停了已注册的照样有效。</p></div>';
+      '<p class="muted nb-note">便宜档 <b>5 DAI / 年</b>：中文 3 字及以上、英文数字 5 位及以上。3 位英文 640、4 位 160、中文 2 字 50。批量只用 DAI 付，先授权一次总额，再逐个注册；钱包支持「一次确认」的只按一次，否则一个名字按一下，中途停了已注册的照样有效。<br>🤖 <b>交给机器人代点</b>：你只确认 2 次（授权这次的总额 + 签名委托），团队的机器人几分钟内替你逐个注册，名字直接归你；被人抢先的名字不扣钱。结果发到站内信。</p></div>';
     document.body.appendChild(box);
     document.getElementById("nb-x").onclick = function () { if (busy && !confirm("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
     box.querySelectorAll(".nb-seg button").forEach(function (b) { b.onclick = function () { mode = b.getAttribute("data-m"); box.querySelectorAll(".nb-seg button").forEach(function (x) { x.classList.toggle("on", x === b); }); pane(); }; });
@@ -117,6 +117,7 @@
       }).join("") + "</ul>";
     el.querySelectorAll("input[data-n]").forEach(function (c) { c.onchange = function () { var n = c.getAttribute("data-n"); if (c.checked) picked[n] = 1; else delete picked[n]; sum(); }; });
     document.getElementById("nb-all").onclick = function () { cands.forEach(function (n) { if (avail[n] === 1) picked[n] = 1; }); drawCand(); };
+    botStatus();
     document.getElementById("nb-none").onclick = function () { picked = {}; drawCand(); };
     document.getElementById("nb-clear").onclick = function () { cands = []; picked = {}; drawCand(); };
     sum();
@@ -127,6 +128,42 @@
     el.innerHTML = n ? "选了 <b>" + n + "</b> 个 · 1 年 · 共 <b>" + t + " DAI</b>" : "还没选";
     go.disabled = !n || busy; go.textContent = n ? "注册这 " + n + " 个（" + t + " DAI）" : "注册选中的";
     go.onclick = run;
+    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.onclick = robot; }
+  }
+  // ---------- 🤖 机器人代点：客户授权 DAI 给机器人钱包 + 签名委托，机器人用客户的钱替客户注册（名字直接归客户） ----------
+  var REG = "0x21425f852a1e0fb798fb9ebeb288def27bc0f2d1"; // 代注册机器人钱包（只放 Gas）
+  function botText(names, total, a, day) { return "AiLGNS 代注册委托\n请机器人帮我注册（各 1 年，DAI 付款）：" + names.join("、") + "\n共 " + total + " DAI\n我的地址：" + a + "\n日期：" + day; }
+  function bjDay() { return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); }
+  function botStatus() {
+    var h = H(), el = document.getElementById("nb-botst"); if (!el || !h.account()) return;
+    fetch("/api/reg-order?a=" + h.account()).then(function (r) { return r.json(); }).then(function (j) {
+      var l = (j && j.list) || [], p = l.filter(function (o) { return o.state === "pending"; });
+      el.innerHTML = p.length ? "🤖 机器人正在处理你的 <b>" + p.reduce(function (s, o) { return s + o.names.length; }, 0) + "</b> 个名字，几分钟内完成，结果发<a href=\"#/inbox\">站内信</a>" : "";
+    }).catch(function () {});
+  }
+  function robot() {
+    var h = H(), names = list(); if (!names.length || busy) return;
+    busy = true; sum();
+    var t = total(), wei = BigInt(t) * 10n ** 18n, a;
+    h.connect().then(function () {
+      a = h.account();
+      return Promise.all([h.balance(h.DAI), h.allowance(h.DAI, REG)]);
+    }).then(function (r) {
+      if (r[0] < wei) throw new Error("DAI 不够：要 " + t + " DAI，钱包只有 " + (Number(r[0] / 10n ** 16n) / 100));
+      if (r[1] >= wei) return;
+      return h.tx(h.DAI, "0x095ea7b3" + A.pad(REG) + wei.toString(16).padStart(64, "0"), say, "🔒 第 1 步：授权机器人只能收这次的 " + t + " DAI（不扣钱）。请在钱包确认");
+    }).then(function () {
+      say("✍️ 第 2 步：签名委托（不扣钱、不花 Gas），请在钱包确认");
+      var day = bjDay();
+      return h.sign(botText(names, t, a, day)).then(function (sig) {
+        return fetch("/api/reg-order", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: a, names: names, day: day, sig: sig }) }).then(function (r) { return r.json(); });
+      });
+    }).then(function (j) {
+      if (!j || j.error) throw new Error((j && j.error) || "提交失败");
+      picked = {}; drawCand();
+      say("✅ 已交给机器人：" + names.length + " 个名字，共 " + t + " DAI。几分钟内替你注册完，名字直接到你钱包；被抢先的不扣钱。结果发站内信 📬");
+      botStatus();
+    }).catch(function (e) { say(String((e && e.message) || e), true); }).then(function () { busy = false; sum(); });
   }
   // ---------- 注册 ----------
   function run() {
