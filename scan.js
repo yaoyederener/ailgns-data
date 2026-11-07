@@ -382,6 +382,8 @@
     x = x || {};
     var me = A.otcKit && A.otcKit.account && A.otcKit.account();
     var btn = x.cancel && me && x.owner === me ? '<button type="button" class="sc-cancel" data-cancel="' + x.id + '" data-k="' + x.k + '">撤单</button>' : "";
+    if (x.cancel && x.owner && (!me || x.owner !== me)) x.st = (x.st || "") + '<div class="sc-guide">这是你的单？右上角连接挂单的钱包，这里就会出现「撤单」按钮。想改价：撤单（币马上退回钱包）→ 去 OTC 按新价重新挂。到期的单币会自动退回，不用管。</div>';
+    else if (btn) x.st = (x.st || "") + '<div class="sc-guide">想改价：点「撤单」（钱包确认一次，币马上退回钱包）→ 去 <a href="#/otc">OTC</a> 按新价重新挂一张。到期的单币会自动退回。</div>';
     return '<div class="lg-row' + (just ? " lg-just" : "") + '"><span class="lg-ico">' + (just ? '<i class="lg-justtag">刚挂的</i>' : "") + '' + ico + '</span><div class="lg-main"><div class="lg-txt">' + html + "</div>" + (x.st ? '<div class="sc-stl">' + x.st + "</div>" : "") + "</div><span class=\"lg-acts\">" + btn + (href ? '<a class="lg-link" href="' + href + '">' + (cta || "去处理 ›") + "</a>" : "") + "</span></div>";
   }
   // 账本里直接撤单：切到对应市场，走 OTC 同一套 cancel（普通用户操作，不碰管理权限）
