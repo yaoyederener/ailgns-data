@@ -649,7 +649,7 @@
     }
 
     function myOrders(list, now, mkt) {
-      if (!list.length) return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">还没有挂单</div></section>';
+      if (!list.length) return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">这个市场（' + SYM + '）还没有挂单</div><p class="note">挂在别的币种市场的单这里不显示：上面切换市场，或 <a href="#/scan/' + account + '">在账本里看我所有市场的挂单（可直接撤单）→</a></p></section>';
       return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
           var dust = o.open && isDust(o);
@@ -657,9 +657,12 @@
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
           if (r && !dust && !M.flat && (side === "sell" ? r > RANGE.sell[1] : r < RANGE.buy[0])) status += '<br><span class="down">价格' + (side === "sell" ? "偏高" : "偏低") + "，很难成交，建议撤单按指导价 " + A.fmt(mkt * (RANGE[side][0] + RANGE[side][1]) / 2, PD) + " 重挂</span>";
           var remain = dust && isCrumb(o, o.giveLeft) ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
+          var live = o.open && o.expiry > now && !dust, qtyC = (o.sellAilgns ? num(o.giveLeft, TD) : num(o.giveLeft, 18) / priceOf(o)).toFixed(6).replace(/\.?0+$/, ""); // 填回表单用，不能带千分位
           return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
-            (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
-        }).join("") + "</tbody></table></div></section>";
+            (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") +
+            (live ? '<button data-requote="' + o.id + '" data-rside="' + side + '" data-rqty="' + qtyC + '" style="padding:6px 12px;margin-left:6px">✏️ 改价重挂</button>' : "") + "</td></tr>";
+        }).join("") + "</tbody></table></div>" +
+        '<p class="note">想换个价：点「✏️ 改价重挂」→ 钱包确认一次撤单（币先退回钱包）→ 页面自动把数量填好、滚到挂单表单，你只改单价再点「发布挂单」。没看到你的单？可能挂在别的币种市场：<a href="#/scan/' + account + '">在账本里看我所有市场的挂单 →</a></p></section>';
     }
 
     function bind(id, orders, mkt) {
@@ -674,6 +677,15 @@
       var c = document.getElementById("otc-connect");
       if (c) c.onclick = function () { connect().then(reload, function (e) { say(niceError(e), true); }); };
 
+      // 「改价重挂」：撤完旧单刷新回来，自动切方向、填数量、单价留给客户改
+      var rq = null; try { rq = JSON.parse(sessionStorage.getItem("otc:requote") || "null"); sessionStorage.removeItem("otc:requote"); } catch (e) {}
+      if (rq && (!rq.m || rq.m === (M.key || ""))) setTimeout(function () {
+        var t = document.querySelector('#otc-side [data-side="' + rq.side + '"]'); if (t) t.click();
+        if (rq.qty) { qty.value = rq.qty; auto = true; guide(); calc(); pick(); }
+        var f = document.getElementById("otc-form"); if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
+        say("✏️ 旧单已撤，数量已填好（" + rq.qty + " " + SYM + "），单价已按当前指导价填入。改成你想要的价，再点「发布挂单」。");
+        if (price) { price.focus(); price.select && price.select(); }
+      }, 100);
       // 从「营销广告」点「我要卖 / 我要买」进来（#/otc/sell、#/otc/buy）：切到对应方向，滚到挂单表单
       var hp = location.hash.split("/"), go = MARKETS[hp[2]] ? hp[3] : hp[2]; // #/otc/sell 或 #/otc/plgns/sell
       if (go === "sell" || go === "buy") setTimeout(function () {
@@ -884,6 +896,22 @@
           ready().then(function () {
             return send(OTC, SEL.cancel + u256(b.getAttribute("data-cancel")), here, "撤单");
           }).then(function () { sweeping = false; here("✅ 已撤单，币已退回你的钱包"); setTimeout(reload, 1500); }, function (e) { sweeping = false; here(niceError(e), true); b.disabled = false; });
+        };
+      });
+      A.app.querySelectorAll("[data-requote]").forEach(function (b) {
+        b.onclick = function () {
+          var note = b.parentElement.querySelector(".cx-st");
+          if (!note) { note = document.createElement("p"); note.className = "note cx-st"; b.parentElement.appendChild(note); }
+          function here(t, bad) { note.className = "note cx-st" + (bad ? " down" : ""); note.textContent = t; }
+          b.disabled = true; sweeping = true;
+          here("第 1 步：先撤掉旧单（钱包确认一次，币退回钱包）…");
+          ready().then(function () {
+            return send(OTC, SEL.cancel + u256(b.getAttribute("data-requote")), here, "撤单");
+          }).then(function () {
+            sweeping = false; here("✅ 旧单已撤，币已退回。正在打开挂单表单…");
+            try { sessionStorage.setItem("otc:requote", JSON.stringify({ m: M.key || "", side: b.getAttribute("data-rside"), qty: b.getAttribute("data-rqty") })); } catch (e) {}
+            setTimeout(reload, 1200);
+          }, function (e) { sweeping = false; here(niceError(e), true); b.disabled = false; });
         };
       });
 
