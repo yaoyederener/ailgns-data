@@ -21,20 +21,20 @@ import { oracleNotify } from "../../lib/ornotify.js";
 // sellTax：LGNS 在 DEX 卖出扣的手续费（Polygon 固定 5%，Anubis 动态，常见 50% 左右），求购单推送时提一句
 const POLYGON_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
 const MARKETS = [
-  { key: "ailgns", sym: "AiLGNS", chain: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
+  { key: "ailgns", sym: "AiLGNS", chain: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", dec: 18, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/",
     pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, pd: 2, kv: "otcw:", deploy: 17798035, backfill: true, dex: true, link: "https://ailgns.dev/#/otc" },
-  { key: "lgns", sym: "LGNS", chain: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", dec: 9, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
+  { key: "lgns", sym: "LGNS", chain: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", dec: 9, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/",
     pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", pairDai: 1, pd: 4, kv: "otcw:lgns:", deploy: 17936478, sellTax: "约 50%（动态）", link: "https://ailgns.dev/#/otc/lgns" },
   { key: "plgns", sym: "LGNS", chain: "Polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", dec: 9, rpcs: POLYGON_RPCS, tx: "https://polygonscan.com/tx/",
     pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", pairDai: 0, pd: 4, kv: "otcw:plgns:", deploy: 96510526, sellTax: "5%", link: "https://ailgns.dev/#/otc/plgns" },
   // gLGNS（Anubis，18 位）：DEX 买卖不扣税
-  { key: "glgns", sym: "gLGNS", chain: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", dec: 18, rpcs: RPCS, tx: "https://anubisscan.io/tx/",
+  { key: "glgns", sym: "gLGNS", chain: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", dec: 18, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/",
     pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 18004618, link: "https://ailgns.dev/#/otc/glgns" },
   // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」
-  { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nft:", deploy: 18008025, link: "https://ailgns.dev/#/otc/nft" },
+  { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", dec: 0, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 2, kv: "otcw:nft:", deploy: 18008025, link: "https://ailgns.dev/#/otc/nft" },
   // 域名市场（同一份 AwakeNftEscrow 代码）：成交通知里显示名字（从域名合约 labelOf 读），不显示编号
-  { key: "nm_ailgns", sym: ".ailgns 域名", kind: "域名", chain: "Anubis", nft: true, otc: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", names: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", tld: "ailgns", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nma:", deploy: 18161704, link: "https://ailgns.dev/#/names/otc" },
-  { key: "nm_lgns", sym: ".lgns 域名", kind: "域名", chain: "Anubis", nft: true, otc: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d", names: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3", tld: "lgns", dec: 0, rpcs: RPCS, tx: "https://anubisscan.io/tx/", pd: 2, kv: "otcw:nml:", deploy: 18161717, link: "https://ailgns.dev/#/names/otc" },
+  { key: "nm_ailgns", sym: ".ailgns 域名", kind: "域名", chain: "Anubis", nft: true, otc: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", names: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", tld: "ailgns", dec: 0, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 2, kv: "otcw:nma:", deploy: 18161704, link: "https://ailgns.dev/#/names/otc" },
+  { key: "nm_lgns", sym: ".lgns 域名", kind: "域名", chain: "Anubis", nft: true, otc: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d", names: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3", tld: "lgns", dec: 0, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 2, kv: "otcw:nml:", deploy: 18161717, link: "https://ailgns.dev/#/names/otc" },
 ].filter((m) => m.otc);
 const SITE = "https://ailgns.dev/#/otc";
 // 币名：LGNS 两条链都有，带上链名

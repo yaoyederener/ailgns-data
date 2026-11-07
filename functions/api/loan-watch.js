@@ -13,7 +13,7 @@ const LOANS = [ // 借款合约（每个抵押币一份）
   { key: "glgns", sym: "gLGNS", dec: 18, addr: "0x00e674bb1559557966a6c2244c36d12a63218a5f", deploy: 18110662 }
 ];
 const GROUPS = ["oes8etcm", "fvg4wksw"]; // 营销群（和 OTC 成交播报同一批群）
-const LINK = "https://ailgns.dev/#/lend", TX = "https://anubisscan.io/tx/";
+const LINK = "https://ailgns.dev/#/lend", TX = "https://ailgns.dev/#/scan/";
 const linkOf = (m) => LINK + (m.key === "ailgns" ? "" : "/" + m.key); // 每个抵押币市场一个页面
 const T = {
   Funded: "0x974968e4099686772f222ec802e4262eab7a00af4bc618c179650168f804d656", // (id, lender, principal, fee, due)
