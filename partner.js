@@ -27,10 +27,7 @@
     var b = j.bal.src;
     var h = '<section class="card ptn-top"><div class="card-head"><h2>🤝 合伙人面板</h2><span class="muted">' + tm(j.at) + " 更新 · 每 5 分钟</span></div>" +
       (j.canWrite ? '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a></div>' : "") +
-      // 1. 风险与建议
-      '<h3 class="ad-h">🚦 风险与建议（按优先级，上面的先做）</h3><div class="ptn-risks">' + j.risks.map(function (r) {
-        return '<div class="ptn-risk ' + r.level + '"><div class="ptn-rh">' + LV[r.level][0] + " <b>" + esc(r.title) + '</b><i>' + LV[r.level][1] + " · " + esc(r.who) + "</i></div><p>" + esc(r.why) + '</p><p class="ptn-todo">👉 ' + esc(r.todo) + "</p></div>";
-      }).join("") + "</div>" +
+      // 风险与建议移到「网站优化」页（#/ops），这里不再重复
       // 2. 钱
       '<h3 class="ad-h">💰 钱（当前余额，不是历史累计）</h3><div class="ad-tiles">' +
       tile("待分配余额（收款钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
