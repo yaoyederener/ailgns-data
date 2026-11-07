@@ -177,6 +177,8 @@
     // 从 App 壳页带问题过来：?chat=问题 → 打开窗口直接问
     try { var cq = new URLSearchParams(location.search).get("chat"); if (cq) { setTimeout(function () { toggle(true); ask(cq); }, 600); } } catch (e) {} // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
+    // 窗口里点站内链接（提交工单等）：先把客服窗口收起来，不然手机上全屏的窗口把页面盖住，客户以为没反应（站长 2026-11-08 反馈）
+    panel.addEventListener("click", function (e) { var a = e.target.closest('a[href^="#/"]'); if (a) { toggle(false); if (location.hash === a.getAttribute("href")) { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (x) {} } } });
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();
   }
