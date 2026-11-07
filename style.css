@@ -2922,3 +2922,9 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .sc-coin.sc-has span { color: #7a4d00; font-weight: 700; } .sc-coin.sc-has b { color: #3a2400; font-size: 30px; } .sc-coin.sc-has small { color: #0b7a4b; font-weight: 700; }
 .sc-coin.sc-top { background: linear-gradient(135deg, #ffe9a6, #ffd45c 55%, #ffb648); } .sc-coin.sc-top b { font-size: 36px; }
 @media (max-width: 600px) { .sc-balc .sc-bal.sc-n1, .sc-balc .sc-bal.sc-n2 { grid-template-columns: 1fr; } .sc-coin.sc-has b { font-size: 26px; } .sc-coin.sc-top b { font-size: 30px; } }
+
+/* 🏅 七级商家体系（2026-11-08）：4 钻石、5 王牌、6 镇店巨鲸；🏆 本周贡献王（周榜前三，挂 7 天） */
+.cred4 { background: linear-gradient(90deg, #e0f2fe, #bae6fd); color: #075985; border-color: #7dd3fc; }
+.cred5 { background: linear-gradient(90deg, #fde68a, #f59e0b); color: #4a2a00; border-color: #f59e0b; }
+.cred6 { background: linear-gradient(90deg, #1e1b4b, #4c1d95); color: #fde68a; border-color: #7c3aed; }
+.credking { background: linear-gradient(90deg, #fff1b8, #ffd45c); color: #7a4d00; border-color: #e2b64a; }

@@ -5,7 +5,7 @@
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { rpc } from "../../lib/oracle.js";
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, bjDay } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -59,11 +59,11 @@ export async function onRequestGet(ctx) {
     out.funds = { dai: f.dai, ail: f.ail, px: px.raw, wallet: POOL };
     try { out.funds.otc = await otcHi(kv); } catch (e) { out.funds.otc = { px: px.raw, at: Date.now(), n: 0, src: "dex" }; }
   } catch (e) { out.funds = null; }
-  // 本周期贡献榜（上次大奖清空起到今天的 OTC 手续费前 3）
+  // 本周贡献榜（周一起到今天，认证商家以上；按手续费占比分奖池 30%，每人封顶手续费 KING_CAP 倍；周日揭晓时结算）
   try {
-    const cyc = await cycleStart(kv), fb = await feeBoard(kv, cyc, bjDay(now)), top = [];
-    for (const x of fb.slice(0, 3)) top.push({ a: x.a, name: await showName(kv, x.a), fee: x.fee });
-    out.kings = { cyc, n: fb.length, top, share: KING, split: KING_SPLIT, all: fb }; // all 只在服务端用，返回前删掉
+    const cyc = weekStart(bjDay(now)), held = out.funds ? (out.funds.dai + out.funds.ail * (out.funds.otc && out.funds.otc.px ? out.funds.otc.px : out.funds.px)) : 0;
+    const kb = await kingsOf(kv, cyc, bjDay(now), Math.floor(held * KING * 100) / 100), all = await feeBoard(kv, cyc, bjDay(now));
+    out.kings = { cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt })), share: KING, cap: KING_CAP, minLv: 2, all }; // all 只在服务端用，返回前删掉
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);

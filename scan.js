@@ -713,7 +713,7 @@
   A.nameTag = function (a) { return '<span data-a="' + a + '">' + A.short(a) + "</span>"; };
   A.fillNames = fillNames;
   // 🏅 信誉标志：按累计成交给挂单人加「信誉商家」等芯片（OTC 订单簿、账本头部用）。等级在 /api/cred 里定
-  var CREDN = ["新手", "常客", "✔ 认证商家", "✔ OTC 大户", "👑 至尊大户"], credCache = {}, credAt = 0;
+  var CREDN = ["新客", "常客", "✔ 认证商家", "🥇 金牌商家", "💎 钻石商家", "👑 王牌商家", "🐋 镇店巨鲸"], CREDNX = [[1000, 5], [10000, 20], [100000, 50], [500000, 100], [1000000, 200], [10000000, 500]], credCache = {}, credAt = 0; // 等级定义同 lib/cred.js（2026-11-08 七级商家体系）
   A.credFill = function (root) {
     var els = Array.prototype.slice.call(root.querySelectorAll("[data-a]:not([data-cred])")), as = {};
     els.forEach(function (e) { var a = e.getAttribute("data-a").toLowerCase(); if (!KNOWN[a]) as[a] = 1; });
@@ -722,13 +722,14 @@
     p.then(function () {
       els.forEach(function (e) {
         var a = e.getAttribute("data-a").toLowerCase(), c = credCache[a]; e.setAttribute("data-cred", "1");
-        if (!c || c.lv < 1) return;
-        var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = "官方认证 · 本站 OTC 累计真实成交 " + c.vol.toLocaleString("en-US") + " DAI · " + c.n + " 笔";
-        e.insertAdjacentElement("afterend", chip);
+        if (!c || (c.lv < 1 && !c.king)) return;
+        var last = e;
+        if (c.lv >= 1) { var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = "官方认证 · 本站 OTC 累计真实成交 " + c.vol.toLocaleString("en-US") + " DAI · " + c.n + " 笔"; last.insertAdjacentElement("afterend", chip); last = chip; }
+        if (c.king) { var kc = document.createElement("i"); kc.className = "cred credking"; kc.textContent = "🏆 本周贡献王"; kc.title = "上周 OTC 手续费贡献前 3，标志挂 7 天"; last.insertAdjacentElement("afterend", kc); }
       });
     });
   };
-  A.credOf = function (a) { return fetch("/api/cred?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var c = j[String(a).toLowerCase()] || { vol: 0, n: 0, lv: 0 }; c.name = CREDN[c.lv]; var nx = c.lv < 4 ? [[1000, 5], [10000, 20], [100000, 50], [1000000, 100]][c.lv] : null; c.next = nx ? { name: CREDN[c.lv + 1], vol: nx[0], n: nx[1] } : null; return c; }); };
+  A.credOf = function (a) { return fetch("/api/cred?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var c = j[String(a).toLowerCase()] || { vol: 0, n: 0, lv: 0 }; c.name = CREDN[c.lv]; var nx = c.lv < 6 ? CREDNX[c.lv] : null; c.next = nx ? { name: CREDN[c.lv + 1], vol: nx[0], n: nx[1] } : null; return c; }); };
   A.nameOf = nameOf; // 荣耀榜播报：没域名的大哥引导去注册
   A.pages.scan = page;
 })();
