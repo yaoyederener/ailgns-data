@@ -159,6 +159,7 @@
     // 提交预测
     html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上揭晓价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + kingsCard(d, potV) + playersCard(d);
     setTimeout(liveRank, 0);
+    setTimeout(function () { if (A.credFill) A.credFill(A.app); }, 0); // 🏅 贡献榜名字后面加「认证商家」等信誉标志（站长 2026-11-07）
     setTimeout(countUp, 0);
     // 最近一次结果（不在上面显示时）
     if (d.last && !(res && res.day === d.last.day && now - res.at < 20 * 3600e3)) html += resultCard(d.last, "📜 上一期结果");
@@ -369,7 +370,7 @@
   function kingsCard(d, potV) {
     var k = d.kings; if (!k) return "";
     var total = Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king;
-    var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + " <b>" + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + "</span><b>" + dai(Math.floor(total * k.split[i] * 100) / 100) + "</b></li>"; }).join("");
+    var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + ' <b data-a="' + esc(x.a || "") + '">' + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + "</span><b>" + dai(Math.floor(total * k.split[i] * 100) / 100) + "</b></li>"; }).join("");
     return '<section class="card"><div class="card-head"><h2>💰 本周期贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 奖池 30% = " + dai(total) + "</span></div>" +
       (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周期还没有 OTC 成交，第一笔就是第一名。</p>') +
       '<p class="muted">有人猜中大奖的那天，这 3 位按 50 / 30 / 20 分走奖池的 30%，然后重新排。在 OTC 吃单付的手续费（成交额 1%）都算，卡牌按 3%。' + (me ? " 你现在排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周期还没有成交。" : "")) + "</p></section>";
