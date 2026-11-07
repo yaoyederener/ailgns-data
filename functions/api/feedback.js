@@ -93,7 +93,8 @@ export async function onRequestGet(ctx) {
   const cnt = { new: 0, doing: 0, done: 0, skip: 0 };
   ts.forEach((t) => { cnt[t.st] = (cnt[t.st] || 0) + 1; });
   if (st) ts = ts.filter((t) => t.st === st);
-  ts.sort((x, y) => ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // ⭐ 产品优化员置顶；再按轻重缓急：级别高的在前，同级新的在前
+  if (st === "done" || st === "skip") ts.sort((x, y) => ((y.up || y.t) - (x.up || x.t))); // 已解决 / 无效：最近处理的在前（站长 2026-11-08：之前按级别排，老单子一直占着第一条）
+  else ts.sort((x, y) => ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // ⭐ 产品优化员置顶；再按轻重缓急：级别高的在前，同级新的在前
   return json({ list: ts, cnt });
 }
 
