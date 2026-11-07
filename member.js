@@ -354,44 +354,18 @@
   function tierBadge(t) { return '<span class="vip vip-' + t + '">' + vipEmblem(t, 18) + TIERS[t].name + "</span>"; }
 
   // ---------- 页面：会员 ----------
-  // 🔎 查会员等级（会员页顶部，代替原来的「查我的订单」）：输入任意地址，显示等级、累计付款、OTC 累计成交和离高级还差多少
-  function levelBox() {
-    var acc = (A.otcKit && A.otcKit.account && A.otcKit.account()) || "";
-    return '<section class="card mb-lv"><div class="card-head"><h2>🔎 查会员等级</h2><span class="muted">任何地址都能查</span></div>' +
-      '<div class="mb-lvq"><input id="mb-lva" placeholder="钱包地址 0x…（连过钱包会自动填）" value="' + A.esc(acc) + '" autocomplete="off"><button type="button" id="mb-lvgo">查询</button></div>' +
-      '<div id="mb-lvr"></div></section>';
-  }
-  function bindLevel() {
-    var inp = document.getElementById("mb-lva"), go = document.getElementById("mb-lvgo"), out = document.getElementById("mb-lvr");
-    if (!inp || !go) return;
-    function run() {
-      var a = inp.value.trim().toLowerCase();
-      if (!/^0x[0-9a-f]{40}$/.test(a)) { out.innerHTML = '<p class="nm-bad">请填完整的钱包地址（0x 开头 42 位）</p>'; return; }
-      go.disabled = true; out.innerHTML = '<p class="muted">查询中…</p>';
-      Promise.all([lookup(a).catch(function (e) { if (e && e.message === "TRANSFERRED") return { transferredTo: e.to }; throw e; }), memberApi(a).catch(function () { return null; })]).then(function (r) {
-        var t = r[0], srv = r[1];
-        var tierTxt = t && t.transferredTo ? '<span class="muted">这个地址的会员已转赠给 ' + A.short(t.transferredTo) + "</span>" : t && t.tier ? '<b class="up">' + TIERS[t.tier].name + "</b>" + (t.tier === "pro" ? "（终生）" : "（永久）") : "<b>未开通</b>";
-        var usdTxt = t && t.usd ? "累计付款约 " + A.fmt(t.usd, 2) + " 美元" + (t.tier === "basic" ? "，再补 " + A.fmt(Math.max(0, PRO_USD - t.usd), 0) + " 美元升高级" : "") : "还没有付款记录";
-        out.innerHTML = '<div class="mb-lvc"><div class="mb-lvt">' + A.short(a) + " 的等级：" + tierTxt + '</div><p class="muted">' + usdTxt + "</p>" + (srv ? volBox(srv) : "") +
-          (t && t.tier ? "" : '<p class="muted">开通方法：下面填这个地址 → 选付款方式 → 付款，或者在 OTC 单笔成交满 50 DAI 自动得初级、累计满 1 万 DAI 自动得高级。</p>') + "</div>";
-      }).catch(function (e) { out.innerHTML = '<p class="nm-bad">' + A.esc(e.message || String(e)) + "</p>"; }).then(function () { go.disabled = false; });
-    }
-    go.onclick = run;
-    inp.onkeydown = function (e) { if (e.key === "Enter") run(); };
-    if (inp.value) run(); // 连过钱包：自动查自己的
-  }
   function renderMember(id) {
     var app = A.app, m = member();
-    var head = levelBox() + '<h1>会员</h1><p class="sub sub-x">会员开在<b>地址</b>上：填要开通的地址，点付款，在钱包里确认一笔转账就开通，<b>不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
+    var head = '<h1>会员</h1><p class="sub sub-x">会员开在<b>地址</b>上：填要开通的地址，点付款，在钱包里确认一笔转账就开通，<b>不用签名、不用授权</b>。开通后可以查这个地址的「团队与等级」「团队新增业绩」「团队结构图」。</p>';
     if (m && m.tier === "pro") {
       app.innerHTML = head + memberCard(m) + '<section class="card"><div class="card-head"><h2>高级权益</h2><span class="muted">终生有效</span></div>' + perkList("pro") + "</section>";
-      fillVol(m.addr); bindLevel();
+      fillVol(m.addr);
       return;
     }
     // 未开通：填地址、选等级再付款；初级会员：补差价升级
     var upgrade = !!m, plan = upgrade ? "pro" : "basic", po = pendingOrder();
     app.innerHTML = head + (upgrade ? memberCard(m) : "") + '<div class="loading">正在读取实时价格…</div>';
-    if (upgrade) fillVol(m.addr); bindLevel();
+    if (upgrade) fillVol(m.addr);
     Promise.all(METHODS.map(function (x) { return x.price().catch(function () { return null; }); })).then(function (prices) {
       if (!A.isCurrent(id)) return;
       function usdNow() { return upgrade ? PRO_USD - FEE_USD : plan === "pro" ? PRO_USD : FEE_USD; }
