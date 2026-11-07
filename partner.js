@@ -35,6 +35,7 @@
       tile("销售费用 " + j.cfg.sales + "%", fm(j.split.sales, 0) + " DAI", "", "money") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
+      (j.bal.fast ? tile("⚡ 极速资金池（批量注册 90%，分开放）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
       tile("触发钱包 Gas", fm(j.bal.keeper.dai, 1) + " DAI", j.bal.keeper.dai < 8 ? "⚠️ 低于 8 机器人会停" : "够用", j.bal.keeper.dai < 8 ? "warn" : "") +
       "</div>" +
       (j.canWrite ? '<p class="muted ptn-cfg">分配比例（站长可改）：技术 <input id="ptn-tech" type="number" min="0" max="100" value="' + j.cfg.tech + '" style="width:60px"> % ，销售 = 100 − 技术 <button type="button" class="ghost" id="ptn-cfg-save">保存</button><span id="ptn-cfg-st"></span></p>' : "") +
