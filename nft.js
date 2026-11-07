@@ -143,6 +143,11 @@
       '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖卡</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要求购</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>" +
       '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt"><b>价格自由定，没有最低限制</b> · 当前最低卖价 <b>' + floor + '</b> · 最高求购 <b>' + top + '</b> DAI · 单笔成交满 50 DAI 送<b>初级 VIP</b>，累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b>，累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
       (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
+    // 🧹 一键扫单：买最便宜的 N 张（不是自己的）。合约只有单张 buy，所以授权一次 DAI，然后一张一张买，钱包每张确认一次
+    var swCards = sells.filter(function (o) { return o.maker !== account; });
+    html += swCards.length ? '<section class="card nft-sweep" id="nft-sweep"><div class="card-head"><h2>🧹 一键扫单</h2><span class="muted">官方新活动 · 抢卡牌</span></div>' +
+      '<div class="nft-swrow"><label>买最便宜的 <input id="nsw-n" type="number" min="1" max="' + swCards.length + '" value="' + Math.min(3, swCards.length) + '" inputmode="numeric"> 张</label><span class="muted">在售 ' + swCards.length + ' 张</span></div>' +
+      '<p class="nft-swsum" id="nsw-sum"></p><button type="button" class="nm-go" id="nsw-go">🧹 一键扫单</button><p class="note">授权一次 DAI 后按价格从低到高一张一张买，钱包每张确认一次；中途取消就停在那一张，已买到的卡不受影响。</p></section>' : "";
     html += book("sells", "在售卡牌", sells, "价格从低到高 · 买家另付 3% 手续费", '<th class="l">操作</th><th>卡牌</th><th>价格 DAI</th><th>买家实付</th><th>剩余时间</th><th class="l">卖家</th>', sellRow);
     html += book("bids", "求购", bids, "价格从高到低 · 卖家拿到完整求购价", '<th class="l">操作</th><th>求购价 DAI</th><th>求购</th><th>剩余时间</th><th class="l">求购人</th>', bidRow);
     html += '<div id="otc-tot"></div>';
@@ -263,6 +268,37 @@
     // 买入
     var modal = document.getElementById("otc-modal");
     function closeModal() { modal.hidden = true; modal.innerHTML = ""; }
+    // 🧹 一键扫单
+    var swN = document.getElementById("nsw-n"), swSum = document.getElementById("nsw-sum"), swGo = document.getElementById("nsw-go");
+    function swPick() { var n = Math.max(1, Math.min(swCards.length, Number(swN.value) || 1)); return swCards.slice(0, n); }
+    function swTotal(list) { return list.reduce(function (t, o) { return t + o.price + fee(o.price); }, 0n); }
+    function swShow() { if (!swSum) return; var l = swPick(); swSum.innerHTML = "买 <b>" + l.length + "</b> 张：#" + l.map(function (o) { return o.tokenId; }).join("、#") + " · 实付合计 <b>" + dai(swTotal(l)) + " DAI</b>（含 3% 手续费）"; }
+    if (swN) { swN.oninput = swShow; swShow(); }
+    if (swGo) swGo.onclick = function () {
+      var list = swPick(), total = swTotal(list);
+      modal.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🧹 扫 ' + list.length + ' 张卡</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+        '<table class="cards"><thead><tr><th>卡牌</th><th>价格</th><th>实付</th></tr></thead><tbody>' + list.map(function (o) { return "<tr><td>#" + o.tokenId + "</td><td>" + dai(o.price) + "</td><td>" + dai(o.price + fee(o.price)) + "</td></tr>"; }).join("") + "</tbody></table>" +
+        '<dl class="dl"><dt>实付合计</dt><dd><b>' + dai(total) + ' DAI</b></dd></dl><p class="note">先授权一次 DAI，然后一张一张买，钱包每张确认一次。</p><button id="m-go" style="padding:12px 22px">确认扫单</button><p class="note" id="m-st"></p></div>';
+      modal.hidden = false;
+      var ms = document.getElementById("m-st");
+      function msay(t, bad) { ms.className = "note" + (bad ? " down" : ""); ms.innerHTML = t; if (bad) AIL.errTip(ms.textContent, ms); }
+      modal.querySelector("[data-close]").onclick = closeModal;
+      document.getElementById("m-go").onclick = function () {
+        var btn = this; btn.disabled = true; var done = 0;
+        k.ready().then(function () { return k.balance(k.DAI(), k.account()); }).then(function (bal) {
+          if (bal < total) throw new Error("DAI 不够：需要 " + dai(total) + "，钱包里只有 " + dai(bal));
+          return ensureDai(total, msay);
+        }).then(function () {
+          return list.reduce(function (chain, o, i) {
+            return chain.then(function () {
+              var pay = o.price + fee(o.price);
+              return k.send(k.OTC(), SEL.buy + k.u256(o.id) + k.u256(pay), function (t) { msay("第 " + (i + 1) + " / " + list.length + " 张 #" + o.tokenId + "：" + t); }, "买入 #" + o.tokenId).then(function () { done++; });
+            });
+          }, Promise.resolve());
+        }).then(function () { msay("✅ 扫单完成，" + done + " 张卡已到你的钱包"); A.track && A.track("q_nft"); setTimeout(function () { closeModal(); reload(); }, 2500); })
+          .catch(function (e) { msay((done ? "已买到 " + done + " 张，第 " + (done + 1) + " 张没成功：" : "") + niceError(e), true); btn.disabled = false; });
+      };
+    };
     app.querySelectorAll("[data-buy]").forEach(function (b) {
       b.onclick = function () {
         var o = orders.filter(function (x) { return x.id === Number(b.getAttribute("data-buy")); })[0];
