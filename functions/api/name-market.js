@@ -45,7 +45,7 @@ async function build() {
     for (let i = 0; i < cnt; i++) {
       const o = w.slice(2 + i * 6, 8 + i * 6);
       const it = { t, O: M[t].O, id: from + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]).toString() };
-      if (it.sell && it.open && it.expiry > now) { delete it.sell; delete it.open; list.push(it); }
+      if (it.sell && it.open) { it.expired = it.expiry <= now; delete it.sell; delete it.open; list.push(it); } // 2026-11-07：过期没取回的也给（带 expired），不然卖家找不到自己的单、取不回名字（工单 #31）
     }
   });
   if (list.length) {

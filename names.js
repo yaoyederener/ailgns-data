@@ -513,7 +513,7 @@
           };
         }
         if (onSale) listings().then(function (ls) {
-          var it = ls.filter(function (x) { return x.t === TLD && x.tid === r.id; })[0], sb = document.getElementById("nm-sale");
+          var it = ls.filter(function (x) { return x.t === TLD && x.tid === r.id && !x.expired; })[0], sb = document.getElementById("nm-sale");
           if (!sb) return;
           if (!it) { sb.innerHTML = '<p class="muted">🛒 这个名字在市场合约里（挂单可能刚过期，等卖家取回）</p>'; return; }
           var p = Number(it.price / 10n ** 12n) / 1e6, me = account && it.maker === account;
@@ -866,7 +866,7 @@
         list.map(function (it, i) {
           var p = Number(it.price / 10n ** 12n) / 1e6;
           var just = A.just && A.just.has("names", it.label + "." + it.t);
-          return '<tr' + (just ? ' class="nm-just"' : '') + '><td class="nm-oact">' + (just ? '<span class="nm-justtag">🆕 刚挂的</span>' : '') + (me ? '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button><button type="button" class="ghost act-btn" data-oc="' + i + '">撤单</button>' : "在卖") + '</td><td class="nm-onm"><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + '</b></a></td><td class="nm-opx"><b>' + p + ' DAI</b></td><td class="nm-obp">买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + ' DAI</td><td class="nm-olt">⏱ ' + leftT(it.expiry - now2) + "</td></tr>";
+          return '<tr' + (just ? ' class="nm-just"' : '') + '><td class="nm-oact">' + (just ? '<span class="nm-justtag">🆕 刚挂的</span>' : '') + (me ? (it.expired ? "" : '<button type="button" class="act-btn nm-pinbtn" data-op="' + i + '">⭐ 置顶</button>') + '<button type="button" class="ghost act-btn" data-oc="' + i + '">' + (it.expired ? "取回" : "撤单") + '</button>' : it.expired ? "已过期" : "在卖") + '</td><td class="nm-onm"><a href="#/names/' + encodeURIComponent(it.label + "." + it.t) + '"><b>' + esc(it.label) + "." + it.t + '</b></a></td><td class="nm-opx"><b>' + p + ' DAI</b></td><td class="nm-obp">买家付 ' + Math.round(p * 1.03 * 1e6) / 1e6 + ' DAI</td><td class="nm-olt">⏱ ' + (it.expired ? "已过期，点「取回」名字退回钱包" : leftT(it.expiry - now2)) + "</td></tr>";
         }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-ost"></p>';
       var st = document.getElementById("nm-ost"), say = function (t) { if (st) st.textContent = t; };
       var jr = box.querySelector("tr.nm-just"); if (jr) setTimeout(function () { jr.scrollIntoView({ behavior: "smooth", block: "center" }); }, 150);
@@ -875,7 +875,7 @@
         b.onclick = function () { pinIt(list[Number(b.getAttribute("data-op"))], b, say); };
       });
       box.querySelectorAll("button[data-oc]").forEach(function (b) {
-        b.onclick = function () { b.disabled = true; buyIt(list[Number(b.getAttribute("data-oc"))], b, say).then(function () { say("✅ 已撤单，名字已退回你的钱包"); market(); setTimeout(function () { myOpen(a, box); }, 3000); }, function (e) { b.disabled = false; say(""); A.errTip(e.message || String(e), b); }); };
+        b.onclick = function () { b.disabled = true; buyIt(list[Number(b.getAttribute("data-oc"))], b, say).then(function () { say("✅ 名字已退回你的钱包"); market(); setTimeout(function () { myOpen(a, box); }, 3000); }, function (e) { b.disabled = false; say(""); A.errTip(e.message || String(e), b); }); };
       });
       return list.length;
     }).catch(function () { box.innerHTML = '<p class="muted">挂单读取失败，请稍后再试</p>'; });
@@ -1109,7 +1109,7 @@
     if (!list.length) { el.innerHTML = '<p class="muted">还没有求购意向，第一个出价吧</p>'; return; }
     list = list.slice().sort(function (a, b) { return b.price - a.price || a.at - b.at; });
     listings().then(function (ls) { return ls; }, function () { return []; }).then(function (ls) {
-      var sale = {}; ls.forEach(function (x) { sale[x.label + "." + x.t] = x; });
+      var sale = {}; ls.forEach(function (x) { if (!x.expired) sale[x.label + "." + x.t] = x; });
       var now = Date.now();
       el.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">想要的域名</th><th>出价 DAI</th><th class="l">出价人</th><th>时间</th></tr></thead><tbody>' + list.map(function (w, i) {
         var it = sale[w.name], act = account && w.by === account ? '<button type="button" class="act-btn" data-wc="' + i + '">撤单</button>'
@@ -1171,7 +1171,7 @@
           for (var i = 0; i < cnt; i++) {
             var o = w.slice(2 + i * 6, 8 + i * 6);
             var it = { t: t, O: O, id: from + i, maker: "0x" + o[0].slice(24), sell: o[1].slice(-1) === "1", open: o[2].slice(-1) === "1", expiry: Number(BigInt("0x" + o[3])), tid: o[4], price: BigInt("0x" + o[5]) };
-            if (it.sell && it.open && it.expiry > now) list.push(it);
+            if (it.sell && it.open) { it.expired = it.expiry <= now; list.push(it); } // 过期没取回的也留着，卖家在「我的挂单」里取回
           }
           return Promise.all(list.map(function (it) {
             return Promise.all([nc(SEL.labelOf + it.tid), nc(SEL.expires + it.tid)]).then(function (x) { it.label = decStr(x[0]); it.exp = Number(BigInt("0x" + word(x[1], 0))); return it; });
@@ -1248,7 +1248,7 @@
     box.innerHTML = '<p class="muted">读取中…</p>';
     var tlds = Object.keys(OTC).filter(function (t) { return OTC[t]; });
     listings(true).then(function (list) {
-      list = list.filter(function (x) { return x.t !== "lgns" || (account && x.maker === account); }); // .lgns 暂停：市场只显示 .ailgns；自己挂的老 .lgns 单照样显示（能看到、能撤）
+      list = list.filter(function (x) { return !x.expired && (x.t !== "lgns" || (account && x.maker === account)); }); // 过期的不在市场里显示；.lgns 暂停：市场只显示 .ailgns；自己挂的老 .lgns 单照样显示（能看到、能撤）
       if (!list.length) { box.innerHTML = '<p class="muted">还没有人挂单。点上面「我要卖域名」就能挂。</p>' + rankRules(); rankLookup(); return; }
       var makers = list.map(function (x) { return x.maker; }).filter(function (a, i, z) { return z.indexOf(a) === i; });
       return Promise.all([otcVols(makers), pinsGet()].concat(tlds.map(function (t) { return genesis(t).catch(function () { return {}; }); }))).then(function (r) {
