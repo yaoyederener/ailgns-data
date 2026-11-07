@@ -270,6 +270,8 @@
     function closeModal() { modal.hidden = true; modal.innerHTML = ""; }
     // 🧹 一键扫单
     var swN = document.getElementById("nsw-n"), swSum = document.getElementById("nsw-sum"), swGo = document.getElementById("nsw-go");
+    var swNow = Date.now() / 1000, swMe = k.account();
+    var swCards = orders.filter(function (o) { return o.open && o.expiry > swNow && o.sell && o.maker !== swMe; }).sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }); // 在售、不是自己的，价格从低到高
     function swPick() { var n = Math.max(1, Math.min(swCards.length, Number(swN.value) || 1)); return swCards.slice(0, n); }
     function swTotal(list) { return list.reduce(function (t, o) { return t + o.price + fee(o.price); }, 0n); }
     function swShow() { if (!swSum) return; var l = swPick(); swSum.innerHTML = "买 <b>" + l.length + "</b> 张：#" + l.map(function (o) { return o.tokenId; }).join("、#") + " · 实付合计 <b>" + dai(swTotal(l)) + " DAI</b>（含 3% 手续费）"; }
