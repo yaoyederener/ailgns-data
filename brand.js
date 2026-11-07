@@ -11,6 +11,8 @@
   }
   function wrap(t) {
     var s = t.nodeValue; if (!t.parentNode || s.indexOf("AiLGNS") < 0 || skip(t.parentNode)) return; // 节点可能已经被页面换掉了（批处理有延迟）
+    // 父元素是 flex / grid 时，拆出来的每一段都会变成独立的格子（「数量（AiLGNS）」被拆成三行），这种地方不美化，保持原样
+    try { var dsp = getComputedStyle(t.parentNode).display; if (/flex|grid/.test(dsp)) return; } catch (e) { return; }
     var frag = document.createDocumentFragment(), last = 0, m; RE.lastIndex = 0;
     while ((m = RE.exec(s))) {
       if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
