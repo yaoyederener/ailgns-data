@@ -550,7 +550,7 @@
     scan: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
   };
   // 全站「查我的订单」条：OTC / 盘口 / 借贷 / 域名 / 会员 / 预言家 / 荣耀榜 页顶部都有，输入框自动填当前钱包
-  var OQ = { otc: "otc", trade: "otc", lp: "otc", flows: "otc", lend: "loan", names: "names", member: "other", oracle: "other", rank: "other", wallet: "other", team: "other" }, oqCtl = null;
+  var OQ = { otc: "otc", trade: "otc", lp: "otc", flows: "otc", lend: "loan", names: "names", oracle: "other", rank: "other", wallet: "other", team: "other" } // 会员页不放「查我的订单」：客户在那里要查的是会员等级（member.js 自己有查等级框）, oqCtl = null;
   function orderBar(tab) {
     var host = document.getElementById("oq");
     if (!host) { host = document.createElement("div"); host.id = "oq"; host.className = "wrap"; var app = document.getElementById("app"); app.parentNode.insertBefore(host, app); }
