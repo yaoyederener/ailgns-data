@@ -16,7 +16,7 @@ const keyOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) |
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效" };
-const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n });
+const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
   const tri = await triage(ctx.env, t.txt, t.n);
@@ -41,6 +41,17 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv) return new Response("no kv", { status: 503 });
   const mine = (u.searchParams.get("mine") || "").toLowerCase();
+  // 客服回复里的图：客户凭自己的地址看（只能看自己工单的）
+  const rimg = u.searchParams.get("rimg"), ra = (u.searchParams.get("a") || "").toLowerCase();
+  if (rimg && isAddr(ra)) {
+    const m0 = rimg.match(/^(\d+):(\d)$/); if (!m0) return new Response("bad", { status: 400 });
+    const t0 = await kv.get("tk:" + m0[1], "json");
+    if (!t0 || t0.a !== ra) return new Response("not found", { status: 404 });
+    const d = await kv.get("tk:img:" + m0[1] + ":r" + m0[2]);
+    const m = d && d.match(/^data:(image\/\w+);base64,(.+)$/);
+    if (!m) return new Response("not found", { status: 404 });
+    return new Response(Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0)), { headers: { "content-type": m[1], "cache-control": "private, max-age=86400" } });
+  }
   if (isAddr(mine)) {
     const ids = (await kv.get("tk:a:" + mine, "json")) || [];
     const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter(Boolean).reverse();
@@ -90,12 +101,18 @@ export async function onRequestPost(ctx) {
     if (b.st && ST[b.st]) t.st = b.st;
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);
+    // 客服回复附图（最多 4 张，和客户截图一样存 KV）：覆盖式，重新保存就换新的一组
+    if (Array.isArray(b.rimgs)) {
+      const ri = b.rimgs.filter((x) => typeof x === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(x) && x.length < 700000).slice(0, 4);
+      for (let i = 0; i < ri.length; i++) await kv.put("tk:img:" + t.id + ":r" + i, ri[i], { expirationTtl: 180 * 86400 });
+      if (ri.length) t.rn = ri.length;
+    }
     t.up = Date.now();
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
     // 处理完：客户绑定过 DeBox 机器人的，私信告诉他回复内容
     if (b.st === "done" && t.note) {
       const users = (await kv.get("dbx:a:" + t.a, "json")) || [];
-      const msg = "📮 你的反馈工单 #" + t.id + " 已处理\n\n💬 客服回复：" + t.note + "\n\n查看 👉 https://ailgns.dev/#/feedback";
+      const msg = "📮 你的反馈工单 #" + t.id + " 已处理\n\n💬 客服回复：" + t.note + (t.rn ? "\n🖼️ 客服还附了 " + t.rn + " 张图，到网站反馈页看" : "") + "\n\n查看 👉 https://ailgns.dev/#/feedback";
       await pushInbox(kv, t.a, "ticket", msg, "#/feedback").catch(() => {}); // 🔔 站内信
       ctx.waitUntil(Promise.all(users.map((u) => sendDebox(ctx.env, u, msg, "private").catch(() => {}))));
     }

@@ -163,7 +163,7 @@
         return '<div class="fb-th' + (fresh ? " fresh" : "") + '" id="fb-t' + t.id + '"><div class="fb-thh"><span class="fb-tag" style="background:' + s[1] + '">' + (t.st === "done" ? "✅ " : t.st === "doing" ? "⏳ " : "📮 ") + s[0] + '</span><b>工单 #' + t.id + '</b><small class="muted">' + tm(t.t) + "</small>" + (fresh ? '<i class="fb-new">新回复</i>' : "") + "</div>" +
           '<div class="fb-bub me"><small>我</small>' + esc(t.txt || "（截图 " + t.n + " 张）") + "</div>" +
           (t.bot && !t.note ? '<div class="fb-bub bot"><small>🤖 机器人初步答复</small>' + esc(t.bot) + '<em>人工客服会再确认</em></div>' : "") +
-          (t.note ? '<div class="fb-bub cs"><small>💬 客服' + (t.up ? " · " + tm(t.up) : "") + "</small>" + esc(t.note) + "</div>" : '<div class="fb-wait">客服还没回复，会按轻重缓急处理；回复了这里会亮起来，页面右下角也会提醒</div>') +
+          (t.note ? '<div class="fb-bub cs"><small>💬 客服' + (t.up ? " · " + tm(t.up) : "") + "</small>" + esc(t.note) + (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { var u = "/api/feedback?rimg=" + t.id + ":" + i + "&a=" + a; return '<a href="' + u + '" target="_blank"><img loading="lazy" src="' + u + '"></a>'; }).join("") + "</div>" : "") + "</div>" : '<div class="fb-wait">客服还没回复，会按轻重缓急处理；回复了这里会亮起来，页面右下角也会提醒</div>') +
           (t.st !== "done" || t.note ? '<div class="fb-thf"><button type="button" class="link fb-more" data-id="' + t.id + '">补充说明 / 追问</button></div>' : "") + "</div>";
       }).join("") : '<p class="muted">这个地址还没有提交过反馈</p>';
       try { var mx = Math.max.apply(null, [0].concat(l.map(function (t) { return t.up || 0; }))); if (mx) localStorage.setItem("fb:seen:" + a, String(mx)); } catch (e) {}
@@ -235,13 +235,26 @@
       (tr ? '<p class="fb-tri muted">🤖 ' + esc(tr.topic || "") + (tr.why ? " · " + esc(tr.why) : "") + "</p>" : "") +
       '<p class="fb-txt">' + esc(t.txt || "（只有截图）") + "</p>" + (ims ? '<div class="fb-ims">' + ims + "</div>" : "") + (t.bot ? '<p class="fb-reply fb-bot">🤖 机器人已初步答复：' + esc(t.bot) + "</p>" : "") +
       '<textarea rows="' + (one ? 4 : 2) + '" placeholder="回复客户（客户在反馈页面能看到；绑定了 DeBox 的还会收到私信）">' + esc(t.note || "") + "</textarea>" +
+      '<div class="fb-rim"><label class="fb-rimpick">🖼️ 附图给客户<input type="file" accept="image/*" multiple hidden data-rfile></label><span class="muted">最多 4 张，截个「查订单」的界面发给客户最管用</span><div class="fb-ims fb-rimth" data-rth></div>' +
+      (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { return '<a href="' + imgUrl(t.id, "r" + i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, "r" + i) + '" title="上次回复附的图"></a>'; }).join("") + "</div>" : "") + "</div>" +
       '<div class="fb-act"><button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button>' + (t.st === "skip" ? '<button type="button" class="ghost" data-set="new">恢复为待处理</button>' : '<button type="button" class="ghost" data-set="skip">标为无效</button>') + "</div></div>";
   }
   function bindCards(box, after) {
     box.querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(b.getAttribute("data-cp")); b.textContent = "已复制"; }; });
+    // 回复附图：每张卡自己一组，选图后缩略图可删，发送时一起带上
+    box.querySelectorAll("[data-rfile]").forEach(function (f) {
+      var cd = f.closest(".fb-tk"), th = cd.querySelector("[data-rth]"); cd._rimgs = cd._rimgs || [];
+      function draw() { th.innerHTML = cd._rimgs.map(function (u, i) { return '<div class="fb-t"><img src="' + u + '"><button type="button" data-rrm="' + i + '">✕</button></div>'; }).join(""); th.querySelectorAll("[data-rrm]").forEach(function (x) { x.onclick = function () { cd._rimgs.splice(Number(x.getAttribute("data-rrm")), 1); draw(); }; }); }
+      f.onchange = function () {
+        var room = 4 - cd._rimgs.length, fs = Array.prototype.slice.call(f.files || []).slice(0, Math.max(0, room)); f.value = "";
+        if (!fs.length) return A.errTip("最多 4 张", f);
+        Promise.all(fs.map(shrink)).then(function (r) { cd._rimgs = cd._rimgs.concat(r); draw(); }, function () { A.errTip("这张图片读不出来，请换一张", f); });
+      };
+    });
     box.querySelectorAll("[data-set]").forEach(function (b) {
       b.onclick = function () {
         var cd = b.closest(".fb-tk"), s = b.getAttribute("data-set"), note = cd.querySelector("textarea").value.trim(), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), note: note };
+        if (cd._rimgs && cd._rimgs.length) body.rimgs = cd._rimgs;
         if (s === "done" && !note && !confirm("还没写回复，确定直接标「已解决」吗？")) return;
         if (s !== "save") body.st = s;
         b.disabled = true;
