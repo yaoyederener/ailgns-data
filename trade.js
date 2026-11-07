@@ -192,7 +192,7 @@
       var px = Number(p.value) || 0;
       if (from === "t" && px) a.value = px ? (Number(t.value) / px).toFixed(4) : ""; else if (px) t.value = (Number(a.value) * px).toFixed(2);
       var total = Number(t.value) || 0;
-      note.innerHTML = total && total < 50 ? '<b class="nm-bad">挂单最少 50 DAI</b>' : px && book.mkt ? "比 DEX 现价" + (px >= book.mkt ? "高 " : "低 ") + Math.abs((px / book.mkt - 1) * 100).toFixed(2) + "%" + (side === "buy" && bestAsk() && px >= bestAsk() ? " · 价格已到卖一，建议用市价直接成交" : side === "sell" && bestBid() && px <= bestBid() ? " · 价格已到买一，建议用市价直接成交" : " · 挂单不收手续费，成交由对方付") : "";
+      note.innerHTML = px && book.mkt ? "比 DEX 现价" + (px >= book.mkt ? "高 " : "低 ") + Math.abs((px / book.mkt - 1) * 100).toFixed(2) + "%" + (side === "buy" && bestAsk() && px >= bestAsk() ? " · 价格已到卖一，建议用市价直接成交" : side === "sell" && bestBid() && px <= bestBid() ? " · 价格已到买一，建议用市价直接成交" : " · 挂单不收手续费，成交由对方付") : "";
     } else {
       var coin = toWei(a.value, TD), pl = plan(coin);
       if (from === "t") { // 按 DAI 反推数量：粗算按最优价
@@ -260,7 +260,6 @@
         if (!px) throw new Error("先填价格");
         var mk = book && book.mkt, dv = mk ? px / mk - 1 : 0; // 🛡️ 离市价超过 10% 的亏损单不让提交（不赚客户手滑的钱）
         if (mk && (side === "sell" ? dv < -0.10 : dv > 0.10)) throw new Error("🛡️ 先别急：你的" + (side === "sell" ? "要价比市价 " + f2(mk) + " 低了 " + Math.round(-dv * 100) + "%，挂出去马上会被低价买走，你会亏 " + Math.round(-dv * 100) + "%" : "出价比市价 " + f2(mk) + " 高了 " + Math.round(dv * 100) + "%，挂出去马上会被高价卖给你，你会多付 " + Math.round(dv * 100) + "%") + "。是不是小数点填错了？本站不让离市价超过 10% 的亏损单提交，请改一下价格。");
-        if (dai < 50n * 10n ** 18n) throw new Error("挂单最少 50 DAI");
         var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
         return K().balance(token, account).then(function (b) {
           if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));
