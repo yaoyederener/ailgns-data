@@ -26,21 +26,9 @@ async function proofOf(kv, day) {
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon)))].map((b) => b.toString(16).padStart(2, "0")).join("");
   return { day, n: entries.length, guesses: entries.reduce((s, e) => s + e.ps.length, 0), canon, hash, anchor: (await kv.get("or:anchor:" + day, "json")) || null };
 }
-export async function onRequestGet(ctx) {
-  const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
-  if (!kv) return new Response("no kv", { status: 503 });
-  if (u.searchParams.get("proof")) {
-    const day = String(u.searchParams.get("proof")).slice(0, 10), pf = await proofOf(kv, day), qa = String(u.searchParams.get("a") || "").toLowerCase();
-    if (/^0x[0-9a-f]{40}$/.test(qa)) pf.mine = (await kv.get("or:gtx:" + day + ":" + qa, "json")) || null; // 查看者自己的链上存证（时间、预测价、交易）
-    return json(pf);
-  }
-  if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
-  if (u.searchParams.get("pay")) {
-    if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
-    ctx.waitUntil(kv.put("kp:at", String(Date.now()), { expirationTtl: 7 * 86400 }).catch(() => {})); // 🤝 合伙人面板用的机器人心跳
-    return json({ pay: ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx) });
-  }
-  const now = Date.now(), round = openRound(now), drawing = prevDay(round); // drawing：今晚 9–10 点正在开奖 / 刚开完的那一轮
+// 页面公共数据（和访客无关的部分）：站长 2026-11-08「显示慢，改成读缓存」→ 存 or:pub，30 秒内直接给，过期先给旧的、后台重算
+async function buildPub(kv, ctx, now) {
+  const round = openRound(now), drawing = prevDay(round); // drawing：今晚 9–10 点正在开奖 / 刚开完的那一轮
   // 到点了顺手开奖（算过就不再算）
   let res = null;
   try { res = await settle(kv, drawing, now); } catch (e) { res = null; }
@@ -73,6 +61,30 @@ export async function onRequestGet(ctx) {
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
+  return out;
+}
+
+export async function onRequestGet(ctx) {
+  const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
+  if (!kv) return new Response("no kv", { status: 503 });
+  if (u.searchParams.get("proof")) {
+    const day = String(u.searchParams.get("proof")).slice(0, 10), pf = await proofOf(kv, day), qa = String(u.searchParams.get("a") || "").toLowerCase();
+    if (/^0x[0-9a-f]{40}$/.test(qa)) pf.mine = (await kv.get("or:gtx:" + day + ":" + qa, "json")) || null; // 查看者自己的链上存证（时间、预测价、交易）
+    return json(pf);
+  }
+  if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
+  if (u.searchParams.get("pay")) {
+    if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
+    ctx.waitUntil(kv.put("kp:at", String(Date.now()), { expirationTtl: 7 * 86400 }).catch(() => {})); // 🤝 合伙人面板用的机器人心跳
+    return json({ pay: ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx) });
+  }
+  const now = Date.now(), fresh = 30e3;
+  let out = null, cached = await kv.get("or:pub", "json");
+  if (cached && cached.out && now - cached.at < fresh) out = cached.out;
+  else if (cached && cached.out) { out = cached.out; ctx.waitUntil(buildPub(kv, ctx, Date.now()).then((o) => kv.put("or:pub", JSON.stringify({ at: Date.now(), out: o }), { expirationTtl: 600 })).catch(() => {})); }
+  else { out = await buildPub(kv, ctx, now); ctx.waitUntil(kv.put("or:pub", JSON.stringify({ at: now, out }), { expirationTtl: 600 }).catch(() => {})); }
+  out = JSON.parse(JSON.stringify(out)); out.now = now; // 倒计时用当前时间，别用缓存里的
+  const round = out.round;
   const a = (u.searchParams.get("a") || "").toLowerCase();
   if (isAddr(a)) {
     try {
