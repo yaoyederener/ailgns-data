@@ -258,6 +258,8 @@
       if (type === "limit") {
         var px = Number(document.getElementById("tr-p").value) || 0, dai = toWei((num(coin, TD) * px).toFixed(6), 18), dur = Number(document.getElementById("tr-dur").value);
         if (!px) throw new Error("先填价格");
+        var mk = book && book.mkt, dv = mk ? px / mk - 1 : 0; // 🛡️ 离市价超过 10% 的亏损单不让提交（不赚客户手滑的钱）
+        if (mk && (side === "sell" ? dv < -0.10 : dv > 0.10)) throw new Error("🛡️ 先别急：你的" + (side === "sell" ? "要价比市价 " + f2(mk) + " 低了 " + Math.round(-dv * 100) + "%，挂出去马上会被低价买走，你会亏 " + Math.round(-dv * 100) + "%" : "出价比市价 " + f2(mk) + " 高了 " + Math.round(dv * 100) + "%，挂出去马上会被高价卖给你，你会多付 " + Math.round(dv * 100) + "%") + "。是不是小数点填错了？本站不让离市价超过 10% 的亏损单提交，请改一下价格。");
         if (dai < 50n * 10n ** 18n) throw new Error("挂单最少 50 DAI");
         var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
         return K().balance(token, account).then(function (b) {

@@ -855,6 +855,12 @@
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
+        // 🛡️ 离市价超过 10% 的亏损单不让提交（站长 2026-11-07 定：不赚客户手滑的钱）。买单出价太高 / 卖单要价太低才拦，对自己有利的方向不拦
+        var pxIn = Number(price.value) || 0, dev = mkt && pxIn ? pxIn / mkt - 1 : 0;
+        if (mkt && (sell ? dev < -0.10 : dev > 0.10)) {
+          say("🛡️ 先别急：你" + (sell ? "的要价 " + A.fmt(pxIn, PD) + " 比市价 " + A.fmt(mkt, PD) + " 低了 " + Math.round(-dev * 100) + "%，挂出去马上会被低价买走，你会亏 " + Math.round(-dev * 100) + "%" : "的出价 " + A.fmt(pxIn, PD) + " 比市价 " + A.fmt(mkt, PD) + " 高了 " + Math.round(dev * 100) + "%，挂出去马上会被高价卖给你，你会多付 " + Math.round(dev * 100) + "%") + "。是不是小数点填错了？本站不让离市价超过 10% 的亏损单提交，请改一下单价（指导价 " + A.fmt(mkt, PD) + "）。", true);
+          price.focus(); return;
+        }
         btn.disabled = true;
         ready().then(function () {
           walletCard();
@@ -1342,8 +1348,8 @@
         var el = document.getElementById("mx-state"), t = BB_TOKS[2], c = allowCell(r ? r[0] : null, t);
         el.className = "";
         el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权给撮合合约</th><th>已撮合</th><th>累计利润</th><th></th></tr></thead><tbody><tr><td class="l"><b>DAI</b> Anubis</td><td>' + c[1] + "</td><td>" + (r ? r[1] + " 次" : "—") + "</td><td>" + (r ? amt(r[2], 18) + " DAI" : "—") + "</td><td>" +
-          (c[0] ? '<button class="ghost" data-mx="0" style="padding:6px 14px">撤销</button>' : '<button data-mx="1" style="padding:6px 14px">授权</button>') + "</td></tr></tbody></table></div>";
-        el.querySelectorAll("[data-mx]").forEach(function (b) { b.onclick = function () { var on = b.getAttribute("data-mx") === "1"; approve(t, b, MATCHER, on ? MAX : 0n, on ? "授权撮合合约使用 " : "撤销撮合合约对 "); }; });
+          (r && r[0] > 0n ? '<button class="ghost" data-mx="0" style="padding:6px 14px">撤销</button> ' : "") + '<button data-mx="1" style="padding:6px 14px">授权 1,000 DAI（封顶）</button>' + "</td></tr></tbody></table></div>";
+        el.querySelectorAll("[data-mx]").forEach(function (b) { b.onclick = function () { var on = b.getAttribute("data-mx") === "1"; approve(t, b, MATCHER, on ? 1000n * 10n ** 18n : 0n, on ? "授权撮合合约使用 " : "撤销撮合合约对 "); }; });
       });
       if (BUYBACK) Promise.all(BB_TOKS.map(function (t) {
         return Promise.all([read("anubis", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(BUYBACK)), read("anubis", BUYBACK, pulledSel + u256(t.token))]).catch(function () { return null; });
