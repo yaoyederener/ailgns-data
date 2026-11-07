@@ -846,6 +846,7 @@
       }
       function pick() {
         var el = document.getElementById("otc-pick");
+        if (!el) return; // 余额晚到时客户已切走页面（#/names 等），元素不在了：不报错
         if (!account) { el.innerHTML = '<span class="muted">可用余额：</span><a href="#" id="otc-pick-c">连接钱包后显示</a>'; document.getElementById("otc-pick-c").onclick = function (e) { e.preventDefault(); var c = document.getElementById("otc-connect"); if (c) c.click(); }; return; }
         if (!bal) { el.innerHTML = '<span class="muted">可用余额读取中…</span>'; return; }
         var m = maxQty();
