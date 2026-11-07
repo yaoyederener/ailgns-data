@@ -2890,3 +2890,5 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .sq-f{display:flex;justify-content:space-between;font-size:12px;color:#8a7fb0;margin-top:8px}
 .sq-thread{padding:4px 14px}.sq-floor{padding:12px 0;border-bottom:1px dashed #eee6ff}.sq-floor:last-child{border-bottom:0}
 .sq-back{margin:8px 2px}.sq-back a{color:#5a35d6;text-decoration:none;font-weight:700}
+
+.fb-slow{padding:10px 12px;border-radius:12px;background:#fff8e6;border:1px solid #ffe2a8;color:#7c5a10;font-size:13px;line-height:1.55;margin-bottom:10px}

@@ -89,6 +89,7 @@
     var prefill = ""; try { prefill = sessionStorage.getItem("fb:prefill") || ""; sessionStorage.removeItem("fb:prefill"); } catch (e) {} // 错误弹窗「报给客服」带过来的内容
     A.app.innerHTML = '<section class="card fb"><div class="card-head"><h2>📮 问题反馈</h2><span class="muted">提交后生成工单，客服挨个处理</span></div>' +
       '<p class="fb-lead">遇到问题？按下面 3 步填好，<b>一次说清楚</b>，处理最快 👇</p>' +
+      '<div class="fb-slow">⏳ <b>回复会比较慢，请耐心等。</b>技术人员正忙着研究产品策略、极致优化体验，每一个客户的问题都要逐个优化、不断调试，没办法及时处理工单。你的钱在合约里不会因为等待受影响；提交后进度在下面「我的反馈进度」里看。</div>' +
       '<label class="fb-l"><b>① 你的钱包地址</b><small>出问题的那个钱包（0x 开头）</small></label>' +
       '<div class="fb-row"><input id="fb-a" placeholder="0x…" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" class="ghost" id="fb-pa">📋 粘贴</button></div>' +
       '<label class="fb-l"><b>② 截图</b><small>最多 4 张：交易记录、报错提示、钱包页面都可以</small></label>' +
@@ -148,7 +149,7 @@
           go.disabled = false;
           if (j.error) return say(j.error);
           imgs = []; thumbs(); document.getElementById("fb-x").value = "";
-          say("✅ 提交成功！工单号 #" + j.id + "，客服会尽快处理，进度在下面「我的反馈进度」里看", true);
+          say("✅ 提交成功！工单号 #" + j.id + "。回复会比较慢，请耐心等：技术人员正忙着优化每一个客户的问题。进度在下面「我的反馈进度」里看", true);
           mine(a);
         }, function () { go.disabled = false; say("网络不好，请再点一次"); });
     };
