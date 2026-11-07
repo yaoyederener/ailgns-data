@@ -141,7 +141,7 @@
     var ocNote = oc.src === "otc24" ? "按本站 OTC 市场 <b>24 小时内真实成交最高价 " + opx.toFixed(3) + " DAI/枚</b>" + (oc.capped ? "（实际成交 " + oc.raw.toFixed(3) + "，已按 DEX +50% 封顶）" : "（" + ocWhen + " 成交）") + "折算，24 小时共 " + oc.n + " 笔 / " + (oc.vol || 0) + " DAI" + ocRule
       : oc.src === "otclast" ? "按本站 OTC 市场 <b>最近一笔真实成交价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + "）折算，24 小时内暂无新成交" + ocRule
       : "OTC 市场暂无成交记录，暂按 DEX 现价 " + opx.toFixed(3) + " DAI/枚 折算" + ocRule;
-    var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
+    var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AI</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
       '<div class="or-pcl"><span>🎯 本期奖池累计</span></div>' +
