@@ -9,6 +9,8 @@ import { sendDebox } from "../../lib/debox.js";
 import { pushInbox } from "../../lib/inbox.js";
 import { triage, LV_NAME } from "../../lib/triage.js";
 import { SUPPORT_USER } from "../../lib/support.js";
+import { reviewerOf } from "../../lib/reviewers.js";
+const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 站长站内信（谷歌社交账号钱包）
 
 // 后台口令：FEEDBACK_KEY（站长自己设的，专给工单后台）或 BACKUP_KEY（keeper 用的随机长串）都认
 const keyOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY));
@@ -19,6 +21,12 @@ const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无
 const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
+  if (t.vip) { // ⭐ 产品优化员的反馈：不分诊、不判无效、不自动答复，直接推给站长亲审
+    t.tri = { ok: true, lv: 1, cat: "review", topic: "⭐ " + t.vip + "反馈", why: "站长亲自审查", dup: 0 };
+    await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+    await pushInbox(kv, OWNER, "ticket", "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200), "#/feedback/admin/" + t.id).catch(() => {});
+    return;
+  }
   const tri = await triage(ctx.env, t.txt, t.n);
   if (tri.topic) {
     const ids = ((await kv.get("tk:list", "json")) || []).slice(-100).filter((x) => x !== t.id);
@@ -85,7 +93,7 @@ export async function onRequestGet(ctx) {
   const cnt = { new: 0, doing: 0, done: 0, skip: 0 };
   ts.forEach((t) => { cnt[t.st] = (cnt[t.st] || 0) + 1; });
   if (st) ts = ts.filter((t) => t.st === st);
-  ts.sort((x, y) => ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // 轻重缓急：级别高的在前，同级新的在前
+  ts.sort((x, y) => ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // ⭐ 产品优化员置顶；再按轻重缓急：级别高的在前，同级新的在前
   return json({ list: ts, cnt });
 }
 
@@ -131,6 +139,7 @@ export async function onRequestPost(ctx) {
   const id = Number((await kv.get("tk:seq")) || "0") + 1;
   await kv.put("tk:seq", String(id));
   const t = { id, a, txt, n: imgs.length, t: Date.now(), st: "new", note: "" };
+  const vip = reviewerOf(a); if (vip) t.vip = vip; // ⭐ 产品优化员
   for (let i = 0; i < imgs.length; i++) await kv.put("tk:img:" + id + ":" + i, imgs[i], { expirationTtl: 180 * 86400 });
   await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
   const list = ((await kv.get("tk:list", "json")) || []).concat(id).slice(-1000);
