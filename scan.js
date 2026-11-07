@@ -613,7 +613,7 @@
       if (!el("sc-who")) return;
       if (A.credOf) A.credOf(a).then(function (c) {
         var bc = out.querySelector(".sc-balc .card-head"); if (!bc || KNOWN[a]) return;
-        bc.insertAdjacentHTML("afterend", '<p class="sc-cred"><i class="cred cred' + c.lv + '">' + c.name + '</i> 本站 OTC 累计成交 <b>' + c.vol.toLocaleString("en-US") + ' DAI</b> · ' + c.n + ' 笔' + (c.next ? '<span class="muted"> · 再做到 ' + c.next.vol.toLocaleString("en-US") + ' DAI 且 ' + c.next.n + ' 笔升「' + c.next.name + '」</span>' : "") + "</p>");
+        bc.insertAdjacentHTML("afterend", '<p class="sc-cred"><i class="cred cred' + c.lv + '">' + c.name + '</i> ' + (c.wk ? '上周本站 OTC 成交 <b>' + c.wk.vol.toLocaleString("en-US") + ' DAI</b> · ' + c.wk.n + ' 笔 · 排第 <b>' + c.wk.r + '</b>（共 ' + c.players + ' 人）' : '上周没有成交') + '<span class="muted"> · 累计 ' + c.vol.toLocaleString("en-US") + ' DAI · 牌子按上周名次评，每周一轮换，<a href="#/rank">看规则</a></span></p>');
       }).catch(function () {});
       var slot = el("sc-head-slot");
       if (primary && !via && slot) slot.outerHTML = '<section class="card sc-head"><h2>🌐 ' + esc(primary) + ' <small class="muted">这个钱包的名字</small></h2></section>';
@@ -713,23 +713,23 @@
   A.nameTag = function (a) { return '<span data-a="' + a + '">' + A.short(a) + "</span>"; };
   A.fillNames = fillNames;
   // 🏅 信誉标志：按累计成交给挂单人加「信誉商家」等芯片（OTC 订单簿、账本头部用）。等级在 /api/cred 里定
-  var CREDN = ["新客", "常客", "✔ 认证商家", "🥇 金牌商家", "💎 钻石商家", "👑 王牌商家", "🐋 镇店巨鲸"], CREDNX = [[1000, 5], [10000, 20], [100000, 50], [500000, 100], [1000000, 200], [10000000, 500]], credCache = {}, credAt = 0; // 等级定义同 lib/cred.js（2026-11-08 七级商家体系）
+  var CREDN = ["新客", "常客", "✔ 认证商家", "🥇 金牌商家", "💎 钻石商家", "👑 王牌商家", "🐋 镇店巨鲸"], credCache = {}, credAt = 0; // 等级定义同 lib/cred.js（2026-11-08 七级商家体系）
   A.credFill = function (root) {
     var els = Array.prototype.slice.call(root.querySelectorAll("[data-a]:not([data-cred])")), as = {};
     els.forEach(function (e) { var a = e.getAttribute("data-a").toLowerCase(); if (!KNOWN[a]) as[a] = 1; });
     var need = Object.keys(as).filter(function (a) { return !credCache[a] || Date.now() - credAt > 120000; });
-    var p = need.length ? fetch("/api/cred?a=" + need.slice(0, 40).join(",")).then(function (r) { return r.json(); }).then(function (j) { Object.keys(j).forEach(function (a) { credCache[a] = j[a]; }); credAt = Date.now(); }).catch(function () {}) : Promise.resolve();
+    var p = need.length ? fetch("/api/cred?a=" + need.slice(0, 40).join(",")).then(function (r) { return r.json(); }).then(function (j) { Object.keys(j).forEach(function (a) { if (a.charAt(0) === "0") credCache[a] = j[a]; }); credAt = Date.now(); }).catch(function () {}) : Promise.resolve();
     p.then(function () {
       els.forEach(function (e) {
         var a = e.getAttribute("data-a").toLowerCase(), c = credCache[a]; e.setAttribute("data-cred", "1");
         if (!c || (c.lv < 1 && !c.king)) return;
         var last = e;
-        if (c.lv >= 1) { var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = "官方认证 · 本站 OTC 累计真实成交 " + c.vol.toLocaleString("en-US") + " DAI · " + c.n + " 笔"; last.insertAdjacentElement("afterend", chip); last = chip; }
+        if (c.lv >= 1) { var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = (c.wk ? "上周本站 OTC 成交 " + c.wk.vol.toLocaleString("en-US") + " DAI · " + c.wk.n + " 笔 · 排第 " + c.wk.r : "上周没成交") + " · 牌子按上周名次评，每周一轮换"; last.insertAdjacentElement("afterend", chip); last = chip; }
         if (c.king) { var kc = document.createElement("i"); kc.className = "cred credking"; kc.textContent = "🏆 本周贡献王"; kc.title = "上周 OTC 手续费贡献前 3，标志挂 7 天"; last.insertAdjacentElement("afterend", kc); }
       });
     });
   };
-  A.credOf = function (a) { return fetch("/api/cred?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var c = j[String(a).toLowerCase()] || { vol: 0, n: 0, lv: 0 }; c.name = CREDN[c.lv]; var nx = c.lv < 6 ? CREDNX[c.lv] : null; c.next = nx ? { name: CREDN[c.lv + 1], vol: nx[0], n: nx[1] } : null; return c; }); };
+  A.credOf = function (a) { return fetch("/api/cred?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var c = j[String(a).toLowerCase()] || { vol: 0, n: 0, lv: 0, wk: null }; c.name = CREDN[c.lv]; c.players = j.players || 0; c.next = null; return c; }); };
   A.nameOf = nameOf; // 荣耀榜播报：没域名的大哥引导去注册
   A.pages.scan = page;
 })();
