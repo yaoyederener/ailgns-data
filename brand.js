@@ -10,7 +10,7 @@
     return false;
   }
   function wrap(t) {
-    var s = t.nodeValue; if (s.indexOf("AiLGNS") < 0 || skip(t.parentNode)) return;
+    var s = t.nodeValue; if (!t.parentNode || s.indexOf("AiLGNS") < 0 || skip(t.parentNode)) return; // 节点可能已经被页面换掉了（批处理有延迟）
     var frag = document.createDocumentFragment(), last = 0, m; RE.lastIndex = 0;
     while ((m = RE.exec(s))) {
       if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
@@ -29,7 +29,7 @@
     list.forEach(wrap);
   }
   var pending = [], raf = 0;
-  function flush() { raf = 0; var l = pending; pending = []; l.forEach(run); }
+  function flush() { raf = 0; var l = pending; pending = []; l.forEach(function (n) { try { run(n); } catch (e) { /* 只是显示美化，出错也不能影响页面 */ } }); }
   new MutationObserver(function (ms) {
     ms.forEach(function (m) {
       if (m.type === "characterData") pending.push(m.target);
@@ -37,5 +37,6 @@
     });
     if (!raf) raf = requestAnimationFrame(flush);
   }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { run(document.body); }); else run(document.body);
+  function safeRun() { try { run(document.body); } catch (e) {} }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", safeRun); else safeRun();
 })();
