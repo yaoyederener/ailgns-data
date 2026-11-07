@@ -1311,7 +1311,7 @@
       '<p class="note">怎么换：LGNS 卖进 LGNS OTC 的买单（出价不低于 DEX 现价 50%，不走 DEX，DEX 卖出要扣约 50%）→ 用 DAI 扫 AiLGNS OTC 的卖单（要价不高于 DEX 现价 115%）→ 买到的 AiLGNS 直接打给上面三个地址。攒够 300 美金换一次；收款钱包永远留 5 DAI 付 Gas；触发钱包 Gas 不够时每次最多从收入里补 0.5 DAI。没有合适的单子时，钱留在合约里下次接着换，也可以原样退回收款钱包。</p>' +
       '<div id="bb-state" class="loading">正在读取…</div><p class="note" id="sp-st"></p></section>' +
       '<section class="card"><div class="card-head"><h2>🎯 奖池周转授权</h2><span class="muted">域名 70% 转进奖池用</span></div>' +
-      '<p class="note">域名费退回收款钱包后，机器人（触发钱包 ' + A.short(PG_KEEPER) + '）靠这笔授权把其中 70% 转进奖池。额度封顶在 <b>1,000 DAI / 2 AiLGNS</b>：够几天用，就算触发钱包私钥泄露，最多也只能动这么多。快用完时合伙人面板会提醒，再点一次「设为 1,000」就行。</p>' +
+      '<p class="note">域名费退回收款钱包后，机器人（触发钱包 ' + A.short(PG_KEEPER) + '）靠这笔授权把其中 70% 转进奖池。点一次「设为 100,000 DAI / 200 AiLGNS」，几年不用再管。真正的防线不是这个额度，是你每天把谷歌社交账号钱包清到冷钱包：就算触发钱包私钥泄露，也只能动钱包里当天的钱。</p>' +
       '<div id="kp-state" class="loading">正在读取…</div></section>' +
       '<section class="card"><div class="card-head"><h2>⚡ OTC 自动撮合</h2><span class="muted">利润进回购合约</span></div>' +
       '<p class="note">卖单要价比买单出价低 2% 以上时，机器人每几分钟自动撮合：从收款钱包临时取 DAI（每次用能用的最多 DAI，收款钱包永远留 5 DAI 付 Gas）→ 吃卖单 → 卖给买单 → 循环。<b>本金在同一笔交易里原样退回收款钱包</b>，利润进回购合约（攒够 300 美金自动分）；赚不到钱整笔回滚，本金一分不动。合约 <a class="mono" target="_blank" rel="noopener" href="' + ANUBIS_EXPLORER + "/address/" + MATCHER + '">' + A.short(MATCHER) + ' ↗</a> · <a href="contracts/AilgnsOtcMatcher.sol" target="_blank" rel="noopener">源码 ↗</a></p>' +
@@ -1341,26 +1341,26 @@
         el.querySelectorAll("[data-pg]").forEach(function (b) { b.onclick = function () { approve(PG_TOKS[+b.getAttribute("data-pg")], b, PG_KEEPER, MAX, "授权触发钱包使用 "); }; });
       });
       // 🎯 奖池周转授权：收款钱包 → 触发钱包（Anubis DAI / AiLGNS），封顶 1,000 DAI / 2 AiLGNS
-      var KP_TOKS = [TOKS[2], TOKS[1]], KP_CAP = [1000n * 10n ** 18n, 2n * 10n ** 18n];
+      var KP_TOKS = [TOKS[2], TOKS[1]], KP_CAP = [100000n * 10n ** 18n, 200n * 10n ** 18n]; // 站长 2026-11-07 定：一次授权几年不用管；真正的防线是每天清钱包
       Promise.all(KP_TOKS.map(function (t) { return read("anubis", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(PG_KEEPER)).catch(function () { return null; }); })).then(function (r) {
         if (!A.isCurrent(id)) return;
         var el = document.getElementById("kp-state"); if (!el) return;
         el.className = "";
         el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>现在的额度</th><th></th></tr></thead><tbody>' +
           KP_TOKS.map(function (t, i) {
-            var a = r[i], cap = KP_CAP[i], capTxt = (i ? "2 AiLGNS" : "1,000 DAI");
-            var st = a === null ? "—" : a === 0n ? '<span class="nm-bad">0（70% 转不进奖池）</span>' : a > cap * 3n / 2n ? '<span class="nm-bad">' + amt(a, t.dec) + "（太大）</span>" : a < cap / 5n ? '<span class="nm-bad">' + amt(a, t.dec) + "（快用完）</span>" : '<span class="up">' + amt(a, t.dec) + " ✓</span>";
+            var a = r[i], cap = KP_CAP[i], capTxt = (i ? "200 AiLGNS" : "100,000 DAI");
+            var st = a === null ? "—" : a === 0n ? '<span class="nm-bad">0（70% 转不进奖池）</span>' : a < cap / 100n ? '<span class="nm-bad">' + amt(a, t.dec) + "（快用完）</span>" : '<span class="up">' + amt(a, t.dec) + " ✓</span>";
             return '<tr><td class="l"><b>' + t.name + "</b> Anubis</td><td>" + st + '</td><td><button data-kp="' + i + '" style="padding:6px 14px">设为 ' + capTxt + "</button></td></tr>";
           }).join("") + "</tbody></table></div>";
-        el.querySelectorAll("[data-kp]").forEach(function (b) { var i = +b.getAttribute("data-kp"); b.onclick = function () { approve(KP_TOKS[i], b, PG_KEEPER, KP_CAP[i], "把触发钱包的额度设为 " + (i ? "2 " : "1,000 ")); }; });
+        el.querySelectorAll("[data-kp]").forEach(function (b) { var i = +b.getAttribute("data-kp"); b.onclick = function () { approve(KP_TOKS[i], b, PG_KEEPER, KP_CAP[i], "把触发钱包的额度设为 " + (i ? "200 " : "100,000 ")); }; });
       });
       Promise.all([read("anubis", ANUBIS_DAI, SEL.allowance + u256(FEE_RECIPIENT) + u256(MATCHER)), read("anubis", MATCHER, "0x2a5b1451"), read("anubis", MATCHER, "0x86001519")]).catch(function () { return null; }).then(function (r) {
         if (!A.isCurrent(id)) return;
         var el = document.getElementById("mx-state"), t = BB_TOKS[2], c = allowCell(r ? r[0] : null, t);
         el.className = "";
         el.innerHTML = '<div class="tbl-wrap"><table><thead><tr><th class="l">币种</th><th>授权给撮合合约</th><th>已撮合</th><th>累计利润</th><th></th></tr></thead><tbody><tr><td class="l"><b>DAI</b> Anubis</td><td>' + c[1] + "</td><td>" + (r ? r[1] + " 次" : "—") + "</td><td>" + (r ? amt(r[2], 18) + " DAI" : "—") + "</td><td>" +
-          (r && r[0] > 0n ? '<button class="ghost" data-mx="0" style="padding:6px 14px">撤销</button> ' : "") + '<button data-mx="1" style="padding:6px 14px">授权 1,000 DAI（封顶）</button>' + "</td></tr></tbody></table></div>";
-        el.querySelectorAll("[data-mx]").forEach(function (b) { b.onclick = function () { var on = b.getAttribute("data-mx") === "1"; approve(t, b, MATCHER, on ? 1000n * 10n ** 18n : 0n, on ? "授权撮合合约使用 " : "撤销撮合合约对 "); }; });
+          (r && r[0] > 0n ? '<button class="ghost" data-mx="0" style="padding:6px 14px">撤销</button> ' : "") + '<button data-mx="1" style="padding:6px 14px">授权 100,000 DAI（一次管几年）</button>' + "</td></tr></tbody></table></div>";
+        el.querySelectorAll("[data-mx]").forEach(function (b) { b.onclick = function () { var on = b.getAttribute("data-mx") === "1"; approve(t, b, MATCHER, on ? 100000n * 10n ** 18n : 0n, on ? "授权撮合合约使用 " : "撤销撮合合约对 "); }; });
       });
       if (BUYBACK) Promise.all(BB_TOKS.map(function (t) {
         return Promise.all([read("anubis", t.token, SEL.allowance + u256(FEE_RECIPIENT) + u256(BUYBACK)), read("anubis", BUYBACK, pulledSel + u256(t.token))]).catch(function () { return null; });
