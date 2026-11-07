@@ -19,6 +19,15 @@ export async function onRequestPost(ctx) {
     if (n >= PER_HOUR) return Response.json({ ok: true, skipped: "limit" });
     await kv.put(k, String(n + 1), { expirationTtl: 3700 });
   }
+  // 记到 KV（最近 400 条）：工单后台「💬 咨询」栏看客户都问什么，不依赖 DeBox
+  if (kv) {
+    try {
+      const country0 = ctx.request.headers.get("cf-ipcountry") || "";
+      const log = (await kv.get("cl:log", "json")) || [];
+      log.unshift({ t: Date.now(), q, a: a.slice(0, 240), page, w: /^0x[0-9a-f]{40}$/.test(String(b.wallet || "")) ? String(b.wallet) : "", c: country0, h: !!b.human, s: sid.slice(0, 8) });
+      await kv.put("cl:log", JSON.stringify(log.slice(0, 400)), { expirationTtl: 90 * 86400 });
+    } catch (e) {}
+  }
   const to = ctx.env.DEBOX_SUPPORT || SUPPORT_USER, type = ctx.env.DEBOX_SUPPORT_TYPE || "private";
   if (!to) return Response.json({ ok: true, skipped: "no target" });
   const ip = ctx.request.headers.get("cf-connecting-ip") || "", country = ctx.request.headers.get("cf-ipcountry") || "";
@@ -36,4 +45,12 @@ export async function onRequestPost(ctx) {
     return Response.json({ ok: true });
   }
   catch (e) { return Response.json({ ok: false, err: String(e.message || e).slice(0, 120) }, { status: 502 }); }
+}
+
+// GET ?key=FEEDBACK_KEY → { list: 最近 400 条咨询 }（工单后台「💬 咨询」栏）
+export async function onRequestGet(ctx) {
+  const env = ctx.env, kv = env.TEAM_KV, key = new URL(ctx.request.url).searchParams.get("key");
+  if (!key || !((env.FEEDBACK_KEY && key === env.FEEDBACK_KEY) || (env.BACKUP_KEY && key === env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
+  const list = (kv && (await kv.get("cl:log", "json"))) || [];
+  return Response.json({ list }, { headers: { "cache-control": "no-store" } });
 }

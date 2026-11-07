@@ -324,7 +324,7 @@
     st = st || "new"; adminSt = st;
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a></div>' +
-      '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
+      '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
     document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
     document.querySelectorAll(".ad-nb").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); location.hash = b.getAttribute("href"); admin(rid, b.getAttribute("data-s")); }; });
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
@@ -337,7 +337,7 @@
         fetch("/api/admin-stats?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
           if (j.error && /口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
           if (j.error) { box.innerHTML = '<p class="nm-bad">' + esc(j.error) + "</p>"; return; }
-          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="stats" class="on">📊 数据</button>';
+          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="stats" class="on">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
           try { box.innerHTML = statsHtml(j); } catch (e) { box.innerHTML = '<p class="nm-bad">面板渲染出错：' + esc(e.message) + "</p>"; }
 
@@ -345,12 +345,27 @@
         box.innerHTML = '<p class="muted">读取中…</p>';
         return;
       }
+      if (st === "chat") { // 💬 客户和机器人的对话记录：客户都在问什么，按关键词统计
+        fetch("/api/chat-log?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
+          if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
+          var l = j.list || [], KW = ["挂单", "撤单", "成交", "订单", "看不到", "域名", "主名字", "会员", "预言家", "奖池", "借贷", "钱包", "连接", "到账", "手续费", "App", "网址", "打不开", "价格", "卡牌", "扫单", "Gas", "转账", "退回", "报错", "人工"];
+          var cnt = {}; l.forEach(function (x) { KW.forEach(function (k) { if ((x.q || "").toLowerCase().indexOf(k.toLowerCase()) >= 0) cnt[k] = (cnt[k] || 0) + 1; }); });
+          var top = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).slice(0, 15);
+          var day0 = Date.now() - 86400e3, today = l.filter(function (x) { return x.t > day0; }).length, human = l.filter(function (x) { return x.h; }).length;
+          box.innerHTML = '<div class="ad-tiles"><div class="ad-tile"><small>最近 24 小时咨询</small><b>' + today + ' 条</b></div><div class="ad-tile"><small>记录总数</small><b>' + l.length + ' 条</b><span>最多留 400 条</span></div><div class="ad-tile' + (human ? " warn" : "") + '"><small>点了「找人工」</small><b>' + human + ' 次</b></div></div>' +
+            (top.length ? '<p class="muted">客户最常问（按关键词）：' + top.map(function (k) { return "<b>" + esc(k) + "</b> " + cnt[k]; }).join(" · ") + "</p>" : "") +
+            (l.length ? l.slice(0, 150).map(function (x) { return '<div class="fb-tk lv' + (x.h ? "1" : "2") + '"><div class="fb-tkh"><small class="muted">' + tm(x.t) + " · " + esc(x.page || "/") + (x.c ? " · " + esc(x.c) : "") + (x.w ? ' · <a href="#/scan/' + x.w + '" target="_blank" rel="noopener">' + x.w.slice(0, 6) + "…" + x.w.slice(-4) + "</a>" : " · 没连钱包") + (x.h ? ' · <b style="color:#c6454a">要找人工</b>' : "") + '</small></div><div class="fb-bub me"><small>客户问</small>' + esc(x.q) + '</div>' + (x.a ? '<div class="fb-bub bot"><small>🤖 机器人答</small>' + esc(x.a) + "</div>" : "") + "</div>"; }).join("") : '<p class="muted">还没有咨询记录（从上线这功能起开始记）</p>');
+          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat" class="on">💬 咨询</button><button type="button" data-s="stats">📊 数据</button>';
+          document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
+        }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
+        return;
+      }
       if (st === "err") { // 前端自动上报的程序错误（客户看到英文报错时我们这边同步有记录）
         fetch("/api/err?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
           if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
           var l = j.list || [];
           box.innerHTML = l.length ? l.map(function (x) { return '<div class="fb-tk lv2"><div class="fb-tkh"><b>' + esc(x.p || "") + '</b> <small class="muted">' + tm(x.t) + (x.n > 1 ? " · " + x.n + " 次" : "") + (x.v ? " · v" + esc(x.v) : "") + '</small></div><p class="fb-txt mono">' + esc(x.m) + '</p><p class="muted" style="font-size:11.5px">' + esc(x.ua) + "</p></div>"; }).join("") : '<p class="muted">没有程序报错 🎉</p>';
-          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err" class="on">🐞 程序报错</button><button type="button" data-s="stats">📊 数据</button>';
+          document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err" class="on">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="stats">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
         return;
@@ -360,7 +375,7 @@
         var c = j.cnt || {}, maxId = (j.list || []).reduce(function (x, t) { return Math.max(x, t.id); }, 0);
         if (adSeen !== null && st === "new" && maxId > adSeen) { beep(); var nw = document.getElementById("fb-nw"); if (nw) nw.innerHTML = '<span class="fb-new">🔔 新工单</span>'; }
         if (st === "new") adSeen = Math.max(adSeen || 0, maxId);
-        document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="stats">📊 数据</button>';
+        document.getElementById("fb-seg").innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="stats">📊 数据</button>';
         document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         var l = j.list || [];
         box.innerHTML = l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">没有' + ST[st][0] + "的工单 🎉</p>";
