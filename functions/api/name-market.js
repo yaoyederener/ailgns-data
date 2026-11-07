@@ -50,7 +50,9 @@ async function build() {
     }
   });
   if (list.length) {
-    const res = await batch(list.flatMap((it) => [[M[it.t].C, SEL.labelOf + it.tid], [M[it.t].C, SEL.expires + it.tid]]), true);
+    // 每批最多 400 个调用：节点对一次批量请求有上限，超过就整批丢结果（2026-11-07 挂单过 500 张后名字全读不到）
+    const res = [];
+    for (let s0 = 0; s0 < list.length; s0 += 200) res.push(...(await batch(list.slice(s0, s0 + 200).flatMap((it) => [[M[it.t].C, SEL.labelOf + it.tid], [M[it.t].C, SEL.expires + it.tid]]), true)));
     list.forEach((it, i) => {
       try { it.label = res[2 * i] ? decStr(res[2 * i]) : ""; } catch (e) { it.label = ""; }
       it.exp = res[2 * i + 1] ? Number(BigInt("0x" + word(res[2 * i + 1], 0))) : 0;
