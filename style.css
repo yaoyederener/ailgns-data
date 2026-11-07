@@ -2968,4 +2968,4 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 
 .nb-foot .nm-go{margin-top:6px}.nb-bot{background:#7c5cff}.nb-botst{margin:4px 0 0;font-size:13px}
 .nb-foot .nm-go small{display:block;font-size:12px;font-weight:400;opacity:.9;margin-top:3px}
-.ai-b{white-space:nowrap}.ai-b b{font-weight:800;color:#6d4ce0}.ai-b i{font-style:normal;font-size:.86em;opacity:.78;letter-spacing:.01em}
+.ai-b,.ai-b b,.ai-b i{display:inline!important;white-space:nowrap;margin:0;padding:0;line-height:inherit;color:inherit;font-family:inherit}.ai-b b{font-weight:900!important}.ai-b i{font-style:normal;font-size:.86em;opacity:.72;letter-spacing:.01em;font-weight:inherit}
