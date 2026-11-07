@@ -406,16 +406,20 @@
     var jobs = [];
     // OTC 挂单（四个币市场）
     Object.keys(MK).forEach(function (k) {
-      jobs.push(fetch("/api/book?m=" + k + (A.otcKit && A.otcKit.account && A.otcKit.account() === a && A.just && A.just.list("otc").length ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (d) {
-        var w = wordsOf(d.orders), n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, from = Number(d.from || 0), m = MK[k];
-        for (var i = 0; i < n; i++) {
-          var o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
+      var freshQ = A.otcKit && A.otcKit.account && A.otcKit.account() === a && A.just && A.just.list("otc").length ? "&fresh=1" : "";
+      // 窗口里的最近 1000 张 + 窗口之外自己更早挂的单（市场超过 1000 张后老单会被挡住，客户以为单子丢了）
+      jobs.push(Promise.all([fetch("/api/book?m=" + k + freshQ).then(function (r) { return r.json(); }), fetch("/api/book?m=" + k + "&mine=" + a + freshQ).then(function (r) { return r.json(); }).catch(function () { return { older: [] }; })]).then(function (dd) {
+        var d = dd[0], w = wordsOf(d.orders), n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, from = Number(d.from || 0), m = MK[k];
+        var rows = []; for (var i = 0; i < n; i++) rows.push({ id: from + i, o: w.slice(2 + i * 7, 9 + i * 7) });
+        (dd[1].older || []).forEach(function (x) { if (x.id < from) rows.push(x); });
+        for (var r2 = 0; r2 < rows.length; r2++) {
+          var o = rows[r2].o, oid = rows[r2].id; if (!o || o.length < 7) continue;
           var maker = "0x" + o[0].slice(24), sell = o[1].slice(-1) === "1", open = o[2].slice(-1) === "1", exp = Number(BigInt("0x" + o[3])), gT = BigInt("0x" + o[4]), wT = BigInt("0x" + o[5]), gL = BigInt("0x" + o[6]);
           if (maker !== a || !open || exp <= now || gL === 0n) continue;
           var giveLeft = big(gL, sell ? m.dec : 18), wantLeft = gT > 0n ? big(gL * wT / gT, sell ? 18 : m.dec) : 0;
           var px = sell ? (giveLeft ? wantLeft / giveLeft : 0) : (wantLeft ? giveLeft / wantLeft : 0);
           var lockTxt = sell ? fmtA(giveLeft) + " " + m.sym : fmtA(giveLeft) + " DAI";
-          out.push({ t: exp, k: k, id: from + i, cancel: true, st: '<span class="sc-st ok">✅ 挂单中 · 你的 ' + lockTxt + ' 安全锁在 OTC 托管合约里，没成交随时撤回，到期自动退回</span>',
+          out.push({ t: exp, k: k, id: oid, cancel: true, st: '<span class="sc-st ok">✅ 挂单中 · 你的 ' + lockTxt + ' 安全锁在 OTC 托管合约里，没成交随时撤回，到期自动退回</span>',
             html: sell ? "<b>OTC 挂单卖出</b> " + fmtA(giveLeft) + " " + m.sym + "，要价 " + fmtA(wantLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : "")
             : "<b>OTC 挂单买入</b> " + fmtA(wantLeft) + " " + m.sym + "，锁定 " + fmtA(giveLeft) + " DAI（单价 " + px.toFixed(3) + "）· 剩 " + leftT(exp - now) + (m.chain === "Polygon" ? " · Polygon 链" : ""), href: "#/otc" + (k === "ailgns" ? "" : "/" + k), cta: "去 OTC 看 ›", ico: "📌" });
         }

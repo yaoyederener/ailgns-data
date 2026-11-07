@@ -175,6 +175,21 @@
   function savedBook() {
     try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"); return j && j.orders ? bookOf(j) : null; } catch (e) { return null; }
   }
+  // 市场超过 1000 张单后，自己更早挂的单不在窗口里（客户反馈「我的挂单」空的、撤不了）：连了钱包就再问后台要一次自己的老单，合并进来
+  function withMine(b, fresh) {
+    var mk = MK, a = account;
+    if (!a || !b.orders.length) return Promise.resolve(b);
+    var from = b.orders.reduce(function (m, o) { return Math.min(m, o.id); }, Infinity);
+    if (!(from > 0)) return Promise.resolve(b);
+    return fetch("/api/book?m=" + mk + "&mine=" + a + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+      (j.older || []).forEach(function (x) {
+        if (b.orders.some(function (o) { return o.id === x.id; })) return;
+        var o = x.o;
+        b.orders.unshift({ id: x.id, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]), older: true });
+      });
+      return b;
+    }).catch(function () { return b; });
+  }
   function loadBook(fresh) {
     var mk = MK, tax = loadTax();
     return tax.then(function () { return fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
@@ -183,7 +198,7 @@
       return bookOf(j);
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
-    }); });
+    }).then(function (b) { return withMine(b, fresh); }); });
   }
   // 读当前市场所在的链
   function read(to, data) { return W.rpcOn(M.chain, "eth_call", [{ to: to, data: data }, "latest"]); }

@@ -43,6 +43,21 @@ async function refresh(m, key) {
   return body;
 }
 
+// 老单补读：市场超过 1000 张单后，更早的单页面看不到（客户的单被挡在窗口外、撤不了）。?mine=0x… 把窗口之前属于这个地址、还开着的单找出来
+async function olderMine(m, k, a, fresh) {
+  const key = new Request("https://ailgns.dev/__mine/" + k + "/" + a);
+  if (!fresh) { const hit = await caches.default.match(key); if (hit) return hit.text(); }
+  const count = Number(BigInt(await call(m, m.otc, m.count || COUNT))), end = Math.max(0, count - MAX), me = a.slice(2).padStart(64, "0"), older = [];
+  for (let s = 0; s < end; s += 250) {
+    const c = Math.min(250, end - s), r = await call(m, m.otc, (m.get || GET_ORDERS) + u256(s) + u256(c));
+    const w = (r || "0x").slice(2).match(/.{64}/g) || [], n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0;
+    for (let i = 0; i < n; i++) { const o = w.slice(2 + i * 7, 9 + i * 7); if (o.length === 7 && o[0] === me && o[2].endsWith("1")) older.push({ id: s + i, o }); }
+  }
+  const body = JSON.stringify({ at: Date.now(), from: 0, older });
+  await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } }));
+  return body;
+}
+
 const out = (body, state) => new Response(body, { headers: { "content-type": "application/json", "cache-control": "no-store", "x-book": state } });
 
 export async function onRequestGet(ctx) {
@@ -50,6 +65,11 @@ export async function onRequestGet(ctx) {
   const m = Object.hasOwn(MARKETS, k) ? MARKETS[k] : null;
   if (!m || !m.otc) return new Response("bad market", { status: 400 });
   const key = new Request("https://ailgns.dev/__book/" + k);
+  const mine = String(u.searchParams.get("mine") || "").toLowerCase();
+  if (mine) {
+    if (!/^0x[0-9a-f]{40}$/.test(mine) || m.get) return Response.json({ older: [] });
+    try { return out(await olderMine(m, k, mine, u.searchParams.get("fresh") === "1"), "mine"); } catch (e) { return Response.json({ older: [], error: String((e && e.message) || e) }); }
+  }
   if (u.searchParams.get("fresh") !== "1") {
     const hit = await caches.default.match(key);
     if (hit) {
