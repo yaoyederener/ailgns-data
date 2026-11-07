@@ -3,12 +3,12 @@
   var A = window.AIL;
   function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function tm(ms) { if (!ms) return ""; var d = new Date(ms + 8 * 3600e3); return d.toISOString().slice(11, 16); }
+  function tm(ms) { if (!ms) return ""; try { return new Intl.DateTimeFormat("zh-CN", { timeZone: "America/Vancouver", hour: "2-digit", minute: "2-digit", hour12: false }).format(ms); } catch (e) { return new Date(ms).toTimeString().slice(0, 5); } }
   function render(id) {
     var app = A.app, k = key();
     if (!k) { app.innerHTML = '<section class="card"><h1>💊 吃药打卡</h1><p class="note">这页是站长自己用的。先去 <a href="#/feedback/admin">工单后台</a> 输一次口令，回来就能用。</p></section>'; return; }
     var nav = '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a><a href="#/med" class="ad-nb on">💊 吃药</a></div>';
-    app.innerHTML = '<section class="card"><h1>💊 吃药打卡</h1>' + nav + '<p class="sub" style="margin-top:10px">早上 10 点后一粒，晚上 22 点后一粒。到点没点「吃了」，站内信每半小时催一次。</p><div id="med-box"><p class="muted">读取中…</p></div><div id="med-hist"></div></section>';
+    app.innerHTML = '<section class="card"><h1>💊 吃药打卡</h1>' + nav + '<p class="sub" style="margin-top:10px">早上 10 点后一粒，晚上 22 点后一粒（温哥华时间）。到点没点「吃了」，站内信每半小时催一次。</p><div id="med-box"><p class="muted">读取中…</p></div><div id="med-hist"></div></section>';
     fetch("/api/med?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
       if (!A.isCurrent(id)) return;
       if (j.error) { document.getElementById("med-box").innerHTML = '<p class="note down">' + esc(j.error) + "</p>"; return; }

@@ -1,4 +1,4 @@
-// 💊 站长吃药打卡：早上 10 点后一粒、晚上 22 点后一粒（北京时间）。到点没打卡就每半小时推一条站内信，直到点「吃了」。
+// 💊 站长吃药打卡：早上 10 点后一粒、晚上 22 点后一粒（加拿大温哥华时间，自动夏令时）。到点没打卡就每半小时推一条站内信，直到点「吃了」。
 //   GET  ?key=                      → 今天两粒的状态 + 最近 7 天
 //   GET  ?nag=1&key=BACKUP_KEY      → 机器人每 5 分钟调一次：该催就催（写站内信给站长）
 //   POST { key, slot: am|pm, action: taken|skip [, day] } → 打卡：taken 吃了（不再催），skip 没吃（15 分钟后再催）
@@ -11,14 +11,18 @@ const keyOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) |
 const NAG_MS = 30 * 60e3, SKIP_MS = 15 * 60e3;
 const SLOT_NAME = { am: "早上那粒（10 点后）", pm: "晚上那粒（22 点后）" };
 
-// 北京时间：现在该吃哪一粒（10:00–21:59 早粒；22:00 起到次日 03:59 算当天的晚粒）
+// 温哥华时间（America/Vancouver，自动处理夏令时）：现在该吃哪一粒（10:00–21:59 早粒；22:00 起到次日 03:59 算当天的晚粒）
+const TZ = "America/Vancouver";
+function local(ms) {
+  const p = {}; new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hour12: false }).formatToParts(ms).forEach((x) => { p[x.type] = x.value; });
+  return { day: p.year + "-" + p.month + "-" + p.day, h: Number(p.hour) % 24 };
+}
 function current(now) {
-  const bj = new Date(now + 8 * 3600e3), h = bj.getUTCHours();
-  let day = bj.toISOString().slice(0, 10), slot = "";
-  if (h >= 10 && h < 22) slot = "am";
-  else if (h >= 22) slot = "pm";
-  else if (h < 4) { slot = "pm"; day = new Date(bj.getTime() - 86400e3).toISOString().slice(0, 10); }
-  return { day, slot, bjDay: bj.toISOString().slice(0, 10) };
+  const l = local(now); let day = l.day, slot = "";
+  if (l.h >= 10 && l.h < 22) slot = "am";
+  else if (l.h >= 22) slot = "pm";
+  else if (l.h < 4) { slot = "pm"; day = local(now - 86400e3).day; }
+  return { day, slot, bjDay: l.day, tz: TZ };
 }
 const load = async (kv, day) => (await kv.get("med:" + day, "json")) || { am: {}, pm: {} };
 const save = (kv, day, d) => kv.put("med:" + day, JSON.stringify(d), { expirationTtl: 400 * 86400 });
@@ -42,7 +46,7 @@ export async function onRequestGet(ctx) {
   }
   const days = [];
   for (let i = 0; i < 7; i++) {
-    const day = new Date(Date.parse(cur.bjDay + "T12:00:00+08:00") - i * 86400e3 + 8 * 3600e3).toISOString().slice(0, 10);
+    const day = local(Date.now() - i * 86400e3).day;
     days.push({ day, d: await load(kv, day) });
   }
   return json({ now: cur, today: days[0].d, days });
