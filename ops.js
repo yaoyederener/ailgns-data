@@ -13,7 +13,7 @@
     inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
   }
   function nav(cur) {
-    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb on">🛠️ 网站优化</a></div>';
+    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb on">🛠️ 网站优化</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
   }
   function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
   function render(rid, j) {
