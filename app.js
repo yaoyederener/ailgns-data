@@ -324,6 +324,8 @@
   function renderWallet(id, addr) {
     var head = '<h1>钱包快查</h1><p class="sub sub-x">输入地址，查看官方等级、算力、团队、每日奖励和余额。只读查询，不连接钱包。</p>';
     if (!addr) {
+      var acc = (window.AIL.otcKit && window.AIL.otcKit.account && window.AIL.otcKit.account()) || "";
+      if (acc) { location.replace("#/wallet/" + acc); return; } // 连过钱包：自动查自己的地址
       app.innerHTML = head + searchBox("wallet") + '<div class="empty">输入一个钱包地址开始查询</div>';
       return;
     }
