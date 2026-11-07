@@ -54,7 +54,7 @@ async function buildPub(kv, ctx, now) {
     let kc = await kv.get("or:kcache", "json");
     if (!kc || kc.cyc !== cyc || Date.now() - kc.at > 60e3) {
       const all = await feeBoard(kv, cyc, bjDay(now)), kb = await kingsOf(kv, cyc, bjDay(now), Math.floor(held * KING * 100) / 100, all);
-      kc = { at: Date.now(), cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt })), all };
+      kc = { at: Date.now(), cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt, demoted: !!x.demoted })), all };
       ctx.waitUntil(kv.put("or:kcache", JSON.stringify(kc), { expirationTtl: 600 }));
     }
     out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, all: kc.all }; // all 只在服务端用，返回前删掉
