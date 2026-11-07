@@ -1089,12 +1089,33 @@
             skipped = ids.length - done;
           });
         }
+        // 🔄 客户只点一次：发交易前重读链上最新挂单，没了的单剔掉、自动换成现在最便宜的；贵了 1% 以上才问一句。整笔作废再自动换新重试 1 次
+        var p0 = null, tried = 0;
+        function refreshPlan(msg) {
+          return loadBook(true).then(function (b) {
+            var now = Date.now() / 1000, live = b.orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); });
+            sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (x, y) { return priceOf(x) - priceOf(y); });
+            buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (x, y) { return priceOf(y) - priceOf(x); });
+          }, function () { /* 读不到就用页面上的 */ }).then(function () {
+            p = plan(Number(r.value));
+            if (!p.steps.length) throw new Error("你要吃的单刚被别人吃完了，现在没有可以扫的单；稍等一下再看看");
+            var same = p.steps.length === p0.steps.length && p.steps.every(function (x, i) { return x.o.id === p0.steps[i].o.id && x.amount === p0.steps[i].amount; });
+            if (same) return;
+            var worse = buy ? p.dai * 100n > p0.dai * 101n : p.dai * 100n < p0.dai * 99n;
+            if (worse && !confirm("有单刚被别人吃了，换成现在的单后" + (buy ? "要付 " : "能收到 ") + show(p.dai, 2) + " DAI（原来 " + show(p0.dai, 2) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
+            say(msg || "有单刚被别人吃了，已自动换成现在最便宜的单");
+            draw();
+          });
+        }
+        function retryable(e) { return /NOTHING_FILLED|CLOSED|EXPIRED|抢先|已经成交完/.test(String((e && e.message) || e)); }
         ready().then(function () {
           walletCard();
           return Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) { bal = { buy: b[0], sell: b[1] }; draw(); });
         }).then(function () {
-          p = plan(Number(r.value));
-          if (!p.steps.length) throw new Error("没有可以扫的单");
+          p0 = plan(Number(r.value));
+          if (!p0.steps.length) throw new Error("没有可以扫的单");
+          return refreshPlan();
+        }).then(function () {
           var need = p.steps.reduce(function (t, x) { return t + x.pay; }, 0n);
           return balance(token, account).then(function (b) {
             var reserve = buy ? gasKeep(p.steps.length) : 0n; // Anubis 上 Gas 用 DAI 付，留一点
@@ -1103,7 +1124,16 @@
             return M.gas === "POL" ? checkPol() : null;
           }).then(function () { return ensureAllowance(token, need, say, name, undefined, useRouter() ? ROUTER : undefined); });
         }).then(function () {
-          if (useRouter()) return viaRouter();
+          function fire() { return useRouter() ? viaRouter() : seq(); }
+          return fire().catch(function (e) {
+            if (!retryable(e) || tried || done) throw e;
+            tried = 1; p0 = p;
+            return refreshPlan("刚有人抢先，已自动换成最新的单，正在成交…").then(function () {
+              var need2 = p.steps.reduce(function (t, x) { return t + x.pay; }, 0n);
+              return ensureAllowance(token, need2, say, name, undefined, useRouter() ? ROUTER : undefined);
+            }).then(fire);
+          });
+          function seq() {
           var i = 0;
           function next() {
             if (i >= p.steps.length) return;
@@ -1121,8 +1151,9 @@
             });
           }
           return next();
+          }
         }).then(function () {
-          if (!done) { end("⚠️ 你选的单刚被别人抢先买走了，没有扣你的币。正在刷新最新挂单，请再点一次", true); setTimeout(reload, 800); return; } // 以前这里也说「扫单完成」，客户以为点了没反应
+          if (!done) { end("⚠️ 你选的单连续两次被别人抢先买走了，没有扣你的币。正在刷新最新挂单，请再点一次", true); setTimeout(reload, 800); return; } // 以前这里也说「扫单完成」，客户以为点了没反应
           end("✅ 扫单完成，已到你的钱包" + (skipped ? "（有 " + skipped + " 张已被别人吃掉，跳过了）" : ""));
         }, function (e) {
           end((done ? "已成交 " + done + " 张，后面的停下了：" : "") + niceError(e), true);
