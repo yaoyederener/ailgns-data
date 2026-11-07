@@ -18,7 +18,7 @@
   function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
   function render(rid, j) {
     var h = '<section class="card ops"><div class="card-head"><h2>🛠️ 网站优化</h2><span class="muted">内容更新于 ' + esc(j.updated) + "</span></div>" + nav("ops") +
-      '<nav class="ops-toc"><a href="#ops-now">当前风险</a><a href="#ops-worst">最坏情况</a><a href="#ops-sec">安全维护</a><a href="#ops-todo">待优化</a><a href="#ops-dec">定的方案</a></nav>' +
+      '<nav class="ops-toc"><a href="#ops-now">当前风险</a><a href="#ops-worst">最坏情况</a><a href="#ops-sec">安全维护</a><a href="#ops-todo">待优化</a><a href="#ops-dec">定的方案</a><a href="#ops-learn">学习清单</a></nav>' +
       // 当前风险
       '<h3 class="ad-h" id="ops-now">🚦 当前风险（合伙人面板算的' + (j.risksAt ? "，" + tm(j.risksAt) : "") + '）</h3><div class="ptn-risks">' + (j.risks || []).map(function (r) {
         return '<div class="ptn-risk ' + r.level + '"><div class="ptn-rh">' + LV[r.level] + " <b>" + esc(r.title) + '</b><i>' + esc(r.who) + "</i></div><p>" + esc(r.why) + '</p><p class="ptn-todo">👉 ' + esc(r.todo) + "</p></div>";
@@ -33,6 +33,7 @@
       '<h3 class="ad-h" id="ops-todo">🧭 还有哪些需要优化</h3>' + li(j.todo, function (x) { return '<li class="' + (x.done ? "done" : "") + '"><b>' + (x.done ? "✅ " : "") + esc(x.t) + '</b><span class="ops-pri">' + esc(x.pri) + "</span><p>" + esc(x.d) + "</p></li>"; }) +
       // 定的方案
       '<h3 class="ad-h" id="ops-dec">📜 你定的方案（新的在前）</h3>' + li(j.decisions, function (x) { return '<li><span class="muted">' + esc(x.d) + "</span> " + esc(x.t) + "</li>"; }) +
+      '<h3 class="ad-h" id="ops-learn">📚 学习清单（小白站长 + AI 开发，你要掌握什么）</h3>' + li(j.learn || [], function (x) { return "<li><b>" + esc(x.t) + '</b><div class="ops-k">为什么</div><p>' + esc(x.why) + '</p><div class="ops-k">怎么练</div><p>' + esc(x.how) + "</p></li>"; }) +
       '<p class="muted ptn-note">这页的内容由开发维护：每次你定了新规矩、每做完一件事都会同步到这里。要改内容告诉开发。</p></section>';
     A.app.innerHTML = h;
   }
