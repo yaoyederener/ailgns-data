@@ -62,8 +62,14 @@ export async function onRequestGet(ctx) {
   // 本周贡献榜（周一起到今天，认证商家以上；按手续费占比分奖池 30%，每人封顶手续费 KING_CAP 倍；周日揭晓时结算）
   try {
     const cyc = weekStart(bjDay(now)), held = out.funds ? (out.funds.dai + out.funds.ail * (out.funds.otc && out.funds.otc.px ? out.funds.otc.px : out.funds.px)) : 0;
-    const kb = await kingsOf(kv, cyc, bjDay(now), Math.floor(held * KING * 100) / 100), all = await feeBoard(kv, cyc, bjDay(now));
-    out.kings = { cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt })), share: KING, cap: KING_CAP, minLv: 2, all }; // all 只在服务端用，返回前删掉
+    // 提速（站长 2026-11-08「读取太慢」）：手续费表只扫一次，并缓存 60 秒；算出来的榜单大家共用
+    let kc = await kv.get("or:kcache", "json");
+    if (!kc || kc.cyc !== cyc || Date.now() - kc.at > 60e3) {
+      const all = await feeBoard(kv, cyc, bjDay(now)), kb = await kingsOf(kv, cyc, bjDay(now), Math.floor(held * KING * 100) / 100, all);
+      kc = { at: Date.now(), cyc, n: kb.n, top: kb.top.map((x) => ({ a: x.a, name: x.name, fee: x.fee, lv: x.lv, share: x.share, amt: x.amt })), all };
+      ctx.waitUntil(kv.put("or:kcache", JSON.stringify(kc), { expirationTtl: 600 }));
+    }
+    out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, all: kc.all }; // all 只在服务端用，返回前删掉
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
