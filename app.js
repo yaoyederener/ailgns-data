@@ -646,7 +646,7 @@
     [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT/i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
     [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
     [/No wallet|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
-    [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们，会尽快修）。请刷新页面重试；还不行就提交工单，告诉我们你点的是哪一步。"],
+    [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们）。十有八九是浏览器还在用旧版本：点下面「刷新页面重试」就好；刷新了还不行，点「报给客服」，错误信息会自动带上，你只要写一句点的是哪一步。"],
   ];
   function friendly(t) {
     t = String(t || "");
@@ -674,11 +674,17 @@
     var d = document.createElement("div");
     d.id = "err-tip";
     d.className = "err-tip";
-    d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><button type="button">知道了</button>';
+    d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><div class="err-acts"></div>';
     lastRaw = "";
     d.querySelector("span").textContent = friendly(t);
-    if (lastRaw) d.querySelector("span").insertAdjacentHTML("afterend", '<small class="err-raw">技术信息（截图给客服）：' + String(lastRaw).replace(/[<>]/g, "").slice(0, 160) + "</small>"); // 程序错误：中文解释在上，原始错误小字在下，方便定位
-    d.querySelector("button").onclick = function () { d.remove(); };
+    var acts = d.querySelector(".err-acts"), raw = lastRaw ? String(lastRaw).replace(/[<>]/g, "").slice(0, 160) : "";
+    if (raw) { // 程序错误：大白话在上；技术信息折叠；一键报给客服（自动带上页面和错误）；刷新按钮（多数是浏览器还在用旧版本）
+      d.querySelector("span").insertAdjacentHTML("afterend", '<details class="err-det"><summary>技术信息（给客服看的，你不用管）</summary><small class="err-raw">' + raw + "</small></details>");
+      acts.innerHTML = '<button type="button" class="err-rf">🔄 刷新页面重试</button><button type="button" class="err-fb">📮 报给客服（自动带上错误）</button><button type="button" class="err-ok">知道了</button>';
+      acts.querySelector(".err-rf").onclick = function () { location.reload(); };
+      acts.querySelector(".err-fb").onclick = function () { try { sessionStorage.setItem("fb:prefill", "页面报错：" + raw + "\n在哪个页面：" + location.hash + "\n我点的是："); } catch (e) {} d.remove(); location.hash = "#/feedback"; };
+    } else acts.innerHTML = '<button type="button" class="err-ok">知道了</button>';
+    acts.querySelector(".err-ok").onclick = function () { d.remove(); };
     document.body.appendChild(d);
     setTimeout(function () { if (d.parentNode) d.remove(); }, 15000);
     if (el && el.scrollIntoView && !el.closest(".modal")) el.scrollIntoView({ block: "center", behavior: "smooth" });

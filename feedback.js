@@ -86,6 +86,7 @@
     if (/feedback\/admin\/stats/.test(location.hash)) { location.replace("#/partner"); return; } // 旧数据面板网址已发给合伙人：不用先登工单后台，直接换成合伙人面板
     if (/feedback\/admin/.test(location.hash)) return admin(rid);
     imgs = [];
+    var prefill = ""; try { prefill = sessionStorage.getItem("fb:prefill") || ""; sessionStorage.removeItem("fb:prefill"); } catch (e) {} // 错误弹窗「报给客服」带过来的内容
     A.app.innerHTML = '<section class="card fb"><div class="card-head"><h2>📮 问题反馈</h2><span class="muted">提交后生成工单，客服挨个处理</span></div>' +
       '<p class="fb-lead">遇到问题？按下面 3 步填好，<b>一次说清楚</b>，处理最快 👇</p>' +
       '<label class="fb-l"><b>① 你的钱包地址</b><small>出问题的那个钱包（0x 开头）</small></label>' +
@@ -102,6 +103,7 @@
       '<div class="fb-dbx"><p>🔔 <b>客服回复第一时间通知你</b>：关注 DeBox 机器人并发送你的钱包地址，工单处理好了机器人会<b>私信</b>你，不用一直刷页面。</p><div id="dbx-slot"></div></div>' +
       '<p class="muted fb-safe">🔒 我们<b>绝不会</b>向你要私钥、助记词或密码；任何人找你要，都是骗子。</p></section>' +
       '<section class="card"><div class="card-head"><h2>🧾 我的反馈进度</h2><span class="muted">按钱包地址查</span></div><div id="fb-mine"><p class="muted">填好钱包地址后，这里显示你提交过的反馈和客服回复</p></div></section>';
+    if (prefill) { var pf = document.getElementById("fb-x"); if (pf) { pf.value = prefill; pf.focus(); pf.setSelectionRange(pf.value.length, pf.value.length); } }
     if (A.otcKit && A.otcKit.deboxCard) A.otcKit.deboxCard(rid, { title: "绑定 DeBox 机器人，客服回复秒通知", on: "已绑定：工单处理好、客服回复了，机器人会私信你；OTC 成交也会通知你" });
     var inp = document.getElementById("fb-a");
     if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a && !inp.value && A.isCurrent(rid)) { inp.value = String(a).toLowerCase(); mine(inp.value); } }, function () {});
