@@ -6,6 +6,7 @@ const EVENTS = new Set(["v", "v1", "q_member", "q_wallet", "q_team", "q_growth",
 
 export async function onRequestPost(ctx) {
   const e = new URL(ctx.request.url).searchParams.get("e") || "";
+  if (/^g_[a-z0-9]{1,12}$/.test(e)) bump(ctx, e); // 🎮 游戏打开次数
   if (EVENTS.has(e)) {
     if (e === "v" || e === "v1") { bump(ctx, "pv"); bump(ctx, "m" + Math.floor((Date.now() + 8 * 3600e3) % 86400e3 / 300e3)); } // 每 5 分钟一个桶（北京时间当天第几个 5 分钟），算「同时在线」
     if (e === "v1") bump(ctx, "uv");
