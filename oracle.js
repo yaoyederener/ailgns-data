@@ -574,21 +574,43 @@
     if (pb) pb.onclick = function () { poster(); };
   }
 
-  // 晒单海报：域名 + 预测价格 + 大奖池，长按保存图片发到群里（不带邀请链接）
+  // 晒单海报（2026-11-07 站长定：狂拽酷炫版）：深紫夜空 + 霓虹大数字 + 金色奖池条；长按保存发到群里（不带邀请链接）
+  function rr(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
   function poster() {
-    var me = data.me, cv = document.createElement("canvas"), W2 = 720, H2 = 960, x = cv.getContext("2d");
-    cv.width = W2; cv.height = H2;
-    var g = x.createLinearGradient(0, 0, 0, H2); g.addColorStop(0, "#f3eeff"); g.addColorStop(1, "#e6dcff");
-    x.fillStyle = g; x.fillRect(0, 0, W2, H2);
-    x.textAlign = "center"; x.fillStyle = "#4b2fb8";
-    x.font = "bold 54px sans-serif"; x.fillText("🔮 AiLGNS 每日预言家", W2 / 2, 120);
-    x.font = "34px sans-serif"; x.fillStyle = "#6b5aa6"; x.fillText("我是", W2 / 2, 230);
-    x.font = "bold 60px sans-serif"; x.fillStyle = "#3a1f9e"; x.fillText(me.name || A.short(account), W2 / 2, 310);
-    x.font = "34px sans-serif"; x.fillStyle = "#6b5aa6"; x.fillText("我预测 " + dayCn(data.round) + " 晚上 AiLGNS =", W2 / 2, 410);
-    x.font = "bold 72px sans-serif"; x.fillStyle = "#7c5cff";
-    me.ps.slice(0, 4).forEach(function (p, i) { x.fillText(p, W2 / 2, 500 + i * 80); });
-    x.font = "bold 40px sans-serif"; x.fillStyle = "#c98a00"; x.fillText("超级大奖池 " + dai(data.pool), W2 / 2, 830);
-    x.font = "30px sans-serif"; x.fillStyle = "#6b5aa6"; x.fillText("敢来比吗？ ailgns.dev", W2 / 2, 900);
+    var me = data.me, cv = document.createElement("canvas"), W = 1080, H = 1440, x = cv.getContext("2d");
+    cv.width = W; cv.height = H;
+    var g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, "#1a0b3d"); g.addColorStop(.55, "#2b1263"); g.addColorStop(1, "#0b0620");
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    [[180, 220, 420, "#7c5cff"], [920, 380, 360, "#ff4fd8"], [540, 1260, 520, "#2fd4ff"]].forEach(function (o) {
+      var r = x.createRadialGradient(o[0], o[1], 0, o[0], o[1], o[2]); r.addColorStop(0, o[3] + "88"); r.addColorStop(1, o[3] + "00"); x.fillStyle = r; x.fillRect(0, 0, W, H);
+    });
+    x.strokeStyle = "rgba(255,255,255,.06)"; x.lineWidth = 2;
+    for (var i = 0; i <= W; i += 90) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
+    for (var j = 0; j <= H; j += 90) { x.beginPath(); x.moveTo(0, j); x.lineTo(W, j); x.stroke(); }
+    x.save(); x.globalAlpha = .18; x.fillStyle = "#ffffff"; x.beginPath(); x.moveTo(0, 300); x.lineTo(W, 120); x.lineTo(W, 190); x.lineTo(0, 370); x.closePath(); x.fill(); x.restore();
+    x.textAlign = "center";
+    x.font = "bold 44px sans-serif"; x.fillStyle = "#c9b8ff"; try { x.letterSpacing = "6px"; } catch (e) {} x.fillText("A i L G N S  ·  每 日 预 言 家", W / 2, 120); try { x.letterSpacing = "0px"; } catch (e) {}
+    x.font = "900 150px sans-serif"; x.shadowColor = "#ff4fd8"; x.shadowBlur = 40; x.fillStyle = "#ffffff"; x.fillText("我预言", W / 2, 320); x.shadowBlur = 0;
+    var nm = me.name || A.short(account); x.font = "bold 56px sans-serif"; var tw = Math.min(W - 80, x.measureText(nm).width + 120);
+    var cg = x.createLinearGradient(W / 2 - tw / 2, 0, W / 2 + tw / 2, 0); cg.addColorStop(0, "#7c5cff"); cg.addColorStop(1, "#ff4fd8");
+    x.fillStyle = cg; rr(x, W / 2 - tw / 2, 380, tw, 96, 48); x.fill();
+    x.fillStyle = "#fff"; x.fillText(nm, W / 2, 446);
+    x.font = "40px sans-serif"; x.fillStyle = "#b9a9ff"; x.fillText(dayCn(data.round) + " 晚上揭晓" + (livePxV ? " · 现价 " + A.fmt(livePxV, 2) : ""), W / 2, 560);
+    var ps = me.ps.slice(0, 3), y0 = 700;
+    ps.forEach(function (p, k) {
+      var yy = y0 + k * 160, fs = k === 0 ? 170 : 120;
+      x.font = "900 " + fs + "px sans-serif";
+      x.shadowColor = k === 0 ? "#2fd4ff" : "#7c5cff"; x.shadowBlur = k === 0 ? 50 : 25;
+      var ng = x.createLinearGradient(0, yy - fs, 0, yy); ng.addColorStop(0, "#ffffff"); ng.addColorStop(1, k === 0 ? "#7ff0ff" : "#cdbcff");
+      x.fillStyle = ng; x.fillText(String(p), W / 2, yy);
+    });
+    x.shadowBlur = 0;
+    var by = 1180; x.fillStyle = "rgba(0,0,0,.35)"; rr(x, 90, by - 70, W - 180, 150, 30); x.fill();
+    x.strokeStyle = "#ffd36a"; x.lineWidth = 4; rr(x, 90, by - 70, W - 180, 150, 30); x.stroke();
+    x.font = "bold 40px sans-serif"; x.fillStyle = "#ffd36a"; x.fillText("🏆 超级大奖池", W / 2, by - 12);
+    x.font = "900 80px sans-serif"; x.shadowColor = "#ffd36a"; x.shadowBlur = 30; x.fillStyle = "#fff1c2"; x.fillText(Number(data.pool || 0).toLocaleString("en-US", { maximumFractionDigits: 0 }) + " DAI", W / 2, by + 62); x.shadowBlur = 0;
+    x.font = "bold 44px sans-serif"; x.fillStyle = "#ffffff"; x.fillText("敢来比吗？", W / 2, 1340);
+    x.font = "36px sans-serif"; x.fillStyle = "#c9b8ff"; x.fillText("ailgns.dev  ·  免费参与 · 猜中平分大奖", W / 2, 1400);
     var url = cv.toDataURL("image/png"), box = document.getElementById("or-img");
     if (box) box.innerHTML = '<p class="muted">长按图片保存，发到群里晒一晒 👇</p><img class="or-poster" src="' + url + '" alt="晒单海报">';
   }
