@@ -1315,7 +1315,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
    选中的币种用紫色描边 + 浅紫底，不再整块渐变；「连接钱包」是这一块唯一的蓝色实心按钮 ===== */
 .mkt-tabs a { background: #fff; border: 1.5px solid #e5e7eb; color: #1f2937; box-shadow: none; }
 .mkt-tabs a:hover { background: #faf5ff; }
-.mkt-tabs a.on { background: #f5f3ff; border: 2px solid #7c3aed; color: #5b21b6; box-shadow: none; }
+.mkt-tabs a.on { background: #fff; border: 2px solid #7c3aed; color: #5b21b6; box-shadow: none; }
 .mkt-tabs a.on small { color: #7c3aed; }
 .otc-acts .oa-sell { background: #ef4444; box-shadow: none; }
 .otc-acts .oa-buy { background: #16a34a; box-shadow: none; }
