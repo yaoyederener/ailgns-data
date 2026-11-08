@@ -3017,3 +3017,5 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 
 .or-cdlast .or-pays{max-width:520px;margin:12px auto 0;text-align:left;background:#fff;border:2px solid #f5c542;box-shadow:0 0 0 4px rgba(245,197,66,.18)}
 .or-cdlast .or-pays>b{color:#6d28d9}
+#mkt-top .mkt-tabs a{padding:9px 4px} /* 站长 2026-11-08：币种导航稍微高一点 */
+@media (max-width:640px){#mkt-top .mkt-tabs a{padding:8px 4px}}
