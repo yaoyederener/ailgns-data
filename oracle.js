@@ -332,7 +332,7 @@
     var tags = [["🔮 神算子候选", "最接近"], ["👁 天眼通候选", "第二"], ["🌿 地灵通候选", "第三"]];
     el.innerHTML = '<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>' + livePxV.toFixed(3) + '</b> DAI<i class="or-dot"></i></span></div>' +
       '<div class="or-simg">' + top.map(function (r, i) { var d = Math.abs(r.m - m); return '<div class="or-simc r' + (i + 1) + (moved ? " moved" : "") + (i === 0 && hit ? " hit" : "") + '"><small>' + tags[i][0] + '</small><b>' + esc(r.name) + '</b><em>预测 ' + r.p + (d === 0 ? " · 🎯 完全猜中！" : " · 差 " + (d / 1000).toFixed(3)) + "</em></div>"; }).join("") + "</div>" +
-      (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
+      (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
       '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>';
     // 名单里把当前最接近的 3 个点亮
     var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
@@ -374,7 +374,7 @@
     var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + ' <b data-a="' + esc(x.a || "") + '">' + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + (x.share ? ' <small class="muted">占 ' + Math.round(x.share * 100) + "%" + (x.demoted ? " · 上周第一，连庄按第二算" : "") + "</small>" : "") + "</span><b>" + dai(x.amt != null ? x.amt : 0) + "</b></li>"; }).join("");
     return '<section class="card"><div class="card-head"><h2>💰 本周贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 周日揭晓时结算</span></div>" +
       (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周还没有认证商家成交，第一笔就是第一名。</p>') +
-      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
+      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。<b>⚠️ 钱包必须绑定域名（设为主名字）才能拿贡献王奖励</b>，没绑的自动跳过、名额顺延。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
       '<p class="muted or-rulenote">📐 规则会随数据不断优化，以页面公布为准。</p></section>';
   }
   function playersCard(d) {
