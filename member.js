@@ -416,7 +416,8 @@
       }
       function describe() {
         METHODS.forEach(function (x) { var n = needOf(x), el = app.querySelector('[data-amt="' + x.id + '"]'); if (el) el.textContent = n ? A.fmt(n, x.digits) : "—"; });
-        document.getElementById("pay-usd").textContent = "已按实时价格折算成 " + usdNow() + " 美元";
+        var pu = document.getElementById("pay-usd"); if (!pu) return; // 已经离开会员页（价格刷新晚到）：不再更新，避免报错
+        pu.textContent = "已按实时价格折算成 " + usdNow() + " 美元";
         app.querySelectorAll(".paybtn").forEach(function (b) { if (b.id === "go" || b.id === "q-pay") b.textContent = payLabel(); });
       }
       describe();
