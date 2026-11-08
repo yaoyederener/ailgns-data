@@ -101,13 +101,34 @@
   }
   // ---------- 页面 ----------
   var cur = null;
+  var shown = [];
   function paint(j) {
     var box = document.getElementById("ib-list"); if (!box || !j) return;
     var un = document.getElementById("ib-un"); if (un) un.textContent = j.unread ? j.unread + " 条未读" : "没有未读";
+    if (box.querySelector(".ib-rbox")) return; // 正在写回复：不刷新列表，免得字被清掉
+    shown = j.list;
     box.innerHTML = j.list.length ? j.list.map(function (x) {
-      return '<div class="ib-it' + (x.t > j.seen ? " new" : "") + '"><span class="ib-ico">' + (ICO[x.k] || "📣") + '</span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + "</small></div></div>";
+      return '<div class="ib-it' + (x.t > j.seen ? " new" : "") + '"><span class="ib-ico">' + (ICO[x.k] || "📣") + '</span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
     }).join("") : '<p class="muted ib-empty">还没有消息。以后你的成交、借贷、工单回复、预言家中奖、链上留言都会出现在这里。</p>';
   }
+  // 💬 回复站长（2026-11-08 站长定）：回复内容进工单后台，站长收件箱同时提醒
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-rep]"); if (!b || !auth) return;
+    var main = b.parentNode; if (main.querySelector(".ib-rbox")) return;
+    var it = shown.filter(function (x) { return x.id === b.getAttribute("data-rep"); })[0] || {};
+    b.hidden = true;
+    main.insertAdjacentHTML("beforeend", '<div class="ib-rbox"><textarea rows="3" maxlength="1000" placeholder="想对站长说什么？问题、建议都可以，站长会亲自看"></textarea><div class="ib-rrow"><button type="button" class="link ib-rx">取消</button><button type="button" class="nm-go ib-rs">发送给站长</button></div><p class="muted ib-rst"></p></div>');
+    var box = main.querySelector(".ib-rbox"), ta = box.querySelector("textarea"), st = box.querySelector(".ib-rst"); ta.focus();
+    box.querySelector(".ib-rx").onclick = function () { box.remove(); b.hidden = false; };
+    box.querySelector(".ib-rs").onclick = function () {
+      var v = ta.value.trim(), s = this; if (v.length < 2) { st.textContent = "多写几个字吧"; return; }
+      s.disabled = true; st.textContent = "发送中…";
+      fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: auth.a, src: "inbox", txt: "【回复站内信】" + v + "\n\n—— 回复的是：" + String(it.txt || "").slice(0, 300) }) }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.error) { s.disabled = false; st.textContent = "❌ " + j.error; return; }
+        box.innerHTML = '<p class="ib-rok">✅ 已发给站长（工单 #' + j.id + '），回复会出现在这里和「我的反馈进度」</p>';
+      }, function () { s.disabled = false; st.textContent = "❌ 网络不好，再点一次"; });
+    };
+  });
   A.pages.inbox = function (id) {
     cur = id;
     if (PAUSED) {

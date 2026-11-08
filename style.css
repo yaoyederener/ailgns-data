@@ -3046,3 +3046,8 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 #ntf-go{margin-top:12px;width:100%}
 .ntf-log{padding:8px 0;border-top:1px dashed #e5dcf7}.ntf-log p{margin:4px 0;white-space:pre-wrap}
 #ntf-all{margin-top:6px;font-size:13px}
+
+/* 💬 站内信回复站长 */
+.ib-rep{display:table;margin-top:6px;padding:4px 12px;border-radius:999px;border:1.5px solid #c4b5fd;background:#f5f3ff;color:#6d28d9;font-size:13px;font-weight:700}
+.ib-rbox{margin-top:8px}.ib-rbox textarea{width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd6fe;border-radius:10px;font:inherit;font-size:14px}
+.ib-rrow{display:flex;justify-content:flex-end;gap:12px;align-items:center;margin-top:6px}.ib-rok{color:#15803d;font-size:13px;margin:6px 0 0}

@@ -21,6 +21,12 @@ const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无
 const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
+  if (t.src === "inbox") { // 💬 客户在站内信里「回复站长」（2026-11-08）：不分诊、不判无效，直接推给站长
+    t.tri = { ok: true, lv: 2, cat: "reply", topic: "💬 回复站内信", why: "客户回复站长通知", dup: 0 };
+    await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+    await pushInbox(kv, OWNER, "ticket", "💬 客户回复站内信 #" + t.id + "\n" + (t.txt || "").slice(0, 300), "#/feedback/admin/" + t.id).catch(() => {});
+    return;
+  }
   if (t.vip) { // ⭐ 产品优化员的反馈：不分诊、不判无效、不自动答复，直接推给站长亲审
     t.tri = { ok: true, lv: 2, cat: "review", topic: "⭐ " + t.vip + "反馈", why: "站长亲自审查", dup: 0 };
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
@@ -141,6 +147,7 @@ export async function onRequestPost(ctx) {
   const id = Number((await kv.get("tk:seq")) || "0") + 1;
   await kv.put("tk:seq", String(id));
   const t = { id, a, txt, n: imgs.length, t: Date.now(), st: "new", note: "" };
+  if (b.src === "inbox") t.src = "inbox";
   const vip = reviewerOf(a); if (vip) t.vip = vip; // ⭐ 产品优化员
   for (let i = 0; i < imgs.length; i++) await kv.put("tk:img:" + id + ":" + i, imgs[i], { expirationTtl: 180 * 86400 });
   await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
