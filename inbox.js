@@ -4,7 +4,7 @@
   "use strict";
   var A = window.AIL, KEY = "ibAuth", W = A.wallets;
   var ICO = { otc: "💱", loan: "🤝", ticket: "📮", msg: "📬", oracle: "🔮", sys: "📣" };
-  var PAUSED = true; // 站长 2026-11-06：手机 App 里连不上钱包，先暂停对客户开放，方案想好再开（改成 false 即恢复）
+  var PAUSED = false; // 2026-11-08 站长：重新开通（原 2026-11-06：手机 App 里连不上钱包，先暂停对客户开放，方案想好再开（改成 false 即恢复）
   var auth = null, lastMax = 0, timer = null, eth = null, account = "";
   try { auth = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { auth = null; }
   if (auth && (!auth.a || !auth.sig || Date.now() - auth.ts > 29 * 86400e3)) auth = null;
