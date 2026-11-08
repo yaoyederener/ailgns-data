@@ -337,7 +337,11 @@
 
   // 市场切换：AiLGNS · LGNS（Anubis）· LGNS（Polygon）
   // 币种切换放到页面最顶上（引导卡上面）：站长 2026-11-08 看手机截图定的，点进 OTC 第一眼就选币种
+  // 引导卡（#guide）和查订单条（#oq）在 OTC 页要排到「土豪扫单」下面：渲染前先放回 #app 外面（否则 innerHTML 一换就没了），渲染后再搬进页内的槽位
+  function parkGuides() { var app = A.app; ["guide", "oq"].forEach(function (id) { var el = document.getElementById(id); if (el && app.contains(el)) app.parentNode.insertBefore(el, app); }); }
+  function moveGuides() { var slot = document.getElementById("otc-guide-slot"); if (!slot) return; ["guide", "oq"].forEach(function (id) { var el = document.getElementById(id); if (el) slot.appendChild(el); }); }
   function placeTabs() {
+    parkGuides();
     var slot = document.getElementById("mkt-top"); if (!slot) return "";
     slot.innerHTML = marketTabs();
     var tk = document.getElementById("hn-tick"); if (tk) slot.insertBefore(tk, slot.firstChild); // 荣耀榜播报条也放最顶上
@@ -567,6 +571,7 @@
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = placeTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
+      html += '<div id="otc-guide-slot"></div>'; // 站长 2026-11-08：担保交易引导卡 + 查我的订单 放在土豪扫单下面
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       fetch("/api/saved" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
@@ -586,6 +591,7 @@
       html += '<p class="note">成交手续费 1%，由吃单方承担（从收到的币里扣）；挂单、撤单、过期退回都不收费。' + (M.gas === "POL" ? "Polygon 链的 Gas 用 POL 支付，钱包里要留一点 POL。" : "") + '智能合约未经第三方审计，请先小额试用。本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。</p>';
       html += '<div class="modal" id="otc-modal" hidden></div>';
       A.app.innerHTML = html;
+      moveGuides();
       A.fillNames(A.app); // 挂单人有 .ailgns / .lgns 主名字的，显示名字
       bind(id, orders, mkt);
       bindSweep(sells, buys, mkt, function () { if (A.isCurrent(id)) { freshNext = true; renderOtc(id); } });

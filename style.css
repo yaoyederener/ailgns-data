@@ -2975,3 +2975,4 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 @media (max-width:640px){#nm-side{display:grid;grid-template-columns:1fr 1fr;gap:4px}#nm-side button{white-space:nowrap;padding:11px 6px;font-size:14px}}
 #mkt-top .mkt-tabs{margin:10px 0 4px}#mkt-top .mkt-more{margin-bottom:6px}
 @media (max-width:640px){.gd{margin:8px 0 2px;padding:10px 12px}.gd-h{gap:8px}.gd-h b{font-size:15px}.gd-h small{font-size:12px}.gd-s button{padding:8px 10px;font-size:14px;border-radius:12px}.gd-s button i{width:20px;height:20px;font-size:12px}#oq{margin-top:6px}.oq{padding:8px 10px}.oq-in{padding:7px 10px;font-size:13px}.oq-seg button{padding:5px 8px;font-size:12px}#mkt-top #hn-tick{margin-top:8px}}
+#otc-guide-slot .wrap{padding:0}#otc-guide-slot{margin-top:6px}

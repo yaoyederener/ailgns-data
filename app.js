@@ -532,6 +532,7 @@
     tip.style.display = "none";
     window.scrollTo(0, 0);
     var mkTop = document.getElementById("mkt-top"); if (mkTop && tab !== "otc") mkTop.innerHTML = ""; // 币种切换条只在 OTC 页显示
+    ["guide", "oq"].forEach(function (gid) { var el = document.getElementById(gid); if (el && app.contains(el)) app.parentNode.insertBefore(el, app); }); // OTC 页把引导卡/查订单搬进了页内，换页前先放回原位
     guide(tab, parts);
     orderBar(tab);
     if (extra[tab]) extra[tab](id, a);
