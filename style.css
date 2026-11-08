@@ -2984,3 +2984,6 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 #mkt-top .mkt-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 2px}#mkt-top .mkt-tabs a{padding:6px 4px;border-radius:10px}#mkt-top .mkt-tabs a small{display:none}#mkt-top .mkt-tabs a b{font-size:14px}#mkt-top .mkt-hot{top:-6px;right:6px}#mkt-top .mkt-more summary{font-size:12px}
 @media (max-width:640px){#mkt-top .mkt-tabs{gap:6px;margin:6px 0 2px}#mkt-top .mkt-tabs a{padding:5px 4px}#mkt-top .mkt-tabs a b{font-size:13px}}
 #mkt-top .mkt-tabs a.dup{flex-direction:row;justify-content:center;align-items:baseline;gap:4px}#mkt-top .mkt-tabs a.dup small{display:inline;font-size:10.5px;white-space:nowrap} /* 站长 2026-11-08：两个 LGNS 显示链名区分 */
+/* 站长 2026-11-08：菜单展开游戏后滑不动——列表区必须 min-height:0 才会在抽屉里滚动；加细滚动条提示还能往下滑 */
+.dw-body { min-height: 0; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #c4b5fd transparent; }
+.dw-body::-webkit-scrollbar { width: 4px; } .dw-body::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 4px; }
