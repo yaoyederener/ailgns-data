@@ -337,7 +337,12 @@
 
   // 市场切换：AiLGNS · LGNS（Anubis）· LGNS（Polygon）
   // 币种切换放到页面最顶上（引导卡上面）：站长 2026-11-08 看手机截图定的，点进 OTC 第一眼就选币种
-  function placeTabs() { var slot = document.getElementById("mkt-top"); if (slot) slot.innerHTML = marketTabs(); return ""; }
+  function placeTabs() {
+    var slot = document.getElementById("mkt-top"); if (!slot) return "";
+    slot.innerHTML = marketTabs();
+    var tk = document.getElementById("hn-tick"); if (tk) slot.insertBefore(tk, slot.firstChild); // 荣耀榜播报条也放最顶上
+    return "";
+  }
   function marketTabs() {
     var BADGE = { ailgns: "🔥 热", lgns: "🔥 热", nft: "抢" }; // 成交量最大的两个挂「热」，NFT 卡牌挂「抢」
     var tab = function (k) { var m = MARKETS[k]; return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + ">" + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
