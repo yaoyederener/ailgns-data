@@ -439,7 +439,7 @@
     if (!l.length) return "";
     return '<div class="or-pays"><b>💸 发奖记录（链上可查）</b>' + l.map(function (x) {
       return '<div class="or-pay"><span>' + (KN[x.kind] || x.kind) + " · <b>" + esc(x.name) + "</b></span><span>" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + "</small></span>" +
-        (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : '<span class="muted">发放中…</span>') + "</div>";
+        (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">奖池转出记录 →</a>') + "</div>";
     }).join("") + "</div>";
   }
   function rules() {
