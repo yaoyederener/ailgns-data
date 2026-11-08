@@ -11,16 +11,18 @@
   // 📊 运营分配统计（2026-11-08）：比例、地址、谷歌社交账号钱包实际转过去多少
   function allocHtml(j) {
     var L = j.alloc || []; if (!L.length) return "";
-    var tot = L.reduce(function (t, y) { return t + ((y.got && y.got.value) || 0); }, 0);
-    var lg = j.alloclog || [], td = lg[0] && lg[0].day === j.today ? lg[0] : null;
-    var st = '<div class="ptn-ast ' + (td ? "done" : "wait") + '">' + (td ? "<b>✅ 今天已分配</b><span>" + tm(td.t) + " · 合计 ≈ " + fm(td.total, 0) + " DAI</span>" : "<b>⏳ 等待分配</b><span>今天还没标记分配</span>" + (j.canWrite ? '<button type="button" class="nm-go" id="ptn-adone">✅ 我已分配</button>' : "")) + '<small class="muted" id="ptn-ast"></small></div>';
-    var hist = lg.length ? '<details class="ptn-ahist"><summary>📜 分配记录（' + lg.length + ' 次）</summary>' + lg.slice(0, 20).map(function (x) { return "<div><b>" + tm(x.t) + "</b> 合计 ≈ " + fm(x.total, 0) + " DAI<small class=\"muted\"> · " + x.parts.map(function (y) { return esc(y.n) + " " + y.p + "% " + fm(y.amt, 0); }).join(" / ") + "</small></div>"; }).join("") + "</details>" : "";
-    return '<h3 class="ad-h">💼 本次分配</h3>' + st + hist + '<h3 class="ad-h">📊 运营分配统计（链上实际到账，Anubis 链累计）</h3><div class="ptn-alloc">' + L.map(function (y) {
-      var g = y.got || {}, real = tot ? Math.round(g.value / tot * 1000) / 10 : 0;
+    var tot = L.reduce(function (t, y) { return t + ((y.got && y.got.ail) || 0); }, 0);
+    var lg = j.alloclog || [], tr = (j.split && j.split.transit) || {}, wait = tr.ail > 0.0001;
+    var st = '<div class="ptn-tr"><span>🔁 运营中转地址</span><a class="mono" href="#/scan/' + tr.a + '">' + String(tr.a || "").slice(0, 6) + "…" + String(tr.a || "").slice(-4) + ' →</a><b>' + (tr.ail == null ? "读取失败" : fm(tr.ail, 4) + " AiLGNS") + "</b>" + (tr.value ? '<small class="muted">≈ ' + fm(tr.value, 0) + " DAI</small>" : "") + '</div><p class="muted">流程：谷歌社交账号钱包 → 转到这个中转地址 → 从中转地址按比例转到下面四个地址（只分 AiLGNS）。</p>' +
+      '<div class="ptn-ast ' + (wait ? "wait" : "done") + '">' + (wait ? "<b>⏳ 等待分配</b><span>中转地址里还有 " + fm(tr.ail, 4) + " AiLGNS 没分</span>" : "<b>✅ 已分配</b><span>中转地址已转空</span>") +
+      (j.canWrite ? '<button type="button" class="nm-go" id="ptn-adone">📣 我已分配，通知他们</button>' : "") + '<small class="muted" id="ptn-ast">' + (lg[0] ? "上次通知 " + tm(lg[0].t) + " · " + (lg[0].ail != null ? fm(lg[0].ail, 4) + " AiLGNS" : "≈ " + fm(lg[0].total, 0) + " DAI") : "") + "</small></div>";
+    var hist = lg.length ? '<details class="ptn-ahist"><summary>📜 分配记录（' + lg.length + ' 次）</summary>' + lg.slice(0, 20).map(function (x) { return "<div><b>" + tm(x.t) + "</b> 合计 " + (x.ail != null ? fm(x.ail, 4) + " AiLGNS" : "≈ " + fm(x.total, 0) + " DAI") + "<small class=\"muted\"> · " + x.parts.map(function (y) { return esc(y.n) + " " + y.p + "% " + (y.ail != null ? fm(y.ail, 4) : fm(y.amt, 0)); }).join(" / ") + "</small></div>"; }).join("") + "</details>" : "";
+    return '<h3 class="ad-h">💼 本次分配</h3>' + st + hist + '<h3 class="ad-h">📊 运营分配统计（中转地址实际转出的 AiLGNS 累计）</h3><div class="ptn-alloc">' + L.map(function (y) {
+      var g = y.got || {}, real = tot ? Math.round(g.ail / tot * 1000) / 10 : 0;
       return '<div class="ptn-al"><div class="ptn-alh"><b>' + esc(y.n) + " " + y.p + '%</b><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + " →</a></div>" +
-        (g.err ? '<p class="muted">读取失败，稍后刷新</p>' : '<div class="ptn-alv"><span>已转 <b>' + fm(g.value || 0, 0) + " DAI</b></span><span>实际占比 <b" + (tot && Math.abs(real - y.p) > 5 ? ' class="warn"' : "") + ">" + real + "%</b></span><span>" + (g.n || 0) + " 笔</span></div>" +
-        '<small class="muted">DAI ' + fm(g.dai || 0, 2) + " + AiLGNS " + fm(g.ail || 0, 4) + "（按现价折算）" + (g.last ? " · 最近 " + tm(g.last) : "") + "</small>" + ((g.txs || []).length ? '<div class="ptn-atx">' + g.txs.map(function (x) { return '<a href="#/scan/' + x.h + '"><span>' + tm(x.t) + "</span><b>" + fm(x.v, 4) + " " + x.tk + "</b><small>" + esc(x.from) + " · 查看转账 →</small></a>"; }).join("") + "</div>" : "")) + "</div>";
-    }).join("") + '<p class="muted">四个地址合计已转 ≈ <b>' + fm(tot, 0) + ' DAI</b>。「实际占比」和设定比例差 5% 以上会标红。</p></div>';
+        (g.err ? '<p class="muted">读取失败，稍后刷新</p>' : '<div class="ptn-alv"><span>已转 <b>' + fm(g.ail || 0, 4) + " AiLGNS</b></span><span>实际占比 <b" + (tot && Math.abs(real - y.p) > 5 ? ' class="warn"' : "") + ">" + real + "%</b></span><span>" + (g.n || 0) + " 笔</span></div>" +
+        '<small class="muted">≈ ' + fm(g.value || 0, 0) + " DAI（按现价）" + (g.last ? " · 最近 " + tm(g.last) : "") + "</small>" + ((g.txs || []).length ? '<div class="ptn-atx">' + g.txs.map(function (x) { return '<a href="#/scan/' + x.h + '"><span>' + tm(x.t) + "</span><b>" + fm(x.v, 4) + " AiLGNS</b><small>查看转账 →</small></a>"; }).join("") + "</div>" : "")) + "</div>";
+    }).join("") + '<p class="muted">四个地址合计已转 <b>' + fm(tot, 4) + ' AiLGNS</b>。「实际占比」和设定比例差 5% 以上会标红。</p></div>';
   }
   function login(rid, msg) {
     A.app.innerHTML = '<section class="card ptn-login"><h2>🤝 合伙人面板</h2><p class="muted">输入查看口令。合伙人只能看，站长口令还能改分配比例和计划。</p>' +
@@ -45,7 +47,7 @@
       // 2. 钱
       '<h3 class="ad-h">💰 钱（当前余额，不是历史累计）</h3><div class="ad-tiles">' +
       tile("待分配余额（谷歌社交账号钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
-      (j.split.parts || []).map(function (y) { return tile(y.n + " " + y.p + "%", fm(y.amt, 0) + " DAI", (j.price ? "≈ " + fm(y.amt / j.price, 2) + " AiLGNS · " : "") + '<a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + "</a>", "money"); }).join("") +
+      (j.split.parts || []).map(function (y) { return tile(y.n + " " + y.p + "%（应分）", fm(y.ail || 0, 4) + " AiLGNS", "≈ " + fm(y.amt, 0) + " DAI · " + '<a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + "</a>", "money"); }).join("") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
       (j.bal.fast ? tile("⚡ 极速资金池（批量注册 90%，分开放）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +

@@ -29,15 +29,17 @@ export async function onRequestPost(ctx) {
   if (!canWrite(env, b.key)) return json({ error: "只有站长口令能改" }, 403);
   // 💼 站长点「我已分配」（2026-11-08）：记一笔分配记录，并站内信通知四个分配地址 + 站长自己
   if (b.action === "allocDone") {
-    const r = (await kv.get("ptn:res", "json")) || {}, parts = (r.split && r.split.parts) || [];
-    if (!parts.length) return json({ error: "还没有分配数据，请刷新后再试" }, 400);
-    const now = Date.now(), d = bjDay(now), total = Math.round((r.split.total || 0) * 100) / 100;
-    const log = (await kv.get("ptn:alloclog", "json")) || [];
-    log.unshift({ t: now, day: d, total, parts: parts.map((x) => ({ n: x.n, p: x.p, a: x.a, amt: x.amt })) });
+    // 按链上实际转账算：先重算一遍，取「上次通知之后」中转地址转给四个地址的 AiLGNS
+    const r = await build(env, kv, ctx), log = (await kv.get("ptn:alloclog", "json")) || [], since = (log[0] && log[0].t) || 0;
+    const r4 = (v) => Math.round(v * 1e4) / 1e4;
+    const parts = (r.alloc || []).map((x) => { const s = ((x.got && x.got.txs) || []).filter((t) => t.t > since).reduce((a, t) => a + t.v, 0); return { n: x.n, p: x.p, a: x.a, ail: r4(s), amt: Math.round(s * (r.price || 0) * 100) / 100 }; });
+    if (!parts.some((x) => x.ail > 0)) return json({ error: "链上还没看到中转地址转给这四个地址的新转账（上次通知之后）。转完等 1 分钟再点" }, 400);
+    const now = Date.now(), d = bjDay(now), tail = r4(parts.reduce((t, x) => t + x.ail, 0)), total = Math.round(parts.reduce((t, x) => t + x.amt, 0) * 100) / 100;
+    log.unshift({ t: now, day: d, total, ail: tail, parts });
     await kv.put("ptn:alloclog", JSON.stringify(log.slice(0, 60)));
     const day = Number(d.slice(5, 7)) + "月" + Number(d.slice(8, 10)) + "日";
-    for (const x of parts) await pushInbox(kv, x.a, "sys", "💼 " + day + " 运营分配已完成\n你的部分：" + x.n + " " + x.p + "% ≈ " + Math.round(x.amt) + " DAI（本次合计 ≈ " + Math.round(total) + " DAI），请查收钱包。", "#/scan/" + x.a).catch(() => {});
-    await pushInbox(kv, OWNER, "sys", "💼 " + day + " 运营分配已标记完成，合计 ≈ " + Math.round(total) + " DAI\n" + parts.map((x) => x.n + " " + x.p + "% ≈ " + Math.round(x.amt) + " DAI").join("\n"), "#/partner").catch(() => {});
+    for (const x of parts) if (x.ail > 0) await pushInbox(kv, x.a, "sys", "💼 " + day + " 运营分配已到账\n你的部分：" + x.n + " " + x.p + "% = " + x.ail + " AiLGNS（≈ " + Math.round(x.amt) + " DAI；本次合计 " + tail + " AiLGNS），请查收钱包。", "#/scan/" + x.a).catch(() => {});
+    await pushInbox(kv, OWNER, "sys", "💼 " + day + " 运营分配已通知，合计 " + tail + " AiLGNS（≈ " + Math.round(total) + " DAI）\n" + parts.map((x) => x.n + " " + x.p + "% = " + x.ail + " AiLGNS").join("\n"), "#/partner").catch(() => {});
     return json({ ok: true, log: log.slice(0, 60) });
   }
   if (b.cfg) {
