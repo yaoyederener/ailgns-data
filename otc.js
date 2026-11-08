@@ -757,18 +757,13 @@
         if (gr) { // 有真实成交数据：直接用最近成交的中间价
           g = mkt * gr;
           var gn = GUIDE[MK].n[side], goff = (gr - 1) * 100;
-          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比 DEX 市价' + (goff >= 0 ? "高 " : "低 ") + Math.abs(goff).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
-            "<p>按本站最近 <b>" + gn + " 笔真实成交</b>的中间价算（每 5 分钟跟着新成交更新）：大家" + (side === "sell" ? "卖" : "买") + " " + SYM + " 一般成交在 DEX 市价的 <b>" + (gr * 100).toFixed(1) + "%</b> 左右。按这个价挂，最容易成交。</p>" +
-            '<p class="muted">' + (side === "sell" ? "想卖得快，可以比指导价再低一点；挂得越高，等的时间越长。" : "想买得快，可以比指导价再高一点；挂得越低，等的时间越长。") + "成交手续费 1% 由吃单方承担。</p>";
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比 DEX 市价' + (goff >= 0 ? "高 " : "低 ") + Math.abs(goff).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>'; // 站长 2026-11-08：只给指导价，解释说明去掉
           document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
           if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
           return;
         }
         var off = (1 - g / mkt) * 100, sellGain = (side === "sell" ? g : g * TAKER) - dexSell, buyGain = dexBuy - (side === "sell" ? g / TAKER : g);
-        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价' + (off >= 0 ? "低 " : "高 ") + Math.abs(off).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
-          "<p>按这个价成交，两边都比去" + DX + " 划算：卖家比在" + DX + " 卖（每枚到手约 " + A.fmt(dexSell, PD) + "）多拿约 <b>" + A.fmt(sellGain, PD) + " DAI</b>；买家比去" + DX + " 买（每枚约 " + A.fmt(dexBuy, PD) + "）省约 <b>" + A.fmt(buyGain, PD) + " DAI</b>（都已算上吃单方 1% 手续费）。</p>" +
-          '<p class="muted">合理区间 ' + A.fmt(lo, PD) + "–" + A.fmt(hi, PD) + "。" + (side === "sell" ? "高于 " + A.fmt(hi, PD) + " 买家直接去 DEX 买更划算，基本卖不掉；想快点卖可以往下调。" : "低于 " + A.fmt(lo, PD) + " 卖家去 DEX 卖更划算，基本买不到；想快点买可以往上调。") + "</p>" +
-          (M.dexNote ? '<p class="muted">' + (M.liveTax && SELL_TAX !== null ? "Anubis 链 DEX 卖出 LGNS 的手续费是动态的，链上实测现在约扣 <b>" + (SELL_TAX * 100).toFixed(1) + "%</b>（每 5 分钟更新）。" : M.dexNote) + " LGNS 在 Anubis 链和 Polygon 链上各有一个市场，价格各自独立。</p>" : "");
+        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价' + (off >= 0 ? "低 " : "高 ") + Math.abs(off).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>'; // 站长 2026-11-08：只给指导价，解释说明去掉
         document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
         if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
       }
