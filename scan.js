@@ -55,6 +55,19 @@
     return s < 60 ? Math.max(1, Math.round(s)) + " 秒前" : s < 3600 ? Math.round(s / 60) + " 分钟前" : s < 86400 ? Math.round(s / 3600) + " 小时前" : Math.round(s / 86400) + " 天前";
   }
 
+  // 官方接口一次最多给 1000 条：满 1000 条就从最后一条的区块接着往后读（2026-11-08 .ailgns 主名字记录满 1000 条，新设名字的钱包不显示名字）
+  function allLogs(addr, topic) {
+    var out = [];
+    function page(from, n) {
+      return viaProxy("/api?module=logs&action=getLogs&fromBlock=" + from + "&toBlock=latest&address=" + addr + "&topic0=" + topic).then(function (d) {
+        var r = d.result || []; out = out.concat(r);
+        if (r.length < 1000 || n >= 40) return { result: out };
+        var last = parseInt(r[r.length - 1].blockNumber, 16);
+        return page(last > from ? last : from + 1, n + 1);
+      });
+    }
+    return page(18161690, 1);
+  }
   // 设过主名字的地址：读两个合约的 PrimaryChanged 记录（官方浏览器接口一次最多 1000 条），5 分钟刷新一次。
   // 只有这些地址才去链上查名字，全站成百上千个地址也不会每个都查
   var T_PRIMARY = "0xcce410882185feecc3dc31bf1f98597f94091d6830a2a5776ef494454c2f4930", cand = null, candAt = 0;
@@ -62,7 +75,7 @@
     if (!cand || Date.now() - candAt > 300000) {
       candAt = Date.now();
       cand = Promise.all(["ailgns", "lgns"].map(function (t) {
-        return viaProxy("/api?module=logs&action=getLogs&fromBlock=18161690&toBlock=latest&address=" + NAMES[t] + "&topic0=" + T_PRIMARY);
+        return allLogs(NAMES[t], T_PRIMARY);
       })).then(function (x) {
         var set = {};
         x.forEach(function (d) { (d.result || []).forEach(function (l) { set["0x" + l.topics[1].slice(26)] = 1; }); });
@@ -79,7 +92,7 @@
     if (!owned || Date.now() - ownedAt > 300000) {
       ownedAt = Date.now();
       owned = Promise.all(["ailgns", "lgns"].map(function (t) {
-        return viaProxy("/api?module=logs&action=getLogs&fromBlock=18161690&toBlock=latest&address=" + NAMES[t] + "&topic0=" + T_XFER).then(function (d) {
+        return allLogs(NAMES[t], T_XFER).then(function (d) {
           var cur = {};
           // 挂在域名市场里的名字（转进托管合约），仍然算挂单人的
           var ESC = { "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e": 1, "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d": 1 };
