@@ -57,7 +57,7 @@
   dw.hidden = true;
   dw.innerHTML = '<div class="dw-mask" data-close></div><aside class="dw-panel" role="dialog" aria-modal="true" aria-label="菜单">' +
     '<div class="dw-head"><div class="dw-top"><img class="hx-logo" src="icons/helix-logo.svg?v=1" alt="HELIX Protocol" width="119" height="40"><button type="button" class="dw-x" data-close aria-label="关闭菜单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
-    '<button type="button" class="dw-wallet" id="dw-wallet"><span class="dw-wi">' + svg("wallet") + '</span><b id="dw-wt">连接钱包</b>' + CHEV + "</button>" +
+    '<button type="button" class="dw-wallet" id="dw-wallet"><span class="dw-wi">' + svg("wallet") + '</span><b id="dw-wt">连接钱包</b>' + CHEV + "</button></div>" + // 站长 2026-11-08：头部到这里结束（以前没关上，列表被包进头部撑出屏幕，菜单滑不动）
     '<div class="dw-body" id="dw-body"></div>' +
     '<p class="dw-foot">AWAKE HELIX 官方认证 AiLGNS OTC 服务站</p></aside>';
   document.body.appendChild(dw);
