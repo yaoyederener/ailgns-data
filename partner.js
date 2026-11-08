@@ -15,11 +15,11 @@
     var lg = j.alloclog || [], td = lg[0] && lg[0].day === j.today ? lg[0] : null;
     var st = '<div class="ptn-ast ' + (td ? "done" : "wait") + '">' + (td ? "<b>✅ 今天已分配</b><span>" + tm(td.t) + " · 合计 ≈ " + fm(td.total, 0) + " DAI</span>" : "<b>⏳ 等待分配</b><span>今天还没标记分配</span>" + (j.canWrite ? '<button type="button" class="nm-go" id="ptn-adone">✅ 我已分配</button>' : "")) + '<small class="muted" id="ptn-ast"></small></div>';
     var hist = lg.length ? '<details class="ptn-ahist"><summary>📜 分配记录（' + lg.length + ' 次）</summary>' + lg.slice(0, 20).map(function (x) { return "<div><b>" + tm(x.t) + "</b> 合计 ≈ " + fm(x.total, 0) + " DAI<small class=\"muted\"> · " + x.parts.map(function (y) { return esc(y.n) + " " + y.p + "% " + fm(y.amt, 0); }).join(" / ") + "</small></div>"; }).join("") + "</details>" : "";
-    return '<h3 class="ad-h">💼 本次分配</h3>' + st + hist + '<h3 class="ad-h">📊 运营分配统计（谷歌社交账号钱包实际转出，Anubis 链累计）</h3><div class="ptn-alloc">' + L.map(function (y) {
+    return '<h3 class="ad-h">💼 本次分配</h3>' + st + hist + '<h3 class="ad-h">📊 运营分配统计（链上实际到账，Anubis 链累计）</h3><div class="ptn-alloc">' + L.map(function (y) {
       var g = y.got || {}, real = tot ? Math.round(g.value / tot * 1000) / 10 : 0;
       return '<div class="ptn-al"><div class="ptn-alh"><b>' + esc(y.n) + " " + y.p + '%</b><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + " →</a></div>" +
         (g.err ? '<p class="muted">读取失败，稍后刷新</p>' : '<div class="ptn-alv"><span>已转 <b>' + fm(g.value || 0, 0) + " DAI</b></span><span>实际占比 <b" + (tot && Math.abs(real - y.p) > 5 ? ' class="warn"' : "") + ">" + real + "%</b></span><span>" + (g.n || 0) + " 笔</span></div>" +
-        '<small class="muted">DAI ' + fm(g.dai || 0, 2) + " + AiLGNS " + fm(g.ail || 0, 4) + "（按现价折算）" + (g.last ? " · 最近 " + tm(g.last) : "") + "</small>") + "</div>";
+        '<small class="muted">DAI ' + fm(g.dai || 0, 2) + " + AiLGNS " + fm(g.ail || 0, 4) + "（按现价折算）" + (g.last ? " · 最近 " + tm(g.last) : "") + "</small>" + ((g.txs || []).length ? '<div class="ptn-atx">' + g.txs.map(function (x) { return '<a href="#/scan/' + x.h + '"><span>' + tm(x.t) + "</span><b>" + fm(x.v, 4) + " " + x.tk + "</b><small>" + esc(x.from) + " · 查看转账 →</small></a>"; }).join("") + "</div>" : "")) + "</div>";
     }).join("") + '<p class="muted">四个地址合计已转 ≈ <b>' + fm(tot, 0) + ' DAI</b>。「实际占比」和设定比例差 5% 以上会标红。</p></div>';
   }
   function login(rid, msg) {
