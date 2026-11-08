@@ -2995,3 +2995,8 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .modal-box .sw-get { flex-wrap: wrap; overflow-wrap: anywhere; }
 .done-tip { margin: 0; padding: 10px 12px; border-radius: 12px; background: #f5f3ff; border: 1px solid #ddd6fe; color: #5b21b6; font-size: 15px; font-weight: 700; text-align: center; } /* 成交弹窗提醒：涡轮之后来 OTC */
 .cb-hi { display: inline-block; margin: 8px 0 4px; padding: 8px 14px; border-radius: 999px; background: #6d28d9; color: #fff !important; font-weight: 700; text-decoration: none; } /* 客服开场：加群按钮 */
+/* 站长 2026-11-08：手机挂单簿「认证标志 + 名字」放同一行，省版面（覆盖上面上下两行的写法） */
+@media (max-width: 760px) {
+  table.book td[data-l="挂单人"], table.cards.book td:nth-child(7) { flex-direction: row !important; flex-wrap: wrap !important; align-items: center !important; gap: 4px 6px !important; }
+  table.book td[data-l="挂单人"] .cred, table.cards.book td:nth-child(7) .cred { order: -1; margin: 0 !important; }
+}
