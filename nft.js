@@ -160,7 +160,9 @@
     html += '<p class="note">🎁 成交后到「会员」页填这个钱包地址点「查询」，会员就能用。</p>';
     html += '<p class="note">成交手续费为成交价的 3%，由买家在成交价之外另付，卖家拿到完整标价；挂单、撤单、到期退回都不收费。卡牌合约由官方控制：已装配（锁定）的卡不能挂单；官方关闭转账期间，托管中的卡要等重新开放才能取回或成交。本站只提供链上托管撮合，价格由买卖双方自行决定。智能合约未经第三方审计，请先小额试用。</p>';
     html += '<div class="modal" id="otc-modal" hidden></div>';
+    html += '<div id="nft-oq-park" hidden></div>'; // 站长 2026-11-08：NFT 页不显示「查我的订单」条（和顶部「查询订单」重复）；先收进隐藏槽，切回 AiLGNS 时 placeTabs 会搬出来
     app.innerHTML = html;
+    try { var oqEl = document.getElementById("oq"), park = document.getElementById("nft-oq-park"); if (oqEl && park) park.appendChild(oqEl); } catch (e) {}
     A.fillNames(app);
     bind(id, orders);
     if (A.fillTotals) A.fillTotals();
@@ -193,7 +195,7 @@
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
     function goTo(el) { if (el && !el.hidden) el.scrollIntoView({ behavior: "smooth", block: "start" }); return el; }
     var nb = app.querySelector("[data-gonsw]"); if (nb) nb.onclick = function () { goTo(document.getElementById("nft-sweep")); };
-    var qb = app.querySelector("[data-gooq]"); if (qb) qb.onclick = function () { var q = document.getElementById("oq"); if (q && !q.hidden) { goTo(q); var i = q.querySelector("input"); if (i) setTimeout(function () { try { i.focus({ preventScroll: true }); } catch (e) {} }, 400); } else goTo(document.getElementById("otc-mine") || document.getElementById("otc-form")); };
+    var qb = app.querySelector("[data-gooq]"); if (qb) qb.onclick = function () { goTo(document.getElementById("otc-mine") || document.getElementById("otc-form")); };
     var tc = document.getElementById("otc-top-c");
     if (tc) tc.onclick = function () { k.connect().then(reload, function (e) { say(niceError(e), true); }); };
     app.querySelectorAll(".book-more").forEach(function (b) {
