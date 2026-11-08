@@ -3005,3 +3005,12 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .or-pays { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; background: #f5f3ff; border: 1px solid #ddd6fe; display: grid; gap: 6px; font-size: 13.5px; }
 .or-pay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-top: 6px; border-top: 1px dashed #e4dcff; }
 .or-pay span:first-child { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; } .or-pay small { color: #6b7280; } .or-pay a { font-weight: 700; white-space: nowrap; }
+
+.sc-pays{border:2px solid #f5c542;background:linear-gradient(180deg,#fffbea,#f6f0ff)}
+.sc-pay{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px dashed #e5dcf7}
+.sc-pay:first-child{border-top:0}
+.sc-pay>div{display:flex;flex-direction:column;min-width:0}
+.sc-pay>div b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sc-payr{align-items:flex-end;text-align:right;white-space:nowrap}
+.sc-payr b{color:#6d28d9}
+.sc-payr a{font-size:12px}

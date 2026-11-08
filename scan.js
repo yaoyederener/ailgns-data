@@ -619,7 +619,16 @@
     // 顺序：查订单（带分类）或查自己的钱包时，「正在进行中」紧跟在钱包信息后面，一打开就看到；查别人才先看留言
     var mine = A.otcKit && A.otcKit.account && A.otcKit.account() === a;
     // 站长 2026-11-06 定（白居易原则：大爷大妈一眼看懂）：先看有多少钱 → 在本站有什么事（挂单/到期/借贷）→ 钱去了哪里 → 域名 → 留言
-    out.innerHTML = ["head", "bal", "pos", "hist", "names", "msg"].map(function (k) { return S[k]; }).join("");
+    if (a === C.pool) S.pays = '<section class="card sc-pays"><div class="card-head"><h2>💸 发放记录</h2><span class="muted">奖金从这个钱包发出 · 链上可查</span></div><div id="sc-pays">' + wait + '</div></section>';
+    out.innerHTML = ["head", "bal", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
+    if (S.pays) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
+      var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" }, box = document.getElementById("sc-pays"); if (!box) return;
+      var l = (j.pays || []).slice().sort(function (x, y) { return x.day < y.day ? 1 : x.day > y.day ? -1 : 0; });
+      box.innerHTML = l.length ? l.map(function (x) {
+        return '<div class="sc-pay"><div><small class="muted">' + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + "</small><b>" + esc(x.name) + '</b></div><div class="sc-payr"><b>' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : Number(x.amt).toFixed(2) + " DAI") + "</b><small class=\"muted\">≈ " + Number(x.amt || 0).toFixed(2) + " DAI</small>" +
+          (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : "") + "</div></div>";
+      }).join("") : '<p class="muted">最近 14 天还没有发奖</p>';
+    }).catch(function () { var b = document.getElementById("sc-pays"); if (b) b.innerHTML = '<p class="muted">发放记录暂时读不到，稍后刷新</p>'; });
     var cpb = out.querySelector(".sc-copy"); if (cpb) cpb.onclick = function () { try { navigator.clipboard.writeText(a); } catch (e) {} cpb.textContent = "已复制"; };
     var el = function (id) { return document.getElementById(id); };
     nameOf(a).then(function (primary) {
