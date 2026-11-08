@@ -467,7 +467,7 @@
     var box = document.createElement("div");
     box.className = "modal";
     box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + title + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + html +
-      (extra || "") + '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/scan/' + account + '" data-close>📜 查看我的交易记录</a></div>';
+      (extra || "") + '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/scan/' + account + '/otc" data-close>📋 查我的订单</a><p class="note" style="text-align:center">以后在页面上方「📋 查我的订单」填钱包地址点「查询」就能看</p></div>';
     document.body.appendChild(box);
     box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
     return box;
@@ -477,8 +477,9 @@
     if (A.just) A.just.set("otc", MK || "");
     var box = document.createElement("div");
     box.className = "modal";
-    var mine = '<button type="button" class="gm-big" data-seemine>📋 查看我的挂单</button><p class="note" style="text-align:center">以后也可以点页面上方紫色的「📋 我的挂单」找到它</p>' +
-      (account ? '<a class="gm-big alt" href="#/scan/' + account + '" data-close>📜 查看我的交易记录</a>' : "");
+    // 站长 2026-11-08：下单后第一时间引导客户去「查我的订单」（和页面上方查订单条查出来的是同一页）
+    var mine = (account ? '<a class="gm-big" href="#/scan/' + account + '/otc" data-close>📋 查我的订单</a>' : "") +
+      '<button type="button" class="gm-big alt" data-seemine>看页面上的「我的挂单」</button><p class="note" style="text-align:center">以后在页面上方「📋 查我的订单」填钱包地址点「查询」，随时能看这张单的状态</p>';
     if (!dbx || !dbx.ready || dbx.bound || !account) {
       box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine + "</div>";
     } else box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>✅ 挂单成功！</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + mine +
