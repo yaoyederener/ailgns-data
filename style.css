@@ -3028,3 +3028,4 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .nm-rar.t2{background:linear-gradient(90deg,#e0e7ff,#ede9fe);color:#4338ca;box-shadow:0 0 0 1.5px #a5b4fc}
 .nm-rar.t1{background:#f5f3ff;color:#6d28d9;box-shadow:0 0 0 1.5px #ddd6fe}
 .nm-my-t .nm-rar{align-self:flex-start}
+.nm-my-t .nm-rar b{font-size:13.5px!important;line-height:1.3}.nm-my-t .nm-rar small{font-size:12px!important;margin:0!important;color:inherit!important}
