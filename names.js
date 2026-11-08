@@ -12,6 +12,28 @@
   var GENESIS = 10000; // 前 1 万个付费注册的名字是「创世域名」，按链上注册顺序编号
  var T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
   // 创世徽章：和会员勋章同一种做法（渐变圆章 + 虚线内圈 + 白色图案），站点紫色，中间一颗星
+  // 💎 稀有度（站长 2026-11-08 定）：只看名字本身，人人都珍贵，没有「普通」档
+  function rarity(l) {
+    l = String(l || "").toLowerCase(); var c = Array.from(l), n = c.length, d = /^\d+$/.test(l), han = /^[一-鿿]+$/.test(l);
+    var same = n > 1 && c.every(function (x) { return x === c[0]; }), pal = n >= 3 && c.slice().reverse().join("") === l, seq = false;
+    if (d && n >= 3) { var up = true, dn = true; for (var i = 1; i < n; i++) { var k = +c[i] - +c[i - 1]; if (k !== 1) up = false; if (k !== -1) dn = false; } seq = up || dn; }
+    if (n === 1) return [4, han ? "单个汉字，一字千金" : "只有 1 个字符，全站屈指可数"];
+    if (d && same) return [4, n + " 位同号，独一无二"];
+    if (n === 2) return [3, "只有 2 个字符，极为罕见"];
+    if (d && /^(520|1314|5201314|168|1688|518|666|888|999|6868|8686|9898|8899|6688)$/.test(l)) return [3, "吉祥号，寓意满满"];
+    if (d && n === 3) return [3, "3 位数字号，全站只有 1000 个"];
+    if (d && seq) return [3, "顺子号，步步高升"];
+    if (d && n === 4 && (/^(\d)\1(\d)\2$/.test(l) || /^(\d)(\d)\1\2$/.test(l) || pal)) return [3, "4 位对子 / 回文号，非常抢手"];
+    if (d && n === 4) return [2, "4 位数字号，全站只有 1 万个"];
+    if (d && /^[689]+$/.test(l)) return [2, "全是 6、8、9 吉利数字"];
+    if (n === 3) return [2, "只有 3 个字符，短而好记"];
+    if (han && n === 4) return [2, "四字好名，寓意吉祥"];
+    if (d && pal) return [2, "回文号，正读反读都一样"];
+    return [1, "独一无二，全网只此一个"];
+  }
+  var RAR = { 4: "🐉 传承一亿年", 3: "💎 绝世罕见", 2: "🌟 稀有", 1: "💠 珍藏" };
+  function rarTag(l) { var r = rarity(l); return '<span class="nm-rar t' + r[0] + '"><b>' + RAR[r[0]] + "</b><small>" + r[1] + "</small></span>"; }
+  A.rarity = rarity;
   function genEmblem(s) {
     var rays = "";
     for (var i = 0; i < 24; i++) { var a = i * 15, w = i % 2 ? 2.2 : 3.4, h = i % 2 ? 7 : 10; rays += '<rect x="' + (32 - w / 2) + '" y="1" width="' + w + '" height="' + h + '" rx="1" fill="url(#gnRay)" transform="rotate(' + a + ' 32 32)"/>'; }
@@ -465,7 +487,7 @@
           return gP.then(function (g) {
             var no = anon ? 0 : g[id], href = "#/names/" + encodeURIComponent(full);
             o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
-              '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : "") +
+              '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : "") + rarTag(label) +
               "<small>" + (anon ? "🔒 持有人选择匿名" : sale ? "🛒 正在域名市场出售，点开可以买" : "主人 " + A.nameTag(owner)) + "</small></span></a>" +
               (account && owner === account ? '<span class="nm-my-btns">' + giveBtn(t, id, full) + "</span>" : "") + "</div>" +
               (anon || sale ? "" : '<p class="muted" style="word-break:break-all">指向地址：<span class="mono">' + ad + "</span></p>");
@@ -505,13 +527,13 @@
         if (my !== showSeq) return; // 已经换了别的名字，这个结果作废
         // .lgns 暂停新注册（站长决定先只开放 .ailgns）；已注册的老名字照常显示、续费、转赠、改指向
         if (r.free && TLD === "lgns") { out.innerHTML = '<p class="muted">.lgns 暂不开放注册，<a href="#/names/' + encodeURIComponent(v) + '.ailgns">看看 ' + esc(v) + '.ailgns →</a></p>'; return; }
-        if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + buy; bindBuy(v); return; }
+        if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + rarTag(v) + buy; bindBuy(v); return; }
         var mine = account && r.owner === account, now = Date.now() / 1000;
         var anon = !mine && (PROTECT[r.owner] || PROTECT[r.addr] || (A.hiddenNames || {})[v + "." + TLD]); // 匿名持有人：不显示地址、编号
         var onSale = r.owner && r.owner === OTC[TLD];
         out.innerHTML = (onSale ? '<div class="nm-sale" id="nm-sale"><p class="muted">🛒 这个名字正在市场出售，读取价格中…</p></div>' : "") + '<p class="nm-bad"><b>' + esc(v) + "." + TLD + "</b> 已被注册</p>" +
           '<dl class="nm-dl"><dt>指向地址</dt><dd class="mono">' + (anon ? "🔒 匿名" : onSale ? "🛒 域名市场托管中（挂单出售）" : r.addr !== ZERO ? r.addr : "—") + "</dd><dt>主人</dt><dd class=\"mono\">" + (anon ? "🔒 匿名持有人" : onSale ? "🛒 域名市场托管中，卖出后直接过户给买家" : r.owner || "已过期（宽限期中）") + "</dd><dt>到期</dt><dd>" + date(r.exp) + (r.exp < now ? "（宽限期到 " + date(r.exp + 90 * 86400) + "）" : "") + "</dd></dl>" +
-          '<p class="nm-gen" id="nm-gen"></p>' + (onSale ? "" : mine ? renewBox(v, r.exp) : '<div class="nm-taken">❌ <b>' + esc(v + "." + TLD) + '</b> 已经被别人注册了，<b>不能注册</b>。请换一个名字。</div><details class="nm-rdet"><summary>我是持有人的朋友，要帮他续费（名字不会变成你的）</summary>' + renewBox(v, r.exp) + '</details>') + '<p class="muted nm-st" id="nm-st"></p>' +
+          rarTag(v) + '<p class="nm-gen" id="nm-gen"></p>' + (onSale ? "" : mine ? renewBox(v, r.exp) : '<div class="nm-taken">❌ <b>' + esc(v + "." + TLD) + '</b> 已经被别人注册了，<b>不能注册</b>。请换一个名字。</div><details class="nm-rdet"><summary>我是持有人的朋友，要帮他续费（名字不会变成你的）</summary>' + renewBox(v, r.exp) + '</details>') + '<p class="muted nm-st" id="nm-st"></p>' +
           (mine ? '<div id="nm-next"></div>' : anon ? "" : '<div id="nm-next"></div><a class="nm-scan" href="#/scan/' + encodeURIComponent(v + "." + TLD) + '">🔎 链上查询这个名字 →</a>') +
           (mine ? '<div class="nm-act"><button type="button" id="nm-set">改指向地址</button>' + (OTC[TLD] && TLD === "ailgns" ? '<button type="button" id="nm-sell">挂到市场卖</button>' : "") + "</div>" : "");
         var st = document.getElementById("nm-st"), say = function (t) { st.textContent = t; };

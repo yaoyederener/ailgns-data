@@ -3019,3 +3019,12 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .or-cdlast .or-pays>b{color:#6d28d9}
 #mkt-top .mkt-tabs a{padding:9px 4px} /* 站长 2026-11-08：币种导航稍微高一点 */
 @media (max-width:640px){#mkt-top .mkt-tabs a{padding:8px 4px}}
+
+/* 💎 域名稀有度（2026-11-08） */
+.nm-rar{display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px 8px;margin:4px 0;padding:4px 12px;border-radius:999px;font-style:normal;line-height:1.3;max-width:100%}
+.nm-rar b{font-size:13.5px;font-weight:800;white-space:nowrap}.nm-rar small{font-size:12px;opacity:.85}
+.nm-rar.t4{background:linear-gradient(90deg,#fde68a,#f59e0b,#fbbf24);color:#5b3a00;box-shadow:0 0 0 2px #fcd34d,0 4px 14px rgba(245,158,11,.35)}
+.nm-rar.t3{background:linear-gradient(90deg,#ede9fe,#f5d0fe);color:#6b21a8;box-shadow:0 0 0 1.5px #c084fc}
+.nm-rar.t2{background:linear-gradient(90deg,#e0e7ff,#ede9fe);color:#4338ca;box-shadow:0 0 0 1.5px #a5b4fc}
+.nm-rar.t1{background:#f5f3ff;color:#6d28d9;box-shadow:0 0 0 1.5px #ddd6fe}
+.nm-my-t .nm-rar{align-self:flex-start}
