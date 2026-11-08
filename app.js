@@ -531,6 +531,7 @@
     });
     tip.style.display = "none";
     window.scrollTo(0, 0);
+    var mkTop = document.getElementById("mkt-top"); if (mkTop && tab !== "otc") mkTop.innerHTML = ""; // 币种切换条只在 OTC 页显示
     guide(tab, parts);
     orderBar(tab);
     if (extra[tab]) extra[tab](id, a);

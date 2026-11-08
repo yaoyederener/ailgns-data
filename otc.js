@@ -336,6 +336,8 @@
   }
 
   // 市场切换：AiLGNS · LGNS（Anubis）· LGNS（Polygon）
+  // 币种切换放到页面最顶上（引导卡上面）：站长 2026-11-08 看手机截图定的，点进 OTC 第一眼就选币种
+  function placeTabs() { var slot = document.getElementById("mkt-top"); if (slot) slot.innerHTML = marketTabs(); return ""; }
   function marketTabs() {
     var BADGE = { ailgns: "🔥 热", lgns: "🔥 热", nft: "抢" }; // 成交量最大的两个挂「热」，NFT 卡牌挂「抢」
     var tab = function (k) { var m = MARKETS[k]; return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + ">" + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
@@ -496,7 +498,7 @@
     if (sub === "split") return renderSplit(id);
     if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
     if (!OTC) {
-      app.innerHTML = marketTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
+      app.innerHTML = placeTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
         '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
@@ -504,7 +506,7 @@
     var snap = savedBook(), shown = null, fresh = freshNext;
     freshNext = false;
     if (snap) { draw(id, snap.orders, snap.mkt); shown = snap.raw; }
-    else app.innerHTML = marketTabs() + '<div class="loading">正在读取订单…</div>';
+    else app.innerHTML = placeTabs() + '<div class="loading">正在读取订单…</div>';
     var acct0 = account;
     Promise.all([loadBook(fresh), silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
@@ -514,7 +516,7 @@
       if (shown !== null && busy()) return;
       draw(id, b.orders, b.mkt);
     }, function () {
-      if (A.isCurrent(id) && shown === null) app.innerHTML = marketTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
+      if (A.isCurrent(id) && shown === null) app.innerHTML = placeTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
     });
     function busy() {
       var m = document.getElementById("otc-modal");
@@ -557,7 +559,7 @@
       var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = marketTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
+      var html = placeTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
