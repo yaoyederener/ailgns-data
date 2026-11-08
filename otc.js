@@ -329,7 +329,7 @@
       '<span class="pill">智能合约担保 · 无需信任 · 无需许可</span>' +
       '<h1>AiLGNS <span class="grad">OTC</span></h1>' +
       '<p>AiLGNS ⇄ DAI 场外交易。币锁在合约里，付款和收币一笔完成，到期没成交自动退回（有效期 10 分钟到 30 天自选）。</p>' +
-      '<div class="hero-promo"><span class="hp-tag">🎁 交易就送会员</span><span>单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计成交满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span></div>' +
+      '<div class="hero-promo"><a class="hp-tag" href="#/member" style="text-decoration:none">🎁 交易就送会员</a><span>单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计成交满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span></div>' +
       '<div class="hero-cta"><button data-go="sell">我要卖 AiLGNS</button><button class="ghost" data-go="buy">我要买 AiLGNS</button></div>' +
       '<div class="hero-stats"><div><span>AiLGNS 市价</span><b>' + (mkt ? A.fmt(mkt, 2) : "—") + ' <small>DAI</small></b></div>' +
       "<div><span>挂单中</span><b>" + (live === null ? "—" : live) + " <small>张</small></b></div><div><span>成交手续费</span><b>1%</b></div></div></div>" + HERO_ART + "</section>";
@@ -569,11 +569,11 @@
       var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = placeTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button><span class="ot-txt">单笔成交满 50 DAI 送<b>初级 VIP</b> · 累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b> · 累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
+      var html = placeTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button>' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
         (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
-      html += '<div id="otc-guide-slot"></div>'; // 站长 2026-11-08：担保交易引导卡 + 查我的订单 放在土豪扫单下面
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
+      html += '<div id="otc-guide-slot"></div>'; // 站长 2026-11-08：客户进来先看币种和挂单簿，担保交易引导卡 + 查我的订单 放在挂单簿下面
       fetch("/api/saved" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
         var el = document.getElementById("saved-bar"); if (!el || !j.all || !(j.all.dai > 0)) return;
         el.hidden = false; el.innerHTML = '<span>💚 本站客户累计比 DEX <b>多赚 ' + A.fmt(j.all.dai, 0) + ' DAI</b>（' + j.all.n + ' 笔）</span>' + (j.me && j.me.dai > 0 ? '<span class="saved-me">你多赚 <b>' + A.fmt(j.me.dai, 2) + ' DAI</b></span>' : '<span class="muted">卖币先来这里，每一单都比 DEX 划算</span>');
