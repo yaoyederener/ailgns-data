@@ -943,7 +943,7 @@
     // ---------- 土豪扫单：按价格从优到差一口气吃下挂单簿的一部分，滑块选扫多少（按 DAI 金额占全部挂单的百分比），实时算均价 ----------
     var SW_CAP = 9000; // 一键扫单最多扫全部挂单的 90%：别人同时在吃的单会让整笔扫单失败（客户反馈），留 10% 余量
     function sweepHtml() {
-      return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>💰 土豪扫单</h2><span class="muted">按价格从优到差，一次吃下多张单</span></div>' +
+      return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>一键扫单</h2><span class="muted">按价格从优到差，一次吃下多张单</span></div>' +
         '<div class="sw-side"><button type="button" data-sw="buy" class="on">扫卖单 · 买入 ' + SYM + '</button><button type="button" data-sw="sell">扫买单 · 卖出 ' + SYM + "</button></div>" +
         '<div class="sw-pct"><b id="sw-pv">90%</b><input type="range" id="sw-r" min="1" max="9000" value="9000" step="1" aria-label="扫单比例"></div>' +
         '<div class="sw-quick">' + [10, 20, 30, 50, 90].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +

@@ -1301,8 +1301,8 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sw-pnl b { font-size: 24px; }
 .sweep .sw-get { background: #f5f3ff; border: 1px solid #ddd6fe; color: #3b0764; box-shadow: none; }
 .sweep .sw-get b { font-size: 24px; }
-.sweep .sw-go { background: #1677ff !important; color: #fff !important; border: 0; box-shadow: 0 6px 16px rgba(22, 119, 255, .32); } /* 支付宝式付款蓝：国内用户最熟悉、看着舒服 */
-.sweep .sw-go:disabled { background: #91caff !important; box-shadow: none; }
+.sweep .sw-go { background: #6d28d9 !important; color: #fff !important; border: 0; box-shadow: 0 6px 16px rgba(109, 40, 217, .3); } /* 站长 2026-11-08：付款蓝和下方统计重复，改成本站紫 */
+.sweep .sw-go:disabled { background: #c4b5fd !important; box-shadow: none; }
 .gm-big { text-align: center; text-decoration: none; box-sizing: border-box; }
 .gm-big.alt { background: #fff; color: #5b21b6; border: 1.5px solid #c4b5fd; font-size: 16px; padding: 12px; }
 .note.down { color: var(--down); font-weight: 700; }
