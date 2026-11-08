@@ -3039,3 +3039,9 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
   .or-pbig em.or-pdai>i,.or-pbig em.or-pdai>span{background:linear-gradient(90deg,#7c5cff,#5a35d6);-webkit-background-clip:text;background-clip:text;color:transparent}
   .or-pbig em.or-pdai>i::before{content:"≈ ";font-size:.55em;color:#9a8acc;-webkit-text-fill-color:#9a8acc}
 }
+
+/* 📣 站长发站内信 */
+.ntf-l{display:block;margin:12px 0 4px;font-weight:700;font-size:14px}
+#ntf-to,#ntf-msg,#ntf-link{width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd6fe;border-radius:10px;font:inherit;font-size:14px}
+#ntf-go{margin-top:12px;width:100%}
+.ntf-log{padding:8px 0;border-top:1px dashed #e5dcf7}.ntf-log p{margin:4px 0;white-space:pre-wrap}

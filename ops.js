@@ -13,7 +13,7 @@
     inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
   }
   function nav(cur) {
-    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb on">🛠️ 网站优化</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
+    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb' + (cur === "ops" ? " on" : "") + '">🛠️ 网站优化</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
   }
   function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
   function render(rid, j) {
@@ -49,4 +49,40 @@
     }, function (e) { if (A.isCurrent(rid)) A.app.innerHTML = '<section class="card"><p class="nm-bad">读取失败：' + esc(e.message || e) + "</p></section>"; });
   }
   A.pages.ops = function (rid) { load(rid); };
+  // 📣 站长给指定地址发站内信（2026-11-08）
+  function tm2(t) { var d = new Date(t + 8 * 3600e3); return d.toISOString().slice(5, 16).replace("T", " "); }
+  function logHtml(log) {
+    if (!log || !log.length) return '<p class="muted">还没发过</p>';
+    return log.map(function (x) { return '<div class="ntf-log"><small class="muted">' + tm2(x.t) + " · 发给 " + x.to.length + " 个地址</small><p>" + esc(x.msg) + '</p><small class="mono muted">' + x.to.map(function (a) { return a.slice(0, 6) + "…" + a.slice(-4); }).join("、") + "</small></div>"; }).join("");
+  }
+  A.pages.notify = function (rid) {
+    var k = key(); if (!k) return login(rid);
+    A.app.innerHTML = '<section class="card ops"><div class="card-head"><h2>📣 发站内信</h2><span class="muted">只有站长能用</span></div>' + nav("notify") +
+      '<label class="ntf-l">发给谁（钱包地址，一行一个，最多 50 个）</label><textarea id="ntf-to" rows="4" placeholder="0x…&#10;0x…"></textarea>' +
+      '<label class="ntf-l">内容（1200 字以内）</label><textarea id="ntf-msg" rows="5" maxlength="1200" placeholder="比如：恭喜你获得本周贡献王，奖金已发到你的钱包，请查收 💜"></textarea>' +
+      '<label class="ntf-l">点开跳到哪一页（可不填）</label><input id="ntf-link" placeholder="#/oracle">' +
+      '<button type="button" class="nm-go" id="ntf-go">发送</button><p id="ntf-st" class="muted"></p>' +
+      '<h3 class="ad-h">🗂 发送记录</h3><div id="ntf-log"><p class="muted">读取中…</p></div>' +
+      '<p class="muted ptn-note">对方会在「📬 收件箱」看到，标题是「📣 站长通知」；开了通知的手机、电脑会弹提醒。</p></section>';
+    var post = function (o) { o.key = k; return fetch("/api/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
+    post({ action: "adminlog" }).then(function (j) {
+      if (!A.isCurrent(rid)) return;
+      if (j.error && /口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, j.error); }
+      document.getElementById("ntf-log").innerHTML = j.error ? '<p class="nm-bad">' + esc(j.error) + "</p>" : logHtml(j.log);
+    }, function () {});
+    document.getElementById("ntf-go").onclick = function () {
+      var b = this, st = document.getElementById("ntf-st"), to = document.getElementById("ntf-to").value, msg = document.getElementById("ntf-msg").value.trim(), link = document.getElementById("ntf-link").value.trim();
+      var n = (to.toLowerCase().match(/0x[0-9a-f]{40}/g) || []).length;
+      if (!n) { st.textContent = "❌ 没找到有效地址"; return; }
+      if (msg.length < 2) { st.textContent = "❌ 内容太短"; return; }
+      if (!confirm("确定发给 " + n + " 个地址？")) return;
+      b.disabled = true; st.textContent = "发送中…";
+      post({ action: "admin", to: to, msg: msg, link: link }).then(function (j) {
+        b.disabled = false;
+        if (j.error) { st.textContent = "❌ " + j.error; return; }
+        st.textContent = "✅ 已发给 " + j.n + " 个地址"; document.getElementById("ntf-msg").value = "";
+        document.getElementById("ntf-log").innerHTML = logHtml(j.log);
+      }, function (e) { b.disabled = false; st.textContent = "❌ 发送失败：" + (e.message || e); });
+    };
+  };
 })();
