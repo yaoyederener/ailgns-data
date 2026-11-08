@@ -3045,3 +3045,4 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 #ntf-to,#ntf-msg,#ntf-link{width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd6fe;border-radius:10px;font:inherit;font-size:14px}
 #ntf-go{margin-top:12px;width:100%}
 .ntf-log{padding:8px 0;border-top:1px dashed #e5dcf7}.ntf-log p{margin:4px 0;white-space:pre-wrap}
+#ntf-all{margin-top:6px;font-size:13px}

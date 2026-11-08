@@ -59,6 +59,7 @@
     var k = key(); if (!k) return login(rid);
     A.app.innerHTML = '<section class="card ops"><div class="card-head"><h2>📣 发站内信</h2><span class="muted">只有站长能用</span></div>' + nav("notify") +
       '<label class="ntf-l">发给谁（钱包地址，一行一个，最多 50 个）</label><textarea id="ntf-to" rows="4" placeholder="0x…&#10;0x…"></textarea>' +
+      '<button type="button" class="link" id="ntf-all">＋ 填入「全部 OTC 商户」（✔ 认证商家及以上，按本周名单）</button>' +
       '<label class="ntf-l">内容（1200 字以内）</label><textarea id="ntf-msg" rows="5" maxlength="1200" placeholder="比如：恭喜你获得本周贡献王，奖金已发到你的钱包，请查收 💜"></textarea>' +
       '<label class="ntf-l">点开跳到哪一页（可不填）</label><input id="ntf-link" placeholder="#/oracle">' +
       '<button type="button" class="nm-go" id="ntf-go">发送</button><p id="ntf-st" class="muted"></p>' +
@@ -70,12 +71,13 @@
       if (j.error && /口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, j.error); }
       document.getElementById("ntf-log").innerHTML = j.error ? '<p class="nm-bad">' + esc(j.error) + "</p>" : logHtml(j.log);
     }, function () {});
+    document.getElementById("ntf-all").onclick = function () { var t = document.getElementById("ntf-to"); if (!/@商户/.test(t.value)) t.value = "@商户" + (t.value.trim() ? "\n" + t.value.trim() : ""); };
     document.getElementById("ntf-go").onclick = function () {
       var b = this, st = document.getElementById("ntf-st"), to = document.getElementById("ntf-to").value, msg = document.getElementById("ntf-msg").value.trim(), link = document.getElementById("ntf-link").value.trim();
-      var n = (to.toLowerCase().match(/0x[0-9a-f]{40}/g) || []).length;
-      if (!n) { st.textContent = "❌ 没找到有效地址"; return; }
+      var n = (to.toLowerCase().match(/0x[0-9a-f]{40}/g) || []).length, all = /@商户/.test(to);
+      if (!n && !all) { st.textContent = "❌ 没找到有效地址"; return; }
       if (msg.length < 2) { st.textContent = "❌ 内容太短"; return; }
-      if (!confirm("确定发给 " + n + " 个地址？")) return;
+      if (!confirm(all ? "确定发给全部 OTC 商户" + (n ? "（再加 " + n + " 个地址）" : "") + "？" : "确定发给 " + n + " 个地址？")) return;
       b.disabled = true; st.textContent = "发送中…";
       post({ action: "admin", to: to, msg: msg, link: link }).then(function (j) {
         b.disabled = false;

@@ -3,6 +3,7 @@
 //   POST { a, ts, sig, action: "seen" } → 全部标为已读
 import { recoverAddress } from "../../lib/evmsig.js";
 import { inboxText, AUTH_TTL, pushInbox } from "../../lib/inbox.js";
+import { ensureWeek } from "../../lib/cred.js";
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 function auth(a, ts, sig) {
   a = String(a || "").toLowerCase(); ts = Number(ts);
@@ -41,10 +42,12 @@ export async function onRequestPost(ctx) {
     if (!k || !((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY))) return json({ error: "口令不对" }, 403);
     const log = (await kv.get("ib:adminlog", "json")) || [];
     if (b.action === "adminlog") return json({ log });
-    const to = [...new Set((String(b.to || "").toLowerCase().match(/0x[0-9a-f]{40}/g) || []))];
+    // 「@商户」= 本周全部 OTC 商户（✔ 认证商家及以上，名单按 lib/cred.js 每周一轮换）
+    let to = [...new Set((String(b.to || "").toLowerCase().match(/0x[0-9a-f]{40}/g) || []))], max = 50;
+    if (/@商户/.test(String(b.to || ""))) { const w = await ensureWeek(kv); to = [...new Set(to.concat(Object.keys(w.lv || {}).filter((x) => w.lv[x] >= 2)))]; max = 120; }
     const msg = String(b.msg || "").trim().slice(0, 1200);
     if (!to.length) return json({ error: "没找到有效的钱包地址（0x 开头 42 位）" }, 400);
-    if (to.length > 50) return json({ error: "一次最多发 50 个地址" }, 400);
+    if (to.length > max) return json({ error: "一次最多发 " + max + " 个地址" }, 400);
     if (msg.length < 2) return json({ error: "内容太短" }, 400);
     const link = /^#\/[\w\/.%-]{0,80}$/.test(String(b.link || "")) ? String(b.link) : "";
     for (const x of to) await pushInbox(kv, x, "sys", "📣 站长通知\n" + msg, link);
