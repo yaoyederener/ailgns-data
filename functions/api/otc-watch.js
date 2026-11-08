@@ -393,6 +393,13 @@ export async function onRequestGet(ctx) {
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&from=区块：只看消息内容，不发送、不记进度（测试用）
   // ppdry=1：预览现在有哪些低于市价的挂单、推送文字长什么样（不发送）
   if (url.searchParams.get("ppdry") === "1") return Response.json(await Promise.all(MARKETS.map((m) => pushDeals(m, ctx.env, kv, false).then((r) => ({ market: m.key, ...r }), (e) => ({ market: m.key, err: String(e.message || e) })))));
+  // grouptest=1&key=BACKUP_KEY：逐个群发一条测试消息，返回 DeBox 的原始回复（排查哪个群收不到用；站长 2026-11-08）
+  if (url.searchParams.get("grouptest") === "1") {
+    const k = url.searchParams.get("key"); if (!k || !((ctx.env.FEEDBACK_KEY && k === ctx.env.FEEDBACK_KEY) || (ctx.env.BACKUP_KEY && k === ctx.env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
+    const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean), r = {};
+    for (const g of gids) r[g] = await sendDebox(ctx.env, g, "🔧 播报线路测试 · 群 " + g + " · " + new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 16) + "（北京时间）收到请忽略", "group").then((x) => ({ ok: true, result: x }), (e) => ({ ok: false, err: String(e.message || e).slice(0, 300) }));
+    return Response.json({ gids, r });
+  }
   // fanstest=1：发一条测试推送给机器人的关注者，看 DeBox 有没有开通权限（1 小时最多一次）
   if (url.searchParams.get("fanstest") === "1") {
     const lastTest = parseInt((await kv.get("otcw:fanstest")) || "0", 10);
