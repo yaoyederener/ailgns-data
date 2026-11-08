@@ -3014,3 +3014,6 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .sc-payr{align-items:flex-end;text-align:right;white-space:nowrap}
 .sc-payr b{color:#6d28d9}
 .sc-payr a{font-size:12px}
+
+.or-cdlast .or-pays{max-width:520px;margin:12px auto 0;text-align:left;background:#fff;border:2px solid #f5c542;box-shadow:0 0 0 4px rgba(245,197,66,.18)}
+.or-cdlast .or-pays>b{color:#6d28d9}
