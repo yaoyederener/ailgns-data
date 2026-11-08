@@ -18,7 +18,7 @@
   function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
   function render(rid, j) {
     var h = '<section class="card ops"><div class="card-head"><h2>🛠️ 网站优化</h2><span class="muted">内容更新于 ' + esc(j.updated) + "</span></div>" + nav("ops") +
-      '<nav class="ops-toc"><a href="#ops-now">当前风险</a><a href="#ops-worst">最坏情况</a><a href="#ops-sec">安全维护</a><a href="#ops-todo">待优化</a><a href="#ops-dec">定的方案</a><a href="#ops-learn">学习清单</a></nav>' +
+      '<nav class="ops-toc"><a href="javascript:void 0" data-ops-to="ops-now">当前风险</a><a href="javascript:void 0" data-ops-to="ops-worst">最坏情况</a><a href="javascript:void 0" data-ops-to="ops-sec">安全维护</a><a href="javascript:void 0" data-ops-to="ops-todo">待优化</a><a href="javascript:void 0" data-ops-to="ops-dec">定的方案</a><a href="javascript:void 0" data-ops-to="ops-learn">学习清单</a></nav>' +
       // 当前风险
       '<h3 class="ad-h" id="ops-now">🚦 当前风险（合伙人面板算的' + (j.risksAt ? "，" + tm(j.risksAt) : "") + '）</h3><div class="ptn-risks">' + (j.risks || []).map(function (r) {
         return '<div class="ptn-risk ' + r.level + '"><div class="ptn-rh">' + LV[r.level] + " <b>" + esc(r.title) + '</b><i>' + esc(r.who) + "</i></div><p>" + esc(r.why) + '</p><p class="ptn-todo">👉 ' + esc(r.todo) + "</p></div>";
@@ -36,6 +36,8 @@
       '<h3 class="ad-h" id="ops-learn">📚 学习清单（小白站长 + AI 开发，你要掌握什么）</h3>' + li(j.learn || [], function (x) { return "<li><b>" + esc(x.t) + '</b><div class="ops-k">为什么</div><p>' + esc(x.why) + '</p><div class="ops-k">怎么练</div><p>' + esc(x.how) + "</p></li>"; }) +
       '<p class="muted ptn-note">这页的内容由开发维护：每次你定了新规矩、每做完一件事都会同步到这里。要改内容告诉开发。</p></section>';
     A.app.innerHTML = h;
+    // 站长 2026-11-08：目录点了只在本页滚动（以前用 #ops-xx 锚点，被网站路由当成新页面跳回首页）
+    A.app.querySelectorAll("[data-ops-to]").forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var t = document.getElementById(a.getAttribute("data-ops-to")); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }; });
   }
   function load(rid) {
     var k = key(); if (!k) return login(rid);
