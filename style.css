@@ -2979,5 +2979,5 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 @media (max-width:640px){#mkt-top .mkt-tabs{gap:6px;margin:6px 0 2px}#mkt-top .mkt-tabs a{padding:5px 4px;border-radius:10px}#mkt-top .mkt-tabs a b{font-size:13px}#mkt-top .mkt-tabs a small,#mkt-top .mkt-tabs a span:not(.mkt-hot){font-size:10.5px}#mkt-top .mkt-more summary{font-size:12px}#mkt-top #hn-tick{margin:6px 0 0;padding:5px 10px;font-size:12px}.otc-top{padding:7px 10px;margin:4px 0 8px;gap:6px 8px}}
 body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 /* OTC 顶部币种切换：去掉「Anubis 链」字样，改成一排窄胶囊（站长 2026-11-08） */
-#mkt-top .mkt-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 2px}#mkt-top .mkt-tabs a{flex:0 0 auto;padding:6px 14px;border-radius:999px}#mkt-top .mkt-tabs a small{display:none}#mkt-top .mkt-tabs a b{font-size:14px}#mkt-top .mkt-hot{top:-6px;right:-4px}#mkt-top .mkt-more summary{font-size:12px}
-@media (max-width:640px){#mkt-top .mkt-tabs{gap:6px;margin:6px 0 2px}#mkt-top .mkt-tabs a{padding:5px 12px}#mkt-top .mkt-tabs a b{font-size:13px}}
+#mkt-top .mkt-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 2px}#mkt-top .mkt-tabs a{padding:6px 4px;border-radius:10px}#mkt-top .mkt-tabs a small{display:none}#mkt-top .mkt-tabs a b{font-size:14px}#mkt-top .mkt-hot{top:-6px;right:6px}#mkt-top .mkt-more summary{font-size:12px}
+@media (max-width:640px){#mkt-top .mkt-tabs{gap:6px;margin:6px 0 2px}#mkt-top .mkt-tabs a{padding:5px 4px}#mkt-top .mkt-tabs a b{font-size:13px}}
