@@ -169,6 +169,8 @@
       panel.hidden = !open;
       root.classList.toggle("open", open);
       if (open) fab.classList.remove("cb-new");
+      // 站长 2026-11-08（工单 #33）：打开窗口先打招呼，第一件事引导加群（最快有人回）；只显示一次，不算进对话
+      if (open && !list.children.length) add("bot", '您好 👋 我是 AiLGNS 客服。<br><b>最快的办法：加 OTC 交流群，群里 @客服 马上有人回。</b><br><a class="cb-human cb-hi" href="#" data-group>💬 点这里加 OTC 交流群 →</a><br><span class="muted">也可以直接在下面输入问题，我先帮你查。</span>');
       schedule();
       if (open && matchMedia("(min-width: 601px)").matches) input.focus();
     }
@@ -178,7 +180,7 @@
     try { var cq = new URLSearchParams(location.search).get("chat"); if (cq) { setTimeout(function () { toggle(true); ask(cq); }, 600); } } catch (e) {} // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
     // 窗口里点站内链接（提交工单等）：先把客服窗口收起来，不然手机上全屏的窗口把页面盖住，客户以为没反应（站长 2026-11-08 反馈）
-    panel.addEventListener("click", function (e) { var a = e.target.closest('a[href^="#/"]'); if (a) { toggle(false); if (location.hash === a.getAttribute("href")) { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (x) {} } } });
+    panel.addEventListener("click", function (e) { if (e.target.closest("[data-group]")) { toggle(false); return; } var a = e.target.closest('a[href^="#/"]'); if (a) { toggle(false); if (location.hash === a.getAttribute("href")) { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (x) {} } } });
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();
   }
