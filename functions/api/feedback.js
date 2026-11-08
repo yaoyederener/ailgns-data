@@ -50,12 +50,13 @@ export async function onRequestGet(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   const mine = (u.searchParams.get("mine") || "").toLowerCase();
   // 客服回复里的图：客户凭自己的地址看（只能看自己工单的）
-  const rimg = u.searchParams.get("rimg"), ra = (u.searchParams.get("a") || "").toLowerCase();
+  // 站长 2026-11-08：客户也能看自己当初提交的截图（mimg，同样只能看自己地址的工单），以前只能看文字、记不清问的什么
+  const mimg = u.searchParams.get("mimg"), rimg = u.searchParams.get("rimg") || mimg, ra = (u.searchParams.get("a") || "").toLowerCase();
   if (rimg && isAddr(ra)) {
     const m0 = rimg.match(/^(\d+):(\d)$/); if (!m0) return new Response("bad", { status: 400 });
     const t0 = await kv.get("tk:" + m0[1], "json");
     if (!t0 || t0.a !== ra) return new Response("not found", { status: 404 });
-    const d = await kv.get("tk:img:" + m0[1] + ":r" + m0[2]);
+    const d = await kv.get("tk:img:" + m0[1] + ":" + (mimg ? "" : "r") + m0[2]);
     const m = d && d.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!m) return new Response("not found", { status: 404 });
     return new Response(Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0)), { headers: { "content-type": m[1], "cache-control": "private, max-age=86400" } });
