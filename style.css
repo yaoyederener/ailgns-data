@@ -2989,7 +2989,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .dw-body::-webkit-scrollbar { width: 4px; } .dw-body::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 4px; }
 /* 站长 2026-11-08：扫单成功弹窗被订单表撑宽（7 个单号挤一格）——弹窗内容不许超宽，单号自动换行 */
 .modal-box { overflow-x: hidden; } .modal-box > * { min-width: 0; max-width: 100%; }
-.modal-box .sw-tbl { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
-.modal-box .sw-tbl th, .modal-box .sw-tbl td { padding: 6px 4px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; text-align: right; }
-.modal-box .sw-tbl th:first-child, .modal-box .sw-tbl td:first-child { text-align: left; width: 40%; }
+.modal-box .sw-tbl { width: 100%; table-layout: auto; border-collapse: collapse; font-size: 12px; }
+.modal-box .sw-tbl th, .modal-box .sw-tbl td { padding: 6px 4px; white-space: nowrap; text-align: right; }
+.modal-box .sw-tbl th:first-child, .modal-box .sw-tbl td:first-child { text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .modal-box .sw-get { flex-wrap: wrap; overflow-wrap: anywhere; }
