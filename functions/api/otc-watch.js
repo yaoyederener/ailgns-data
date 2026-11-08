@@ -47,7 +47,7 @@ const filledTopic = (m) => (m.nft ? NFT_FILLED : FILLED), closedTopic = (m) => (
 // 一笔成交的 DAI 金额（送会员、累计成交额用）：卡牌成交 = 成交价；代币成交：卖单看吃单人付的 DAI，买单看吃单人拿走的 DAI
 const fillDai = (m, o, d) => (m.nft ? num(d[1]) : o.sell ? num(d[1]) : num(d[0]));
 const GET_ORDERS = "0x8f72fc77", COUNT = "0x35daa731";
-const GROUPS = ["8c62txey", "fvg4wksw"]; // 站长的两个 DeBox 群（2026-11-08 核对：机器人实际在 8c62txey「Ailgns OTC」和 fvg4wksw；旧的 oes8etcm 机器人已不在）
+const GROUPS = ["fvg4wksw"]; // 站长 2026-11-08 定：只播「Ailgns OTC」这一个群（fvg4wksw）；8c62txey 机器人不在群里、oes8etcm 是旧群，都不要了
 const BACKFILL_STEPS = 6; // 每次最多补查几段（每段 5000 个块），几轮就补完
 
 // 在 OTC 成交过的地址（挂单被吃的挂单人 + 吃单人）记下来，并累计成交额（DAI）：
