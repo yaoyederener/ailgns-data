@@ -252,7 +252,8 @@ async function order(m, id) {
 // 都按池子当前储备精确算（含 0.3% 池子手续费和滑点），不是简单比市价
 // 每张单推一次；之后币价继续往有利方向走、好处又多了 3 个百分点以上（且隔了 30 分钟），再推一次
 const PP_ON = false; // 2026-11-06 站长：营销群播报全部停掉，机器人只做客服。好单推送关
-const GROUP_BROADCAST = false; // 2026-11-06 站长：群里不再发成交时报 / 自我介绍等营销内容；私信通知（个人成交、到期）照发
+const GROUP_BROADCAST = false; // 2026-11-06 站长：群里不再发自我介绍等营销内容；私信通知（个人成交、到期）照发
+const HOURLY_ON = true; // 2026-11-08 站长：每小时成交播报重新上线（很多人不知道）：只报累计笔数 + 0 出错 + 好单推荐，不带营销话；夜里 23–8 点不发
 const PP_MIN_PCT = 0.005, PP_MIN_DAI = 1, PP_AGAIN_PCT = 0.03, PP_AGAIN_SEC = 1800;
 const PP_GAP = 3600; // 站长要求：好单播报全站一小时最多发一次（各市场共用一个间隔），每次最多 3 张
 const OTC_FEE = 0.01;
@@ -362,16 +363,13 @@ function groupText(fills, tot, { bids, asks }, since, until, top) {
     if (nmf.length) out.push(`· 新成交 ${nmf.length} 个：` + nmf.slice(-5).reverse().map((f) => `${f.nm} ${Number(f.price).toLocaleString("en-US")} DAI`).join("、") + (nmf.length > 5 ? " 等" : ""));
     if (top) out.push(`· 💎 史上最高成交：${top.name} ${top.dai.toLocaleString("en-US")} DAI`);
   }
-  const a = asks[0], b = bids[0];
-  if (a || b) {
-    out.push("", "🔥 现在的好单：");
-    if (a) out.push(`· 买 ${a.m.sym} 比 DEX 便宜 ${(a.e.pct * 100).toFixed(1)}%（单价 ${d2(a.o.price, a.m.pd)}）`);
-    if (b) out.push(`· 卖 ${b.m.sym} 比 DEX 多拿 ${(b.e.pct * 100).toFixed(1)}%（出价 ${d2(b.o.price, b.m.pd)}）`);
-  }
-  out.push("", "🤝 初心：我们只想为社区做一件实事——让大家买卖不再冲击底池，少一分抛压，多一分稳定。",
-    "平台只收 1% 手续费，域名、服务器、安全防护、算力、Gas 和日夜值守的人工，一样都不能省，常常入不敷出。但每多一笔场外成交，底池就少一分压力，这份坚持就值得。",
-    "❤️ 感谢每一位来交易的朋友，你们的每一笔，都是在守护我们共同的家园。");
-  out.push(PROMO);
+  const A2 = asks.slice(0, 2), B2 = bids.slice(0, 2);
+  if (A2.length || B2.length) {
+    out.push("", "🔥 好单推荐（比 DEX 划算，先到先得）：");
+    for (const a of A2) out.push(`· 买 ${a.m.sym}：单价 ${d2(a.o.price, a.m.pd)} DAI，比 DEX 便宜 ${(a.e.pct * 100).toFixed(1)}%，剩 ${qtyStr(a.m, a.o.qty)} 枚`);
+    for (const b of B2) out.push(`· 卖 ${b.m.sym}：出价 ${d2(b.o.price, b.m.pd)} DAI，比 DEX 多拿 ${(b.e.pct * 100).toFixed(1)}%，收 ${qtyStr(b.m, b.o.qty)} 枚`);
+  } else out.push("", "🔥 好单推荐：现在没有比 DEX 更划算的挂单，自己挂一张等人来成交也行");
+  out.push("", "🤝 币先锁进担保合约，成交才放出；挂单、撤单、到期退回都免费，手续费 1% 成交才收");
   return out.join("\n");
 }
 // 现在比 DEX 划算的挂单（各市场合起来，按划算的比例各取前 3）：bids 求购单（卖给它比 DEX 多拿），asks 出售单（买它比 DEX 便宜）
@@ -471,21 +469,22 @@ export async function onRequestGet(ctx) {
   // 北京时间夜里 23:00–8:00 不播报（站长要求）：夜里的成交先攒着，早上 8 点那条一起发
   const bjHour = new Date(now + 8 * 3600e3).getUTCHours(), quiet = bjHour >= 23 || bjHour < 8;
   const until = Math.floor(now / 3600e3) * 3600e3;
+  const first = HOURLY_ON && !(await kv.get("otcw:hr1")); // 2026-11-08 重新上线：第一次先发一条汇总，之后每小时一条
   const build = async (dry2) => {
     const deals = await topDeals();
-    if (!hr.fills.length && !deals.bids.length && !deals.asks.length) return null; // 没成交、也没好单：这一小时不发
     let top = null;
     try { top = await nmTop(kv); } catch (e) { top = null; }
     return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, hr.since, until, top);
   };
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
-  if (due && !quiet && GROUP_BROADCAST) {
+  if ((due || first) && !quiet && HOURLY_ON) {
     const text = await build(false);
     if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
     }
+    await kv.put("otcw:hr1", "1");
     await kv.put("otcw:hr", JSON.stringify({ since: until, fills: [] }));
   } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr)); // 有新成交才写，省 KV 写入次数
   // 低于市价的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
