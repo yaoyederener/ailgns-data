@@ -398,7 +398,8 @@ export async function onRequestGet(ctx) {
     const k = url.searchParams.get("key"); if (!k || !((ctx.env.FEEDBACK_KEY && k === ctx.env.FEEDBACK_KEY) || (ctx.env.BACKUP_KEY && k === ctx.env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
     const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean), r = {};
     for (const g of gids) r[g] = await sendDebox(ctx.env, g, "🔧 播报线路测试 · 群 " + g + " · " + new Date(Date.now() + 8 * 3600e3).toISOString().slice(11, 16) + "（北京时间）收到请忽略", "group").then((x) => ({ ok: true, result: x }), (e) => ({ ok: false, err: String(e.message || e).slice(0, 300) }));
-    return Response.json({ gids, r });
+    const seen = (await kv.list({ prefix: "dbx:g:" })).keys.map((k) => k.name.slice(6)); // 机器人最近 90 天在哪些群里收到过消息（webhook 记的）
+    return Response.json({ gids, seen, r });
   }
   // fanstest=1：发一条测试推送给机器人的关注者，看 DeBox 有没有开通权限（1 小时最多一次）
   if (url.searchParams.get("fanstest") === "1") {
