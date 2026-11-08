@@ -182,6 +182,7 @@
     var from = b.orders.reduce(function (m, o) { return Math.min(m, o.id); }, Infinity);
     if (!(from > 0)) return Promise.resolve(b);
     return fetch("/api/book?m=" + mk + "&mine=" + a + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+      b.mineFor = a; b.olderN = (j.older || []).length;
       (j.older || []).forEach(function (x) {
         if (b.orders.some(function (o) { return o.id === x.id; })) return;
         var o = x.o;
@@ -518,10 +519,14 @@
     else app.innerHTML = placeTabs() + '<div class="loading">正在读取订单…</div>';
     var acct0 = account;
     Promise.all([loadBook(fresh), silentAccount()]).then(function (r) {
+      // 工单 #37（2026-11-08）：读挂单簿和找钱包是同时进行的，钱包晚一步找到时老单（市场前 1000 张以外）没合并进来 → 这里补一次
+      if (account && r[0].mineFor !== account) return withMine(r[0], fresh).then(function (b) { return [b]; });
+      return r;
+    }).then(function (r) {
       if (!A.isCurrent(id)) return;
       if (pendingJump) { pendingJump = false; setTimeout(function () { var g = app.querySelector("[data-gomine]"); if (g) g.click(); }, 80); }
       var b = r[0];
-      if (shown !== null && b.raw === shown && account === acct0) return; // 没变化
+      if (shown !== null && b.raw === shown && account === acct0 && !b.olderN) return; // 没变化（合并了自己的老单就要重画，否则老单一直不显示）
       if (shown !== null && busy()) return;
       draw(id, b.orders, b.mkt);
     }, function () {
