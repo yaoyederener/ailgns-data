@@ -3052,3 +3052,11 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .ib-rbox{margin-top:8px}.ib-rbox textarea{width:100%;box-sizing:border-box;padding:10px;border:1.5px solid #ddd6fe;border-radius:10px;font:inherit;font-size:14px}
 .ib-rrow{display:flex;justify-content:flex-end;gap:12px;align-items:center;margin-top:6px}.ib-rok{color:#15803d;font-size:13px;margin:6px 0 0}
 .ib-rep[hidden]{display:none}
+
+/* 📊 运营分配统计 */
+.ptn-alloc{display:grid;gap:8px}.ptn-al{padding:10px 12px;border:1.5px solid #ede9fe;border-radius:12px;background:#faf7ff}
+.ptn-alh{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.ptn-alh a{font-size:13px}
+.ptn-alv{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 2px;font-size:14px}.ptn-alv b.warn{color:#dc2626}
+.ptn-ast{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 12px;border-radius:12px;margin-bottom:8px}
+.ptn-ast.wait{background:#fff7ed;border:1.5px solid #fdba74}.ptn-ast.done{background:#f0fdf4;border:1.5px solid #86efac}
+.ptn-ast .nm-go{margin-left:auto;padding:6px 14px}.ptn-ahist{margin:0 0 8px;font-size:13px}.ptn-ahist>div{padding:4px 0;border-top:1px dashed #ede9fe}

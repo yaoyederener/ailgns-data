@@ -8,6 +8,20 @@
   function dayCn(d) { return d ? Number(d.slice(5, 7)) + "/" + Number(d.slice(8, 10)) : ""; }
   var LV = { red: ["🔴", "马上处理"], yellow: ["🟡", "今天处理"], green: ["🟢", "知道就好"] };
 
+  // 📊 运营分配统计（2026-11-08）：比例、地址、谷歌社交账号钱包实际转过去多少
+  function allocHtml(j) {
+    var L = j.alloc || []; if (!L.length) return "";
+    var tot = L.reduce(function (t, y) { return t + ((y.got && y.got.value) || 0); }, 0);
+    var lg = j.alloclog || [], td = lg[0] && lg[0].day === j.today ? lg[0] : null;
+    var st = '<div class="ptn-ast ' + (td ? "done" : "wait") + '">' + (td ? "<b>✅ 今天已分配</b><span>" + tm(td.t) + " · 合计 ≈ " + fm(td.total, 0) + " DAI</span>" : "<b>⏳ 等待分配</b><span>今天还没标记分配</span>" + (j.canWrite ? '<button type="button" class="nm-go" id="ptn-adone">✅ 我已分配</button>' : "")) + '<small class="muted" id="ptn-ast"></small></div>';
+    var hist = lg.length ? '<details class="ptn-ahist"><summary>📜 分配记录（' + lg.length + ' 次）</summary>' + lg.slice(0, 20).map(function (x) { return "<div><b>" + tm(x.t) + "</b> 合计 ≈ " + fm(x.total, 0) + " DAI<small class=\"muted\"> · " + x.parts.map(function (y) { return esc(y.n) + " " + y.p + "% " + fm(y.amt, 0); }).join(" / ") + "</small></div>"; }).join("") + "</details>" : "";
+    return '<h3 class="ad-h">💼 本次分配</h3>' + st + hist + '<h3 class="ad-h">📊 运营分配统计（谷歌社交账号钱包实际转出，Anubis 链累计）</h3><div class="ptn-alloc">' + L.map(function (y) {
+      var g = y.got || {}, real = tot ? Math.round(g.value / tot * 1000) / 10 : 0;
+      return '<div class="ptn-al"><div class="ptn-alh"><b>' + esc(y.n) + " " + y.p + '%</b><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + " →</a></div>" +
+        (g.err ? '<p class="muted">读取失败，稍后刷新</p>' : '<div class="ptn-alv"><span>已转 <b>' + fm(g.value || 0, 0) + " DAI</b></span><span>实际占比 <b" + (tot && Math.abs(real - y.p) > 5 ? ' class="warn"' : "") + ">" + real + "%</b></span><span>" + (g.n || 0) + " 笔</span></div>" +
+        '<small class="muted">DAI ' + fm(g.dai || 0, 2) + " + AiLGNS " + fm(g.ail || 0, 4) + "（按现价折算）" + (g.last ? " · 最近 " + tm(g.last) : "") + "</small>") + "</div>";
+    }).join("") + '<p class="muted">四个地址合计已转 ≈ <b>' + fm(tot, 0) + ' DAI</b>。「实际占比」和设定比例差 5% 以上会标红。</p></div>';
+  }
   function login(rid, msg) {
     A.app.innerHTML = '<section class="card ptn-login"><h2>🤝 合伙人面板</h2><p class="muted">输入查看口令。合伙人只能看，站长口令还能改分配比例和计划。</p>' +
       (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
@@ -31,14 +45,13 @@
       // 2. 钱
       '<h3 class="ad-h">💰 钱（当前余额，不是历史累计）</h3><div class="ad-tiles">' +
       tile("待分配余额（谷歌社交账号钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
-      tile("技术费用 " + j.cfg.tech + "%", fm(j.split.tech, 0) + " DAI", j.price ? "≈ " + fm(j.split.tech / j.price, 2) + " AiLGNS（按现价 " + fm(j.price, 0) + "）" : "", "money") +
-      tile("销售费用 " + j.cfg.sales + "%", fm(j.split.sales, 0) + " DAI", j.price ? "≈ " + fm(j.split.sales / j.price, 2) + " AiLGNS（按现价 " + fm(j.price, 0) + "）" : "", "money") +
+      (j.split.parts || []).map(function (y) { return tile(y.n + " " + y.p + "%", fm(y.amt, 0) + " DAI", (j.price ? "≈ " + fm(y.amt / j.price, 2) + " AiLGNS · " : "") + '<a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + "</a>", "money"); }).join("") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
       (j.bal.fast ? tile("⚡ 极速资金池（批量注册 90%，分开放）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
       tile("触发钱包 Gas", fm(j.bal.keeper.dai, 1) + " DAI", j.bal.keeper.dai < 8 ? "⚠️ 低于 8 机器人会停" : "够用", j.bal.keeper.dai < 8 ? "warn" : "") +
       "</div>" +
-      (j.canWrite ? '<p class="muted ptn-cfg">分配比例（站长可改）：技术 <input id="ptn-tech" type="number" min="0" max="100" value="' + j.cfg.tech + '" style="width:60px"> % ，销售 = 100 − 技术 <button type="button" class="ghost" id="ptn-cfg-save">保存</button><span id="ptn-cfg-st"></span></p>' : "") +
+      allocHtml(j) +
       // 3. 生意
       '<h3 class="ad-h">📈 今天的生意（今天 · 昨天 · 近 7 天合计）</h3><div class="ad-tw"><table class="ad-t ptn-t"><thead><tr><th></th><th>今天 ' + dayCn(d0.day) + "</th><th>昨天 " + dayCn(d1.day) + "</th><th>近 7 天</th></tr></thead><tbody>" +
       "<tr><td>OTC 成交额</td><td data-l=今天><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td data-l=昨天>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td data-l=近7天>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
@@ -71,6 +84,12 @@
       body.key = key();
       return fetch("/api/partner", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (r) { if (r.error) throw new Error(r.error); if (st) st.textContent = " ✅ 已保存"; load(rid); }, function (e) { if (st) st.textContent = " ❌ " + (e.message || e); });
     }
+    var ad = document.getElementById("ptn-adone");
+    if (ad) ad.onclick = function () {
+      var t = (j.split.parts || []).map(function (y) { return y.n + " " + y.p + "% ≈ " + fm(y.amt, 0) + " DAI"; }).join("\n");
+      if (!confirm("确定已经按比例转完了？\n" + t + "\n\n确定后会给四个地址各发一条站内信通知。")) return;
+      ad.disabled = true; post({ action: "allocDone" }, document.getElementById("ptn-ast"));
+    };
     var cs = document.getElementById("ptn-cfg-save");
     if (cs) cs.onclick = function () { post({ cfg: { tech: Number(document.getElementById("ptn-tech").value) } }, document.getElementById("ptn-cfg-st")); };
     var plan = j.plan.slice();
