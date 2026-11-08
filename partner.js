@@ -48,7 +48,7 @@
       // 2. 钱
       '<h3 class="ad-h">💰 钱（当前余额，不是历史累计）</h3><div class="ad-tiles">' +
       tile("待分配余额（谷歌社交账号钱包）", fm(j.split.total, 0) + " DAI", "Anubis DAI " + fm(b.dai, 0) + " + Polygon DAI " + fm(b.pdai, 0) + " + AiLGNS " + fm(b.ail, 2) + "（≈ " + fm(b.ail * j.price, 0) + "）", "big money") +
-      (j.split.parts || []).map(function (y) { return tile(y.n + " " + y.p + "%（应分）", fm(y.ail || 0, 4) + " AiLGNS", "≈ " + fm(y.amt, 0) + " DAI · " + '<a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + "</a>", "money"); }).join("") +
+      (j.split.parts || []).map(function (y) { return tile(y.n + " " + y.p + "%（应分）", fm(y.ail || 0, 4) + " AiLGNS", "≈ " + fm(y.amt, 0) + " DAI · " + (j.split.basis === "transit" ? "按中转地址余额" : "按待分配余额") + " · " + '<a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + "</a>", "money"); }).join("") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
       (j.bal.fast ? tile("⚡ 极速资金池（批量注册 90%，分开放）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
