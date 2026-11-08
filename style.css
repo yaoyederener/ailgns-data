@@ -2737,6 +2737,7 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .win-tip { margin-top: 8px; font-size: 13px; color: #2d6a4f; font-weight: 600; }
 .saved-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 10px; padding: 9px 14px; border-radius: 12px; background: #e8fbf2; border: 1px solid #bfeedd; font-size: 13.5px; color: #1b5e3f; }
 .saved-bar b { color: #0a7a52; } .saved-me b { color: #5a35d6; }
+@media (max-width: 640px) { .saved-bar { display: none !important; } } /* 站长 2026-11-08：手机端去掉「比 DEX 多赚」条，太占视线 */
 
 /* 🔗 预言家链上存证 */
 .or-proof { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #f3f0ff; border: 1px solid #e6dcff; margin-bottom: 10px; }
