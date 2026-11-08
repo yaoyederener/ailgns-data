@@ -747,9 +747,8 @@
         var g = mkt * (RANGE[side][0] + RANGE[side][1]) / 2, lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
         if (M.flat) { // DEX 不扣税的币：OTC 和 DEX 价差不到 1%，按市价挂就行；想快点成交就让一点
           g = mkt;
-          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 当前 DEX 市价</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>' +
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 当前 DEX 市价</small></div>' +
             "<p>" + SYM + " 在 DEX 买卖都不扣税，场外价贴着市价挂就行；想快点成交，卖单可以比市价低一点、买单比市价高一点。成交手续费 1% 由吃单方承担。</p>";
-          document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
           if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
           return;
         }
@@ -757,14 +756,12 @@
         if (gr) { // 有真实成交数据：直接用最近成交的中间价
           g = mkt * gr;
           var gn = GUIDE[MK].n[side], goff = (gr - 1) * 100;
-          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比 DEX 市价' + (goff >= 0 ? "高 " : "低 ") + Math.abs(goff).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>'; // 站长 2026-11-08：只给指导价，解释说明去掉
-          document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比 DEX 市价' + (goff >= 0 ? "高 " : "低 ") + Math.abs(goff).toFixed(1) + '%</small></div>'; // 站长 2026-11-08：只给指导价，解释说明去掉
           if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
           return;
         }
         var off = (1 - g / mkt) * 100, sellGain = (side === "sell" ? g : g * TAKER) - dexSell, buyGain = dexBuy - (side === "sell" ? g / TAKER : g);
-        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价' + (off >= 0 ? "低 " : "高 ") + Math.abs(off).toFixed(1) + '%</small><button type="button" class="ghost" id="otc-guse">用这个价</button></div>'; // 站长 2026-11-08：只给指导价，解释说明去掉
-        document.getElementById("otc-guse").onclick = function () { price.value = g.toFixed(PD); auto = true; calc(); pick(); };
+        el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 比市价' + (off >= 0 ? "低 " : "高 ") + Math.abs(off).toFixed(1) + '%</small></div>'; // 站长 2026-11-08：只给指导价，解释说明去掉
         if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
       }
       // 自动撮合：挂单前先看对面有没有价格更好的单，有就提示「一键先成交，剩下的再挂单」
