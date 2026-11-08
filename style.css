@@ -1121,6 +1121,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .book-more { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; font-size: 13.5px; color: var(--purple-ink); background: var(--soft); border: 1px solid var(--soft-line); box-shadow: none; }
 .book-more:hover { background: var(--gold-soft); }
 .otc-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin: 0 0 14px; } /* 等宽铺满一行，和上面的市场切换左右对齐 */
+.otc-acts[hidden] { display: none !important; }
 .otc-acts button { height: 40px; padding: 0 10px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: none; white-space: nowrap; }
 .otc-acts .oa-sell { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; box-shadow: 0 3px 12px rgba(225, 29, 72, .22); } /* 卖：红，和列表里「卖出」按钮同色 */
 .otc-acts .oa-buy { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; box-shadow: 0 3px 12px rgba(22, 163, 74, .22); } /* 买：绿，和列表里「买入」按钮同色 */

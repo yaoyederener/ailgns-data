@@ -565,7 +565,8 @@
       }
 
       // 顶部小按钮：直接跳到挂单表单（订单多时客户找不到挂单的地方）
-      var acts = '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
+      // 站长 2026-11-08：极简，这排三个按钮不显示；保留隐藏的按钮，成交弹窗「看我的挂单」还靠它跳转
+      var acts = '<div class="otc-acts" hidden><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
       var html = placeTabs() + acts + '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><button type="button" class="ot-sw" data-gosweep>💰 土豪一键扫单</button>' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
