@@ -147,11 +147,12 @@
       (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
     // 🧹 一键扫单：买最便宜的 N 张（不是自己的）。合约只有单张 buy，所以授权一次 DAI，然后一张一张买，钱包每张确认一次
     var swCards = sells.filter(function (o) { return o.maker !== account; });
+    html += book("sells", "在售卡牌", sells, "价格从低到高 · 买家另付 3% 手续费", '<th class="l">操作</th><th>卡牌</th><th>价格 DAI</th><th>买家实付</th><th>剩余时间</th><th class="l">卖家</th>', sellRow);
+    html += book("bids", "求购", bids, "价格从高到低 · 卖家拿到完整求购价", '<th class="l">操作</th><th>求购价 DAI</th><th>求购</th><th>剩余时间</th><th class="l">求购人</th>', bidRow);
+    // 站长 2026-11-08：一键扫单卡放到挂单簿下面
     html += swCards.length ? '<section class="card nft-sweep" id="nft-sweep"><div class="card-head"><h2>🧹 一键扫单</h2><span class="muted">官方新活动 · 抢卡牌</span></div>' +
       '<div class="nft-swrow"><label>买最便宜的 <input id="nsw-n" type="number" min="1" max="' + swCards.length + '" value="' + Math.min(3, swCards.length) + '" inputmode="numeric"> 张</label><span class="muted">在售 ' + swCards.length + ' 张</span></div>' +
       '<p class="nft-swsum" id="nsw-sum"></p><button type="button" class="nm-go" id="nsw-go">🧹 一键扫单</button><p class="note">授权一次 DAI 后按价格从低到高一张一张买，钱包每张确认一次；中途取消就停在那一张，已买到的卡不受影响。</p></section>' : "";
-    html += book("sells", "在售卡牌", sells, "价格从低到高 · 买家另付 3% 手续费", '<th class="l">操作</th><th>卡牌</th><th>价格 DAI</th><th>买家实付</th><th>剩余时间</th><th class="l">卖家</th>', sellRow);
-    html += book("bids", "求购", bids, "价格从高到低 · 卖家拿到完整求购价", '<th class="l">操作</th><th>求购价 DAI</th><th>求购</th><th>剩余时间</th><th class="l">求购人</th>', bidRow);
     html += '<div id="otc-tot"></div>';
     html += form(k);
     if (account) html += myOrders(mine, now);
