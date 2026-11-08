@@ -77,9 +77,8 @@
     if (!bar) {
       bar = document.createElement("a"); bar.id = "hn-tick"; bar.href = "#/rank"; bar.setAttribute("data-nb", "1");
       bar.innerHTML = '<span class="hn-tk-l">荣耀榜</span><span class="hn-tk-m" id="hn-tk-m"></span><span class="hn-tk-r">看榜 ›</span>';
-      var slot = document.getElementById("mkt-top");
-      if (slot && /^#\/otc(\/|$)|^#?$|^#\/$/.test(location.hash)) slot.insertBefore(bar, slot.firstChild); // OTC 页：放在最顶上的币种切换条上面（站长 2026-11-08）
-      else { var wrap = document.createElement("div"); wrap.className = "wrap"; wrap.appendChild(bar); app.parentNode.insertBefore(wrap, app); } // 其他页：和页面内容同宽对齐
+      var wrap = document.createElement("div"); wrap.className = "wrap"; wrap.id = "hn-tick-wrap"; wrap.appendChild(bar); // 和页面内容同宽对齐；OTC 页用 body.otc-page 隐藏（站长 2026-11-08：OTC 页暂时不要播报条，太乱）
+      app.parentNode.insertBefore(wrap, app);
     }
     var i = 0, m = document.getElementById("hn-tk-m");
     var show = function () { var x = mix[i++ % mix.length]; m.classList.remove("in"); void m.offsetWidth; m.textContent = x.t; bar.href = x.h; bar.querySelector(".hn-tk-r").textContent = x.h === "#/names" ? "去注册 ›" : x.h === "#/oracle" ? "去预测 ›" : "看榜 ›"; m.classList.add("in"); };

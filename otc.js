@@ -344,7 +344,6 @@
     parkGuides();
     var slot = document.getElementById("mkt-top"); if (!slot) return "";
     slot.innerHTML = marketTabs();
-    var tk = document.getElementById("hn-tick"); if (tk) slot.insertBefore(tk, slot.firstChild); // 荣耀榜播报条也放最顶上
     return "";
   }
   function marketTabs() {
