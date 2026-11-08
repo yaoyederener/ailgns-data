@@ -6,10 +6,10 @@
   function tm(t) { var x = new Date(t + 8 * 3600e3); return (x.getUTCMonth() + 1) + "/" + x.getUTCDate() + " " + String(x.getUTCHours()).padStart(2, "0") + ":" + String(x.getUTCMinutes()).padStart(2, "0"); }
   var LV = { red: "🔴", yellow: "🟡", green: "🟢" };
   function login(rid, msg) {
-    A.app.innerHTML = '<section class="card ptn-login"><h2>🛠️ 网站优化</h2><p class="muted">和工单后台同一个口令。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
+    A.app.innerHTML = '<section class="card ptn-login"><h2>' + (location.hash.indexOf("#/notify") === 0 ? "📣 发站内信" : "🛠️ 网站优化") + '</h2><p class="muted">和工单后台同一个口令。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
       '<input id="ops-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="ops-go">进入</button></section>';
     var go = document.getElementById("ops-go"), inp = document.getElementById("ops-k");
-    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("fbKey", v); } catch (e) {} load(rid); };
+    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("fbKey", v); } catch (e) {} if (location.hash.indexOf("#/notify") === 0) A.pages.notify(rid); else load(rid); };
     inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
   }
   function nav(cur) {
