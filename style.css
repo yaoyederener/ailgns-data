@@ -3063,3 +3063,6 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .ptn-atx{margin-top:6px;display:grid;gap:4px}.ptn-atx a{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid #ede9fe;font-size:13px;color:inherit}
 .ptn-atx a b{color:#6d28d9}.ptn-atx a small{color:#7c3aed;margin-left:auto}
 .ptn-tr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px 12px;border-radius:12px;background:#f5f3ff;border:1.5px solid #c4b5fd}.ptn-tr b{color:#6d28d9;font-size:16px}
+.ptn-cp{padding:14px;border-radius:14px;background:#fff7ed;border:2px solid #fb923c;margin-bottom:8px;text-align:center}
+.ptn-cpt{font-weight:800;color:#c2410c;font-size:16px;margin-bottom:8px}.ptn-cpa{font-size:15px;font-weight:700;word-break:break-all;background:#fff;border:1px dashed #fdba74;border-radius:10px;padding:8px;color:#1f2937}
+.ptn-cpb{margin-top:10px;width:100%;font-size:17px;padding:12px}.ptn-tr a{margin-left:auto;font-size:13px}
