@@ -2993,3 +2993,4 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .modal-box .sw-tbl th, .modal-box .sw-tbl td { padding: 6px 4px; white-space: nowrap; text-align: right; }
 .modal-box .sw-tbl th:first-child, .modal-box .sw-tbl td:first-child { text-align: left; white-space: normal; overflow-wrap: anywhere; }
 .modal-box .sw-get { flex-wrap: wrap; overflow-wrap: anywhere; }
+.done-tip { margin: 0; padding: 10px 12px; border-radius: 12px; background: #f5f3ff; border: 1px solid #ddd6fe; color: #5b21b6; font-size: 15px; font-weight: 700; text-align: center; } /* 成交弹窗提醒：涡轮之后来 OTC */

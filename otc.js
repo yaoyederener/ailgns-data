@@ -471,7 +471,8 @@
     var box = document.createElement("div");
     box.className = "modal";
     box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + title + '</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' + html +
-      (extra || "") + '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/scan/' + account + '/otc" data-close>📋 查我的订单</a><p class="note" style="text-align:center">以后在页面上方「📋 查我的订单」填钱包地址点「查询」就能看</p></div>';
+      (extra || "") + '<p class="done-tip">涡轮之后，一定记得到 OTC 交易哦，赚得更多 💜</p>' + // 站长 2026-11-08：每次吃单 / 扫单成功都提醒一句
+      '<a class="gm-big" style="text-align:center;text-decoration:none" href="#/scan/' + account + '/otc" data-close>📋 查我的订单</a><p class="note" style="text-align:center">以后在页面上方「📋 查我的订单」填钱包地址点「查询」就能看</p></div>';
     document.body.appendChild(box);
     box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
     return box;
