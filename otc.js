@@ -348,7 +348,7 @@
   }
   function marketTabs() {
     var BADGE = { ailgns: "🔥 热", lgns: "🔥 热", nft: "抢" }; // 成交量最大的两个挂「热」，NFT 卡牌挂「抢」
-    var tab = function (k) { var m = MARKETS[k]; return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"' + (k === MK ? ' class="on"' : "") + ">" + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
+    var tab = function (k) { var m = MARKETS[k]; var dup = MKEYS.filter(function (x) { return MARKETS[x].sym === m.sym; }).length > 1; /* 站长 2026-11-08：同名币（LGNS 有 Anubis / Polygon 两条链）按钮下面显示链名 */ return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '" class="' + (k === MK ? "on" : "") + (dup ? " dup" : "") + '">' + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
     var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0;
     return '<nav class="mkt-tabs" aria-label="选择交易币种">' + main.map(tab).join("") + "</nav>" +
       (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "）</summary>" +
