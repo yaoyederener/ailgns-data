@@ -1490,7 +1490,7 @@
   // 给 nft.js 用：钱包、发交易、读链、数字格式、市场切换（都按当前市场）
   A.otcKit = {
     account: function () { return account; }, connect: connect, ready: ready, silentAccount: silentAccount, send: send, read: read, balance: balance, allowance: allowance,
-    u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT, durSlider: durSlider,
+    u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, placeTabs: placeTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT, durSlider: durSlider,
     M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; },
     useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
     deboxCard: deboxCard // 借贷 / 卡牌页复用 DeBox 通知绑定卡片

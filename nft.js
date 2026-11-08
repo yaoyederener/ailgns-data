@@ -89,12 +89,12 @@
     var k = K(), app = A.app;
     if (timer) { clearInterval(timer); timer = null; }
     if (!k.OTC()) {
-      app.innerHTML = k.marketTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>AWAKE NFT 卡牌交易即将上线</h2><p class="muted">托管合约部署完成后开放挂单和交易。</p></section>';
+      app.innerHTML = (k.placeTabs ? k.placeTabs() : k.marketTabs()) + '<section class="card" style="text-align:center;padding:36px 18px"><h2>AWAKE NFT 卡牌交易即将上线</h2><p class="muted">托管合约部署完成后开放挂单和交易。</p></section>';
       return;
     }
     var saved = savedBook(), shown = null;
     if (saved) { shown = saved; draw(id, saved); }
-    else app.innerHTML = k.marketTabs() + '<div class="loading">正在读取挂单…</div>';
+    else app.innerHTML = (k.placeTabs ? k.placeTabs() : k.marketTabs()) + '<div class="loading">正在读取挂单…</div>';
     var fresh = freshNext; freshNext = false;
     Promise.all([loadBook(fresh), k.silentAccount()]).then(function (r) {
       if (!A.isCurrent(id)) return;
@@ -105,7 +105,7 @@
         loadBook(false).then(function (o) { if (A.isCurrent(id) && !busy()) draw(id, o); }).catch(function () {});
       }, 15000);
     }, function () {
-      if (A.isCurrent(id) && shown === null) app.innerHTML = k.marketTabs() + '<div class="card err">挂单读取失败，请稍后刷新。</div>';
+      if (A.isCurrent(id) && shown === null) app.innerHTML = (k.placeTabs ? k.placeTabs() : k.marketTabs()) + '<div class="card err">挂单读取失败，请稍后刷新。</div>';
     });
     function busy() {
       var m = document.getElementById("otc-modal");
@@ -139,7 +139,8 @@
           (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
     }
     var floor = sells.length ? dai(sells[0].price) : "—", top = bids.length ? dai(bids[0].price) : "—";
-    var html = k.marketTabs() +
+    // 站长 2026-11-08：币种导航只在页面最顶上显示一次（和 AiLGNS 一样放进 #mkt-top），不在页内重复
+    var html = (k.placeTabs ? k.placeTabs() : k.marketTabs()) +
       // 站长 2026-11-08：和 AiLGNS 同一个极简布局：顶部只留 交易就送会员 + 一键扫单 / 我要挂单 / 查询订单 + 连接钱包（连上后不显示地址）
       '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span>' + (sells.some(function (o) { return o.maker !== account; }) ? '<button type="button" class="ot-sw" data-gonsw>一键扫单</button>' : "") +
       '<button type="button" class="ot-sw" data-goform="sell">我要挂单</button><button type="button" class="ot-sw" data-gooq>查询订单</button>' +
