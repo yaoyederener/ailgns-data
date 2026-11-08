@@ -597,6 +597,13 @@
       walletCard();
       var tc = document.getElementById("otc-top-c");
       if (tc) tc.onclick = function () { var c = document.getElementById("otc-connect"); if (c) c.click(); };
+      // 站长 2026-11-08：在钱包 App 里打开就自动连钱包，不用手点；每次打开只自动弹一次，用户拒绝了不反复弹
+      try {
+        if (tc && window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) && !sessionStorage.getItem("otc-autoconn")) {
+          sessionStorage.setItem("otc-autoconn", "1");
+          setTimeout(function () { if (A.isCurrent(id) && !account && document.body.contains(tc)) tc.click(); }, 400);
+        }
+      } catch (e) {}
       deboxCard(id);
       fillTotals();
       app.querySelectorAll(".book-more").forEach(function (b) {
