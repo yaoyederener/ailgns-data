@@ -428,8 +428,19 @@
         '<p>🎯 没人猜中 ' + px + "，奖金全部留在奖池，下一期继续！奖池现在实际有 <b>" + dai(curPotV) + "</b>（按奖池钱包余额）。</p>") +
       (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + (r.nearInfo.diff / 1000).toFixed(3) + "。没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
       (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
-      (r.kings && r.kings.length ? '<p class="or-win">🏆 本周贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付 " + dai(k.fee) + "，得 " + dai(k.amt); }).join("；") + "</p>" : "") +
+      (r.kings && r.kings.length ? '<p class="or-win">🏆 本周贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付手续费 " + dai(k.fee) + "，得 " + (k.ail ? Number(k.ail).toFixed(4) + " AiLGNS（≈ " + dai(k.amt) + "）" : dai(k.amt)); }).join("；") + "</p>" : "") +
+      payList(r.day) +
       '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 奖金由系统自动发到获奖钱包</p></section>";
+  }
+  // 站长 2026-11-08：发奖记录公开——谁、什么奖、实发多少 AiLGNS、点开就是本站中文账本里的那笔转账
+  function payList(day) {
+    var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" };
+    var l = ((data && data.pays) || []).filter(function (x) { return x.day === day; });
+    if (!l.length) return "";
+    return '<div class="or-pays"><b>💸 发奖记录（链上可查）</b>' + l.map(function (x) {
+      return '<div class="or-pay"><span>' + (KN[x.kind] || x.kind) + " · <b>" + esc(x.name) + "</b></span><span>" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + "</small></span>" +
+        (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : '<span class="muted">发放中…</span>') + "</div>";
+    }).join("") + "</div>";
   }
   function rules() {
     return '<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>' +

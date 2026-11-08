@@ -3001,3 +3001,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
   table.book td[data-l="挂单人"] .cred, table.cards.book td:nth-child(7) .cred { order: -1; margin: 0 !important; flex: none; }
   table.book td[data-l="挂单人"] > *:not(.cred), table.cards.book td:nth-child(7) > *:not(.cred) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* 名字太长用「…」截断，保证一行 */
 }
+/* 预言家揭晓卡：发奖记录（2026-11-08） */
+.or-pays { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; background: #f5f3ff; border: 1px solid #ddd6fe; display: grid; gap: 6px; font-size: 13.5px; }
+.or-pay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-top: 6px; border-top: 1px dashed #e4dcff; }
+.or-pay span:first-child { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; } .or-pay small { color: #6b7280; } .or-pay a { font-weight: 700; white-space: nowrap; }

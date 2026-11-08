@@ -62,6 +62,8 @@ async function buildPub(kv, ctx, now) {
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
+  // 站长 2026-11-08：揭晓卡公开发奖记录（谁、什么奖、多少 AiLGNS、链上交易），公开公正；只给最近 14 天
+  try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "" })); } catch (e) { out.pays = []; }
   return out;
 }
 
