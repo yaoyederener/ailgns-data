@@ -140,9 +140,10 @@
     }
     var floor = sells.length ? dai(sells[0].price) : "—", top = bids.length ? dai(bids[0].price) : "—";
     var html = k.marketTabs() +
-      '<div class="otc-acts"><button type="button" class="oa-sell" data-goform="sell">＋ 我要卖卡</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要求购</button>' + (account && mine.length ? '<button type="button" class="ghost" data-gomine>我的挂单</button>' : "") + "</div>" +
-      '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span><span class="ot-txt"><b>价格自由定，没有最低限制</b> · 当前最低卖价 <b>' + floor + '</b> · 最高求购 <b>' + top + '</b> DAI · 单笔成交满 50 DAI 送<b>初级 VIP</b>，累计满 <b>1 万 DAI</b> 送<b>高级 VIP</b>，累计满 <b>100 万 DAI</b> 送<b>👑至尊 VIP</b> + 名人堂永久留名</span>' +
-      (account ? '<span class="ot-w mono">' + A.short(account) + "</span>" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
+      // 站长 2026-11-08：和 AiLGNS 同一个极简布局：顶部只留 交易就送会员 + 一键扫单 / 我要挂单 / 查询订单 + 连接钱包（连上后不显示地址）
+      '<div class="otc-top"><span class="hp-tag">🎁 交易就送会员</span>' + (sells.some(function (o) { return o.maker !== account; }) ? '<button type="button" class="ot-sw" data-gonsw>一键扫单</button>' : "") +
+      '<button type="button" class="ot-sw" data-goform="sell">我要挂单</button><button type="button" class="ot-sw" data-gooq>查询订单</button>' +
+      (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
     // 🧹 一键扫单：买最便宜的 N 张（不是自己的）。合约只有单张 buy，所以授权一次 DAI，然后一张一张买，钱包每张确认一次
     var swCards = sells.filter(function (o) { return o.maker !== account; });
     html += swCards.length ? '<section class="card nft-sweep" id="nft-sweep"><div class="card-head"><h2>🧹 一键扫单</h2><span class="muted">官方新活动 · 抢卡牌</span></div>' +
@@ -189,6 +190,9 @@
     var price = document.getElementById("nft-price"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), cardsEl = document.getElementById("nft-cards");
     function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.innerHTML = t; if (bad) AIL.errTip(st.textContent, st); }
     function reload() { if (A.isCurrent(id)) { freshNext = true; render(id); } }
+    function goTo(el) { if (el && !el.hidden) el.scrollIntoView({ behavior: "smooth", block: "start" }); return el; }
+    var nb = app.querySelector("[data-gonsw]"); if (nb) nb.onclick = function () { goTo(document.getElementById("nft-sweep")); };
+    var qb = app.querySelector("[data-gooq]"); if (qb) qb.onclick = function () { var q = document.getElementById("oq"); if (q && !q.hidden) { goTo(q); var i = q.querySelector("input"); if (i) setTimeout(function () { try { i.focus({ preventScroll: true }); } catch (e) {} }, 400); } else goTo(document.getElementById("otc-mine") || document.getElementById("otc-form")); };
     var tc = document.getElementById("otc-top-c");
     if (tc) tc.onclick = function () { k.connect().then(reload, function (e) { say(niceError(e), true); }); };
     app.querySelectorAll(".book-more").forEach(function (b) {
