@@ -141,7 +141,8 @@
   var MIN_ORDER = 50n * 10n ** 18n; // 单笔成交满 50 DAI 才送会员（挂单金额不限，站长要求）
   var MIN_DAI = 10n ** 18n; // 剩余不足 1 DAI 的挂单自动下架：不在市场里显示，挂单人点「取回」退回（到期也会自动退回）
   function isDustLeft(o, left) { return isCrumb(o, left) || daiLeft(o, left) < MIN_DAI; }
-  function isDust(o) { return o.giveLeft > 0n && o.giveLeft < o.giveTotal && isDustLeft(o, o.giveLeft); } // 只下架「成交后剩下的零头」；新挂的小额单照常显示
+  var JUNK_DAI = 10n ** 16n; // 站长 2026-11-08：#2096 存了 0.0000000089 DAI 挂 8888 万单价，订单簿顶上一条「成交不了」的怪单——总值不到 0.01 DAI 的单一律不在市场里显示
+  function isDust(o) { return o.giveLeft > 0n && ((o.giveLeft < o.giveTotal && isDustLeft(o, o.giveLeft)) || daiLeft(o, o.giveLeft) < JUNK_DAI); } // 下架「成交后剩下的零头」和总值不到 0.01 DAI 的灰尘单；正常小额新单照常显示
   function left(sec) {
     if (sec <= 0) return "已过期";
     var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
