@@ -10,7 +10,7 @@ const canWrite = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY
 
 export async function onRequestGet(ctx) {
   const env = ctx.env, kv = env.TEAM_KV, u = new URL(ctx.request.url), key = u.searchParams.get("key");
-  if (u.searchParams.get("health")) { const r = kv && (await kv.get("ptn:res", "json")); return json({ ok: !!r, at: r ? r.at : 0, risks: r ? r.risks.length : 0, traffic: r ? r.traffic : null, cap: r ? r.cap : null }); } // 只报有没有算过，不带数据
+  if (u.searchParams.get("health")) { const r = kv && (await kv.get("ptn:res", "json")); return json({ ok: !!r, at: r ? r.at : 0, risks: r ? r.risks.length : 0, traffic: r ? r.traffic : null, cap: r ? r.cap : null, addrs: r && r.addrs ? r.addrs.length : -1, addrsBad: r && r.addrs ? r.addrs.filter((d) => d.st !== "✅").length : -1 }); } // addrs：📍 地址表条数（-1 = 缓存里还没有这个字段），排查用 // 只报有没有算过，不带数据
   if (!canRead(env, key)) return json({ error: "口令不对" }, 403);
   if (!kv) return json({ error: "no kv" }, 503);
   if (u.searchParams.get("rebuild")) { try { const o = await build(env, kv, ctx); o.canWrite = canWrite(env, key); return json(o); } catch (e) { return json({ error: "重算出错：" + String(e.message || e).slice(0, 500) }, 500); } } // 排查用
