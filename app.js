@@ -485,7 +485,7 @@
 
   // ---------- 路由 ----------
   // 每个页面在浏览器标签和分享时显示的标题
-  var PAGE_TITLES = { genesis: "🔥 创世域名销毁倒计时", square: "链上广场", lp: "做市返佣", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
+  var PAGE_TITLES = { genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市返佣", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
     team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 账本", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场"
   };
