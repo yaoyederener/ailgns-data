@@ -15,6 +15,7 @@
   // 平台自己的合约：直接显示中文名，客户一眼看懂钱去哪了
   var KNOWN = {};
   KNOWN[ZERO] = "🆕 新注册";
+  var DEAD = "0x000000000000000000000000000000000000dead"; KNOWN[DEAD] = "🔥 黑洞地址（永久销毁）";
   // 🔒 团队运营地址（站长 2026-11-07：维护团队隐私，账本里统一显示为「运营维护」，不展示明细）
   var TEAM = {};
   ["0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", "0xeee877c1b6285b82890bdcd027d2715f658ecf23", "0xcc274e07847a6a86917b6ccd4e67706170d4036f",
@@ -239,6 +240,7 @@
       if (sel === "0x38e74feb") return { ico: "⭐", text: "<b>设置主名字</b>（以后别人看到这个地址就显示域名）" };
       if (sel === "0xeba36dbd") return { ico: "🔧", text: "<b>修改域名指向</b>的地址" };
       if (sel === "0xa22cb465" || sel === "0x095ea7b3") return { ico: "🔑", text: "<b>授权</b>域名市场代为转移域名（挂单前的准备，不花钱）" };
+      if ((sel === "0x23b872dd" || sel === "0x42842e0e" || sel === "0xb88d4fde") && nftOut && nftOut.other === DEAD) return { ico: "🔥", text: "<b>销毁创世域名</b> " + nftTag(nftOut) + "（转进黑洞地址，永久拿不回；预言家领奖凭证，机器人核对后发奖）" };
       if (sel === "0x23b872dd" || sel === "0x42842e0e" || sel === "0xb88d4fde") return nftOut ? { ico: "🎁", text: "<b>转让域名</b> " + nftTag(nftOut) + " 给 " + who(nftOut.other) } : { ico: "📥", text: "<b>收到域名</b> " + nftTag(nftIn) + " 来自 " + who(nftIn && nftIn.other) };
     }
     // —— 域名市场 ——

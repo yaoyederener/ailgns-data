@@ -1,11 +1,11 @@
 // 🔮 AiLGNS 每日预言家 API（规则见 lib/oracle.js）
 // GET  [?a=0x…]                       → 当前轮、奖池、参与人数、正在开奖的这一轮（9 点后公开全部预测）、最近结果、预言家榜、我的次数
 // POST { a, ps: ["827.354", …], day, sig } → 提交预测（钱包签名，不花钱；只能加，不能改）
-// GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用）；POST { action: "paid", id, tx, key } → 记为已发
+// GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用；2026-11-09 起只给「已销毁 1 枚创世名」的，没烧的等，3 天没烧作废）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { rpc } from "../../lib/oracle.js";
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -63,7 +63,7 @@ async function buildPub(kv, ctx, now) {
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
   // 站长 2026-11-08：揭晓卡公开发奖记录（谁、什么奖、多少 AiLGNS、链上交易），公开公正；只给最近 14 天
-  try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "" })); } catch (e) { out.pays = []; }
+  try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "", st: payState(x), due: needBurn(x) ? payDue(x) : 0, burn: x.burn ? x.burn.no : 0 })); } catch (e) { out.pays = []; }
   return out;
 }
 
@@ -79,7 +79,8 @@ export async function onRequestGet(ctx) {
   if (u.searchParams.get("pay")) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     ctx.waitUntil(kv.put("kp:at", String(Date.now()), { expirationTtl: 7 * 86400 }).catch(() => {})); // 🤝 合伙人面板用的机器人心跳
-    return json({ pay: ((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx) });
+    const { pays } = await burnCheck(kv, u.origin, (await kv.get("or:pay", "json")) || [], Date.now()); // 🔥 先烧才发：核对销毁记录、过期作废
+    return json({ pay: pays.filter((x) => payState(x) === "ready") });
   }
   const now = Date.now(), fresh = 30e3;
   let out = null, cached = await kv.get("or:pub", "json");
@@ -98,6 +99,11 @@ export async function onRequestGet(ctx) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
         const gtx = await kv.get("or:gtx:" + round + ":" + a, "json"); out.me && (out.me.chain = gtx || null);
+      }
+      { // 🔥 我有没有等着销毁创世名才能领的奖（给预言家页 / 销毁页提示用）
+        const mine = ((await kv.get("or:pay", "json")) || []).filter((x) => x.a === a && payState(x) === "wait");
+        if (mine.length) out.me.burnDue = mine.map((x) => ({ kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, due: payDue(x) }));
+        out.me.burnDays = BURN_DAYS;
         const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
         if (lk && lk !== el.key) out.me.lock = lk;
         else if (name) { const h = await heldSince(u.origin, a, name, round); if (!h.ok) out.me.hold = h; }

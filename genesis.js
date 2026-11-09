@@ -25,7 +25,7 @@
         '<div class="gs-bar"><i id="gs-fill"></i></div>' +
         '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 中奖要领钱的，手里先备一枚</p>' +
         '<div class="gs-act"><a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a><a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
-        '<button type="button" class="nm-go gs-off gs-on" id="gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div id="gs-burn-box"></div></section>' +
+        '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div></section>' +
         '<section class="card gs-rule"><h3>📜 规则（大白话）</h3><ol>' +
         '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。</li>' +
         '<li><b>烧哪一枚都行。</b>自己手里的，或者去域名市场任意买一枚来烧；没满之前也可以直接注册一枚。编号跟着名字走，买来的也算。</li>' +
@@ -34,15 +34,26 @@
         '<li><b>怎么烧：</b>点上面「销毁 1 枚创世名领奖」→ 连钱包 → 选一枚 → 钱包里确认。销毁就是转进黑洞地址，只花一点 Gas。</li></ol>' +
         '<p class="muted">说明：所有活动为社区自治、娱乐性质，参与请自行承担风险。</p></section>' +
         '<section class="card"><h3>🆕 刚刚注册的创世名</h3><ul class="gs-recent" id="gs-recent"><li class="muted">读取中…</li></ul></section>';
-      var bb = document.getElementById("gs-burn"); if (bb) bb.onclick = function () { burnFlow(bb); };
+      bindBurn(A.app);
       load();
     }
 
     // 🔥 销毁领奖（站长 2026-11-09 定）：连钱包 → 列出钱包里的创世 .ailgns 名 → 选一枚 → 用 ERC721 transferFrom 转进黑洞地址（永久拿不回）
     // 不碰合约、不加权限：就是普通用户自己把 NFT 转给 0x…dEaD；机器人发奖前核对链上 Transfer→dEaD 记录，一枚只抵一次。钱包里没有就引导去市场买
     var DEAD = "0x000000000000000000000000000000000000dead";
-    function burnFlow(btn) {
-      var box = document.getElementById("gs-burn-box"); if (!box) return;
+    // 站长 2026-11-09：销毁界面也放到域名页铸造卡下方 → 抽成 html() + bind(root)，两个页面共用
+    function burnHtml() { return '<div class="gs-act"><button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div>'; }
+    function bindBurn(root) {
+      if (!root) return;
+      root.querySelectorAll(".gs-burn").forEach(function (bb) {
+        var box = bb.closest(".gs-act") && bb.closest(".gs-act").nextElementSibling;
+        if (!box || !box.classList.contains("gs-burn-box")) return;
+        bb.onclick = function () { burnFlow(bb, box); };
+      });
+    }
+    A.genesisBurn = { html: burnHtml, bind: bindBurn };
+    function burnFlow(btn, box) {
+      if (!box) return;
       var nm = A.nm; if (!nm || !nm.owned) { box.innerHTML = '<p class="muted">域名模块还没加载好，刷新一下再试</p>'; return; }
       var say = function (x) { var el = box.querySelector(".gs-bst"); if (el) el.textContent = x || ""; };
       btn.disabled = true; box.innerHTML = '<p class="muted gs-bst">正在连接钱包…</p>';

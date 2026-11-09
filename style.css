@@ -3123,10 +3123,14 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 @media (max-width: 360px) { .gs-mint b, .gs-fire b { font-size: 22px; } .gs-vs { font-size: 11px; } }
 /* 🔥 销毁领奖：选创世名列表（2026-11-09） */
 .gs-act .gs-off.gs-on { cursor: pointer; } .gs-act .gs-off.gs-on:disabled { opacity: .7; cursor: wait; }
-#gs-burn-box { margin-top: 10px; } #gs-burn-box > p { margin: 0; text-align: center; }
+.gs-burn-box { margin-top: 10px; } .gs-burn-box > p { margin: 0; text-align: center; }
+/* 域名页铸造卡下方的销毁卡（2026-11-09 站长：销毁界面放在铸造界面下方） */
+.gc-burn2 { margin-top: 10px; padding: 12px 14px; border-radius: 18px; background: linear-gradient(120deg, #fff4ec, #ffffff 60%, #f6f0ff); border: 1.5px solid #fdba74; }
+.gc-burn2 .gc-top { margin-bottom: 4px; } .gc-burn2 .gc-tag-fire { color: #fff; background: linear-gradient(120deg, #f97316, #ef4444); }
+.gc-burn2 > .muted { margin: 4px 0 0; font-size: 13px; line-height: 1.5; } .gc-burn2 .gs-act { margin-top: 10px; }
 .gs-blist, .gs-bnone, .gs-bdone { padding: 12px 14px; border-radius: 16px; background: #fff7f2; border: 1.5px solid #fdba74; }
 .gs-blist p, .gs-bnone p, .gs-bdone p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; } .gs-blist p:first-child { margin: 0 0 8px; }
 .gs-bitem { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; margin: 6px 0; border-radius: 14px; background: #fff; border: 1px solid #f5d0b5; }
 .gs-bitem span { min-width: 0; } .gs-bitem span b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .gs-bitem span small { color: #c2410c; font-weight: 700; font-size: 12px; }
 .gs-bpick { flex: none; padding: 9px 14px; border-radius: 999px; border: 0; background: linear-gradient(120deg, #f97316, #ef4444); color: #fff; font-weight: 800; font-size: 13.5px; cursor: pointer; } .gs-bpick:disabled { opacity: .55; cursor: wait; }
-#gs-burn-box .nm-go { display: block; text-align: center; text-decoration: none; margin-top: 8px; } .gs-bdone { background: #f0fdf4; border-color: #86efac; } .gs-bdone b { color: #166534; } .gs-bdone a { color: #4b2fb0; font-weight: 700; }
+.gs-burn-box .nm-go { display: block; text-align: center; text-decoration: none; margin-top: 8px; } .gs-bdone { background: #f0fdf4; border-color: #86efac; } .gs-bdone b { color: #166534; } .gs-bdone a { color: #4b2fb0; font-weight: 700; }

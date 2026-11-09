@@ -316,7 +316,7 @@
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t" hidden><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><span class="nm-tld">.ailgns</span><button type="submit">搜索</button></form>' +
-      '<div id="nm-r"></div><p class="nm-batchrow"><button type="button" class="link" id="nm-batch">📦 想一次注册一批？批量注册（AI 起名 / 5 位数号码 / 自己填）→</button></p><div id="nm-genc"></div></section>' +
+      '<div id="nm-r"></div><p class="nm-batchrow"><button type="button" class="link" id="nm-batch">📦 想一次注册一批？批量注册（AI 起名 / 5 位数号码 / 自己填）→</button></p><div id="nm-genc"></div><div id="nm-burnc"></div></section>' +
       '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><button type="button" class="nm-myw" id="nm-myw">👛 查我的钱包</button></div>' +
       '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入 0x 钱包地址，或者域名（如 发财.ailgns）" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查询</button></form>' +
       '<div id="nm-myr"></div></section>' +
@@ -867,6 +867,13 @@
     clearInterval(gcTimer); gcLast = -1;
     if (!box || !NAMES) return;
     box.innerHTML = '<div class="gc"><div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><b>全球限量 10,000 个</b></div><p class="muted" style="margin:6px 0 0">读取链上数据…</p></div>';
+    // 站长 2026-11-09：销毁界面放在铸造卡下方（和 #/genesis 页同一套按钮，genesis.js 提供）；只画一次，不跟着 15 秒重画
+    var bc = document.getElementById("nm-burnc");
+    if (bc && A.genesisBurn) {
+      bc.innerHTML = '<div class="gc-burn2"><div class="gc-top"><span class="gc-tag gc-tag-fire">🔥 创世域名销毁进行中</span><a class="gc-burn-r" href="#/genesis">规则详情 ›</a></div>' +
+        '<p class="muted">中奖领钱要先烧 <b>1 枚创世名</b>，烧自己的或去市场买一枚都行 · <b>中奖后 3 天</b>不烧视为放弃</p>' + A.genesisBurn.html() + "</div>";
+      A.genesisBurn.bind(bc);
+    }
     function draw(d) {
       var b = document.getElementById("nm-genc");
       if (!b) { clearInterval(gcTimer); return; } // 离开了域名页
@@ -882,9 +889,7 @@
         '<ul class="gc-pts"><li>🔥 <b>限量 1 万，售完永久没有</b>：合约写死，谁都加不了</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序刻在区块链上，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
         (d.recent.length ? '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>最近被抢注：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") +
           (d.recent.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + d.recent.length + " 个 ▾") + "</button>" : "") + "</div>" : "") +
-        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>" +
-        // 站长 2026-11-09：创世卡下面挂「创世域名销毁进行中」入口（详情页 #/genesis）
-        '<a class="gc-burn" href="#/genesis"><span class="gc-burn-i">🔥</span><span class="gc-burn-m"><b>创世域名销毁进行中</b><small>中奖领钱要先烧 1 枚创世名，烧自己的或市场买一枚都行 · 中奖后 3 天不烧视为放弃' + (left > 0 ? "（还能注册 <b>" + left.toLocaleString() + "</b> 个）" : "（已铸完，只能去市场买）") + '</small></span><span class="gc-burn-r">看详情 ›</span></a>';
+        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>";
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); i.classList.remove("nm-flash"); void i.offsetWidth; i.classList.add("nm-flash"); } };
       gcLast = n;
     }

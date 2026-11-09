@@ -433,13 +433,18 @@
       '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 奖金由系统自动发到获奖钱包</p></section>";
   }
   // 站长 2026-11-08：发奖记录公开——谁、什么奖、实发多少 AiLGNS、点开就是本站中文账本里的那笔转账
+  function bjShort(ms) { var d = new Date(ms + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
   function payList(day) {
     var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" };
     var l = ((data && data.pays) || []).filter(function (x) { return x.day === day; });
     if (!l.length) return "";
     return '<div class="or-pays"><b>💸 发奖记录（链上可查）</b>' + l.map(function (x) {
-      return '<div class="or-pay"><span>' + (KN[x.kind] || x.kind) + " · <b>" + esc(x.name) + "</b></span><span>" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + "</small></span>" +
-        (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">奖池转出记录 →</a>') + "</div>";
+      // 2026-11-09 起先烧才发：wait = 等中奖人销毁创世名（3 天内），forfeit = 逾期没烧放弃，ready = 已烧等机器人转账
+      var tail = x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' + (x.burn ? '<small>🔥 已烧创世 #' + x.burn + "</small>" : "")
+        : x.st === "forfeit" ? '<small class="or-pay-no">❌ 3 天内没销毁创世名，放弃，奖金留在奖池</small>'
+        : x.st === "wait" ? '<a href="#/genesis">⏳ 等中奖人销毁 1 枚创世名（' + (x.due ? "截止 " + bjShort(x.due) : "3 天内") + "）→</a>"
+        : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">' + (x.burn ? "🔥 已烧创世 #" + x.burn + "，等机器人转账" : "奖池转出记录") + " →</a>";
+      return '<div class="or-pay"><span>' + (KN[x.kind] || x.kind) + " · <b>" + esc(x.name) + "</b></span><span>" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + "</small></span>" + tail + "</div>";
     }).join("") + "</div>";
   }
   function rules() {
@@ -453,6 +458,7 @@
       "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b> 进奖池买成 AiLGNS，页面大字显示的就是奖池钱包的实际余额，有多少发多少。<b>有人完全猜中那天，四个奖一起发</b>：🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖；💰 <b>贡献王</b> 拿 30%；🥇 <b>天眼通</b>（除神算子外最接近）拿 <b>10%</b>；🥈 <b>地灵通</b>（第二接近）拿 <b>5%</b>（一样接近先提交的得）。<b>没人猜中就一个奖都不发，全部留在奖池继续滚大。</b></li>" +
       "<li><b>💰 贡献王</b>：有人猜中的那天，奖池 <b>30%</b> 给<b>本周期</b>（上次大奖清空的第二天起到当天）在 OTC 付手续费最多的前 3 名，按 50 / 30 / 20 分；发完周期清零，重新排。手续费按成交额算：币 OTC 吃单付 1%，卡牌买家付 3%。贡献王不占名额、不禁赛。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
+      "<li><b>领奖要先烧 1 枚创世名</b>（2026-11-09 起）：中奖后 3 天内到「🔥 创世域名销毁进行中」页（☰ 更多 → 链上身份）销毁 1 枚创世 .ailgns 名，烧自己的或去域名市场买一枚都行，一枚只抵一次；机器人核对链上记录后才发奖，3 天不烧视为放弃，奖金留在奖池。</li>" +
       "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
       "<li><b>每个名字、每个钱包只能中一次</b>：拿到神算子、天眼通或地灵通后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。</li>" +
       "<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
