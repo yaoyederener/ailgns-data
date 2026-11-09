@@ -332,7 +332,7 @@
     var tags = [["🔮 神算子候选", "最接近"], ["👁 天眼通候选", "第二"], ["🌿 地灵通候选", "第三"]];
     el.innerHTML = '<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>' + livePxV.toFixed(3) + '</b> DAI<i class="or-dot"></i></span></div>' +
       '<div class="or-simg">' + top.map(function (r, i) { var d = Math.abs(r.m - m); return '<div class="or-simc r' + (i + 1) + (moved ? " moved" : "") + (i === 0 && hit ? " hit" : "") + '"><small>' + tags[i][0] + '</small><b>' + esc(r.name) + '</b><em>预测 ' + r.p + (d === 0 ? " · 🎯 完全猜中！" : " · 差 " + (d / 1000).toFixed(3)) + "</em></div>"; }).join("") + "</div>" +
-      (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
+      (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 领奖先烧 1 枚创世名 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
       '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>';
     // 名单里把当前最接近的 3 个点亮
     var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
