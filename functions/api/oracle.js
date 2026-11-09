@@ -99,14 +99,14 @@ export async function onRequestGet(ctx) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
         const gtx = await kv.get("or:gtx:" + round + ":" + a, "json"); out.me && (out.me.chain = gtx || null);
-      }
-      { // 🔥 我有没有等着销毁创世名才能领的奖（给预言家页 / 销毁页提示用）
-        const mine = ((await kv.get("or:pay", "json")) || []).filter((x) => x.a === a && payState(x) === "wait");
-        if (mine.length) out.me.burnDue = mine.map((x) => ({ kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, due: payDue(x) }));
-        out.me.burnDays = BURN_DAYS;
         const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
         if (lk && lk !== el.key) out.me.lock = lk;
         else if (name) { const h = await heldSince(u.origin, a, name, round); if (!h.ok) out.me.hold = h; }
+      }
+      { // 🔥 我有没有等着销毁创世名才能领的奖（给预言家页 / 销毁页提示用）；中奖后已停赛，所以放在 el.ok 外面
+        const wait = ((await kv.get("or:pay", "json")) || []).filter((x) => x.a === a && payState(x) === "wait");
+        if (wait.length) out.me.burnDue = wait.map((x) => ({ kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, due: payDue(x) }));
+        out.me.burnDays = BURN_DAYS;
       }
     } catch (e) { out.me = { a, err: "读链失败" }; }
   }
