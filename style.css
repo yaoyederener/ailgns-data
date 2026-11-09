@@ -3200,3 +3200,12 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .sc-home .sc-tip { margin: 10px 2px 0; font-size: 12.5px; color: #8d7fc0; }
 
 .risk-det .risk-head { margin-top: 10px; } .risk-det summary { font-size: 13.5px; }
+
+/* 页脚折叠（2026-11-11） */
+.foot-in { grid-template-columns: 1fr; gap: 12px; }
+.foot-brand { grid-template-columns: auto auto; align-items: center; justify-content: space-between; width: 100%; }
+.foot-more { grid-column: 1 / -1; }
+.foot-more summary { cursor: pointer; color: #7c5cff; font-weight: 600; font-size: 13px; padding: 6px 0; }
+.foot-more > p { margin: 10px 0 12px; }
+.foot-more .foot-links { margin-bottom: 12px; }
+@media (max-width: 600px) { .foot-brand { grid-template-columns: 1fr; justify-items: start; } }
