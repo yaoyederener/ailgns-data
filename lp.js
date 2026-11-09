@@ -100,6 +100,9 @@
     el.innerHTML = '<div class="lp-kpi lp-me"><div><small>今天档位</small><b>' + tierName(lq.rate) + '</b><span>日均挂单 ' + f(lq.avg, 0) + ' DAI' + (lq.next ? ' · 再挂 ' + f(lq.next[0] - lq.avg, 0) + ' 到 ' + Math.round(lq.next[1] * 100) + '%' : "") + '</span></div>' +
       '<div><small>今天返佣</small><b>' + f(t.rb || 0, 4) + ' DAI</b><span>计入成交 ' + f(t.cdai || 0, 0) + ' / 全部 ' + f(t.dai || 0, 0) + ' DAI · ' + (t.n || 0) + ' 笔</span></div>' +
       '<div><small>累计返佣</small><b>' + f(m.total.rb, 4) + ' DAI</b><span>待发放 ' + f(m.pending, 4) + ' DAI</span></div></div>' +
+      '<p class="lp-need">' + (side.side === "sell" ? "👉 现在盘口<b>缺卖单</b>：你挂<b>卖单</b>被吃才计返佣，挂买单不计。" :
+        side.side === "buy" ? "👉 现在盘口<b>缺买单</b>：你挂<b>买单</b>被吃才计返佣，挂卖单不计。" :
+        "👉 现在盘口买卖差不多：买单、卖单被吃都计返佣。") + ' <span class="muted">下面「一键做市」默认就铺缺的这边。</span></p>' +
       (m.days.length ? '<div class="lg-list">' + m.days.map(function (d) { return '<div class="lg-row"><span class="lg-ico">📅</span><div class="lg-main"><div class="lg-txt">' + d.d + '：计入成交 ' + f(d.x.cdai || 0, 2) + ' / ' + f(d.x.dai, 2) + ' DAI · ' + d.x.n + ' 笔 · 日均挂单 ' + f(d.x.liq || 0, 0) + ' → ' + Math.round((d.x.rate || 0) * 100) + '% → 返佣 <b>' + f(d.x.rb, 4) + ' DAI</b></div></div></div>'; }).join("") + "</div>" : '<p class="muted">还没有成交记录。挂上单、被人吃了就会出现在这里。</p>') +
       (m.paid.length ? '<p class="muted">发放记录：' + m.paid.slice(0, 5).map(function (p) { return p.day + " " + f(p.amt, 4) + ' DAI <a href="#/scan/' + p.tx + '">详情</a>'; }).join(" · ") + "</p>" : "");
   }
