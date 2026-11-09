@@ -28,6 +28,8 @@
         '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 中奖要领钱的，手里先备一枚</p>' +
         '<div class="gs-act">' + (full ? '<a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a>' : "") + '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
         '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div></section>' +
+        // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录放在销毁按钮正下方（规则卡上面），每条点开进中文账本
+        '<section class="card gs-burned"><div class="gc-top"><h3>🔥 已销毁创世域名 <b id="gs-bn">—</b> 枚</h3><span class="muted">链上记录 · 点开进账本</span></div><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
         '<section class="card gs-rule"><h3>📜 规则（大白话）</h3><ol>' +
         '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。</li>' +
         '<li><b>烧哪一枚都行。</b>自己手里的，或者去域名市场任意买一枚来烧；没满之前也可以直接注册一枚。编号跟着名字走，买来的也算。</li>' +
@@ -35,8 +37,6 @@
         '<li><b>中奖后 3 天内不销毁，视为放弃领奖。</b>从中奖通知发出算起，过期不补发。</li>' +
         '<li><b>怎么烧：</b>点上面「销毁 1 枚创世名领奖」→ 连钱包 → 选一枚 → 钱包里确认。销毁就是转进黑洞地址，只花一点 Gas。</li></ol>' +
         '<p class="muted">说明：所有活动为社区自治、娱乐性质，参与请自行承担风险。</p></section>' +
-        // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录，每条点开进中文账本（#/scan/交易哈希）
-        '<section class="card gs-burned"><div class="gc-top"><h3>🔥 已销毁创世域名 <b id="gs-bn">—</b> 枚</h3><span class="muted">链上记录 · 点开进账本</span></div><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
         (full ? '<section class="card"><h3>🆕 刚刚注册的创世名</h3><ul class="gs-recent" id="gs-recent"><li class="muted">读取中…</li></ul></section>' : "");
       bindBurn(root);
       load(); loadBurns();
