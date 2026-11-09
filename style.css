@@ -3209,3 +3209,20 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .foot-more > p { margin: 10px 0 12px; }
 .foot-more .foot-links { margin-bottom: 12px; }
 @media (max-width: 600px) { .foot-brand { grid-template-columns: 1fr; justify-items: start; } }
+/* 🔁 aiswap 页（2026-11-09）：浅紫配色，先按 390 宽手机做 */
+.as-seg { display: flex; gap: 6px; margin: 0 0 12px; } .as-seg button { flex: 1; padding: 10px 6px; border-radius: 14px; border: 1px solid #e3d8ff; background: #fff; color: #6b5aa6; font-size: 14px; font-weight: 600; box-shadow: none; } .as-seg button.on { background: #efe7ff; color: #5a35d6; border-color: #c9b8ff; }
+.as-box .as-row { margin: 8px 0; } .as-row label { display: flex; justify-content: space-between; font-size: 12.5px; color: #6b5aa6; margin-bottom: 4px; }
+.as-in { display: flex; gap: 6px; align-items: stretch; } .as-in select { flex: 0 0 38%; min-width: 0; padding: 10px 8px; border: 1px solid #e3d8ff; border-radius: 12px; background: #f8f5ff; font-size: 15px; font-weight: 700; color: #3b2a6b; }
+.as-in input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #e3d8ff; border-radius: 12px; font-size: 20px; font-variant-numeric: tabular-nums; background: #fff; text-align: right; } .as-in input[readonly] { background: #f8f7fc; color: #3b2a6b; }
+.as-max { padding: 0 10px; border-radius: 10px; border: 1px solid #d5b9f5; background: #f3ebff; color: #5a35d6; font-size: 12px; font-weight: 700; box-shadow: none; }
+.as-flip { text-align: center; margin: -2px 0; } .as-flip button { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e3d8ff; background: #fff; color: #7027d9; font-size: 18px; box-shadow: none; padding: 0; }
+.as-detail { margin: 10px 0 4px; padding: 8px 12px; border-radius: 12px; background: #f6f2ff; border: 1px solid #e9e1ff; font-size: 13px; } .as-detail div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; } .as-detail span { color: #8d7fb8; flex: none; } .as-detail b { color: #2d1b69; text-align: right; font-variant-numeric: tabular-nums; word-break: break-all; } .as-detail p { margin: 4px 0; }
+.as-warn { color: #b7791f; } .as-slip { margin: 10px 0 4px; font-size: 13px; color: #6b5aa6; } .as-slip small { display: block; margin-top: 4px; }
+.as-soon h2 { margin-top: 0; } .as-steps { padding-left: 0; list-style: none; margin: 10px 0; } .as-steps li { padding: 8px 12px; border-radius: 12px; background: #f8f5ff; margin-bottom: 6px; color: #6b5aa6; font-size: 14px; } .as-steps li.done { color: #1b8a5e; } .as-steps li.now { background: #efe7ff; color: #4c1d95; font-weight: 700; }
+.as-pos { padding: 10px 0; border-bottom: 1px solid #efe9ff; } .as-pos-h { display: flex; justify-content: space-between; font-size: 15px; color: #2d1b69; } .as-pos-h span { color: #6b5aa6; font-size: 13px; } .as-pos-b { margin-top: 6px; }
+.as-pools { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; } .as-pools th { text-align: left; color: #9a8acc; font-weight: 600; padding: 6px; border-bottom: 1px solid #eee6ff; font-size: 12px; } .as-pools td { padding: 8px 6px; border-bottom: 1px dashed #f1ecff; vertical-align: top; color: #2d1b69; }
+@media (max-width: 640px) { /* 表格变卡片 */
+  .as-pools thead { display: none; } .as-pools tr { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid #efe9ff; } .as-pools td { display: block; border: 0; padding: 0; font-size: 13px; }
+  .as-pools td[data-l]::before { content: attr(data-l); display: block; font-size: 11px; color: #9a8acc; } .as-pools td:first-child { grid-column: 1 / -1; font-size: 15px; } .as-pools td:last-child { grid-column: 1 / -1; } .as-pools td:last-child button { width: 100%; }
+  .as-hero .lp-kpi { grid-template-columns: 1fr 1fr 1fr; }
+}
