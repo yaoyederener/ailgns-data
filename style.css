@@ -3097,3 +3097,4 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .gs-hero .gc-flip { margin: 6px 0 4px; }
 .gs-act .gs-off.gs-on { opacity: 1; background: linear-gradient(120deg, #f97316, #ef4444); color: #fff; cursor: default; }
 @media (max-width: 420px) { .gs-hero .gc-d { width: 44px; height: 60px; font-size: 38px; } .gs-big b { font-size: 36px; } }
+.gs-hero .gc-live { display: inline-flex; flex: none; } /* 创世卡在手机上把它藏了，这页要露出来 */
