@@ -71,7 +71,13 @@ def syntax_check():
         try: esprima.parseModule(src)
         except Exception as e: bad.append("%s: %s" % (f, str(e)[:160]))
     if bad: sys.exit("❌ 服务端 JS 语法错误（推上去 Cloudflare 一定构建失败）：\n  " + "\n  ".join(bad))
-    print("syntax ok: lib/ + functions/")
+    # 前端源文件也查（2026-11-10 盘口事故：行尾注释写在代码中间，吞掉后半行，整个包语法错、页面卡死；try/catch 包不住语法错误）
+    for f in sorted(glob.glob("*.js")):
+        src = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)n\b", r"\1", read(f))
+        try: esprima.parseScript(src)
+        except Exception as e: bad.append("%s: %s" % (f, str(e)[:160]))
+    if bad: sys.exit("❌ 前端 JS 语法错误（上线后这一页会卡死）：\n  " + "\n  ".join(bad))
+    print("syntax ok: lib/ + functions/ + 前端 *.js")
 
 def main():
     syntax_check()
