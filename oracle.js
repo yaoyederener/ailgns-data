@@ -207,7 +207,7 @@
     if (canDraw && now >= t21 && now < t22 && cut > t22) { ph = "🔮 今晚揭晓中"; target = t22; sub = "21:00–22:00 之间随机一刻的价格就是揭晓价 · 明晚的预言已经开始"; step = 3; }
     else if (canDraw && now >= t22 && now < t22 + 15 * 60e3 && cut > t22) { ph = "🏅 正在放榜"; target = t22 + 15 * 60e3; sub = "几分钟内放榜，DeBox 会推送"; step = 4; }
     else if (canDraw && data.drawing && data.drawing.cutoff && now >= data.drawing.cutoff && now < t21 && cut > t22) { ph = "🔒 已封卷"; target = t21; sub = dayCn(data.drawing.day) + " 已封卷，21:00–22:00 随机一刻揭晓 · 现在提交的算 " + dayCn(data.round); step = 2; } // 早 9 点到晚 9 点：锁定 12 小时
-    else { ph = "✍️ 预言进行中"; target = cut; sub = dayCn(data.round) + " 早 9 点封卷，当晚 9–10 点随机一刻揭晓"; step = 1; }
+    else { var ch = new Date(cut + 8 * 3600e3).getUTCHours(); ph = "✍️ 预言进行中"; target = cut; sub = dayCn(data.round) + (ch < 12 ? " 早上 " : " 晚上 ") + (ch % 12 || 12) + " 点封卷，当晚 9–10 点随机一刻揭晓"; step = 1; } // 封卷钟点按接口给的实际时间显示（11-10 前还是晚 9 点）
     var ms = Math.max(0, target - now), dd = Math.floor(ms / 864e5), hh = Math.floor(ms % 864e5 / 36e5), mm = Math.floor(ms % 36e5 / 6e4), ss = Math.floor(ms % 6e4 / 1e3);
     var is = big.querySelectorAll("i"), v = [dd, hh, mm, ss];
     for (var k = 0; k < 4; k++) { var t = String(v[k]).padStart(2, "0"); if (is[k].textContent !== t) { is[k].textContent = t; is[k].classList.remove("tk"); void is[k].offsetWidth; is[k].classList.add("tk"); } }
