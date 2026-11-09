@@ -464,13 +464,14 @@
         qOut.innerHTML = '<p class="note">正在查这个地址的会员记录…（要查两条链，几秒钟）</p>';
         lookup(a).then(function (t) {
           q.disabled = false;
+          if (!document.body.contains(qOut)) return; // 工单 #70：结果回来前客户已切到别的页，容器没了，直接忽略（原来会报 q-pay 为 null）
           if (t && t.tier) { qOut.innerHTML = '<p class="note up">这个地址已经是' + TIERS[t.tier].name + "，正在恢复…</p>"; return finish(a, t, t.tier); }
           checked = a;
           qOut.innerHTML = '<div class="q-pay"><p>这个地址<b>还不是会员</b>，可以直接付款开通：</p><button class="paybtn" id="q-pay"></button>' +
             '<p class="muted">想换等级或换币种，在下面选好再点付款。</p></div><div id="q-vol"></div>';
           memberApi(a).then(function (srv) { var v = document.getElementById("q-vol"); if (v) v.innerHTML = volBox(srv); }).catch(function () {});
           describe();
-          document.getElementById("q-pay").onclick = function () { start(this); };
+          var qp = document.getElementById("q-pay"); if (qp) qp.onclick = function () { start(this); };
         }, function (e) {
           q.disabled = false;
           if (e && e.message === "TRANSFERRED") { qOut.innerHTML = '<p class="note down">这个地址的会员已转赠给 ' + A.esc(e.to) + '，请用新地址查询。</p>'; return; }
