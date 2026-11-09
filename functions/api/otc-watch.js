@@ -7,7 +7,7 @@
 import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox, sendDeboxFans } from "../../lib/debox.js";
 import { pushMany } from "../../lib/inbox.js";
-import { addRebate } from "../../lib/lp.js";
+import { addRebate, sampleLiquidity } from "../../lib/lp.js";
 import { rebuildIfNeeded } from "../../lib/pixel.js";
 import { bjDay } from "../../lib/stats.js";
 import { GP_MAX, SEED } from "../../lib/guide.js";
@@ -282,7 +282,7 @@ async function book(m, now) {
     const gd = sell ? m.dec : 18, wd = sell ? 18 : m.dec; // 挂单存入的币 / 想换回的币各自的小数位
     const give = num(o[4], gd), want = num(o[5], wd), gl = num(o[6], gd);
     if (!open || exp <= now || gl < 1e-4 || (sell ? gl * want / give : gl) < 1) continue; // 剩余不足 1 DAI 的自动下架
-    out.push({ id: from + i, sell, price: sell ? want / give : give / want, qty: sell ? gl : gl * want / give, left: exp - now });
+    out.push({ id: from + i, sell, price: sell ? want / give : give / want, qty: sell ? gl : gl * want / give, left: exp - now, maker: "0x" + o[0].slice(24) });
   }
   return out;
 }
@@ -533,5 +533,7 @@ export async function onRequestGet(ctx) {
   } catch (e) {}
   const oracle = await oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 🔮 预言家：开奖结果 + 每天提醒
   const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
+  // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
+  if (!dry) ctx.waitUntil(book(MARKETS[0], Math.floor(Date.now() / 1000)).then((os) => sampleLiquidity(kv, os)).catch(() => {}));
   return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }
