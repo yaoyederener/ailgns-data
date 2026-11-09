@@ -25,9 +25,9 @@
   // ---------- 数据 ----------
   function load() {
     return fetch("/api/aiswap").then(function (r) { return r.json(); }).then(function (j) {
-      cfg = j.cfg || null; pools = (j.pools || []).map(function (p) { p.r0 = BigInt(p.r0 || 0); p.r1 = BigInt(p.r1 || 0); p.lp = BigInt(p.lp || 0); p.pair = low(p.pair); p.t0.addr = low(p.t0.addr); p.t1.addr = low(p.t1.addr); return p; }); /* 地址统一小写再比对 */
+      cfg = j.cfg || null; pools = (j.pools || []).map(function (p) { p.r0 = BigInt(p.r0 || 0); p.r1 = BigInt(p.r1 || 0); p.lp = BigInt(p.lp || 0); p.pair = low(p.pair); p.t0.addr = low(p.t0.addr); p.t1.addr = low(p.t1.addr); return p; }).filter(function (p) { return !cfg || (p.t0.addr !== low(cfg.dai) && p.t1.addr !== low(cfg.dai)); }); /* 地址统一小写再比对；含 DAI 的池子不显示（站长 2026-11-09：AiLGNS↔DAI 走 OTC） */
       tokens = []; var seen = {};
-      function addTok(t) { if (!t || !t.addr) return; var k = low(t.addr); if (seen[k]) return; seen[k] = 1; tokens.push({ sym: t.sym, addr: k, dec: t.dec }); }
+      function addTok(t) { if (!t || !t.addr) return; var k = low(t.addr); if (seen[k] || (cfg && k === low(cfg.dai))) return; seen[k] = 1; tokens.push({ sym: t.sym, addr: k, dec: t.dec }); }
       (cfg && cfg.tokens || []).forEach(addTok); pools.forEach(function (p) { addTok(p.t0); addTok(p.t1); }); Object.keys(custom).forEach(function (k) { addTok(custom[k]); });
       if (cfg && cfg.slippage && cfg.slippage.indexOf(slip) < 0) slip = cfg.slippage[1] || cfg.slippage[0];
       if (!S.from && tokens[0]) S.from = tokens[0].addr; if (!S.to && tokens[1]) S.to = tokens[1].addr;
@@ -76,13 +76,13 @@
   }
   function hero(tag) {
     return '<section class="card lp-hero as-hero"><div class="lp-ht"><h2>🔁 aiswap 兑换池 <span class="lp-tag">' + tag + '</span></h2>' +
-      '<p>本站自己的「自动兑换池」：DAI、AiLGNS 和以后发射的新币，<b>点一下马上成交</b>，不用等人接单。合约是 <b>PancakeSwap V2 原版，一行没改</b>，没有管理员，谁都动不了池子里的币。</p></div>' +
-      '<div class="lp-kpi"><div><small>每笔手续费</small><b>0.25%</b><span>0.17% 归放币的人 · 0.08% 归平台</span></div><div><small>新币报价</small><b>AiLGNS</b><span>DAI 买新币自动两跳</span></div><div><small>你的币</small><b>自己管</b><span>只在你钱包和池子合约里</span></div></div></section>';
+      '<p>本站自己的「自动兑换池」，专门做<b>新币 / AiLGNS</b>：买卖发射台发出来的新币，<b>点一下马上成交</b>，不用等人接单。合约是 <b>PancakeSwap V2 原版，一行没改</b>，没有管理员，谁都动不了池子里的币。<b>AiLGNS 和 DAI 之间的买卖请去 <a href="#/otc">OTC 担保交易</a></b>（0 滑点、1%），这里不做。</p></div>' +
+      '<div class="lp-kpi"><div><small>每笔手续费</small><b>0.25%</b><span>0.17% 归放币的人 · 0.08% 归平台</span></div><div><small>新币报价</small><b>AiLGNS</b><span>换 DAI 去 OTC</span></div><div><small>你的币</small><b>自己管</b><span>只在你钱包和池子合约里</span></div></div></section>';
   }
   var RULES = '<section class="card lp-rules as-rules"><h2>📜 规则一页纸</h2><ol>' +
     '<li><b>兑换</b>：随行就市、马上成交；大单会有滑点，页面先算好「最少到手」，低于它交易自动失败、钱原路不动。小额急用选这里，大额不急去 <a href="#/otc">OTC 担保交易</a>（0 滑点、1%）。</li>' +
     '<li><b>手续费 0.25%</b>：0.17% 留在池子里归所有放币的人（LP），0.08% 归平台付服务器和开发。加 / 撤流动性不收费。</li>' +
-    '<li><b>新币一律用 AiLGNS 报价</b>：新币池子都是「新币 / AiLGNS」，你拿 DAI 买会自动走 DAI → AiLGNS → 新币，一次确认。</li>' +
+    '<li><b>新币一律用 AiLGNS 报价，aiswap 不做 AiLGNS / DAI</b>：新币池子都是「新币 / AiLGNS」。手里是 DAI？先去 <a href="#/otc">OTC 担保交易</a> 换成 AiLGNS 再来；卖掉新币拿到 AiLGNS，想变现也回 OTC 换成 DAI（0 滑点、1%）。</li>' +
     '<li><b>做 LP 怎么赚</b>：你放 1,000 DAI + 等值 AiLGNS 占池子 10%，当天池子成交 5 万 DAI，LP 手续费 85 DAI 里你分 8.5。成交越多、份额越大赚越多。</li>' +
     '<li><b>做 LP 会亏吗？会（无常损失）</b>：哪个币涨了，池子就自动卖掉它一部分换成另一个币。放进去时 1 AiLGNS = 1 DAI 各放 1,000；AiLGNS 涨到 4 DAI 时不放池子值 5,000，放了池子撤出来约 4,000，少赚的 1,000 就是无常损失。来回波动越大少赚越多，涨回去就没了。手续费能补一部分。<b>适合两个币都愿意长期拿、想吃手续费的人；觉得某个币要大涨就别放池子。</b></li>' +
     '<li><b>不保本</b>：涨跌和无常损失自己承担，平台不参与盈亏、不做投资建议。新币谁都能发，平台不背书。</li>' +
@@ -114,6 +114,7 @@
   function customTok(sel, done) {
     var a = prompt("粘贴代币合约地址（0x 开头 42 位）"); if (!a) { sel.value = sel.getAttribute("data-prev") || ""; return; }
     a = low(a.trim()); if (!A.isAddr(a)) { A.errTip("地址格式不对", sel); sel.value = sel.getAttribute("data-prev") || ""; return; }
+    if (a === low(cfg.dai)) { A.errTip("AiLGNS 和 DAI 的买卖请去 OTC 担保交易，aiswap 只做新币 / AiLGNS", sel); sel.value = sel.getAttribute("data-prev") || ""; return; }
     Promise.all([A.call(a, SEL.symbol), A.call(a, SEL.decimals)]).then(function (r) {
       var n = Number(word(r[0], 1)), hex = r[0].slice(2 + 128, 2 + 128 + n * 2), sym = ""; try { sym = decodeURIComponent(hex.replace(/(..)/g, "%$1")); } catch (e) { sym = a.slice(0, 6); }
       custom[a] = { sym: sym || a.slice(0, 8), addr: a, dec: Number(word(r[1], 0)) || 18 }; if (!tok(a)) tokens.push(custom[a]); done(a);
@@ -138,7 +139,7 @@
     onTokChange(g("as-to"), function (v) { S.to = v; if (S.from === v) S.from = ""; renderSwap(); });
     g("as-amt").oninput = function () { S.amt = this.value; quoteSwap(); };
     g("as-flip").onclick = function () { var t = S.from; S.from = S.to; S.to = t; S.amt = ""; renderSwap(); };
-    g("as-max").onclick = function () { var t = tok(S.from); if (!bal[S.from] || !t) return; var v = bal[S.from]; if (low(S.from) === low(cfg.tokens[0].addr)) v = v > 10n ** 17n ? v - 10n ** 17n : 0n; /* DAI 留 0.1 当 Gas */ S.amt = (num(v, t.dec)).toString(); g("as-amt").value = S.amt; quoteSwap(); };
+    g("as-max").onclick = function () { var t = tok(S.from); if (!bal[S.from] || !t) return; var v = bal[S.from]; if (low(S.from) === low(cfg.dai)) v = v > 10n ** 17n ? v - 10n ** 17n : 0n; /* DAI 留 0.1 当 Gas */ S.amt = (num(v, t.dec)).toString(); g("as-amt").value = S.amt; quoteSwap(); };
     document.querySelectorAll(".as-slip button").forEach(function (b) { b.onclick = function () { slip = Number(b.getAttribute("data-s")); document.querySelectorAll(".as-slip button").forEach(function (x) { x.classList.toggle("on", x === b); }); quoteSwap(); }; });
     g("as-go").onclick = doSwap;
     quoteSwap(); if (account) swapBal();
@@ -152,7 +153,7 @@
   function quoteSwap() {
     var out = g("as-out"), det = g("as-detail"); if (!out) return;
     var tf = tok(S.from), tt = tok(S.to); lastQ = null;
-    if (!tf || !tt) { out.value = ""; det.innerHTML = ""; return; }
+    if (!tf || !tt) { out.value = ""; det.innerHTML = tokens.length < 2 ? '<p class="muted">还没有新币池子。发射台开放后，新币都会以「新币 / AiLGNS」出现在这里；AiLGNS 和 DAI 的买卖请去 <a href="#/otc">OTC 担保交易</a>。</p>' : ""; return; }
     var path = pathFor(S.from, S.to);
     if (!path) { out.value = ""; det.innerHTML = '<p class="nm-bad">这两个币之间还没有池子（也没法经 AiLGNS 中转）。去「流动性」开第一个池子，或者先换成 AiLGNS。</p>'; return; }
     var amtIn = toWei(S.amt, tf.dec);
@@ -278,7 +279,7 @@
   function renderPools() {
     var body = g("as-body"); if (!body) return;
     if (!pools.length) { body.innerHTML = '<section class="card"><h2>🏊 池子</h2><p class="muted">还没有池子。第一个去「流动性」放币的人就是开池人。</p></section>'; return; }
-    var dai = low(cfg.tokens[0].addr), q = low(cfg.quote);
+    var dai = low(cfg.dai), q = low(cfg.quote);
     body.innerHTML = '<section class="card"><div class="card-head"><h2>🏊 池子</h2><span class="muted">手续费都是 0.25%</span></div><table class="as-pools"><thead><tr><th>池子</th><th>价格</th><th>池子里有</th><th>24h 成交</th><th></th></tr></thead><tbody>' +
       pools.map(function (p, i) {
         // 价格：有 DAI 按 DAI 标，否则按 AiLGNS 标

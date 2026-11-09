@@ -60,11 +60,12 @@ async function pools() {
     out.push({ pair: p, t0: a, t1: b, r0: r0.toString(), r1: r1.toString(), lp: word(ts, 0).toString(),
       res0: num(r0, a.dec), res1: num(r1, b.dec), vol0: num(v.v0, a.dec) / 2, vol1: num(v.v1, b.dec) / 2, swaps: v.n }); // 成交额 = (进 + 出) / 2，一笔只算一次
   }
-  // 按 DAI 储备（没有 DAI 就按 AiLGNS 储备）从大到小
-  const dai = AISWAP.tokens[0].addr.toLowerCase(), q = AISWAP.quote.toLowerCase();
-  const size = (x) => x.t0.addr === dai ? x.res0 * 2 : x.t1.addr === dai ? x.res1 * 2 : x.t0.addr === q ? x.res0 : x.t1.addr === q ? x.res1 : 0;
-  out.sort((x, y) => size(y) - size(x));
-  return out;
+  // 站长 2026-11-09：含 DAI 的池子不对外显示（AiLGNS ↔ DAI 走 OTC）；其余按 AiLGNS 储备从大到小
+  const dai = AISWAP.dai.toLowerCase(), q = AISWAP.quote.toLowerCase();
+  const shown = out.filter((x) => x.t0.addr !== dai && x.t1.addr !== dai);
+  const size = (x) => x.t0.addr === q ? x.res0 : x.t1.addr === q ? x.res1 : 0;
+  shown.sort((x, y) => size(y) - size(x));
+  return shown;
 }
 
 export async function onRequestGet({ request }) {
