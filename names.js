@@ -882,7 +882,9 @@
         '<ul class="gc-pts"><li>🔥 <b>限量 1 万，售完永久没有</b>：合约写死，谁都加不了</li><li>⚖️ <b>公平发射</b>：人人同价，先到先得，官方不占创世编号</li><li>🔢 <b>链上永久编号</b>：注册顺序刻在区块链上，永远改不了</li><li>💎 <b>好名字只有一个</b>：被别人注册了就是别人的，只能去市场高价买</li></ul>' +
         (d.recent.length ? '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>最近被抢注：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") +
           (d.recent.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + d.recent.length + " 个 ▾") + "</button>" : "") + "</div>" : "") +
-        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>";
+        '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>" +
+        // 站长 2026-11-08：创世卡下面挂「创世域名销毁倒计时」入口（详情页 #/genesis）
+        '<a class="gc-burn" href="#/genesis"><span class="gc-burn-i">🔥</span><span class="gc-burn-m"><b>创世域名销毁倒计时</b><small>' + (left > 0 ? "还差 <b>" + left.toLocaleString() + "</b> 个注册满 · 满了那天起，中奖领钱要先烧 1 枚创世名" : "已全部铸造完成 · 销毁活动已开启") + '</small></span><span class="gc-burn-r">看详情 ›</span></a>';
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); i.classList.remove("nm-flash"); void i.offsetWidth; i.classList.add("nm-flash"); } };
       gcLast = n;
     }

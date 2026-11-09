@@ -3099,3 +3099,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 @media (max-width: 420px) { .gs-hero .gc-d { width: 44px; height: 60px; font-size: 38px; } .gs-big b { font-size: 36px; } }
 .gs-hero .gc-live { display: inline-flex; flex: none; } /* 创世卡在手机上把它藏了，这页要露出来 */
 .gs-act { grid-template-columns: minmax(0, 1fr); } .gs-act .nm-go { min-width: 0; white-space: normal; line-height: 1.35; } .gs-act [hidden] { display: none; }
+/* 创世卡下面的「销毁倒计时」入口（2026-11-08） */
+.gc-burn { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 12px 14px; border-radius: 16px; text-decoration: none; background: linear-gradient(120deg, #fff4ec, #f6f0ff); border: 1px solid #f5d0b5; color: #2d1b69; }
+.gc-burn-i { flex: none; font-size: 24px; } .gc-burn-m { flex: 1; min-width: 0; } .gc-burn-m b { display: block; font-size: 15px; } .gc-burn-m small { display: block; color: #7a68b8; font-size: 12.5px; line-height: 1.4; margin-top: 2px; } .gc-burn-m small b { display: inline; color: #c2410c; font-size: 13px; }
+.gc-burn-r { flex: none; font-size: 13px; font-weight: 700; color: #7c4dff; }
