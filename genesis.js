@@ -32,7 +32,7 @@
         '<div class="gs-bar"><i id="gs-fill"></i></div>' +
         '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 中奖要领钱的，手里先备一枚</p>' +
         '<div class="gs-act">' + (full ? '<a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a>' : "") + '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
-        '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世域名领奖</button></div><div class="gs-burn-box"></div></section>' +
+        '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世域名领奖</button><p class="gs-bwarn">⚠️ 风险提示：<b>中奖后再来烧，没中奖不要烧</b>。烧掉不退、不补偿，也不会因此多发奖。</p></div><div class="gs-burn-box"></div></section>' +
         // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录放在销毁按钮正下方（规则卡上面），每条点开进中文账本
         '<section class="card gs-burned"><div class="gc-top"><h3>🔥 创世域名销毁统计</h3><span class="gc-live"><i></i>链上实时</span></div>' +
         // 站长 2026-11-09：高亮、大数字，让人一眼看到剩多少：已销毁 / 现存（已铸造 − 已销毁）/ 还能注册（10,000 − 已铸造）
@@ -68,7 +68,7 @@
     // 不碰合约、不加权限：就是普通用户自己把 NFT 转给 0x…dEaD；机器人发奖前核对链上 Transfer→dEaD 记录，一枚只抵一次。钱包里没有就引导去市场买
     var DEAD = "0x000000000000000000000000000000000000dead";
     // 站长 2026-11-09：销毁界面也放到域名页铸造卡下方 → 抽成 html() + bind(root)，两个页面共用
-    function burnHtml() { return '<div class="gs-act"><button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世域名领奖</button></div><div class="gs-burn-box"></div>'; }
+    function burnHtml() { return '<div class="gs-act"><button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世域名领奖</button><p class="gs-bwarn">⚠️ 风险提示：<b>中奖后再来烧，没中奖不要烧</b>。烧掉不退、不补偿，也不会因此多发奖。</p></div><div class="gs-burn-box"></div>'; }
     function bindBurn(root) {
       if (!root) return;
       root.querySelectorAll(".gs-burn").forEach(function (bb) {
