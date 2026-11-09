@@ -3131,7 +3131,13 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .gs-rule { border-left: 4px solid #f97316; }
 @media (max-width: 360px) { .gs-mint b, .gs-fire b { font-size: 22px; } .gs-vs { font-size: 11px; } }
 /* 🔥 已销毁创世域名统计 + 记录（2026-11-09） */
-.gs-burned { border-left: 4px solid #ef4444; } .gs-burned .gc-top h3 { margin: 0; } .gs-burned h3 b { color: #c2410c; font-size: 22px; }
+.gs-burned { background: linear-gradient(135deg, #fff1e8, #ffffff 55%, #fff7f2); border: 1.5px solid #fdba74; box-shadow: 0 6px 18px rgba(249, 115, 22, .12); } .gs-burned .gc-top h3 { margin: 0; }
+.gs-bstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.gs-bs { border-radius: 16px; padding: 12px 6px; text-align: center; background: #fff; border: 1.5px solid #fde0c8; }
+.gs-bs small { display: block; font-size: 12px; font-weight: 700; color: #7a68b8; } .gs-bs b { display: block; font-size: 30px; line-height: 1.1; margin: 4px 0 2px; color: #4b2fb0; font-variant-numeric: tabular-nums; } .gs-bs span { display: block; font-size: 11px; color: #9a8fc0; }
+.gs-bs.hot { background: linear-gradient(135deg, #f97316, #ef4444); border: 0; box-shadow: 0 6px 16px rgba(239, 68, 68, .28); } .gs-bs.hot small, .gs-bs.hot b, .gs-bs.hot span { color: #fff; } .gs-bs.hot b { font-size: 34px; }
+.gs-bcap { margin: 12px 0 0; font-size: 12.5px; font-weight: 700; color: #7a68b8; }
+@media (max-width: 400px) { .gs-bs b { font-size: 24px; } .gs-bs.hot b { font-size: 28px; } .gs-bs span { display: none; } }
 .gs-blist .gs-bm { flex: 1; min-width: 0; } .gs-blist .gs-bm b { display: inline; white-space: normal; overflow-wrap: anywhere; } .gs-blist .gs-bm span { color: #c2410c; font-weight: 700; font-size: 12.5px; white-space: nowrap; } .gs-blist .gs-bm small { display: block; color: #7a68b8; font-size: 12px; margin-top: 2px; }
 .gs-blist li a { flex: none; font-size: 12.5px; font-weight: 700; color: #4b2fb0; text-decoration: none; padding: 3px 8px; border-radius: 999px; background: #f4f0ff; }
 /* 🔥 销毁领奖：选创世名列表（2026-11-09） */

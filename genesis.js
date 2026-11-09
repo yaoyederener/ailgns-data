@@ -8,7 +8,12 @@
     function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
     function n(v) { return Number(v || 0).toLocaleString("en-US"); }
     function ago(s) { s = Math.max(0, Math.floor(Number(s) || 0)); return s < 60 ? "刚刚" : s < 3600 ? Math.floor(s / 60) + " 分钟前" : s < 86400 ? Math.floor(s / 3600) + " 小时前" : Math.floor(s / 86400) + " 天前"; }
-    var rid = 0, timer = null, lastLeft = null;
+    var rid = 0, timer = null, lastLeft = null, stGot = null, stBurn = null;
+    function paintStats() {
+      var set = function (k, v) { var el = document.getElementById(k); if (el) el.textContent = v; };
+      if (stBurn !== null) set("gs-bn", n(stBurn));
+      if (stGot !== null) { set("gs-bmint", n(Math.max(0, GENESIS - stGot))); if (stBurn !== null) set("gs-bleft", n(Math.max(0, stGot - stBurn))); }
+    }
     function flip(n) { // 翻牌数字：和域名页创世卡同款（.gc-d），不足 4 位补 0
       var str = String(Math.max(0, n | 0)).padStart(4, "0");
       return str.split("").map(function (d, i) { return (str.length - i === 3 && i ? '<em class="gc-sep">,</em>' : "") + '<span class="gc-d">' + d + "</span>"; }).join("");
@@ -29,7 +34,10 @@
         '<div class="gs-act">' + (full ? '<a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a>' : "") + '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
         '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div></section>' +
         // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录放在销毁按钮正下方（规则卡上面），每条点开进中文账本
-        '<section class="card gs-burned"><div class="gc-top"><h3>🔥 已销毁创世域名 <b id="gs-bn">—</b> 枚</h3><span class="muted">链上记录 · 点开进账本</span></div><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
+        '<section class="card gs-burned"><div class="gc-top"><h3>🔥 创世域名销毁统计</h3><span class="gc-live"><i></i>链上实时</span></div>' +
+        // 站长 2026-11-09：高亮、大数字，让人一眼看到剩多少：已销毁 / 现存（已铸造 − 已销毁）/ 还能注册（10,000 − 已铸造）
+        '<div class="gs-bstats"><div class="gs-bs hot"><small>🔥 已销毁</small><b id="gs-bn">—</b><span>永久消失</span></div><div class="gs-bs"><small>🌟 现存创世名</small><b id="gs-bleft">—</b><span>已铸造 − 已销毁</span></div><div class="gs-bs"><small>🆕 还能注册</small><b id="gs-bmint">—</b><span>限量 10,000</span></div></div>' +
+        '<p class="gs-bcap">销毁记录（点「账本」看链上那笔）</p><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
         '<section class="card gs-rule"><h3>📜 规则（大白话）</h3><ol>' +
         '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。</li>' +
         '<li><b>烧哪一枚都行。</b>自己手里的，或者去域名市场任意买一枚来烧；没满之前也可以直接注册一枚。编号跟着名字走，买来的也算。</li>' +
@@ -46,7 +54,7 @@
       var my = rid;
       fetch("/api/name-burns").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
         if (my !== rid || !j) return;
-        var bn = document.getElementById("gs-bn"); if (bn) bn.textContent = n(j.n);
+        stBurn = Number(j.n) || 0; paintStats();
         var ul = document.getElementById("gs-blist"); if (!ul) return;
         ul.innerHTML = (j.list || []).slice(0, 20).map(function (x) {
           var who = x.from ? x.from.slice(0, 6) + "…" + x.from.slice(-4) : "";
@@ -126,6 +134,7 @@
           var reg = document.querySelector(".gs-reg"); if (reg) reg.hidden = true;
         } else { set("gs-sub", "每被注册 1 个，这里就跳 1 下 · 铸完永久没有（还能注册 " + n(left) + "）"); }
         set("gs-n", n(got)); set("gs-day", "+" + n(j.day)); set("gs-rest", n(left));
+        stGot = got; paintStats();
         var f = document.getElementById("gs-fill"); if (f) f.style.width = pct.toFixed(2) + "%";
         var ul = document.getElementById("gs-recent");
         if (ul) ul.innerHTML = (j.recent || []).slice(0, 8).map(function (r) { return "<li><b>" + esc(r.nm) + ".ailgns</b><span>#" + n(r.no) + "</span><small>" + ago(r.ago) + "</small></li>"; }).join("") || '<li class="muted">暂无</li>';
