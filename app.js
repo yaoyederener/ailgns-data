@@ -540,8 +540,19 @@
     }
     return (bundles[k] = tryLoad(url, true).catch(function (e) { delete bundles[k]; throw e; }));
   }
+  // 🚀 net.js 先给缓存、真数据晚到（ail:fresh）或全失败（ail:neterr）时：刚打开 3 秒内、还没滚动、没在输入 → 悄悄重画一次（每次切页最多一次）
+  var routeAt = 0, redrew = false;
+  function softRedraw(ms) {
+    if (redrew || Date.now() - routeAt > ms || window.scrollY > 80) return;
+    var ae = document.activeElement; if (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) return;
+    if (document.querySelector(".modal, dialog[open]")) return;
+    redrew = true; route();
+  }
+  window.addEventListener("ail:fresh", function (e) { if (e.detail && e.detail.changed) softRedraw(3000); });
+  window.addEventListener("ail:neterr", function () { setTimeout(function () { softRedraw(25000); }, 3000); });
+  window.addEventListener("hashchange", function () { redrew = false; });
   function route() {
-    var id = ++renderId;
+    var id = ++renderId; routeAt = Date.now();
     var parts = location.hash.replace(/^#\/?/, "").split("/");
     var extra = window.AIL.pages;
     var tab = parts[0] || "otc", a = (parts[1] || "").toLowerCase();

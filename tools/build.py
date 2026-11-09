@@ -23,7 +23,7 @@ os.chdir(ROOT)
 
 # 分组：顺序 = 原 index 里的加载顺序（必须保持；A.start() 在 otc.js 末尾，menu.js 在它后面）
 GROUPS = {
-    "core":     ["brand.js", "app.js", "livek.js", "wallets.js", "treemap.js", "member.js", "chat.js", "nft.js",
+    "core":     ["net.js", "brand.js", "app.js", "livek.js", "wallets.js", "treemap.js", "member.js", "chat.js", "nft.js",
                  "scan.js", "rank.js", "inbox.js", "otc.js", "menu.js"],
     "names":    ["names.js", "names-batch.js", "genesis.js"],
     "kchart":   ["kchart.js"],

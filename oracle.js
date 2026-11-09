@@ -120,11 +120,18 @@
     el.setAttribute("viewBox", "0 0 " + W0 + " " + H0); el.innerHTML = svg;
   }
 
+  var retryN = 0;
   function load(rid) {
-    return fetch("/api/oracle" + (account ? "?a=" + account : ""), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (d) {
+    return fetch("/api/oracle" + (account ? "?a=" + account : ""), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }).then(function (d) {
       if (!A.isCurrent(rid)) return;
-      data = d; render(rid);
-    }, function () { var o = document.getElementById("or-out"); if (o) o.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后刷新</p></section>'; });
+      retryN = 0; data = d; render(rid);
+    }, function () {
+      // 网络抖一下别死在「读取失败」等人手动刷新（站长 2026-11-09 截图）：3s/6s/12s/20s… 自动重试，页面上已有内容就不清掉
+      if (!A.isCurrent(rid)) return;
+      var wait = Math.min(20000, 3000 * Math.pow(2, retryN++)), o = document.getElementById("or-out");
+      if (o && !o.querySelector(".or-pot, .or-cd, .or-res")) o.innerHTML = '<section class="card"><p class="muted">网络慢，' + Math.round(wait / 1000) + ' 秒后自动重试…</p></section>';
+      setTimeout(function () { if (A.isCurrent(rid)) load(rid); }, wait);
+    });
   }
 
   function render(rid) {
