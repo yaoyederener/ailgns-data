@@ -80,8 +80,26 @@ def syntax_check():
     if bad: sys.exit("❌ 前端 JS 语法错误（上线后这一页会卡死）：\n  " + "\n  ".join(bad))
     print("syntax ok: lib/ + functions/ + 前端 *.js")
 
+def registry_check():
+    """📍 地址查漏（站长 2026-11-09）：源码里出现的每个 0x 地址都要在 lib/addresses.js 登记（我们部署的进 ADDRESSES，第三方进 THIRD_PARTY），
+    没登记的打印警告，防止部署了新合约 / 新钱包却没人盯余额。客户示例地址所在的文件（会员赠送名单、审核员名单、第三方库）不查。"""
+    import glob, re
+    reg = set(a.lower() for a in re.findall(r'"(0x[0-9a-fA-F]{40})"', read("lib/addresses.js")))
+    skip = ("dist/", "lib/vendor/", "lib/addresses.js", "lib/reviewers.js", "member.js")
+    miss = {}
+    for f in sorted(glob.glob("*.js") + glob.glob("lib/**/*.js", recursive=True) + glob.glob("functions/**/*.js", recursive=True)):
+        if f.startswith(skip) or f in skip: continue
+        for a in re.findall(r'"(0x[0-9a-fA-F]{40})"', read(f)):
+            if a.lower() not in reg: miss.setdefault(a.lower(), set()).add(f)
+    if miss:
+        print("⚠️ 未登记地址（请加进 lib/addresses.js：我们部署的进 ADDRESSES，第三方进 THIRD_PARTY）：")
+        for a, fs in sorted(miss.items()): print("   %s  ← %s" % (a, ", ".join(sorted(fs))))
+    else:
+        print("addresses ok: 源码里所有地址都已登记")
+
 def main():
     syntax_check()
+    registry_check()
     src = read("index.src.html")
     listed = re.findall(r'<script src="([^"?]+)[^"]*"></script>', src)
     grouped = [f for g in GROUPS.values() for f in g]

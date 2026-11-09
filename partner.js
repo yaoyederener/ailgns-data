@@ -10,6 +10,19 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
   var LV = { red: ["🔴", "马上处理"], yellow: ["🟡", "今天处理"], green: ["🟢", "知道就好"] };
 
   // 📊 运营分配统计（2026-11-08）：比例、地址、谷歌社交账号钱包实际转过去多少
+  // 📍 所有部署地址（lib/addresses.js 登记）：名称 · 链 · 地址 · Gas / DAI / AiLGNS / LGNS · 状态；异常的排前面
+  function addrTable(j) {
+    var L = j.addrs || []; if (!L.length) return "";
+    var bad = L.filter(function (d) { return d.st !== "✅"; }), good = L.filter(function (d) { return d.st === "✅"; });
+    var scan = function (d) { return d.c === "polygon" ? "https://polygonscan.com/address/" + d.a : "#/scan/" + d.a; };
+    var f4 = function (v) { return v == null ? "—" : v >= 100 ? fm(v, 0) : String(Math.round(v * 1e4) / 1e4); };
+    var row = function (d) {
+      return '<tr class="' + (d.st === "✅" ? "" : "ptn-bad") + '"><td><b>' + esc(d.n) + "</b><small>" + (d.k === "contract" ? "合约" : "钱包") + " · " + (d.c === "polygon" ? "Polygon" : "Anubis") + ' · <a href="' + scan(d) + '"' + (d.c === "polygon" ? ' target="_blank" rel="noopener"' : "") + '><code>' + d.a.slice(0, 6) + "…" + d.a.slice(-4) + "</code></a>" + (d.note ? " · " + esc(d.note) : "") + "</small></td>" +
+        "<td data-l=Gas>" + f4(d.gas) + "</td><td data-l=DAI>" + f4(d.tok.DAI) + "</td><td data-l=AiLGNS>" + f4(d.tok.AiLGNS) + "</td><td data-l=LGNS>" + f4(d.tok.LGNS) + "</td><td data-l=状态>" + esc(d.st) + "</td></tr>";
+    };
+    return '<h3 class="ad-h">📍 所有部署地址（' + L.length + " 个" + (bad.length ? " · ⚠️ " + bad.length + " 个异常" : " · 全部正常") + ')</h3><p class="muted">合约、机器人钱包、合伙人收款全在这，有异常会同时出现在上面的风险里。新部署的合约或钱包必须登记到这张表（lib/addresses.js），不然看不见。</p>' +
+      '<div class="ad-tw"><table class="ad-t ptn-t ptn-addr"><thead><tr><th>地址</th><th>Gas</th><th>DAI</th><th>AiLGNS</th><th>LGNS</th><th>状态</th></tr></thead><tbody>' + bad.concat(good).map(row).join("") + "</tbody></table></div>";
+  }
   function allocHtml(j) {
     var L = j.alloc || []; if (!L.length) return "";
     var tot = L.reduce(function (t, y) { return t + ((y.got && y.got.ail) || 0); }, 0);
@@ -58,6 +71,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       tile("触发钱包 Gas", fm(j.bal.keeper.dai, 1) + " DAI", j.bal.keeper.dai < 8 ? "⚠️ 低于 8 机器人会停" : "够用", j.bal.keeper.dai < 8 ? "warn" : "") +
       "</div>" +
       allocHtml(j) +
+      addrTable(j) +
       // 3. 生意
       '<h3 class="ad-h">📈 今天的生意（今天 · 昨天 · 近 7 天合计）</h3><div class="ad-tw"><table class="ad-t ptn-t"><thead><tr><th></th><th>今天 ' + dayCn(d0.day) + "</th><th>昨天 " + dayCn(d1.day) + "</th><th>近 7 天</th></tr></thead><tbody>" +
       "<tr><td>OTC 成交额</td><td data-l=今天><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td data-l=昨天>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td data-l=近7天>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
