@@ -3176,3 +3176,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .lp-need{margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:#f3eefc;color:#3b2a6b;font-size:14px;line-height:1.5}
 .lp-need b{color:#5b3fb8}
 .lp-need a{color:#6a4fd0;text-decoration:none}
+
+/* 2026-11-10 手机上做市表单被长下拉文字撑破：格子允许收缩，输入框不超过格子宽 */
+.lp-grid label { min-width: 0; } .lp-grid input, .lp-grid select { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+@media (max-width: 640px) { .lp-calc .lp-grid { grid-template-columns: 1fr 1fr; } }
