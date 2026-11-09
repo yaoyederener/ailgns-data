@@ -40,7 +40,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
   function tile(label, val, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + label + "</small><b>" + val + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; }
 
   function render(rid, j) {
-    var d0 = j.rows[0] || {}, d1 = j.rows[1] || {}, w7 = j.rows.slice(0, 7);
+    var d0 = j.rows[0] || {}, d1 = j.rows[1] || {}, d2 = j.rows[2] || {}, w7 = j.rows.slice(0, 7); // d2 = 前天（站长 2026-11-09：两天太少，看三天）
     var sum = function (k) { return w7.reduce(function (s, r) { return s + (r[k] || 0); }, 0); };
     var inV = function (r) { return r && r.in ? r.in.dai + r.in.ail * j.price : null; };
     var inSum = w7.reduce(function (s, r) { return s + (inV(r) || 0); }, 0);
@@ -69,10 +69,10 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       // 4. 客户
       '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
-      tile("同时在线（5 分钟内打开）", (j.traffic ? j.traffic.now : 0) + " 人", "今天峰值 " + (j.traffic ? j.traffic.peak + "（" + j.traffic.peakAt + "）" : "—") + (j.traffic && j.traffic.peakY != null ? " · 昨天峰值 " + j.traffic.peakY + "（" + j.traffic.peakYAt + "）" : "") + " · 容量约 " + (j.cap ? j.cap.conc : "—"), j.traffic && j.cap && j.traffic.now >= j.cap.conc * 0.5 ? "warn" : "") +
-      tile("今日访客", fm(d0.v, 0) + " 次", vs(d0.v, d1.v, " 次") + " · 首次 " + (d0.v1 || 0) + " 人（昨天 " + (d1.v1 || 0) + "）") +
-      tile("App 装机", "今天 " + (d0.an || 0) + " 台", vs(d0.an, d1.an, " 台") + " · 累计 " + j.installs + " 台") +
-      tile("工单", "今天 " + j.tk.today + " 张", (j.tk.yest != null ? vs(j.tk.today, j.tk.yest, " 张") + " · " : "") + (j.tk.open ? "⚠️ " + j.tk.open + " 张没回，最久等了 " + j.tk.oldestH + " 小时" : "全部回完") + (j.tk.avgH ? " · 平均 " + j.tk.avgH + " 小时回复" : ""), j.tk.open && j.tk.oldestH >= 2 ? "warn" : "") +
+      tile("同时在线（5 分钟内打开）", (j.traffic ? j.traffic.now : 0) + " 人", "今天峰值 " + (j.traffic ? j.traffic.peak + "（" + j.traffic.peakAt + "）" : "—") + (j.traffic && j.traffic.peakY != null ? " · 昨天 " + j.traffic.peakY + "（" + j.traffic.peakYAt + "）" : "") + (j.traffic && j.traffic.peakY2 ? " · 前天 " + j.traffic.peakY2 + "（" + j.traffic.peakY2At + "）" : "") + " · 容量约 " + (j.cap ? j.cap.conc : "—"), j.traffic && j.cap && j.traffic.now >= j.cap.conc * 0.5 ? "warn" : "") +
+      tile("今日访客", fm(d0.v, 0) + " 次", vs(d0.v, d1.v, " 次") + " · 前天 " + fm(d2.v, 0) + " 次 · 首次 " + (d0.v1 || 0) + " 人（昨天 " + (d1.v1 || 0) + " · 前天 " + (d2.v1 || 0) + "）") +
+      tile("App 装机", "今天 " + (d0.an || 0) + " 台", vs(d0.an, d1.an, " 台") + " · 前天 " + (d2.an || 0) + " 台 · 累计 " + j.installs + " 台") +
+      tile("工单", "今天 " + j.tk.today + " 张", (j.tk.yest != null ? vs(j.tk.today, j.tk.yest, " 张") + (j.tk.yest2 != null ? " · 前天 " + j.tk.yest2 + " 张" : "") + " · " : "") + (j.tk.open ? "⚠️ " + j.tk.open + " 张没回，最久等了 " + j.tk.oldestH + " 小时" : "全部回完") + (j.tk.avgH ? " · 平均 " + j.tk.avgH + " 小时回复" : ""), j.tk.open && j.tk.oldestH >= 2 ? "warn" : "") +
       "</div>" +
       (j.tk.latest.length ? '<div class="ptn-tk">' + j.tk.latest.map(function (t) { return '<div><span class="muted">' + tm(t.t) + "</span> " + (t.done ? "✅" : "⏳") + " " + esc(t.txt) + "</div>"; }).join("") + '<p class="muted">详细回复在 <a href="#/feedback/admin">工单后台</a>（需要站长口令）</p></div>' : "") +
       // 5. 计划
