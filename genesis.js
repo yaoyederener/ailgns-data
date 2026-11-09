@@ -62,13 +62,16 @@
       btn.disabled = true; box.innerHTML = '<p class="muted gs-bst">正在连接钱包…</p>';
       var acct;
       nm.connect().then(function (a) {
-        acct = a; say("正在读取 " + A.short(a) + " 钱包里的创世名…（第一次要读链上记录，稍等几秒）");
-        return nm.owned(a);
+        acct = a; say("正在读取 " + A.short(a) + " 钱包里的创世名…");
+        // 先走服务器快照接口（秒出，不读链）；接口不通再退回手机自己读链（慢）
+        return fetch("/api/name-owned?a=" + a).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
+          .then(function (j) { return (j.list || []).map(function (x) { return { t: "ailgns", id: x.id, label: x.label, no: x.no }; }); },
+            function () { say("快照读不到，改为直接读链，会慢一点，请稍等…"); return nm.owned(a); });
       }).then(function (all) {
         var list = (all || []).filter(function (x) { return x && x.no && x.t === "ailgns"; }).sort(function (x, y) { return x.no - y.no; });
         btn.disabled = false;
         if (!list.length) {
-          box.innerHTML = '<div class="gs-bnone"><b>😅 这个钱包（' + A.short(acct) + '）里没有创世名</b><p>去域名市场任意买一枚，买到后回到这页再点一次销毁按钮。</p>' +
+          box.innerHTML = '<div class="gs-bnone"><b>😅 这个钱包（' + A.short(acct) + '）里没有创世名</b><p>去域名市场任意买一枚，买到后回到这页再点一次销毁按钮（刚买 / 刚注册的等 1 分钟再点）。</p>' +
             '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚</a><a class="nm-go gs-reg" href="#/names">🌟 还没铸满，也可以直接注册一枚</a>' +
             '<p class="muted">如果你的创世名在另一个钱包里，请切换到那个钱包再点销毁。</p></div>';
           return;
