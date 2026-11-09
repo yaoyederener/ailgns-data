@@ -3226,3 +3226,5 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
   .as-pools td[data-l]::before { content: attr(data-l); display: block; font-size: 11px; color: #9a8acc; } .as-pools td:first-child { grid-column: 1 / -1; font-size: 15px; } .as-pools td:last-child { grid-column: 1 / -1; } .as-pools td:last-child button { width: 100%; }
   .as-hero .lp-kpi { grid-template-columns: 1fr 1fr 1fr; }
 }
+.as-dep .as-steps li { color: #3b2a6b; } .as-dep .as-steps li b { display: block; margin-bottom: 4px; } .as-dep-body { font-size: 13px; } .as-dep-body .nm-go { margin-top: 6px; padding: 8px 14px; font-size: 14px; }
+.as-dep-addr { font-size: 12.5px; word-break: break-all; color: #2d1b69; } .as-dep-addr a { margin-left: 6px; } .as-dep-done pre { white-space: pre-wrap; word-break: break-all; background: #f6f2ff; padding: 10px; border-radius: 10px; font-size: 12.5px; }

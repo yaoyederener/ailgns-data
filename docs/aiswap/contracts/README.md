@@ -15,3 +15,8 @@
 - BSC 链上 Factory 的 `INIT_CODE_PAIR_HASH()` 读出来 = `0x00fb7f63…69bd5`，和 Router 里写死的一致。**我们部署后也必须读出这个值**。
 
 ⚠️ Factory 的 optimizer 必须是「关」：开了优化编译出来的 PancakePair 字节码不同，hash 就对不上，Router 会找错池子地址。
+
+## 字节码文件（`*.bytecode.txt`，内部部署页 #/aiswap/deploy 用）
+
+2026-11-09 从 Sourcify 取的**链上原样创建字节码**（onchainBytecode），只去掉了末尾的构造参数（Factory 32 字节、Router 64 字节、WETH9 没有）。用它部署出来的合约和 BSC 主网 / 以太坊主网的那份**逐字节一致**（连末尾的元数据指纹都一样），所以 Factory 的 `INIT_CODE_PAIR_HASH` 必然等于 `0x00fb7f63…69bd5`。部署页会把构造参数（Factory：feeToSetter = 连接的钱包；Router：factory + WETH 地址）接在后面再发交易。
+为什么不用 Remix 编译：2026-11-09 实测 Remix 2.6 + OKX 插件在 Anubis 链上部署会报「…indexOf is not a function」发不出去。

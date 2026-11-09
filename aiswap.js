@@ -69,6 +69,7 @@
     rid = id;
     try { if (K() && K().M && K().M().chain !== "anubis") K().useMarket("ailgns"); } catch (e) { /* 钱包工具没就绪也不影响看页面 */ }
     A.app.innerHTML = '<section class="card"><p class="muted">⏳ 读取池子…</p></section>';
+    if (/^#\/aiswap\/deploy/i.test(location.hash)) { load().then(renderDeploy, renderDeploy); return; } /* 站长内部：合约部署页 */
     load().then(function () { if (!A.isCurrent(rid)) return; render(); }, function () {
       if (!A.isCurrent(rid)) return; cfg = null; render();
     });
@@ -288,6 +289,64 @@
           '<td><button type="button" class="ghost as-trade" data-i="' + i + '">去兑换</button></td></tr>';
       }).join("") + '</tbody></table><p class="muted" style="margin-top:8px">池子地址可在 <a href="#/scan">账本</a> 里查；数据每分钟更新一次。</p></section>';
     body.querySelectorAll(".as-trade").forEach(function (b) { b.onclick = function () { var p = pools[Number(b.getAttribute("data-i"))]; S.from = p.t1.addr === dai || p.t1.addr === q ? p.t1.addr : p.t0.addr; S.to = S.from === p.t0.addr ? p.t1.addr : p.t0.addr; S.amt = ""; tab = "swap"; render(); }; });
+  }
+
+  // ---------- 站长内部：合约部署页 #/aiswap/deploy ----------
+  // 用 docs/aiswap/contracts/*.bytecode.txt（BSC / 以太坊链上原样创建字节码）直接发「创建合约」交易，和 OTC 下单一样走钱包弹窗。
+  // 2026-11-09：Remix + OKX 在 Anubis 上发不出部署交易，所以做了这个页。谁都能打开，但部署出来的只是他自己的一套合约，花他自己的 Gas，和本站无关
+  var DEP_KEY = "aiswap-deploy-v1", dep = {};
+  try { dep = JSON.parse(localStorage.getItem(DEP_KEY) || "{}") || {}; } catch (e) { dep = {}; }
+  function saveDep() { try { localStorage.setItem(DEP_KEY, JSON.stringify(dep)); } catch (e) { /* 存不了就只在内存里 */ } }
+  function renderDeploy() {
+    if (!A.isCurrent(rid)) return;
+    var feeTo = cfg && cfg.feeTo, wantHash = cfg && cfg.initCodeHash;
+    function row(n, title, done, body) { return '<li class="' + (done ? "done" : "") + '"><b>' + n + '. ' + title + '</b>' + (done ? ' ✅' : '') + '<div class="as-dep-body">' + body + '</div></li>'; }
+    function addrLine(a) { return a ? '<div class="mono as-dep-addr">' + esc(a) + ' <a href="#/scan/' + esc(a) + '">账本</a></div>' : ""; }
+    A.app.innerHTML = '<section class="card as-box as-dep"><div class="card-head"><h2>🛠 aiswap 合约部署（站长内部）</h2>' + connBtn("as-dc") + '</div>' +
+      '<p class="muted">按顺序点，每一步在钱包里确认一次。用的是 BSC 主网 PancakeSwap V2 / 以太坊 WETH9 <b>链上原样字节码</b>，部署出来逐字节一致。<b>连接的钱包 = 工厂管理员（feeToSetter）</b>，请确认连的是对的钱包。进度存在本浏览器里，刷新不丢。</p>' +
+      (!cfg ? '<p class="nm-bad">读不到 /api/aiswap 配置，刷新再试。</p>' : "") +
+      '<ol class="as-steps">' +
+      row(1, "部署 WETH9（包装 Gas 币）", dep.weth, addrLine(dep.weth) + (dep.weth ? "" : '<button type="button" class="nm-go" data-dep="weth">部署 WETH9</button>')) +
+      row(2, "部署 PancakeFactory（管理员 = 当前钱包）", dep.factory, addrLine(dep.factory) + (dep.factory ? "" : '<button type="button" class="nm-go" data-dep="factory"' + (dep.weth ? "" : " disabled") + '>部署 Factory</button>')) +
+      row(3, "部署 PancakeRouter（参数 = Factory + WETH9）", dep.router, addrLine(dep.router) + (dep.router ? "" : '<button type="button" class="nm-go" data-dep="router"' + (dep.factory && dep.weth ? "" : " disabled") + '>部署 Router</button>')) +
+      row(4, "核对 INIT_CODE_PAIR_HASH", dep.hashOk, '<div class="muted">应等于 <span class="mono">' + esc(wantHash || "?") + '</span></div>' + (dep.hashOk ? '<div class="mono as-dep-addr">' + esc(dep.hash) + '</div>' : '<button type="button" class="nm-go" data-dep="hash"' + (dep.factory ? "" : " disabled") + '>读取并核对</button>')) +
+      row(5, "打开平台费：setFeeTo → 收款钱包", dep.feeToOk, '<div class="muted">收款地址 <span class="mono">' + esc(feeTo || "?") + '</span></div>' + (dep.feeToOk ? "" : '<button type="button" class="nm-go" data-dep="feeto"' + (dep.hashOk ? "" : " disabled") + '>设置并确认</button>')) +
+      '</ol><p class="muted nm-st" id="as-dst"></p>' +
+      (dep.router && dep.feeToOk ? '<div class="as-dep-done"><b>全部完成。把下面三行发给开发填进 lib/aiswap.js：</b><pre class="mono">weth: "' + esc(dep.weth) + '",\nfactory: "' + esc(dep.factory) + '",\nrouter: "' + esc(dep.router) + '"</pre></div>' : "") +
+      '<p class="muted"><a href="javascript:void(0)" id="as-dreset">清除本机进度（只清记录，不影响链上）</a></p></section>';
+    bindConn("as-dc");
+    A.app.querySelectorAll("[data-dep]").forEach(function (b) { b.onclick = function () { depStep(b.getAttribute("data-dep"), b); }; });
+    var rs = g("as-dreset"); if (rs) rs.onclick = function () { if (confirm("清除本机记录？链上合约不受影响。")) { dep = {}; saveDep(); renderDeploy(); } };
+    K().silentAccount().then(function () { account = K().account(); if (account) after(); });
+  }
+  function deployRaw(file, args, say) {
+    return fetch("/docs/aiswap/contracts/" + file + ".bytecode.txt").then(function (r) { if (!r.ok) throw new Error("读不到字节码文件 " + file); return r.text(); }).then(function (hex) {
+      hex = hex.trim(); if (!/^0x[0-9a-f]+$/i.test(hex) || hex.length < 2000) throw new Error("字节码文件内容不对：" + file);
+      var data = hex + (args || []).map(addrWord).join("");
+      return K().ready().then(function () {
+        account = K().account(); after(); say("正在估算 Gas…");
+        return A.rpc("eth_estimateGas", [{ from: account, data: data }]).then(function (gas) { return "0x" + (BigInt(gas) * 12n / 10n).toString(16); }, function (e) { throw new Error("估算 Gas 失败：" + ((e && e.message) || e)); });
+      }).then(function (gas) {
+        say("请在钱包确认「部署 " + file + "」（Gas 约 " + (Number(BigInt(gas)) * 12e-9).toFixed(3) + " DAI）");
+        return A.wallets.ask(A.wallet.get(), { method: "eth_sendTransaction", params: [{ from: account, data: data, gas: gas }] });
+      }).then(function (hash) {
+        say("已提交 " + String(hash).slice(0, 14) + "…，等待链上确认…");
+        return A.wallet.waitOn("anubis", hash).then(function (rc) { if (!rc || !rc.contractAddress) throw new Error("交易成功但没拿到合约地址，去账本看 " + hash); return rc.contractAddress.toLowerCase(); });
+      });
+    });
+  }
+  function depStep(k, btn) {
+    var st = g("as-dst"), say = function (t) { if (st) st.textContent = t; };
+    btn.disabled = true;
+    var p;
+    if (k === "weth") p = deployRaw("WETH9", [], say).then(function (a) { dep.weth = a; });
+    else if (k === "factory") p = K().ready().then(function () { account = K().account(); return deployRaw("PancakeFactory", [account], say); }).then(function (a) { dep.factory = a; dep.feeToSetter = account; });
+    else if (k === "router") p = deployRaw("PancakeRouter", [dep.factory, dep.weth], say).then(function (a) { dep.router = a; });
+    else if (k === "hash") p = A.call(dep.factory, "0x5855a25a").then(function (h) { dep.hash = String(h).toLowerCase(); if (dep.hash !== String(cfg.initCodeHash).toLowerCase()) throw new Error("❌ hash 不一致：" + dep.hash + "。不要继续，把这行发给开发。"); dep.hashOk = true; });
+    else if (k === "feeto") p = K().ready().then(function () { account = K().account(); return K().send(dep.factory, "0xf46901ed" + addrWord(cfg.feeTo), say, "设置平台费收款地址"); })
+      .then(function () { return A.call(dep.factory, "0x017e7e58"); }).then(function (h) { var got = "0x" + String(h).slice(-40).toLowerCase(); if (got !== low(cfg.feeTo)) throw new Error("feeTo 读回来是 " + got + "，和收款地址不一致"); dep.feeToOk = true; });
+    else return;
+    p.then(function () { saveDep(); say(""); renderDeploy(); }).catch(function (e) { btn.disabled = false; say(""); A.errTip(K().niceError(e), btn); });
   }
 
   A.pages.aiswap = page;
