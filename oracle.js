@@ -169,6 +169,8 @@
     setTimeout(liveRank, 0);
     setTimeout(function () { if (A.credFill) A.credFill(A.app); }, 0); // 🏅 贡献榜名字后面加「认证商家」等信誉标志（站长 2026-11-07）
     setTimeout(countUp, 0);
+    // 🔗 中奖查询直达（站长 2026-11-09）：客服给的链接 ailgns.dev/#/oracle/result 打开后直接滚到「揭晓结果」卡
+    if (/^#\/oracle\/(result|win)/i.test(location.hash)) setTimeout(function () { var el = document.querySelector(".or-res"); if (el) el.scrollIntoView({ block: "start", behavior: "smooth" }); }, 80);
     // 最近一次结果（不在上面显示时）
     if (d.last && !(res && res.day === d.last.day && now - res.at < 20 * 3600e3)) html += resultCard(d.last, "📜 上一期结果");
     // 预言家榜
