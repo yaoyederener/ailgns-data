@@ -57,7 +57,24 @@ def wrap(f):
     # 每个源文件独立 try/catch：顶层抛错只影响它自己，不把同包后面的文件一起拖死
     return "try{\n" + src + "\n}catch(e){console.error('[bundle] " + f + "',e);}"
 
+def syntax_check():
+    """服务端 lib/ 和 functions/ 过一遍 JS 语法（esprima，纯 Python）。2026-11-09 事故：一行注释吞掉大括号，
+    Cloudflare 编译 Functions 失败、自动重跑旧构建把生产顶回早上的版本。esprima 不认 BigInt 字面量（123n），检查前先把 n 后缀去掉。"""
+    try:
+        import esprima
+    except ImportError:
+        print("（没装 esprima，跳过语法检查：pip3 install --user esprima）"); return
+    import glob, re
+    bad = []
+    for f in sorted(glob.glob("lib/*.js") + glob.glob("functions/**/*.js", recursive=True)):
+        src = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)n\b", r"\1", read(f))  # 十进制 / 十六进制 BigInt 都去掉 n
+        try: esprima.parseModule(src)
+        except Exception as e: bad.append("%s: %s" % (f, str(e)[:160]))
+    if bad: sys.exit("❌ 服务端 JS 语法错误（推上去 Cloudflare 一定构建失败）：\n  " + "\n  ".join(bad))
+    print("syntax ok: lib/ + functions/")
+
 def main():
+    syntax_check()
     src = read("index.src.html")
     listed = re.findall(r'<script src="([^"?]+)[^"]*"></script>', src)
     grouped = [f for g in GROUPS.values() for f in g]
