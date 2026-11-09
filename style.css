@@ -2259,9 +2259,9 @@ header.top { transition: transform .25s ease; }
 .gd-h small { display: block; font-size: 13px; color: #7a68b8; margin-top: 2px; line-height: 1.45; }
 .gd-s { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
 .gd-s button { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-radius: 14px; background: #fff; border: 1.5px solid #d9ccff; color: #4b2fb0; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; box-shadow: none; min-height: 48px; }
-.gd-s button:first-child { background: linear-gradient(120deg, #7c4dff, #a855f7); border-color: transparent; color: #fff; box-shadow: 0 6px 16px rgba(124, 77, 255, .25); }
+/* 2026-11-08 站长：四个步骤按钮背景统一白底，第 1 步不再单独紫色 */
 .gd-s button i { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 800; background: #efe7ff; color: #7c4dff; }
-.gd-s button:first-child i { background: rgba(255, 255, 255, .25); color: #fff; }
+
 .gd-s button:active { transform: scale(.98); }
 .gd-flash { animation: gdFlash 1.6s ease; }
 @keyframes gdFlash { 0%, 60% { box-shadow: 0 0 0 3px #a98bff, 0 0 0 8px rgba(169, 139, 255, .25); } 100% { box-shadow: none; } }
