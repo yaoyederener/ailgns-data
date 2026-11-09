@@ -1089,6 +1089,7 @@
         function end(msg, bad) {
           sweeping = false; go.disabled = false; say(msg, bad);
           if (done) { // 扫单记录：每张单的成交和链上交易，另附全部成交记录入口（站长要求）
+            if (A.quiet) A.quiet(12000); // 成功了：接下来 2 秒自动刷新冒出的链上读取错误不要弹「没成功」
             var getName = buy ? SYM : "DAI", getDec = buy ? TD : 18;
             var html = '<div class="sw-get sw-done"><span>本次扫单到手</span><b class="num">' + show(got, 4, getDec) + "</b><em>" + getName + "</em><small>成交 " + done + " 张，共付 " + show(paid, 4, payDec) + " " + name + "</small></div>" +
               '<table class="sw-tbl"><thead><tr><th>订单</th><th>付出</th><th>到手</th><th>交易</th></tr></thead><tbody>' +

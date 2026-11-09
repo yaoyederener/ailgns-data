@@ -751,8 +751,13 @@
   document.addEventListener("click", function () { lastTap = Date.now(); }, true);
   var lastNav = 0;
   window.addEventListener("hashchange", function () { lastNav = Date.now(); });
+  var quietUntil = 0; // 成功弹窗刚出来那几秒：后台刷新冒出的错只记日志不弹（站长 2026-11-09：扫单一边说成功一边说合约拒绝）
   function oops(e) {
     if (Date.now() - lastTap > 8000) return; // 后台自动刷新出的错不打扰客户
+    if (Date.now() < quietUntil || document.querySelector(".modal .sw-done, .modal .win-slot")) {
+      try { report("成功弹窗期间的后台错误（已压住没弹）：" + String((e && (e.message || e.reason)) || e).slice(0, 200) + " @" + location.hash); } catch (x) {}
+      return;
+    }
     // 切换页面后，上一页还没加载完的内容写回已经不在的位置（Cannot set properties of null）：只是旧页面的残留，不影响操作，不弹
     if (Date.now() - lastNav < 15000 && /of null|of undefined/.test(String(e && e.message))) { try { console.warn("旧页面残留：", e); } catch (x) {} return; }
     var W = window.AIL && window.AIL.wallet, m = "";
@@ -762,7 +767,7 @@
   window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
   var BAN_RE = /毛泽东|刘少奇|李先念|杨尚昆|江泽民|胡锦涛|习近平|maozedong|liushaoqi|lixiannian|yangshangkun|jiangzemin|hujintao|xijinping/i;
   window.addEventListener("error", function (ev) { if (ev.error) oops(ev.error); });
-  window.AIL = { errTip: errTip, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
+  window.AIL = { errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
