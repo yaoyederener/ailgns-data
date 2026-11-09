@@ -120,7 +120,7 @@
     var N = matchMedia("(min-width: 901px)").matches ? 9 : 6;
     // 🧊 展示层冰山（站长 2026-11-09）：某一档数量超过本侧总量 20% 的大单只露一截（本侧总量的 20% 或它自己的 30%，取大），标 🧊，点图标看真实数量；成交逻辑、合约、账本都不变，只是不让一张巨单把盘口吓歪
     var totA = agg(book.asks, 1e9).reduce(function (s, r) { return s + r.coin; }, 0), totB = agg(book.bids, 1e9).reduce(function (s, r) { return s + r.coin; }, 0);
-    var iceberg = function (rows, total) { var cap = total * 0.2, cum = 0; return rows.map(function (r) { var o = { p: r.p, coin: r.coin, dai: r.dai, full: r.coin }; if (rows.length >= 4 && cap > 0 && r.coin > cap) o.coin = Math.max(cap, r.coin * 0.3); cum += o.coin; o.cum = cum; return o; }); };
+    var iceberg = function (rows, total) { var cap = total * 0.2, cum = 0; return rows.map(function (r) { var o = { p: r.p, coin: r.coin, dai: r.dai, full: r.coin }; if (rows.length >= 4 && cap > 0 && r.coin > total * 0.35) o.coin = Math.max(cap, r.coin * 0.3); // 只藏真正的巨单（超过本侧 35%） cum += o.coin; o.cum = cum; return o; }); };
     var asks = iceberg(agg(book.asks, N), totA), bids = iceberg(agg(book.bids, N), totB), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
     var row = function (r, cls) { var ice = r.full > r.coin + 1e-9; return '<div class="tr2-row ' + cls + (ice ? " ice" : "") + '" data-p="' + r.p + '" data-full="' + r.full + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + (ice ? '<i class="ice-tag" title="冰山单：这一档实际 ' + fq(r.full) + " " + SYM + '，点一下看全部">🧊</i>' : "") + "<em>" + fq(r.coin) + "</em></span></div>"; };
     renderGauge();
@@ -138,7 +138,7 @@
   // 🌡️ 供需温度计（站长 2026-11-09 点头）：只看现价 ±3% 以内的真实深度（远处的大单可能是假的），告诉客户现在缺哪一边
   function renderGauge() {
     var el = document.getElementById("tr-gauge"); if (!el) return;
-    var ref = book.mkt || (bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : 0);
+    var ref = bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : book.mkt; // 以 OTC 自己的买一卖一中间价为准（DEX 价常和 OTC 差 3% 以上，会把一边全算成 0）
     if (!ref) { el.innerHTML = ""; return; }
     var bd = 0, ad = 0;
     book.bids.forEach(function (o) { if (priceOf(o) >= ref * 0.97) bd += num(leftDai(o)); });
