@@ -6,14 +6,14 @@
   function tm(t) { var x = new Date(t + 8 * 3600e3); return (x.getUTCMonth() + 1) + "/" + x.getUTCDate() + " " + String(x.getUTCHours()).padStart(2, "0") + ":" + String(x.getUTCMinutes()).padStart(2, "0"); }
   var LV = { red: "🔴", yellow: "🟡", green: "🟢" };
   function login(rid, msg) {
-    A.app.innerHTML = '<section class="card ptn-login"><h2>' + (location.hash.indexOf("#/notify") === 0 ? "📣 发站内信" : "🛠️ 网站优化") + '</h2><p class="muted">和工单后台同一个口令。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
+    A.app.innerHTML = '<section class="card ptn-login"><h2>' + (location.hash.indexOf("#/notify") === 0 ? "📣 发站内信" : location.hash.indexOf("#/todo") === 0 ? "📝 待办" : "🛠️ 网站优化") + '</h2><p class="muted">和工单后台同一个口令。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
       '<input id="ops-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="ops-go">进入</button></section>';
     var go = document.getElementById("ops-go"), inp = document.getElementById("ops-k");
-    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("fbKey", v); } catch (e) {} if (location.hash.indexOf("#/notify") === 0) A.pages.notify(rid); else load(rid); };
+    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("fbKey", v); } catch (e) {} if (location.hash.indexOf("#/notify") === 0) A.pages.notify(rid); else if (location.hash.indexOf("#/todo") === 0) A.pages.todo(rid); else load(rid); };
     inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
   }
   function nav(cur) {
-    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb' + (cur === "ops" ? " on" : "") + '">🛠️ 网站优化</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
+    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb' + (cur === "ops" ? " on" : "") + '">🛠️ 网站优化</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/todo" class="ad-nb' + (cur === "todo" ? " on" : "") + '">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
   }
   function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
   function render(rid, j) {
@@ -49,6 +49,36 @@
     }, function (e) { if (A.isCurrent(rid)) A.app.innerHTML = '<section class="card"><p class="nm-bad">读取失败：' + esc(e.message || e) + "</p></section>"; });
   }
   A.pages.ops = function (rid) { load(rid); };
+  // 📝 站长待办（2026-11-10 站长：「很多想一半没有执行，在这里提醒我继续优化」）：清单在 lib/todo.js 由开发维护；勾「做完了」存服务器
+  var TD_ST = { "拍板": ["🟣 等你拍板", "td-pick"], "半成": ["🟠 想了一半没做", "td-half"], "长期": ["🔵 长期 / 基础设施", "td-long"], "跟进": ["🟢 开发在查在盯", "td-follow"] };
+  A.pages.todo = function (rid) {
+    var k = key(); if (!k) return login(rid);
+    A.app.innerHTML = '<section class="card"><p class="muted">读取中…</p></section>';
+    fetch("/api/todo?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
+      if (!A.isCurrent(rid)) return;
+      if (j.error) { if (/口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, j.error); } A.app.innerHTML = '<section class="card"><p class="nm-bad">' + esc(j.error) + "</p></section>"; return; }
+      var done = j.done || {}, items = j.items || [], open = items.filter(function (x) { return !done[x.id]; }), closed = items.filter(function (x) { return done[x.id]; });
+      var card = function (x) {
+        var dn = !!done[x.id];
+        return '<li class="td-it' + (dn ? " done" : "") + ' pri-' + (x.pri === "高" ? "h" : x.pri === "中" ? "m" : "l") + '"><div class="td-h"><b>' + (dn ? "✅ " : "") + esc(x.t) + '</b><span class="td-pri">' + esc(x.pri) + "</span></div>" +
+          '<p class="td-why">' + esc(x.why) + '</p><p class="td-next">👉 ' + esc(x.next) + '</p>' +
+          '<div class="td-f"><small class="muted">' + esc(x.d) + (dn ? " · 做完于 " + tm(done[x.id]) : "") + '</small><button type="button" class="td-tg" data-id="' + esc(x.id) + '" data-done="' + (dn ? "0" : "1") + '">' + (dn ? "恢复" : "做完了 ✓") + "</button></div></li>";
+      };
+      var groups = Object.keys(TD_ST).map(function (st) { var l = open.filter(function (x) { return x.st === st; }); return l.length ? '<h3 class="ad-h">' + TD_ST[st][0] + "（" + l.length + "）</h3>" + li(l, card) : ""; }).join("");
+      A.app.innerHTML = '<section class="card ops"><div class="card-head"><h2>📝 待办 · 想到的都在这</h2><span class="muted">清单更新于 ' + esc(j.updated) + "</span></div>" + nav("todo") +
+        '<p class="muted ptn-note">你说过的想法、定了一半的规则、我在查的事，全在这。<b>等你拍板</b>的一句话就能动；<b>想了一半</b>的是你开了头没往下走的。做完的点「做完了」收进底下。</p>' +
+        (open.length ? groups : '<p class="muted">全部做完了 🎉</p>') +
+        (closed.length ? '<details class="td-done"><summary>✅ 已完成（' + closed.length + '）</summary>' + li(closed, card) + "</details>" : "") +
+        '<p class="muted ptn-note">清单由开发维护：你每说一个新想法、每定一条规则、每做完一件事都会同步到这里。</p></section>';
+      A.app.querySelectorAll(".td-tg").forEach(function (b) {
+        b.onclick = function () {
+          b.disabled = true;
+          fetch("/api/todo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k, id: b.getAttribute("data-id"), done: b.getAttribute("data-done") === "1" }) })
+            .then(function (r) { return r.json(); }).then(function (r2) { if (r2.error) { A.errTip(r2.error, b); b.disabled = false; return; } A.pages.todo(rid); }, function () { b.disabled = false; });
+        };
+      });
+    }, function (e) { if (A.isCurrent(rid)) A.app.innerHTML = '<section class="card"><p class="nm-bad">读取失败：' + esc(e.message || e) + "</p></section>"; });
+  };
   // 📣 站长给指定地址发站内信（2026-11-08）
   function tm2(t) { var d = new Date(t + 8 * 3600e3); return d.toISOString().slice(5, 16).replace("T", " "); }
   function logHtml(log) {
