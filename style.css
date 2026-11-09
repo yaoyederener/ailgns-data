@@ -3132,7 +3132,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 @media (max-width: 360px) { .gs-mint b, .gs-fire b { font-size: 22px; } .gs-vs { font-size: 11px; } }
 /* 🔥 已销毁创世域名统计 + 记录（2026-11-09） */
 .gs-burned { border-left: 4px solid #ef4444; } .gs-burned .gc-top h3 { margin: 0; } .gs-burned h3 b { color: #c2410c; font-size: 22px; }
-.gs-blist li span { color: #c2410c; font-weight: 700; font-size: 12.5px; } .gs-blist li small { color: #7a68b8; white-space: nowrap; }
+.gs-blist .gs-bm { flex: 1; min-width: 0; } .gs-blist .gs-bm b { display: inline; white-space: normal; overflow-wrap: anywhere; } .gs-blist .gs-bm span { color: #c2410c; font-weight: 700; font-size: 12.5px; white-space: nowrap; } .gs-blist .gs-bm small { display: block; color: #7a68b8; font-size: 12px; margin-top: 2px; }
 .gs-blist li a { flex: none; font-size: 12.5px; font-weight: 700; color: #4b2fb0; text-decoration: none; padding: 3px 8px; border-radius: 999px; background: #f4f0ff; }
 /* 🔥 销毁领奖：选创世名列表（2026-11-09） */
 .gs-act .gs-off.gs-on { cursor: pointer; } .gs-act .gs-off.gs-on:disabled { opacity: .7; cursor: wait; }

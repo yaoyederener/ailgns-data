@@ -50,7 +50,7 @@
         var ul = document.getElementById("gs-blist"); if (!ul) return;
         ul.innerHTML = (j.list || []).slice(0, 20).map(function (x) {
           var who = x.from ? x.from.slice(0, 6) + "…" + x.from.slice(-4) : "";
-          return "<li><b>" + esc(x.label || "（未知）") + ".ailgns</b><span>" + (x.no ? "#" + n(x.no) : "") + "</span><small>" + who + (x.t ? " · " + ago((Date.now() - x.t) / 1000) : "") + "</small>" +
+          return '<li><div class="gs-bm"><b>' + esc(x.label || "（未知）") + ".ailgns</b> <span>" + (x.no ? "创世 #" + n(x.no) : "") + "</span><small>🔥 " + who + (x.t ? " · " + ago((Date.now() - x.t) / 1000) : "") + "</small></div>" +
             (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">账本 ›</a>' : '<a href="#/scan/' + esc(x.from) + '">账本 ›</a>') + "</li>";
         }).join("") || '<li class="muted">还没有人销毁</li>';
       }).catch(function () { var ul = document.getElementById("gs-blist"); if (ul && my === rid) ul.innerHTML = '<li class="muted">读取失败，稍后自动重试</li>'; });
