@@ -13,6 +13,7 @@ export async function onRequestGet(ctx) {
   if (u.searchParams.get("health")) { const r = kv && (await kv.get("ptn:res", "json")); return json({ ok: !!r, at: r ? r.at : 0, risks: r ? r.risks.length : 0, traffic: r ? r.traffic : null, cap: r ? r.cap : null }); } // 只报有没有算过，不带数据
   if (!canRead(env, key)) return json({ error: "口令不对" }, 403);
   if (!kv) return json({ error: "no kv" }, 503);
+  if (u.searchParams.get("rebuild")) { try { const o = await build(env, kv, ctx); o.canWrite = canWrite(env, key); return json(o); } catch (e) { return json({ error: "重算出错：" + String(e.message || e).slice(0, 500) }, 500); } } // 排查用
   let out = await kv.get("ptn:res", "json");
   // 先给缓存、后台刷新（站长 2026-11-07：「余额读取太慢」）：缓存超过 2 分钟就在后台重算，这次先把旧的给出去，下次打开就是新的；没有缓存才当场算
   if (!out) { try { out = await build(env, kv, ctx); } catch (e) { return json({ error: "面板第一次生成出错：" + String(e.message || e).slice(0, 300) }, 500); } }
