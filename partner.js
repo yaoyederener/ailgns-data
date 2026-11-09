@@ -63,9 +63,8 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       "<tr><td>OTC 成交额</td><td data-l=今天><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td data-l=昨天>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td data-l=近7天>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
       "<tr><td>域名销售</td><td data-l=今天><b>" + (d0.nmN || 0) + "</b> 个 · " + fm(d0.nmDai, 0) + " DAI</td><td data-l=昨天>" + (d1.nmN || 0) + " 个 · " + fm(d1.nmDai, 0) + "</td><td data-l=近7天>" + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + "</td></tr>" +
       "<tr><td>会员付款</td><td data-l=今天><b>" + fm(d0.member, 0) + "</b> DAI</td><td data-l=昨天>" + fm(d1.member, 0) + "</td><td data-l=近7天>" + fm(sum("member"), 0) + "</td></tr>" +
-      '<tr class="ptn-real"><td>实际到账 ✅ 以这个为准<small>链上真转进谷歌社交账号钱包的 DAI / AiLGNS</small></td><td data-l=今天><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td data-l=昨天>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td data-l=近7天>" + fm(inSum, 0) + (inDays < 7 ? "<small>（" + inDays + " 天有记录）</small>" : "") + "</td></tr>" +
-            '<tr class="ptn-est"><td>流水估算<small>成交×1% + 域名全额 + 会员；域名的 70% 进了奖池、LGNS 付的也算在内，所以比到账高，只看趋势</small></td><td data-l=今天>' + fm(d0.income, 0) + " DAI</td><td data-l=昨天>" + fm(d1.income, 0) + "</td><td data-l=近7天>" + fm(sum("income"), 0) + "</td></tr>" +
-"</tbody></table></div>" +
+      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的 DAI / AiLGNS</small></td><td data-l=今天><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td data-l=昨天>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td data-l=近7天>" + fm(inSum, 0) + (inDays < 7 ? "<small>（" + inDays + " 天有记录）</small>" : "") + "</td></tr>" +
+      "</tbody></table></div>" +
       // 4. 客户
       '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
