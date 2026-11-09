@@ -2856,7 +2856,7 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .ptn-rh{display:flex;gap:8px;align-items:baseline;font-size:15px}.ptn-rh b{flex:1}.ptn-rh i{font-style:normal;font-size:12px;color:#8a7fb0;white-space:nowrap}
 .ptn-risk p{margin:4px 0 0;color:#4b3d8f}.ptn-todo{font-weight:700;color:#191839!important}
 .ad-tile.warn{background:#fff1f1}.ad-tile.warn b{color:#c6454a}
-.ptn-t td small{display:block;font-weight:400;color:#8a7fb0;font-size:11px}.ptn-t td:first-child{white-space:nowrap}.ptn-real td{background:#eefbf3}
+.ptn-t td small{display:block;font-weight:400;color:#8a7fb0;font-size:11px}.ptn-t td:first-child{white-space:nowrap}.ptn-real td{background:#eefbf3}.ptn-t td:first-child small{white-space:normal;max-width:300px}.ptn-est td{color:#8a7fb0}
 .ptn-cfg{font-size:13px}.ptn-cfg input{padding:6px 8px;border-radius:8px;border:1px solid #e3d8ff}
 .ptn-tk div,.ptn-upd div{font-size:13px;padding:4px 0;border-bottom:1px dashed #eee6ff}
 .ptn-plan label{display:block;padding:6px 0;font-size:14px}.ptn-plan label.done{color:#9a8acc;text-decoration:line-through}
