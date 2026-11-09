@@ -32,7 +32,7 @@
         '<div class="gs-bar"><i id="gs-fill"></i></div>' +
         '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 中奖要领钱的，手里先备一枚</p>' +
         '<div class="gs-act">' + (full ? '<a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a>' : "") + '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
-        '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div></section>' +
+        '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世域名领奖</button></div><div class="gs-burn-box"></div></section>' +
         // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录放在销毁按钮正下方（规则卡上面），每条点开进中文账本
         '<section class="card gs-burned"><div class="gc-top"><h3>🔥 创世域名销毁统计</h3><span class="gc-live"><i></i>链上实时</span></div>' +
         // 站长 2026-11-09：高亮、大数字，让人一眼看到剩多少：已销毁 / 现存（已铸造 − 已销毁）/ 还能注册（10,000 − 已铸造）
@@ -43,7 +43,7 @@
         '<li><b>烧哪一枚都行。</b>自己手里的，或者去域名市场任意买一枚来烧；没满之前也可以直接注册一枚。编号跟着名字走，买来的也算。</li>' +
         '<li><b>一枚只能抵一次奖。</b>想多次领奖，就要多备几枚。</li>' +
         '<li><b>中奖后 3 天内不销毁，视为放弃领奖。</b>从中奖通知发出算起，过期不补发。</li>' +
-        '<li><b>怎么烧：</b>点上面「销毁 1 枚创世名领奖」→ 连钱包 → 选一枚 → 钱包里确认。销毁就是转进黑洞地址，只花一点 Gas。</li></ol>' +
+        '<li><b>怎么烧：</b>点上面「销毁 1 枚创世域名领奖」→ 连钱包 → 选一枚 → 钱包里确认。销毁就是转进黑洞地址，只花一点 Gas。</li></ol>' +
         '<p class="muted">说明：所有活动为社区自治、娱乐性质，参与请自行承担风险。</p></section>' +
         (full ? '<section class="card"><h3>🆕 刚刚注册的创世名</h3><ul class="gs-recent" id="gs-recent"><li class="muted">读取中…</li></ul></section>' : "");
       bindBurn(root);
@@ -68,7 +68,7 @@
     // 不碰合约、不加权限：就是普通用户自己把 NFT 转给 0x…dEaD；机器人发奖前核对链上 Transfer→dEaD 记录，一枚只抵一次。钱包里没有就引导去市场买
     var DEAD = "0x000000000000000000000000000000000000dead";
     // 站长 2026-11-09：销毁界面也放到域名页铸造卡下方 → 抽成 html() + bind(root)，两个页面共用
-    function burnHtml() { return '<div class="gs-act"><button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div>'; }
+    function burnHtml() { return '<div class="gs-act"><button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世域名领奖</button></div><div class="gs-burn-box"></div>'; }
     function bindBurn(root) {
       if (!root) return;
       root.querySelectorAll(".gs-burn").forEach(function (bb) {
