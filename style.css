@@ -3180,3 +3180,12 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 /* 2026-11-10 手机上做市表单被长下拉文字撑破：格子允许收缩，输入框不超过格子宽 */
 .lp-grid label { min-width: 0; } .lp-grid input, .lp-grid select { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 @media (max-width: 640px) { .lp-calc .lp-grid { grid-template-columns: 1fr 1fr; } }
+
+/* 奖池钱包账本页：大字承诺（2026-11-11） */
+.sc-pledge { background: linear-gradient(135deg, #f6f2ff, #ece4ff); border: 1px solid #d9ccff; }
+.sc-pl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sc-pl-grid div { background: #fff; border-radius: 14px; padding: 14px 8px; text-align: center; }
+.sc-pl-grid b { display: block; font-size: 30px; line-height: 1.1; color: #4b2fb8; font-weight: 800; }
+.sc-pl-grid span { display: block; margin-top: 6px; font-size: 12px; color: #6b5aa6; line-height: 1.35; }
+.sc-pledge p { margin: 10px 0 0; font-size: 13px; }
+@media (max-width: 400px) { .sc-pl-grid b { font-size: 26px; } }

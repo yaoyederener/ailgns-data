@@ -621,8 +621,11 @@
     // 顺序：查订单（带分类）或查自己的钱包时，「正在进行中」紧跟在钱包信息后面，一打开就看到；查别人才先看留言
     var mine = A.otcKit && A.otcKit.account && A.otcKit.account() === a;
     // 站长 2026-11-06 定（白居易原则：大爷大妈一眼看懂）：先看有多少钱 → 在本站有什么事（挂单/到期/借贷）→ 钱去了哪里 → 域名 → 留言
+    /* 站长 2026-11-11：点「查看奖池钱包」进来，先看到大字承诺 */
+    if (a === C.pool) S.pledge = '<section class="card sc-pledge"><div class="sc-pl-grid"><div><b>100%</b><span>奖金全在这个账户</span></div><div><b>足额</b><span>有多少发多少，不打折</span></div><div><b>秒发</b><span>中奖按规则自动发到你钱包</span></div></div>' +
+      '<p class="muted">预言家页面大字显示的奖池，就是下面这个钱包的实际余额（AiLGNS 按现价折算），链上任何人可查、谁也改不了。</p></section>';
     if (a === C.pool) S.pays = '<section class="card sc-pays"><div class="card-head"><h2>💸 发放记录</h2><span class="muted">奖金从这个钱包发出 · 链上可查</span></div><div id="sc-pays">' + wait + '</div></section>';
-    out.innerHTML = ["head", "bal", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
+    out.innerHTML = ["head", "pledge", "bal", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
     if (S.pays) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
       var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" }, box = document.getElementById("sc-pays"); if (!box) return;
       var l = (j.pays || []).slice().sort(function (x, y) { return x.day < y.day ? 1 : x.day > y.day ? -1 : 0; });
