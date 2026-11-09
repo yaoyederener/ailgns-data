@@ -2947,7 +2947,7 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 }
 
 /* 📦 批量注册域名（2026-11-08） */
-.nm-batchrow { margin: 8px 0 0; font-size: 13.5px; } .nm-batchrow .link { padding: 0; }
+.nm-batchrow { margin: 8px 0 0; font-size: 13.5px; } .nm-batchrow .link { display: block; width: 100%; padding: 10px 12px; text-align: center; white-space: normal; line-height: 1.35; } /* 2026-11-08 站长：批量注册入口做成通栏宽 */
 .nb-box { max-width: 560px; max-height: 92vh; overflow: auto; }
 .nb-seg { display: flex; margin: 8px 0 10px; } .nb-seg button { flex: 1; padding: 8px 6px; font-size: 13px; }
 .nb-f { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 10px; }
