@@ -14,7 +14,7 @@
     var ctl = typeof AbortController !== "undefined" ? new AbortController() : null, o = {}, k;
     for (k in init) o[k] = init[k];
     if (ctl && !o.signal) o.signal = ctl.signal;
-    var t = ctl && setTimeout(function () { ctl.abort(); }, n ? 9000 : 5000);
+    var t = ctl && setTimeout(function () { ctl.abort(); }, [10000, 15000, 20000][n] || 20000); // 网络慢时别 5 秒就掐断（Cloudflare 北美东部 2026-11-09 变慢，接口要 3～8 秒）：有缓存的反正 1.2 秒就先给了
     return real(input, o).then(function (r) { clearTimeout(t); if (r.status >= 500 || r.status === 429) throw new Error("http " + r.status); return r; }, function (e) { clearTimeout(t); throw e; });
   }
   function store(key, r) {
