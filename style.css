@@ -3066,3 +3066,9 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .ptn-cp{padding:14px;border-radius:14px;background:#fff7ed;border:2px solid #fb923c;margin-bottom:8px;text-align:center}
 .ptn-cpt{font-weight:800;color:#c2410c;font-size:16px;margin-bottom:8px}.ptn-cpa{font-size:15px;font-weight:700;word-break:break-all;background:#fff;border:1px dashed #fdba74;border-radius:10px;padding:8px;color:#1f2937}
 .ptn-cpb{margin-top:10px;width:100%;font-size:17px;padding:12px}.ptn-tr a{margin-left:auto;font-size:13px}
+/* 2026-11-08 站长：手机上点挂单卡片不要灰蒙蒙的底色（像阴影），改成一圈亮紫边框；置顶行保留黄底 */
+@media (hover: none) {
+  table.cards tbody tr:hover td, table.cards tbody tr:active td { background: none; }
+  table.cards tbody tr.nm-pinrow:hover td, table.cards tbody tr.nm-pinrow:active td { background: #fff8e6; }
+  table.cards tbody tr:hover, table.cards tbody tr:active { outline: 2px solid #8b5cf6; outline-offset: 2px; border-radius: 12px; box-shadow: 0 0 0 5px rgba(139, 92, 246, .14); }
+}
