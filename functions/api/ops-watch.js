@@ -5,6 +5,25 @@ import { sendDebox } from "../../lib/debox.js";
 import { SUPPORT_USER } from "../../lib/support.js";
 import { build as buildAdminStats } from "../../lib/adminstats.js";
 import { build as buildPartner } from "../../lib/partner.js";
+import { TODO } from "../../lib/todo.js";
+import { pushInbox } from "../../lib/inbox.js";
+
+// 📝 站长待办实时推送（站长 2026-11-10：「带优化功能实时滚动推送给我，按当前运营状况推最紧急的」）
+//    清单（lib/todo.js）一有更新就推一次；另外每天北京时间 8 点推一次当日最紧急 5 条。只推到站长自己的收件箱（+ 开了通知的手机 / 电脑），不发客户
+const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
+async function todoPush(kv) {
+  const bj = new Date(Date.now() + 8 * 3600e3), day = bj.toISOString().slice(0, 10), hour = bj.getUTCHours();
+  const st = (await kv.get("todo:pushed", "json")) || {};
+  const changed = st.updated !== TODO.updated, daily = hour >= 8 && st.day !== day;
+  if (!changed && !daily) return;
+  const done = (await kv.get("todo:done", "json")) || {}, W = { "拍板": 0, "半成": 1, "跟进": 2, "长期": 3 }, P = { "高": 0, "中": 1, "低": 2 };
+  const open = TODO.items.filter((x) => !done[x.id]).sort((a, b) => (P[a.pri] - P[b.pri]) || (W[a.st] - W[b.st]));
+  const top = open.slice(0, 5), pick = open.filter((x) => x.st === "拍板").length;
+  const head = changed ? "📝 待办清单更新了（" + TODO.updated + "）" : "📝 今日最紧急待办";
+  const txt = head + "：" + open.length + " 条没做，" + pick + " 条等你一句话\n" + top.map((x, i) => (i + 1) + ". " + (x.st === "拍板" ? "🟣" : x.st === "半成" ? "🟠" : x.st === "跟进" ? "🟢" : "🔵") + " " + x.t + "\n   👉 " + x.next).join("\n") + "\n\n全部清单和「做完了」按钮在后台 📝 待办页。";
+  await pushInbox(kv, OWNER, "sys", txt, "#/todo");
+  await kv.put("todo:pushed", JSON.stringify({ updated: TODO.updated, day, at: Date.now() }));
+}
 
 // ⛽ 触发钱包 Gas 看门狗（站长 2026-11-07：没钱就一直提醒）：keeper 每 5 分钟调一次本接口，顺手查一下
 // 低于 GAS_MIN DAI → 开一张 0 级工单（铃铛 + Mac 提醒会一直催）+ DeBox 私信站长；每 6 小时催一次，补够了自动安静
@@ -121,6 +140,7 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   ctx.waitUntil(gasWatch(ctx, kv).catch(() => {}));
+  ctx.waitUntil(todoPush(kv).catch(() => {})); // 📝 站长待办推送
   ctx.waitUntil(buildAdminStats(ctx.env, kv, ctx).then(() => buildPartner(ctx.env, kv, ctx)).catch(() => {})); // 🤝 合伙人面板：接着站长面板算（要用它的日表）
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
   const now = Math.floor(Date.now() / 1000), slot = slotOf(now); // 今天北京 0 点
