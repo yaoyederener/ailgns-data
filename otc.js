@@ -1095,6 +1095,7 @@
               "</tbody></table>";
             var pnlNow2 = lastPnl, lastTx = (recs.filter(function (x) { return x.tx; }).slice(-1)[0] || {}).tx;
             savedRecord(typeof lastTx === "string" ? lastTx : "", pnlNow2).then(function (rec) { var w = document.querySelector(".modal .win-slot"); if (w) w.innerHTML = winHtml(pnlNow2, rec); });
+            if (msg && /没继续|跳过/.test(msg)) html += '<p class="muted">' + A.esc(msg) + "</p>"; // 部分成交时把原因写进弹窗，不让客户猜
             doneModal("✅ 扫单成功！", '<div class="win-slot">' + winHtml(pnlNow2, null) + "</div>" + html); // 弹窗里显示，页面刷新也不会消失，客户自己点关闭
             setTimeout(reload, 2000);
           }
@@ -1180,7 +1181,8 @@
           if (!done) { end("⚠️ 你选的单连续两次被别人抢先买走了，没有扣你的币。正在刷新最新挂单，请再点一次", true); setTimeout(reload, 800); return; } // 以前这里也说「扫单完成」，客户以为点了没反应
           end("✅ 扫单完成，已到你的钱包" + (skipped ? "（有 " + skipped + " 张已被别人吃掉，跳过了）" : ""));
         }, function (e) {
-          end((done ? "已成交 " + done + " 张，后面的停下了：" : "") + niceError(e), true);
+          // 工单 #60：已经成交了几张再出错，不再整块飘红（客户以为全失败了）；成功弹窗照出，提示写明「前面的已到账，后面那张没继续」
+          end((done ? "✅ 前 " + done + " 张已成交到账；后面那张没继续：" : "") + niceError(e), !done);
           // 单被别人抢走 / 已关闭：页面上的挂单是旧的，马上重读最新挂单（以前不刷新，客户再点还是吃同一张旧单，一直报错）
           if (/NOTHING_FILLED|CLOSED|EXPIRED|抢先|已经成交完/.test(String((e && e.message) || e))) setTimeout(function () { sweeping = false; reload(); }, 1500);
         });
