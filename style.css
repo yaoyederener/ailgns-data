@@ -2010,7 +2010,7 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .risk-chips li { padding: 3px 10px; font-size: 12.5px; color: #5b3fc4; background: #fff; border: 1px solid #e6dbff; border-radius: 999px; }
 .risk-chips li:nth-last-child(-n+2) { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
 .risk-sum { margin: 0; }
-.risk-dev { margin: 8px 0 0; padding: 6px 10px; background: #fff; border: 1px dashed #d9ccff; border-radius: 10px; font-size: 13px; }
+.risk-dev { margin: 0; padding: 6px 10px; background: #fff; border: 1px dashed #d9ccff; border-radius: 10px; font-size: 13px; }
 .risk-det { margin-top: 10px; }
 .risk-det summary { cursor: pointer; color: #7c5cff; font-weight: 600; }
 .risk-det ol { margin: 10px 0 0; padding-left: 22px; }
@@ -3198,3 +3198,5 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .sc-search input:focus { outline: none; border-color: #7c5cff; box-shadow: 0 0 0 5px #e4dcff; background: #fff; }
 .sc-search button { padding: 14px 18px; font-size: 16px; border-radius: 14px; background: linear-gradient(135deg, #7c5cff, #5b3fb8); }
 .sc-home .sc-tip { margin: 10px 2px 0; font-size: 12.5px; color: #8d7fc0; }
+
+.risk-det .risk-head { margin-top: 10px; } .risk-det summary { font-size: 13.5px; }
