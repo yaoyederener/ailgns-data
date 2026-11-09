@@ -291,7 +291,7 @@
     }, function () { return false; });
   }
   A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, account: function () { return account; }, NAMES: function () { return NAMES; },
-    tx: tx, DAI: DAI,
+    tx: tx, DAI: DAI, owned: ownedList, // 销毁页（genesis.js）用：列出钱包里的创世名
     allowance: function (token, spender) { return call2(token, SEL.allowance + A.pad(account) + A.pad(spender)).then(BigInt); },
     balance: function (token) { return call2(token, "0x70a08231" + A.pad(account)).then(BigInt); },
     sign: function (text) { return connect().then(function () { bigTip("签名"); return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(text), account] }); }).then(function (r) { bigTip(""); return r; }, function (e) { bigTip(""); throw e; }); } };
@@ -884,7 +884,7 @@
           (d.recent.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + d.recent.length + " 个 ▾") + "</button>" : "") + "</div>" : "") +
         '<button type="button" class="gc-go" id="gc-go">⚡ 立即抢注创世 #' + (n + 1).toLocaleString() + "</button></div>" +
         // 站长 2026-11-09：创世卡下面挂「创世域名销毁进行中」入口（详情页 #/genesis）
-        '<a class="gc-burn" href="#/genesis"><span class="gc-burn-i">🔥</span><span class="gc-burn-m"><b>创世域名销毁进行中</b><small>中奖领钱要先烧 1 枚创世名，烧自己的或市场买一枚都行 · 逾期不烧视为放弃' + (left > 0 ? "（还能注册 <b>" + left.toLocaleString() + "</b> 个）" : "（已铸完，只能去市场买）") + '</small></span><span class="gc-burn-r">看详情 ›</span></a>';
+        '<a class="gc-burn" href="#/genesis"><span class="gc-burn-i">🔥</span><span class="gc-burn-m"><b>创世域名销毁进行中</b><small>中奖领钱要先烧 1 枚创世名，烧自己的或市场买一枚都行 · 中奖后 3 天不烧视为放弃' + (left > 0 ? "（还能注册 <b>" + left.toLocaleString() + "</b> 个）" : "（已铸完，只能去市场买）") + '</small></span><span class="gc-burn-r">看详情 ›</span></a>';
       document.getElementById("gc-go").onclick = function () { var i = document.getElementById("nm-q"); if (i) { i.scrollIntoView({ block: "center", behavior: "smooth" }); i.focus(); i.classList.remove("nm-flash"); void i.offsetWidth; i.classList.add("nm-flash"); } };
       gcLast = n;
     }
