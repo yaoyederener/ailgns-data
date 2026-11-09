@@ -576,7 +576,7 @@
       var acts = '<div class="otc-acts" hidden><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = placeTabs() + acts + '<div class="otc-top"><button type="button" class="ot-sw" data-gosweep>扫单</button><button type="button" class="ot-sw" data-goform="sell">挂单</button><button type="button" class="ot-sw" data-gooq>查询</button><a class="ot-sw" href="#/lp">做市</a><a class="ot-sw" href="#/trade">盘口</a>' + // 站长 2026-11-09：五个两字短标签，后面还要加更多功能；做市 → #/lp，盘口 → #/trade（交易所盘口）
+      var html = placeTabs() + acts + '<div class="otc-top"><button type="button" class="ot-sw" data-gosweep>扫单</button><button type="button" class="ot-sw" data-goform="sell">挂单</button><a class="ot-sw" href="#/scan' + (account ? "/" + account + "/otc" : "") + '">查询</a><a class="ot-sw" href="#/lp">做市</a><a class="ot-sw" href="#/trade">盘口</a>' + // 站长 2026-11-09：五个两字短标签，后面还要加更多功能；做市 → #/lp，盘口 → #/trade（交易所盘口）
      '' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
         (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
@@ -626,6 +626,7 @@
         };
       });
       // 站长 2026-11-08：顶部「查询订单」→ 滑到挂单簿下面的「查我的订单」并聚焦输入框
+      /* 站长 2026-11-11：顶部「查询」改为直接跳中文账本（连了钱包就带上自己的订单页），让客户熟悉用账本 */
       var oqb = app.querySelector("[data-gooq]");
       if (oqb) oqb.onclick = function () { var q = document.getElementById("oq"); if (!q) return; q.scrollIntoView({ behavior: "smooth", block: "start" }); var i = q.querySelector("input"); if (i) setTimeout(function () { try { i.focus({ preventScroll: true }); } catch (e) {} }, 400); };
       app.querySelectorAll("[data-goform]").forEach(function (b) {
