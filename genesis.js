@@ -39,7 +39,7 @@
         '<div class="gs-bstats"><div class="gs-bs hot"><small>🔥 已销毁</small><b id="gs-bn">—</b><span>永久消失</span></div><div class="gs-bs"><small>🌟 现存创世名</small><b id="gs-bleft">—</b><span>已铸造 − 已销毁</span></div><div class="gs-bs"><small>🆕 还能注册</small><b id="gs-bmint">—</b><span>限量 10,000</span></div></div>' +
         '<p class="gs-bcap">销毁记录（点「账本」看链上那笔）</p><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
         '<section class="card gs-rule"><h3>📜 规则（大白话）</h3><ol>' +
-        '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。</li>' +
+        '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。<b>烧掉的名字以后谁再注册都不算创世</b>，编号永久作废。</li>' +
         '<li><b>烧哪一枚都行。</b>自己手里的，或者去域名市场任意买一枚来烧；没满之前也可以直接注册一枚。编号跟着名字走，买来的也算。</li>' +
         '<li><b>一枚只能抵一次奖。</b>想多次领奖，就要多备几枚。</li>' +
         '<li><b>中奖后 3 天内不销毁，视为放弃领奖。</b>从中奖通知发出算起，过期不补发。</li>' +
@@ -56,11 +56,14 @@
         if (my !== rid || !j) return;
         stBurn = Number(j.n) || 0; paintStats();
         var ul = document.getElementById("gs-blist"); if (!ul) return;
-        ul.innerHTML = (j.list || []).slice(0, 20).map(function (x) {
+        var all = j.list || [], FOLD = 3; // 默认只露 3 条，其余折叠（站长 2026-11-09）
+        ul.innerHTML = all.slice(0, 50).map(function (x, i) {
           var who = x.from ? x.from.slice(0, 6) + "…" + x.from.slice(-4) : "";
           return '<li><div class="gs-bm"><b>' + esc(x.label || "（未知）") + ".ailgns</b> <span>" + (x.no ? "创世 #" + n(x.no) : "") + "</span><small>🔥 " + who + (x.t ? " · " + ago((Date.now() - x.t) / 1000) : "") + "</small></div>" +
             (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">账本 ›</a>' : '<a href="#/scan/' + esc(x.from) + '">账本 ›</a>') + "</li>";
-        }).join("") || '<li class="muted">还没有人销毁</li>';
+        }).map(function (h, i) { return i >= FOLD ? h.replace("<li>", '<li class="more">') : h; }).join("") || '<li class="muted">还没有人销毁</li>';
+        var old = ul.nextElementSibling; if (old && old.classList.contains("gs-bmore")) old.remove();
+        if (all.length > FOLD) { ul.classList.add("fold"); var bt = document.createElement("button"); bt.type = "button"; bt.className = "gs-bmore"; bt.textContent = "展开全部 " + n(all.length) + " 条 ▾"; bt.onclick = function () { var f = ul.classList.toggle("fold"); bt.textContent = f ? "展开全部 " + n(all.length) + " 条 ▾" : "收起 ▴"; }; ul.after(bt); }
       }).catch(function () { var ul = document.getElementById("gs-blist"); if (ul && my === rid) ul.innerHTML = '<li class="muted">读取失败，稍后自动重试</li>'; });
     }
 

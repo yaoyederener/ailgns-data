@@ -28,7 +28,7 @@ export async function onRequestGet(ctx) {
   const get = (p) => fetch(u.origin + p).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const [xf, rg, gen] = await Promise.all([get("/api/name-logs?a=" + NAMES + "&t=" + T_XFER), get("/api/name-logs?a=" + NAMES + "&t=" + T_REG), get("/api/name-genesis")]);
   if (!xf || !xf.l) return new Response("no data", { status: 503 });
-  const dead = pad(DEAD), label = {}, g = (gen && gen.g) || {};
+  const dead = pad(DEAD), label = {}, g = Object.assign({}, (gen && gen.g) || {}, (gen && gen.x) || {}); // 烧过的编号在 x 里
   ((rg && rg.l) || []).forEach((l) => { if (l[1] && l[1][1]) label[l[1][1].toLowerCase()] = decStr(l[2]); });
   const burns = xf.l.filter((l) => l[1] && l[1][2] && l[1][2].toLowerCase() === dead && l[1][3]).map((l) => {
     const id = l[1][3].toLowerCase();

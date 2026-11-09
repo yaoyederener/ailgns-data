@@ -5,6 +5,8 @@ import { RPCS } from "../../lib/teamlib.js";
 import { banned } from "../../lib/ban.js";
 
 const NAMES = "0xbc408e9d7350967e7247c917a086cb4ece0ed988", START = 18161697, T_REG = "0xa15b66031269f1c32be8db1e4353108dc76c84574a7c6697527e431ad921462a";
+// 🔥 站长 2026-11-09 定：烧进黑洞地址的名字永久移出创世表——一年到期 + 宽限后被人重新注册，也不算创世、没有编号。编号留在 x 里（销毁核对 / 销毁记录要用）
+const T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", DEAD64 = "0x" + "000000000000000000000000000000000000dead".padStart(64, "0");
 const GENESIS = 10000, STEP = 5000, MAX_RANGES = 40, FRESH = 30e3;
 const HIDDEN = { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 }; // 站长钱包：不进「最近被抢注」
 const HIDDEN_NAMES = { "加拿大局长": 1, "aiotc": 1, "四哥": 1, "觉醒人生": 1 };
@@ -51,7 +53,9 @@ async function build(kv) {
   const spb = last.length && head > last[0][0] ? Math.max(0.5, (now - parseInt(t[1].timestamp, 16)) / (head - last[0][0])) : 2;
   const from = head - Math.floor(86400 / spb), day = list.filter((x) => x[0] >= from).length;
   const recent = last.map((x, i) => ({ nm: decStr(x[2]), ago: now - parseInt(t[i + 1].timestamp, 16), no: list.indexOf(x) + 1 })).filter((r) => r.nm && !HIDDEN_NAMES[r.nm] && !banned(r.nm));
-  return { n: list.length, day, recent, g, at: Date.now(), latest };
+  const xf = (await kv.get("nmlogs:" + NAMES + ":" + T_XFER.slice(2, 10), "json")) || { l: [] }, x = {};
+  for (const t of xf.l) if (t[1] && t[1][2] && t[1][2].toLowerCase() === DEAD64 && t[1][3]) { const k = t[1][3].toLowerCase().slice(2); if (g[k]) { x[k] = g[k]; delete g[k]; } }
+  return { n: list.length, day, recent, g, x, burned: Object.keys(x).length, at: Date.now(), latest };
 }
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
