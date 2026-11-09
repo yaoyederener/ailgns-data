@@ -22,7 +22,7 @@
         '<div class="gs-big"><small id="gs-cap">离 10,000 个注册满还差</small><div class="gc-flip" id="gs-flip">' + flip(0) + '</div><small id="gs-sub">每被注册 1 个，这里就跳 1 下 · 跳到 0 销毁活动开启</small></div>' +
         '<div class="gs-bar"><i id="gs-fill"></i></div>' +
         '<div class="gs-kpi"><div><small>已注册</small><b id="gs-n">—</b></div><div><small>今天新增</small><b id="gs-day">—</b></div><div><small>剩余</small><b id="gs-rest">—</b></div></div>' +
-        '<div class="gs-act"><a class="nm-go" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a><a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚创世名</a>' +
+        '<div class="gs-act"><a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a><a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚创世名</a>' +
         '<button type="button" class="nm-go gs-off" disabled>🔥 销毁领奖：注册满 10,000 个后开放</button></div></section>' +
         '<section class="card gs-rule"><h3>📜 到时候的规则（大白话）</h3><ol>' +
         '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。</li>' +
@@ -46,6 +46,7 @@
           set("gs-sub", "创世域名销毁活动正式开启：中奖领钱先烧 1 枚创世名");
           var off = document.querySelector(".gs-off"); if (off) { off.textContent = "🔥 销毁创世名领奖（功能开通中，请看公告）"; off.classList.add("gs-on"); }
           var h = document.querySelector(".gs-hero h2"); if (h) h.textContent = "🔥 创世域名销毁活动已开启";
+          var reg = document.querySelector(".gs-reg"); if (reg) reg.hidden = true; // 铸满了，没得注册，只剩去市场买
         } else { set("gs-sub", "每被注册 1 个，这里就跳 1 下 · 跳到 0 销毁活动开启（已注册 " + n(got) + "）"); }
         set("gs-n", n(got)); set("gs-day", "+" + n(j.day)); set("gs-rest", n(left));
         var f = document.getElementById("gs-fill"); if (f) f.style.width = pct.toFixed(2) + "%";
