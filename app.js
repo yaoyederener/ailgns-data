@@ -523,22 +523,35 @@
     m.oracle = ["kchart", "oracle"]; m.trade = ["kchart", "trade"]; // K 线组件两页共用，单独一个小包
     return m;
   })();
-  var bundles = {};
+  var bundles = {}, lazyFails = 0, lazyTimer = 0;
+  window.addEventListener("online", function () { if (lazyFails) { clearTimeout(lazyTimer); route(); } }); // 网络一恢复马上重试
+  // 🚀 预取（站长 2026-11-09「极致丝滑」）：首页画完空闲 5 秒后，把其它页面的包按顺序悄悄下载好（一年缓存），之后切页不再等网络、弱网也不会「没加载出来」
+  function prefetchAll() {
+    try { if (navigator.connection && navigator.connection.saveData) return; } catch (e) {}
+    var order = ["kchart", "names", "oracle", "trade", "lend", "lp", "aiswap", "misc", "feedback", "games"], i = 0;
+    (function next() { if (i >= order.length) return; var k = order[i++]; loadBundle(k).catch(function () {}).then(function () { setTimeout(next, 400); }); })();
+  }
   function loadBundle(k) {
     if (bundles[k]) return bundles[k];
     var url = window.AIL_BUNDLES && window.AIL_BUNDLES[k];
     if (!url) return Promise.resolve();
     // 加载失败就换个地址（加 &r=时间戳）再试一次：2026-11-10 事故——生产回退期间某个包的地址在 CDN 被缓存成了一份 HTML，
     // 浏览器拒绝执行，整页「没加载出来」；换地址等于绕开那份坏缓存
-    function tryLoad(u, retry) {
+    // 站长 2026-11-09（手机截图「页面没加载出来」）：弱网下一次失败就放弃太脆，改成最多重试 3 次（0.6s / 1.5s / 3s），第二次起换地址绕开坏缓存
+    var GAPS = [600, 1500, 3000];
+    function tryLoad(u, n) {
       return new Promise(function (res, rej) {
         var s = document.createElement("script"); s.src = u; s.setAttribute("data-lazy", "1");
         s.onload = function () { res(); };
-        s.onerror = function () { s.remove(); retry ? tryLoad(u + (u.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now(), false).then(res, rej) : rej(new Error("bundle " + k)); };
+        s.onerror = function () {
+          s.remove();
+          if (n >= GAPS.length) return rej(new Error("bundle " + k));
+          setTimeout(function () { tryLoad(url + (url.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now(), n + 1).then(res, rej); }, GAPS[n]);
+        };
         document.head.appendChild(s);
       });
     }
-    return (bundles[k] = tryLoad(url, true).catch(function (e) { delete bundles[k]; throw e; }));
+    return (bundles[k] = tryLoad(url, 0).catch(function (e) { delete bundles[k]; throw e; }));
   }
   // 🚀 net.js 先给缓存、真数据晚到（ail:fresh）或全失败（ail:neterr）时：刚打开 3 秒内、还没滚动、没在输入 → 悄悄重画一次（每次切页最多一次）
   var routeAt = 0, redrew = false;
@@ -562,10 +575,14 @@
       LAZY[tab].reduce(function (p, k) { return p.then(function () { return loadBundle(k); }); }, Promise.resolve()).then(function () {
         if (id === renderId) route();
       }, function () {
-        if (id === renderId) app.innerHTML = '<section class="card"><h2>页面没加载出来</h2><p class="muted">网络不太好，<a href="javascript:location.reload()">点这里刷新</a>再试一次。</p></section>';
+        if (id !== renderId) return;
+        lazyFails++;
+        app.innerHTML = '<section class="card"><h2>' + (lazyFails < 15 ? "⏳ 网络不太好，正在自动重试…" : "页面没加载出来") + '</h2><p class="muted">' + (lazyFails < 15 ? "不用动，网络一恢复就会自动出来；等不及可以" : "网络不太好，") + '<a href="javascript:location.reload()">点这里刷新</a>' + (lazyFails < 15 ? "。" : "再试一次。") + "</p></section>";
+        if (lazyFails < 15) { clearTimeout(lazyTimer); lazyTimer = setTimeout(function () { if (id === renderId) route(); }, 4000); }
       });
       return;
     }
+    lazyFails = 0;
     if (["flows", "wallet", "team", "custom"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
     document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS 服务站";
     if (a && !isAddr(a)) a = "";
@@ -791,6 +808,7 @@
       // 自动刷新带的 ?v=… 只为绕过缓存，加载完就从地址栏抹掉，复制出去只剩 https://ailgns.dev/#/页面
       if (/[?&]v=/.test(location.search)) { try { var sp = new URLSearchParams(location.search); sp.delete("v"); var rest = sp.toString(); history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch (x) { /* 忽略 */ } } // 只抹掉 v，别把 chat= / full= 一起抹了
       window.addEventListener("hashchange", route); route();
+      setTimeout(prefetchAll, 5000);
       freshCheck(true);
       window.addEventListener("hashchange", function () { freshCheck(); });
     }
