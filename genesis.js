@@ -35,11 +35,26 @@
         '<li><b>中奖后 3 天内不销毁，视为放弃领奖。</b>从中奖通知发出算起，过期不补发。</li>' +
         '<li><b>怎么烧：</b>点上面「销毁 1 枚创世名领奖」→ 连钱包 → 选一枚 → 钱包里确认。销毁就是转进黑洞地址，只花一点 Gas。</li></ol>' +
         '<p class="muted">说明：所有活动为社区自治、娱乐性质，参与请自行承担风险。</p></section>' +
+        // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录，每条点开进中文账本（#/scan/交易哈希）
+        '<section class="card gs-burned"><div class="gc-top"><h3>🔥 已销毁创世域名 <b id="gs-bn">—</b> 枚</h3><span class="muted">链上记录 · 点开进账本</span></div><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
         (full ? '<section class="card"><h3>🆕 刚刚注册的创世名</h3><ul class="gs-recent" id="gs-recent"><li class="muted">读取中…</li></ul></section>' : "");
       bindBurn(root);
-      load();
+      load(); loadBurns();
     }
     function page() { render(A.app, true); }
+    function loadBurns() {
+      var my = rid;
+      fetch("/api/name-burns").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
+        if (my !== rid || !j) return;
+        var bn = document.getElementById("gs-bn"); if (bn) bn.textContent = n(j.n);
+        var ul = document.getElementById("gs-blist"); if (!ul) return;
+        ul.innerHTML = (j.list || []).slice(0, 20).map(function (x) {
+          var who = x.from ? x.from.slice(0, 6) + "…" + x.from.slice(-4) : "";
+          return "<li><b>" + esc(x.label || "（未知）") + ".ailgns</b><span>" + (x.no ? "#" + n(x.no) : "") + "</span><small>" + who + (x.t ? " · " + ago((Date.now() - x.t) / 1000) : "") + "</small>" +
+            (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">账本 ›</a>' : '<a href="#/scan/' + esc(x.from) + '">账本 ›</a>') + "</li>";
+        }).join("") || '<li class="muted">还没有人销毁</li>';
+      }).catch(function () { var ul = document.getElementById("gs-blist"); if (ul && my === rid) ul.innerHTML = '<li class="muted">读取失败，稍后自动重试</li>'; });
+    }
 
     // 🔥 销毁领奖（站长 2026-11-09 定）：连钱包 → 列出钱包里的创世 .ailgns 名 → 选一枚 → 用 ERC721 transferFrom 转进黑洞地址（永久拿不回）
     // 不碰合约、不加权限：就是普通用户自己把 NFT 转给 0x…dEaD；机器人发奖前核对链上 Transfer→dEaD 记录，一枚只抵一次。钱包里没有就引导去市场买
@@ -88,6 +103,7 @@
               box.innerHTML = '<div class="gs-bdone"><b>✅ ' + esc(full) + '（创世 #' + n(no) + '）已销毁</b><p>机器人会核对这条链上记录，核对无误后发奖；奖金发到你中奖时用的钱包。</p>' +
                 '<p><a href="#/scan/' + h + '">📒 在账本里看这笔销毁 ›</a></p><p class="muted">交易 ' + h.slice(0, 10) + '…' + h.slice(-6) + '。一枚只抵一次奖，下次中奖要再烧一枚。</p></div>';
               try { fetch("/api/hit?e=burn", { method: "POST" }); } catch (x) {}
+              setTimeout(loadBurns, 5000); setTimeout(loadBurns, 60000);
             }, function (e) {
               box.querySelectorAll(".gs-bpick").forEach(function (x) { x.disabled = false; }); say("");
               if (e && e.message !== "已取消") A.errTip((e && e.message) || "销毁失败", b);
