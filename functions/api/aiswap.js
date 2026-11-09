@@ -25,7 +25,7 @@ async function rpc(method, params) {
 const call = (to, data) => rpc("eth_call", [{ to, data }, "latest"]);
 function str(h) { /* ABI string：偏移 + 长度 + 内容 */ try { const n = Number(word(h, 1)); const hex = h.slice(2 + 128, 2 + 128 + n * 2); return decodeURIComponent(hex.replace(/(..)/g, "%$1")); } catch (e) { return "?"; } }
 
-const known = Object.fromEntries(AISWAP.tokens.map((t) => [t.addr.toLowerCase(), t]));
+const known = Object.fromEntries(AISWAP.tokens.map((t) => [t.addr.toLowerCase(), { ...t, addr: t.addr.toLowerCase() }]));
 const tokenCache = {};
 async function token(a) {
   a = a.toLowerCase();

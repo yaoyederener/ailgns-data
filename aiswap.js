@@ -25,7 +25,7 @@
   // ---------- 数据 ----------
   function load() {
     return fetch("/api/aiswap").then(function (r) { return r.json(); }).then(function (j) {
-      cfg = j.cfg || null; pools = (j.pools || []).map(function (p) { p.r0 = BigInt(p.r0 || 0); p.r1 = BigInt(p.r1 || 0); p.lp = BigInt(p.lp || 0); return p; });
+      cfg = j.cfg || null; pools = (j.pools || []).map(function (p) { p.r0 = BigInt(p.r0 || 0); p.r1 = BigInt(p.r1 || 0); p.lp = BigInt(p.lp || 0); p.pair = low(p.pair); p.t0.addr = low(p.t0.addr); p.t1.addr = low(p.t1.addr); return p; }); /* 地址统一小写再比对 */
       tokens = []; var seen = {};
       function addTok(t) { if (!t || !t.addr) return; var k = low(t.addr); if (seen[k]) return; seen[k] = 1; tokens.push({ sym: t.sym, addr: k, dec: t.dec }); }
       (cfg && cfg.tokens || []).forEach(addTok); pools.forEach(function (p) { addTok(p.t0); addTok(p.t1); }); Object.keys(custom).forEach(function (k) { addTok(custom[k]); });
