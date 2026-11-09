@@ -584,7 +584,7 @@
     // 挂单设置页：和 OTC「发布挂单」同一套样式（价格 + 有效期 + 到手金额），代替原来的弹窗
     function sellForm(v, r, st) {
       var old = document.getElementById("nm-sf"); if (old) old.remove();
-      var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 7 * 86400;
+      var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 30 * 86400; // 站长 2026-11-09：默认挂满 30 天（合约上限），别让名字静悄悄下架
       var box = document.createElement("section");
       box.className = "card"; box.id = "nm-sf";
       box.innerHTML = '<div class="card-head"><h2>挂单出售 ' + esc(v + "." + TLD) + '</h2><span class="muted">名字先存进托管合约，成交前随时可撤</span></div>' +
@@ -1075,7 +1075,7 @@
   // 「我要卖域名」面板：和 AiLGNS OTC 一样，先直接显示挂单表单，不弹钱包；点「发布挂单」时才连钱包、核对名字是不是你的
   function sellPanel() {
     var box = document.getElementById("nm-sp"); if (!box) return;
-    var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 7 * 86400;
+    var DURS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"]], dur = 30 * 86400; // 站长 2026-11-09：默认挂满 30 天（合约上限），别让名字静悄悄下架
     var pre = ""; try { pre = sessionStorage.getItem("nm:sellpick") || ""; sessionStorage.removeItem("nm:sellpick"); } catch (x) { /* 忽略 */ }
     box.innerHTML = '<div class="form-grid"><label>要卖的域名<input id="nm-sp-n" list="nm-sp-dl" placeholder="例如 发财.ailgns" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(pre) + '"><datalist id="nm-sp-dl"></datalist></label>' +
       '<label>售价（DAI）<input id="nm-sp-p" inputmode="decimal" placeholder="例如 100"></label></div>' +
