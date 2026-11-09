@@ -2576,6 +2576,10 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
 .tr2-row.ask span:first-child { color: var(--dn); } .tr2-row.ask::before { background: var(--dn); }
 .tr2-row.bid span:first-child { color: var(--up); } .tr2-row.bid::before { background: var(--up); }
 .tr2-row.empty { color: #d6ccf2; cursor: default; }
+.tr2-row .ice-tag { font-style: normal; font-size: 11px; margin-right: 3px; cursor: pointer; opacity: .85; } .tr2-row.ice-open .ice-tag { opacity: 1; filter: drop-shadow(0 0 2px #93c5fd); } .tr2-row span:last-child em { font-style: normal; }
+.tr2-gauge { margin: 0 0 8px; } .tg-bar { display: flex; height: 20px; border-radius: 999px; overflow: hidden; font-size: 11.5px; font-weight: 700; color: #fff; line-height: 20px; background: var(--dn); }
+.tg-bar .tg-b { background: var(--up); padding-left: 8px; white-space: nowrap; min-width: 54px; } .tg-bar .tg-a { flex: 1; text-align: right; padding-right: 8px; white-space: nowrap; }
+.tr2-gauge small { display: block; margin-top: 4px; font-size: 11.5px; color: #6b5a9a; line-height: 1.45; } .tr2-gauge small b { color: #4c1d95; }
 .tr2-last2 { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; padding: 6px 6px; margin: 3px 0; border-top: 1px solid #f1ecff; border-bottom: 1px solid #f1ecff; }
 .tr2-last2 b { font-size: 17px; font-weight: 800; } .tr2-last2 small { font-size: 10.5px; color: #9a8acc; }
 .tr2-mid { font-size: 11px; margin: 6px 6px 0; }

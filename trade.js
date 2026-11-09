@@ -84,7 +84,7 @@
             '<p class="muted tr-note" id="tr-note"></p>' +
             '<button type="button" class="tr-go buy" id="tr-go">买入 ' + SYM + '</button><p class="muted nm-st" id="tr-st"></p>' +
           '</section>' +
-          '<section class="tr2-book"><div class="tr2-bh"><span>价格(DAI)</span><span>数量(' + SYM + ')</span></div><div id="tr-bk">读取中…</div><p class="muted tr2-mid" id="tr-mid"></p></section>' +
+          '<section class="tr2-book"><div class="tr2-gauge" id="tr-gauge"></div><div class="tr2-bh"><span>价格(DAI)</span><span>数量(' + SYM + ')</span></div><div id="tr-bk">读取中…</div><p class="muted tr2-mid" id="tr-mid"></p></section>' +
         '</div>' +
         '<section class="card tr2-orders"><div class="tr2-otabs"><button type="button" class="on" data-o="my">当前委托<i id="tr2-myn"></i></button><button type="button" data-o="fills">最近成交</button><button type="button" class="ghost tr2-conn" id="tr-conn">连接钱包</button></div>' +
           '<div id="tr-my" class="tr2-opane">连接钱包后显示你在挂的单</div><div id="tr-tl" class="tr2-opane" hidden>读取中…</div></section>' +
@@ -118,8 +118,12 @@
   function renderBook() {
     var el = document.getElementById("tr-bk"); if (!el) return;
     var N = matchMedia("(min-width: 901px)").matches ? 9 : 6;
-    var asks = agg(book.asks, N), bids = agg(book.bids, N), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
-    var row = function (r, cls) { return '<div class="tr2-row ' + cls + '" data-p="' + r.p + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + fq(r.coin) + "</span></div>"; };
+    // 🧊 展示层冰山（站长 2026-11-09）：某一档数量超过本侧总量 20% 的大单只露一截（本侧总量的 20% 或它自己的 30%，取大），标 🧊，点图标看真实数量；成交逻辑、合约、账本都不变，只是不让一张巨单把盘口吓歪
+    var totA = agg(book.asks, 1e9).reduce(function (s, r) { return s + r.coin; }, 0), totB = agg(book.bids, 1e9).reduce(function (s, r) { return s + r.coin; }, 0);
+    var iceberg = function (rows, total) { var cap = total * 0.2, cum = 0; return rows.map(function (r) { var o = { p: r.p, coin: r.coin, dai: r.dai, full: r.coin }; if (rows.length >= 4 && cap > 0 && r.coin > cap) o.coin = Math.max(cap, r.coin * 0.3); cum += o.coin; o.cum = cum; return o; }); };
+    var asks = iceberg(agg(book.asks, N), totA), bids = iceberg(agg(book.bids, N), totB), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
+    var row = function (r, cls) { var ice = r.full > r.coin + 1e-9; return '<div class="tr2-row ' + cls + (ice ? " ice" : "") + '" data-p="' + r.p + '" data-full="' + r.full + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + (ice ? '<i class="ice-tag" title="冰山单：这一档实际 ' + fq(r.full) + " " + SYM + '，点一下看全部">🧊</i>' : "") + "<em>" + fq(r.coin) + "</em></span></div>"; };
+    renderGauge();
     var last = fills[0], prev = fills[1], lcls = last && prev && last.px < prev.px ? "dn" : "up";
     var fill = function (list, cls) { var h = list.map(function (r) { return row(r, cls); }).join(""); for (var k = list.length; k < N; k++) h += '<div class="tr2-row empty"><span>—</span><span></span></div>'; return h; };
     var sig = JSON.stringify([asks, bids].map(function (l) { return l.map(function (r) { return [r.p, r.coin]; }); }));
@@ -128,7 +132,22 @@
     el.innerHTML = '<div class="tr2-asks">' + fill(asks.slice().reverse(), "ask") + '</div>' +
       '<div class="tr2-last2"><b class="' + lcls + '">' + (last ? f2(last.px) : bestAsk() && bestBid() ? f2((bestAsk() + bestBid()) / 2) : "—") + (last ? (lcls === "up" ? " ↑" : " ↓") : "") + "</b><small>≈ DEX " + (book.mkt ? f2(book.mkt) : "—") + "</small></div>" +
       '<div class="tr2-bids">' + fill(bids, "bid") + "</div>";
+    el.querySelectorAll(".ice-tag").forEach(function (t) { t.onclick = function (e) { e.stopPropagation(); var r = t.closest(".tr2-row"), open = r.classList.toggle("ice-open"); if (open) r.querySelector("em").textContent = fq(Number(r.getAttribute("data-full"))); else renderBook(); }; }); // 点 🧊：显示真实数量，再点一次收回
     el.querySelectorAll(".tr2-row[data-p]").forEach(function (r) { r.onclick = function () { setSide(r.classList.contains("ask") ? "buy" : "sell"); setType("limit"); document.getElementById("tr-p").value = r.getAttribute("data-p"); recalc("p"); }; });
+  }
+  // 🌡️ 供需温度计（站长 2026-11-09 点头）：只看现价 ±3% 以内的真实深度（远处的大单可能是假的），告诉客户现在缺哪一边
+  function renderGauge() {
+    var el = document.getElementById("tr-gauge"); if (!el) return;
+    var ref = book.mkt || (bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : 0);
+    if (!ref) { el.innerHTML = ""; return; }
+    var bd = 0, ad = 0;
+    book.bids.forEach(function (o) { if (priceOf(o) >= ref * 0.97) bd += num(leftDai(o)); });
+    book.asks.forEach(function (o) { if (priceOf(o) <= ref * 1.03) ad += num(leftDai(o)); });
+    var tot = bd + ad;
+    if (tot < 100) { el.innerHTML = '<small>现价 ±3% 内挂单很少，两边都缺流动性</small>'; return; }
+    var bp = Math.round(bd / tot * 100), ap = 100 - bp, lack = bp >= 60 ? "缺卖单，现在挂<b>卖单</b>更容易成交" : ap >= 60 ? "缺买单，现在挂<b>买单</b>更容易成交" : "买卖基本平衡";
+    el.innerHTML = '<div class="tg-bar"><span class="tg-b" style="width:' + bp + '%">买 ' + bp + "%</span><span class=\"tg-a\">卖 " + ap + "%</span></div>" +
+      "<small>现价 ±3% 内：买单 " + f(bd, 0) + " DAI · 卖单 " + f(ad, 0) + " DAI → " + lack + "</small>";
   }
   function renderTrades() {
     var el = document.getElementById("tr-tl"); if (!el) return;

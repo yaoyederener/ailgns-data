@@ -12,9 +12,9 @@
   // 站长 2026-11-06：先不开放给客户，优化好再说。默认显示「待开放」页；内部测试在浏览器控制台 localStorage.lpdev="1" 后可看完整页
   function soon(id) {
     A.app.innerHTML = '<section class="card lp-hero lp-soon"><div class="lp-ht"><h2>💧 做市返佣 <span class="lp-tag">即将开放</span></h2>' +
-      '<p>在本站 OTC 挂单，有人吃你的单，<b>吃单方付的 1% 手续费，70% 返给挂单方</b>，每天自动结算到你钱包。挂单即参与，不用报名，资金全程在你自己的钱包和 OTC 合约里。</p>' +
+      '<p>在本站 OTC 挂单，有人吃你的单，吃单方付的 1% 手续费按比例返给你。<b>按你挂在盘口的资金量分档</b>：日均挂单 ≥ 1 万 DAI 返 <b>50%</b>，≥ 3 万返 <b>60%</b>，≥ 5 万返 <b>70%</b>（返的是吃你单的人付的 1% 手续费），每天自动结算到你钱包。挂单即参与，不用报名，资金全程在你自己的钱包和 OTC 合约里。</p>' +
       '<p class="muted">正在做最后的打磨和安全测试，开放时间会在「☰ 更多 → 服务 → 更新日志」和收件箱通知。现在在 OTC 正常挂单不受影响。</p></div>' +
-      '<div class="lp-kpi"><div><small>返佣比例</small><b>70%</b><span>手续费的 70% 归挂单方</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>随时撤单，不托管</span></div></div>' +
+      '<div class="lp-kpi"><div><small>返佣比例</small><b>50–70%</b><span>1 万 / 3 万 / 5 万三档</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>随时撤单，不托管</span></div></div>' +
       '<p style="margin-top:14px"><a class="nm-go" href="#/trade">先去交易所盘口挂单 →</a></p></section>';
   }
   function page(id) {
@@ -24,8 +24,8 @@
     M = K().M(); if (M.otc !== "0x4e730be6d46be71223ded5a32dc45799f6d4bc15") { K().useMarket("ailgns"); M = K().M(); }
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym;
     A.app.innerHTML =
-      '<section class="card lp-hero"><div class="lp-ht"><h2>💧 做市返佣</h2><p>在本站 OTC 挂单，有人吃你的单，<b>吃单方付的 1% 手续费，70% 返给你</b>。挂单即参与，不用报名；每天自动结算到你钱包。</p></div>' +
-        '<div class="lp-kpi"><div><small>返佣比例</small><b>70%</b><span>手续费的 70% 归挂单方</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
+      '<section class="card lp-hero"><div class="lp-ht"><h2>💧 做市返佣</h2><p>在本站 OTC 挂单，有人吃你的单，吃单方付的 1% 手续费按比例返给你。<b>按你挂在盘口的资金量分档</b>：日均挂单 ≥ 1 万 DAI 返 <b>50%</b>，≥ 3 万返 <b>60%</b>，≥ 5 万返 <b>70%</b>（返的是吃你单的人付的 1% 手续费）。挂单即参与，不用报名；每天自动结算到你钱包。</p></div>' +
+        '<div class="lp-kpi"><div><small>返佣比例</small><b>50–70%</b><span>1 万 / 3 万 / 5 万三档</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
       '<section class="card"><div class="card-head"><h2>📒 我的返佣</h2><button type="button" class="ghost" id="lp-conn">连接钱包</button></div><div id="lp-me"><p class="muted">连接钱包后显示今天 / 累计 / 待发放</p></div></section>' +
       '<section class="card lp-mk"><div class="card-head"><h2>⚡ 一键铺双边单</h2><span class="muted">同时挂一张买单、一张卖单</span></div>' +
         '<p class="muted">围绕中间价各挂一张限价单：买单压 DAI，卖单压 ' + SYM + '。谁吃了你的单你就赚价差 + 返佣；没人吃就原封不动退回，随时可撤。</p>' +
@@ -36,7 +36,8 @@
       '<section class="card"><div class="card-head"><h2>🏆 返佣榜</h2><span class="seg lp-seg"><button type="button" class="on" data-r="today">今天</button><button type="button" data-r="week">7 天</button></span></div><div id="lp-board"><p class="muted">读取中…</p></div></section>' +
       '<section class="card lp-rules"><h2>📜 规则（一页纸）</h2><ol>' +
         '<li>范围：本站 <b>AiLGNS / DAI</b> OTC 市场的挂单（限价单），买单卖单都算。</li>' +
-        '<li>算法：你的单每被吃掉一笔，返佣 = <b>成交 DAI × 1% × 70%</b>（例：成交 1,000 DAI → 返 7 DAI）。按 DAI 价值计，以 DAI 发放。</li>' +
+        '<li>档位：按你当天挂在盘口的资金量（买单 + 卖单，按 DAI 折算，日均）分三档：<b>≥ 1 万 DAI 返 50%、≥ 3 万返 60%、≥ 5 万返 70%</b>；不足 1 万暂不返佣。</li>' +
+        '<li>算法：你的单每被吃掉一笔，返佣 = <b>成交 DAI × 1% × 你的档位比例</b>（例：5 万档成交 1,000 DAI → 返 7 DAI）。按 DAI 价值计，以 DAI 发放。</li>' +
         '<li>结算：每天北京时间 0 点后自动结算前一天，转到挂单钱包；不足 1 DAI 累计到下一天。链上可查。</li>' +
         '<li>不改合约、不碰你的币、不保本：挂单、撤单、成交全在原 OTC 合约里，和平时一样。</li>' +
         '<li>刷量无效：自己吃自己的单（同一钱包 / 明显关联钱包）不计返佣；发现作弊取消资格。</li>' +
