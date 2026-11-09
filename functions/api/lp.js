@@ -12,12 +12,12 @@ export async function onRequestGet(ctx) {
   const [dd, ll, side] = await Promise.all([Promise.all(days.map((d) => kv.get("lp:d:" + d, "json"))), Promise.all(days.map((d) => kv.get("lp:liq:" + d, "json"))), kv.get("lp:side", "json")]);
   // 11-10 起按档位现算：某天某人返佣 = 计入成交 cdai × 1% × 当天日均挂单资金对应的比例；旧日子用记录里的 rb
   const rbOf = (i, k, x) => { if (days[i] < LP.RULES_FROM) return x.rb || 0; const rate = rateOf(avgLiqOf(ll[i], k)); return Math.round((x.cdai || 0) * LP.FEE * rate * 1e6) / 1e6; };
-  const sum = (idx) => { const m = {}; idx.forEach((i) => { const d = dd[i]; if (!d) return; Object.keys(d).forEach((k) => { const x = m[k] || (m[k] = { a: k, dai: 0, n: 0, cdai: 0, rb: 0 }); x.dai += d[k].dai; x.n += d[k].n; x.cdai += d[k].cdai || 0; x.rb += rbOf(i, k, d[k]); }); }); return Object.values(m).sort((x, y) => y.rb - x.rb).slice(0, 20); };
+  const sum = (idx) => { const m = {}; idx.forEach((i) => { const d = dd[i]; if (!d) return; Object.keys(d).forEach((k) => { const x = m[k] || (m[k] = { a: k, dai: 0, n: 0, cdai: 0, rb: 0 }); x.dai += d[k].dai; x.n += d[k].n; x.cdai += days[i] < LP.RULES_FROM ? d[k].dai : (d[k].cdai || 0); x.rb += rbOf(i, k, d[k]); }); }); return Object.values(m).sort((x, y) => y.rb - x.rb).slice(0, 20); };
   const out = { rules: LP, board: { today: sum([0]), week: sum(days.map((_, i) => i)) }, today, side: side || { side: "both", bd: 0, ad: 0 } };
   if (/^0x[0-9a-f]{40}$/.test(a)) {
     const tot = (await kv.get("lp:tot:" + a, "json")) || { dai: 0, n: 0, rb: 0, paid: 0 };
     const paidList = (await kv.get("lp:pay:" + a, "json")) || []; // keeper 每次打款追加 { day, amt, tx }
-    const dayRows = days.map((d, i) => { const x = dd[i] && dd[i][a]; return x ? { d, x: { ...x, rb: rbOf(i, a, x), liq: Math.round(avgLiqOf(ll[i], a)), rate: d >= LP.RULES_FROM ? rateOf(avgLiqOf(ll[i], a)) : LP.SHARE } } : null; }).filter(Boolean);
+    const dayRows = days.map((d, i) => { const x = dd[i] && dd[i][a]; return x ? { d, x: { ...x, cdai: d < LP.RULES_FROM ? x.dai : (x.cdai || 0), rb: rbOf(i, a, x), liq: Math.round(avgLiqOf(ll[i], a)), rate: d >= LP.RULES_FROM ? rateOf(avgLiqOf(ll[i], a)) : LP.SHARE } } : null; }).filter(Boolean);
     const liqToday = avgLiqOf(ll[0], a), todayRow = dayRows.find((r) => r.d === today);
     const rb7 = dayRows.reduce((s, r) => s + r.x.rb, 0); // 新规则下 lp:tot.rb 不再累加，累计 = 近 7 天现算 + 旧记录
     out.me = { today: todayRow ? todayRow.x : { dai: 0, n: 0, cdai: 0, rb: 0, liq: Math.round(liqToday), rate: rateOf(liqToday) }, total: { ...tot, rb: Math.max(tot.rb || 0, rb7) }, paid: paidList, pending: Math.max(0, Math.max(tot.rb || 0, rb7) - (tot.paid || 0)), days: dayRows,

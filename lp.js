@@ -32,7 +32,7 @@
       '<section class="card lp-mk"><div class="card-head"><h2>⚡ 一键做市</h2><span class="muted">把资金拆成小单铺满盘口</span></div>' +
         '<p class="muted">你只要授权，网站帮你把钱拆成多张小限价单，按价格阶梯铺到盘口上；哪张被吃哪张赚价差 + 返佣，没被吃的原封不动、随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
         '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">按供需自动（推荐，只铺缺的一边）</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
-        '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"></label><label>总资金 (DAI)<input id="lp-amt" inputmode="decimal" value="1000"></label>' +
+        '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label><label>总资金 (DAI)<input id="lp-amt" inputmode="decimal" value="1000"></label>' +
         '<label>拆几档<select id="lp-n"><option>2</option><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>' +
         '<label>第 1 档价差 (%)<input id="lp-sp" inputmode="decimal" value="0.5"></label><label>每档再加 (%)<input id="lp-step" inputmode="decimal" value="0.3"></label>' +
         '<label>有效期<select id="lp-dur">' + K().DURATIONS.map(function (d) { return '<option value="' + d[0] + '"' + (d[0] === 30 * 86400 ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></label></div>" +
@@ -60,24 +60,29 @@
   function bind() {
     document.getElementById("lp-conn").onclick = function () { K().connect().then(function (a) { account = a; after(); }, function (e) { A.errTip(K().niceError(e), document.getElementById("lp-conn")); }); };
     ["lp-mid", "lp-sp", "lp-amt", "lp-step"].forEach(function (i) { document.getElementById(i).oninput = preview; });
+    document.getElementById("lp-mid").addEventListener("input", function () { midTouched = true; });
     ["lp-which", "lp-n"].forEach(function (i) { document.getElementById(i).onchange = preview; });
     ["lc-liq", "lc-turn", "lc-sp"].forEach(function (i) { document.getElementById(i).oninput = calc; });
     document.querySelectorAll(".lp-seg button").forEach(function (b) { b.onclick = function () { document.querySelectorAll(".lp-seg button").forEach(function (x) { x.classList.toggle("on", x === b); }); board(b.getAttribute("data-r")); }; });
     document.getElementById("lp-go").onclick = place;
     calc();
   }
-  var data = null, side = { side: "both" };
+  var data = null, side = { side: "both" }, midTouched = false; // midTouched：客户自己改过中间价就不再自动覆盖
   function load() {
     fetch("/api/book?m=ailgns").then(function (r) { return r.json(); }).then(function (j) {
       if (j.reserves) { var w = j.reserves.slice(2).match(/.{64}/g); mkt = (Number(BigInt("0x" + w[1])) / 1e18) / (Number(BigInt("0x" + w[0])) / Math.pow(10, TD)); }
-      var mi = document.getElementById("lp-mid"); if (mi && !mi.value && mkt) { mi.value = mkt.toFixed(2); preview(); }
+      var mi = document.getElementById("lp-mid"); if (mi && !mi.value && !midTouched && mkt && !(side && side.mid)) { mi.value = mkt.toFixed(2); preview(); } // 没有 OTC 中间价时才用 DEX 价兜底
+      hint();
     }).catch(function () {});
     return fetch("/api/lp" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
       if (!A.isCurrent(rid)) return;
       data = j; if (j.rules) R = j.rules; if (j.side) side = j.side;
-      sideLine(); board("today"); if (j.me) me(j.me); preview();
+      // 默认中间价用 OTC 自己的买一卖一中间价（DEX 价常高 3% 以上，照它铺买单会被人立刻高价卖给你）
+      var mi = document.getElementById("lp-mid"); if (mi && !midTouched && side.mid) mi.value = side.mid.toFixed(2);
+      hint(); sideLine(); board("today"); if (j.me) me(j.me); preview();
     }).catch(function () { var s = document.getElementById("lp-side"); if (s) s.textContent = "盘口供需暂时读不到，一键做市按双边铺。"; });
   }
+  function hint() { var el = document.getElementById("lp-hint"); if (!el) return; el.textContent = (side.mid ? "OTC 盘口中间价 " + f(side.mid) : "") + (mkt ? (side.mid ? " · " : "") + "DEX 现价 " + f(mkt) : ""); }
   // 顶部一句话：现在缺哪边、哪边才计返佣
   function sideLine() {
     var el = document.getElementById("lp-side"); if (!el) return;
