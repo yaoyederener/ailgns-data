@@ -6,6 +6,13 @@ export async function onRequestGet(ctx) {
   if (!key || !((env.FEEDBACK_KEY && key === env.FEEDBACK_KEY) || (env.BACKUP_KEY && key === env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
   if (!kv) return Response.json({ error: "no kv" }, { status: 503 });
   let out = await kv.get("adm:res", "json");
+  // ?keys=1：数今天/昨天/前天各有多少把访问计数钥匙（排查「昨天访客 0」）
+  if (new URL(ctx.request.url).searchParams.get("keys")) {
+    const cnt = async (d) => { let n = 0, cur, sample = []; do { const r = await kv.list({ prefix: "st:c:" + d + ":", cursor: cur, limit: 1000 }); n += r.keys.length; if (!sample.length) sample = r.keys.slice(0, 2).map((x) => x.name); cur = r.list_complete ? null : r.cursor; } while (cur); return { n, sample }; };
+    const out = {}; for (let i = 0; i < 3; i++) { const d = new Date(Date.now() + 8 * 3600e3 - i * 86400e3).toISOString().slice(0, 10); out[d] = await cnt(d); }
+    const any = await kv.list({ prefix: "st:c:", limit: 5 }); out.anyPrefix = any.keys.map((x) => x.name);
+    return Response.json(out);
+  }
   // ?rebuild=1：当场重算并把出错原因返回（排查后台静默失败用，站长口令）
   if (new URL(ctx.request.url).searchParams.get("rebuild")) { try { out = await build(env, kv, ctx); } catch (e) {
       // 顺便数一下今天/昨天各有多少把计数钥匙（每把 = 1 次 KV 读），判断是不是撞 1000 次上限
