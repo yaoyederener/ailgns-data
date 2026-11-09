@@ -20,3 +20,12 @@
 
 2026-11-09 从 Sourcify 取的**链上原样创建字节码**（onchainBytecode），只去掉了末尾的构造参数（Factory 32 字节、Router 64 字节、WETH9 没有）。用它部署出来的合约和 BSC 主网 / 以太坊主网的那份**逐字节一致**（连末尾的元数据指纹都一样），所以 Factory 的 `INIT_CODE_PAIR_HASH` 必然等于 `0x00fb7f63…69bd5`。部署页会把构造参数（Factory：feeToSetter = 连接的钱包；Router：factory + WETH 地址）接在后面再发交易。
 为什么不用 Remix 编译：2026-11-09 实测 Remix 2.6 + OKX 插件在 Anubis 链上部署会报「…indexOf is not a function」发不出去。
+
+## 已部署（Anubis，2026-11-09，站长钱包 0xedb9…db1e6）
+
+| 合约 | 地址 |
+|---|---|
+| WETH9 | `0xc5da7d212aad698008d2bf6004aca2ee352a6723` |
+| PancakeFactory（feeToSetter / feeTo = 0xedb9…db1e6） | `0x431c87b1ec15cb955c60262bd4d2ce798281e501` |
+| PancakeRouter | `0x477abc5b8f2de7bf50e0728a44707ca0c670a982` |
+| 第一个池子 AiLGNS / DAI | `0xf1d45cfbcd430d5e90cc5fa25e8958cc3c798abe` |
