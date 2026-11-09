@@ -13,7 +13,7 @@
   A.rankBadge = function (a) { var r = badgeMap[String(a || "").toLowerCase()]; return !r ? "" : r <= 3 ? MEDAL[r - 1] : TIER[tierOfRank(r)][0]; };
   A.rankTitle = function (a) { var r = badgeMap[String(a || "").toLowerCase()]; return r ? "荣耀榜总榜第 " + r + " 名 · " + TIER[tierOfRank(r)][1] : ""; };
   var tick = null;
-  A.rankReady = fetch("/api/rank?ticker=1").then(function (r) { return r.json(); }).then(function (d) { badgeMap = d.badges || {}; tick = d; ticker(d); }).catch(function () {});
+  A.rankReady = fetch("/api/rank?ticker=1").then(function (r) { return r.json(); }).then(function (d) { badgeMap = d.badges || {}; tick = d; /* 顶部播报条全站下线（站长 2026-11-08：太烦），只留段位徽章数据 */ }).catch(function () {});
 
   function dai(v) { return Number(v).toLocaleString("en-US") + " DAI"; }
   function left(ms) { var h = Math.max(0, Math.floor(ms / 3600e3)); return h >= 24 ? Math.floor(h / 24) + " 天 " + (h % 24) + " 小时" : h + " 小时 " + Math.max(0, Math.floor(ms / 60e3) % 60) + " 分"; }
