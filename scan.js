@@ -327,9 +327,9 @@
     var segs = location.hash.split("/").slice(2).map(function (x) { return decodeURIComponent(x || "").trim(); }).filter(Boolean);
     if (segs.length > 1 && /^(tx|address|token)$/.test(segs[0])) segs.shift(); // 兼容 #/scan/tx/哈希、#/scan/address/地址（全站以前指向官方浏览器的链接）
     var q = segs[0] || "", cat = CATS[segs[1]] ? segs[1] : "";
-    A.app.innerHTML = '<section class="card"><h2>📒 AiLGNS 账本 <small class="muted">看得懂的链上记录</small></h2>' +
-      '<form class="nm-search" id="sc-f"><input id="sc-q" placeholder="输入域名 / 钱包地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">查询</button></form>' +
-      '<p class="muted sc-tip">只显示和本站有关的事：买卖、挂单、注册域名、借贷、转账，每一笔都写成人话。例：发财.ailgns、0x 开头的地址、交易哈希。</p><div id="sc-me"></div></section><div id="sc-out"></div>';
+    /* 站长 2026-11-11：极简——一个高亮大搜索框 + 一行例子，别的都不要 */
+    A.app.innerHTML = '<section class="card sc-home"><form class="nm-search sc-search" id="sc-f"><input id="sc-q" placeholder="域名 / 钱包地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">查询</button></form>' +
+      '<p class="muted sc-tip">例：发财.ailgns、0x 开头的地址、交易哈希 · 每一笔都写成人话</p><div id="sc-me"></div></section><div id="sc-out"></div>';
     document.getElementById("sc-f").onsubmit = function (e) {
       e.preventDefault();
       var v = document.getElementById("sc-q").value.trim();
