@@ -528,12 +528,17 @@
     if (bundles[k]) return bundles[k];
     var url = window.AIL_BUNDLES && window.AIL_BUNDLES[k];
     if (!url) return Promise.resolve();
-    return (bundles[k] = new Promise(function (res, rej) {
-      var s = document.createElement("script"); s.src = url; s.setAttribute("data-lazy", "1");
-      s.onload = function () { res(); };
-      s.onerror = function () { delete bundles[k]; s.remove(); rej(new Error("bundle " + k)); };
-      document.head.appendChild(s);
-    }));
+    // 加载失败就换个地址（加 &r=时间戳）再试一次：2026-11-10 事故——生产回退期间某个包的地址在 CDN 被缓存成了一份 HTML，
+    // 浏览器拒绝执行，整页「没加载出来」；换地址等于绕开那份坏缓存
+    function tryLoad(u, retry) {
+      return new Promise(function (res, rej) {
+        var s = document.createElement("script"); s.src = u; s.setAttribute("data-lazy", "1");
+        s.onload = function () { res(); };
+        s.onerror = function () { s.remove(); retry ? tryLoad(u + (u.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now(), false).then(res, rej) : rej(new Error("bundle " + k)); };
+        document.head.appendChild(s);
+      });
+    }
+    return (bundles[k] = tryLoad(url, true).catch(function (e) { delete bundles[k]; throw e; }));
   }
   function route() {
     var id = ++renderId;
