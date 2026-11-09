@@ -27,7 +27,7 @@
   // 分组按「币圈玩法在前、服务在中、游戏在后」排；以后上百个功能都往对应分组里加，分组标题下只列前几个
   var GROUPS = [
     ["交易", "TRADE", [["#/scan", "📋 订单查询（OTC / 借贷 / 域名）", "wallet"], ["#/trade", "📊 交易所盘口（专业版）", "otc"], ["#/lp", "💧 做市返佣（即将开放）", "flow"], ["#/flows", "📈 资金流向", "flow"]]],
-    ["链上身份", "ON-CHAIN", [["#/inbox", "🔔 收件箱（调整中）", "bell"], ["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/scan", "💬 链上留言（在账本里）", "chat"], ["#/square", "🏛️ 链上广场（盖楼 · 时间胶囊 · 挂单帖）", "chat"]]],
+    ["链上身份", "ON-CHAIN", [["#/genesis", "🔥 创世域名销毁倒计时", "fire"], ["#/inbox", "🔔 收件箱（调整中）", "bell"], ["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/scan", "💬 链上留言（在账本里）", "chat"], ["#/square", "🏛️ 链上广场（盖楼 · 时间胶囊 · 挂单帖）", "chat"]]],
     ["销毁乐园（游戏）", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/farm", "🏡 开心农场", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
     ["服务", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/updates", "🆕 更新日志", "promo"], ["#/app", "📲 下载 App", "app"], ["#group", "💬 加 OTC 交流群（二维码）", "chat"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/promo", "营销广告", "promo"]]],
   ];

@@ -3072,3 +3072,28 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
   table.cards tbody tr.nm-pinrow:hover td, table.cards tbody tr.nm-pinrow:active td { background: #fff8e6; }
   table.cards tbody tr:hover, table.cards tbody tr:active { outline: 2px solid #8b5cf6; outline-offset: 2px; border-radius: 12px; box-shadow: 0 0 0 5px rgba(139, 92, 246, .14); }
 }
+/* 🔥 创世域名销毁倒计时 #/genesis（2026-11-08） */
+.gs-hero { background: linear-gradient(135deg, #f6f0ff, #fff 55%, #fff4ec); }
+.gs-hero h2 { margin: 0 0 6px; }
+.gs-big { text-align: center; margin: 14px 0 10px; }
+.gs-big small { display: block; color: #8d7fb8; font-size: 13px; }
+.gs-big b { display: block; font-size: 44px; line-height: 1.1; color: #4b2fb0; letter-spacing: .5px; margin: 4px 0; }
+.gs-bar { height: 12px; border-radius: 999px; background: #efe9ff; overflow: hidden; }
+.gs-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #7c4dff, #f59e0b); transition: width .8s ease; }
+.gs-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.gs-kpi div { background: #fff; border: 1px solid #eee6ff; border-radius: 14px; padding: 10px; text-align: center; }
+.gs-kpi small { display: block; color: #8d7fb8; font-size: 11.5px; }
+.gs-kpi b { display: block; font-size: 20px; color: #2d1b69; }
+.gs-act { display: grid; gap: 8px; margin-top: 14px; }
+.gs-act .nm-go { display: block; text-align: center; text-decoration: none; }
+.gs-act .gs-ghost { background: #fff; color: #4b2fb0; border: 1.5px solid #d9ccff; }
+.gs-act .gs-off { opacity: .55; cursor: not-allowed; background: #c9bdf2; }
+.gs-rule ol { padding-left: 20px; margin: 8px 0; } .gs-rule li { margin: 6px 0; line-height: 1.55; }
+.gs-recent { list-style: none; padding: 0; margin: 6px 0 0; }
+.gs-recent li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f0ebff; }
+.gs-recent li b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gs-recent li span { color: #c2410c; font-weight: 700; font-size: 13px; } .gs-recent li small { color: #8d7fb8; font-size: 12px; }
+.gs-hero .gc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .gs-hero .gc-top h2 { margin: 0; }
+.gs-hero .gc-flip { margin: 6px 0 4px; }
+.gs-act .gs-off.gs-on { opacity: 1; background: linear-gradient(120deg, #f97316, #ef4444); color: #fff; cursor: default; }
+@media (max-width: 420px) { .gs-hero .gc-d { width: 44px; height: 60px; font-size: 38px; } .gs-big b { font-size: 36px; } }
