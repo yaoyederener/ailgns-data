@@ -20,8 +20,10 @@
         '<section class="card gs-hero"><div class="gc-top"><h2>🔥 创世域名销毁倒计时</h2><span class="gc-live"><i></i>链上实时</span></div>' +
         '<p class="muted">创世名只有 <b>10,000</b> 个，注册满那天起，<b>中奖领钱要先烧掉 1 枚创世名</b>。现在还来得及先备一枚。</p>' +
         '<div class="gs-big"><small id="gs-cap">离 10,000 个注册满还差</small><div class="gc-flip" id="gs-flip">' + flip(0) + '</div><small id="gs-sub">每被注册 1 个，这里就跳 1 下 · 跳到 0 销毁活动开启</small></div>' +
+        // 一边铸造、一边销毁：左边紫色是已铸出来的，右边火色是等着被烧的；中间进度条紫色吃掉火色
+        '<div class="gs-duel"><div class="gs-mint"><small>🌟 已铸造</small><b id="gs-n">—</b><span>一边在铸</span></div><div class="gs-vs">VS</div><div class="gs-fire"><small>🔥 等待销毁</small><b id="gs-rest">—</b><span>铸满那天开烧</span></div></div>' +
         '<div class="gs-bar"><i id="gs-fill"></i></div>' +
-        '<div class="gs-kpi"><div><small>已注册</small><b id="gs-n">—</b></div><div><small>今天新增</small><b id="gs-day">—</b></div><div><small>剩余</small><b id="gs-rest">—</b></div></div>' +
+        '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 每铸 1 个，上面倒计时就跳 1 下</p>' +
         '<div class="gs-act"><a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a><a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚创世名</a>' +
         '<button type="button" class="nm-go gs-off" disabled>🔥 销毁领奖：注册满 10,000 个后开放</button></div></section>' +
         '<section class="card gs-rule"><h3>📜 到时候的规则（大白话）</h3><ol>' +
