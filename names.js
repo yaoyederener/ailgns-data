@@ -1332,12 +1332,13 @@
       if (q) list = full.filter(function (it) { return it.label.toLowerCase().indexOf(q) >= 0 || it.maker.indexOf(q) >= 0 || ((A.nameCache || {})[it.maker] || "").toLowerCase().indexOf(q) >= 0; });
       // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 名字一年注册价高的在前（3 位 640、4 位 160、中文 2 字 50…）③ 创世编号小的在前 ④ 新挂的在前
       list.sort(mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
+        : mkSort === "priced" ? function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; } // 价格高→低（站长 2026-11-09）
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.pin - a.pin || b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
       box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
         '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + list.length + " 个</span>" : "") + "</div>" +
-        '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["priced", "价格高→低"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
