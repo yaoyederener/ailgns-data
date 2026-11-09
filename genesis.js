@@ -81,21 +81,70 @@
       });
     }
     A.genesisBurn = { html: burnHtml, bind: bindBurn, full: function (root) { render(root, false); } };
+    // 🏆 大奖一键工具（站长 2026-11-10 定）：注册 K 个随机 .ailgns 名字（5 DAI/个，一次授权、钱包支持就一次确认发一串）→ 查 tokenId → 全部转进黑洞。
+    //    注册打「批量注册」标记（费用 90% 进极速预言家资金池）。机器人下次来取名单时核对黑洞记录数 ≥ 需要数才发奖
+    function jackpotPanel(box, jp) {
+      var nm = A.nm, acct = nm.account(), K = jp.need - (jp.bn || 0), price = jp.price || 5;
+      box.innerHTML = '<div class="gs-jp"><b>🏆 你有待领大奖 ' + n(jp.amt) + ' DAI（' + Number(jp.ail || 0).toFixed(4) + ' AiLGNS）</b>' +
+        '<p>领奖前要注册并销毁 <b>' + n(jp.need) + '</b> 个 .ailgns 名字（奖金 30% ÷ ' + price + ' DAI），已烧 <b>' + n(jp.bn || 0) + '</b> 个，还差 <b>' + n(K) + '</b> 个，约 <b>' + n(K * price) + ' DAI</b>。注册费进极速预言家奖池。</p>' +
+        '<p class="muted">点下面一键完成：先授权 DAI，再一次确认注册一批，再一次确认全部转进黑洞（钱包不支持批量就逐个确认，有进度）。截止 ' + new Date(jp.due + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") + '（北京时间）。</p>' +
+        '<button type="button" class="nm-go gs-off gs-on gs-jpgo">⚡ 一键注册并销毁 ' + n(K) + ' 个名字（约 ' + n(K * price) + ' DAI）</button><p class="muted gs-jpst"></p></div>';
+      var go = box.querySelector(".gs-jpgo"), st = box.querySelector(".gs-jpst"), say = function (t) { st.textContent = t || ""; };
+      go.onclick = function () {
+        if (!confirm("确认注册并销毁 " + K + " 个 .ailgns 名字（约 " + (K * price) + " DAI）吗？\n\n这些名字注册后会立刻转进黑洞地址，永久拿不回。")) return;
+        go.disabled = true;
+        var labels = [], chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        for (var i = 0; i < K; i++) { var s = "jp"; for (var k = 0; k < 8; k++) s += chars[Math.floor(Math.random() * chars.length)]; labels.push(s); }
+        var regd = [], ids = [];
+        function chunks(arr, size) { var out = []; for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size)); return out; }
+        function seqP(items, fn) { return items.reduce(function (p, it, i) { return p.then(function () { return fn(it, i); }); }, Promise.resolve()); }
+        nm.prepay(K * price, "DAI", say).then(function () {
+          // ① 注册：每 50 个一批，先试一次确认发一串，不行就逐个
+          return seqP(chunks(labels, 50), function (grp, gi) {
+            say("注册第 " + (gi * 50 + 1) + "–" + (gi * 50 + grp.length) + " / " + K + " 个，请在钱包确认");
+            var calls = grp.map(function (l) { return { to: nm.NAMES(), data: nm.regData(l, 1, "DAI", acct) }; });
+            return nm.sendCalls(calls, say).then(function (ok) { if (ok) { regd = regd.concat(grp); return; } return seqP(grp, function (l, i) { say("注册第 " + (gi * 50 + i + 1) + " / " + K + " 个：" + l + ".ailgns，请在钱包确认"); return nm.register(l, 1, "DAI", function () {}, acct).then(function () { regd.push(l); }, function (e) { if (/reject|denied|cancel|取消|拒绝/i.test(String(e && e.message))) throw e; }); }); }, function () { return seqP(grp, function (l) { return nm.register(l, 1, "DAI", function () {}, acct).then(function () { regd.push(l); }, function () {}); }); });
+          });
+        }).then(function () {
+          if (!regd.length) throw new Error("一个都没注册成功，请检查 DAI 余额后重试");
+          chunks(regd, 100).forEach(function (grp) { try { fetch("/api/batch-mark", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: acct, names: grp }) }); } catch (x) {} });
+          say("已注册 " + regd.length + " 个，正在读取编号…");
+          return Promise.all(regd.map(function (l) { return nm.idOf(l).then(function (id) { return id; }, function () { return null; }); }));
+        }).then(function (got) {
+          ids = got.filter(function (x) { return x && /^[0-9a-f]{64}$/.test(x) && !/^0+$/.test(x); });
+          // ② 销毁：全部转进黑洞，每 50 个一批
+          var done = 0;
+          return seqP(chunks(ids, 50), function (grp, gi) {
+            say("销毁第 " + (gi * 50 + 1) + "–" + (gi * 50 + grp.length) + " / " + ids.length + " 个，请在钱包确认");
+            var calls = grp.map(function (id) { return { to: nm.NAMES(), data: "0x23b872dd" + A.pad(acct) + A.pad(DEAD) + id }; });
+            return nm.sendCalls(calls, say).then(function (ok) { if (ok) { done += grp.length; return; } return seqP(grp, function (id, i) { return nm.tx(nm.NAMES(), "0x23b872dd" + A.pad(acct) + A.pad(DEAD) + id, say, "🔥 销毁第 " + (gi * 50 + i + 1) + " / " + ids.length + " 个名字，请在钱包确认").then(function () { done++; }); }); }, function () { return seqP(grp, function (id) { return nm.tx(nm.NAMES(), "0x23b872dd" + A.pad(acct) + A.pad(DEAD) + id, say, "🔥 销毁名字，请在钱包确认").then(function () { done++; }); }); });
+          }).then(function () { return done; });
+        }).then(function (done) {
+          box.innerHTML = '<div class="gs-bdone"><b>✅ 已注册并销毁 ' + n(done) + ' 个名字</b><p>机器人下次来取名单时核对链上黑洞记录（一般几分钟到半小时），够数就把大奖 AiLGNS 发到这个钱包。</p>' + (done < K ? '<p class="muted">还差 ' + n(K - done) + ' 个没完成，再点一次销毁按钮继续。</p>' : "") + '<p><a href="#/scan/' + acct + '">📒 在账本里看这些销毁 ›</a></p></div>';
+          try { fetch("/api/hit?e=jpburn", { method: "POST" }); } catch (x) {}
+          setTimeout(loadBurns, 5000); setTimeout(loadBurns, 60000);
+        }).catch(function (e) { go.disabled = false; say(""); if (e && e.message !== "已取消") A.errTip((e && e.message) || "没完成，请重试", go); });
+      };
+    }
     function burnFlow(btn, box) {
       if (!box) return;
       var nm = A.nm; if (!nm || !nm.owned) { box.innerHTML = '<p class="muted">域名模块还没加载好，刷新一下再试</p>'; return; }
       var say = function (x) { var el = box.querySelector(".gs-bst"); if (el) el.textContent = x || ""; };
       btn.disabled = true; box.innerHTML = '<p class="muted gs-bst">正在连接钱包…</p>';
       var acct;
+      var jp = null; // 这个钱包有没有待领大奖（要烧奖金 30% 的名字）
       nm.connect().then(function (a) {
         acct = a; say("正在读取 " + A.short(a) + " 钱包里的创世名…");
+        return fetch("/api/oracle?a=" + a).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { var d = (j && j.me && j.me.burnDue) || []; jp = d.filter(function (x) { return x.need > 1 && x.bn < x.need; })[0] || null; }, function () {});
+      }).then(function () {
         // 先走服务器快照接口（秒出，不读链）；接口不通再退回手机自己读链（慢）
-        return fetch("/api/name-owned?a=" + a).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
+        return fetch("/api/name-owned?a=" + acct).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); })
           .then(function (j) { return (j.list || []).map(function (x) { return { t: "ailgns", id: x.id, label: x.label, no: x.no }; }); },
-            function () { say("快照读不到，改为直接读链，会慢一点，请稍等…"); return nm.owned(a); });
+            function () { say("快照读不到，改为直接读链，会慢一点，请稍等…"); return nm.owned(acct); });
       }).then(function (all) {
         var list = (all || []).filter(function (x) { return x && x.no && x.t === "ailgns"; }).sort(function (x, y) { return x.no - y.no; });
         btn.disabled = false;
+        if (jp) { jackpotPanel(box, jp); return; } // 🏆 大奖：走一键注册并销毁
         if (!list.length) {
           box.innerHTML = '<div class="gs-bnone"><b>😅 这个钱包（' + A.short(acct) + '）里没有创世名</b><p>去域名市场任意买一枚，买到后回到这页再点一次销毁按钮（刚买 / 刚注册的等 1 分钟再点）。</p>' +
             '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚</a><a class="nm-go gs-reg" href="#/names">🌟 还没铸满，也可以直接注册一枚</a>' +

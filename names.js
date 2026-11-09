@@ -292,6 +292,7 @@
   }
   A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, account: function () { return account; }, NAMES: function () { return NAMES; },
     tx: tx, DAI: DAI, owned: ownedList, // 销毁页（genesis.js）用：列出钱包里的创世名
+    idOf: function (label) { return call(SEL.idOf + str(label)).then(function (r) { return word(r, 0); }); }, // 大奖一键注册并销毁：名字 → tokenId（64 位 hex）
     allowance: function (token, spender) { return call2(token, SEL.allowance + A.pad(account) + A.pad(spender)).then(BigInt); },
     balance: function (token) { return call2(token, "0x70a08231" + A.pad(account)).then(BigInt); },
     sign: function (text) { return connect().then(function () { bigTip("签名"); return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(text), account] }); }).then(function (r) { bigTip(""); return r; }, function (e) { bigTip(""); throw e; }); } };
