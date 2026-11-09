@@ -13,10 +13,12 @@
       var str = String(Math.max(0, n | 0)).padStart(4, "0");
       return str.split("").map(function (d, i) { return (str.length - i === 3 && i ? '<em class="gc-sep">,</em>' : "") + '<span class="gc-d">' + d + "</span>"; }).join("");
     }
-    function page(id) {
-      rid = id; lastLeft = null;
-      clearInterval(timer); timer = setInterval(function () { if (location.hash.indexOf("#/genesis") !== 0) { clearInterval(timer); return; } load(); }, 15000); // 接口缓存 15 秒，跟着刷
-      A.app.innerHTML =
+    // 站长 2026-11-09：整页（实况 + 按钮 + 规则）也嵌到域名页注册卡下面做清晰提醒 → render(root, full)；full=false 时不带「去注册」按钮和「刚刚注册」列表
+    var seq = 0;
+    function render(root, full) {
+      rid = "r" + (++seq); lastLeft = null;
+      clearInterval(timer); timer = setInterval(function () { if (!document.body.contains(root) || !root.querySelector("#gs-flip")) { clearInterval(timer); return; } load(); }, 15000); // 接口缓存 15 秒，跟着刷；容器没了就停
+      root.innerHTML =
         '<section class="card gs-hero"><div class="gc-top"><h2>🔥 创世域名销毁进行中</h2><span class="gc-live"><i></i>链上实时</span></div>' +
         '<p class="muted"><b>中奖领钱的人，必须先销毁 1 枚创世名。</b>烧自己手里的，或去域名市场任意买一枚来烧都行。<b>中奖后 3 天内不销毁，视为放弃领奖。</b></p>' +
         '<div class="gs-big"><small id="gs-cap">已铸造的创世名（限量 10,000）</small><div class="gc-flip" id="gs-flip">' + flip(0) + '</div><small id="gs-sub">每被注册 1 个，这里就跳 1 下 · 铸完永久没有</small></div>' +
@@ -24,7 +26,7 @@
         '<div class="gs-duel"><div class="gs-mint"><small>🌟 已铸造</small><b id="gs-n">—</b><span>一边在铸</span></div><div class="gs-vs">VS</div><div class="gs-fire"><small>🔥 还能注册</small><b id="gs-rest">—</b><span>铸完只能去市场买</span></div></div>' +
         '<div class="gs-bar"><i id="gs-fill"></i></div>' +
         '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 中奖要领钱的，手里先备一枚</p>' +
-        '<div class="gs-act"><a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a><a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
+        '<div class="gs-act">' + (full ? '<a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a>' : "") + '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚来烧</a>' +
         '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 我中奖了 · 销毁 1 枚创世名领奖</button></div><div class="gs-burn-box"></div></section>' +
         '<section class="card gs-rule"><h3>📜 规则（大白话）</h3><ol>' +
         '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。</li>' +
@@ -33,10 +35,11 @@
         '<li><b>中奖后 3 天内不销毁，视为放弃领奖。</b>从中奖通知发出算起，过期不补发。</li>' +
         '<li><b>怎么烧：</b>点上面「销毁 1 枚创世名领奖」→ 连钱包 → 选一枚 → 钱包里确认。销毁就是转进黑洞地址，只花一点 Gas。</li></ol>' +
         '<p class="muted">说明：所有活动为社区自治、娱乐性质，参与请自行承担风险。</p></section>' +
-        '<section class="card"><h3>🆕 刚刚注册的创世名</h3><ul class="gs-recent" id="gs-recent"><li class="muted">读取中…</li></ul></section>';
-      bindBurn(A.app);
+        (full ? '<section class="card"><h3>🆕 刚刚注册的创世名</h3><ul class="gs-recent" id="gs-recent"><li class="muted">读取中…</li></ul></section>' : "");
+      bindBurn(root);
       load();
     }
+    function page() { render(A.app, true); }
 
     // 🔥 销毁领奖（站长 2026-11-09 定）：连钱包 → 列出钱包里的创世 .ailgns 名 → 选一枚 → 用 ERC721 transferFrom 转进黑洞地址（永久拿不回）
     // 不碰合约、不加权限：就是普通用户自己把 NFT 转给 0x…dEaD；机器人发奖前核对链上 Transfer→dEaD 记录，一枚只抵一次。钱包里没有就引导去市场买
@@ -51,7 +54,7 @@
         bb.onclick = function () { burnFlow(bb, box); };
       });
     }
-    A.genesisBurn = { html: burnHtml, bind: bindBurn };
+    A.genesisBurn = { html: burnHtml, bind: bindBurn, full: function (root) { render(root, false); } };
     function burnFlow(btn, box) {
       if (!box) return;
       var nm = A.nm; if (!nm || !nm.owned) { box.innerHTML = '<p class="muted">域名模块还没加载好，刷新一下再试</p>'; return; }
