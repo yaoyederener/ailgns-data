@@ -438,13 +438,14 @@
     var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" };
     var l = ((data && data.pays) || []).filter(function (x) { return x.day === day; });
     if (!l.length) return "";
-    return '<div class="or-pays"><b>💸 发奖记录（链上可查）</b>' + l.map(function (x) {
+    // 站长 2026-11-09：电脑端对齐成表格（奖项 | 获奖人 | 实发 | 状态），手机端还是一行行卡片（表头只在电脑端显示）
+    return '<div class="or-pays"><b>💸 发奖记录（链上可查）</b><div class="or-pay or-ph"><span>奖项</span><span>获奖人</span><span class="or-pa">实发 AiLGNS（≈ DAI）</span><span>状态 / 转账</span></div>' + l.map(function (x) {
       // 2026-11-09 起先烧才发：wait = 等中奖人销毁创世名（3 天内），forfeit = 逾期没烧放弃，ready = 已烧等机器人转账
       var tail = x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' + (x.burn ? '<small>🔥 已烧创世 #' + x.burn + "</small>" : "")
         : x.st === "forfeit" ? '<small class="or-pay-no">❌ 3 天内没销毁创世名，放弃，奖金留在奖池</small>'
         : x.st === "wait" ? '<a href="#/genesis">⏳ 等中奖人销毁 1 枚创世名（' + (x.due ? "截止 " + bjShort(x.due) : "3 天内") + "）→</a>"
         : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">' + (x.burn ? "🔥 已烧创世 #" + x.burn + "，等机器人转账" : "奖池转出记录") + " →</a>";
-      return '<div class="or-pay"><span>' + (KN[x.kind] || x.kind) + " · <b>" + esc(x.name) + "</b></span><span>" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + "</small></span>" + tail + "</div>";
+      return '<div class="or-pay"><span class="or-pk">' + (KN[x.kind] || x.kind) + '</span><span class="or-pn"><b>' + esc(x.name) + '</b></span><span class="or-pa">' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + '</small></span><span class="or-pt">' + tail + "</span></div>";
     }).join("") + "</div>";
   }
   function rules() {

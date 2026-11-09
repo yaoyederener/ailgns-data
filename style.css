@@ -3004,7 +3004,16 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 /* 预言家揭晓卡：发奖记录（2026-11-08） */
 .or-pays { margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; background: #f5f3ff; border: 1px solid #ddd6fe; display: grid; gap: 6px; font-size: 13.5px; }
 .or-pay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-top: 6px; border-top: 1px dashed #e4dcff; }
-.or-pay span:first-child { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; } .or-pay small { color: #6b7280; } .or-pay a { font-weight: 700; white-space: nowrap; }
+.or-pay .or-pn { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; } .or-pay small { color: #6b7280; } .or-pay a { font-weight: 700; white-space: nowrap; }
+.or-pay .or-pk { flex: none; } .or-pay .or-pa { white-space: nowrap; font-variant-numeric: tabular-nums; } .or-pay .or-pt { flex: 1 1 100%; } .or-ph { display: none; } /* 手机：一行行卡片，表头不显示 */
+/* 2026-11-09 站长：电脑端发奖记录对齐成表格（奖项 | 获奖人 | 实发 | 状态） */
+@media (min-width: 601px) {
+  .or-pay { display: grid; grid-template-columns: 104px minmax(0, 1fr) 190px minmax(0, 1.2fr); gap: 0 14px; align-items: center; padding: 7px 0; border-top: 1px dashed #e4dcff; }
+  .or-pay .or-pn { flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .or-pay .or-pa { text-align: right; } .or-pay .or-pa small { display: block; font-size: 11.5px; line-height: 1.2; }
+  .or-pay .or-pt { flex: none; min-width: 0; } .or-pay .or-pt a, .or-pay .or-pt small { white-space: normal; }
+  .or-ph { display: grid; border-top: 0; padding-top: 2px; color: #7a68b8; font-size: 12px; font-weight: 700; } .or-ph span { white-space: nowrap; }
+  .or-cdlast .or-pays { max-width: 760px; }
+}
 
 .sc-pays{border:2px solid #f5c542;background:linear-gradient(180deg,#fffbea,#f6f0ff)}
 .sc-pay{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px dashed #e5dcf7}
