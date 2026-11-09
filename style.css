@@ -2010,7 +2010,7 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .risk-chips li { padding: 3px 10px; font-size: 12.5px; color: #5b3fc4; background: #fff; border: 1px solid #e6dbff; border-radius: 999px; }
 .risk-chips li:nth-last-child(-n+2) { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
 .risk-sum { margin: 0; }
-.risk-dev { margin: 8px 0 0; padding: 6px 10px; background: #fff; border: 1px dashed #d9ccff; border-radius: 10px; font-size: 13px; }
+.risk-dev { margin: 0; padding: 6px 10px; background: #fff; border: 1px dashed #d9ccff; border-radius: 10px; font-size: 13px; }
 .risk-det { margin-top: 10px; }
 .risk-det summary { cursor: pointer; color: #7c5cff; font-weight: 600; }
 .risk-det ol { margin: 10px 0 0; padding-left: 22px; }
@@ -3172,3 +3172,40 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .gs-bpick { flex: none; padding: 9px 14px; border-radius: 999px; border: 0; background: linear-gradient(120deg, #f97316, #ef4444); color: #fff; font-weight: 800; font-size: 13.5px; cursor: pointer; } .gs-bpick:disabled { opacity: .55; cursor: wait; }
 .gs-burn-box .nm-go { display: block; text-align: center; text-decoration: none; margin-top: 8px; }
 .gs-jp { padding: 12px 14px; border-radius: 16px; background: linear-gradient(135deg, #fff7ed, #fff); border: 1.5px solid #f5c542; box-shadow: 0 0 0 4px rgba(245, 197, 66, .18); } .gs-jp > b { display: block; font-size: 16px; color: #92400e; } .gs-jp p { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; } .gs-jp .nm-go { display: block; text-align: center; margin-top: 10px; } .gs-bdone { background: #f0fdf4; border-color: #86efac; } .gs-bdone b { color: #166534; } .gs-bdone a { color: #4b2fb0; font-weight: 700; }
+
+.lp-need{margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:#f3eefc;color:#3b2a6b;font-size:14px;line-height:1.5}
+.lp-need b{color:#5b3fb8}
+.lp-need a{color:#6a4fd0;text-decoration:none}
+
+/* 2026-11-10 手机上做市表单被长下拉文字撑破：格子允许收缩，输入框不超过格子宽 */
+.lp-grid label { min-width: 0; } .lp-grid input, .lp-grid select { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+@media (max-width: 640px) { .lp-calc .lp-grid { grid-template-columns: 1fr 1fr; } }
+
+/* 奖池钱包账本页：大字承诺（2026-11-11） */
+.sc-pledge { background: linear-gradient(135deg, #f6f2ff, #ece4ff); border: 1px solid #d9ccff; }
+.sc-pl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sc-pl-grid div { background: #fff; border-radius: 14px; padding: 14px 8px; text-align: center; }
+.sc-pl-grid b { display: block; font-size: 30px; line-height: 1.1; color: #4b2fb8; font-weight: 800; }
+.sc-pl-grid span { display: block; margin-top: 6px; font-size: 12px; color: #6b5aa6; line-height: 1.35; }
+.sc-pledge p { margin: 10px 0 0; font-size: 13px; }
+@media (max-width: 400px) { .sc-pl-grid b { font-size: 26px; } }
+
+/* 账本首页极简搜索框（2026-11-11） */
+.sc-home { padding: 14px 14px 12px; }
+.sc-search { margin: 0; gap: 8px; }
+.sc-search input { padding: 14px 16px; font-size: 17px; border: 2px solid #c9b8ff; border-radius: 14px; background: #faf8ff; color: #2d1f5e; box-shadow: 0 0 0 4px #f1ecff; transition: border-color .15s, box-shadow .15s; }
+.sc-search input::placeholder { color: #a797d6; }
+.sc-search input:focus { outline: none; border-color: #7c5cff; box-shadow: 0 0 0 5px #e4dcff; background: #fff; }
+.sc-search button { padding: 14px 18px; font-size: 16px; border-radius: 14px; background: linear-gradient(135deg, #7c5cff, #5b3fb8); }
+.sc-home .sc-tip { margin: 10px 2px 0; font-size: 12.5px; color: #8d7fc0; }
+
+.risk-det .risk-head { margin-top: 10px; } .risk-det summary { font-size: 13.5px; }
+
+/* 页脚折叠（2026-11-11） */
+.foot-in { grid-template-columns: 1fr; gap: 12px; }
+.foot-brand { grid-template-columns: auto auto; align-items: center; justify-content: space-between; width: 100%; }
+.foot-more { grid-column: 1 / -1; }
+.foot-more summary { cursor: pointer; color: #7c5cff; font-weight: 600; font-size: 13px; padding: 6px 0; }
+.foot-more > p { margin: 10px 0 12px; }
+.foot-more .foot-links { margin-bottom: 12px; }
+@media (max-width: 600px) { .foot-brand { grid-template-columns: 1fr; justify-items: start; } }

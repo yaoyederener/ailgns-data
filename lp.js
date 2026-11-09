@@ -31,7 +31,7 @@
       '<section class="card"><div class="card-head"><h2>📒 我的返佣</h2><button type="button" class="ghost" id="lp-conn">连接钱包</button></div><div id="lp-me"><p class="muted">连接钱包后显示今天的档位、计入成交和返佣</p></div></section>' +
       '<section class="card lp-mk"><div class="card-head"><h2>⚡ 一键做市</h2><span class="muted">把资金拆成小单铺满盘口</span></div>' +
         '<p class="muted">你只要授权，网站帮你把钱拆成多张小限价单，按价格阶梯铺到盘口上；哪张被吃哪张赚价差 + 返佣，没被吃的原封不动、随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
-        '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">按供需自动（推荐，只铺缺的一边）</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
+        '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">按供需自动（只铺缺的一边）</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
         '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label><label>总资金 (DAI)<input id="lp-amt" inputmode="decimal" value="1000"></label>' +
         '<label>拆几档<select id="lp-n"><option>2</option><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>' +
         '<label>第 1 档价差 (%)<input id="lp-sp" inputmode="decimal" value="0.5"></label><label>每档再加 (%)<input id="lp-step" inputmode="decimal" value="0.3"></label>' +
@@ -51,7 +51,7 @@
         '<li>算法：计入的每笔成交，返佣 = <b>成交 DAI × 1% × 你的档位比例</b>（例：5 万档成交 1,000 DAI → 返 7 DAI）。按 DAI 价值计，以 DAI 发放。</li>' +
         '<li>结算：试运行期间每天记账、页面可查；首次发放时间会在更新日志和收件箱公告，之后每天北京时间 0 点后结算前一天，不足 1 DAI 累计。</li>' +
         '<li>不改合约、不碰你的币、不保本：挂单、撤单、成交全在原 OTC 合约里，和平时一样。</li>' +
-        '<li>刷量无效：自己吃自己的单（同一钱包 / 明显关联钱包）不计返佣；发现作弊取消资格。</li>' +
+        '<li>一视同仁：平台不审查交易双方是谁、个人如何使用自己的钱包是个人自由；所有成交按同一规则收 1% 手续费、按同一规则返佣。荣誉和等级（名人堂、VIP、返佣榜）只统计与不同对手方的成交。</li>' +
         '<li>平台留下的部分覆盖 Gas、服务器和运营；规则如有调整会提前在更新日志公示，已产生的返佣不受影响。</li></ol></section>';
     bind();
     load();
@@ -100,7 +100,10 @@
     el.innerHTML = '<div class="lp-kpi lp-me"><div><small>今天档位</small><b>' + tierName(lq.rate) + '</b><span>日均挂单 ' + f(lq.avg, 0) + ' DAI' + (lq.next ? ' · 再挂 ' + f(lq.next[0] - lq.avg, 0) + ' 到 ' + Math.round(lq.next[1] * 100) + '%' : "") + '</span></div>' +
       '<div><small>今天返佣</small><b>' + f(t.rb || 0, 4) + ' DAI</b><span>计入成交 ' + f(t.cdai || 0, 0) + ' / 全部 ' + f(t.dai || 0, 0) + ' DAI · ' + (t.n || 0) + ' 笔</span></div>' +
       '<div><small>累计返佣</small><b>' + f(m.total.rb, 4) + ' DAI</b><span>待发放 ' + f(m.pending, 4) + ' DAI</span></div></div>' +
-      (m.days.length ? '<div class="lg-list">' + m.days.map(function (d) { return '<div class="lg-row"><span class="lg-ico">📅</span><div class="lg-main"><div class="lg-txt">' + d.d + '：计入成交 ' + f(d.x.cdai || 0, 2) + ' / ' + f(d.x.dai, 2) + ' DAI · ' + d.x.n + ' 笔 · 日均挂单 ' + f(d.x.liq || 0, 0) + ' → ' + Math.round((d.x.rate || 0) * 100) + '% → 返佣 <b>' + f(d.x.rb, 4) + ' DAI</b></div></div></div>'; }).join("") + "</div>" : '<p class="muted">还没有成交记录。挂上单、被人吃了就会出现在这里。</p>') +
+      '<p class="lp-need">' + (side.side === "sell" ? "👉 现在盘口<b>缺卖单</b>：你挂<b>卖单</b>被吃才计返佣，挂买单不计。" :
+        side.side === "buy" ? "👉 现在盘口<b>缺买单</b>：你挂<b>买单</b>被吃才计返佣，挂卖单不计。" :
+        "👉 现在盘口买卖差不多：买单、卖单被吃都计返佣。") + ' <span class="muted">下面「一键做市」默认就铺缺的这边。</span></p>' +
+      (m.days.length ? '<div class="lg-list">' + m.days.map(function (d) { return '<div class="lg-row"><span class="lg-ico">📅</span><div class="lg-main"><div class="lg-txt">' + d.d + '：计入成交 ' + f(d.x.cdai || 0, 2) + ' / ' + f(d.x.dai, 2) + ' DAI · ' + d.x.n + ' 笔 · ' + (d.d < "2026-11-10" ? '旧规则 ' + Math.round((d.x.rate || 0) * 100) + '%' : '日均挂单 ' + f(d.x.liq || 0, 0) + ' → ' + Math.round((d.x.rate || 0) * 100) + '%') + ' → 返佣 <b>' + f(d.x.rb, 4) + ' DAI</b></div></div></div>'; }).join("") + "</div>" : '<p class="muted">还没有成交记录。挂上单、被人吃了就会出现在这里。</p>') +
       (m.paid.length ? '<p class="muted">发放记录：' + m.paid.slice(0, 5).map(function (p) { return p.day + " " + f(p.amt, 4) + ' DAI <a href="#/scan/' + p.tx + '">详情</a>'; }).join(" · ") + "</p>" : "");
   }
   function board(r) {

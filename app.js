@@ -528,12 +528,17 @@
     if (bundles[k]) return bundles[k];
     var url = window.AIL_BUNDLES && window.AIL_BUNDLES[k];
     if (!url) return Promise.resolve();
-    return (bundles[k] = new Promise(function (res, rej) {
-      var s = document.createElement("script"); s.src = url; s.setAttribute("data-lazy", "1");
-      s.onload = function () { res(); };
-      s.onerror = function () { delete bundles[k]; s.remove(); rej(new Error("bundle " + k)); };
-      document.head.appendChild(s);
-    }));
+    // 加载失败就换个地址（加 &r=时间戳）再试一次：2026-11-10 事故——生产回退期间某个包的地址在 CDN 被缓存成了一份 HTML，
+    // 浏览器拒绝执行，整页「没加载出来」；换地址等于绕开那份坏缓存
+    function tryLoad(u, retry) {
+      return new Promise(function (res, rej) {
+        var s = document.createElement("script"); s.src = u; s.setAttribute("data-lazy", "1");
+        s.onload = function () { res(); };
+        s.onerror = function () { s.remove(); retry ? tryLoad(u + (u.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now(), false).then(res, rej) : rej(new Error("bundle " + k)); };
+        document.head.appendChild(s);
+      });
+    }
+    return (bundles[k] = tryLoad(url, true).catch(function (e) { delete bundles[k]; throw e; }));
   }
   function route() {
     var id = ++renderId;
@@ -587,7 +592,8 @@
     rank: ["🏆", "荣耀榜", "OTC 成交大户排行，名字永久留名", [["看排行", "sel:#app .card"], ["名人堂", "名人堂"], ["段位规则", "段位规则"]]],
     feedback: ["📮", "问题反馈", "遇到问题提交工单，客服处理后回复你", [["提交问题", "问题反馈"], ["查看处理进度", "我的反馈进度"]]],
     inbox: ["🔔", "收件箱", "成交、借贷、工单回复、中奖、留言的通知都在这里，不用加任何社交软件", [["钱包签名登录", "click:#ib-go"], ["开启浏览器通知", "click:#ib-notify"], ["全部已读", "click:#ib-seen"]]],
-    scan: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
+    /* 站长 2026-11-11：账本页引导卡去掉，只留极简搜索框 */
+    _scanOff: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
   };
   // 全站「查我的订单」条：OTC / 盘口 / 借贷 / 预言家 / 荣耀榜 页顶部都有（域名页 2026-11-08 站长要求去掉），输入框自动填当前钱包
   var OQ = { otc: "otc", trade: "otc", lp: "otc", flows: "otc", lend: "loan", oracle: "other", rank: "other", wallet: "other", team: "other" }, oqCtl = null;

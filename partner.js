@@ -1,3 +1,4 @@
+var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成了 HTML
 // 🤝 合伙人面板 #/partner：独立口令（PARTNER_KEY，站长口令也能进）。四屏：风险与建议 → 钱 → 今天的生意 → 客户 → 计划
 // 数据来自 /api/partner（ops-watch 每 5 分钟算好）；只有站长口令能改分配比例和开发计划
 (function () {
