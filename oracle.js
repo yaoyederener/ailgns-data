@@ -206,19 +206,20 @@
     var canDraw = !(data.drawing && data.drawing.skip); // 第一期之前的晚上不揭晓，倒计时只显示距下一期封卷
     if (canDraw && now >= t21 && now < t22 && cut > t22) { ph = "🔮 今晚揭晓中"; target = t22; sub = "21:00–22:00 之间随机一刻的价格就是揭晓价 · 明晚的预言已经开始"; step = 3; }
     else if (canDraw && now >= t22 && now < t22 + 15 * 60e3 && cut > t22) { ph = "🏅 正在放榜"; target = t22 + 15 * 60e3; sub = "几分钟内放榜，DeBox 会推送"; step = 4; }
-    else { ph = "✍️ 预言进行中"; target = cut; sub = dayCn(data.round) + " 晚 9 点封卷，9–10 点随机一刻揭晓"; step = 1; }
+    else if (canDraw && data.drawing && data.drawing.cutoff && now >= data.drawing.cutoff && now < t21 && cut > t22) { ph = "🔒 已封卷"; target = t21; sub = dayCn(data.drawing.day) + " 已封卷，21:00–22:00 随机一刻揭晓 · 现在提交的算 " + dayCn(data.round); step = 2; } // 早 9 点到晚 9 点：锁定 12 小时
+    else { ph = "✍️ 预言进行中"; target = cut; sub = dayCn(data.round) + " 早 9 点封卷，当晚 9–10 点随机一刻揭晓"; step = 1; }
     var ms = Math.max(0, target - now), dd = Math.floor(ms / 864e5), hh = Math.floor(ms % 864e5 / 36e5), mm = Math.floor(ms % 36e5 / 6e4), ss = Math.floor(ms % 6e4 / 1e3);
     var is = big.querySelectorAll("i"), v = [dd, hh, mm, ss];
     for (var k = 0; k < 4; k++) { var t = String(v[k]).padStart(2, "0"); if (is[k].textContent !== t) { is[k].textContent = t; is[k].classList.remove("tk"); void is[k].offsetWidth; is[k].classList.add("tk"); } }
     big.firstChild.style.display = dd ? "" : "none";
     big.classList.toggle("hot", step === 1 && ms < 3600e3);
-    document.getElementById("or-cdph").textContent = ph + (step === 1 ? " · 距封卷" : step === 3 ? " · 距放榜" : "");
+    document.getElementById("or-cdph").textContent = ph + ({ 1: " · 距封卷", 2: " · 距揭晓", 3: " · 距放榜" }[step] || "");
     document.getElementById("or-cdsub").textContent = sub;
-    var a = step === 1 ? open : t21, b = step === 1 ? cut : target;
+    var a = step === 1 ? open : step === 2 ? data.drawing.cutoff : t21, b = step === 1 ? cut : target;
     document.getElementById("or-cdfill").style.width = Math.min(100, Math.max(2, (now - a) / (b - a) * 100)) + "%";
     var hm = function (x) { var z = new Date(x + 8 * 3600e3); return (z.getUTCMonth() + 1) + "/" + z.getUTCDate() + " " + String(z.getUTCHours()).padStart(2, "0") + ":" + String(z.getUTCMinutes()).padStart(2, "0"); };
     document.getElementById("or-cs1t").textContent = "现在 · 免费参与";
-    document.getElementById("or-cs2t").textContent = hm(cut);
+    document.getElementById("or-cs2t").textContent = hm(step === 2 ? data.drawing.cutoff : cut);
     for (var j = 1; j <= 4; j++) { var li = document.getElementById("or-cs" + j); li.className = j < step ? "done" : j === step ? "on" : ""; }
   }
   function tick() {
@@ -453,8 +454,8 @@
       "<li><b>谁能玩</b>（满足其一）：① 主名字是 🌟 创世 .ailgns 域名（全站付费注册的前 1 万个）② OTC 累计成交满 5 万 DAI。免费参与，只需钱包签名。</li>" +
       "<li><b>猜什么</b>：猜揭晓价，精确到小数点后 3 位，例如 827.354。</li>" +
       "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
-      "<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（前一晚 9 点前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>" +
-      "<li><b>随时能猜</b>：晚上 9 点前提交的参加当晚揭晓，9 点后提交的参加第二天。</li>" +
+      "<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（上一期封卷前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>" +
+      "<li><b>随时能猜</b>：<b>早上 9 点封卷</b>（11 月 10 日起）。早 9 点前提交的参加当晚揭晓；早 9 点到晚 9 点是锁定期，这段时间提交的算第二天。</li>" +
       "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
       "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b> 进奖池买成 AiLGNS，页面大字显示的就是奖池钱包的实际余额，有多少发多少。<b>有人完全猜中那天，四个奖一起发</b>：🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖；💰 <b>贡献王</b> 拿 30%；🥇 <b>天眼通</b>（除神算子外最接近）拿 <b>10%</b>；🥈 <b>地灵通</b>（第二接近）拿 <b>5%</b>（一样接近先提交的得）。<b>没人猜中就一个奖都不发，全部留在奖池继续滚大。</b></li>" +
       "<li><b>💰 贡献王</b>：有人猜中的那天，奖池 <b>30%</b> 给<b>本周期</b>（上次大奖清空的第二天起到当天）在 OTC 付手续费最多的前 3 名，按 50 / 30 / 20 分；发完周期清零，重新排。手续费按成交额算：币 OTC 吃单付 1%，卡牌买家付 3%。贡献王不占名额、不禁赛。</li>" +

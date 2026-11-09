@@ -5,7 +5,7 @@
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { rpc } from "../../lib/oracle.js";
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -34,11 +34,11 @@ async function buildPub(kv, ctx, now) {
   try { res = await settle(kv, drawing, now); } catch (e) { res = null; }
   const [g, poolV, last, wins, al, alDraw] = await Promise.all([guessesOf(kv, round), poolNow(kv), kv.get("or:last", "json"), kv.get("or:wins", "json"), allotOf(kv, round), allotOf(kv, drawing)]);
   const out = {
-    now, round, cutoff: drawStart(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
+    now, round, cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot,
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
     players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0])), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
-    drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
+    drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, cutoff: cutoffAt(drawing), from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),
   };
   // 奖金池里实际留了多少钱（发奖程序的记账文件，公开在 GitHub）：DAI、AiLGNS，LGNS 不留（按价值记成待留）
@@ -61,7 +61,7 @@ async function buildPub(kv, ctx, now) {
     out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, budget: kc.budget || null, inRate: KING_IN, inFrom: KING_IN_FROM, all: kc.all }; // all 只在服务端用，返回前删掉
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
-  if (now >= drawStart(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub);
+  if (now >= cutoffAt(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub); // 封卷后公开全部预测
   // 站长 2026-11-08：揭晓卡公开发奖记录（谁、什么奖、多少 AiLGNS、链上交易），公开公正；只给最近 14 天
   try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "", st: payState(x), due: needBurn(x) ? payDue(x) : 0, burn: x.burn ? x.burn.no : 0 })); } catch (e) { out.pays = []; }
   return out;
