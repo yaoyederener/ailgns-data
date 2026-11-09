@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>AiLGNS 服务站 · 数据监测 · OTC 担保交易 · 团队查询 · 私人定制</title>
+<meta name="description" content="AiLGNS 服务站：围绕 AiLGNS 的一站式服务——资金流向与钱包数据监测、AiLGNS OTC 智能合约担保交易（0 滑点、手续费 1%）、团队与等级查询、团队结构图、上级查询，以及商户合作和私人定制服务。本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。">
+<meta name="keywords" content="AiLGNS,AiLGNS OTC,AiLGNS 数据监测,资金流向,团队查询,团队结构图,上级查询,LGNS,私人定制,商户合作">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ailgns.dev/">
+<meta property="og:title" content="AiLGNS 服务站 · 数据监测 · OTC 担保交易 · 团队查询 · 私人定制">
+<meta property="og:description" content="围绕 AiLGNS 的一站式服务：数据监测、OTC 担保交易、团队查询、商户合作与私人定制。">
+<meta name="theme-color" content="#f2f4ff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="/favicon.png?v=hx2">
+<meta property="og:image" content="https://ailgns.dev/favicon.png?v=hx2">
+<meta name="twitter:card" content="summary">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AiLGNS">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" href="/favicon.ico?v=hx2" sizes="any">
+<link rel="icon" type="image/png" href="/favicon.png?v=hx2">
+<link rel="stylesheet" href="style.css?v=x11090993a">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <button type="button" class="menu-btn" id="menu-btn" aria-label="打开菜单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <a class="brand" href="#/otc"><img class="hx-logo" src="icons/helix-logo.svg?v=1" alt="HELIX Protocol" width="107" height="36"><span class="brand-t"><b>AiLGNS OTC</b><small>官方认证服务站</small><em class="brand-s">我们一起做 AI</em></span></a>
+    <nav class="tabs" aria-label="页面">
+      <a href="#/otc" data-tab="otc" class="feat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/></svg>OTC<i>热</i></a>
+      <a href="#/names" data-tab="names" class="namet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.5 5.3 3.5 8.5s-1.1 6.1-3.5 8.5c-2.4-2.4-3.5-5.3-3.5-8.5s1.1-6.1 3.5-8.5z"/></svg>域名<i>抢</i></a>
+      <a href="#/oracle" data-tab="oracle" class="oraclet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="10" r="6.5"/><path d="M8 20h8M9.5 16.5l-1 3.5M14.5 16.5l1 3.5"/><path d="M10 8.5a2.5 2.5 0 0 1 2.5-2"/></svg>预言家<i>猜</i></a>
+      <a href="#/lend" data-tab="lend" class="lendt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/><circle cx="12" cy="12" r="1.4"/></svg>借贷<i>新</i></a>
+      <a href="#/member" data-tab="member" data-tabs="member wallet team growth tree upline" class="vipt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17h16l-1.6-8.5-4.4 3.3L12 6l-2 5.8-4.4-3.3z"/><path d="M5 20h14"/></svg>会员<i>VIP</i></a>
+      <a href="#/rank" data-tab="rank" class="rankt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4"/></svg>荣耀榜<i>榜</i></a>
+    </nav>
+    <span class="top-r"><a class="app-btn" href="#/app" title="下载 App">📲 App</a>
+    <button type="button" class="debox debox-group" data-group title="加 OTC 交流群"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#fff"/><circle cx="12" cy="9.6" r="1.2" fill="#fff"/><circle cx="15" cy="9.6" r="1.2" fill="#fff"/></svg><span>加 <b>OTC 交流群</b></span></button></span>
+  </div>
+</header>
+
+<div class="wrap" id="promo"></div>
+<nav class="wrap subnav" id="subnav" aria-label="会员" hidden></nav>
+<div class="wrap" id="mkt-top"></div>
+<div class="wrap" id="guide"></div>
+<main class="wrap" id="app" aria-live="polite"></main>
+<section class="wrap risk-note" id="risk" aria-label="风险提示与免责声明">
+  <div class="risk-head">
+    <span class="risk-ico" aria-hidden="true">⚖️</span>
+    <div><b>风险提示与免责声明</b><small>参与前请仔细阅读 · 参与即视为同意</small></div>
+  </div>
+  <ul class="risk-chips">
+    <li>🏛️ 社区自治</li><li>⚠️ 风险极高</li><li>🪙 不具备法偿性</li><li>🛡️ 任何项目都可能被攻击</li><li>🙋 自愿参与 · 风险自担</li><li>📜 遵守所在地法律</li>
+  </ul>
+  <p class="risk-sum">本站所有产品与活动（OTC、域名、预言家、借贷、会员、荣耀榜等）均为<b>社区自治</b>，链上资产<b>风险极高</b>；相关代币、积分与奖励<b>不具备法偿性</b>，不是法定货币；任何项目、合约都可能遭受攻击。本站不邀请、不劝诱任何人参与，所有参与均为<b>个人自愿</b>；请遵守你所在地的法律法规（包括中国大陆关于虚拟货币的相关规定），所在地不允许的，请勿参与。参与即表示你理解并<b>自行承担全部风险</b>。</p>
+  <p class="risk-dev">🇨🇦 本站开发者位于<b>加拿大</b>，实名开发，遵守加拿大法律法规。</p>
+  <details class="risk-det"><summary>查看完整免责声明（9 条）</summary>
+    <ol>
+      <li><b>社区自治。</b>本站是社区成员自发建立和维护的工具与信息服务，不属于任何公司、交易所或金融机构，不提供任何形式的担保、保本或收益承诺。各产品规则以链上合约和页面公示为准，可能随社区需要调整。</li>
+      <li><b>风险极高。</b>加密资产价格波动剧烈，可能在短时间内大幅下跌甚至归零。链上交易一经确认<b>不可撤销、不可追回</b>；转错地址、私钥或助记词泄露、授权给恶意合约等造成的损失，任何人都无法挽回。</li>
+      <li><b>不具备法偿性。</b>本站涉及的 AiLGNS、LGNS、gLGNS 等代币，以及域名、NFT 卡牌、金币、积分、奖池奖金等，均为社区内的数字凭证或游戏道具，<b>不是法定货币，不具备法偿性</b>，不代表任何主体的债权、股权或兑付义务，也不保证可以兑换为法定货币或其他资产。</li>
+      <li><b>任何项目都可能被攻击。</b>智能合约、公链、跨链桥、钱包、RPC 节点、前端网站及第三方服务都可能存在未知漏洞，可能遭受黑客攻击、钓鱼、DNS 劫持、价格操纵或网络故障。合约开源、无管理员不等于绝对安全，历史上没有出过问题也不代表将来不会出问题。</li>
+      <li><b>活动与奖励。</b>预言家、荣耀榜、会员等活动属于社区娱乐性质，奖励来源、金额与发放方式以页面公示为准；因链上拥堵、价格变化、合约或程序异常等导致的奖励延迟、变动或无法发放，社区不承担赔偿责任。</li>
+      <li><b>非投资建议。</b>本站展示的价格、行情、排行、统计和客服回答仅供参考，不构成任何投资、法律或税务建议。请独立判断，只用你能够承受全部损失的资金参与。</li>
+      <li><b>自愿参与，遵守当地法律。</b>本站只提供开源工具和公开信息，不做任何推广、邀请或劝诱，所有参与均为个人自愿行为。请你自行了解并遵守所在国家或地区的法律法规（包括中国大陆关于虚拟货币交易、兑换等活动的相关规定）；所在地法律禁止或限制的，请勿参与。因违反所在地法律而产生的一切后果由参与者自行承担，与本站及开发者无关。</li>
+      <li><b>开发者与适用法律。</b>本站开发者位于加拿大，实名开发，遵守加拿大法律法规。本站不在其他任何司法辖区开展经营或推广活动，不接受任何代币发行或募资委托。</li>
+      <li><b>风险自担。</b>你使用本站任何功能、连接钱包、签名或发起交易，即表示你已阅读、理解并同意本声明，<b>自愿承担由此产生的全部风险和损失</b>；本站及社区维护者、贡献者不对任何直接或间接损失承担责任。</li>
+    </ol>
+  </details>
+</section>
+<div class="wrap" id="a2hs"></div>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-brand">
+      <a class="brand" href="#/otc"><img class="hx-logo" src="icons/helix-logo.svg?v=1" alt="HELIX Protocol" width="107" height="36"><span class="brand-t"><b>AiLGNS OTC</b><small>官方认证服务站</small><em class="brand-s">我们一起做 AI</em></span></a>
+      <p>围绕 AiLGNS 的一站式服务站：数据监测、OTC 担保交易、团队查询、商户合作与私人定制。</p>
+      <button type="button" class="debox debox-group" data-group title="加 OTC 交流群"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#fff"/><circle cx="12" cy="9.6" r="1.2" fill="#fff"/><circle cx="15" cy="9.6" r="1.2" fill="#fff"/></svg><span>加 <b>OTC 交流群</b></span></button>
+    </div>
+    <div class="foot-links">
+      <b>服务</b>
+      <a href="#/otc">AiLGNS OTC</a>
+      <a href="#/flows">资金流向</a>
+      <a href="#/wallet">钱包快查</a>
+      <a href="#/member">会员中心</a>
+      <a href="#/custom">私人定制 · 商户合作</a>
+      <a href="#/app">📲 下载 App</a>
+    </div>
+    <div class="foot-note">
+      <p>数据来自 Anubis 链上合约与 Awake Helix 官方公开接口。本站不索取私钥或助记词；只有 OTC 挂单和成交（或你选择用网页钱包付会员费）时，才会请你在自己的钱包里确认交易；开通会员不需要签名或授权。</p>
+      <p>本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。内容不构成投资建议，加密资产波动剧烈，请独立判断。</p>
+    </div>
+  </div>
+</footer>
+
+<script src="brand.js?v=x11081450a"></script>
+<script src="app.js?v=x11090990a"></script>
+<script src="livek.js?v=x11066400"></script>
+<script src="wallets.js?v=x11071800z"></script>
+<script src="treemap.js?v=20261031041201"></script>
+<script src="member.js?v=x11090440a"></script>
+<script src="chat.js?v=x11090978a"></script>
+<script src="pixel.js?v=x11065420"></script>
+<script src="nft.js?v=x11090215a"></script>
+<script src="trades.js?v=x11065430"></script>
+<script src="trade.js?v=x11075800c"></script>
+<script src="lp.js?v=x11067700"></script>
+<script src="arb.js?v=x11066100"></script>
+<script src="updates.js?v=x11066500"></script>
+<script src="orders.js?v=x11066510"></script>
+<script src="lend.js?v=x11065440"></script>
+<script src="games.js?v=x11080630a"></script>
+<script src="names.js?v=x11090984a"></script>
+<script src="names-batch.js?v=x11082442a"></script>
+<script src="genesis.js?v=x11090982a"></script>
+<script src="scan.js?v=x11090952a"></script>
+<script src="rank.js?v=x11082230a"></script>
+<script src="oracle.js?v=x11090983a"></script>
+<script src="feedback.js?v=x11090989a"></script>
+<script src="med.js?v=x11090988a"></script>
+<script src="partner.js?v=x11090987a"></script>
+<script src="ops.js?v=x11090986a"></script>
+<script src="square.js?v=x11076500i"></script>
+<script src="inbox.js?v=x11091500a"></script>
+<script src="kchart.js?v=x11067320"></script>
+<script src="farm.js?v=x11080630a"></script>
+<script src="otc.js?v=x11090992a"></script>
+<script src="menu.js?v=x11090932a"></script>
+</body>
+</html>

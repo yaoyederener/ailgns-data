@@ -514,11 +514,42 @@
   // 桌面图标（PWA）里没有钱包，主站交易做不了：从图标打开时直接进 App 壳页（网址墙 + 钱包直达 + 联系方式）；地址里带 full=1 才留在主站看
   (function () { try { var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone; if (sa && !/[?&]full=1/.test(location.search + location.hash) && !sessionStorage.getItem("full")) location.replace("/app"); if (/[?&]full=1/.test(location.search + location.hash)) sessionStorage.setItem("full", "1"); } catch (e) {} })();
   var GAMES = { play: 1, farm: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
+  // 路由 → 要先加载的包（顺序加载；没打包的开发环境 window.AIL_BUNDLES 不存在，所有脚本照旧一次全载）
+  var LAZY = (function () {
+    var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], feedback: ["feedback"],
+      games: ["pixel", "play", "farm", "g2048", "snake", "tetris", "flappy", "mines", "brick", "merge", "pet"],
+      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square"] };
+    Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
+    m.oracle = ["kchart", "oracle"]; m.trade = ["kchart", "trade"]; // K 线组件两页共用，单独一个小包
+    return m;
+  })();
+  var bundles = {};
+  function loadBundle(k) {
+    if (bundles[k]) return bundles[k];
+    var url = window.AIL_BUNDLES && window.AIL_BUNDLES[k];
+    if (!url) return Promise.resolve();
+    return (bundles[k] = new Promise(function (res, rej) {
+      var s = document.createElement("script"); s.src = url; s.setAttribute("data-lazy", "1");
+      s.onload = function () { res(); };
+      s.onerror = function () { delete bundles[k]; s.remove(); rej(new Error("bundle " + k)); };
+      document.head.appendChild(s);
+    }));
+  }
   function route() {
     var id = ++renderId;
     var parts = location.hash.replace(/^#\/?/, "").split("/");
     var extra = window.AIL.pages;
     var tab = parts[0] || "otc", a = (parts[1] || "").toLowerCase();
+    // 🚀 秒开（站长 2026-11-09）：首页只带核心包，域名 / 预言家 / 借贷 / 游戏 … 第一次点进去时才下载那一个小包（tools/build.py 生成清单 window.AIL_BUNDLES）
+    if (!extra[tab] && LAZY[tab] && window.AIL_BUNDLES) {
+      app.innerHTML = '<section class="card"><p class="muted">⏳ 加载中…</p></section>';
+      LAZY[tab].reduce(function (p, k) { return p.then(function () { return loadBundle(k); }); }, Promise.resolve()).then(function () {
+        if (id === renderId) route();
+      }, function () {
+        if (id === renderId) app.innerHTML = '<section class="card"><h2>页面没加载出来</h2><p class="muted">网络不太好，<a href="javascript:location.reload()">点这里刷新</a>再试一次。</p></section>';
+      });
+      return;
+    }
     if (["flows", "wallet", "team", "custom"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
     document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS 服务站";
     if (a && !isAddr(a)) a = "";
@@ -751,7 +782,7 @@
     try {
       if (!now && Date.now() - lastFresh < 60e3) return;
       lastFresh = Date.now();
-      var mine = Array.prototype.map.call(document.scripts, function (s) { return (s.getAttribute("src") || "").match(/[a-z]+\.js\?v=[a-z0-9]+/); }).filter(Boolean).map(String).sort().join(",");
+      var mine = Array.prototype.map.call(document.querySelectorAll("script[src]:not([data-lazy])"), function (s) { return (s.getAttribute("src") || "").match(/[a-z]+\.js\?v=[a-z0-9]+/); }).filter(Boolean).map(String).sort().join(",");
       if (!mine) return;
       fetch("/?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
         var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
