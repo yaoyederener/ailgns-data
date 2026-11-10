@@ -736,7 +736,7 @@ function calc(){match();var q=qtyWei(),p=toWei(price.value);if(!q||!p){sum.textC
 var total=(q*p)/TUNIT;var diff=mkt?(num(p)/mkt-1)*100:null;var r=mkt?num(p)/mkt:null,verdict="";if(r&&M.flat){if(side==="sell"&&r<DEX_SELL)verdict="⚠️ 低于"+DX+" 卖出到手价（约 "+A.fmt(mkt*DEX_SELL,PD)+"），你会少拿 DAI";if(side==="buy"&&r>DEX_BUY)verdict="⚠️ 高于"+DX+" 买入价（约 "+A.fmt(mkt*DEX_BUY,PD)+"），你会多花 DAI";}else if(r){if(side==="sell")verdict=r<DEX_SELL?"⚠️ 低于"+DX+" 卖出到手价（约 "+A.fmt(mkt*DEX_SELL,PD)+"），你会少拿 DAI":"";else verdict=r>DEX_BUY?"⚠️ 高于"+DX+" 买入价（约 "+A.fmt(mkt*DEX_BUY,PD)+"），你会多花 DAI":"";}
 sum.innerHTML=(side==="sell"?"存入 <b>"+tShow(q)+" "+SYM+"</b>，全部成交后收到 <b>"+show(total,2)+" DAI</b>":"存入 <b>"+show(total,2)+" DAI</b>，全部成交后收到 <b>"+tShow(q)+" "+SYM+"</b>")+
 (diff===null?"":'　<span class="'+(diff>=0?"up":"down")+'">比市价 '+(diff>=0?"高 ":"低 ")+Math.abs(diff).toFixed(2)+"%</span>")+
-(r?"<br>"+(verdict?'<span class="down">'+verdict+"</span>":'<span class="up">✓ '+(M.flat?"价格贴近市价，容易成交":"价格合理，比"+DX+" 划算，容易成交")+'</span>'):"");return{q:q,total:total};}
+(r&&verdict?'<br><span class="down">'+verdict+"</span>":"");return{q:q,total:total};}
 qty.oninput=function(){calc();if(pickSync)pickSync();};price.oninput=function(){auto=false;calc();pick();};guide();if(!GUIDE)guideP.then(function(){if(document.getElementById("otc-guide")&&document.body.contains(price)){guide();calc();}});var bal=null,pickSync=null;function maxQty(){if(!bal)return null;if(side==="sell")return bal.ail;var p=toWei(price.value);return p?maxDai()*TUNIT/p:null;}
 function maxDai(){return bal?(bal.dai>GAS_RESERVE?bal.dai-GAS_RESERVE:0n):0n;}
 function maxIn(){return side==="buy"?(bal?maxDai():null):maxQty();}

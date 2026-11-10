@@ -906,7 +906,7 @@
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
-          (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ ' + (M.flat ? "价格贴近市价，容易成交" : "价格合理，比" + DX + " 划算，容易成交") + '</span>') : "");
+          (r && verdict ? '<br><span class="down">' + verdict + "</span>" : "");
         return { q: q, total: total };
       }
       qty.oninput = function () { calc(); if (pickSync) pickSync(); }; price.oninput = function () { auto = false; calc(); pick(); };
