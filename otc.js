@@ -1057,12 +1057,15 @@
         var calls = ids.map(function (id) { return { to: OTC, data: SEL.cancel + u256(id) }; });
         ready().then(function () {
           return sendCallsOtc(calls, here).then(function (ok) { if (ok) return; return seq(); }, function () { return seq(); });
-          function seq() {
-            var i = 0;
+          function seq() { // 钱包不支持一次确认：连着弹，每张只点一下确认，不等上一张上链（站长 2026-11-10：点太多次太慢）
+            var hashes = [], i = 0;
             function next() {
-              if (i >= ids.length) return;
-              here("撤第 " + (i + 1) + " / " + ids.length + " 张（#" + ids[i] + "），请在钱包确认…");
-              return send(OTC, SEL.cancel + u256(ids[i]), function () {}, "撤单").then(function () { i++; return next(); });
+              if (i >= ids.length) { here("已全部提交，等待链上确认…"); return Promise.all(hashes.map(function (h) { return W.waitOn(M.chain, h); })); }
+              var data = SEL.cancel + u256(ids[i]);
+              here("第 " + (i + 1) + " / " + ids.length + " 张（#" + ids[i] + "）：钱包弹出就点确认，连着点完即可，不用等上链");
+              return W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: OTC, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; })
+                .then(function (gas) { var tx = { from: account, to: OTC, data: data }; if (gas) tx.gas = gas; return AIL.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [tx] }); })
+                .then(function (h) { hashes.push(h); i++; return next(); });
             }
             return next();
           }
