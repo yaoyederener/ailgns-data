@@ -3280,3 +3280,11 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
   .top-in .brand-t small { font-size: 9px; letter-spacing: 0; }
   .top-in .top-r { gap: 6px; }
 }
+/* ⚡ 一键做市（老板 2026-11-09 晚） */
+.lp-one { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 10px 0; }
+.lp-one label { font-size: 13px; color: #6b5aa6; display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.lp-one input { font-size: 22px; font-weight: 800; padding: 12px 14px; border-radius: 14px; border: 2px solid #c4b5fd; width: 100%; box-sizing: border-box; }
+.lp-one-sum { font-size: 14px; line-height: 1.6; color: #3b2a6b; background: #f6f2ff; border-radius: 12px; padding: 10px 12px; }
+.lp-gobig { font-size: 18px; font-weight: 900; padding: 16px; }
+.lp-adv { margin-top: 12px; } .lp-adv > summary { cursor: pointer; color: #8a7fb0; font-size: 13px; list-style: none; padding: 8px 0; } .lp-adv > summary::-webkit-details-marker { display: none; } .lp-adv > summary::before { content: "▸ "; } .lp-adv[open] > summary::before { content: "▾ "; }
+details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc > summary::-webkit-details-marker { display: none; }

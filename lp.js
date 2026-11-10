@@ -29,20 +29,23 @@
         '<div class="lp-side" id="lp-side">正在看盘口哪边缺…</div></div>' +
         '<div class="lp-kpi"><div><small>称号门槛</small><b>日均 1 万 DAI</b><span>买单 + 卖单按 DAI 折算，每 5 分钟采样</span></div><div><small>称号有效</small><b>当天 + 次日</b><span>掉下去隔天自动摘，重新挂满再给</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
       '<section class="card"><div class="card-head"><h2>📒 我的做市</h2><button type="button" class="ghost" id="lp-conn">连接钱包</button></div><div id="lp-me"><p class="muted">连接钱包后显示今天的日均挂单资金、称号状态和成交</p></div></section>' +
-      '<section class="card lp-mk"><div class="card-head"><h2>⚡ 批量挂单</h2><span class="muted">把资金拆成小单铺满盘口</span></div>' +
-        '<p class="muted">你只要授权，网站帮你把钱拆成多张小限价单，按价格阶梯铺到盘口上；哪张被吃哪张赚价差，没被吃的原封不动、随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
+      // ⚡ 一键做市（老板 2026-11-09 晚：太复杂没人看得懂）：只填一个金额；方向 / 中间价 / 档数 / 价差全自动，高级设置折叠
+      '<section class="card lp-mk"><div class="card-head"><h2>⚡ 一键做市</h2><span class="muted">填一个金额就行</span></div>' +
+        '<p class="muted">你出多少钱，网站帮你拆成几张小单铺在盘口<b>缺的那一边</b>；哪张被吃哪张赚价差，没被吃的随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
+        '<div class="lp-one"><label>我要投入（DAI）<input id="lp-amt" inputmode="decimal" value="1000"></label><div class="lp-one-sum" id="lp-sum">正在算…</div></div>' +
+        '<button type="button" class="nm-go lp-gobig" id="lp-go">⚡ 一键做市</button><p class="muted nm-st" id="lp-st"></p>' +
+        '<details class="lp-adv"><summary>高级设置（一般不用动）</summary>' +
         '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">自动：只铺缺的一边</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
-        '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label><label>总资金 (DAI)<input id="lp-amt" inputmode="decimal" value="1000"></label>' +
+        '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label>' +
         '<label>拆几档<select id="lp-n"><option>2</option><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>' +
         '<label>第 1 档价差 (%)<input id="lp-sp" inputmode="decimal" value="0.5"></label><label>每档再加 (%)<input id="lp-step" inputmode="decimal" value="0.3"></label>' +
         '<label>有效期<select id="lp-dur">' + K().DURATIONS.map(function (d) { return '<option value="' + d[0] + '"' + (d[0] === 30 * 86400 ? " selected" : "") + ">" + d[1] + "</option>"; }).join("") + "</select></label></div>" +
-        '<div class="lp-prev" id="lp-prev"></div><p class="muted nm-st" id="lp-st"></p>' +
-        '<button type="button" class="nm-go" id="lp-go">⚡ 一键铺单</button>' +
+        '<div class="lp-prev" id="lp-prev"></div></details>' +
         '<p class="muted lp-note">⚠️ 做市有价格风险：币价单边大涨大跌时，一边的单会被吃光、另一边留着。小额、价差别太窄、勤看。这不是理财，也不保本。</p></section>' +
-      '<section class="card lp-calc"><div class="card-head"><h2>🧮 价差收益估算</h2><span class="muted">估算，不是承诺</span></div>' +
+      '<details class="card lp-calc"><summary><h2 style="display:inline">🧮 价差收益估算</h2> <span class="muted">估算，不是承诺 · 点开</span></summary>' +
         '<div class="lp-grid"><label>日均挂单资金 (DAI)<input id="lc-liq" inputmode="decimal" value="10000"></label><label>每天换手 (%)<input id="lc-turn" inputmode="decimal" value="20"></label><label>平均价差 (%)<input id="lc-sp" inputmode="decimal" value="1"></label></div>' +
         '<div class="lp-prev" id="lc-out"></div>' +
-        '<p class="muted">换手 = 一天里被吃掉的金额 ÷ 挂着的金额。价差收益按一买一卖配对成交算；单边行情时价差收益可能是负的。</p></section>' +
+        '<p class="muted">换手 = 一天里被吃掉的金额 ÷ 挂着的金额。价差收益按一买一卖配对成交算；单边行情时价差收益可能是负的。</p></details>' +
       '<section class="card"><div class="card-head"><h2>🏆 做市榜</h2><span class="seg lp-seg"><button type="button" class="on" data-r="today">今天</button><button type="button" data-r="week">7 天</button></span></div><div id="lp-board"><p class="muted">读取中…</p></div></section>' +
       '<section class="card lp-rules"><h2>📜 规则（一页纸）</h2><ol>' +
         '<li>范围：本站 <b>AiLGNS / DAI</b> OTC 市场的挂单（限价单）。</li>' +
@@ -136,8 +139,14 @@
     return rows;
   }
   function preview() {
-    var p = params(), el = document.getElementById("lp-prev"); if (!el) return;
-    if (!p.mid || !p.amt || !p.sp) { el.innerHTML = ""; return; }
+    var p = params(), el = document.getElementById("lp-prev"), sum = document.getElementById("lp-sum"); if (!el) return;
+    if (!p.mid || !p.amt || !p.sp) { el.innerHTML = ""; if (sum) sum.textContent = !p.amt ? "先填金额" : "正在读盘口价格…"; return; }
+    if (sum) { // 一键做市的大白话总结（站长 2026-11-09 晚）
+      var rs = ladder(p), lo = Math.min.apply(null, rs.map(function (r) { return r.px; })), hi = Math.max.apply(null, rs.map(function (r) { return r.px; }));
+      var what = p.which === "buy" ? "买单（压 DAI，等人卖给你）" : p.which === "sell" ? "卖单（压 " + SYM + "，等人来买）" : "买单 + 卖单";
+      sum.innerHTML = "将铺 <b>" + rs.length + " 张" + what + "</b>，每张约 <b>" + f(rs[0].dai, 0) + " DAI</b>，价格 <b>" + f(lo) + " ～ " + f(hi) + "</b>（盘口中间价 " + f(p.mid) + "）· 有效 " + (K().DURATIONS.filter(function (d) { return d[0] === p.dur; })[0] || ["", "30 天"])[1] +
+        (rs[0].dai < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大金额</b>' : "");
+    }
     var rows = ladder(p), per = rows[0].dai, buyDai = rows.filter(function (r) { return r.side === "buy"; }).reduce(function (s, r) { return s + r.dai; }, 0), sellCoin = rows.filter(function (r) { return r.side === "sell"; }).reduce(function (s, r) { return s + r.coin; }, 0);
     el.innerHTML = '<table class="lp-ladder"><thead><tr><th>方向</th><th>价格</th><th>金额</th><th>数量</th></tr></thead><tbody>' + rows.map(function (r) { return '<tr class="' + r.side + '"><td>' + (r.side === "buy" ? "买" : "卖") + '</td><td>' + f(r.px) + '</td><td>' + f(r.dai, 0) + ' DAI</td><td>' + f(r.coin, 4) + ' ' + SYM + "</td></tr>"; }).join("") + "</tbody></table>" +
       '<p class="muted">共 ' + rows.length + ' 张单，每张 ' + f(per, 0) + ' DAI' + (buyDai ? "；买单要压 <b>" + f(buyDai, 0) + " DAI</b>" : "") + (sellCoin ? "；卖单要压 <b>" + f(sellCoin, 4) + " " + SYM + "</b>" : "") +
