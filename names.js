@@ -1330,20 +1330,30 @@
       // 🔍 搜索：按域名或卖家地址 / 名字筛选（挂单多了一页页翻找不到）
       var q = mkQ.trim().toLowerCase().replace(/\.(ailgns|lgns)$/, "");
       if (q) list = full.filter(function (it) { return it.label.toLowerCase().indexOf(q) >= 0 || it.maker.indexOf(q) >= 0 || ((A.nameCache || {})[it.maker] || "").toLowerCase().indexOf(q) >= 0; });
+      // ✨ AI 推荐（站长 2026-11-09）：只显示 AI 挑出的那 20 个，按 AI 给的顺序，理由写在名字下面
+      var aiMap = null;
+      if (mkSort === "ai") {
+        if (aiPicks === null) { aiPicks = []; aiErr = "loading"; fetch("/api/name-ai").then(function (r) { return r.json(); }).then(function (j) { aiPicks = j.picks || []; aiAt = j.at || 0; aiErr = j.err || ""; draw(full, vols, gens); }, function () { aiErr = "fail"; draw(full, vols, gens); }); }
+        aiMap = {}; aiPicks.forEach(function (p, k) { aiMap[p.t + ":" + p.id] = { k: k, why: p.why, tag: p.tag }; });
+        list = list.filter(function (it) { return aiMap[it.t + ":" + it.id]; });
+        list.forEach(function (it) { var m = aiMap[it.t + ":" + it.id]; it.why = m.why; it.tag = m.tag; it.aik = m.k; });
+      }
       // 排名规则（推荐）：① 卖家 OTC 累计成交多的在前 ② 名字一年注册价高的在前（3 位 640、4 位 160、中文 2 字 50…）③ 创世编号小的在前 ④ 新挂的在前
-      list.sort(mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
+      list.sort(mkSort === "ai" ? function (a, b) { return a.aik - b.aik; } : mkSort === "price" ? function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; }
         : mkSort === "priced" ? function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; } // 价格高→低（站长 2026-11-09）
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.pin - a.pin || b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
       box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
         '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + list.length + " 个</span>" : "") + "</div>" +
-        '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["price", "价格低→高"], ["priced", "价格高→低"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["ai", "✨ AI 推荐"], ["price", "价格低→高"], ["priced", "价格高→低"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+        (mkSort === "ai" ? '<p class="muted nm-aidisc">✨ AI 每小时从全部挂单里挑 20 个，只按<b>寓意、稀缺、性价比</b>三条看名字和价格，不看卖家' + (aiAt ? " · 更新于 " + new Date(aiAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }) : "") + ' · 仅供参考，不构成投资建议</p>' +
+          (!list.length ? '<p class="muted nm-aiempty">' + (aiErr === "loading" ? "✨ AI 正在挑选，几秒后自动显示…" : aiErr ? "AI 这会儿没答上来，稍后再点一次，或先看「推荐排序」" : "这一小时 AI 没挑出特别值得推荐的，看看其它排序") + "</p>" : "") : "") +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
           : '<button type="button" class="act-btn btn-buy" data-i="' + i + '" data-m="0">买入</button>';
-        return '<tr' + (i >= mkShow() ? " hidden" : "") + (it.pin && mkSort === "rec" ? ' class="nm-pinrow"' : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l">' + (it.pin && mkSort === "rec" ? '<span class="nm-pin">⭐ 置顶</span> ' : "") + '<b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i></td>' +
+        return '<tr' + (i >= mkShow() ? " hidden" : "") + (it.pin && mkSort === "rec" ? ' class="nm-pinrow"' : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l">' + (it.pin && mkSort === "rec" ? '<span class="nm-pin">⭐ 置顶</span> ' : "") + '<b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i>' + (mkSort === "ai" && it.why ? '<small class="nm-why"><i>' + esc(it.tag || "推荐") + "</i>" + esc(it.why) + "</small>" : "") + '</td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
           '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) +
           '<br><small class="nm-vol">' + (it.vol ? "OTC 累计成交 " + A.fmt(it.vol, 2) + " DAI" : "暂无 OTC 成交") + "</small></td></tr>";
@@ -1366,7 +1376,7 @@
     }
   }
   // 挂单多：手机先显示 5 个、电脑 10 个，点「再看」每次多显示同样多个，不一下子全铺开
-  var mkSort = "rec", mkN = 0, mkQ = "";
+  var mkSort = "rec", mkN = 0, mkQ = "", aiPicks = null, aiAt = 0, aiErr = ""; // ✨ AI 推荐：/api/name-ai 每小时挑 20 个 + 理由
   function mkStep() { return innerWidth < 640 ? 5 : 10; }
   function mkShow() { return mkN || mkStep(); }
   // 卖家的「OTC 累计成交」：和会员卡上同一个数（本站 OTC 单笔满 50 DAI 的成交累计）
