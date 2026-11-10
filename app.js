@@ -779,7 +779,7 @@
   var lastTap = 0;
   document.addEventListener("click", function () { lastTap = Date.now(); }, true);
   var lastNav = 0;
-  window.addEventListener("hashchange", function () { lastNav = Date.now(); });
+  window.addEventListener("hashchange", function () { lastNav = Date.now(); var t = document.getElementById("err-tip"); if (t) t.remove(); }); // 换页就清掉上一页的错误提示（站长 2026-11-09 晚：提示跟着跑到别的页面）
   var quietUntil = 0; // 成功弹窗刚出来那几秒：后台刷新冒出的错只记日志不弹（站长 2026-11-09：扫单一边说成功一边说合约拒绝）
   function oops(e) {
     if (Date.now() - lastTap > 8000) return; // 后台自动刷新出的错不打扰客户

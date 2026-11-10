@@ -597,11 +597,26 @@
       '<span class="seg oq-seg">' + ["otc", "loan", "names", "other"].map(function (k) { return '<button type="button" data-c="' + k + '"' + (k === cat ? ' class="on"' : "") + ">" + CATS[k] + "</button>"; }).join("") + '</span><button type="submit" class="oq-go">查询</button></form></section>';
     var inp = host.querySelector(".oq-in"), seg = host.querySelector(".oq-seg"), c = cat || "otc";
     seg.onclick = function (e) { var b = e.target.closest("button[data-c]"); if (!b) return; c = b.getAttribute("data-c"); seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (inp.value.trim()) host.querySelector(".oq-f").requestSubmit ? host.querySelector(".oq-f").requestSubmit() : go(); };
-    function go() { var v = inp.value.trim(); if (!v) { inp.focus(); return A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); } location.hash = "#/scan/" + encodeURIComponent(v) + "/" + c; }
+    // 没填地址：先自动去连钱包（钱包浏览器里一点就连上），连上直接查；连不上才提示（站长 2026-11-09 晚：客户以为没自动连钱包）
+    var connecting = false;
+    function go() {
+      var v = inp.value.trim();
+      if (!v) {
+        var kit = A.otcKit;
+        if (kit && kit.connect && !connecting) {
+          connecting = true;
+          kit.connect().then(function () { connecting = false; var a = kit.account && kit.account(); if (a) { inp.value = String(a).toLowerCase(); go(); } else { inp.focus(); A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); } }, function () { connecting = false; inp.focus(); A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); });
+          return;
+        }
+        inp.focus(); return A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp);
+      }
+      location.hash = "#/scan/" + encodeURIComponent(v) + "/" + c;
+    }
     host.querySelector(".oq-f").onsubmit = function (e) { e.preventDefault(); go(); };
     var fill = function (acc) { if (acc && !inp.value) inp.value = String(acc).toLowerCase(); };
     if (A.wallets && A.wallets.silent) A.wallets.silent().then(fill).catch(function () {});
     if (A.otcKit && A.otcKit.account && A.otcKit.account()) fill(A.otcKit.account());
+    if (A.wallets && A.wallets.onAccounts) A.wallets.onAccounts(function (accs) { var a = Array.isArray(accs) ? accs[0] : accs; if (a) fill(a); }); // 钱包稍后连上也自动填
     return { set: function (k) { c = k; seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-c") === k); }); }, fill: fill };
   };
   function addrView(a, out, via, cat) {
