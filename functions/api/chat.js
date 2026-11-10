@@ -15,7 +15,7 @@ async function remember(kv, q, a, engine, err) { // 只存问题和回答，不�
   } catch (e) { /* 存不上就算了 */ }
 }
 export async function onRequestPost(ctx) {
-  if (!ctx.env.AI && !ctx.env.ANTHROPIC_API_KEY) return new Response("ai not bound", { status: 501 });
+  if (!ctx.env.ANTHROPIC_API_KEY) return new Response("ai not bound", { status: 501 });
   let body;
   try { body = await ctx.request.json(); } catch (e) { return new Response("bad json", { status: 400 }); }
   const r = await answer(ctx.env, body.messages, { a: body.a, ctxLines: body.ctx });

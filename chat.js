@@ -106,15 +106,13 @@
     if (f && f.score >= 4 && q.length <= 12 && !/是不是|能不能|可不可以|可以|为什么|怎么办|几次|几个|多少次|一次|吗|么|呢/.test(q)) { reply(linkify(f.a), f.a); return; }
     var wait = add("bot", '<span class="cb-typing"><i></i><i></i><i></i></span>');
     var ctl = window.AbortController ? new AbortController() : null;
-    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 30000); // 服务器最多重试 3 次，给够时间
     withCtx().then(function (c) { return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history.slice(-8), a: walletA, ctx: c }), signal: ctl ? ctl.signal : undefined }); })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; })
       .then(function (j) {
         clearTimeout(timer);
         wait.remove();
-        // 服务器上的 Claude 没答成、掉到备用 llama 时，常见问题优先用人写的标准答案（llama 容易答非所问，站长 2026-11-10）
-        if (j && j.engine === "llama" && f && f.score >= 4) { reply(linkify(f.a), f.a); return; }
         if (j && j.answer) { reply(linkify(j.answer) + (j.human ? "<br><br>" + humanHtml() : ""), j.answer); return; }
         if (f) { reply(linkify(f.a), f.a); return; }
         reply("这个问题我暂时答不好，建议直接问人工：<br>" + humanHtml(), "建议联系人工");
