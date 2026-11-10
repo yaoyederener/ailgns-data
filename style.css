@@ -3264,3 +3264,11 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 @media (max-width: 600px) { .sweep .sw-side button { font-size: 14px; padding: 13px 4px; } }
 .ptn-addrs > summary { list-style: none; cursor: pointer; } .ptn-addrs > summary::-webkit-details-marker { display: none; } .ptn-addrs > summary .ad-h { display: flex; align-items: center; gap: 8px; } .ptn-addrs > summary .ad-h::after { content: '▾'; margin-left: auto; color: #8a7fb0; } .ptn-addrs[open] > summary .ad-h::after { content: '▴'; } .ptn-addrs > summary small { font-size: 12px; font-weight: 400; }
 .cb-grp { margin-top: 8px; } .cb-grp a { display: inline-block; font-size: 12.5px; color: #7027d9; text-decoration: none; background: #f3eefc; border-radius: 999px; padding: 5px 11px; font-weight: 600; }
+/* 站名（站长 2026-11-09 晚）：手机上不再只剩 HELIX logo（像别人的官方标），改成显示站名两行；logo 手机上隐藏腾位置 */
+.brand-t small { white-space: nowrap; }
+@media (max-width: 600px) {
+  .top-in .hx-logo { display: none; }
+  .top-in .brand-t { display: flex !important; flex-direction: column; padding-left: 0; gap: 1px; }
+  .top-in .brand-t b { font-size: 15px; line-height: 1.1; }
+  .top-in .brand-t small { font-size: 9.5px; letter-spacing: .3px; }
+}

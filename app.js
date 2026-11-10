@@ -497,7 +497,7 @@
     app.innerHTML = '<section class="poster">' +
       '<div class="poster-glow"></div><div class="poster-grid"></div>' +
       '<div class="poster-in">' +
-      '<div class="poster-top"><span class="poster-brand">AiLGNS 服务站</span><span class="poster-line"></span><span class="poster-sub">PRIVATE CUSTOM</span></div>' +
+      '<div class="poster-top"><span class="poster-brand">AiLGNS OTC 平台</span><span class="poster-line"></span><span class="poster-sub">PRIVATE CUSTOM</span></div>' +
       '<div class="poster-kicker">私人定制 · 商户合作</div>' +
       '<h1 class="poster-title">你要的<br>都能做！</h1>' +
       '<div class="poster-en">WHATEVER YOU NEED, WE BUILD IT.</div>' +
@@ -584,7 +584,7 @@
     }
     lazyFails = 0;
     if (["flows", "wallet", "team", "custom"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
-    document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS 服务站";
+    document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS OTC 平台";
     if (a && !isAddr(a)) a = "";
     if (a && ["wallet", "team", "growth", "tree", "upline"].indexOf(tab) >= 0 && !tracked[tab + a]) { tracked[tab + a] = 1; track("q_" + tab); }
     if (GAMES[tab] && !tracked["g" + tab]) { tracked["g" + tab] = 1; track("g_" + tab); } // 🎮 游戏打开计数（菜单按热度排、面板看哪个最火）
