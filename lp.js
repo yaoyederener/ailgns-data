@@ -7,7 +7,8 @@
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
   function f(v, d) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: d === undefined ? 2 : d, maximumFractionDigits: d === undefined ? 2 : d }); }
   function toWei(s, d) { s = String(s || "0").trim(); if (!/^\d*(\.\d*)?$/.test(s) || s === "" || s === ".") return 0n; var p = s.split("."), a = p[0] || "0", b = (p[1] || "").slice(0, d).padEnd(d, "0"); return BigInt(a) * 10n ** BigInt(d) + BigInt(b || "0"); }
-  var account = null, rid = 0, mkt = 0, M, OTC, TOKEN, DAI, TD, SYM, R = { FEE: 0.01, SHARE: 0.7 };
+  var account = null, rid = 0, mkt = 0, M, OTC, TOKEN, DAI, TD, SYM, PD = 2, MK = "ailgns", R = { FEE: 0.01, SHARE: 0.7 };
+  function lpq(extra) { return "/api/lp?mk=" + MK + (extra || ""); } // 站长 2026-11-10：LGNS 也开做市，接口按市场取盘口缺口
 
   // 站长 2026-11-06：先不开放给客户，优化好再说。默认显示「待开放」页；内部测试在浏览器控制台 localStorage.lpdev="1" 后可看完整页
   function soon(id) {
@@ -19,12 +20,14 @@
   }
   function page(id) {
     rid = id;
-    M = K().M(); if (M.otc !== "0x4e730be6d46be71223ded5a32dc45799f6d4bc15") { K().useMarket("ailgns"); M = K().M(); }
-    OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym;
+    var hp = location.hash.split("/"); MK = hp[2] === "lgns" ? "lgns" : "ailgns"; // #/lp = AiLGNS，#/lp/lgns = LGNS（Anubis）；别的币种先不开
+    K().useMarket(MK); M = K().M();
+    OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym; PD = M.pd || 2; mkt = 0; midTouched = false; side = { side: "both" }; data = null;
     // 站长 2026-11-10：试运行对所有人开放——做市工具可用、按新规则记账；首次发放时间另行公告
     A.app.innerHTML =
       '<section class="card lp-hero"><div class="lp-ht"><h2>💧 做市商 <span class="lp-tag">✅ 认证称号</span></h2>' +
-        '<p>把资金拆成多张限价单铺在本站 AiLGNS/DAI 盘口，就是做市。<b>日均挂单资金 ≥ 1 万 DAI，自动获得「👑 官方认证做市商」称号</b>，全站你的名字后面都会挂这个绿标，客户一眼认得你。' +
+        '<div class="lp-mkt"><a href="#/lp"' + (MK === "ailgns" ? ' class="on"' : "") + '>AiLGNS</a><a href="#/lp/lgns"' + (MK === "lgns" ? ' class="on"' : "") + '>LGNS <small>Anubis 链</small></a></div>' +
+        '<p>把资金拆成多张限价单铺在本站 ' + SYM + '/DAI 盘口，就是做市。<b>日均挂单资金 ≥ 1 万 DAI，自动获得「👑 官方认证做市商」称号</b>，全站你的名字后面都会挂这个绿标，客户一眼认得你。' +
         '做市不发返佣，赚的是<b>买卖价差</b>；吃单的人照常付 1% 手续费。</p>' +
         '<div class="lp-side" id="lp-side">正在看盘口哪边缺…</div></div>' +
         '<div class="lp-kpi"><div><small>称号门槛</small><b>日均 1 万 DAI</b><span>买单 + 卖单按 DAI 折算，每 5 分钟采样</span></div><div><small>称号有效</small><b>当天 + 次日</b><span>掉下去隔天自动摘，重新挂满再给</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
@@ -70,20 +73,20 @@
   }
   var data = null, side = { side: "both" }, midTouched = false; // midTouched：客户自己改过中间价就不再自动覆盖
   function load() {
-    fetch("/api/book?m=ailgns").then(function (r) { return r.json(); }).then(function (j) {
+    fetch("/api/book?m=" + MK).then(function (r) { return r.json(); }).then(function (j) {
       if (j.reserves) { var w = j.reserves.slice(2).match(/.{64}/g); mkt = (Number(BigInt("0x" + w[1])) / 1e18) / (Number(BigInt("0x" + w[0])) / Math.pow(10, TD)); }
-      var mi = document.getElementById("lp-mid"); if (mi && !mi.value && !midTouched && mkt && !(side && side.mid)) { mi.value = mkt.toFixed(2); preview(); } // 没有 OTC 中间价时才用 DEX 价兜底
+      var mi = document.getElementById("lp-mid"); if (mi && !mi.value && !midTouched && mkt && !(side && side.mid)) { mi.value = mkt.toFixed(PD); preview(); } // 没有 OTC 中间价时才用 DEX 价兜底
       hint();
     }).catch(function () {});
-    return fetch("/api/lp" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
+    return fetch(lpq(account ? "&a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
       if (!A.isCurrent(rid)) return;
       data = j; if (j.rules) R = j.rules; if (j.side) side = j.side;
       // 默认中间价用 OTC 自己的买一卖一中间价（DEX 价常高 3% 以上，照它铺买单会被人立刻高价卖给你）
-      var mi = document.getElementById("lp-mid"); if (mi && !midTouched && side.mid) mi.value = side.mid.toFixed(2);
+      var mi = document.getElementById("lp-mid"); if (mi && !midTouched && side.mid) mi.value = side.mid.toFixed(PD);
       hint(); sideLine(); sidePoll(); board("today"); if (j.me) me(j.me); preview();
     }).catch(function () { var s = document.getElementById("lp-side"); if (s) s.textContent = "盘口供需暂时读不到，一键做市按双边铺。"; });
   }
-  function hint() { var el = document.getElementById("lp-hint"); if (!el) return; el.textContent = (side.mid ? "OTC 盘口中间价 " + f(side.mid) : "") + (mkt ? (side.mid ? " · " : "") + "DEX 现价 " + f(mkt) : ""); }
+  function hint() { var el = document.getElementById("lp-hint"); if (!el) return; el.textContent = (side.mid ? "OTC 盘口中间价 " + f(side.mid, PD) : "") + (mkt ? (side.mid ? " · " : "") + "DEX 现价 " + f(mkt, PD) : ""); }
   // 顶部大字：现在缺哪边、做市商优先挂哪边
   // 站长 2026-11-09：高亮大字明确告诉做市商「现在要挂哪边」，每 30 秒自动刷新（接口 45 秒内按最新盘口现算）
   function sideLine() {
@@ -103,7 +106,7 @@
     sideTimer = setInterval(function () {
       if (!A.isCurrent(rid)) return clearInterval(sideTimer);
       if (document.hidden) return;
-      fetch("/api/lp").then(function (r) { return r.json(); }).then(function (j) { if (A.isCurrent(rid) && j && j.side) { side = j.side; sideLine(); var n = document.querySelector(".lp-need"); if (n) n.innerHTML = needText(); } }).catch(function () {});
+      fetch(lpq()).then(function (r) { return r.json(); }).then(function (j) { if (A.isCurrent(rid) && j && j.side) { side = j.side; sideLine(); var n = document.querySelector(".lp-need"); if (n) n.innerHTML = needText(); } }).catch(function () {});
     }, 30000);
   }
   function needText() {
@@ -147,11 +150,11 @@
     if (sum) { // 一键做市的大白话总结（站长 2026-11-09 晚）
       var rs = ladder(p), lo = Math.min.apply(null, rs.map(function (r) { return r.px; })), hi = Math.max.apply(null, rs.map(function (r) { return r.px; }));
       var what = p.which === "buy" ? "买单（压 DAI，等人卖给你）" : p.which === "sell" ? "卖单（压 " + SYM + "，等人来买）" : "买单 + 卖单";
-      sum.innerHTML = "将铺 <b>" + rs.length + " 张" + what + "</b>，每张约 <b>" + f(rs[0].dai, 0) + " DAI</b>，价格 <b>" + f(lo) + " ～ " + f(hi) + "</b>（盘口中间价 " + f(p.mid) + "）· 有效 " + (K().DURATIONS.filter(function (d) { return d[0] === p.dur; })[0] || ["", "30 天"])[1] +
+      sum.innerHTML = "将铺 <b>" + rs.length + " 张" + what + "</b>，每张约 <b>" + f(rs[0].dai, 0) + " DAI</b>，价格 <b>" + f(lo, PD) + " ～ " + f(hi, PD) + "</b>（盘口中间价 " + f(p.mid, PD) + "）· 有效 " + (K().DURATIONS.filter(function (d) { return d[0] === p.dur; })[0] || ["", "30 天"])[1] +
         (rs[0].dai < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大金额</b>' : "");
     }
     var rows = ladder(p), per = rows[0].dai, buyDai = rows.filter(function (r) { return r.side === "buy"; }).reduce(function (s, r) { return s + r.dai; }, 0), sellCoin = rows.filter(function (r) { return r.side === "sell"; }).reduce(function (s, r) { return s + r.coin; }, 0);
-    el.innerHTML = '<table class="lp-ladder"><thead><tr><th>方向</th><th>价格</th><th>金额</th><th>数量</th></tr></thead><tbody>' + rows.map(function (r) { return '<tr class="' + r.side + '"><td>' + (r.side === "buy" ? "买" : "卖") + '</td><td>' + f(r.px) + '</td><td>' + f(r.dai, 0) + ' DAI</td><td>' + f(r.coin, 4) + ' ' + SYM + "</td></tr>"; }).join("") + "</tbody></table>" +
+    el.innerHTML = '<table class="lp-ladder"><thead><tr><th>方向</th><th>价格</th><th>金额</th><th>数量</th></tr></thead><tbody>' + rows.map(function (r) { return '<tr class="' + r.side + '"><td>' + (r.side === "buy" ? "买" : "卖") + '</td><td>' + f(r.px, PD) + '</td><td>' + f(r.dai, 0) + ' DAI</td><td>' + f(r.coin, 4) + ' ' + SYM + "</td></tr>"; }).join("") + "</tbody></table>" +
       '<p class="muted">共 ' + rows.length + ' 张单，每张 ' + f(per, 0) + ' DAI' + (buyDai ? "；买单要压 <b>" + f(buyDai, 0) + " DAI</b>" : "") + (sellCoin ? "；卖单要压 <b>" + f(sellCoin, 4) + " " + SYM + "</b>" : "") +
       (per < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大资金或减少档数</b>' : "") + (p.sp < 0.3 ? ' · <b class="nm-bad">第 1 档价差太窄，容易被单边吃光</b>' : "") +
       (p.which !== "both" && document.getElementById("lp-which").value === "auto" ? ' · 按供需现在只铺<b>' + (p.which === "buy" ? "买单" : "卖单") + "</b>" : "") + "</p>";
@@ -189,8 +192,8 @@
     if (rows[0].dai < 50) return A.errTip("每张最少 50 DAI，请加大资金或减少档数", go);
     var buyDai = 0n, sellCoin = 0n, calls = [];
     rows.forEach(function (r) {
-      if (r.side === "buy") { var d = toWei(r.dai.toFixed(6), 18), c = toWei((r.dai / r.px).toFixed(6), TD); buyDai += d; calls.push({ to: OTC, data: SEL.create + u256(0) + u256(d) + u256(c) + u256(p.dur), tag: "买单 " + f(r.px) }); }
-      else { var c2 = toWei((r.dai / r.px).toFixed(6), TD), d2 = toWei((Number(c2) / Math.pow(10, TD) * r.px).toFixed(6), 18); sellCoin += c2; calls.push({ to: OTC, data: SEL.create + u256(1) + u256(c2) + u256(d2) + u256(p.dur), tag: "卖单 " + f(r.px) }); }
+      if (r.side === "buy") { var d = toWei(r.dai.toFixed(6), 18), c = toWei((r.dai / r.px).toFixed(6), TD); buyDai += d; calls.push({ to: OTC, data: SEL.create + u256(0) + u256(d) + u256(c) + u256(p.dur), tag: "买单 " + f(r.px, PD) }); }
+      else { var c2 = toWei((r.dai / r.px).toFixed(6), TD), d2 = toWei((Number(c2) / Math.pow(10, TD) * r.px).toFixed(6), 18); sellCoin += c2; calls.push({ to: OTC, data: SEL.create + u256(1) + u256(c2) + u256(d2) + u256(p.dur), tag: "卖单 " + f(r.px, PD) }); }
     });
     go.disabled = true;
     K().ready().then(function () {
@@ -212,7 +215,7 @@
         say("钱包不支持批量，一张一张确认（共 " + calls.length + " 张）");
         return calls.reduce(function (pr, c, i) { return pr.then(function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：挂第 " + (i + 1) + " 张（" + c.tag + "），请在钱包点确认"); return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
       })
-      .then(function () { cnt("✅ " + total + " 次确认全部完成"); go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「👑 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
+      .then(function () { cnt("✅ " + total + " 次确认全部完成"); go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「👑 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", MK); setTimeout(load, 2000); })
       .catch(function (e) { go.disabled = false; say(""); if (ce) ce.hidden = true; A.errTip(K().niceError(e), go); });
   }
   A.pages.lp = page;

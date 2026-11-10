@@ -3318,3 +3318,9 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 /* 一键做市：钱包要点几次确认，大字高亮（站长 2026-11-10） */
 .lp-cnt { margin: 12px 0 6px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, #fff4d6, #ffe6a6); border: 2px solid #f3c35a; color: #6b4a00; font-size: 18px; font-weight: 800; line-height: 1.5; text-align: center; }
 .lp-cnt b { font-size: 30px; color: #c2410c; padding: 0 4px; font-variant-numeric: tabular-nums; }
+
+/* 做市页市场切换（站长 2026-11-10：LGNS 也开做市） */
+.lp-mkt { display: flex; gap: 8px; margin: 10px 0 12px; }
+.lp-mkt a { flex: 1; text-align: center; padding: 10px 8px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--panel); color: var(--text); font-weight: 800; font-size: 16px; text-decoration: none; }
+.lp-mkt a small { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.lp-mkt a.on { border-color: #7027d9; color: #5a35d6; background: #f3eeff; }
