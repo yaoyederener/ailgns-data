@@ -208,6 +208,14 @@
   // 💨 余额秒开（站长 2026-11-09：「可用余额读取中」太慢）：上次读到的余额存本地，打开先给上次的，链上读到新的再换；每个市场 / 每个钱包各存一份
   function balKey(who) { return "otc:bal:" + MK + ":" + who; }
   function balCached(who) { try { var j = JSON.parse(localStorage.getItem(balKey(who)) || "null"); return j && j.ail != null ? { ail: BigInt(j.ail), dai: BigInt(j.dai), at: j.at || 0 } : null; } catch (e) { return null; } }
+  function balApi(who) { // 边缘节点代读（手机直连链上节点慢时先到）
+    return fetch("/api/bal?chain=" + M.chain + "&a=" + who + "&t=" + AILGNS + "," + DAI).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.b || j.b.length < 2) throw new Error("bal api");
+      var b = { ail: BigInt(j.b[0]), dai: BigInt(j.b[1]) };
+      try { localStorage.setItem(balKey(who), JSON.stringify({ ail: String(b.ail), dai: String(b.dai), at: Date.now() })); } catch (e) { /* 无痕模式 */ }
+      return b;
+    });
+  }
   function balPair(who) {
     return Promise.all([balance(AILGNS, who), balance(DAI, who)]).then(function (b) {
       try { localStorage.setItem(balKey(who), JSON.stringify({ ail: String(b[0]), dai: String(b[1]), at: Date.now() })); } catch (e) { /* 无痕模式 */ }
@@ -720,7 +728,7 @@
     function createForm() {
       return '<section class="card" id="otc-form"><div class="card-head"><h2>发布挂单</h2><span class="muted">币先存进托管合约，成交前随时可撤</span></div>' +
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要挂单卖 ' + SYM + '</button><button data-side="buy">我要挂单买 ' + SYM + "</button></div>" +
-        '<div class="form-grid"><label>数量（' + SYM + '）<input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
+        '<div class="form-grid"><label id="otc-qty-l"><span id="otc-qty-t">数量（' + SYM + '）</span><input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
         '<div class="dur" id="otc-durbox"><input type="hidden" id="otc-dur" value="' + DUR_DEFAULT + '"></div>' +
@@ -767,8 +775,10 @@
       var side = "sell";
       document.querySelectorAll("#otc-side button").forEach(function (b) {
         b.onclick = function () {
+          var was = side;
           side = b.getAttribute("data-side");
           document.querySelectorAll("#otc-side button").forEach(function (x) { x.classList.toggle("on", x === b); });
+          if (was !== side) { qty.value = ""; relabel(); }
           guide();
           calc();
           pick();
@@ -776,6 +786,17 @@
       });
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
       if (mkt) price.placeholder = "市价约 " + mkt.toFixed(PD);
+      function relabel() {
+        var t = document.getElementById("otc-qty-t");
+        if (!t) return;
+        if (side === "buy") { t.textContent = "花多少 DAI"; qty.placeholder = "例如 " + A.fmt(M.eg[0] * M.eg[1], 0); qty.inputMode = "decimal"; }
+        else { t.textContent = "数量（" + SYM + "）"; qty.placeholder = "例如 " + M.eg[0]; }
+      }
+      function qtyWei() { // 卖单：填的就是枚数；买单：填的是 DAI，换算成能买多少枚
+        if (side === "sell") return tWei(qty.value);
+        var d = toWei(qty.value), p = toWei(price.value);
+        return d && p ? d * TUNIT / p : 0n;
+      }
       // 指导价：默认自动填进单价；客户自己改过就不再覆盖
       var auto = true;
       function guide() {
@@ -805,7 +826,7 @@
       var now0 = Date.now() / 1000, live0 = orders.filter(function (o) { return o.open && o.expiry > now0 && o.giveLeft > 0n && !isDust(o) && o.maker !== account; });
       var mbox = document.getElementById("otc-match"), mp = null;
       function match() {
-        var q = tWei(qty.value), pw = toWei(price.value), pr = Number(price.value), sell = side === "sell";
+        var q = qtyWei(), pw = toWei(price.value), pr = Number(price.value), sell = side === "sell";
         mp = null;
         if (!q || !pw || !(pr > 0)) { mbox.innerHTML = ""; return; }
         var cross = live0.filter(function (o) { return sell ? !o.sellAilgns && priceOf(o) >= pr : o.sellAilgns && priceOf(o) <= pr; })
@@ -870,8 +891,8 @@
       }
       function calc() {
         match();
-        var q = tWei(qty.value), p = toWei(price.value);
-        if (!q || !p) { sum.textContent = "填好数量后显示总额"; return null; }
+        var q = qtyWei(), p = toWei(price.value);
+        if (!q || !p) { sum.textContent = side === "buy" ? "填好花多少 DAI 和单价后显示总额" : "填好数量后显示总额"; return null; }
         var total = (q * p) / TUNIT; // DAI
         var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
         var r = mkt ? num(p) / mkt : null, verdict = "";
@@ -879,8 +900,9 @@
           if (side === "sell" && r < DEX_SELL) verdict = "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI";
           if (side === "buy" && r > DEX_BUY) verdict = "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI";
         } else if (r) {
-          if (side === "sell") verdict = r > RANGE.sell[1] ? "⚠️ 价格偏高：买家去" + DX + " 买更划算，很难成交，建议不高于 " + A.fmt(mkt * RANGE.sell[1], PD) : r < DEX_SELL ? "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI" : "";
-          else verdict = r < RANGE.buy[0] ? "⚠️ 价格偏低：卖家去" + DX + " 卖更划算，很难成交，建议不低于 " + A.fmt(mkt * RANGE.buy[0], PD) : r > DEX_BUY ? "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI" : "";
+          var gq = GUIDE && GUIDE[MK] && GUIDE[MK][side], loB = gq ? Math.min(RANGE.buy[0], gq * 0.999) : RANGE.buy[0], hiS = gq ? Math.max(RANGE.sell[1], gq * 1.001) : RANGE.sell[1]; // 指导价来自真实成交，按指导价挂不弹警告
+          if (side === "sell") verdict = r > hiS ? "⚠️ 价格偏高：买家去" + DX + " 买更划算，很难成交，建议不高于 " + A.fmt(mkt * RANGE.sell[1], PD) : r < DEX_SELL ? "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI" : "";
+          else verdict = r < loB ? "⚠️ 价格偏低：卖家去" + DX + " 卖更划算，很难成交，建议不低于 " + A.fmt(mkt * RANGE.buy[0], PD) : r > DEX_BUY ? "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI" : "";
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
@@ -896,45 +918,58 @@
         if (!bal) return null;
         if (side === "sell") return bal.ail;
         var p = toWei(price.value);
-        return p ? (bal.dai > GAS_RESERVE ? bal.dai - GAS_RESERVE : 0n) * TUNIT / p : null; // Anubis 留 0.1 DAI 付 Gas
+        return p ? maxDai() * TUNIT / p : null; // Anubis 留 0.1 DAI 付 Gas
       }
+      function maxDai() { return bal ? (bal.dai > GAS_RESERVE ? bal.dai - GAS_RESERVE : 0n) : 0n; }
+      function maxIn() { return side === "buy" ? (bal ? maxDai() : null) : maxQty(); } // 第一格的上限：买单是 DAI，卖单是枚数
+      function inWei() { return side === "buy" ? (toWei(qty.value) || 0n) : (tWei(qty.value) || 0n); }
+      function inStr(v) { return side === "buy" ? floorStr(v, 2, 18) : floorStr(v, TD === 18 ? 6 : 4, TD); }
       function pick() {
         var el = document.getElementById("otc-pick");
         if (!el) return; // 余额晚到时客户已切走页面（#/names 等），元素不在了：不报错
         if (!account) { el.innerHTML = '<span class="muted">可用余额：</span><a href="#" id="otc-pick-c">连接钱包后显示</a>'; document.getElementById("otc-pick-c").onclick = function (e) { e.preventDefault(); var c = document.getElementById("otc-connect"); if (c) c.click(); }; return; }
-        if (!bal) { el.innerHTML = '<span class="muted">可用余额读取中…</span>'; return; }
-        var m = maxQty(), mq = m || 0n;
-        var qNow = tWei(qty.value) || 0n, pNow = mq > 0n && qNow > 0n ? Number(qNow * 100n / mq) : 0;
+        if (!bal) { el.innerHTML = balFail ? '<span class="muted">余额没读出来 · </span><a href="#" id="otc-pick-r">点我重试</a>' : '<span class="muted">可用余额读取中…</span>'; var rb = document.getElementById("otc-pick-r"); if (rb) rb.onclick = function (e) { e.preventDefault(); balFail = false; pick(); loadBalances(); }; return; }
+        var m = maxQty(), mi = maxIn(), mq = mi || 0n;
+        var qNow = inWei(), pNow = mq > 0n && qNow > 0n ? Number(qNow * 100n / mq) : 0;
         if (pNow > 100) pNow = 100;
         // 站长 2026-11-10：比例按钮改成拖动进度条。买单按「花多少 DAI」拖（客户钱包里是 DAI），卖单按「卖多少枚」拖
         el.innerHTML = '<div class="qp-bal"><span class="muted">可用</span><b>' + (side === "sell" ? tShow(bal.ail) + " " + SYM : show(bal.dai, 2) + " DAI") + "</b>" +
-          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + tShow(m) + " 枚" : "先填单价，再拖进度条") + "</span>" : "") + "</div>" +
-          '<div class="qp-sl"><b id="otc-pv">' + pNow + '%</b><input type="range" id="otc-r" min="0" max="100" step="1" value="' + pNow + '"' + (m ? "" : " disabled") + ' aria-label="' + (side === "buy" ? "用多少 DAI 买" : "卖多少") + '"></div>' +
+          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + tShow(m) + " 枚" : "先填单价，算能买多少枚") + "</span>" : "") + "</div>" +
+          '<div class="qp-sl"><b id="otc-pv">' + pNow + '%</b><input type="range" id="otc-r" min="0" max="100" step="1" value="' + pNow + '"' + (mq > 0n ? "" : " disabled") + ' aria-label="' + (side === "buy" ? "用多少 DAI 买" : "卖多少") + '"></div>' +
           '<p class="qp-hint muted" id="otc-ph"></p>';
         var r = el.querySelector("#otc-r"), pv = el.querySelector("#otc-pv"), ph = el.querySelector("#otc-ph");
         function paint(pct) {
           pv.textContent = pct + "%"; r.value = pct; r.style.setProperty("--p", pct + "%");
-          var q = tWei(qty.value) || 0n, pr = toWei(price.value) || 0n, cost = pr ? q * pr / TUNIT : 0n;
-          if (!m) { ph.textContent = side === "buy" ? "填好单价后，拖动选择花多少 DAI" : "拖动选择卖多少 " + SYM; return; }
-          ph.innerHTML = side === "buy" ? "花 <b>" + show(cost, 2) + " DAI</b>，约买到 <b>" + tShow(q) + " " + SYM + "</b>" : "卖 <b>" + tShow(q) + " " + SYM + "</b>，约收 <b>" + show(cost, 2) + " DAI</b>";
+          var q = qtyWei() || 0n, pr = toWei(price.value) || 0n, cost = pr ? q * pr / TUNIT : 0n;
+          if (side === "buy") { ph.innerHTML = "花 <b>" + show(inWei(), 2) + " DAI</b>" + (pr && q ? "，按这个单价约买到 <b>" + tShow(q) + " " + SYM + "</b>" : "，再填单价就知道能买多少枚"); return; }
+          ph.innerHTML = q ? "卖 <b>" + tShow(q) + " " + SYM + "</b>" + (pr ? "，约收 <b>" + show(cost, 2) + " DAI</b>" : "") : "拖动选择卖多少 " + SYM;
         }
         paint(pNow);
         r.oninput = function () {
-          var mx = maxQty();
+          var mx = maxIn();
           if (!mx) return;
           var pct = Number(r.value);
-          qty.value = pct >= 100 ? floorStr(mx, TD === 18 ? 6 : 4, TD) : floorStr(mx * BigInt(pct) / 100n, TD === 18 ? 6 : 4, TD);
+          qty.value = pct >= 100 ? inStr(mx) : inStr(mx * BigInt(pct) / 100n);
           calc(); paint(pct);
         };
         pickSync = function () { // 客户自己改数量/单价时，进度条跟着走
-          var mx = maxQty(), q = tWei(qty.value) || 0n, pct = mx && q ? Number(q * 100n / mx) : 0;
+          var mx = maxIn(), q = inWei(), pct = mx && q ? Number(q * 100n / mx) : 0;
           if (pct > 100) pct = 100;
           if (document.body.contains(r)) paint(pct);
         };
       }
+      var balFail = false;
+      function loadBalances() { // 边缘代读 /api/bal 和手机直连链上赛跑，先到先用；链上直连到了再换成最新
+        if (!account) return;
+        var done = 0, fails = 0;
+        function fail() { if (++fails >= 2 && !bal) { balFail = true; pick(); } }
+        balApi(account).then(function (b) { if (!done) { done = 1; bal = b; pick(); } }, fail);
+        balPair(account).then(function (b) { done = 2; bal = b; pick(); }, fail);
+      }
       if (account) { var bc = balCached(account); if (bc) bal = bc; } // 先给上次的余额，秒开
       pick();
-      if (account) balPair(account).then(function (b) { bal = b; pick(); }, function () { /* 读不到就留着上次的 */ });
+      relabel();
+      loadBalances();
       // 有效期滑块
       var durIn = document.getElementById("otc-dur");
       durSlider(document.getElementById("otc-durbox"), { value: DUR_DEFAULT, onChange: function (sec) { durIn.value = sec ? String(sec) : ""; } });
