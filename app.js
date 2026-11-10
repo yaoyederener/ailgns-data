@@ -656,8 +656,13 @@
   function guide(tab, parts) {
     var box = document.getElementById("guide"); if (!box) return;
     var g = GUIDES[tab];
-    document.body.classList.toggle("has-guide", !!g && !parts[1]);
-    if (!g || parts[1]) { box.innerHTML = ""; return; }
+    // 站长 2026-11-09：LGNS / gLGNS / Polygon LGNS 市场也要同样的四步引导（「我们现在靠这俩赚钱」）；卡牌市场没有扫单，不配
+    if (tab === "otc" && parts[1]) {
+      var MS = { lgns: "LGNS", plgns: "LGNS（Polygon）", glgns: "gLGNS" }, sym = MS[parts[1]];
+      g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["查我的订单", "#/scan"]]] : null;
+    } else if (parts[1]) g = null;
+    document.body.classList.toggle("has-guide", !!g);
+    if (!g) { box.innerHTML = ""; return; }
     box.innerHTML = '<section class="gd"><div class="gd-h"><span class="gd-i">' + g[0] + '</span><div><b>' + g[1] + "</b><small>" + g[2] + '</small></div></div><div class="gd-s">' +
       g[3].map(function (st, i) { return '<button type="button" data-gd="' + st[1].replace(/"/g, "&quot;") + '"><i>' + (i + 1) + "</i>" + st[0] + "</button>"; }).join("") + "</div></section>";
   }
