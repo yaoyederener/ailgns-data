@@ -887,11 +887,11 @@
           (r ? "<br>" + (verdict ? '<span class="down">' + verdict + "</span>" : '<span class="up">✓ ' + (M.flat ? "价格贴近市价，容易成交" : "价格合理，比" + DX + " 划算，容易成交") + '</span>') : "");
         return { q: q, total: total };
       }
-      qty.oninput = calc; price.oninput = function () { auto = false; calc(); pick(); };
+      qty.oninput = function () { calc(); if (pickSync) pickSync(); }; price.oninput = function () { auto = false; calc(); pick(); };
       guide();
       if (!GUIDE) guideP.then(function () { if (document.getElementById("otc-guide") && document.body.contains(price)) { guide(); calc(); } }); // 成交价数据晚到一步：到了再刷新指导价
       // 可用余额 + 25% / 50% / 75% / 最大：卖单按 AiLGNS 余额，买单按 DAI 余额 ÷ 单价换成能买多少枚
-      var bal = null;
+      var bal = null, pickSync = null;
       function maxQty() {
         if (!bal) return null;
         if (side === "sell") return bal.ail;
@@ -903,18 +903,34 @@
         if (!el) return; // 余额晚到时客户已切走页面（#/names 等），元素不在了：不报错
         if (!account) { el.innerHTML = '<span class="muted">可用余额：</span><a href="#" id="otc-pick-c">连接钱包后显示</a>'; document.getElementById("otc-pick-c").onclick = function (e) { e.preventDefault(); var c = document.getElementById("otc-connect"); if (c) c.click(); }; return; }
         if (!bal) { el.innerHTML = '<span class="muted">可用余额读取中…</span>'; return; }
-        var m = maxQty();
+        var m = maxQty(), mq = m || 0n;
+        var qNow = tWei(qty.value) || 0n, pNow = mq > 0n && qNow > 0n ? Number(qNow * 100n / mq) : 0;
+        if (pNow > 100) pNow = 100;
+        // 站长 2026-11-10：比例按钮改成拖动进度条。买单按「花多少 DAI」拖（客户钱包里是 DAI），卖单按「卖多少枚」拖
         el.innerHTML = '<div class="qp-bal"><span class="muted">可用</span><b>' + (side === "sell" ? tShow(bal.ail) + " " + SYM : show(bal.dai, 2) + " DAI") + "</b>" +
-          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + tShow(m) + " 枚" : "先填单价，算能买多少枚") + "</span>" : "") + "</div>" +
-          '<div class="qp-btns">' + [[25, "25%"], [50, "50%"], [75, "75%"], [100, "最大"]].map(function (x) { return '<button type="button" class="ghost" data-pct="' + x[0] + '"' + (m ? "" : " disabled") + ">" + x[1] + "</button>"; }).join("") + "</div>";
-        el.querySelectorAll("[data-pct]").forEach(function (b) {
-          b.onclick = function () {
-            var mq = maxQty();
-            if (!mq) return;
-            qty.value = floorStr(mq * BigInt(b.getAttribute("data-pct")) / 100n, TD === 18 ? 6 : 4, TD);
-            calc();
-          };
-        });
+          (side === "buy" ? '<span class="muted">' + (m !== null ? "按这个单价最多买 " + tShow(m) + " 枚" : "先填单价，再拖进度条") + "</span>" : "") + "</div>" +
+          '<div class="qp-sl"><b id="otc-pv">' + pNow + '%</b><input type="range" id="otc-r" min="0" max="100" step="1" value="' + pNow + '"' + (m ? "" : " disabled") + ' aria-label="' + (side === "buy" ? "用多少 DAI 买" : "卖多少") + '"></div>' +
+          '<p class="qp-hint muted" id="otc-ph"></p>';
+        var r = el.querySelector("#otc-r"), pv = el.querySelector("#otc-pv"), ph = el.querySelector("#otc-ph");
+        function paint(pct) {
+          pv.textContent = pct + "%"; r.value = pct; r.style.setProperty("--p", pct + "%");
+          var q = tWei(qty.value) || 0n, pr = toWei(price.value) || 0n, cost = pr ? q * pr / TUNIT : 0n;
+          if (!m) { ph.textContent = side === "buy" ? "填好单价后，拖动选择花多少 DAI" : "拖动选择卖多少 " + SYM; return; }
+          ph.innerHTML = side === "buy" ? "花 <b>" + show(cost, 2) + " DAI</b>，约买到 <b>" + tShow(q) + " " + SYM + "</b>" : "卖 <b>" + tShow(q) + " " + SYM + "</b>，约收 <b>" + show(cost, 2) + " DAI</b>";
+        }
+        paint(pNow);
+        r.oninput = function () {
+          var mx = maxQty();
+          if (!mx) return;
+          var pct = Number(r.value);
+          qty.value = pct >= 100 ? floorStr(mx, TD === 18 ? 6 : 4, TD) : floorStr(mx * BigInt(pct) / 100n, TD === 18 ? 6 : 4, TD);
+          calc(); paint(pct);
+        };
+        pickSync = function () { // 客户自己改数量/单价时，进度条跟着走
+          var mx = maxQty(), q = tWei(qty.value) || 0n, pct = mx && q ? Number(q * 100n / mx) : 0;
+          if (pct > 100) pct = 100;
+          if (document.body.contains(r)) paint(pct);
+        };
       }
       if (account) { var bc = balCached(account); if (bc) bal = bc; } // 先给上次的余额，秒开
       pick();

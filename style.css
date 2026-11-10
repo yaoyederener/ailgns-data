@@ -3290,3 +3290,14 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc > summary::-webkit-details-marker { display: none; }
 /* 站名渐变字 + 品牌字 AiLGNS：Safari 里子元素带透明度会让「LGNS」整段消失（站长 2026-11-10 00:20 截图），每一段自己做渐变裁切、不透明 */
 .brand-t b .ai-b, .brand-t b .ai-b b, .brand-t b .ai-b i { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; opacity: 1; }
+
+/* 发布挂单：比例进度条（站长 2026-11-10，替代 25%/50%/75%/最大） */
+.qty-pick .qp-sl { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.qty-pick .qp-sl b { min-width: 58px; font-size: 24px; font-weight: 800; color: var(--purple-ink); font-variant-numeric: tabular-nums; }
+.qty-pick input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 10px; border-radius: 999px; padding: 0; border: 0; margin: 0;
+  background: linear-gradient(90deg, #009cff, #4936ff 55%, #a014f8) 0 0 / var(--p, 0%) 100% no-repeat, var(--pill); }
+.qty-pick input[type=range]:disabled { opacity: .45; }
+.qty-pick input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; box-shadow: 0 2px 8px rgba(112, 39, 217, .35); cursor: pointer; }
+.qty-pick input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; cursor: pointer; }
+.qty-pick .qp-hint { margin: 6px 0 0; font-size: 13px; }
+.qty-pick .qp-hint b { color: var(--purple-ink); }
