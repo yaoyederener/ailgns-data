@@ -3254,3 +3254,11 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 /* 做市「铺哪边」下拉独占一整行，选项文字不再被截（站长 2026-11-09） */
 .lp-mk .lp-grid label:first-child { grid-column: 1 / -1; }
 .lp-mk .lp-grid select { font-size: 15px; padding: 10px 12px; }
+/* 一键扫单的买 / 卖切换：和「发布挂单」同一套红绿大按钮（站长 2026-11-09） */
+.sweep .sw-side { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0; background: transparent; border-radius: 0; }
+.sweep .sw-side button { font-size: 16px; font-weight: 800; padding: 14px 6px; border-radius: 14px; border: 2px solid; background: #fff; white-space: nowrap; }
+.sweep .sw-side button[data-sw="buy"] { color: #15803d; border-color: #86d9a4; background: #effbf4; }
+.sweep .sw-side button[data-sw="sell"] { color: #c62828; border-color: #f09b9b; background: #fff3f3; }
+.sweep .sw-side button.on[data-sw="buy"] { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(22, 163, 74, .32); }
+.sweep .sw-side button.on[data-sw="sell"] { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(239, 68, 68, .32); }
+@media (max-width: 600px) { .sweep .sw-side button { font-size: 14px; padding: 13px 4px; } }
