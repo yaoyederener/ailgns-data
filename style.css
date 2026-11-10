@@ -3242,3 +3242,11 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .lp-side-big.buy { background: #effbf4; border-color: #86efac; } .lp-side-big.buy .lp-sb-v { color: #15803d; }
 .lp-side-big.sell { background: #fff1f2; border-color: #fda4af; } .lp-side-big.sell .lp-sb-v { color: #be123c; }
 .lp-side-big.both { background: #f6f2ff; border-color: #c4b5fd; } .lp-side-big.both .lp-sb-v { color: #5b21b6; font-size: 26px; }
+/* 发布挂单：买 / 卖切换要显眼（站长 2026-11-09）：两个都是大按钮，没选中的也带色边，选中的实心发光 */
+#otc-side { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: transparent; border: 0; padding: 0; }
+#otc-side button { font-size: 16px; font-weight: 800; padding: 14px 6px; border-radius: 14px; border: 2px solid; background: #fff; white-space: nowrap; }
+#otc-side button[data-side="sell"] { color: #c62828; border-color: #f09b9b; background: #fff3f3; }
+#otc-side button[data-side="buy"] { color: #15803d; border-color: #86d9a4; background: #effbf4; }
+#otc-side button[data-side="sell"].on { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(239, 68, 68, .32); }
+#otc-side button[data-side="buy"].on { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(22, 163, 74, .32); }
+@media (max-width: 480px) { #otc-side button { font-size: 15px; padding: 13px 4px; } }
