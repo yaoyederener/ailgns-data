@@ -113,7 +113,8 @@
     if (str.indexOf(",") >= 0) {
       var parts0 = str.split(","), tail = parts0[parts0.length - 1];
       // 有小数点、或多个逗号、或逗号后面正好 3 位数字（且前面是 1–3 位）：都是千分位，去掉；否则当小数点
-      if (str.indexOf(".") >= 0 || parts0.length > 2 || (/^\d{1,3}$/.test(parts0[0]) && /^\d{3}$/.test(tail))) str = str.replace(/,/g, "");
+      // 2026-11-10 站长实测：手机键盘打出「0,001」被当成千分位变成 1 枚 → 整数部分是 0 的一律当小数点
+      if (str.indexOf(".") >= 0 || parts0.length > 2 || (/^[1-9]\d{0,2}$/.test(parts0[0]) && /^\d{3}$/.test(tail))) str = str.replace(/,/g, "");
       else str = str.replace(",", ".");
     }
     if (!/^\d*\.?\d*$/.test(str) || str === "" || str === ".") return null;
