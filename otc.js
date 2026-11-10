@@ -205,6 +205,15 @@
   // 读当前市场所在的链
   function read(to, data) { return W.rpcOn(M.chain, "eth_call", [{ to: to, data: data }, "latest"]); }
   function balance(token, who) { return read(token, SEL.balanceOf + u256(who)).then(BigInt); }
+  // 💨 余额秒开（站长 2026-11-09：「可用余额读取中」太慢）：上次读到的余额存本地，打开先给上次的，链上读到新的再换；每个市场 / 每个钱包各存一份
+  function balKey(who) { return "otc:bal:" + MK + ":" + who; }
+  function balCached(who) { try { var j = JSON.parse(localStorage.getItem(balKey(who)) || "null"); return j && j.ail != null ? { ail: BigInt(j.ail), dai: BigInt(j.dai), at: j.at || 0 } : null; } catch (e) { return null; } }
+  function balPair(who) {
+    return Promise.all([balance(AILGNS, who), balance(DAI, who)]).then(function (b) {
+      try { localStorage.setItem(balKey(who), JSON.stringify({ ail: String(b[0]), dai: String(b[1]), at: Date.now() })); } catch (e) { /* 无痕模式 */ }
+      return { ail: b[0], dai: b[1] };
+    });
+  }
   function allowance(token, who, spender) { return read(token, SEL.allowance + u256(who) + u256(spender || OTC)).then(BigInt); }
   // 批量扫单合约（Anubis 的 AiLGNS / LGNS / gLGNS 三个市场）：一笔交易吃多张单，钱包只确认 1 次；没填地址或别的市场就照旧一张一张吃
   var ROUTER = "0x6ec474047a6c12d0cab53855a990c1c8b3996c20", ROUTER_MK = { ailgns: 1, lgns: 1, glgns: 1 };
@@ -907,8 +916,9 @@
           };
         });
       }
+      if (account) { var bc = balCached(account); if (bc) bal = bc; } // 先给上次的余额，秒开
       pick();
-      if (account) Promise.all([balance(AILGNS, account), balance(DAI, account)]).then(function (b) { bal = { ail: b[0], dai: b[1] }; pick(); }, function () { bal = null; });
+      if (account) balPair(account).then(function (b) { bal = b; pick(); }, function () { /* 读不到就留着上次的 */ });
       // 有效期滑块
       var durIn = document.getElementById("otc-dur");
       durSlider(document.getElementById("otc-durbox"), { value: DUR_DEFAULT, onChange: function (sec) { durIn.value = sec ? String(sec) : ""; } });
@@ -1063,8 +1073,9 @@
       function pctText(bp) { return (bp >= 100 ? (bp / 100).toFixed(bp % 100 ? 1 : 0) : (bp / 100).toFixed(2)) + "%"; }
       function loadBal() {
         if (!account) return;
-        Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) {
-          var first = bal.buy === null; bal = { buy: b[0], sell: b[1] };
+        if (bal.buy === null) { var bc = balCached(account); if (bc) { bal = { buy: bc.dai, sell: bc.ail }; r.value = maxBp(list()); draw(); } } // 先用上次的余额画出来，秒开
+        balPair(account).then(function (b) {
+          var first = bal.buy === null; bal = { buy: b.dai, sell: b.ail };
           if (first) r.value = maxBp(list()); // 第一次读到余额：进度条默认拉到余额能扫的最大（站长要求）
           draw();
         }).catch(function () {});
@@ -1223,15 +1234,11 @@
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");
       var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : SYM, payDec = o.sellAilgns ? 18 : TD;
       var bal = null; // 钱包里能付的币（BigInt）
+      function showBal(b) { var el = document.getElementById("f-bal"); if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4, payDec) + " " + payName; }
       function loadBal() {
-        return balance(payToken, account).then(function (b) {
-          bal = b;
-          var el = document.getElementById("f-bal");
-          if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4, payDec) + " " + payName;
-          return b;
-        });
+        return balance(payToken, account).then(function (b) { bal = b; showBal(b); return b; });
       }
-      if (account) loadBal();
+      if (account) { var bc0 = balCached(account); if (bc0) { bal = o.sellAilgns ? bc0.dai : bc0.ail; showBal(bal); } loadBal(); } // 先显示上次的余额，读到新的再换
       // 「最大」= 你钱包余额最多能成交多少，和这张单剩下的取小的
       var maxPay = ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal); // 买下这张单剩下的全部要付多少 DAI
       function maxByWallet(b) {
