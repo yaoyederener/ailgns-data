@@ -23,14 +23,14 @@
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym;
     // 站长 2026-11-10：试运行对所有人开放——做市工具可用、按新规则记账；首次发放时间另行公告
     A.app.innerHTML =
-      '<section class="card lp-hero"><div class="lp-ht"><h2>💧 做市返佣 <span class="lp-tag">试运行</span></h2>' +
-        '<p>在本站 OTC 挂单，有人吃你的单，吃单方付的 1% 手续费按比例返给你。<b>按你挂在盘口的资金量分档</b>：日均挂单 ≥ 1 万 DAI 返 <b>50%</b>，≥ 3 万返 <b>60%</b>，≥ 5 万返 <b>70%</b>。' +
-        '<b>只返「缺的那一边」</b>：盘口买单多的时候只有卖单成交才计返佣，卖单多的时候只有买单成交才计，这样大家一起把买卖铺平。</p>' +
+      '<section class="card lp-hero"><div class="lp-ht"><h2>💧 做市商 <span class="lp-tag">✅ 认证称号</span></h2>' +
+        '<p>把资金拆成多张限价单铺在本站 AiLGNS/DAI 盘口，就是做市。<b>日均挂单资金 ≥ 1 万 DAI，自动获得「✅ 官方认证做市商」称号</b>，全站你的名字后面都会挂这个绿标，客户一眼认得你。' +
+        '做市不发返佣，赚的是<b>买卖价差</b>；吃单的人照常付 1% 手续费。</p>' +
         '<div class="lp-side" id="lp-side">正在看盘口哪边缺…</div></div>' +
-        '<div class="lp-kpi"><div><small>返佣比例</small><b>50–70%</b><span>日均挂单 1 万 / 3 万 / 5 万三档</span></div><div><small>结算</small><b>每天记账</b><span>试运行期首次发放另行公告</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
-      '<section class="card"><div class="card-head"><h2>📒 我的返佣</h2><button type="button" class="ghost" id="lp-conn">连接钱包</button></div><div id="lp-me"><p class="muted">连接钱包后显示今天的档位、计入成交和返佣</p></div></section>' +
-      '<section class="card lp-mk"><div class="card-head"><h2>⚡ 一键做市</h2><span class="muted">把资金拆成小单铺满盘口</span></div>' +
-        '<p class="muted">你只要授权，网站帮你把钱拆成多张小限价单，按价格阶梯铺到盘口上；哪张被吃哪张赚价差 + 返佣，没被吃的原封不动、随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
+        '<div class="lp-kpi"><div><small>称号门槛</small><b>日均 1 万 DAI</b><span>买单 + 卖单按 DAI 折算，每 5 分钟采样</span></div><div><small>称号有效</small><b>当天 + 次日</b><span>掉下去隔天自动摘，重新挂满再给</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
+      '<section class="card"><div class="card-head"><h2>📒 我的做市</h2><button type="button" class="ghost" id="lp-conn">连接钱包</button></div><div id="lp-me"><p class="muted">连接钱包后显示今天的日均挂单资金、称号状态和成交</p></div></section>' +
+      '<section class="card lp-mk"><div class="card-head"><h2>⚡ 批量挂单</h2><span class="muted">把资金拆成小单铺满盘口</span></div>' +
+        '<p class="muted">你只要授权，网站帮你把钱拆成多张小限价单，按价格阶梯铺到盘口上；哪张被吃哪张赚价差，没被吃的原封不动、随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
         '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">按供需自动（只铺缺的一边）</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
         '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label><label>总资金 (DAI)<input id="lp-amt" inputmode="decimal" value="1000"></label>' +
         '<label>拆几档<select id="lp-n"><option>2</option><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>' +
@@ -39,20 +39,18 @@
         '<div class="lp-prev" id="lp-prev"></div><p class="muted nm-st" id="lp-st"></p>' +
         '<button type="button" class="nm-go" id="lp-go">⚡ 一键铺单</button>' +
         '<p class="muted lp-note">⚠️ 做市有价格风险：币价单边大涨大跌时，一边的单会被吃光、另一边留着。小额、价差别太窄、勤看。这不是理财，也不保本。</p></section>' +
-      '<section class="card lp-calc"><div class="card-head"><h2>🧮 做市收益估算</h2><span class="muted">估算，不是承诺</span></div>' +
+      '<section class="card lp-calc"><div class="card-head"><h2>🧮 价差收益估算</h2><span class="muted">估算，不是承诺</span></div>' +
         '<div class="lp-grid"><label>日均挂单资金 (DAI)<input id="lc-liq" inputmode="decimal" value="10000"></label><label>每天换手 (%)<input id="lc-turn" inputmode="decimal" value="20"></label><label>平均价差 (%)<input id="lc-sp" inputmode="decimal" value="1"></label></div>' +
         '<div class="lp-prev" id="lc-out"></div>' +
-        '<p class="muted">换手 = 一天里被吃掉的金额 ÷ 挂着的金额。价差收益按一买一卖配对成交算；返佣按你的档位比例算；单边行情时价差收益可能是负的。</p></section>' +
-      '<section class="card"><div class="card-head"><h2>🏆 返佣榜</h2><span class="seg lp-seg"><button type="button" class="on" data-r="today">今天</button><button type="button" data-r="week">7 天</button></span></div><div id="lp-board"><p class="muted">读取中…</p></div></section>' +
+        '<p class="muted">换手 = 一天里被吃掉的金额 ÷ 挂着的金额。价差收益按一买一卖配对成交算；单边行情时价差收益可能是负的。</p></section>' +
+      '<section class="card"><div class="card-head"><h2>🏆 做市榜</h2><span class="seg lp-seg"><button type="button" class="on" data-r="today">今天</button><button type="button" data-r="week">7 天</button></span></div><div id="lp-board"><p class="muted">读取中…</p></div></section>' +
       '<section class="card lp-rules"><h2>📜 规则（一页纸）</h2><ol>' +
         '<li>范围：本站 <b>AiLGNS / DAI</b> OTC 市场的挂单（限价单）。</li>' +
-        '<li>档位：按你当天挂在盘口的资金量（买单 + 卖单，按 DAI 折算，日均）分三档：<b>≥ 1 万 DAI 返 50%、≥ 3 万返 60%、≥ 5 万返 70%</b>；不足 1 万暂不返佣。</li>' +
-        '<li>只算缺的一边：盘口（中间价 ±3% 内）<b>买单多时只有卖单成交计返佣，卖单多时只有买单成交计</b>；两边差不多时都计。以成交那一刻的盘口为准，页面顶部实时显示现在缺哪边。</li>' +
-        '<li>算法：计入的每笔成交，返佣 = <b>成交 DAI × 1% × 你的档位比例</b>（例：5 万档成交 1,000 DAI → 返 7 DAI）。按 DAI 价值计，以 DAI 发放。</li>' +
-        '<li>结算：试运行期间每天记账、页面可查；首次发放时间会在更新日志和收件箱公告，之后每天北京时间 0 点后结算前一天，不足 1 DAI 累计。</li>' +
+        '<li>称号：按你当天挂在盘口的资金量（买单 + 卖单，按 DAI 折算，每 5 分钟采样取日均）算，<b>日均 ≥ 1 万 DAI 自动获得「✅ 官方认证做市商」</b>，全站名字后显示；当天或昨天达标就有，掉下去隔天自动摘。</li>' +
+        '<li>不发返佣：做市赚的是买卖价差，平台不另外给钱；吃单方照常付 1% 手续费。</li>' +
+        '<li>缺哪边挂哪边：页面顶部实时显示盘口现在缺买单还是缺卖单，「批量挂单」默认就铺缺的那边，大家一起把买卖铺平。</li>' +
         '<li>不改合约、不碰你的币、不保本：挂单、撤单、成交全在原 OTC 合约里，和平时一样。</li>' +
-        '<li>一视同仁：平台不审查交易双方是谁、个人如何使用自己的钱包是个人自由；所有成交按同一规则收 1% 手续费、按同一规则返佣。荣誉和等级（名人堂、VIP、返佣榜）只统计与不同对手方的成交。</li>' +
-        '<li>平台留下的部分覆盖 Gas、服务器和运营；规则如有调整会提前在更新日志公示，已产生的返佣不受影响。</li></ol></section>';
+        '<li>一视同仁：平台不审查交易双方是谁；称号只看挂单资金，不看是谁。规则如有调整会提前在更新日志公示。</li></ol></section>';
     bind();
     load();
     K().silentAccount().then(function () { account = K().account(); if (account) after(); });
@@ -89,8 +87,8 @@
     var el = document.getElementById("lp-side"); if (!el) return;
     var tot = (side.bd || 0) + (side.ad || 0), bp = tot ? Math.round(side.bd / tot * 100) : 50, sp = 100 - bp;
     var big = side.side === "sell" ? "卖单" : side.side === "buy" ? "买单" : "买单、卖单都行";
-    var why = side.side === "sell" ? "盘口买单多、缺卖单 → 此刻<b>只有卖单成交计返佣</b>，挂买单不计" :
-      side.side === "buy" ? "盘口卖单多、缺买单 → 此刻<b>只有买单成交计返佣</b>，挂卖单不计" : "盘口买卖基本平衡 → 两边成交都计返佣";
+    var why = side.side === "sell" ? "盘口买单多、缺卖单 → 做市商请<b>优先挂卖单</b>，把盘口铺平" :
+      side.side === "buy" ? "盘口卖单多、缺买单 → 做市商请<b>优先挂买单</b>，把盘口铺平" : "盘口买卖基本平衡 → 两边都可以挂";
     el.className = "lp-side lp-side-big " + side.side;
     el.innerHTML = '<div class="lp-sb-k">👉 现在要挂</div><div class="lp-sb-v">' + big + '</div><div class="lp-sb-w">' + why + '</div>' +
       '<div class="lp-sb-bar"><i style="width:' + bp + '%"></i><span>买 ' + bp + '%</span><span>卖 ' + sp + '%</span></div>' +
@@ -106,21 +104,19 @@
     }, 30000);
   }
   function needText() {
-    return (side.side === "sell" ? "👉 现在盘口<b>缺卖单</b>：你挂<b>卖单</b>被吃才计返佣，挂买单不计。" :
-      side.side === "buy" ? "👉 现在盘口<b>缺买单</b>：你挂<b>买单</b>被吃才计返佣，挂卖单不计。" :
-      "👉 现在盘口买卖差不多：买单、卖单被吃都计返佣。") + ' <span class="muted">下面「一键做市」默认就铺缺的这边。</span>';
+    return (side.side === "sell" ? "👉 现在盘口<b>缺卖单</b>：请优先挂<b>卖单</b>。" :
+      side.side === "buy" ? "👉 现在盘口<b>缺买单</b>：请优先挂<b>买单</b>。" :
+      "👉 现在盘口买卖差不多：两边都可以挂。") + ' <span class="muted">下面「批量挂单」默认就铺缺的这边。</span>';
   }
   function after() { var c = document.getElementById("lp-conn"); if (c) c.textContent = A.short(account); load(); }
-  function tierName(r) { return r >= 0.7 ? "5 万档 · 70%" : r >= 0.6 ? "3 万档 · 60%" : r >= 0.5 ? "1 万档 · 50%" : "未到 1 万档 · 不返"; }
   function me(m) {
     var el = document.getElementById("lp-me"); if (!el) return;
-    var t = m.today || {}, lq = m.liq || { avg: 0, rate: 0, next: null };
-    el.innerHTML = '<div class="lp-kpi lp-me"><div><small>今天档位</small><b>' + tierName(lq.rate) + '</b><span>日均挂单 ' + f(lq.avg, 0) + ' DAI' + (lq.next ? ' · 再挂 ' + f(lq.next[0] - lq.avg, 0) + ' 到 ' + Math.round(lq.next[1] * 100) + '%' : "") + '</span></div>' +
-      '<div><small>今天返佣</small><b>' + f(t.rb || 0, 4) + ' DAI</b><span>计入成交 ' + f(t.cdai || 0, 0) + ' / 全部 ' + f(t.dai || 0, 0) + ' DAI · ' + (t.n || 0) + ' 笔</span></div>' +
-      '<div><small>累计返佣</small><b>' + f(m.total.rb, 4) + ' DAI</b><span>待发放 ' + f(m.pending, 4) + ' DAI</span></div></div>' +
+    var t = m.today || {}, lq = m.liq || { avg: 0 }, ti = m.title || { on: false, avg: lq.avg || 0, need: 10000 };
+    el.innerHTML = '<div class="lp-kpi lp-me"><div><small>称号</small><b>' + (ti.on ? "✅ 官方认证做市商" : "还没有") + '</b><span>' + (ti.on ? (ti.official ? "官方名单" : "日均挂单达标") : "再挂 " + f(Math.max(0, ti.need - (ti.avg || 0)), 0) + " DAI 到 1 万") + '</span></div>' +
+      '<div><small>今天日均挂单</small><b>' + f(ti.avg || lq.avg || 0, 0) + ' DAI</b><span>门槛 ' + f(ti.need || 10000, 0) + ' DAI · 每 5 分钟采样</span></div>' +
+      '<div><small>今天成交</small><b>' + f(t.dai || 0, 0) + ' DAI</b><span>' + (t.n || 0) + ' 笔 · 赚的是价差，不发返佣</span></div></div>' +
       '<p class="lp-need">' + needText() + '</p>' +
-      (m.days.length ? '<div class="lg-list">' + m.days.map(function (d) { return '<div class="lg-row"><span class="lg-ico">📅</span><div class="lg-main"><div class="lg-txt">' + d.d + '：计入成交 ' + f(d.x.cdai || 0, 2) + ' / ' + f(d.x.dai, 2) + ' DAI · ' + d.x.n + ' 笔 · ' + (d.d < "2026-11-10" ? '旧规则 ' + Math.round((d.x.rate || 0) * 100) + '%' : '日均挂单 ' + f(d.x.liq || 0, 0) + ' → ' + Math.round((d.x.rate || 0) * 100) + '%') + ' → 返佣 <b>' + f(d.x.rb, 4) + ' DAI</b></div></div></div>'; }).join("") + "</div>" : '<p class="muted">还没有成交记录。挂上单、被人吃了就会出现在这里。</p>') +
-      (m.paid.length ? '<p class="muted">发放记录：' + m.paid.slice(0, 5).map(function (p) { return p.day + " " + f(p.amt, 4) + ' DAI <a href="#/scan/' + p.tx + '">详情</a>'; }).join(" · ") + "</p>" : "");
+      (m.days.length ? '<div class="lg-list">' + m.days.map(function (d) { return '<div class="lg-row"><span class="lg-ico">📅</span><div class="lg-main"><div class="lg-txt">' + d.d + '：成交 ' + f(d.x.dai, 2) + ' DAI · ' + d.x.n + ' 笔 · 日均挂单 ' + f(d.x.liq || 0, 0) + ' DAI' + ((d.x.liq || 0) >= 10000 ? ' · ✅' : "") + '</div></div></div>'; }).join("") + "</div>" : "");
   }
   function board(r) {
     var el = document.getElementById("lp-board"); if (!el || !data) return;
@@ -148,11 +144,11 @@
       (per < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大资金或减少档数</b>' : "") + (p.sp < 0.3 ? ' · <b class="nm-bad">第 1 档价差太窄，容易被单边吃光</b>' : "") +
       (p.which !== "both" && document.getElementById("lp-which").value === "auto" ? ' · 按供需现在只铺<b>' + (p.which === "buy" ? "买单" : "卖单") + "</b>" : "") + "</p>";
   }
-  // 🧮 收益估算：日成交 = 资金 × 换手；返佣 = 日成交 × 1% × 档位；价差收益 ≈ 日成交 ÷ 2 × 价差
+  // 🧮 价差收益估算：日成交 = 资金 × 换手；价差收益 ≈ 日成交 ÷ 2 × 价差（返佣已取消，不再算）
   function calc() {
     var liq = Number(document.getElementById("lc-liq").value) || 0, turn = (Number(document.getElementById("lc-turn").value) || 0) / 100, sp = (Number(document.getElementById("lc-sp").value) || 0) / 100, el = document.getElementById("lc-out"); if (!el) return;
-    var rate = liq >= 50000 ? 0.7 : liq >= 30000 ? 0.6 : liq >= 10000 ? 0.5 : 0, vol = liq * turn, rb = vol * 0.01 * rate, spread = vol / 2 * sp;
-    el.innerHTML = '<div class="lp-kpi"><div><small>你的档位</small><b>' + tierName(rate) + '</b><span>' + (rate ? "" : "挂到 1 万 DAI 才开始返佣") + '</span></div><div><small>每天返佣</small><b>' + f(rb, 2) + ' DAI</b><span>日成交 ' + f(vol, 0) + ' × 1% × ' + Math.round(rate * 100) + '%</span></div><div><small>每天价差收益</small><b>' + f(spread, 2) + ' DAI</b><span>一买一卖配对才有</span></div><div><small>一个月合计</small><b>' + f((rb + spread) * 30, 0) + ' DAI</b><span>约年化 ' + (liq ? f((rb + spread) * 365 / liq * 100, 1) : "0") + '%</span></div></div>';
+    var vol = liq * turn, spread = vol / 2 * sp;
+    el.innerHTML = '<div class="lp-kpi"><div><small>称号</small><b>' + (liq >= 10000 ? "✅ 官方认证做市商" : "未到 1 万") + '</b><span>' + (liq >= 10000 ? "日均挂单达标" : "挂到 1 万 DAI 才有称号") + '</span></div><div><small>日成交</small><b>' + f(vol, 0) + ' DAI</b><span>资金 × 换手</span></div><div><small>每天价差收益（估）</small><b>' + f(spread, 2) + ' DAI</b><span>日成交 ÷ 2 × 价差 · 单边行情可能为负</span></div></div>';
   }
   function ensureAllowance(token, amount, say, name) {
     return K().allowance(token, account, OTC).then(function (al) { if (al >= amount) return; return K().send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次）"); });

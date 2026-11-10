@@ -1,7 +1,8 @@
 // 💧 做市返佣接口
 //   GET ?a=<地址>   → { rules, me: { today, total, paid, pending, days: [...] }, board: { today: [...], week: [...] } }
 //   GET            → 只给 rules + board
-import { LP, rateOf, avgLiqOf, scarceSide } from "../../lib/lp.js";
+import { LP, rateOf, avgLiqOf, scarceSide, mmByLiq } from "../../lib/lp.js";
+import { OFFICIAL_MM } from "../../lib/cred.js";
 import { MARKETS, book } from "./otc-watch.js";
 import { bjDay } from "../../lib/stats.js";
 const json = (o) => Response.json(o, { headers: { "cache-control": "no-store" } });
@@ -26,7 +27,9 @@ export async function onRequestGet(ctx) {
     const liqToday = avgLiqOf(ll[0], a), todayRow = dayRows.find((r) => r.d === today);
     const rb7 = dayRows.reduce((s, r) => s + r.x.rb, 0); // 新规则下 lp:tot.rb 不再累加，累计 = 近 7 天现算 + 旧记录
     out.me = { today: todayRow ? todayRow.x : { dai: 0, n: 0, cdai: 0, rb: 0, liq: Math.round(liqToday), rate: rateOf(liqToday) }, total: { ...tot, rb: Math.max(tot.rb || 0, rb7) }, paid: paidList, pending: Math.max(0, Math.max(tot.rb || 0, rb7) - (tot.paid || 0)), days: dayRows,
-      liq: { avg: Math.round(liqToday), rate: rateOf(liqToday), next: LP.TIERS.slice().reverse().find((t) => t[0] > liqToday) || null } };
+      liq: { avg: Math.round(liqToday), rate: rateOf(liqToday), next: LP.TIERS.slice().reverse().find((t) => t[0] > liqToday) || null },
+      title: { on: !!(OFFICIAL_MM[a] || mmByLiq(ll[0], ll[1], a)), official: !!OFFICIAL_MM[a], avg: Math.round(liqToday), need: LP.TITLE_MIN } };
+    if (!LP.REBATE) out.me.pending = 0; // 返佣已取消：没有待发放
   }
   return json(out);
 }
