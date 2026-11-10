@@ -596,23 +596,26 @@
     host.innerHTML = '<section class="card oq"><form class="oq-f"><span class="oq-l">📋 查我的订单</span><input class="oq-in" placeholder="钱包地址 / 域名（连过钱包会自动填）" autocomplete="off" autocapitalize="none" spellcheck="false">' +
       '<span class="seg oq-seg">' + ["otc", "loan", "names", "other"].map(function (k) { return '<button type="button" data-c="' + k + '"' + (k === cat ? ' class="on"' : "") + ">" + CATS[k] + "</button>"; }).join("") + '</span><button type="submit" class="oq-go">查询</button></form></section>';
     var inp = host.querySelector(".oq-in"), seg = host.querySelector(".oq-seg"), c = cat || "otc";
-    seg.onclick = function (e) { var b = e.target.closest("button[data-c]"); if (!b) return; c = b.getAttribute("data-c"); seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (inp.value.trim()) host.querySelector(".oq-f").requestSubmit ? host.querySelector(".oq-f").requestSubmit() : go(); };
+    seg.onclick = function (e) { var b = e.target.closest("button[data-c]"); if (!b) return; c = b.getAttribute("data-c"); seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (inp.value.trim()) go(true); };
     // 没填地址：先自动去连钱包（钱包浏览器里一点就连上），连上直接查；连不上才提示（站长 2026-11-09 晚：客户以为没自动连钱包）
     var connecting = false;
-    function go() {
+    function go(trusted) {
       var v = inp.value.trim();
       if (!v) {
+        // 排查用（站长 2026-11-09 晚：进域名页就弹这条，面板复现不了）：把触发现场悄悄记到错误日志，看是谁在没人点的时候提交了这个表单
+        try { navigator.sendBeacon("/api/err", JSON.stringify({ p: location.hash.slice(0, 60), m: "oq-empty trusted=" + trusted + " " + String((new Error()).stack || "").replace(/\s+/g, " ").slice(0, 220), ua: navigator.userAgent.slice(0, 100) })); } catch (e) {}
+        if (!trusted) return; // 不是客户亲手点的（脚本 / 浏览器自动触发）：不弹、不连钱包
         var kit = A.otcKit;
         if (kit && kit.connect && !connecting) {
           connecting = true;
-          kit.connect().then(function () { connecting = false; var a = kit.account && kit.account(); if (a) { inp.value = String(a).toLowerCase(); go(); } else { inp.focus(); A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); } }, function () { connecting = false; inp.focus(); A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); });
+          kit.connect().then(function () { connecting = false; var a = kit.account && kit.account(); if (a) { inp.value = String(a).toLowerCase(); go(true); } else { inp.focus(); A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); } }, function () { connecting = false; inp.focus(); A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp); });
           return;
         }
         inp.focus(); return A.errTip("先连钱包，或粘贴一个钱包地址 / 域名", inp);
       }
       location.hash = "#/scan/" + encodeURIComponent(v) + "/" + c;
     }
-    host.querySelector(".oq-f").onsubmit = function (e) { e.preventDefault(); go(); };
+    host.querySelector(".oq-f").onsubmit = function (e) { e.preventDefault(); go(!!(e && e.isTrusted)); };
     var fill = function (acc) { if (acc && !inp.value) inp.value = String(acc).toLowerCase(); };
     if (A.wallets && A.wallets.silent) A.wallets.silent().then(fill).catch(function () {});
     if (A.otcKit && A.otcKit.account && A.otcKit.account()) fill(A.otcKit.account());
