@@ -3269,6 +3269,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 @media (max-width: 600px) {
   .top-in .hx-logo { display: none; }
   .top-in .brand-t { display: flex !important; flex-direction: column; padding-left: 0; gap: 1px; }
-  .top-in .brand-t b { font-size: 15px; line-height: 1.1; }
-  .top-in .brand-t small { font-size: 9.5px; letter-spacing: .3px; }
+  .top-in .brand-t b { font-size: 14px; line-height: 1.1; }
+  .top-in .brand-t small { font-size: 9px; letter-spacing: 0; }
+  .top-in .top-r { gap: 6px; }
 }
