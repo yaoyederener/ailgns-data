@@ -25,7 +25,8 @@
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "nft", "plgns", "glgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余折进「更多币种」
+  var MKEYS = ["ailgns", "lgns", "nft"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻
+  var RETIRED = { plgns: "LGNS · Polygon 链", glgns: "gLGNS · Anubis 链" }; // 站长 2026-11-10：用的人少，前端不再显示；页面只留给有老挂单的客户撤单（#/otc/plgns、#/otc/glgns 直接打开）
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -651,11 +652,16 @@
         el.hidden = false; el.innerHTML = '<span>💚 本站客户累计比 DEX <b>多赚 ' + A.fmt(j.all.dai, 0) + ' DAI</b>（' + j.all.n + ' 笔）</span>' + (j.me && j.me.dai > 0 ? '<span class="saved-me">你多赚 <b>' + A.fmt(j.me.dai, 2) + ' DAI</b></span>' : '<span class="muted">卖币先来这里，每一单都比 DEX 划算</span>');
       }).catch(function () {});
       setTimeout(function () { if (A.credFill) A.credFill(app); }, 0); // 🏅 挂单人后面加信誉芯片
+      if (RETIRED[MK]) { // 已下架市场：不给扫单、不给发新单，只留挂单簿 + 我的挂单（撤单）
+        html += '<section class="card otc-retired"><h2>⚠️ ' + RETIRED[MK] + ' 市场已下架</h2><p>用的人不多，这个市场不再接受新挂单和扫单。<b>还有挂单的客户请连接钱包，在下面「我的挂单」点「撤单」</b>，币马上退回钱包；到期的单也会自动退回。想继续交易请去 <a href="#/otc">AiLGNS</a> 或 <a href="#/otc/lgns">LGNS（Anubis 链）</a> 市场。</p></section>';
+        html += account ? myOrders(mine, now, mkt) : '<section class="card"><p class="muted">连接钱包后这里显示你在这个市场的挂单和「撤单」按钮。</p></section>';
+      } else {
       html += sweepHtml();
       html += '<div id="otc-tot">' + totalsHtml(totals) + "</div>"; // 全站累计放在挂单下面，上面留给买卖
       html += '<p class="note" style="margin:-6px 0 14px">成交后想核对记录？<a href="#/scan' + (account ? "/" + account : "") + '">成交查询 →</a> 输入任意地址就能看它在本站的全部成交。</p>';
       html += createForm();
       if (account) html += myOrders(mine, now, mkt);
+      }
       html += '<div class="kpis kpis-2">' +
         '<div class="kpi"><div class="k">托管合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + OTC + '">' + A.short(OTC) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="' + SOURCE + '">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="' + VERIFY + '">编译参数与核对 ↗</a></div></div>' +
         '<div class="kpi" id="otc-wallet"></div></div>';
@@ -666,7 +672,7 @@
       moveGuides();
       A.fillNames(A.app); // 挂单人有 .ailgns / .lgns 主名字的，显示名字
       bind(id, orders, mkt);
-      bindSweep(sells, buys, mkt, function () { if (A.isCurrent(id)) { freshNext = true; renderOtc(id); } });
+      if (document.getElementById("otc-sweep")) bindSweep(sells, buys, mkt, function () { if (A.isCurrent(id)) { freshNext = true; renderOtc(id); } });
       walletCard();
       var tc = document.getElementById("otc-top-c");
       if (tc) tc.onclick = function () { var c = document.getElementById("otc-connect"); if (c) c.click(); };
@@ -784,6 +790,7 @@
     function bind(id, orders, mkt) {
       var st = document.getElementById("otc-st");
       function say(t, bad) {
+        if (!st) { if (bad) errTip(t, document.querySelector(".otc-retired") || A.app); return; } // 已下架市场没有表单
         st.className = "note" + (bad ? " down" : "");
         st.textContent = t;
         if (bad) return errTip(t, st);
@@ -802,7 +809,8 @@
         if (f) f.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 0);
 
-      // 发布挂单
+      // 发布挂单（已下架市场没有表单，整段跳过）
+      if (document.getElementById("otc-qty")) {
       var side = "sell";
       document.querySelectorAll("#otc-side button").forEach(function (b) {
         b.onclick = function () {
@@ -1036,6 +1044,7 @@
 
       // 撤单 / 取回
       // 进度就写在撤单按钮下面（以前写在页面最上面的挂单表单那里，页面会跳走，客户以为没反应）；撤单过程中不自动刷新页面，不然按钮和提示会被刷掉
+      } // 表单段结束
       A.app.querySelectorAll("[data-cancel]").forEach(function (b) {
         b.onclick = function () {
           var note = b.parentElement.querySelector(".cx-st");
