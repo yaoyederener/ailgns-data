@@ -24,7 +24,7 @@
     // 站长 2026-11-10：试运行对所有人开放——做市工具可用、按新规则记账；首次发放时间另行公告
     A.app.innerHTML =
       '<section class="card lp-hero"><div class="lp-ht"><h2>💧 做市商 <span class="lp-tag">✅ 认证称号</span></h2>' +
-        '<p>把资金拆成多张限价单铺在本站 AiLGNS/DAI 盘口，就是做市。<b>日均挂单资金 ≥ 1 万 DAI，自动获得「✅ 官方认证做市商」称号</b>，全站你的名字后面都会挂这个绿标，客户一眼认得你。' +
+        '<p>把资金拆成多张限价单铺在本站 AiLGNS/DAI 盘口，就是做市。<b>日均挂单资金 ≥ 1 万 DAI，自动获得「👑 官方认证做市商」称号</b>，全站你的名字后面都会挂这个绿标，客户一眼认得你。' +
         '做市不发返佣，赚的是<b>买卖价差</b>；吃单的人照常付 1% 手续费。</p>' +
         '<div class="lp-side" id="lp-side">正在看盘口哪边缺…</div></div>' +
         '<div class="lp-kpi"><div><small>称号门槛</small><b>日均 1 万 DAI</b><span>买单 + 卖单按 DAI 折算，每 5 分钟采样</span></div><div><small>称号有效</small><b>当天 + 次日</b><span>掉下去隔天自动摘，重新挂满再给</span></div><div><small>资金</small><b>全程自管</b><span>你的币只在 OTC 合约里，随时撤单</span></div></div></section>' +
@@ -46,7 +46,7 @@
       '<section class="card"><div class="card-head"><h2>🏆 做市榜</h2><span class="seg lp-seg"><button type="button" class="on" data-r="today">今天</button><button type="button" data-r="week">7 天</button></span></div><div id="lp-board"><p class="muted">读取中…</p></div></section>' +
       '<section class="card lp-rules"><h2>📜 规则（一页纸）</h2><ol>' +
         '<li>范围：本站 <b>AiLGNS / DAI</b> OTC 市场的挂单（限价单）。</li>' +
-        '<li>称号：按你当天挂在盘口的资金量（买单 + 卖单，按 DAI 折算，每 5 分钟采样取日均）算，<b>日均 ≥ 1 万 DAI 自动获得「✅ 官方认证做市商」</b>，全站名字后显示；当天或昨天达标就有，掉下去隔天自动摘。</li>' +
+        '<li>称号：按你当天挂在盘口的资金量（买单 + 卖单，按 DAI 折算，每 5 分钟采样取日均）算，<b>日均 ≥ 1 万 DAI 自动获得「👑 官方认证做市商」</b>，全站名字后显示；当天或昨天达标就有，掉下去隔天自动摘。</li>' +
         '<li>不发返佣：做市赚的是买卖价差，平台不另外给钱；吃单方照常付 1% 手续费。</li>' +
         '<li>缺哪边挂哪边：页面顶部实时显示盘口现在缺买单还是缺卖单，「批量挂单」默认就铺缺的那边，大家一起把买卖铺平。</li>' +
         '<li>不改合约、不碰你的币、不保本：挂单、撤单、成交全在原 OTC 合约里，和平时一样。</li>' +
@@ -112,7 +112,7 @@
   function me(m) {
     var el = document.getElementById("lp-me"); if (!el) return;
     var t = m.today || {}, lq = m.liq || { avg: 0 }, ti = m.title || { on: false, avg: lq.avg || 0, need: 10000 };
-    el.innerHTML = '<div class="lp-kpi lp-me"><div><small>称号</small><b>' + (ti.on ? "✅ 官方认证做市商" : "还没有") + '</b><span>' + (ti.on ? (ti.official ? "官方名单" : "日均挂单达标") : "再挂 " + f(Math.max(0, ti.need - (ti.avg || 0)), 0) + " DAI 到 1 万") + '</span></div>' +
+    el.innerHTML = '<div class="lp-kpi lp-me"><div><small>称号</small><b>' + (ti.on ? "👑 官方认证做市商" : "还没有") + '</b><span>' + (ti.on ? (ti.official ? "官方名单" : "日均挂单达标") : "再挂 " + f(Math.max(0, ti.need - (ti.avg || 0)), 0) + " DAI 到 1 万") + '</span></div>' +
       '<div><small>今天日均挂单</small><b>' + f(ti.avg || lq.avg || 0, 0) + ' DAI</b><span>门槛 ' + f(ti.need || 10000, 0) + ' DAI · 每 5 分钟采样</span></div>' +
       '<div><small>今天成交</small><b>' + f(t.dai || 0, 0) + ' DAI</b><span>' + (t.n || 0) + ' 笔 · 赚的是价差，不发返佣</span></div></div>' +
       '<p class="lp-need">' + needText() + '</p>' +
@@ -148,7 +148,7 @@
   function calc() {
     var liq = Number(document.getElementById("lc-liq").value) || 0, turn = (Number(document.getElementById("lc-turn").value) || 0) / 100, sp = (Number(document.getElementById("lc-sp").value) || 0) / 100, el = document.getElementById("lc-out"); if (!el) return;
     var vol = liq * turn, spread = vol / 2 * sp;
-    el.innerHTML = '<div class="lp-kpi"><div><small>称号</small><b>' + (liq >= 10000 ? "✅ 官方认证做市商" : "未到 1 万") + '</b><span>' + (liq >= 10000 ? "日均挂单达标" : "挂到 1 万 DAI 才有称号") + '</span></div><div><small>日成交</small><b>' + f(vol, 0) + ' DAI</b><span>资金 × 换手</span></div><div><small>每天价差收益（估）</small><b>' + f(spread, 2) + ' DAI</b><span>日成交 ÷ 2 × 价差 · 单边行情可能为负</span></div></div>';
+    el.innerHTML = '<div class="lp-kpi"><div><small>称号</small><b>' + (liq >= 10000 ? "👑 官方认证做市商" : "未到 1 万") + '</b><span>' + (liq >= 10000 ? "日均挂单达标" : "挂到 1 万 DAI 才有称号") + '</span></div><div><small>日成交</small><b>' + f(vol, 0) + ' DAI</b><span>资金 × 换手</span></div><div><small>每天价差收益（估）</small><b>' + f(spread, 2) + ' DAI</b><span>日成交 ÷ 2 × 价差 · 单边行情可能为负</span></div></div>';
   }
   function ensureAllowance(token, amount, say, name) {
     return K().allowance(token, account, OTC).then(function (al) { if (al >= amount) return; return K().send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次）"); });
@@ -192,7 +192,7 @@
         say("钱包不支持批量，一张一张确认（共 " + calls.length + " 张）");
         return calls.reduce(function (pr, c, i) { return pr.then(function () { return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
       })
-      .then(function () { go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「✅ 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
+      .then(function () { go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「👑 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
       .catch(function (e) { go.disabled = false; say(""); A.errTip(K().niceError(e), go); });
   }
   A.pages.lp = page;

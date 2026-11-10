@@ -136,7 +136,7 @@ def gen_rules():
     lp = read("lib/lp.js")
     fee, lt, mp = grab(lp, r"FEE: ([\d.]+)", "LP.FEE"), re.findall(r"\[(\d+), ([\d.]+)\]", lp[lp.find("TIERS:"):lp.find("TIERS:") + 120]), grab(lp, r"MIN_PAY: ([\d.]+)", "LP.MIN_PAY")
     reb = grab(lp, r"REBATE: (true|false)", "LP.REBATE"); tmin = grab(lp, r"TITLE_MIN: (\d+)", "LP.TITLE_MIN")
-    if reb == "false" and tmin: out.append("- 做市商（☰ 更多 → 交易 → 做市商）：不发返佣（2026-11-10 起取消，老板定）。日均挂单资金 ≥ %s DAI（买单+卖单按 DAI 折算，每 5 分钟采样）自动获得「✅ 官方认证做市商」称号，全站名字后显示；掉下去隔天自动摘。做市赚的是价差；吃单方照常付 %s 手续费。页面有「批量挂单」工具帮做市商把资金拆成多张限价单铺盘口。" % (num(tmin), pct(fee) if fee else "1%"))
+    if reb == "false" and tmin: out.append("- 做市商（☰ 更多 → 交易 → 做市商）：不发返佣（2026-11-10 起取消，老板定）。日均挂单资金 ≥ %s DAI（买单+卖单按 DAI 折算，每 5 分钟采样）自动获得「👑 官方认证做市商」称号，全站名字后显示；掉下去隔天自动摘。做市赚的是价差；吃单方照常付 %s 手续费。页面有「批量挂单」工具帮做市商把资金拆成多张限价单铺盘口。" % (num(tmin), pct(fee) if fee else "1%"))
     elif fee and lt: out.append("- 做市返佣（试运行）：OTC 吃单手续费是成交额的 %s；挂单做市的人按日均挂单资金分档拿回吃单手续费：%s；不足 %s DAI 的攒到下次发。" % (pct(fee), "、".join("满 %s DAI 返 %s" % (num(a), pct(b)) for a, b in sorted(lt, key=lambda x: int(x[0]))), mp or "1"))
     c = read("lib/cred.js")
     cm, slots = grab(c, r"CERT_MIN = (\d+)", "CERT_MIN"), re.findall(r"\[(\d), (\d+)\]", c[c.find("SLOTS = "):c.find("SLOTS = ") + 80])
