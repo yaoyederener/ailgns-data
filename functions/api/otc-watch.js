@@ -347,7 +347,7 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
 
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
 // 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 累计成交 + 这段新增 ② 域名累计注册 + 这段新增 ③ 创世域名免费预测 + 奖池 ④ 网址
-// tot：KV st:tot 全站累计（daily-stats 攒的）；fills：上次播报以来的新成交；names：/api/name-genesis；pool：/api/oracle 的奖池（DAI 计价，奖金发 AiLGNS）
+// tot：KV st:tot 全站累计（daily-stats 攒的）；fills：上次播报以来的新成交；names：/api/name-genesis；pool：/api/oracle funds 算出的奖池钱包实际余额 { ail, dai }
 const BC_HOURS = [8, 12, 16, 20]; // 北京时间这几个整点各发一条（夜里不发）
 function bcText(fills, tot, names, newNames, pool, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
@@ -357,7 +357,7 @@ function bcText(fills, tot, names, newNames, pool, until) {
   return [`📊 AiLGNS OTC 平台播报 · ${hm(until)}`, "",
     `1️⃣ OTC 累计成交 ${n0(dai)} DAI · ${n0(n)} 笔` + (fills.length ? `，近 4 小时新增 ${fills.length} 笔 · ${n0(newDai)} DAI` : "，近 4 小时无新成交"),
     `2️⃣ 域名市场累计注册 ${n0(names)} 个` + (newNames > 0 ? `，近 4 小时新增 ${newNames} 个` : ""),
-    `3️⃣ 持有创世域名免费参与预测，奖池已累计 ${n0(pool)} DAI（奖金发 AiLGNS）`, "",
+    `3️⃣ 持有创世域名免费参与预测，奖池已累计 ${pool.ail.toLocaleString("en-US", { maximumFractionDigits: 2 })} AiLGNS（约 ${n0(pool.dai)} DAI）`, "",
     "👉 网址：" + SITE].join("\n");
 }
 // 现在比 DEX 划算的挂单（各市场合起来，按划算的比例各取前 3）：bids 求购单（卖给它比 DEX 多拿），asks 出售单（买它比 DEX 便宜）
@@ -468,10 +468,13 @@ export async function onRequestGet(ctx) {
   const until = Math.floor(now / 3600e3) * 3600e3;
   const first = HOURLY_ON && !(await kv.get("otcw:hr1")); // 2026-11-08 重新上线：第一次先发一条汇总，之后每小时一条
   const bcSnap = (await kv.get("bc:last", "json")) || null; // 上次播报时的域名总数
-  let bcNames = 0, bcPool = 0;
+  let bcNames = 0, bcPool = { ail: 0, dai: 0 };
   const build = async (dry2) => {
     try { const j = await fetch(url.origin + "/api/name-genesis").then((r) => r.json()); bcNames = j.n || 0; } catch (e) {}
-    try { const j = await fetch(url.origin + "/api/oracle").then((r) => r.json()); bcPool = j.pool || 0; } catch (e) {}
+    try { // 和预测页大字一致：奖池钱包实际余额（AiLGNS + DAI 按 OTC 预言机价折成 AiLGNS），不是记账数
+      const j = await fetch(url.origin + "/api/oracle").then((r) => r.json()), f = j.funds || {}, px = (f.otc && f.otc.px) || f.px || 1;
+      const ail = (f.ail || 0) + (f.dai || 0) / px; bcPool = { ail: Math.floor(ail * 100) / 100, dai: Math.floor(ail * px * 100) / 100 };
+    } catch (e) {}
     const newNames = bcSnap && bcNames ? Math.max(0, bcNames - (bcSnap.names || 0)) : 0;
     return bcText(hr.fills, (await kv.get("st:tot", "json")) || {}, bcNames, newNames, bcPool, until);
   };
