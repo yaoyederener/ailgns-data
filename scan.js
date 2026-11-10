@@ -201,7 +201,10 @@
     var outs = ms.filter(function (m) { return m.dir === "out" && !m.nft; }), ins = ms.filter(function (m) { return m.dir === "in" && !m.nft; });
     var nat = t && Number(t.value) > 0 && ((t.from && t.from.hash) || "").toLowerCase() === a ? Number(t.value) / 1e18 : 0; // 原生 DAI 直接转账
     if (nat > 0 && !outs.length) outs.push({ dir: "out", sym: "DAI", v: nat, other: to });
-    if (!outs.length) return r;
+    if (!outs.length) { // 收入照原样；运营钱包之间互转的进账也说成内部调拨
+      if (ins.length && ins.every(function (m) { return TEAM[m.other]; })) return { ico: "🔧", text: "<b>团队内部调拨</b> 收到 " + ins.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（运营钱包之间划转）" };
+      return r;
+    }
     var daiOut = outs.filter(function (m) { return m.sym === "DAI"; }).reduce(function (x, m) { return x + m.v; }, 0), coinOut = outs.filter(function (m) { return m.sym !== "DAI"; })[0], coinIn = ins.filter(function (m) { return m.sym !== "DAI"; })[0];
     var list = outs.map(function (m) { return fmtN(m.v, m.sym); }).join("、");
     if (coinIn && daiOut > 0) return { ico: "🛡️", text: "<b>买入 " + esc(coinIn.sym) + " 托底</b>，花 " + fmtN(daiOut, "DAI") + " 买到 " + fmtN(coinIn.v, coinIn.sym) };
