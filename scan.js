@@ -191,7 +191,29 @@
   }
   function encodeMsg(txt) { return "0x" + Array.prototype.map.call(new TextEncoder().encode(MSG_PREFIX + txt), function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
   // 把一笔交易翻译成一句人话：返回 { ico, text }
+  function isMe(a) { var k = A.otcKit && A.otcKit.account && A.otcKit.account(); return !!k && String(k).toLowerCase() === String(a).toLowerCase(); }
+  // 🔧 运营地址对外的账本（站长 2026-11-10）：收入照原样，支出用婉转说法（买入托底 / 挂买单托底 / 注入奖池 / 运营维护支出）；站长自己连着钱包看照原样
   function translate(a, row) {
+    var r = translate0(a, row);
+    if (!r || !TEAM[a] || isMe(a)) return r;
+    var t = row.tx, ok = !t || t.result === "success"; if (!ok) return r;
+    var ms = moves(a, row.tr), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "";
+    var outs = ms.filter(function (m) { return m.dir === "out" && !m.nft; }), ins = ms.filter(function (m) { return m.dir === "in" && !m.nft; });
+    var nat = t && Number(t.value) > 0 && ((t.from && t.from.hash) || "").toLowerCase() === a ? Number(t.value) / 1e18 : 0; // 原生 DAI 直接转账
+    if (nat > 0 && !outs.length) outs.push({ dir: "out", sym: "DAI", v: nat, other: to });
+    if (!outs.length) return r;
+    var daiOut = outs.filter(function (m) { return m.sym === "DAI"; }).reduce(function (x, m) { return x + m.v; }, 0), coinOut = outs.filter(function (m) { return m.sym !== "DAI"; })[0], coinIn = ins.filter(function (m) { return m.sym !== "DAI"; })[0];
+    var list = outs.map(function (m) { return fmtN(m.v, m.sym); }).join("、");
+    if (coinIn && daiOut > 0) return { ico: "🛡️", text: "<b>买入 " + esc(coinIn.sym) + " 托底</b>，花 " + fmtN(daiOut, "DAI") + " 买到 " + fmtN(coinIn.v, coinIn.sym) };
+    if (C.otc[to] || C.sweep[to] || outs.some(function (m) { return C.otc[m.other] || C.sweep[m.other]; })) {
+      if (daiOut > 0) return { ico: "🛡️", text: "<b>挂买单托底</b>，存入 " + fmtN(daiOut, "DAI") + " 到 OTC 托管合约等人卖" };
+      if (coinOut) return { ico: "⚖️", text: "<b>挂单调节盘口</b>，存入 " + fmtN(coinOut.v, coinOut.sym) + " 到 OTC 托管合约" };
+    }
+    if (outs.some(function (m) { return m.other === C.pool; })) return { ico: "🏆", text: "<b>注入预测奖池</b> " + list };
+    if (outs.some(function (m) { return TEAM[m.other]; })) return { ico: "🔧", text: "<b>团队内部调拨</b> " + list + "（运营钱包之间划转）" };
+    return { ico: "🔧", text: "<b>运营维护支出</b> " + list + "（服务器、节点、客服等日常维护）" };
+  }
+  function translate0(a, row) {
     var t = row.tx, ms = moves(a, row.tr), sel = t && (t.raw_input || "").slice(0, 10), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "", ok = !t || t.result === "success";
     var nftIn = ms.filter(function (m) { return m.nft && m.dir === "in"; })[0], nftOut = ms.filter(function (m) { return m.nft && m.dir === "out"; })[0];
     var daiIn = sumOf(ms, "in", "DAI"), daiOut = sumOf(ms, "out", "DAI");
@@ -624,8 +646,9 @@
   };
   function addrView(a, out, via, cat) {
     var wait = '<p class="muted">读取中…</p>';
-    if (TEAM[a]) { out.innerHTML = '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营费用支出</b>用的地址（服务器、节点、客服、开发等日常维护）。属于团队内部账务，账本不展示明细。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>'; return Promise.resolve(); }
-    var S = { head: (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
+    // 站长 2026-11-10：运营地址不再整页隐藏（站长自己也看不到挂单没法撤）；对外顶部一张说明卡，明细照常显示但支出说法婉转（见 translate）
+    var teamNote = TEAM[a] && !isMe(a) ? '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营维护和市场托底</b>用的地址：服务器、节点、客服、开发等日常开支，以及在 OTC 挂买单托底、注入预测奖池的资金都从这里出。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>' : "";
+    var S = { head: teamNote + (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
       (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a.slice(0, 6) + "…" + a.slice(-4) + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制完整地址</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
       msg: '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
