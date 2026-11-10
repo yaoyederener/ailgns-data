@@ -51,6 +51,7 @@
   }
   function walletsPaint() {
     var url = "https://" + (best || list[0].h) + "/#/otc";
+    var go = $("full"); if (go) go.href = "https://" + (best || list[0].h) + "/#/otc?full=1"; // 大按钮也跟着能打开的网址走
     $("wl").innerHTML = WALLETS.map(function (w) { return '<a href="' + w[2](url) + '"><img src="/icons/wallets/' + w[1] + '.png?v=1" alt=""><span>' + w[0] + "</span></a>"; }).join("");
   }
   // 问客服：带着问题跳到网站客服窗口（钱包浏览器里能连钱包；这里只是壳，所以跳主站）

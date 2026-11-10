@@ -21,7 +21,14 @@
   .top b { font-size: 14px; color: var(--muted); font-weight: 600; }
   .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
   .st i { width: 8px; height: 8px; border-radius: 50%; background: #d6ccf2; display: inline-block; } .st.ok i { background: #0ecb81; } .st.bad i { background: #f6465d; }
-  main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 22px; padding: 10px 0 20px; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 10px 0 20px; max-width: 520px; width: 100%; margin: 0 auto; }
+  .why { padding: 16px 14px; border-radius: 18px; background: linear-gradient(135deg, #fff7d6, #ffe9a8); border: 2px solid #f0c85a; color: #4a3600; }
+  .why h1 { font-size: 20px; margin: 0 0 8px; font-family: inherit; font-weight: 800; color: #3a2a00; }
+  .why ol { margin: 0 0 12px; padding-left: 20px; font-size: 14.5px; line-height: 1.75; text-align: left; }
+  .go { display: block; text-align: center; background: var(--purple); color: #fff; font-weight: 800; font-size: 17px; padding: 14px; border-radius: 14px; text-decoration: none; box-shadow: 0 8px 20px rgba(90,53,214,.25); }
+  .blk { padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: #fff; }
+  .blk h2 { margin: 0 0 8px; font-size: 15px; color: var(--ink); text-align: left; }
+  .ask-blk { background: #faf8ff; }
   h1 { margin: 0; font-size: 30px; font-weight: 500; letter-spacing: .5px; font-family: "Songti SC", "Noto Serif SC", Georgia, serif; }
   h1 em { font-style: normal; color: var(--purple); }
   .ask { width: 100%; max-width: 520px; border: 1px solid var(--line); border-radius: 22px; padding: 14px 14px 10px; box-shadow: 0 10px 30px rgba(90,53,214,.06); text-align: left; background: #fff; }
@@ -46,31 +53,52 @@
   details { max-width: 520px; margin: 0 auto; width: 100%; } summary { cursor: pointer; font-size: 13px; color: var(--muted); text-align: center; list-style: none; padding: 6px; } summary::-webkit-details-marker { display: none; }
   .qr { display: block; width: 180px; margin: 10px auto 4px; border-radius: 14px; border: 1px solid var(--line); }
   .toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: #1f1a33; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
-.grp{margin:14px 0;padding:16px 14px;border-radius:16px;background:#fff;border:2px solid #d9c9ff;text-align:center}.grp h2{margin:0 0 10px;font-size:17px;color:#5a35d6}.grp .qr{display:block;margin:0 auto;width:200px;height:auto;border-radius:12px}
+.grp{margin:0;padding:16px 14px;border-radius:16px;background:#fff;border:2px solid #d9c9ff;text-align:center}.grp h2{margin:0 0 10px;font-size:17px;color:#5a35d6}.grp .qr{display:block;margin:0 auto;width:200px;height:auto;border-radius:12px}
 </style>
 </head>
 <body>
 <div class="top"><div style="display:flex;align-items:center;gap:8px"><img src="/favicon.png?v=hx2" alt=""><b>AiLGNS</b></div><span class="st wait" id="st"><i></i><span>检测网址…</span></span></div>
 
 <main>
-  <h1>您好，<em id="hi">欢迎回来</em></h1>
-  <form class="ask" id="ask">
-    <input id="q" placeholder="有问题？直接问客服，例如：怎么挂单" autocomplete="off" enterkeyhint="send">
-    <div class="row"><span class="hint">AI 客服秒回，答不了转人工工单</span><button type="submit">问客服</button></div>
-  </form>
-  <div class="wl" id="wl"></div>
-  <p class="foot">交易、挂单、查单都在钱包里做 · 点上面图标直接进</p>
-  <p class="ins">🛡 <b>失联保险</b>：网站被封、被墙的时候，<b>只有这个 App 和交流群能找到我们</b>。别删它，它永远知道新网址。</p>
-</main>
+  <!-- 站长 2026-11-09：很多人不会用，先把「这个 App 是干什么的」和网址、群放最上面，客服放最下面 -->
+  <section class="why">
+    <h1>📱 这个 App 是干什么的</h1>
+    <ol>
+      <li><b>网站被封、被墙时，这里永远知道新网址</b>。别删它。</li>
+      <li><b>一键打开网站</b>做交易、挂单、查单。</li>
+      <li><b>加交流群</b>，网站全被封时群里第一时间发新网址。</li>
+    </ol>
+    <a class="go" id="full" href="/#/otc?full=1">🌐 打开网站（在这里浏览）</a>
+    <p class="foot" style="margin:6px 0 0">要连钱包交易的，点下面钱包图标，直接在钱包里打开</p>
+  </section>
 
-<div class="doms" id="doms"></div>
-<section class="grp">
-  <h2>💬 加 OTC 交流群</h2>
-  <img class="qr" src="/icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码">
-  <p class="foot"><b>长按二维码保存</b> → 打开 DeBox → 扫一扫 → 相册选图<br>网站全被封时，群里第一时间发新网址</p>
-</section>
-<p class="foot" style="text-align:center"><a id="full" href="/#/otc?full=1">在这里浏览网站</a></p>
+  <section class="blk">
+    <h2>🔗 所有网址（绿点 = 现在能打开）</h2>
+    <div class="doms" id="doms"></div>
+  </section>
+
+  <section class="blk">
+    <h2>👛 用钱包打开（能连钱包交易）</h2>
+    <div class="wl" id="wl"></div>
+    <p class="foot">交易、挂单、查单都在钱包里做 · 点图标直接进</p>
+  </section>
+
+  <section class="grp">
+    <h2>💬 加 OTC 交流群</h2>
+    <img class="qr" src="/icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码">
+    <p class="foot"><b>长按二维码保存</b> → 打开 DeBox → 扫一扫 → 相册选图<br>网站全被封时，群里第一时间发新网址</p>
+  </section>
+
+  <section class="blk ask-blk">
+    <h2>🤖 有问题问客服</h2>
+    <form class="ask" id="ask">
+      <input id="q" placeholder="例如：怎么挂单" autocomplete="off" enterkeyhint="send">
+      <div class="row"><span class="hint">AI 客服秒回，答不了转人工工单</span><button type="submit">问客服</button></div>
+    </form>
+  </section>
+  <span id="hi" hidden></span>
+</main>
 <div class="toast" id="toast"></div>
-<script src="/app-shell.js?v=3"></script>
+<script src="/app-shell.js?v=4"></script>
 </body>
 </html>
