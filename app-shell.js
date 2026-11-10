@@ -46,7 +46,8 @@
     // 发布页风格：每个网址就是一个大按钮，整行可点直接进；最佳网址标「推荐」；复制按钮保留给要转发的人
     $("doms").innerHTML = list.map(function (d) {
       var s = status[d.h] || "wait", isBest = best && d.h === best;
-      return '<a class="dom ' + s + (isBest ? " best" : "") + '" href="https://' + esc(d.h) + '/#/otc?full=1"><i></i><span class="h">' + esc(d.h) + "</span>" + (isBest ? '<span class="tag">✅ 推荐</span>' : d.main ? '<span class="tag" style="color:#5a35d6;background:#efe9ff">主网址</span>' : "") + '<button type="button" data-cp="' + esc(d.h) + '">复制</button></a>';
+      // 站长 2026-11-09：网址只展示 + 复制，不跳转（客户复制到钱包浏览器里打开）
+      return '<div class="dom ' + s + (isBest ? " best" : "") + '"><i></i><span class="h">' + esc(d.h) + "</span>" + (isBest ? '<span class="tag">✅ 推荐</span>' : d.main ? '<span class="tag" style="color:#5a35d6;background:#efe9ff">主网址</span>' : "") + '<button type="button" data-cp="' + esc(d.h) + '">复制</button></div>';
     }).join("");
     $("doms").querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); var u = "https://" + b.getAttribute("data-cp") + "/"; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { toast("已复制 " + u); }, function () { prompt("复制这个网址", u); }); }; });
   }
