@@ -645,6 +645,7 @@
      '' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
         (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
+      if (RETIRED[MK]) html += '<section class="card otc-retired"><h2>⚠️ ' + RETIRED[MK] + ' 市场已下架</h2><p>用的人不多，这个市场不再接受新挂单和扫单。<b>还有挂单的客户请连接钱包，在下面「我的挂单」点「撤单」</b>，币马上退回钱包；到期的单也会自动退回。想继续交易请去 <a href="#/otc">AiLGNS</a> 或 <a href="#/otc/lgns">LGNS（Anubis 链）</a> 市场。</p></section>';
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += '<div id="otc-guide-slot"></div>'; // 站长 2026-11-08：客户进来先看币种和挂单簿，担保交易引导卡 + 查我的订单 放在挂单簿下面
       fetch("/api/saved" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
@@ -653,7 +654,6 @@
       }).catch(function () {});
       setTimeout(function () { if (A.credFill) A.credFill(app); }, 0); // 🏅 挂单人后面加信誉芯片
       if (RETIRED[MK]) { // 已下架市场：不给扫单、不给发新单，只留挂单簿 + 我的挂单（撤单）
-        html += '<section class="card otc-retired"><h2>⚠️ ' + RETIRED[MK] + ' 市场已下架</h2><p>用的人不多，这个市场不再接受新挂单和扫单。<b>还有挂单的客户请连接钱包，在下面「我的挂单」点「撤单」</b>，币马上退回钱包；到期的单也会自动退回。想继续交易请去 <a href="#/otc">AiLGNS</a> 或 <a href="#/otc/lgns">LGNS（Anubis 链）</a> 市场。</p></section>';
         html += account ? myOrders(mine, now, mkt) : '<section class="card"><p class="muted">连接钱包后这里显示你在这个市场的挂单和「撤单」按钮。</p></section>';
       } else {
       html += sweepHtml();
