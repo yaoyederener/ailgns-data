@@ -250,7 +250,7 @@
   var REASONS = {
     NOTHING_FILLED: "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。",
     TRANSFER_MISMATCH: "不能吃自己的挂单：付款钱包和挂单钱包是同一个。想取消请点「撤单」；测试成交需要换另一个钱包",
-    CLOSED: "这张挂单已经成交完或被撤销，请刷新",
+    CLOSED: "这张挂单刚被别人成交完或撤销了，列表已自动刷新，请再选一张",
     EXPIRED: "这张挂单已经过期",
     BAD_AMOUNT: "数量超过了剩余可成交数量，请刷新后重试",
     PRICE_CHANGED: "应付金额和页面不一致，请刷新后重试",
@@ -360,6 +360,7 @@
   var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
   var openBook = {}; // 用户点开了哪个列表（自动刷新后保持展开）
   var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
+  var bookRaw = null, bookTimer = 0; // 当前画在页面上的订单簿原文 + 自动刷新定时器
   // ---------- 全站累计成交（给客户信心）：/api/totals，读一次缓存 5 分钟 ----------
   var totals = null, totalsAt = 0;
   function loadTotals() {
@@ -527,13 +528,24 @@
     }).then(function (r) {
       if (!A.isCurrent(id)) return;
       if (pendingJump) { pendingJump = false; setTimeout(function () { var g = app.querySelector("[data-gomine]"); if (g) g.click(); }, 80); }
-      var b = r[0];
+      var b = r[0]; bookRaw = b.raw;
       if (shown !== null && b.raw === shown && account === acct0 && !b.olderN) return; // 没变化（合并了自己的老单就要重画，否则老单一直不显示）
       if (shown !== null && busy()) return;
       draw(id, b.orders, b.mkt);
     }, function () {
       if (A.isCurrent(id) && shown === null) app.innerHTML = placeTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
     });
+    // 🔄 挂单列表自动刷新（站长 2026-11-09：「已成交或被撤销，请刷新」总是滞后，要客户无感）：每 10 秒拿一次订单簿（边缘缓存，很便宜），
+    // 有变化、且客户没开弹窗 / 没在填表 / 没在扫单时，原地重画并保持滚动位置；页面切到后台不刷
+    clearInterval(bookTimer);
+    bookTimer = setInterval(function () {
+      if (!A.isCurrent(id)) return clearInterval(bookTimer);
+      if (document.hidden || busy()) return;
+      loadBook(false).then(function (b) {
+        if (!A.isCurrent(id) || busy() || !b || !b.raw || b.raw === bookRaw) return;
+        bookRaw = b.raw; var y = window.scrollY; draw(id, b.orders, b.mkt); window.scrollTo(0, y);
+      }).catch(function () {});
+    }, 10000);
     function busy() {
       var m = document.getElementById("otc-modal");
       if (m && !m.hidden) return true;
@@ -1283,6 +1295,14 @@
           if (g !== null && g < GAS_RESERVE / 10n) throw new Error("钱包里要有一点 DAI 付 Gas（0.01 DAI 就够），现在只有 " + show(g, 4) + " DAI");
           return ensureAllowance(token, v.pay, say, name, res[2]);
         }).then(function () {
+          // 发交易前重读这张单（列表可能滞后几秒）：没了 → 自动刷新列表换一张；只剩一部分 → 按剩余成交，不让合约拒绝
+          say("正在核对这张单还在不在…");
+          return read(OTC, SEL.getOrders + u256(o.id) + u256(1)).then(function (h) {
+            var cur = parseOrders(h, o.id)[0];
+            if (!cur || !cur.open || cur.giveLeft === 0n) throw new Error("ORDER_GONE");
+            if (cur.giveLeft < v.amount) { v.amount = cur.giveLeft; v.pay = ceilDiv(v.amount * o.wantTotal, o.giveTotal); say("这张单刚被别人吃掉一部分，按剩余 " + tShow(v.amount) + " " + SYM + " 成交"); }
+          }, function (e) { if (String(e && e.message) === "ORDER_GONE") throw e; /* 读不到就按原计划发，合约会兜底 */ });
+        }).then(function () {
           return send(OTC, SEL.fill + u256(o.id) + u256(v.amount) + u256(v.pay), say, "成交");
         }).then(function (tx) {
           say("成交成功！币已到你的钱包");
@@ -1291,7 +1311,15 @@
           savedRecord(typeof txh === "string" ? txh : "", pnlNow).then(function (rec) { var w = document.querySelector(".modal .win-slot"); if (w) w.innerHTML = winHtml(pnlNow, rec); });
           doneModal("✅ 成交成功！", '<div class="win-slot">' + winHtml(pnlNow, null) + '</div><p style="font-size:16px">币已到你的钱包（订单 #' + o.id + "）" + ((tx = tx && (tx.transactionHash || tx)) && typeof tx === "string" ? '，<a href="' + M.explorer + "/tx/" + tx + '" target="_blank" rel="noopener">查看链上交易</a>' : "") + "。</p>");
           setTimeout(reload, 1500);
-        }, function (e) { say(niceError(e), true); btn.disabled = false; });
+        }, function (e) {
+          var msg = String((e && e.message) || e);
+          if (/ORDER_GONE|CLOSED|EXPIRED|NOTHING_FILLED|已经成交完/.test(msg)) { // 单没了：关掉弹窗、刷新列表、给一句话，客户再点一张就行
+            m.hidden = true; freshNext = true; reload();
+            A.errTip("这张单刚被别人吃完或撤了，列表已自动刷新，请再选一张", document.querySelector(".otc-list, #app"));
+            return;
+          }
+          say(niceError(e), true); btn.disabled = false;
+        });
       };
     }
   }
