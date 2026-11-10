@@ -17,7 +17,8 @@
   // 历史数据走本站的 /api/flows（Cloudflare 边缘缓存），国内不用直连 GitHub；失败时再直连
   var FLOWS_URL = "/api/flows";
   var FLOWS_FALLBACK = "https://raw.githubusercontent.com/yaoyederener/monita/main/data/ailgns_flows.json";
-  var RPCS = ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"];
+  var HK_RPC = "https://ailgnsotc.cc/rpc"; // 香港中转节点（站长 2026-11-10）：大陆客户从 ailgnsotc.cc 打开时优先走它，别的网址当最后兜底
+  var RPCS = location.hostname === "ailgnsotc.cc" ? [HK_RPC, "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", HK_RPC];
   var EXPLORER = "#/scan"; // 全站只用本站账本，不跳官方浏览器（站长 2026-11-05 定）
   var C = {
     PAIR: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", // token0 = AILGNS, token1 = DAI

@@ -26,17 +26,21 @@
       }).catch(function () { pull(i + 1); });
     })(0);
   }
+  var ms = {}; // 每个网址实测耗时（毫秒）：站长 2026-11-10，香港中转上线后按最快的排，大陆客户自动走 ailgnsotc.cc
   function check() {
     list.forEach(function (d) {
       status[d.h] = "wait"; paint();
-      fetchT("https://" + d.h + "/api/domains", 6000).then(function (r) { status[d.h] = r.ok ? "ok" : "bad"; }, function () { status[d.h] = "bad"; }).then(function () { paint(); pick(); });
+      var t0 = Date.now();
+      fetchT("https://" + d.h + "/api/domains", 6000).then(function (r) { status[d.h] = r.ok ? "ok" : "bad"; ms[d.h] = Date.now() - t0; }, function () { status[d.h] = "bad"; ms[d.h] = 99999; }).then(function () { paint(); pick(); });
     });
   }
   function pick() {
     var oks = list.filter(function (d) { return status[d.h] === "ok"; }), st = $("st");
     if (!oks.length) { if (list.every(function (d) { return status[d.h] === "bad"; })) { st.className = "st bad"; st.lastElementChild.textContent = "网站都打不开，看下面群二维码"; } return; }
-    best = (oks.filter(function (d) { return d.main; })[0] || oks[0]).h;
-    st.className = "st ok"; st.lastElementChild.textContent = best + " 可用";
+    // 谁最快用谁（相差不到 150 毫秒时主站优先，免得来回跳）
+    var sorted = oks.slice().sort(function (a, b) { return (ms[a.h] || 99999) - (ms[b.h] || 99999); }), mainOk = oks.filter(function (d) { return d.main; })[0];
+    best = (mainOk && (ms[mainOk.h] || 99999) - (ms[sorted[0].h] || 99999) < 150 ? mainOk : sorted[0]).h;
+    st.className = "st ok"; st.lastElementChild.textContent = best + " 可用" + (ms[best] && ms[best] < 99999 ? "（" + ms[best] + " 毫秒，最快）" : "");
     $("full").href = "https://" + best + "/#/otc?full=1"; var es = $("enter-sub"); if (es) es.textContent = "现在能用：" + best; paint();
     walletsPaint();
     clearInterval(timer); var k = 0;

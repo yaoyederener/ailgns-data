@@ -1328,7 +1328,7 @@
   var DAI_QUEUED = "0x41fd86243836b698405554ae311d223dec7e355200f05fd658fb3adffe567668"; // 用 DAI 买算力：topics[1]=地址，data=[DAI, 算力]
   var LGNS_BURN = "0x16b309670cfc6e855d1def7ee55e395827e8a8694f4c701ffe0adbc7b75121cc"; // 销毁 LGNS 换算力：topics[1]=地址，data=[LGNS(9 位小数), 算力]
   var COMMUNITY = "0xc9f9a8a2dBf8188AD6610e0239105CAbE67c4993";
-  var ANUBIS_RPCS = ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"];
+  var ANUBIS_RPCS = location.hostname === "ailgnsotc.cc" ? ["https://ailgnsotc.cc/rpc", "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", "https://ailgnsotc.cc/rpc"]; // 香港中转节点（2026-11-10）
 
   function batchRpc(calls, k) {
     k = k || 0;
