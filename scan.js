@@ -749,9 +749,10 @@
     p.then(function () {
       els.forEach(function (e) {
         var a = e.getAttribute("data-a").toLowerCase(), c = credCache[a]; e.setAttribute("data-cred", "1");
-        if (!c || (c.lv < 1 && !c.king)) return;
+        if (!c || (c.lv < 1 && !c.king && !c.mm)) return;
         var last = e;
-        if (c.lv >= 1) { var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = (c.wk ? "上周本站 OTC 成交 " + c.wk.vol.toLocaleString("en-US") + " DAI · " + c.wk.n + " 笔 · 排第 " + c.wk.r : "上周没成交") + " · 牌子按上周名次评，每周一轮换"; last.insertAdjacentElement("afterend", chip); last = chip; }
+        if (c.mm) { var mc = document.createElement("i"); mc.className = "cred credmm"; mc.textContent = "✅ 官方认证做市商"; mc.title = "平台官方做市钱包：负责把盘口铺平，不拿做市返佣、不进商家周榜"; e.insertAdjacentElement("afterend", mc); last = mc; } // ✅ 官方做市商（站长 2026-11-09）
+        else if (c.lv >= 1) { var chip = document.createElement("i"); chip.className = "cred cred" + c.lv; chip.textContent = CREDN[c.lv]; chip.title = (c.wk ? "上周本站 OTC 成交 " + c.wk.vol.toLocaleString("en-US") + " DAI · " + c.wk.n + " 笔 · 排第 " + c.wk.r : "上周没成交") + " · 牌子按上周名次评，每周一轮换"; last.insertAdjacentElement("afterend", chip); last = chip; }
         if (c.king) { var kc = document.createElement("i"); kc.className = "cred credking"; kc.textContent = "🏆 本周贡献王"; kc.title = "上周 OTC 手续费贡献前 3，标志挂 7 天"; last.insertAdjacentElement("afterend", kc); }
       });
     });
