@@ -680,7 +680,8 @@
       var c = document.querySelector(t.slice(6)); if (!c) return;
       c.click();
       // 点完把那一块滚到眼前（扫单买/卖切换后客户要能马上看到进度条和按钮）
-      setTimeout(function () { var box = c.closest("section, .card") || c; window.scrollTo({ top: box.getBoundingClientRect().top + window.scrollY - 70, behavior: "smooth" }); }, 60);
+      // 目标按钮是隐藏的（比如 .otc-acts 里的「挂单」，它自己的 onclick 会把表单滚出来）就别再滚，否则会滚回页顶盖掉它（站长 2026-11-09：「我要挂单」点了不动）
+      if (c.offsetParent) setTimeout(function () { var box = c.closest("section, .card") || c; window.scrollTo({ top: box.getBoundingClientRect().top + window.scrollY - 70, behavior: "smooth" }); }, 60);
       return;
     }
     (function go() {
