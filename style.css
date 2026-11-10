@@ -3301,3 +3301,8 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .qty-pick input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #7027d9; cursor: pointer; }
 .qty-pick .qp-hint { margin: 6px 0 0; font-size: 13px; }
 .qty-pick .qp-hint b { color: var(--purple-ink); }
+
+/* 做市商榜单折叠：默认前 5 名，点「展开全部」才显示其余 */
+.lg-row.lg-x { display: none; }
+.lg-open .lg-row.lg-x { display: flex; }
+.lg-more { display: block; width: 100%; margin-top: 10px; padding: 10px 0; font-weight: 700; border-radius: 10px; }
