@@ -756,7 +756,7 @@
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要挂单卖 ' + SYM + '</button><button data-side="buy">我要挂单买 ' + SYM + "</button></div>" +
         '<div class="form-grid"><label id="otc-qty-l"><span id="otc-qty-t">数量（' + SYM + '）</span><input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
-        '<label id="otc-tot-l"><span id="otc-tot-t">总额（DAI）</span><input id="otc-tot" inputmode="decimal" placeholder="例如 ' + A.fmt(M.eg[0] * M.eg[1], 0) + '"></label>' +
+        '<label id="otc-tot-l"><span id="otc-tot-t">总额（DAI）</span><input id="otc-total" inputmode="decimal" placeholder="例如 ' + A.fmt(M.eg[0] * M.eg[1], 0) + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
         '<div class="dur" id="otc-durbox"><input type="hidden" id="otc-dur" value="' + DUR_DEFAULT + '"></div>' +
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="otc-match"></div><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
@@ -817,7 +817,7 @@
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
       if (mkt) price.placeholder = "市价约 " + mkt.toFixed(PD);
       // 站长 2026-11-10 折中：数量（币）和总额（DAI）两格都能填，填一格另一格自动算；进度条买单按 DAI 拖、卖单按币拖
-      var tot = document.getElementById("otc-tot"), lastEd = "qty";
+      var tot = document.getElementById("otc-total"), lastEd = "qty"; // 注意：#otc-tot 已被顶部统计块占用
       function relabel() {
         var t = document.getElementById("otc-qty-t"), tt = document.getElementById("otc-tot-t");
         if (!t || !tt) return;
