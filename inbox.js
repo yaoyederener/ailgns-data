@@ -32,7 +32,7 @@
       var hasPush = false; try { hasPush = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
       if (!hasPush && lastMax && top > lastMax && "Notification" in window && Notification.permission === "granted") {
         j.list.filter(function (x) { return x.t > lastMax; }).slice(0, 3).forEach(function (x) {
-          try { var n = new Notification("AiLGNS " + (ICO[x.k] || "📣") + " 新消息", { body: x.txt.split("\n")[0].slice(0, 90), tag: x.id }); n.onclick = function () { location.hash = x.link || "#/inbox"; window.focus(); }; } catch (e) {}
+          try { var n = new Notification("AiLGNS 新消息", { body: x.txt.split("\n")[0].slice(0, 90), tag: x.id }); n.onclick = function () { location.hash = x.link || "#/inbox"; window.focus(); }; } catch (e) {}
         });
       }
       lastMax = Math.max(lastMax, top);
@@ -108,7 +108,7 @@
     if (box.querySelector(".ib-rbox")) return; // 正在写回复：不刷新列表，免得字被清掉
     shown = j.list;
     box.innerHTML = j.list.length ? j.list.map(function (x) {
-      return '<div class="ib-it' + (x.t > j.seen ? " new" : "") + '"><span class="ib-ico">' + (ICO[x.k] || "📣") + '</span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
+      return '<div class="ib-it' + (x.t > j.seen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
     }).join("") : '<p class="muted ib-empty">还没有消息。以后你的成交、借贷、工单回复、预言家中奖、链上留言都会出现在这里。</p>';
   }
   // 💬 回复站长（2026-11-08 站长定）：回复内容进工单后台，站长收件箱同时提醒
