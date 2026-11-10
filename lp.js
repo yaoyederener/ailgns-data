@@ -1,4 +1,4 @@
-// 💧 做市返佣页 #/lp（站长 2026-11-06 定）：规则一页纸 · 我的返佣 · 一键铺双边单 · 返佣榜。撮合还是 OTC 合约，这里只是帮客户算账 + 一键下两张限价单
+// 💧 做市商页 #/lp（2026-11-06 建，2026-11-09 晚返佣取消改称号制）：规则一页纸 · 我的做市 · 批量挂单 · 做市榜。撮合还是 OTC 合约，这里只是帮客户算账 + 一键下两张限价单
 (function () {
   "use strict";
   var A = window.AIL, K = function () { return A.otcKit; };
@@ -81,7 +81,7 @@
     }).catch(function () { var s = document.getElementById("lp-side"); if (s) s.textContent = "盘口供需暂时读不到，一键做市按双边铺。"; });
   }
   function hint() { var el = document.getElementById("lp-hint"); if (!el) return; el.textContent = (side.mid ? "OTC 盘口中间价 " + f(side.mid) : "") + (mkt ? (side.mid ? " · " : "") + "DEX 现价 " + f(mkt) : ""); }
-  // 顶部一句话：现在缺哪边、哪边才计返佣
+  // 顶部大字：现在缺哪边、做市商优先挂哪边
   // 站长 2026-11-09：高亮大字明确告诉做市商「现在要挂哪边」，每 30 秒自动刷新（接口 45 秒内按最新盘口现算）
   function sideLine() {
     var el = document.getElementById("lp-side"); if (!el) return;
@@ -121,7 +121,7 @@
   function board(r) {
     var el = document.getElementById("lp-board"); if (!el || !data) return;
     var list = (data.board && data.board[r]) || [];
-    el.innerHTML = list.length ? list.map(function (x, i) { return '<div class="lg-row"><span class="lg-ico">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : "#" + (i + 1)) + '</span><div class="lg-main"><div class="lg-txt"><a href="#/scan/' + x.a + '" data-a="' + x.a + '" class="mono">' + A.short(x.a) + '</a> · 计入成交 ' + f(x.cdai || 0, 0) + ' DAI · ' + x.n + ' 笔 → 返佣 <b>' + f(x.rb, 4) + ' DAI</b></div></div></div>'; }).join("") : '<p class="muted">还没有人上榜，第一个挂单的人就是第一名。</p>';
+    el.innerHTML = list.length ? list.map(function (x, i) { return '<div class="lg-row"><span class="lg-ico">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : "#" + (i + 1)) + '</span><div class="lg-main"><div class="lg-txt"><a href="#/scan/' + x.a + '" data-a="' + x.a + '" class="mono">' + A.short(x.a) + '</a> · 挂单成交 <b>' + f(x.dai || 0, 0) + ' DAI</b> · ' + x.n + ' 笔</div></div></div>'; }).join("") : '<p class="muted">还没有人上榜，第一个挂单的人就是第一名。</p>';
     if (A.fillNames) A.fillNames(el);
   }
   function params() {
@@ -192,7 +192,7 @@
         say("钱包不支持批量，一张一张确认（共 " + calls.length + " 张）");
         return calls.reduce(function (pr, c, i) { return pr.then(function () { return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
       })
-      .then(function () { go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。有人吃单后按规则记账，页面「我的返佣」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
+      .then(function () { go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「✅ 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
       .catch(function (e) { go.disabled = false; say(""); A.errTip(K().niceError(e), go); });
   }
   A.pages.lp = page;
