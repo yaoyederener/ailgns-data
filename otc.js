@@ -756,6 +756,7 @@
         '<div class="seg" id="otc-side"><button data-side="sell" class="on">我要挂单卖 ' + SYM + '</button><button data-side="buy">我要挂单买 ' + SYM + "</button></div>" +
         '<div class="form-grid"><label id="otc-qty-l"><span id="otc-qty-t">数量（' + SYM + '）</span><input id="otc-qty" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
         '<label>单价（DAI / 枚）<input id="otc-price" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
+        '<label id="otc-tot-l"><span id="otc-tot-t">总额（DAI）</span><input id="otc-tot" inputmode="decimal" placeholder="例如 ' + A.fmt(M.eg[0] * M.eg[1], 0) + '"></label>' +
         "</div>" + '<div class="qty-pick" id="otc-pick"></div>' + '<div class="guide" id="otc-guide"></div>' +
         '<div class="dur" id="otc-durbox"><input type="hidden" id="otc-dur" value="' + DUR_DEFAULT + '"></div>' +
         '<p class="note" id="otc-sum">填好数量和单价后显示总额</p><div id="otc-match"></div><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布挂单</button><p class="note" id="otc-st"></p></section>';
@@ -807,7 +808,7 @@
           var was = side;
           side = b.getAttribute("data-side");
           document.querySelectorAll("#otc-side button").forEach(function (x) { x.classList.toggle("on", x === b); });
-          if (was !== side) { qty.value = ""; relabel(); }
+          if (was !== side) relabel();
           guide();
           calc();
           pick();
@@ -815,16 +816,18 @@
       });
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
       if (mkt) price.placeholder = "市价约 " + mkt.toFixed(PD);
+      // 站长 2026-11-10 折中：数量（币）和总额（DAI）两格都能填，填一格另一格自动算；进度条买单按 DAI 拖、卖单按币拖
+      var tot = document.getElementById("otc-tot"), lastEd = "qty";
       function relabel() {
-        var t = document.getElementById("otc-qty-t");
-        if (!t) return;
-        if (side === "buy") { t.textContent = "花多少 DAI"; qty.placeholder = "例如 " + A.fmt(M.eg[0] * M.eg[1], 0); qty.inputMode = "decimal"; }
-        else { t.textContent = "数量（" + SYM + "）"; qty.placeholder = "例如 " + M.eg[0]; }
+        var t = document.getElementById("otc-qty-t"), tt = document.getElementById("otc-tot-t");
+        if (!t || !tt) return;
+        t.textContent = (side === "buy" ? "买多少 " : "卖多少 ") + SYM; tt.textContent = (side === "buy" ? "花多少 DAI" : "收多少 DAI");
       }
-      function qtyWei() { // 卖单：填的就是枚数；买单：填的是 DAI，换算成能买多少枚
-        if (side === "sell") return tWei(qty.value);
-        var d = toWei(qty.value), p = toWei(price.value);
-        return d && p ? d * TUNIT / p : 0n;
+      function qtyWei() { return tWei(qty.value); }
+      function syncFrom(src) { // 改了哪一格，就按单价算另一格
+        var p = toWei(price.value); if (!p) return;
+        if (src === "tot" || (src === "price" && lastEd === "tot")) { var d = toWei(tot.value); qty.value = d ? floorStr(d * TUNIT / p, TD === 18 ? 6 : 4, TD) : ""; }
+        else { var q = tWei(qty.value); tot.value = q ? floorStr(q * p / TUNIT, 2, 18) : ""; }
       }
       // 指导价：默认自动填进单价；客户自己改过就不再覆盖
       var auto = true;
@@ -923,7 +926,7 @@
       function calc() {
         match();
         var q = qtyWei(), p = toWei(price.value);
-        if (!q || !p) { sum.textContent = side === "buy" ? "填好花多少 DAI 和单价后显示总额" : "填好数量后显示总额"; return null; }
+        if (!q || !p) { sum.textContent = "填好数量和单价后显示总额"; return null; }
         var total = (q * p) / TUNIT; // DAI
         var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
         var r = mkt ? num(p) / mkt : null, verdict = "";
@@ -939,7 +942,9 @@
           (r && verdict ? '<br><span class="down">' + verdict + "</span>" : "");
         return { q: q, total: total };
       }
-      qty.oninput = function () { calc(); if (pickSync) pickSync(); }; price.oninput = function () { auto = false; calc(); pick(); };
+      qty.oninput = function () { lastEd = "qty"; syncFrom("qty"); calc(); if (pickSync) pickSync(); };
+      tot.oninput = function () { lastEd = "tot"; syncFrom("tot"); calc(); if (pickSync) pickSync(); };
+      price.oninput = function () { auto = false; syncFrom("price"); calc(); pick(); };
       guide();
       if (!GUIDE) guideP.then(function () { if (document.getElementById("otc-guide") && document.body.contains(price)) { guide(); calc(); } }); // 成交价数据晚到一步：到了再刷新指导价
       // 可用余额 + 25% / 50% / 75% / 最大：卖单按 AiLGNS 余额，买单按 DAI 余额 ÷ 单价换成能买多少枚
@@ -952,7 +957,7 @@
       }
       function maxDai() { return bal ? (bal.dai > GAS_RESERVE ? bal.dai - GAS_RESERVE : 0n) : 0n; }
       function maxIn() { return side === "buy" ? (bal ? maxDai() : null) : maxQty(); } // 第一格的上限：买单是 DAI，卖单是枚数
-      function inWei() { return side === "buy" ? (toWei(qty.value) || 0n) : (tWei(qty.value) || 0n); }
+      function inWei() { return side === "buy" ? (toWei(tot.value) || 0n) : (tWei(qty.value) || 0n); }
       function inStr(v) { return side === "buy" ? floorStr(v, 2, 18) : floorStr(v, TD === 18 ? 6 : 4, TD); }
       function pick() {
         var el = document.getElementById("otc-pick");
@@ -979,7 +984,8 @@
           var mx = maxIn();
           if (!mx) return;
           var pct = Number(r.value);
-          qty.value = pct >= 100 ? inStr(mx) : inStr(mx * BigInt(pct) / 100n);
+          var v = pct >= 100 ? inStr(mx) : inStr(mx * BigInt(pct) / 100n);
+          if (side === "buy") { tot.value = v; lastEd = "tot"; syncFrom("tot"); } else { qty.value = v; lastEd = "qty"; syncFrom("qty"); }
           calc(); paint(pct);
         };
         pickSync = function () { // 客户自己改数量/单价时，进度条跟着走
