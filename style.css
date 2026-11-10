@@ -3288,3 +3288,5 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .lp-gobig { font-size: 18px; font-weight: 900; padding: 16px; }
 .lp-adv { margin-top: 12px; } .lp-adv > summary { cursor: pointer; color: #8a7fb0; font-size: 13px; list-style: none; padding: 8px 0; } .lp-adv > summary::-webkit-details-marker { display: none; } .lp-adv > summary::before { content: "▸ "; } .lp-adv[open] > summary::before { content: "▾ "; }
 details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc > summary::-webkit-details-marker { display: none; }
+/* 站名渐变字 + 品牌字 AiLGNS：Safari 里子元素带透明度会让「LGNS」整段消失（站长 2026-11-10 00:20 截图），每一段自己做渐变裁切、不透明 */
+.brand-t b .ai-b, .brand-t b .ai-b b, .brand-t b .ai-b i { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; opacity: 1; }
