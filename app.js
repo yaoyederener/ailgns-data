@@ -659,7 +659,7 @@
     // 站长 2026-11-09：LGNS / gLGNS / Polygon LGNS 市场也要同样的四步引导（「我们现在靠这俩赚钱」）；卡牌市场没有扫单，不配
     if (tab === "otc" && parts[1]) {
       var MS = { lgns: "LGNS", plgns: "LGNS（Polygon）", glgns: "gLGNS" }, sym = MS[parts[1]];
-      g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["查我的订单", "#/scan"]]] : null;
+      g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["我要做市", "#/lp"]]] : null; // 站长 2026-11-10：和 AiLGNS 卡一致（订单查询在下面快捷条里已有）
     } else if (parts[1]) g = null;
     document.body.classList.toggle("has-guide", !!g);
     if (!g) { box.innerHTML = ""; return; }
