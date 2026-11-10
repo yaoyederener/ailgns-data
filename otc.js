@@ -341,7 +341,7 @@
   // 币种切换放到页面最顶上（引导卡上面）：站长 2026-11-08 看手机截图定的，点进 OTC 第一眼就选币种
   // 引导卡（#guide）和查订单条（#oq）在 OTC 页要排到「土豪扫单」下面：渲染前先放回 #app 外面（否则 innerHTML 一换就没了），渲染后再搬进页内的槽位
   function parkGuides() { var app = A.app; ["guide", "oq"].forEach(function (id) { var el = document.getElementById(id); if (el && app.contains(el)) app.parentNode.insertBefore(el, app); }); }
-  function moveGuides() { var slot = document.getElementById("otc-guide-slot"); if (!slot) return; ["guide", "oq"].forEach(function (id) { var el = document.getElementById(id); if (el) slot.appendChild(el); }); }
+  function moveGuides() { var slot = document.getElementById("otc-guide-slot"); if (!slot) return; ["oq"].forEach(function (id) { var el = document.getElementById(id); if (el) slot.appendChild(el); }); } // 站长 2026-11-09：引导卡 #guide 留在币种标签正下方不搬，只搬查订单条
   function placeTabs() {
     parkGuides();
     var slot = document.getElementById("mkt-top"); if (!slot) return "";

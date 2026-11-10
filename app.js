@@ -610,8 +610,8 @@
   // 每个页面最上面一张「这页是干嘛的 + 编号步骤」引导卡：客户一进来就知道点哪里
   // 步骤目标：标题文字（跳到那一块）、"click:选择器"（替客户点那个按钮）、"#/路由"（跳页面）
   var GUIDES = {
-    // 站长 2026-11-08：OTC 担保交易引导卡去掉，客户一眼就会用
-    _otcOff: ['<i class="gd-xin">信</i>', "AiLGNS 担保交易", "币先锁进合约、成交才放出，0 滑点，手续费 1%", [["我要买 AiLGNS", "买入 AiLGNS"], ["我要卖 AiLGNS", "卖出 AiLGNS"], ["自己定价挂单", "click:[data-goform=sell]"], ["📊 交易所盘口", "#/trade"]]],
+    // 站长 2026-11-09 又加回来（小白太多，要不停教学）：四步引导放在币种标签正下方，点哪步就跳到哪步
+    otc: ['<i class="gd-xin">信</i>', "AiLGNS 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 AiLGNS", "click:[data-sw=buy]"], ["我要卖 AiLGNS", "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["我要做市", "#/lp"]]],
     trade: ["📊", "交易所盘口", "订单簿 + K 线 + 一键买卖，撮合在链上合约里完成", [["买入", "sel:.tr-form"], ["看盘口", "sel:.tr-book"], ["我的委托", "sel:.tr-mine"], ["回普通版", "#/otc"]]],
     names: ["🌐", ".ailgns 域名", "注册一个属于你的名字，可以设为主号、转赠、挂单卖", [["注册新域名", ".ailgns 域名"], ["查我的域名", "查询域名"], ["买别人的域名", "域名市场"], ["卖我的域名", "click:#nm-sellgo"]]],
     oracle: ["🔮", "每日预言家", "免费猜今晚揭晓价，猜中平分大奖", [["看奖池", "sel:.or-pool"], ["怎么玩", "sel:.or-how"], ["提交我的预言", "✍️ 预测"], ["开通获奖通知", "揭晓通知"]]],
@@ -671,7 +671,13 @@
     var b = e.target.closest("[data-gd]"); if (!b) return;
     var t = b.getAttribute("data-gd"), n = 0;
     if (t.indexOf("#/") === 0) { location.hash = t; return; }
-    if (t.indexOf("click:") === 0) { var c = document.querySelector(t.slice(6)); if (c) c.click(); return; }
+    if (t.indexOf("click:") === 0) {
+      var c = document.querySelector(t.slice(6)); if (!c) return;
+      c.click();
+      // 点完把那一块滚到眼前（扫单买/卖切换后客户要能马上看到进度条和按钮）
+      setTimeout(function () { var box = c.closest("section, .card") || c; window.scrollTo({ top: box.getBoundingClientRect().top + window.scrollY - 70, behavior: "smooth" }); }, 60);
+      return;
+    }
     (function go() {
       var el = gdFind(t);
       if (!el) { if (++n < 20) setTimeout(go, 300); return; }
