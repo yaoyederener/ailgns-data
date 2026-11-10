@@ -346,16 +346,17 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
 }
 
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
-// 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 累计成交 + 这段新增 ② 域名累计注册 + 这段新增 ③ 创世域名免费预测 + 奖池 ④ 网址
+// 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 近 1 小时成交（不报累计） ② 域名累计注册 + 这段新增 ③ 创世域名免费预测 + 奖池 ④ 网址
 // tot：KV st:tot 全站累计（daily-stats 攒的）；fills：上次播报以来的新成交；names：/api/name-genesis；pool：/api/oracle funds 算出的奖池钱包实际余额 { ail, dai }
 const BC_HOURS = [8, 12, 16, 20]; // 北京时间这几个整点各发一条（夜里不发）
 function bcText(fills, tot, names, newNames, pool, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const n0 = (v) => Math.round(v || 0).toLocaleString("en-US");
-  const n = Math.max(tot.fills || 0, fills.length), dai = tot.fillDai || 0;
-  const newDai = fills.reduce((s, f) => s + (f.nm ? Number(f.price) || 0 : (Number(f.qty) || 0) * (Number(f.price) || 0)), 0);
+  // 站长 2026-11-10：不报累计成交（不想让人知道总量），只报近 1 小时；这一小时没有就报近 4 小时的
+  const sumDai = (arr) => arr.reduce((s, f) => s + (f.nm ? Number(f.price) || 0 : (Number(f.qty) || 0) * (Number(f.price) || 0)), 0);
+  const h1 = fills.filter((f) => f.t && f.t >= until - 3600e3), use = h1.length ? h1 : fills, span = h1.length ? "近 1 小时" : "近 4 小时";
   return [`📊 AiLGNS OTC 平台播报 · ${hm(until)}`, "",
-    `1️⃣ OTC 累计成交 ${n0(dai)} DAI · ${n0(n)} 笔` + (fills.length ? `，近 4 小时新增 ${fills.length} 笔 · ${n0(newDai)} DAI` : "，近 4 小时无新成交"),
+    `1️⃣ OTC ${span}成交 ${use.length} 笔 · ${n0(sumDai(use))} DAI` + (use.length ? "" : "，欢迎挂单"),
     `2️⃣ 域名市场累计注册 ${n0(names)} 个` + (newNames > 0 ? `，近 4 小时新增 ${newNames} 个` : ""),
     `3️⃣ 持有创世域名免费参与预测，奖池已累计 ${pool.ail.toLocaleString("en-US", { maximumFractionDigits: 2 })} AiLGNS（约 ${n0(pool.dai)} DAI）`, "",
     "👉 网址：" + SITE].join("\n");
@@ -460,7 +461,7 @@ export async function onRequestGet(ctx) {
   const gids = (ctx.env.DEBOX_GROUP_ID ? String(ctx.env.DEBOX_GROUP_ID).split(",") : GROUPS).map((g) => g.trim()).filter(Boolean);
   const now = Date.now();
   const hr = (await kv.get("otcw:hr", "json")) || { since: Math.floor(now / 3600e3) * 3600e3, fills: [] };
-  for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k, nm: f.nm });
+  for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k, nm: f.nm, t: now });
   const bjH = new Date(now + 8 * 3600e3).getUTCHours();
   const due = BC_HOURS.includes(bjH) && Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 站长 2026-11-10：每 4 小时一条（8/12/16/20 点），其余整点只攒不发
   // 北京时间夜里 23:00–8:00 不播报（站长要求）：夜里的成交先攒着，早上 8 点那条一起发
