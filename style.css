@@ -3251,3 +3251,6 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 #otc-side button[data-side="buy"].on { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(22, 163, 74, .32); }
 @media (max-width: 480px) { #otc-side button { font-size: 15px; padding: 13px 4px; } }
 .cred.credmm { background: #e6fbf1; color: #0a8f5c; border: 1px solid #a7f3d0; font-weight: 800; }
+/* 做市「铺哪边」下拉独占一整行，选项文字不再被截（站长 2026-11-09） */
+.lp-mk .lp-grid label:first-child { grid-column: 1 / -1; }
+.lp-mk .lp-grid select { font-size: 15px; padding: 10px 12px; }

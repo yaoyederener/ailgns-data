@@ -31,7 +31,7 @@
       '<section class="card"><div class="card-head"><h2>📒 我的做市</h2><button type="button" class="ghost" id="lp-conn">连接钱包</button></div><div id="lp-me"><p class="muted">连接钱包后显示今天的日均挂单资金、称号状态和成交</p></div></section>' +
       '<section class="card lp-mk"><div class="card-head"><h2>⚡ 批量挂单</h2><span class="muted">把资金拆成小单铺满盘口</span></div>' +
         '<p class="muted">你只要授权，网站帮你把钱拆成多张小限价单，按价格阶梯铺到盘口上；哪张被吃哪张赚价差，没被吃的原封不动、随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
-        '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">按供需自动（只铺缺的一边）</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
+        '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">自动：只铺缺的一边</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
         '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label><label>总资金 (DAI)<input id="lp-amt" inputmode="decimal" value="1000"></label>' +
         '<label>拆几档<select id="lp-n"><option>2</option><option>3</option><option selected>5</option><option>8</option><option>10</option></select></label>' +
         '<label>第 1 档价差 (%)<input id="lp-sp" inputmode="decimal" value="0.5"></label><label>每档再加 (%)<input id="lp-step" inputmode="decimal" value="0.3"></label>' +
