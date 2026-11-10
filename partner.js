@@ -57,8 +57,9 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
   function render(rid, j) {
     var d0 = j.rows[0] || {}, d1 = j.rows[1] || {}, d2 = j.rows[2] || {}, w7 = j.rows.slice(0, 7); // d2 = 前天（站长 2026-11-09：两天太少，看三天）
     var sum = function (k) { return w7.reduce(function (s, r) { return s + (r[k] || 0); }, 0); };
-    var inV = function (r) { return r && r.in ? r.in.dai + r.in.ail * j.price : null; };
-    var inSum = w7.reduce(function (s, r) { return s + (inV(r) || 0); }, 0), inDays = w7.filter(function (r) { return inV(r) != null; }).length; // 实际到账 2026-11-07 起才有记录
+    // 实际到账：DAI 和 AiLGNS 分开写、不折算（站长 2026-11-11：折算成 DAI 看着像现金，对不上钱包）；back = 自己撤单退回的本金，不算收入
+    var inV = function (r) { return r && r.in ? fm(r.in.dai, 0) + " DAI + " + fm(r.in.ail, 2) + " AiLGNS" + (r.in.back ? '<small class="muted">（另退回自己本金 ' + fm(r.in.back, 0) + "）</small>" : "") : "—"; };
+    var inSum = fm(w7.reduce(function (s, r) { return s + (r.in ? r.in.dai : 0); }, 0), 0) + " DAI + " + fm(w7.reduce(function (s, r) { return s + (r.in ? r.in.ail : 0); }, 0), 2) + " AiLGNS", inDays = w7.filter(function (r) { return r.in; }).length; // 实际到账 2026-11-07 起才有记录
     var b = j.bal.src;
     var h = '<section class="card ptn-top"><div class="card-head"><h2>🤝 合伙人面板</h2><span class="muted">' + tm(j.at) + " 更新 · 每 5 分钟</span></div>" +
       (j.canWrite ? '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' : "") +
@@ -79,7 +80,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       "<tr><td>OTC 成交额</td><td data-l=今天><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td data-l=昨天>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td data-l=近7天>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
       "<tr><td>域名销售</td><td data-l=今天><b>" + (d0.nmN || 0) + "</b> 个 · " + fm(d0.nmDai, 0) + " DAI</td><td data-l=昨天>" + (d1.nmN || 0) + " 个 · " + fm(d1.nmDai, 0) + "</td><td data-l=近7天>" + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + "</td></tr>" +
       "<tr><td>会员付款</td><td data-l=今天><b>" + fm(d0.member, 0) + "</b> DAI</td><td data-l=昨天>" + fm(d1.member, 0) + "</td><td data-l=近7天>" + fm(sum("member"), 0) + "</td></tr>" +
-      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的 DAI / AiLGNS</small></td><td data-l=今天><b>' + (inV(d0) == null ? "—" : fm(inV(d0), 0)) + "</b> DAI</td><td data-l=昨天>" + (inV(d1) == null ? "—" : fm(inV(d1), 0)) + "</td><td data-l=近7天>" + fm(inSum, 0) + (inDays < 7 ? "<small>（" + inDays + " 天有记录）</small>" : "") + "</td></tr>" +
+      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的 DAI / AiLGNS，自己撤单退回的本金不算</small></td><td data-l=今天><b>' + inV(d0) + "</b></td><td data-l=昨天>" + inV(d1) + "</td><td data-l=近7天>" + inSum + (inDays < 7 ? "<small>（" + inDays + " 天有记录）</small>" : "") + "</td></tr>" +
       "</tbody></table></div>" +
       // 4. 客户
       '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
