@@ -584,7 +584,7 @@
     }
     lazyFails = 0;
     if (["flows", "wallet", "team", "custom"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
-    document.title = (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS OTC 平台";
+    document.title = tab === "otc" ? "AiLGNS OTC 平台 · 加拿大局长技术团队实名开发维护" : (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS OTC 平台"; // 浏览器历史/标签里别被截成一串（站长 2026-11-09 晚）
     if (a && !isAddr(a)) a = "";
     if (a && ["wallet", "team", "growth", "tree", "upline"].indexOf(tab) >= 0 && !tracked[tab + a]) { tracked[tab + a] = 1; track("q_" + tab); }
     if (GAMES[tab] && !tracked["g" + tab]) { tracked["g" + tab] = 1; track("g_" + tab); } // 🎮 游戏打开计数（菜单按热度排、面板看哪个最火）
