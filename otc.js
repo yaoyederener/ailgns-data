@@ -25,8 +25,8 @@
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "nft"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻
-  var RETIRED = { plgns: "LGNS · Polygon 链", glgns: "gLGNS · Anubis 链" }; // 站长 2026-11-10：用的人少，前端不再显示；页面只留给有老挂单的客户撤单（#/otc/plgns、#/otc/glgns 直接打开）
+  var MKEYS = ["ailgns", "lgns", "nft", "plgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余折进「更多币种」；2026-11-11 Polygon LGNS 应客户要求恢复
+  var RETIRED = { glgns: "gLGNS · Anubis 链" }; // 站长 2026-11-10：用的人少，前端不再显示；页面只留给有老挂单的客户撤单（#/otc/glgns 直接打开）
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
