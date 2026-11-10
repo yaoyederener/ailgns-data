@@ -26,7 +26,7 @@
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
   var MKEYS = ["ailgns", "lgns", "nft", "plgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余折进「更多币种」；2026-11-11 Polygon LGNS 应客户要求恢复
-  var RETIRED = { glgns: "gLGNS · Anubis 链" }; // 站长 2026-11-10：用的人少，前端不再显示；页面只留给有老挂单的客户撤单（#/otc/glgns 直接打开）
+  var RETIRED = { glgns: "gLGNS（Anubis 链）" }; // 站长 2026-11-10：用的人少，前端不再显示；页面只留给有老挂单的客户撤单（#/otc/glgns 直接打开）
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
