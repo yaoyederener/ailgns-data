@@ -34,12 +34,14 @@ async function build(ctx, kv, origin) {
       "只输出 JSON 数组，不要任何解释，格式：[{\"i\":序号,\"why\":\"不超过 20 字的大白话理由\",\"tag\":\"寓意|稀缺|性价比 三选一\"}]。理由要具体到这个名字，别写套话。";
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST", headers: { "x-api-key": ctx.env.ANTHROPIC_API_KEY || "", "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: ctx.env.CLAUDE_MODEL || "claude-sonnet-5-5", max_tokens: 1800, system: sys, messages: [{ role: "user", content: rows }] }),
+      body: JSON.stringify({ model: ctx.env.CLAUDE_MODEL || "claude-sonnet-5-5", max_tokens: 3000, system: sys, messages: [{ role: "user", content: rows }] }),
     });
     if (!r.ok) throw new Error("ai " + r.status);
-    const j = await r.json(), text = (j.content || []).map((c) => c.text || "").join("");
+    const j = await r.json(), text = (j.content || []).map((c) => c.text || "").join("").replace(/```(?:json)?/g, "");
     const a = text.indexOf("["), b = text.lastIndexOf("]");
-    const arr = JSON.parse(text.slice(a, b + 1));
+    let arr;
+    try { if (a < 0 || b <= a) throw new Error("no array"); arr = JSON.parse(text.slice(a, b + 1)); }
+    catch (e) { throw new Error("parse(" + (j.stop_reason || "") + "): " + text.slice(0, 160).replace(/\s+/g, " ")); } // 原文截一段，排查 AI 到底回了什么
     const seen = {}, picks = [];
     for (const p of arr) {
       const x = list[Number(p.i)]; if (!x || seen[x.id]) continue; seen[x.id] = 1;
