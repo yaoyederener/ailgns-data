@@ -346,31 +346,19 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
 }
 
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
-// 每小时播报（站长定的模板）：累计成交 + 本小时新增 + 合约安全 + 高价求购 + 初心
-// tot：KV st:tot 里的全站累计（日报扫描攒的）；bids：当前比 DEX 卖得更值的求购单 [{ m, o, e }]
-function groupText(fills, tot, { bids, asks }, since, until, top) {
+// 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 累计成交 + 这段新增 ② 域名累计注册 + 这段新增 ③ 创世域名免费预测 + 奖池 ④ 网址
+// tot：KV st:tot 全站累计（daily-stats 攒的）；fills：上次播报以来的新成交；names：/api/name-genesis；pool：/api/oracle 的奖池（DAI 计价，奖金发 AiLGNS）
+const BC_HOURS = [8, 12, 16, 20]; // 北京时间这几个整点各发一条（夜里不发）
+function bcText(fills, tot, names, newNames, pool, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
-  const n = Math.max(tot.fills || 0, fills.length);
-  const links = [...new Set([...fills.map((f) => f.mk), ...bids.map((b) => b.m.key), ...asks.map((b) => b.m.key)].map((k) => MARKETS.find((x) => x.key === k).link))];
-  // DeBox 群里长消息会折叠：网址放第二行，全文压短；只报笔数不报金额，好单买卖各只放最划算的一张（站长要求）
-  const out = [`📊 AiLGNS OTC 每小时播报 · ${hm(until)}`, "👉 钱包打开：" + (links.length === 1 ? links[0] : SITE), "",
-    `✅ 累计成交 ${n.toLocaleString("en-US")} 笔` + (fills.length ? ` · ${until - since > 3600e3 ? hm(since) + "–" + hm(until) : "本小时"}新增 ${fills.length} 笔` : ""),
-    "🔐 0 安全漏洞 · 0 出错 · 0 纠纷：合约无管理员、无后门，谁都改不了，链上随时可查"];
-  // 🌐 域名成交汇总：这一段新成交的名字和价格（最多 5 个）+ 史上最高成交
-  const nmf = fills.filter((f) => f.nm);
-  if (nmf.length || top) {
-    out.push("", "🌐 域名市场 · https://ailgns.dev/#/names");
-    if (nmf.length) out.push(`· 新成交 ${nmf.length} 个：` + nmf.slice(-5).reverse().map((f) => `${f.nm} ${Number(f.price).toLocaleString("en-US")} DAI`).join("、") + (nmf.length > 5 ? " 等" : ""));
-    if (top) out.push(`· 💎 史上最高成交：${top.name} ${top.dai.toLocaleString("en-US")} DAI`);
-  }
-  const A2 = asks.slice(0, 2), B2 = bids.slice(0, 2);
-  if (A2.length || B2.length) {
-    out.push("", "🔥 好单推荐（比 DEX 划算，先到先得）：");
-    for (const a of A2) out.push(`· 买 ${a.m.sym}：单价 ${d2(a.o.price, a.m.pd)} DAI，比 DEX 便宜 ${(a.e.pct * 100).toFixed(1)}%，剩 ${qtyStr(a.m, a.o.qty)} 枚`);
-    for (const b of B2) out.push(`· 卖 ${b.m.sym}：出价 ${d2(b.o.price, b.m.pd)} DAI，比 DEX 多拿 ${(b.e.pct * 100).toFixed(1)}%，收 ${qtyStr(b.m, b.o.qty)} 枚`);
-  } else out.push("", "🔥 好单推荐：现在没有比 DEX 更划算的挂单，自己挂一张等人来成交也行");
-  out.push("", "🤝 币先锁进担保合约，成交才放出；挂单、撤单、到期退回都免费，手续费 1% 成交才收");
-  return out.join("\n");
+  const n0 = (v) => Math.round(v || 0).toLocaleString("en-US");
+  const n = Math.max(tot.fills || 0, fills.length), dai = tot.fillDai || 0;
+  const newDai = fills.reduce((s, f) => s + (f.nm ? Number(f.price) || 0 : (Number(f.qty) || 0) * (Number(f.price) || 0)), 0);
+  return [`📊 AiLGNS OTC 平台播报 · ${hm(until)}`, "",
+    `1️⃣ OTC 累计成交 ${n0(dai)} DAI · ${n0(n)} 笔` + (fills.length ? `，近 4 小时新增 ${fills.length} 笔 · ${n0(newDai)} DAI` : "，近 4 小时无新成交"),
+    `2️⃣ 域名市场累计注册 ${n0(names)} 个` + (newNames > 0 ? `，近 4 小时新增 ${newNames} 个` : ""),
+    `3️⃣ 持有创世域名免费参与预测，奖池已累计 ${n0(pool)} DAI（奖金发 AiLGNS）`, "",
+    "👉 网址：" + SITE].join("\n");
 }
 // 现在比 DEX 划算的挂单（各市场合起来，按划算的比例各取前 3）：bids 求购单（卖给它比 DEX 多拿），asks 出售单（买它比 DEX 便宜）
 async function topDeals() {
@@ -473,17 +461,29 @@ export async function onRequestGet(ctx) {
   const now = Date.now();
   const hr = (await kv.get("otcw:hr", "json")) || { since: Math.floor(now / 3600e3) * 3600e3, fills: [] };
   for (const f of fills) if (!hr.fills.some((x) => x.k === f.k)) hr.fills.push({ mk: f.m.key, qty: f.qty, price: f.price, k: f.k, nm: f.nm });
-  const due = Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 过了整点就发上一小时的播报
+  const bjH = new Date(now + 8 * 3600e3).getUTCHours();
+  const due = BC_HOURS.includes(bjH) && Math.floor((now + 8 * 3600e3) / 3600e3) > Math.floor((hr.since + 8 * 3600e3) / 3600e3); // 站长 2026-11-10：每 4 小时一条（8/12/16/20 点），其余整点只攒不发
   // 北京时间夜里 23:00–8:00 不播报（站长要求）：夜里的成交先攒着，早上 8 点那条一起发
   const bjHour = new Date(now + 8 * 3600e3).getUTCHours(), quiet = bjHour >= 23 || bjHour < 8;
   const until = Math.floor(now / 3600e3) * 3600e3;
   const first = HOURLY_ON && !(await kv.get("otcw:hr1")); // 2026-11-08 重新上线：第一次先发一条汇总，之后每小时一条
+  const bcSnap = (await kv.get("bc:last", "json")) || null; // 上次播报时的域名总数
+  let bcNames = 0, bcPool = 0;
   const build = async (dry2) => {
-    const deals = await topDeals();
-    let top = null;
-    try { top = await nmTop(kv); } catch (e) { top = null; }
-    return groupText(hr.fills, (await kv.get("st:tot", "json")) || {}, deals, hr.since, until, top);
+    try { const j = await fetch(url.origin + "/api/name-genesis").then((r) => r.json()); bcNames = j.n || 0; } catch (e) {}
+    try { const j = await fetch(url.origin + "/api/oracle").then((r) => r.json()); bcPool = j.pool || 0; } catch (e) {}
+    const newNames = bcSnap && bcNames ? Math.max(0, bcNames - (bcSnap.names || 0)) : 0;
+    return bcText(hr.fills, (await kv.get("st:tot", "json")) || {}, bcNames, newNames, bcPool, until);
   };
+  // bcdry=1：只看播报文字不发送；bc=1&key=口令：立刻发一条到群里（站长看效果用），不清空这段的成交
+  if (url.searchParams.get("bcdry") === "1") return Response.json({ text: await build(true), due, quiet, gids });
+  if (url.searchParams.get("bc") === "1") {
+    const k = url.searchParams.get("key"); if (!k || !((ctx.env.FEEDBACK_KEY && k === ctx.env.FEEDBACK_KEY) || (ctx.env.BACKUP_KEY && k === ctx.env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
+    const text = await build(false), r = {};
+    for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); r[g] = "ok"; } catch (e) { r[g] = String(e.message || e).slice(0, 200); } }
+    await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
+    return Response.json({ sent: r, text });
+  }
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if ((due || first) && !quiet && HOURLY_ON) {
@@ -493,6 +493,7 @@ export async function onRequestGet(ctx) {
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
     }
     await kv.put("otcw:hr1", "1");
+    await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
     await kv.put("otcw:hr", JSON.stringify({ since: until, fills: [] }));
   } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr)); // 有新成交才写，省 KV 写入次数
   // 低于市价的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
