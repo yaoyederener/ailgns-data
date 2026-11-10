@@ -124,7 +124,10 @@
   function board(r) {
     var el = document.getElementById("lp-board"); if (!el || !data) return;
     var list = (data.board && data.board[r]) || [];
-    el.innerHTML = list.length ? list.map(function (x, i) { return '<div class="lg-row"><span class="lg-ico">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : "#" + (i + 1)) + '</span><div class="lg-main"><div class="lg-txt"><a href="#/scan/' + x.a + '" data-a="' + x.a + '" class="mono">' + A.short(x.a) + '</a> · 挂单成交 <b>' + f(x.dai || 0, 0) + ' DAI</b> · ' + x.n + ' 笔</div></div></div>'; }).join("") : '<p class="muted">还没有人上榜，第一个挂单的人就是第一名。</p>';
+    var SHOW = 5; // 站长 2026-11-10：榜单默认只露前 5，其余折叠
+    el.innerHTML = list.length ? list.map(function (x, i) { return '<div class="lg-row' + (i >= SHOW ? " lg-x" : "") + '"><span class="lg-ico">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : "#" + (i + 1)) + '</span><div class="lg-main"><div class="lg-txt"><a href="#/scan/' + x.a + '" data-a="' + x.a + '" class="mono">' + A.short(x.a) + '</a> · 挂单成交 <b>' + f(x.dai || 0, 0) + ' DAI</b> · ' + x.n + ' 笔</div></div></div>'; }).join("") + (list.length > SHOW ? '<button type="button" class="ghost lg-more" data-more>展开全部 ' + list.length + ' 名 ▾</button>' : "") : '<p class="muted">还没有人上榜，第一个挂单的人就是第一名。</p>';
+    var mb = el.querySelector("[data-more]");
+    if (mb) mb.onclick = function () { el.classList.add("lg-open"); mb.remove(); };
     if (A.fillNames) A.fillNames(el);
   }
   function params() {
