@@ -388,9 +388,22 @@
         var ts = {}; list.forEach(function (x) { ts[x.t] = 1; });
         Object.keys(ts).forEach(function (t) {
           W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[t], data: SEL.nameOf + A.pad(a) }, "latest"]).then(function (x) { try { return decStr(x); } catch (e) { return ""; } }, function () { return null; }).then(function (p) {
-            var sm = document.getElementById("nm-mysum"); if (p !== "" || !sm) return;
+            var sm = document.getElementById("nm-mysum"); if (!sm) return;
             var d = document.createElement("div"); d.className = "nm-mv";
-            d.innerHTML = "<b>⚠️ 这个钱包还没设 ." + t + " 主名字（主号）</b>" + (self ? "不设主名字就<b>不能玩预言家、不能发站内信</b>。点下面任意一个名字进去，按「设为我的主名字」就行（免费，只付一点 Gas）。" : "<small>如果这是你的钱包：点右上角<b>连接钱包</b>（连这个钱包），再点下面任意一个名字进去，按「设为我的主名字」。</small>");
+            if (p === "") { d.innerHTML = "<b>⚠️ 这个钱包还没设 ." + t + " 主名字（主号）</b>" + (self ? "不设主名字就<b>不能玩预言家、不能发站内信</b>。点下面任意一个名字进去，按「设为我的主名字」就行（免费，只付一点 Gas）。" : "<small>如果这是你的钱包：点右上角<b>连接钱包</b>（连这个钱包），再点下面任意一个名字进去，按「设为我的主名字」。</small>"); }
+            else if (self) {
+              // 已有主名字：给「取消主名字」（站长 2026-11-09）。合约 setPrimary(0) 就是取消，不用改合约
+              d.innerHTML = "<b>✅ 这个钱包的 ." + t + " 主名字：" + esc(p) + "." + t + '</b> <button type="button" class="ghost nm-unpri">取消主名字</button><small>取消后你的地址在本站重新显示成 0x…，<b>不能玩预言家、不能发站内信</b>。想换成另一个名字不用先取消，直接进那个名字的页面点「设为我的主名字」就行。不花钱，只付一点 Gas。</small><p class="muted nm-st" hidden></p>';
+              d.querySelector(".nm-unpri").onclick = function () {
+                var b = this, st = d.querySelector(".nm-st");
+                if (!confirm("确定取消主名字 " + p + "." + t + "？取消后不能玩预言家、不能发站内信，随时可以再设回来。")) return;
+                b.disabled = true; st.hidden = false;
+                tx(CONTRACTS[t], SEL.setPrimary + "0".repeat(64), function (m) { st.textContent = m; }, "🔒 取消主名字（不花钱，只付一点 Gas）。请在钱包确认").then(function () {
+                  if (A.nameCache) A.nameCache[a] = "";
+                  d.innerHTML = "<b>✅ 已取消 ." + t + " 主名字</b><small>你的地址在本站重新显示成 0x…。想再设，点任意一个名字进去按「设为我的主名字」（免费）。</small>";
+                }, function (e) { b.disabled = false; st.textContent = ""; A.errTip((e && e.message) || String(e), b); });
+              };
+            } else return;
             sm.parentNode.insertBefore(d, sm);
           });
         });
