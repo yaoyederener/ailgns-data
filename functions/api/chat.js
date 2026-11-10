@@ -7,10 +7,10 @@ export async function onRequestGet(ctx) {
   if (!kv || !keyOk(ctx.env, u.searchParams.get("key"))) return Response.json({ error: "口令不对" }, { status: 403 });
   return Response.json({ list: (await kv.get("chat:recent", "json")) || [] }, { headers: { "cache-control": "no-store" } });
 }
-async function remember(kv, q, a, engine) { // 只存问题和回答，不存钱包地址
+async function remember(kv, q, a, engine, err) { // 只存问题和回答，不存钱包地址；err = Claude 没答成的原因（巡检查限流/过载用）
   try {
     const list = (await kv.get("chat:recent", "json")) || [];
-    list.push({ t: Date.now(), q: String(q || "").slice(0, 300), a: String(a || "").slice(0, 600), e: engine || "" });
+    list.push({ t: Date.now(), q: String(q || "").slice(0, 300), a: String(a || "").slice(0, 600), e: engine || "", err: String(err || "").slice(0, 80) });
     await kv.put("chat:recent", JSON.stringify(list.slice(-300)));
   } catch (e) { /* 存不上就算了 */ }
 }
@@ -22,6 +22,6 @@ export async function onRequestPost(ctx) {
   if (r.error === "no question") return new Response("no question", { status: 400 });
   if (r.error || !r.answer) return new Response("ai error", { status: 502 });
   const lastQ = (Array.isArray(body.messages) ? body.messages : []).filter((m) => m && m.role === "user").slice(-1)[0];
-  if (ctx.env.TEAM_KV && lastQ) ctx.waitUntil(remember(ctx.env.TEAM_KV, lastQ.content, r.answer, r.engine));
+  if (ctx.env.TEAM_KV && lastQ) ctx.waitUntil(remember(ctx.env.TEAM_KV, lastQ.content, r.answer, r.engine, r.claudeErr));
   return Response.json(body.debug ? { answer: r.answer, human: r.human, engine: r.engine, claudeErr: r.claudeErr, hasKey: !!ctx.env.ANTHROPIC_API_KEY } : { answer: r.answer, human: r.human, engine: r.engine });
 }

@@ -113,6 +113,8 @@
       .then(function (j) {
         clearTimeout(timer);
         wait.remove();
+        // 服务器上的 Claude 没答成、掉到备用 llama 时，常见问题优先用人写的标准答案（llama 容易答非所问，站长 2026-11-10）
+        if (j && j.engine === "llama" && f && f.score >= 4) { reply(linkify(f.a), f.a); return; }
         if (j && j.answer) { reply(linkify(j.answer) + (j.human ? "<br><br>" + humanHtml() : ""), j.answer); return; }
         if (f) { reply(linkify(f.a), f.a); return; }
         reply("这个问题我暂时答不好，建议直接问人工：<br>" + humanHtml(), "建议联系人工");
