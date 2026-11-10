@@ -1,14 +1,14 @@
 // 最小的 Service Worker：只为了让安卓 Chrome / Edge / 三星浏览器出现「一键安装到桌面」。
 // 不缓存任何东西：页面照常从网络拿最新版；只有断网时给一个提示页，免得白屏。
-var SHELL = ["/app", "/app-shell.js?v=6", "/icons/wallets/okx.png?v=1", "/icons/wallets/bitget.png?v=1", "/icons/wallets/tokenpocket.png?v=1", "/icons/wallets/imtoken.png?v=1", "/icons/wallets/metamask.png?v=1", "/icons/otc-group-qr.png?v=1", "/favicon.png?v=hx2"]; // App 壳页：缓存起来，网站全被封也能打开（联系方式、备用网址）
-self.addEventListener("install", function (e) { self.skipWaiting(); e.waitUntil(caches.open("shell-v10").then(function (c) { return c.addAll(SHELL).catch(function () {}); })); });
-self.addEventListener("activate", function (e) { e.waitUntil(Promise.all([self.clients.claim(), caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== "shell-v10"; }).map(function (k) { return caches.delete(k); })); })])); });
+var SHELL = ["/app", "/app-shell.js?v=7", "/icons/wallets/okx.png?v=1", "/icons/wallets/bitget.png?v=1", "/icons/wallets/tokenpocket.png?v=1", "/icons/wallets/imtoken.png?v=1", "/icons/wallets/metamask.png?v=1", "/icons/otc-group-qr.png?v=1", "/favicon.png?v=hx2"]; // App 壳页：缓存起来，网站全被封也能打开（联系方式、备用网址）
+self.addEventListener("install", function (e) { self.skipWaiting(); e.waitUntil(caches.open("shell-v11").then(function (c) { return c.addAll(SHELL).catch(function () {}); })); });
+self.addEventListener("activate", function (e) { e.waitUntil(Promise.all([self.clients.claim(), caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== "shell-v11"; }).map(function (k) { return caches.delete(k); })); })])); });
 self.addEventListener("fetch", function (e) {
   var u = new URL(e.request.url);
   if (u.origin === location.origin && (u.pathname === "/app" || u.pathname === "/app.html" || u.pathname === "/app-shell.js" || u.pathname.indexOf("/icons/wallets/") === 0 || u.pathname === "/icons/otc-group-qr.png" || u.pathname === "/favicon.png")) {
     // 壳页：先走网络（4 秒内没回来或离线就用缓存），拿到新版顺手更新缓存——既能离线打开，又不会卡在旧版
-    e.respondWith(caches.open("shell-v10").then(function (c) {
-      var timeout = new Promise(function (_, rej) { setTimeout(function () { rej(new Error("timeout")); }, 4000); });
+    e.respondWith(caches.open("shell-v11").then(function (c) {
+      var timeout = new Promise(function (_, rej) { setTimeout(function () { rej(new Error("timeout")); }, 8000); }); // 4 秒太短，弱网下老是退回旧缓存（站长 2026-11-09）
       return Promise.race([fetch(e.request), timeout]).then(function (r) { if (r && r.ok) c.put(e.request, r.clone()); return r; }).catch(function () { return c.match(e.request, { ignoreSearch: true }).then(function (hit) { return hit || fetch(e.request); }); });
     }));
     return;

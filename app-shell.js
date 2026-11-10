@@ -62,6 +62,18 @@
     var q = $("q").value.trim(), host = best || list[0].h;
     location.href = "https://" + host + "/?full=1&chat=" + encodeURIComponent(q || "你好") + "#/otc";
   };
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function () {});
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+    // 新版 Service Worker 接管了（刚更新完）：刷新一次拿新壳页（每次打开最多一次）
+    navigator.serviceWorker.addEventListener("controllerchange", function () { try { if (sessionStorage.getItem("shell:rl")) return; sessionStorage.setItem("shell:rl", "1"); } catch (e) {} location.reload(); });
+  }
+  // 🔄 自检新版本（站长 2026-11-09：手机一直卡旧壳页）：悄悄拉一次最新 /app，版本号不一样就自动刷新（每次打开最多一次）
+  (function () {
+    var cur = (document.querySelector('meta[name="shell-ver"]') || {}).content || "";
+    fetchT("/app?chk=" + Date.now(), 8000).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
+      var m = html.match(/name="shell-ver" content="(\d+)"/);
+      if (m && cur && m[1] !== cur) { try { if (sessionStorage.getItem("shell:rl")) return; sessionStorage.setItem("shell:rl", "1"); } catch (e) {} location.reload(); }
+    }).catch(function () {});
+  })();
   load();
 })();
