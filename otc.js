@@ -537,12 +537,20 @@
     });
     // 🔄 挂单列表自动刷新（站长 2026-11-09：「已成交或被撤销，请刷新」总是滞后，要客户无感）：每 10 秒拿一次订单簿（边缘缓存，很便宜），
     // 有变化、且客户没开弹窗 / 没在填表 / 没在扫单时，原地重画并保持滚动位置；页面切到后台不刷
+    // quiet()：busy() 会把预填的指导价当成「正在填表」永远不刷；这里只看 弹窗开着 / 扫单中 / 光标在输入框 / 客户真正改过某个输入框（data-dirty）
+    if (!app.__dirtyHook) { app.__dirtyHook = 1; app.addEventListener("input", function (e) { var t = e.target; if (t && /INPUT|TEXTAREA|SELECT/.test(t.tagName)) t.setAttribute("data-dirty", "1"); }, true); }
+    function quiet() {
+      var m = document.getElementById("otc-modal"); if (m && !m.hidden) return false;
+      if (sweeping) return false;
+      var ae = document.activeElement; if (ae && app.contains(ae) && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) return false;
+      return !app.querySelector("input[data-dirty], textarea[data-dirty], select[data-dirty]");
+    }
     clearInterval(bookTimer);
     bookTimer = setInterval(function () {
       if (!A.isCurrent(id)) return clearInterval(bookTimer);
-      if (document.hidden || busy()) return;
+      if (document.hidden || !quiet()) return;
       loadBook(false).then(function (b) {
-        if (!A.isCurrent(id) || busy() || !b || !b.raw || b.raw === bookRaw) return;
+        if (!A.isCurrent(id) || !quiet() || !b || !b.raw || b.raw === bookRaw) return;
         bookRaw = b.raw; var y = window.scrollY; draw(id, b.orders, b.mkt); window.scrollTo(0, y);
       }).catch(function () {});
     }, 10000);
