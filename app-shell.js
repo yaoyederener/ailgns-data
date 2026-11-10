@@ -37,17 +37,18 @@
     if (!oks.length) { if (list.every(function (d) { return status[d.h] === "bad"; })) { st.className = "st bad"; st.lastElementChild.textContent = "网站都打不开，看下面群二维码"; } return; }
     best = (oks.filter(function (d) { return d.main; })[0] || oks[0]).h;
     st.className = "st ok"; st.lastElementChild.textContent = best + " 可用";
-    $("full").href = "https://" + best + "/#/otc?full=1";
+    $("full").href = "https://" + best + "/#/otc?full=1"; var es = $("enter-sub"); if (es) es.textContent = "现在能用：" + best; paint();
     walletsPaint();
     clearInterval(timer); var k = 0;
     timer = setInterval(function () { var rows = document.querySelectorAll(".dom.ok"); if (!rows.length) return; rows.forEach(function (r) { r.classList.remove("hot"); }); rows[k % rows.length].classList.add("hot"); k++; }, 1800);
   }
   function paint() {
+    // 发布页风格：每个网址就是一个大按钮，整行可点直接进；最佳网址标「推荐」；复制按钮保留给要转发的人
     $("doms").innerHTML = list.map(function (d) {
-      var s = status[d.h] || "wait";
-      return '<div class="dom ' + s + '"><i></i><span class="h">' + esc(d.h) + (d.main ? " · 主网址" : "") + '</span><button type="button" data-cp="' + esc(d.h) + '">复制</button></div>';
+      var s = status[d.h] || "wait", isBest = best && d.h === best;
+      return '<a class="dom ' + s + (isBest ? " best" : "") + '" href="https://' + esc(d.h) + '/#/otc?full=1"><i></i><span class="h">' + esc(d.h) + "</span>" + (isBest ? '<span class="tag">✅ 推荐</span>' : d.main ? '<span class="tag" style="color:#5a35d6;background:#efe9ff">主网址</span>' : "") + '<button type="button" data-cp="' + esc(d.h) + '">复制</button></a>';
     }).join("");
-    $("doms").querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function () { var u = "https://" + b.getAttribute("data-cp") + "/"; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { toast("已复制 " + u); }, function () { prompt("复制这个网址", u); }); }; });
+    $("doms").querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); e.stopPropagation(); var u = "https://" + b.getAttribute("data-cp") + "/"; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { toast("已复制 " + u); }, function () { prompt("复制这个网址", u); }); }; });
   }
   function walletsPaint() {
     var url = "https://" + (best || list[0].h) + "/#/otc";

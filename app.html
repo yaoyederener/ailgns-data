@@ -11,94 +11,86 @@
 <link rel="icon" href="/favicon.png?v=hx2">
 <title>AiLGNS</title>
 <style>
-  /* 极简壳页（站长 2026-11-06：照 Claude 新对话页那种留白、居中、一个输入框）。不依赖主站文件，可离线 */
-  :root { --ink: #1f1a33; --muted: #8a80a8; --line: #ece7f7; --purple: #5a35d6; }
+  /* 📣 发布页风格（站长 2026-11-09：参考「永久地址发布页」做法）：大标题、一排大按钮网址、谁能用一眼看懂；配色仍用站内浅紫，不做深色 */
+  :root { --ink: #1f1a33; --muted: #8a80a8; --line: #ece7f7; --purple: #5a35d6; --grad: linear-gradient(135deg, #7c3aed, #4f46e5); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
-  body { margin: 0; font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; background: #fff; color: var(--ink); touch-action: manipulation; -webkit-text-size-adjust: 100%; display: flex; flex-direction: column; padding: calc(10px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom)); }
-  .top { display: flex; align-items: center; justify-content: space-between; height: 40px; }
+  body { margin: 0; font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif; background: linear-gradient(180deg, #f6f1ff 0%, #ffffff 40%); color: var(--ink); touch-action: manipulation; -webkit-text-size-adjust: 100%; padding: max(10px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom)); }
+  .top { display: flex; align-items: center; justify-content: space-between; height: 40px; max-width: 560px; margin: 0 auto; }
   .top img { width: 28px; height: 28px; border-radius: 8px; }
   .top b { font-size: 14px; color: var(--muted); font-weight: 600; }
   .st { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
   .st i { width: 8px; height: 8px; border-radius: 50%; background: #d6ccf2; display: inline-block; } .st.ok i { background: #0ecb81; } .st.bad i { background: #f6465d; }
-  main { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 10px 0 20px; max-width: 520px; width: 100%; margin: 0 auto; }
-  .why { padding: 16px 14px; border-radius: 18px; background: linear-gradient(135deg, #fff7d6, #ffe9a8); border: 2px solid #f0c85a; color: #4a3600; }
-  .why h1 { font-size: 20px; margin: 0 0 8px; font-family: inherit; font-weight: 800; color: #3a2a00; }
-  .why ol { margin: 0 0 12px; padding-left: 20px; font-size: 14.5px; line-height: 1.75; text-align: left; }
-  .go { display: block; text-align: center; background: var(--purple); color: #fff; font-weight: 800; font-size: 17px; padding: 14px; border-radius: 14px; text-decoration: none; box-shadow: 0 8px 20px rgba(90,53,214,.25); }
-  .blk { padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: #fff; }
-  .blk h2 { margin: 0 0 8px; font-size: 15px; color: var(--ink); text-align: left; }
-  .ask-blk { background: #faf8ff; }
-  h1 { margin: 0; font-size: 30px; font-weight: 500; letter-spacing: .5px; font-family: "Songti SC", "Noto Serif SC", Georgia, serif; }
-  h1 em { font-style: normal; color: var(--purple); }
-  .ask { width: 100%; max-width: 520px; border: 1px solid var(--line); border-radius: 22px; padding: 14px 14px 10px; box-shadow: 0 10px 30px rgba(90,53,214,.06); text-align: left; background: #fff; }
-  .ask input { width: 100%; border: 0; outline: 0; font-size: 17px; padding: 4px 2px 10px; background: transparent; color: var(--ink); }
+  main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; padding: 8px 0 20px; }
+  .hero { text-align: center; padding: 10px 0 0; }
+  .hero h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: 1px; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p { margin: 8px 0 0; font-size: 15px; color: #4a3f6b; font-weight: 600; }
+  .hero p b { color: #d9480f; }
+  .enter { display: block; text-align: center; background: var(--grad); color: #fff; font-weight: 900; font-size: 20px; padding: 18px; border-radius: 16px; text-decoration: none; box-shadow: 0 12px 28px rgba(90,53,214,.28); }
+  .enter small { display: block; font-weight: 500; font-size: 12px; opacity: .85; margin-top: 4px; }
+  .sec h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 600; text-align: center; letter-spacing: .5px; }
+  .doms { display: flex; flex-direction: column; gap: 10px; }
+  .dom { display: flex; align-items: center; gap: 10px; padding: 14px 14px; border-radius: 14px; background: #fff; border: 2px solid var(--line); text-decoration: none; color: var(--ink); font-size: 18px; font-weight: 800; letter-spacing: .3px; box-shadow: 0 4px 14px rgba(31,26,51,.05); }
+  .dom i { width: 10px; height: 10px; border-radius: 50%; background: #d6ccf2; flex: none; } .dom.ok i { background: #0ecb81; box-shadow: 0 0 0 4px rgba(14,203,129,.15); } .dom.bad i { background: #f6465d; opacity: .6; } .dom.wait i { animation: blink 1s infinite; }
+  .dom.bad { color: var(--muted); font-weight: 600; text-decoration: line-through; } .dom.hot, .dom.best { border-color: #b69cff; background: #f6f1ff; }
+  .dom .h { flex: 1; text-align: left; word-break: break-all; } .dom .tag { font-size: 11px; font-weight: 700; color: #0a8f5c; background: #e6fbf1; border-radius: 999px; padding: 2px 8px; flex: none; }
+  .dom button { border: 1px solid var(--line); background: #fff; color: var(--purple); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; flex: none; }
+  @keyframes blink { 50% { opacity: .3; } }
+  .wl { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .wl a { display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: var(--ink); font-size: 12px; width: 60px; }
+  .wl img { width: 46px; height: 46px; border-radius: 14px; box-shadow: 0 4px 12px rgba(31,26,51,.10); background: #fff; }
+  .wl span { white-space: nowrap; }
+  .grp { padding: 16px 14px; border-radius: 16px; background: #fff; border: 2px solid #d9c9ff; text-align: center; }
+  .grp h2 { margin: 0 0 10px; font-size: 17px; color: var(--purple); }
+  .qr { display: block; margin: 0 auto; width: 200px; height: auto; border-radius: 12px; border: 1px solid var(--line); }
+  .foot { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.7; margin: 6px 0 0; }
+  .foot a { color: var(--purple); text-decoration: none; font-weight: 600; }
+  .ask { border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px 10px; background: #fff; }
+  .ask input { width: 100%; border: 0; outline: 0; font-size: 16px; padding: 4px 2px 8px; background: transparent; color: var(--ink); }
   .ask input::placeholder { color: #b3abc9; }
   .ask .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .ask .hint { font-size: 12px; color: var(--muted); }
   .ask button { border: 0; border-radius: 999px; background: var(--purple); color: #fff; font-weight: 700; padding: 8px 16px; font-size: 14px; }
-  .wl { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; width: 100%; max-width: 520px; }
-  .wl a { display: flex; flex-direction: column; align-items: center; gap: 6px; text-decoration: none; color: var(--ink); font-size: 12px; width: 64px; }
-  .wl img { width: 48px; height: 48px; border-radius: 14px; box-shadow: 0 4px 12px rgba(31,26,51,.10); background: #fff; }
-  .wl span { white-space: nowrap; }
-  .ins { max-width: 520px; margin: 0; padding: 10px 14px; border-radius: 14px; background: #fff7d6; border: 1px solid #f5d77a; color: #5a4300; font-size: 13px; line-height: 1.6; text-align: left; }
-  .foot { font-size: 12.5px; color: var(--muted); text-align: center; line-height: 1.7; }
-  .foot a { color: var(--purple); text-decoration: none; font-weight: 600; }
-  .doms { max-width: 520px; margin: 0 auto; width: 100%; }
-  .dom { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13.5px; }
-  .dom i { width: 8px; height: 8px; border-radius: 50%; background: #d6ccf2; flex: none; } .dom.ok i { background: #0ecb81; } .dom.bad i { background: #f6465d; opacity: .6; } .dom.wait i { animation: blink 1s infinite; }
-  .dom.bad { color: var(--muted); } .dom.hot { background: #f6f1ff; border-radius: 10px; }
-  .dom .h { flex: 1; text-align: left; } .dom button { border: 1px solid var(--line); background: #fff; color: var(--purple); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
-  @keyframes blink { 50% { opacity: .3; } }
-  details { max-width: 520px; margin: 0 auto; width: 100%; } summary { cursor: pointer; font-size: 13px; color: var(--muted); text-align: center; list-style: none; padding: 6px; } summary::-webkit-details-marker { display: none; }
-  .qr { display: block; width: 180px; margin: 10px auto 4px; border-radius: 14px; border: 1px solid var(--line); }
   .toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: #1f1a33; color: #fff; padding: 8px 16px; border-radius: 999px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
-.grp{margin:0;padding:16px 14px;border-radius:16px;background:#fff;border:2px solid #d9c9ff;text-align:center}.grp h2{margin:0 0 10px;font-size:17px;color:#5a35d6}.grp .qr{display:block;margin:0 auto;width:200px;height:auto;border-radius:12px}
 </style>
 </head>
 <body>
 <div class="top"><div style="display:flex;align-items:center;gap:8px"><img src="/favicon.png?v=hx2" alt=""><b>AiLGNS</b></div><span class="st wait" id="st"><i></i><span>检测网址…</span></span></div>
 
 <main>
-  <!-- 站长 2026-11-09：很多人不会用，先把「这个 App 是干什么的」和网址、群放最上面，客服放最下面 -->
-  <section class="why">
-    <h1>📱 这个 App 是干什么的</h1>
-    <ol>
-      <li><b>网站被封、被墙时，这里永远知道新网址</b>。别删它。</li>
-      <li><b>一键打开网站</b>做交易、挂单、查单。</li>
-      <li><b>加交流群</b>，网站全被封时群里第一时间发新网址。</li>
-    </ol>
-    <a class="go" id="full" href="/#/otc?full=1">🌐 打开网站（在这里浏览）</a>
-    <p class="foot" style="margin:6px 0 0">要连钱包交易的，点下面钱包图标，直接在钱包里打开</p>
+  <section class="hero">
+    <h1>AiLGNS 永久发布页</h1>
+    <p>网址被封、打不开，就来这里。<b>请收藏本页 · 别删 App</b></p>
   </section>
 
-  <section class="blk">
-    <h2>🔗 所有网址（绿点 = 现在能打开）</h2>
+  <a class="enter" id="full" href="/#/otc?full=1">🚀 立即进入网站<small id="enter-sub">自动选能打开的网址</small></a>
+
+  <section class="sec">
+    <h2>全部网址 · 绿点能用 · 点哪个都能进</h2>
     <div class="doms" id="doms"></div>
   </section>
 
-  <section class="blk">
-    <h2>👛 用钱包打开（能连钱包交易）</h2>
+  <section class="sec">
+    <h2>要连钱包交易 · 点图标直接在钱包里打开</h2>
     <div class="wl" id="wl"></div>
-    <p class="foot">交易、挂单、查单都在钱包里做 · 点图标直接进</p>
   </section>
 
   <section class="grp">
     <h2>💬 加 OTC 交流群</h2>
     <img class="qr" src="/icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码">
-    <p class="foot"><b>长按二维码保存</b> → 打开 DeBox → 扫一扫 → 相册选图<br>网站全被封时，群里第一时间发新网址</p>
+    <p class="foot"><b>长按二维码保存</b> → 打开 DeBox → 扫一扫 → 相册选图<br>网址全被封时，群里第一时间发新网址</p>
   </section>
 
-  <section class="blk ask-blk">
-    <h2>🤖 有问题问客服</h2>
+  <section class="sec">
     <form class="ask" id="ask">
-      <input id="q" placeholder="例如：怎么挂单" autocomplete="off" enterkeyhint="send">
+      <input id="q" placeholder="有问题问客服，例如：怎么挂单" autocomplete="off" enterkeyhint="send">
       <div class="row"><span class="hint">AI 客服秒回，答不了转人工工单</span><button type="submit">问客服</button></div>
     </form>
   </section>
   <span id="hi" hidden></span>
 </main>
+
 <div class="toast" id="toast"></div>
-<script src="/app-shell.js?v=4"></script>
+<script src="/app-shell.js?v=5"></script>
 </body>
 </html>
