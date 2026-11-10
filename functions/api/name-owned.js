@@ -4,6 +4,8 @@
 //   GET ?a=0x… → { a, list: [{ id, label, no }], to, at }   owner = 每个 tokenId 最后一次 Transfer 的 to；挂在市场里的名字在市场合约名下，自然不在列表里
 // 边缘缓存 10 秒。快照最多落后几个块：刚买 / 刚注册的名字等 1 分钟再点。
 import { banned } from "../../lib/ban.js";
+import { RPCS } from "../../lib/teamlib.js";
+const SEL_EXPIRES = "0xcb52c823";
 
 const NAMES = "0xbc408e9d7350967e7247c917a086cb4ece0ed988";
 const T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -26,10 +28,22 @@ export async function onRequestGet(ctx) {
   ((rg && rg.l) || []).forEach((l) => { if (l[1] && l[1][1]) label[l[1][1].toLowerCase()] = decStr(l[2]); });
   const g = (gen && gen.g) || {};
   const list = Object.keys(owner).filter((id) => owner[id] === a)
-    .map((id) => ({ id: id.slice(2), label: label[id] || "", no: g[id.slice(2)] || 0 }))
+    .map((id) => ({ id: id.slice(2), label: label[id] || "", no: g[id.slice(2)] || 0, exp: 0 }))
     .filter((x) => x.label && !banned(x.label))
     .sort((p, q) => (p.no || 1e9) - (q.no || 1e9));
-  const res = Response.json({ a, list, to: xf.to, at: Date.now() }, { headers: { "cache-control": "public, max-age=10" } });
+  // 到期时间：一批 eth_call 读 expires(id)（站长 2026-11-09「查询域名超过 5 秒」：查钱包改走这个接口，列表要显示到期）
+  if (list.length) {
+    try {
+      const calls = list.map((x, i) => ({ jsonrpc: "2.0", id: i, method: "eth_call", params: [{ to: NAMES, data: SEL_EXPIRES + x.id }, "latest"] }));
+      const r = await fetch(RPCS[0], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(calls) }).then((r) => r.json());
+      (Array.isArray(r) ? r : []).forEach((x) => { if (x && x.result && list[x.id]) list[x.id].exp = parseInt(x.result, 16) || 0; });
+    } catch (e) { /* 读不到就不显示到期 */ }
+  }
+  // 曾经转进过这个钱包、现在不在的名字（卖掉 / 转走 / 挂在市场）：页面空列表时用来解释「名字去哪了」
+  const everIn = {};
+  xf.l.forEach((l) => { if (l[1] && l[1][3] && l[1][2] && "0x" + l[1][2].slice(26).toLowerCase() === a) everIn[l[1][3].toLowerCase()] = 1; });
+  const moved = Object.keys(everIn).filter((id) => owner[id] !== a && label[id] && !banned(label[id])).map((id) => ({ label: label[id], to: owner[id] }));
+  const res = Response.json({ a, list, moved, to: xf.to, at: Date.now() }, { headers: { "cache-control": "public, max-age=10" } });
   ctx.waitUntil(cache.put(ck, res.clone()));
   return res;
 }

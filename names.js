@@ -362,7 +362,7 @@
       if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对：0x 开头，一共 42 位", document.getElementById("nm-myf")); return; }
       var self = a === account;
       if ((A.hidden || {})[a] && !self) { o.innerHTML = '<p class="muted">🔒 这个地址的持有人选择匿名</p>'; return; }
-      o.innerHTML = '<p class="muted">查询中…（第一次要读链上记录，稍等几秒）</p>';
+      o.innerHTML = '<p class="muted">查询中…</p>';
       ownedList(a).then(function (all) {
         var HN = A.hiddenNames || {}, list = all.filter(function (x) { return x && x.label && !(A.nameBanned && A.nameBanned(x.label)) && (self || !HN[x.label + "." + x.t]); }); // 涉政名字连自己的列表都不显示
         list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
@@ -381,7 +381,7 @@
           var href = "#/names/" + encodeURIComponent(x.label + "." + x.t);
           return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
             (x.no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
-            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + "<small>到期 " + date(x.exp) + "</small></span></a>" +
+            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + (x.exp ? "<small>到期 " + date(x.exp) + "</small>" : "") + "</span></a>" +
             (self ? '<span class="nm-my-btns">' + giveBtn(x.t, x.id, x.label + "." + x.t) + '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button></span>' : "") + "</div>";
         }).join("") + '<div id="nm-myo"></div>';
         var n0 = list.length;
@@ -1060,6 +1060,14 @@
   }
   var movedOf = {}; // 曾经进过这个钱包、现在已经不在的名字（转走了 / 卖掉了）
   function ownedList(a) {
+    // 🚀 先走服务端索引 /api/name-owned（站长 2026-11-09：查询超过 5 秒）：日志快照算好的，1 秒内出；接口挂了再退回老办法扫链
+    return fetch("/api/name-owned?a=" + a).then(function (r) { if (!r.ok) throw new Error("api"); return r.json(); }).then(function (j) {
+      if (!j || !Array.isArray(j.list)) throw new Error("api");
+      movedOf[a] = (j.moved || []).map(function (x) { return { t: "ailgns", label: x.label, to: x.to }; });
+      return j.list.map(function (x) { return { t: "ailgns", id: x.id, label: x.label, exp: x.exp || 0, no: x.no || 0 }; });
+    }).catch(function () { return ownedListChain(a); });
+  }
+  function ownedListChain(a) {
     movedOf[a] = [];
     var pad = "0x" + A.pad(a), tlds = Object.keys(CONTRACTS);
     tlds.forEach(function (t) { delete genCache[t]; }); // 创世编号重新读（增量，很快），刚注册的名字也能拿到编号
