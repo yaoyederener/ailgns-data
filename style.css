@@ -3230,3 +3230,15 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 }
 .as-dep .as-steps li { color: #3b2a6b; } .as-dep .as-steps li b { display: block; margin-bottom: 4px; } .as-dep-body { font-size: 13px; } .as-dep-body .nm-go { margin-top: 6px; padding: 8px 14px; font-size: 14px; }
 .as-dep-addr { font-size: 12.5px; word-break: break-all; color: #2d1b69; } .as-dep-addr a { margin-left: 6px; } .as-dep-done pre { white-space: pre-wrap; word-break: break-all; background: #f6f2ff; padding: 10px; border-radius: 10px; font-size: 12.5px; }
+/* 💧 做市返佣：顶部「现在要挂哪边」高亮大字（站长 2026-11-09） */
+.lp-side-big { text-align: center; padding: 14px 14px 12px; border-width: 2px; }
+.lp-side-big .lp-sb-k { font-size: 14px; color: #5b4b9a; font-weight: 600; }
+.lp-side-big .lp-sb-v { font-size: 34px; font-weight: 900; line-height: 1.2; margin: 2px 0 6px; letter-spacing: 1px; }
+.lp-side-big .lp-sb-w { font-size: 13.5px; line-height: 1.5; color: #3b2a6b; }
+.lp-side-big .lp-sb-bar { position: relative; height: 22px; border-radius: 999px; background: #fde2e4; margin: 10px 0 6px; overflow: hidden; display: flex; justify-content: space-between; align-items: center; padding: 0 10px; font-size: 12px; font-weight: 700; color: #3b2a6b; }
+.lp-side-big .lp-sb-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #bbf7d0; }
+.lp-side-big .lp-sb-bar span { position: relative; }
+.lp-side-big small { display: block; color: #8a7fb0; font-size: 12px; }
+.lp-side-big.buy { background: #effbf4; border-color: #86efac; } .lp-side-big.buy .lp-sb-v { color: #15803d; }
+.lp-side-big.sell { background: #fff1f2; border-color: #fda4af; } .lp-side-big.sell .lp-sb-v { color: #be123c; }
+.lp-side-big.both { background: #f6f2ff; border-color: #c4b5fd; } .lp-side-big.both .lp-sb-v { color: #5b21b6; font-size: 26px; }

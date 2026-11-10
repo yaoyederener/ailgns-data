@@ -20,7 +20,7 @@ import { oracleNotify } from "../../lib/ornotify.js";
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
 // sellTax：LGNS 在 DEX 卖出扣的手续费（Polygon 固定 5%，Anubis 动态，常见 50% 左右），求购单推送时提一句
 const POLYGON_RPCS = ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"];
-const MARKETS = [
+export const MARKETS = [
   { key: "ailgns", sym: "AiLGNS", chain: "Anubis", otc: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", dec: 18, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/",
     pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pairDai: 1, pd: 2, kv: "otcw:", deploy: 17798035, backfill: true, dex: true, link: "https://ailgns.dev/#/otc" },
   { key: "lgns", sym: "LGNS", chain: "Anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", dec: 9, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/",
@@ -272,7 +272,7 @@ async function market(m) {
 const ammSell = (p, q) => (q * 0.997 * p.dai) / (p.tok + q * 0.997); // 往池子卖 q 个币能拿到的 DAI
 const ammBuyCost = (p, q) => (q >= p.tok ? Infinity : (p.dai * q) / ((p.tok - q) * 0.997)); // 从池子买到 q 个币要花的 DAI
 // 当前在挂的单子（没过期、还有剩余）
-async function book(m, now) {
+export async function book(m, now) {
   const count = Number(BigInt(await rpc(m, "eth_call", [{ to: m.otc, data: COUNT }, "latest"]))), from = Math.max(0, count - 500), out = [];
   if (!count) return out;
   const w = words(await rpc(m, "eth_call", [{ to: m.otc, data: GET_ORDERS + u256(from) + u256(count - from) }, "latest"]));

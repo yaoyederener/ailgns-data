@@ -1,7 +1,8 @@
 // 💧 做市返佣接口
 //   GET ?a=<地址>   → { rules, me: { today, total, paid, pending, days: [...] }, board: { today: [...], week: [...] } }
 //   GET            → 只给 rules + board
-import { LP, rateOf, avgLiqOf } from "../../lib/lp.js";
+import { LP, rateOf, avgLiqOf, scarceSide } from "../../lib/lp.js";
+import { MARKETS, book } from "./otc-watch.js";
 import { bjDay } from "../../lib/stats.js";
 const json = (o) => Response.json(o, { headers: { "cache-control": "no-store" } });
 const addDay = (day, n) => new Date(Date.parse(day + "T12:00:00+08:00") + n * 86400e3).toISOString().slice(0, 10);
@@ -9,7 +10,11 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV; if (!kv) return json({ error: "no kv" });
   const u = new URL(ctx.request.url), a = String(u.searchParams.get("a") || "").toLowerCase(), today = bjDay();
   const days = [today, addDay(today, -1), addDay(today, -2), addDay(today, -3), addDay(today, -4), addDay(today, -5), addDay(today, -6)];
-  const [dd, ll, side] = await Promise.all([Promise.all(days.map((d) => kv.get("lp:d:" + d, "json"))), Promise.all(days.map((d) => kv.get("lp:liq:" + d, "json"))), kv.get("lp:side", "json")]);
+  let [dd, ll, side] = await Promise.all([Promise.all(days.map((d) => kv.get("lp:d:" + d, "json"))), Promise.all(days.map((d) => kv.get("lp:liq:" + d, "json"))), kv.get("lp:side", "json")]);
+  // 站长 2026-11-09：「现在该挂哪边」要实时——lp:side 超过 45 秒就按最新盘口现算并写回 KV（记账用的也是这份，页面和记账永远一致）
+  if (!side || Date.now() - (side.at || 0) > 45e3) {
+    try { const os = await book(MARKETS[0], Math.floor(Date.now() / 1000)); side = { ...scarceSide(os), at: Date.now() }; ctx.waitUntil(kv.put("lp:side", JSON.stringify(side), { expirationTtl: 3600 })); } catch (e) { /* 盘口读不到就用旧的 */ }
+  }
   // 11-10 起按档位现算：某天某人返佣 = 计入成交 cdai × 1% × 当天日均挂单资金对应的比例；旧日子用记录里的 rb
   const rbOf = (i, k, x) => { if (days[i] < LP.RULES_FROM) return x.rb || 0; const rate = rateOf(avgLiqOf(ll[i], k)); return Math.round((x.cdai || 0) * LP.FEE * rate * 1e6) / 1e6; };
   const sum = (idx) => { const m = {}; idx.forEach((i) => { const d = dd[i]; if (!d) return; Object.keys(d).forEach((k) => { const x = m[k] || (m[k] = { a: k, dai: 0, n: 0, cdai: 0, rb: 0 }); x.dai += d[k].dai; x.n += d[k].n; x.cdai += days[i] < LP.RULES_FROM ? d[k].dai : (d[k].cdai || 0); x.rb += rbOf(i, k, d[k]); }); }); return Object.values(m).sort((x, y) => y.rb - x.rb).slice(0, 20); };

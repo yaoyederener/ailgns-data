@@ -79,18 +79,36 @@
       data = j; if (j.rules) R = j.rules; if (j.side) side = j.side;
       // 默认中间价用 OTC 自己的买一卖一中间价（DEX 价常高 3% 以上，照它铺买单会被人立刻高价卖给你）
       var mi = document.getElementById("lp-mid"); if (mi && !midTouched && side.mid) mi.value = side.mid.toFixed(2);
-      hint(); sideLine(); board("today"); if (j.me) me(j.me); preview();
+      hint(); sideLine(); sidePoll(); board("today"); if (j.me) me(j.me); preview();
     }).catch(function () { var s = document.getElementById("lp-side"); if (s) s.textContent = "盘口供需暂时读不到，一键做市按双边铺。"; });
   }
   function hint() { var el = document.getElementById("lp-hint"); if (!el) return; el.textContent = (side.mid ? "OTC 盘口中间价 " + f(side.mid) : "") + (mkt ? (side.mid ? " · " : "") + "DEX 现价 " + f(mkt) : ""); }
   // 顶部一句话：现在缺哪边、哪边才计返佣
+  // 站长 2026-11-09：高亮大字明确告诉做市商「现在要挂哪边」，每 30 秒自动刷新（接口 45 秒内按最新盘口现算）
   function sideLine() {
     var el = document.getElementById("lp-side"); if (!el) return;
-    var tot = (side.bd || 0) + (side.ad || 0), bp = tot ? Math.round(side.bd / tot * 100) : 50;
-    var txt = side.side === "sell" ? "现在盘口<b>买单多、缺卖单</b>（买 " + bp + "% / 卖 " + (100 - bp) + "%）→ 此刻<b>只有卖单成交计返佣</b>，想拿返佣就挂卖单。" :
-      side.side === "buy" ? "现在盘口<b>卖单多、缺买单</b>（买 " + bp + "% / 卖 " + (100 - bp) + "%）→ 此刻<b>只有买单成交计返佣</b>，想拿返佣就挂买单。" :
-      "现在盘口买卖基本平衡（买 " + bp + "% / 卖 " + (100 - bp) + "%）→ 两边成交都计返佣。";
-    el.innerHTML = '<span class="lp-dot ' + side.side + '"></span>' + txt + (side.at ? ' <small class="muted">（' + new Date(side.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) + ' 更新，每 5 分钟）</small>' : "");
+    var tot = (side.bd || 0) + (side.ad || 0), bp = tot ? Math.round(side.bd / tot * 100) : 50, sp = 100 - bp;
+    var big = side.side === "sell" ? "卖单" : side.side === "buy" ? "买单" : "买单、卖单都行";
+    var why = side.side === "sell" ? "盘口买单多、缺卖单 → 此刻<b>只有卖单成交计返佣</b>，挂买单不计" :
+      side.side === "buy" ? "盘口卖单多、缺买单 → 此刻<b>只有买单成交计返佣</b>，挂卖单不计" : "盘口买卖基本平衡 → 两边成交都计返佣";
+    el.className = "lp-side lp-side-big " + side.side;
+    el.innerHTML = '<div class="lp-sb-k">👉 现在要挂</div><div class="lp-sb-v">' + big + '</div><div class="lp-sb-w">' + why + '</div>' +
+      '<div class="lp-sb-bar"><i style="width:' + bp + '%"></i><span>买 ' + bp + '%</span><span>卖 ' + sp + '%</span></div>' +
+      '<small>' + (side.at ? new Date(side.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) + " 盘口 · " : "") + '每 30 秒自动更新，以成交那一刻为准</small>';
+  }
+  var sideTimer = 0;
+  function sidePoll() {
+    clearInterval(sideTimer);
+    sideTimer = setInterval(function () {
+      if (!A.isCurrent(rid)) return clearInterval(sideTimer);
+      if (document.hidden) return;
+      fetch("/api/lp").then(function (r) { return r.json(); }).then(function (j) { if (A.isCurrent(rid) && j && j.side) { side = j.side; sideLine(); var n = document.querySelector(".lp-need"); if (n) n.innerHTML = needText(); } }).catch(function () {});
+    }, 30000);
+  }
+  function needText() {
+    return (side.side === "sell" ? "👉 现在盘口<b>缺卖单</b>：你挂<b>卖单</b>被吃才计返佣，挂买单不计。" :
+      side.side === "buy" ? "👉 现在盘口<b>缺买单</b>：你挂<b>买单</b>被吃才计返佣，挂卖单不计。" :
+      "👉 现在盘口买卖差不多：买单、卖单被吃都计返佣。") + ' <span class="muted">下面「一键做市」默认就铺缺的这边。</span>';
   }
   function after() { var c = document.getElementById("lp-conn"); if (c) c.textContent = A.short(account); load(); }
   function tierName(r) { return r >= 0.7 ? "5 万档 · 70%" : r >= 0.6 ? "3 万档 · 60%" : r >= 0.5 ? "1 万档 · 50%" : "未到 1 万档 · 不返"; }
@@ -100,9 +118,7 @@
     el.innerHTML = '<div class="lp-kpi lp-me"><div><small>今天档位</small><b>' + tierName(lq.rate) + '</b><span>日均挂单 ' + f(lq.avg, 0) + ' DAI' + (lq.next ? ' · 再挂 ' + f(lq.next[0] - lq.avg, 0) + ' 到 ' + Math.round(lq.next[1] * 100) + '%' : "") + '</span></div>' +
       '<div><small>今天返佣</small><b>' + f(t.rb || 0, 4) + ' DAI</b><span>计入成交 ' + f(t.cdai || 0, 0) + ' / 全部 ' + f(t.dai || 0, 0) + ' DAI · ' + (t.n || 0) + ' 笔</span></div>' +
       '<div><small>累计返佣</small><b>' + f(m.total.rb, 4) + ' DAI</b><span>待发放 ' + f(m.pending, 4) + ' DAI</span></div></div>' +
-      '<p class="lp-need">' + (side.side === "sell" ? "👉 现在盘口<b>缺卖单</b>：你挂<b>卖单</b>被吃才计返佣，挂买单不计。" :
-        side.side === "buy" ? "👉 现在盘口<b>缺买单</b>：你挂<b>买单</b>被吃才计返佣，挂卖单不计。" :
-        "👉 现在盘口买卖差不多：买单、卖单被吃都计返佣。") + ' <span class="muted">下面「一键做市」默认就铺缺的这边。</span></p>' +
+      '<p class="lp-need">' + needText() + '</p>' +
       (m.days.length ? '<div class="lg-list">' + m.days.map(function (d) { return '<div class="lg-row"><span class="lg-ico">📅</span><div class="lg-main"><div class="lg-txt">' + d.d + '：计入成交 ' + f(d.x.cdai || 0, 2) + ' / ' + f(d.x.dai, 2) + ' DAI · ' + d.x.n + ' 笔 · ' + (d.d < "2026-11-10" ? '旧规则 ' + Math.round((d.x.rate || 0) * 100) + '%' : '日均挂单 ' + f(d.x.liq || 0, 0) + ' → ' + Math.round((d.x.rate || 0) * 100) + '%') + ' → 返佣 <b>' + f(d.x.rb, 4) + ' DAI</b></div></div></div>'; }).join("") + "</div>" : '<p class="muted">还没有成交记录。挂上单、被人吃了就会出现在这里。</p>') +
       (m.paid.length ? '<p class="muted">发放记录：' + m.paid.slice(0, 5).map(function (p) { return p.day + " " + f(p.amt, 4) + ' DAI <a href="#/scan/' + p.tx + '">详情</a>'; }).join(" · ") + "</p>" : "");
   }
