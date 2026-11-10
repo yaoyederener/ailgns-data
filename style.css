@@ -3262,3 +3262,4 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .sweep .sw-side button.on[data-sw="buy"] { background: linear-gradient(110deg, #16a34a, #22b357); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(22, 163, 74, .32); }
 .sweep .sw-side button.on[data-sw="sell"] { background: linear-gradient(110deg, #ef4444, #f05a5a); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(239, 68, 68, .32); }
 @media (max-width: 600px) { .sweep .sw-side button { font-size: 14px; padding: 13px 4px; } }
+.ptn-addrs > summary { list-style: none; cursor: pointer; } .ptn-addrs > summary::-webkit-details-marker { display: none; } .ptn-addrs > summary .ad-h { display: flex; align-items: center; gap: 8px; } .ptn-addrs > summary .ad-h::after { content: '▾'; margin-left: auto; color: #8a7fb0; } .ptn-addrs[open] > summary .ad-h::after { content: '▴'; } .ptn-addrs > summary small { font-size: 12px; font-weight: 400; }
