@@ -281,6 +281,32 @@
     for (var k in REASONS) if (msg.indexOf(k) >= 0) return REASONS[k];
     return W.error(e);
   }
+  // 钱包支持「一次确认发一串」（EIP-5792 wallet_sendCalls）就用它：返回 true；不支持返回 false（照 lp.js 的写法）
+  var CHAIN_IDS = { anubis: 6714, polygon: 137 };
+  function sendCallsOtc(calls, say) {
+    var eth = W.get(); if (!eth || !eth.request) return Promise.resolve(false);
+    var chainId = "0x" + (CHAIN_IDS[M.chain] || 6714).toString(16);
+    return eth.request({ method: "wallet_getCapabilities", params: [account] }).then(function (cap) {
+      var c = cap && (cap[chainId] || cap[String(CHAIN_IDS[M.chain])]); if (!c || !(c.atomicBatch && c.atomicBatch.supported) && !c.atomic) return false;
+      say("钱包支持一次确认发 " + calls.length + " 笔，请在钱包确认一次");
+      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) {
+        var bid = typeof id === "string" ? id : (id && id.id);
+        say("已提交，等待链上确认…");
+        return new Promise(function (ok, no) {
+          var n = 0;
+          (function poll() {
+            eth.request({ method: "wallet_getCallsStatus", params: [bid] }).then(function (stt) {
+              var sv = stt && (stt.status || stt.state);
+              if (sv === 200 || sv === "CONFIRMED" || sv === "confirmed") return ok(true);
+              if (sv >= 400 || sv === "FAILED" || sv === "failed") return no(new Error("批量交易失败"));
+              if (++n > 60) return no(new Error("等待确认超时"));
+              setTimeout(poll, 2000);
+            }, function () { if (++n > 60) return no(new Error("等待确认超时")); setTimeout(poll, 2000); });
+          })();
+        });
+      });
+    }, function () { return false; });
+  }
   function send(to, data, say, label) {
     var eth = W.get();
     say("正在检查交易能否成功…");
@@ -737,15 +763,19 @@
 
     function myOrders(list, now, mkt) {
       if (!list.length) return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="empty">这个市场（' + SYM + '）还没有挂单</div><p class="note">挂在别的币种市场的单这里不显示：上面切换市场，或 <a href="#/scan/' + account + '">在账本里看我所有市场的挂单 →</a></p></section>';
-      return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单</h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
+      var openN = list.filter(function (o) { return o.open; }).length, SHOW = 5, k = 0; // 站长 2026-11-10：默认只露 5 张，其余折叠；≥2 张挂着就给「一键撤销全部」
+      return '<section class="card" id="otc-mine"><div class="card-head"><h2>我的挂单' + (openN ? ' <small class="muted">挂着 ' + openN + ' 张</small>' : "") + '</h2>' +
+        (openN >= 2 ? '<button type="button" class="ghost mine-all" data-cancel-all>一键撤销全部 ' + openN + ' 张</button>' : "") + '</div><p class="note cx-all" id="mine-all-st" hidden></p>' +
+        '<div class="tbl-wrap"><table class="cards"><thead><tr><th>#</th><th class="l">方向</th><th>单价</th><th>剩余</th><th class="l">状态</th><th></th></tr></thead><tbody>' +
         list.map(function (o) {
+          var fold = k++ >= SHOW;
           var dust = o.open && isDust(o);
           var status = !o.open ? "已结束" : dust ? "剩余不足 1 DAI，已自动下架，点「取回」退回钱包" : o.expiry <= now ? "已过期，等待退回" : "挂单中 · 还剩 " + left(o.expiry - now) + '<br><span class="muted">' + A.timeBJ(o.expiry * 1000) + " 到期（北京时间）</span>";
           var r = mkt && o.open && o.expiry > now ? priceOf(o) / mkt : null, side = o.sellAilgns ? "sell" : "buy";
           var remain = dust && isCrumb(o, o.giveLeft) ? "零头" : o.sellAilgns ? tShow(o.giveLeft) + " " + SYM : show(o.giveLeft, 2) + " DAI";
-          return '<tr><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
+          return '<tr' + (fold ? ' class="mine-x"' : "") + '><td data-l="编号">#' + o.id + '</td><td data-l="方向" class="l">' + (o.sellAilgns ? "卖 " : "买 ") + SYM + '</td><td data-l="单价">' + A.fmt(priceOf(o), PD) + '</td><td data-l="剩余">' + remain + '</td><td data-l="状态" class="l">' + status + '</td><td class="act">' +
             (o.open ? '<button class="ghost" data-cancel="' + o.id + '" style="padding:6px 12px">' + (o.expiry <= now || dust ? "取回" : "撤单") + "</button>" : "") + "</td></tr>";
-        }).join("") + "</tbody></table></div>" +
+        }).join("") + "</tbody></table></div>" + (list.length > SHOW ? '<button type="button" class="ghost mine-more" data-mine-more>展开全部 ' + list.length + ' 张 ▾</button>' : "") +
         '<p class="note">价格变了想改价：点「撤单」（钱包确认一次，币马上退回钱包）→ 回到上面「发布挂单」按新价再挂一张。到期的单显示「取回」，点一下币就退回。没看到你的单？可能挂在别的币种市场：<a href="#/scan/' + account + '">在账本里看我所有市场的挂单 →</a></p></section>';
     }
 
@@ -1011,6 +1041,34 @@
           }).then(function () { sweeping = false; here("✅ 已撤单，币已退回你的钱包"); setTimeout(reload, 1500); }, function (e) { sweeping = false; here(niceError(e), true); b.disabled = false; });
         };
       });
+
+      var mm = A.app.querySelector("[data-mine-more]");
+      if (mm) mm.onclick = function () { var sec = document.getElementById("otc-mine"); if (sec) sec.classList.add("mine-open"); mm.remove(); };
+      // 一键撤销全部挂单（站长 2026-11-10）：钱包支持一次确认发一串（EIP-5792）就一次确认，不支持就一张张确认
+      var ca = A.app.querySelector("[data-cancel-all]");
+      if (ca) ca.onclick = function () {
+        var ids = orders.filter(function (o) { return o.open && account && o.maker.toLowerCase() === account.toLowerCase(); }).map(function (o) { return o.id; });
+        if (!ids.length) return;
+        if (!confirm("确定撤销你在 " + SYM + " 市场的全部 " + ids.length + " 张挂单？币会全部退回钱包。")) return;
+        var st = document.getElementById("mine-all-st"); st.hidden = false;
+        function here(t, bad) { st.className = "note cx-all" + (bad ? " down" : ""); st.textContent = t; }
+        ca.disabled = true; sweeping = true;
+        here("正在连接钱包…");
+        var calls = ids.map(function (id) { return { to: OTC, data: SEL.cancel + u256(id) }; });
+        ready().then(function () {
+          return sendCallsOtc(calls, here).then(function (ok) { if (ok) return; return seq(); }, function () { return seq(); });
+          function seq() {
+            var i = 0;
+            function next() {
+              if (i >= ids.length) return;
+              here("撤第 " + (i + 1) + " / " + ids.length + " 张（#" + ids[i] + "），请在钱包确认…");
+              return send(OTC, SEL.cancel + u256(ids[i]), function () {}, "撤单").then(function () { i++; return next(); });
+            }
+            return next();
+          }
+        }).then(function () { sweeping = false; here("✅ 全部撤销，币已退回你的钱包"); setTimeout(reload, 1500); },
+          function (e) { sweeping = false; here(niceError(e) + "（已撤的不受影响，刷新后再点一次撤剩下的）", true); ca.disabled = false; });
+      };
 
       // 吃单
       A.app.querySelectorAll("[data-fill]").forEach(function (b) {

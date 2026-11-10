@@ -3306,3 +3306,11 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .lg-row.lg-x { display: none; }
 .lg-open .lg-row.lg-x { display: flex; }
 .lg-more { display: block; width: 100%; margin-top: 10px; padding: 10px 0; font-weight: 700; border-radius: 10px; }
+
+/* 我的挂单：折叠 + 一键撤销（站长 2026-11-10） */
+#otc-mine tr.mine-x { display: none; }
+#otc-mine.mine-open tr.mine-x { display: table-row; }
+@media (max-width: 640px) { #otc-mine.mine-open table.cards tr.mine-x { display: grid; } }
+#otc-mine .mine-more { display: block; width: 100%; margin-top: 10px; padding: 10px 0; font-weight: 700; border-radius: 10px; }
+#otc-mine .mine-all { padding: 8px 14px; font-weight: 700; border-radius: 10px; color: #c0392b; border-color: #e8b4ad; }
+#otc-mine .card-head h2 small { font-size: 13px; font-weight: 500; margin-left: 6px; }
