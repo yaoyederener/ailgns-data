@@ -3314,3 +3314,7 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 #otc-mine .mine-more { display: block; width: 100%; margin-top: 10px; padding: 10px 0; font-weight: 700; border-radius: 10px; }
 #otc-mine .mine-all { padding: 8px 14px; font-weight: 700; border-radius: 10px; color: #c0392b; border-color: #e8b4ad; }
 #otc-mine .card-head h2 small { font-size: 13px; font-weight: 500; margin-left: 6px; }
+
+/* 一键做市：钱包要点几次确认，大字高亮（站长 2026-11-10） */
+.lp-cnt { margin: 12px 0 6px; padding: 14px 16px; border-radius: 14px; background: linear-gradient(135deg, #fff4d6, #ffe6a6); border: 2px solid #f3c35a; color: #6b4a00; font-size: 18px; font-weight: 800; line-height: 1.5; text-align: center; }
+.lp-cnt b { font-size: 30px; color: #c2410c; padding: 0 4px; font-variant-numeric: tabular-nums; }

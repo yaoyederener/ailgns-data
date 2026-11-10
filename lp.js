@@ -33,7 +33,7 @@
       '<section class="card lp-mk"><div class="card-head"><h2>⚡ 一键做市</h2><span class="muted">填一个金额就行</span></div>' +
         '<p class="muted">你出多少钱，网站帮你拆成几张小单铺在盘口<b>缺的那一边</b>；哪张被吃哪张赚价差，没被吃的随时撤。钱始终在你钱包和 OTC 合约里，网站碰不到。</p>' +
         '<div class="lp-one"><label>我要投入（DAI）<input id="lp-amt" inputmode="decimal" value="1000"></label><div class="lp-one-sum" id="lp-sum">正在算…</div></div>' +
-        '<button type="button" class="nm-go lp-gobig" id="lp-go">⚡ 一键做市</button><p class="muted nm-st" id="lp-st"></p>' +
+        '<button type="button" class="nm-go lp-gobig" id="lp-go">⚡ 一键做市</button><div class="lp-cnt" id="lp-cnt" hidden></div><p class="muted nm-st" id="lp-st"></p>' +
         '<details class="lp-adv"><summary>高级设置（一般不用动）</summary>' +
         '<div class="lp-grid"><label>铺哪边<select id="lp-which"><option value="auto">自动：只铺缺的一边</option><option value="both">双边都铺</option><option value="buy">只铺买单（压 DAI）</option><option value="sell">只铺卖单（压 ' + SYM + '）</option></select></label>' +
         '<label>中间价 (DAI)<input id="lp-mid" inputmode="decimal"><small class="muted" id="lp-hint"></small></label>' +
@@ -162,9 +162,10 @@
     var vol = liq * turn, spread = vol / 2 * sp;
     el.innerHTML = '<div class="lp-kpi"><div><small>称号</small><b>' + (liq >= 10000 ? "👑 官方认证做市商" : "未到 1 万") + '</b><span>' + (liq >= 10000 ? "日均挂单达标" : "挂到 1 万 DAI 才有称号") + '</span></div><div><small>日成交</small><b>' + f(vol, 0) + ' DAI</b><span>资金 × 换手</span></div><div><small>每天价差收益（估）</small><b>' + f(spread, 2) + ' DAI</b><span>日成交 ÷ 2 × 价差 · 单边行情可能为负</span></div></div>';
   }
-  function ensureAllowance(token, amount, say, name) {
-    return K().allowance(token, account, OTC).then(function (al) { if (al >= amount) return; return K().send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次）"); });
+  function ensureAllowance(token, amount, say, name, onTx) {
+    return K().allowance(token, account, OTC).then(function (al) { if (al >= amount) return; if (onTx) onTx(); return K().send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次）"); });
   }
+  function needApprove(token, amount) { return amount > 0n ? K().allowance(token, account, OTC).then(function (al) { return al >= amount ? 0 : 1; }, function () { return 1; }) : Promise.resolve(0); }
   // 钱包支持 EIP-5792 就一次确认发一串；不支持就一张一张确认
   function sendCalls(calls, say) {
     var eth = window.ethereum; if (!eth || !eth.request) return Promise.resolve(false);
@@ -181,6 +182,8 @@
   }
   function place() {
     var p = params(), go = document.getElementById("lp-go"), st = document.getElementById("lp-st"), say = function (t) { st.textContent = t; };
+    var ce = document.getElementById("lp-cnt"), appr = 0, total = 0, step = 0;
+    function cnt(h) { if (!ce) return; ce.hidden = false; ce.innerHTML = h; }
     if (!p.mid || !p.amt || !p.sp) return A.errTip("先填中间价、总资金、价差", go);
     var rows = ladder(p);
     if (rows[0].dai < 50) return A.errTip("每张最少 50 DAI，请加大资金或减少档数", go);
@@ -196,16 +199,21 @@
     }).then(function (b) {
       if (b[0] < buyDai) throw new Error("DAI 不够：买单要压 " + f(Number(buyDai) / 1e18, 0) + " DAI，你有 " + f(Number(b[0]) / 1e18));
       if (b[1] < sellCoin) throw new Error(SYM + " 不够：卖单要压 " + f(Number(sellCoin) / Math.pow(10, TD), 4) + " " + SYM + "，你有 " + f(Number(b[1]) / Math.pow(10, TD), 4));
-      return buyDai > 0n ? ensureAllowance(DAI, buyDai, say, "DAI") : null;
-    }).then(function () { return sellCoin > 0n ? ensureAllowance(TOKEN, sellCoin, say, SYM) : null; })
-      .then(function () { return sendCalls(calls, say); })
+      return Promise.all([needApprove(DAI, buyDai), needApprove(TOKEN, sellCoin)]);
+    }).then(function (na) {
+      // 站长 2026-11-10：大字告诉客户钱包要点几次确认（授权几次 + 挂单几张），过程中显示到第几次
+      appr = na[0] + na[1]; total = appr + calls.length; step = 0;
+      cnt("👉 钱包会弹 <b>" + total + "</b> 次确认" + (appr ? "（授权 " + appr + " 次 + 挂单 " + calls.length + " 张）" : "（挂单 " + calls.length + " 张）") + "，每次点「确认」就行");
+      return buyDai > 0n ? ensureAllowance(DAI, buyDai, say, "DAI", function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：授权 DAI，请在钱包点确认"); }) : null;
+    }).then(function () { return sellCoin > 0n ? ensureAllowance(TOKEN, sellCoin, say, SYM, function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：授权 " + SYM + "，请在钱包点确认"); }) : null; })
+      .then(function () { return sendCalls(calls, function (t) { say(t); if (/一次确认/.test(t)) { total = step + 1; cnt("钱包支持批量：剩下 " + calls.length + " 张单只要再点 <b>1</b> 次确认（第 " + (step + 1) + " / " + total + " 次）"); } }); })
       .then(function (batched) {
         if (batched) return;
         say("钱包不支持批量，一张一张确认（共 " + calls.length + " 张）");
-        return calls.reduce(function (pr, c, i) { return pr.then(function () { return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
+        return calls.reduce(function (pr, c, i) { return pr.then(function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：挂第 " + (i + 1) + " 张（" + c.tag + "），请在钱包点确认"); return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
       })
-      .then(function () { go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「👑 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
-      .catch(function (e) { go.disabled = false; say(""); A.errTip(K().niceError(e), go); });
+      .then(function () { cnt("✅ " + total + " 次确认全部完成"); go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「👑 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", "ailgns"); setTimeout(load, 2000); })
+      .catch(function (e) { go.disabled = false; say(""); if (ce) ce.hidden = true; A.errTip(K().niceError(e), go); });
   }
   A.pages.lp = page;
 })();
