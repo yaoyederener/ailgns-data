@@ -100,7 +100,7 @@
       '<p class="bn-meta bn-meta2"><span id="bn-eta"></span></p></div>' +
       '<div class="bn-est" id="bn-est" hidden></div><p class="bn-me" id="bn-me" hidden></p>' +
       '<a class="bn-go" href="#/names">去注册创世域名</a><p class="note">前 1 万个付费注册的 .ailgns 名字就是创世域名，注册完自动带编号。</p></section>' +
-      '<section class="card bn"><h2>规则一共四条</h2><ol class="bn-rules">' +
+      '<section class="card bn"><h2>规则一共四条</h2><p class="bn-warn">⚠️ 计划还没开启，下面的规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
       "<li><b>持有创世域名</b><span>钱包里至少有 1 枚创世域名。1 枚算 1 票，持有越多票越多。</span></li>" +
       "<li><b>每天签到</b><span>签到免费。每天从签到的人里随机抽 50 名。</span></li>" +
       "<li><b>注册费和续费的 30% 拿来分</b><span>只算域名注册费和续费，其它收入都不动。分红发 AiLGNS。</span></li>" +
