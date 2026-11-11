@@ -1099,6 +1099,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .dw-group.open .dw-items { display: grid; }
 .dw-items a { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; border: 1px solid transparent; color: var(--purple-ink); font-size: 15.5px; font-weight: 600; }
 .dw-items a span { flex: 1; }
+.dw-more { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px dashed var(--line, #d9ccf5); background: none; color: var(--purple-ink); font: inherit; font-size: 14.5px; font-weight: 600; text-align: left; cursor: pointer; opacity: .85; }
+.dw-more > svg:first-child { width: 22px; height: 22px; fill: none; stroke: var(--gold); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dw-more span { flex: 1; }
+.dw-group.open .dw-more .dw-up { transform: rotate(180deg); }
+.dw-group.open .dw-more.open .dw-up { transform: none; }
 .dw-items a:hover { text-decoration: none; background: var(--soft); }
 .dw-items a.on { background: var(--grad-dot); border-color: #7727d6; color: #fff; box-shadow: 0 3px 10px rgba(112, 39, 217, .15); }
 .dw-items a.on > svg:first-child { stroke: #fff; }

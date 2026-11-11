@@ -28,17 +28,18 @@
   var GROUPS = [
     ["交易", "TRADE", [["#/trade", "📊 交易所盘口（专业版）", "otc"], ["#/lp", "💧 做市商（✅ 认证称号）", "flow"], ["#/aiswap", "🔁 aiswap 兑换池（试运行）", "flow"]]], // 站长 2026-11-11：订单查询从这组撤下（页面顶部「查我的订单」和「链上身份 → 账本」都能查）；金融类新功能都先放这组试运行，冷启动、不宣传。资金流向 2026-11-09 从菜单撤下（页面 #/flows 还在，站长：交易组留给区块链底层玩法冷启动）
     ["链上身份", "ON-CHAIN", [["#/bonus", "🎁 创世域名每日分红（上线倒计时）", "promo"], ["#/genesis", "🔥 创世域名销毁进行中", "fire"], ["#/inbox", "🔔 收件箱", "bell"], ["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/scan", "💬 链上留言（在账本里）", "chat"], ["#/square", "🏛️ 链上广场（盖楼 · 时间胶囊 · 挂单帖）", "chat"]]],
-    ["销毁乐园（游戏）", "PLAY", [["#/play", "销毁乐园", "fire"], ["#/farm", "🏡 开心农场", "fire"], ["#/mj", "🀄 血流成河麻将（试玩）", "grid"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
+    ["销毁乐园（游戏）", "PLAY", [["#/farm", "🏡 开心农场", "fire"], ["#/mj", "🀄 血流成河麻将（试玩）", "grid"], ["#/play", "销毁乐园", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
     ["服务", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/updates", "🆕 更新日志", "promo"], ["#/app", "📲 下载 App", "app"], ["#group", "💬 加 OTC 交流群（二维码）", "chat"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/promo", "营销广告", "promo"]]],
   ];
   // 🎮 游戏按最近 7 天打开次数排序（站长 2026-11-08：玩得最多的放上面，顺便知道哪个最火）；接口读不到就保持默认顺序
-  var GAME_GROUP = GROUPS.filter(function (g) { return g[1] === "PLAY"; })[0], gameHot = {};
+  // 站长 2026-11-11：开心农场、血流成河麻将固定在最上面，其它游戏收进「其它小游戏」，点一下再展开
+  var GAME_GROUP = GROUPS.filter(function (g) { return g[1] === "PLAY"; })[0], gameHot = {}, PIN = { "#/farm": 2, "#/mj": 1 }, moreOpen = false;
   function sortGames(counts) {
     if (!GAME_GROUP || !counts) return;
     gameHot = counts;
     var any = GAME_GROUP[2].some(function (it) { return counts[it[0].slice(2)] > 0; });
     if (!any) return; // 还没有数据就保持默认顺序
-    GAME_GROUP[2].sort(function (a, b) { return (counts[b[0].slice(2)] || 0) - (counts[a[0].slice(2)] || 0); }); // 多的在前，相同的保持原顺序
+    GAME_GROUP[2].sort(function (a, b) { return (PIN[b[0]] || 0) - (PIN[a[0]] || 0) || (counts[b[0].slice(2)] || 0) - (counts[a[0].slice(2)] || 0); }); // 置顶的两个在前，其余多的在前，相同的保持原顺序
   }
   try { fetch("/api/games-top").then(function (r) { return r.json(); }).then(function (j) { if (j && j.counts) sortGames(j.counts); }).catch(function () {}); } catch (e) {}
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
@@ -70,12 +71,16 @@
       if (!items.length) return "";
       var isOpen = kw || open[gi];
       return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><em class="dw-sum">' + g[2].slice(0, 4).map(function (it) { return it[1].replace(/（.*?）/g, ""); }).join(" · ") + (g[2].length > 4 ? " 等 " + g[2].length + " 项" : "") + '</em><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
-        '<div class="dw-items">' + items.map(function (it) {
-          return '<a href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + svg(it[2]) + "<span>" + it[1] + "</span>" + CHEV + "</a>";
-        }).join("") + "</div></section>";
+        '<div class="dw-items">' + (function () {
+          function row(it) { return '<a href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + svg(it[2]) + "<span>" + it[1] + "</span>" + CHEV + "</a>"; }
+          if (g !== GAME_GROUP || kw) return items.map(row).join("");
+          var top = items.filter(function (it) { return PIN[it[0]]; }), rest = items.filter(function (it) { return !PIN[it[0]]; });
+          return top.map(row).join("") + (rest.length ? '<button type="button" class="dw-more' + (moreOpen ? " open" : "") + '" data-more>' + svg("grid") + "<span>其它小游戏（" + rest.length + ' 个）</span><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' + (moreOpen ? rest.map(row).join("") : "") : "");
+        })() + "</div></section>";
     }).join("") || '<p class="dw-none">没有找到相关功能</p>';
   }
   body.onclick = function (e) {
+    if (e.target.closest("[data-more]")) { moreOpen = !moreOpen; draw(); return; }
     var h = e.target.closest(".dw-gh");
     if (h) { var gi = h.getAttribute("data-g"); open[gi] = !open[gi]; draw(); return; }
     if (e.target.closest("a")) close();
@@ -83,7 +88,7 @@
 
   function show() {
     // 打开时分组全部收起（站长要求）：每个分组标题下面用小字列出里面有什么，一屏看到全部功能，点标题再展开
-    open = {}; // 分组默认收起（站长 2026-11-05 定），标题下有小字列出里面有什么，点标题展开
+    moreOpen = false; open = {}; // 分组默认收起（站长 2026-11-05 定），标题下有小字列出里面有什么，点标题展开
     if (A.freshCheck) A.freshCheck(); // 点开菜单顺便查新版本，有就自动换成新版
     draw();
     wallet();
