@@ -19,6 +19,37 @@
       if (el("bn-n") && el("bn-left") && el("bn-left").textContent === "…") el("bn-n").textContent = "数字暂时没读到，稍后自动重试";
     });
   }
+  // 估算：中签的人每人大概分多少。域名收入从 /api/oracle 里现成的数字反推（last.rev 是整天收入；drawing.allot ÷ 奖池比例 = 前一天整天收入），
+  // 取最近两个整天的平均 × 30% ÷ 50 人。只是估算，读不到就整块不显示。
+  function est() {
+    var c = null; try { c = JSON.parse(localStorage.getItem("bn:est") || "null"); } catch (e) {}
+    if (c && c.per > 0) { paintEst(c); if (Date.now() - c.at < 3600000) return; } // 先给上次的数，一小时内不重读
+    fetch("/api/oracle").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
+      if (!j) return;
+      var days = {}, L = j.last || {}, D = j.drawing || {}, share = Number(L.rev) > 0 && Number(L.allot) > 0 ? Number(L.allot) / Number(L.rev) : 0;
+      if (L.day && Number(L.rev) > 0) days[L.day] = Number(L.rev);
+      if (D.day && share > 0 && Number(D.allot) > 0) days[D.day] = Number(D.allot) / share;
+      var ks = Object.keys(days); if (!ks.length) return;
+      var avg = ks.reduce(function (s, k) { return s + days[k]; }, 0) / ks.length, pot = avg * 0.3, per = pot / 50;
+      if (!(per > 0)) return;
+      var px = Number(j.funds && j.funds.otc && j.funds.otc.px) || 0, o = { per: per, avg: avg, pot: pot, k: ks.length, ail: px > 0 ? per / px : 0, at: Date.now() };
+      try { localStorage.setItem("bn:est", JSON.stringify(o)); } catch (e) {}
+      paintEst(o);
+    }).catch(function () {});
+  }
+  function paintEst(o) {
+    try {
+      var box = el("bn-est"); if (!box) return;
+      var per = o.per, avg = o.avg, pot = o.pot, ail = o.ail, ks = { length: o.k };
+      box.innerHTML = '<p class="bn-est-t">💰 照现在的收入估算</p>' +
+        '<p class="bn-est-n">中签的人每人大约 <b>' + n(Math.round(per)) + ' DAI</b></p>' +
+        (ail > 0 ? '<p class="bn-est-s">发 AiLGNS，按现在的价格约 ' + ail.toFixed(4) + " 枚</p>" : "") +
+        '<p class="bn-est-s">怎么算的：最近 ' + ks.length + " 天域名注册和续费收入平均每天 " + n(Math.round(avg)) + " DAI，拿 30% 是 " + n(Math.round(pot)) + " DAI，50 人平分。</p>" +
+        (per > 10 ? '<p class="bn-est-s">超过 10 DAI，领之前要先销毁 1 枚普通域名。</p>' : "") +
+        '<p class="bn-est-w">只是估算，不是承诺。每天只抽 50 人，不是人人都有；开启后域名收入可能比现在少，实际以当天为准。</p>';
+      box.hidden = false;
+    } catch (e) {}
+  }
   function mine() {
     var box = el("bn-me"); if (!box) return;
     var show = function (a) {
@@ -41,7 +72,7 @@
       '<section class="card bn"><h1>🎁 创世域名每日分红计划</h1><p class="sub">上线倒计时：1 万枚创世域名全部铸造完成，分红就开启。</p>' +
       '<div class="bn-cd"><div class="bn-big"><b id="bn-left">…</b><span id="bn-unit">枚后开启</span></div>' +
       '<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-n">读取中…</span><span id="bn-eta"></span></p></div>' +
-      '<p class="bn-me" id="bn-me" hidden></p>' +
+      '<div class="bn-est" id="bn-est" hidden></div><p class="bn-me" id="bn-me" hidden></p>' +
       '<a class="bn-go" href="#/names">去注册创世域名</a><p class="note">前 1 万个付费注册的 .ailgns 名字就是创世域名，注册完自动带编号。</p></section>' +
       '<section class="card bn"><h2>规则一共四条</h2><ol class="bn-rules">' +
       "<li><b>持有创世域名</b><span>钱包里至少有 1 枚创世域名。1 枚算 1 票，持有越多票越多。</span></li>" +
@@ -54,7 +85,7 @@
       "<details><summary>挂在市场上卖的创世域名算票吗？</summary><p>不算。挂单的名字存在市场里，不在你钱包里。撤单拿回钱包就算。</p></details>" +
       "<details><summary>普通域名是什么？</summary><p>没有创世编号的 .ailgns 名字。大额分红领奖时销毁 1 枚，创世域名不用动。</p></details>" +
       "<details><summary>什么时候开启？</summary><p>没有固定日期，看铸造进度。上面的数字归零那天开启。</p></details></section>";
-    load(); mine();
+    load(); mine(); est();
     clearInterval(timer);
     timer = setInterval(function () { if (!el("bn-left")) { clearInterval(timer); return; } load(); }, 30000);
   }
