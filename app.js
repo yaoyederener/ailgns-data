@@ -823,14 +823,14 @@
       window.addEventListener("hashchange", route); route();
       setTimeout(prefetchAll, 5000);
       freshCheck(true);
-      window.addEventListener("hashchange", function () { freshCheck(); });
+      window.addEventListener("hashchange", function () { if (freshLater) { var g = freshLater; freshLater = null; g(); return; } freshCheck(); });
     }
   };
   // 钱包内置浏览器经常把首页缓存很久，导致脚本还是旧版（新功能看不到、按钮没反应）：
   // 打开后悄悄拉一次最新首页，脚本版本号和当前不一样就自动刷新一次（每次会话最多一次，免得循环）
   // 打开网站、切换页面、点开菜单时都查一下有没有新版本（最多 1 分钟查一次）；有就带上随机参数重新打开，绕过钱包浏览器的旧缓存
   // 同一个新版本只自动刷新一次，避免钱包死活给旧页面时一直刷新
-  var lastFresh = 0;
+  var lastFresh = 0, freshLater = null;
   function freshCheck(now) {
     try {
       if (!now && Date.now() - lastFresh < 60e3) return;
@@ -840,8 +840,13 @@
       fetch("/?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
         var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
         if (!latest || latest === mine || sessionStorage.getItem("fresh:to") === latest) return;
-        sessionStorage.setItem("fresh:to", latest);
-        var sp2 = new URLSearchParams(location.search); sp2.set("v", String(Date.now())); location.replace(location.pathname + "?" + sp2.toString() + location.hash);
+        var go = function () {
+          sessionStorage.setItem("fresh:to", latest);
+          var sp2 = new URLSearchParams(location.search); sp2.set("v", String(Date.now())); location.replace(location.pathname + "?" + sp2.toString() + location.hash);
+        };
+        // 「更多」菜单开着的时候不刷新（站长 2026-11-11：点开菜单闪退，就是这里发现新版本把页面换掉了）：等客户点了菜单里的功能、换页面时再换新版
+        if (document.documentElement.classList.contains("dw-lock")) { freshLater = go; return; }
+        go();
       }).catch(function () {});
     } catch (e) { /* 忽略 */ }
   }
