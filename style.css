@@ -2966,6 +2966,7 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .ptn-d tr.now td { background: #faf7ff; } .ptn-d tr.now td.in { background: #e3f7ec; } .ptn-d tr.now td:first-child { font-weight: 700; color: #4b2fb0; }
 .ptn-d tr.sum td { font-weight: 700; border-top: 2px solid #d9ccff; background: #f6f2ff; } .ptn-d tr.sum td.in { background: #e3f7ec; }
 .ptn-dn { margin: 6px 0 0; font-size: 12px; }
+@media (min-width: 601px) { .ptn-d th, .ptn-d td { padding-left: 4px; padding-right: 4px; font-size: 12px; } }
 @media (max-width: 600px) {
   .ptn-d thead { display: none; }
   .ptn-d, .ptn-d tbody { display: block; white-space: normal; }
