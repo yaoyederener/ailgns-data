@@ -230,6 +230,20 @@
     if (am) return { ico: "🔗", cls: "lg-oracle", text: "<b>预言家封卷存证</b>：" + am[1].slice(5).replace("-", "/") + " 期全部预测的指纹 <span class=\"mono\">" + am[2].slice(0, 16) + "…</span> 写入链上（<a href=\"#/oracle\">去验证 ›</a>）" };
     var mtxt = t && to && !KNOWN[to] && !C.tokens[to] ? decodeMsg(t.raw_input) : null;
     if (mtxt) { var mfrom = (t.from && t.from.hash || "").toLowerCase(); return mfrom === a ? { ico: "💬", text: "给 " + who(to) + " <b>留言</b>：「" + esc(mtxt) + "」" } : { ico: "📬", text: who(mfrom) + " <b>给你留言</b>：「" + esc(mtxt) + "」" }; }
+    // —— 自己没发交易、是别人的操作让钱进来：看那笔交易的方法，判断是「我的挂单成交」「手续费」还是「到期退回」（站长 2026-11-11）——
+    // 合约里吃单的人把钱直接付给挂单人，所以以前这些都只显示成「收到 … 来自 …」
+    if (!t && !nftIn && !nftOut) {
+      var msel = (row.tr && row.tr[0] && row.tr[0].method) || "", FILLSEL = { "0x6fe4a448": 1, "0x934a9456": 1, "0xdb4361f1": 1, "0x9688b6ba": 1 };
+      var viaBot = ms.some(function (m) { return C.sweep[m.other]; }), isFill = !!FILLSEL[msel] || viaBot;
+      var inOtc = ms.filter(function (m) { return m.dir === "in" && C.otc[m.other]; })[0], feeTxt = inOtc && TEAM[a] ? "，另收手续费 " + fmtN(inOtc.v, inOtc.sym) : "";
+      var botTxt = function (x) { return C.sweep[x] ? (/撮合/.test(KNOWN[x] || "") ? "（自动撮合）" : "（对方一键扫单）") : ""; };
+      var cpDai = ms.filter(function (m) { return m.dir === "in" && m.sym === "DAI" && !C.otc[m.other]; })[0];
+      if (inOtc && msel === "0x34bfca5c") return { ico: "↩️", text: "<b>挂单到期</b>，自动退回 " + fmtN(inOtc.v, inOtc.sym) };
+      if (isFill && daiIn && daiOut && !coinIn && !coinOut) return { ico: "🤖", text: "<b>自动撮合</b>：垫付 " + fmtN(daiOut, "DAI") + "，收回 " + fmtN(daiIn, "DAI") + (daiIn > daiOut ? "，赚 " + fmtN(daiIn - daiOut, "DAI") : "") };
+      if (isFill && coinIn && !C.otc[coinIn.other] && !coinOut) return { ico: "✅", text: "<b>买单成交</b>，买入 " + fmtN(coinIn.v, coinIn.sym) + (botTxt(coinIn.other) || "，卖家 " + who(coinIn.other)) + feeTxt };
+      if (isFill && cpDai && !daiOut) return { ico: "✅", text: "<b>卖单成交</b>，卖出收到 " + fmtN(cpDai.v, "DAI") + (botTxt(cpDai.other) || "，买家 " + who(cpDai.other)) + feeTxt };
+      if (inOtc && isFill && TEAM[a]) return { ico: "🪙", text: "<b>OTC 手续费收入</b> " + fmtN(inOtc.v, inOtc.sym) + "（" + esc(C.otc[inOtc.other]) + " 市场有人成交，合约自动扣的）" };
+    }
     // —— 一键扫单 / 自动撮合（合约替你一次吃多张单）——
     if (C.sweep[to] || (!t && ms.some(function (m) { return C.sweep[m.other]; }))) {
       if (coinIn && daiOut) return { ico: "🛒", text: "<b>一键扫单买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxOf(daiOut, coinIn.v) };
@@ -306,10 +320,54 @@
     var k = KNOWN[to];
     return { ico: "🔧", text: (k ? "与「" + esc(k) + "」交互" : (EXT[sel] ? EXT[sel] + "（其他平台）" : "与其他平台的合约交互")) + (METHODS[sel] ? "：" + METHODS[sel] : "") + (ms.length ? "，" + ms.map(function (m) { return (m.dir === "in" ? "收到 " : "付出 ") + (m.nft ? "域名" : fmtN(m.v, m.sym)); }).join("、") : "") };
   }
-  var DIR = { "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
+  // 站长 2026-11-11：每一笔给一个简单判断（买入 AiLGNS / 卖出 AiLGNS / 挂单…），一眼扫过去就知道干了什么
+  function tagOf(r) {
+    var s = String(r.text).replace(/<[^>]+>/g, ""), sym = (s.match(/AiLGNS|gLGNS|LGNS/) || [""])[0], i = r.ico;
+    var what = /域名/.test(s) ? "域名" : /卡牌/.test(s) ? "卡牌" : sym ? " " + sym : "";
+    if (i === "❌") return ["没成功", "bad"];
+    if (i === "💬" || i === "📬") return ["留言", "etc"];
+    if (i === "🔮" || i === "🔗") return ["预测", "game"];
+    if (i === "🔑" || /授权（/.test(s)) return ["授权", "etc"];
+    if (i === "🎮") return ["游戏", "game"];
+    if (/手续费收入/.test(s)) return ["手续费收入", "in"];
+    if (/自动撮合：/.test(s)) return ["自动撮合", "buy"];
+    if (/借贷|借款单|出借/.test(s)) return ["借贷", "loan"];
+    if (i === "↩️") return [/到期/.test(s) ? "到期退回" : "撤单", "wait"];
+    if (/挂单|挂买单|挂出/.test(s) && !/成交/.test(s)) return [/买入|买单/.test(s) ? "挂买单" : /卖|出售/.test(s) ? "挂卖单" : "挂单", "wait"];
+    if (/买单成交|买入|托底/.test(s)) return ["买入" + what, "buy"];
+    if (/卖单成交|卖出/.test(s)) return ["卖出" + (what || "成交"), "sell"];
+    if (/奖金到账/.test(s)) return ["奖金到账", "in"];
+    if (/预言家|预测|奖池/.test(s)) return ["预测", "game"];
+    if (/销毁/.test(s)) return ["销毁", "out"];
+    if (/注册域名/.test(s)) return ["注册域名", "name"];
+    if (/续费域名/.test(s)) return ["续费域名", "name"];
+    if (/收到域名/.test(s)) return ["收到域名", "in"];
+    if (/转让域名/.test(s)) return ["转让域名", "out"];
+    if (/域名/.test(s)) return ["域名", "name"];
+    if (/运营|调拨/.test(s)) return ["运营", "etc"];
+    if (/换了|兑换|其他平台|非本站/.test(s)) return ["其他平台", "etc"];
+    if (/转出|付出/.test(s)) return ["转出", "out"];
+    if (/收到|转来|到账/.test(s)) return ["收款", "in"];
+    return ["其他", "etc"];
+  }
+  var DIR = { "🪙": "in", "🤖": "trade",  "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
   function rowHtml(a, row) {
-    var r = translate(a, row), money = (row.tr && row.tr.length) || (row.tx && row.tx.value && Number(row.tx.value) > 0) || /收到|付出|转出|转入|买入|卖出|成交|退回|注册|续费/.test(r.text);
-    return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + (DIR[r.ico] ? '" data-dir="' + DIR[r.ico] : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
+    var r = translate(a, row), tg = tagOf(r), money = (row.tr && row.tr.length) || (row.tx && row.tx.value && Number(row.tx.value) > 0) || /收到|付出|转出|转入|买入|卖出|成交|退回|注册|续费/.test(r.text);
+    return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + (DIR[r.ico] ? '" data-dir="' + DIR[r.ico] : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><span class="lg-tag lg-k-' + tg[1] + '">' + tg[0] + '</span><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
+  }
+  // 站长 2026-11-11：流水不要全折叠，先露最新 5 条，其余点「展开」再看
+  function clipLg(box) {
+    var open = !!box.getAttribute("data-open"), all = !!box.getAttribute("data-all"), vis = 0, hid = 0;
+    box.querySelectorAll(".lg-row").forEach(function (r) {
+      var counts = all || r.getAttribute("data-kind") !== "other"; if (counts) vis++;
+      var cut = !open && counts && vis > 5; if (cut) hid++;
+      r.classList.toggle("lg-fold", cut); r.classList.toggle("lg-end", !open && counts && vis === 5);
+    });
+    box.classList.toggle("sc-clip", !open);
+    var ub = box.querySelector(".sc-unfold"), hb = document.getElementById("sc-hbtn"), more = hid || box.querySelector(".sc-more") || box.querySelector(".sc-other");
+    if (ub && (open || !more)) { ub.remove(); ub = null; }
+    if (!open && more && !ub) { ub = document.createElement("button"); ub.type = "button"; ub.className = "sc-unfold"; ub.textContent = "展开看更多 ▾"; ub.onclick = function () { box.setAttribute("data-open", "1"); clipLg(box); }; box.appendChild(ub); }
+    if (hb) { hb.hidden = !open; hb.onclick = function () { box.removeAttribute("data-open"); clipLg(box); var c = box.closest(".card"); if (c) window.scrollTo({ top: c.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" }); }; }
   }
   // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
   function ledger(a, box) {
@@ -344,6 +402,7 @@
         });
         first = false;
         var hs = document.getElementById("sc-hsum"), ht = "最近一笔 " + bj(rows[0].t); if (hs && box.id === "sc-lg" && hs.textContent !== ht) hs.textContent = ht;
+        if (box.id === "sc-lg") clipLg(box);
         fillNames(box);
       });
     }
@@ -664,8 +723,8 @@
       bal: '<section class="card sc-balc"><div class="card-head"><h2>💰 账户余额</h2><span class="muted" id="sc-balsum"></span></div><div class="sc-bal" id="sc-bal">' + wait + '</div><div id="sc-balx"></div></section>',
       pos: '<section class="card" id="sc-posc"><div class="card-head"><h2>📌 在本站的事</h2><span class="muted" id="sc-possum">挂单 · 借贷 · 预测</span></div>' + catBtns(a, cat || "all") + '<div class="lg-list" id="sc-pos">' + wait + "</div></section>",
       names: '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>",
-      // 站长 2026-11-10：整块折叠，点开才看流水
-      hist: '<section class="card sc-histc"><details class="sc-fold"><summary><div class="sc-fh"><h2>📜 钱的来龙去脉</h2><span class="muted" id="sc-hsum">转进来、转出去、买了什么</span></div></summary><div class="lg-list" id="sc-lg">' + wait + "</div></details></section>" };
+      // 站长 2026-11-11：不全折叠，先露最新 5 条，其余点「展开看更多」（见 clipLg）
+      hist: '<section class="card sc-histc"><div class="card-head"><div class="sc-fh"><h2>📜 钱的来龙去脉</h2><span class="muted" id="sc-hsum">转进来、转出去、买了什么 · 最新在上</span></div><button type="button" class="sc-hbtn" id="sc-hbtn" hidden>收起 ▴</button></div><div class="lg-list sc-clip" id="sc-lg">' + wait + "</div></section>" };
     // 顺序：查订单（带分类）或查自己的钱包时，「正在进行中」紧跟在钱包信息后面，一打开就看到；查别人才先看留言
     var mine = A.otcKit && A.otcKit.account && A.otcKit.account() === a;
     // 站长 2026-11-06 定（白居易原则：大爷大妈一眼看懂）：先看有多少钱 → 在本站有什么事（挂单/到期/借贷）→ 钱去了哪里 → 域名 → 留言
@@ -736,6 +795,7 @@
     if (window.MutationObserver) { var mo = new MutationObserver(function () { applyCat(out, cat); }); mo.observe(out, { childList: true, subtree: true }); }
     applyCat(out, cat);
     if (cat) setTimeout(function () { var p = el("sc-posc"); if (p) window.scrollTo({ top: p.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" }); }, 700);
+    if (cat && cat !== "all" && el("sc-lg")) el("sc-lg").setAttribute("data-open", "1"); // 按分类查订单时不截断，不然筛完可能一条都看不到
     ledger(a, el("sc-lg"));
     return Promise.resolve();
   }

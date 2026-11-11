@@ -3379,14 +3379,19 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 #sc-lg .lg-row::before { content: ""; position: absolute; left: 26px; top: 54px; bottom: -8px; width: 2px; border-radius: 2px; background: linear-gradient(#e2d8ff, #f3eeff); }
 #sc-lg .lg-row:last-child::before, #sc-lg.sc-moneyonly .lg-row:not(:has(~ .lg-row[data-kind="money"]:not(.sc-hide)))::before { display: none; }
 @media (min-width: 760px) { #sc-lg .lg-main { display: flex; gap: 14px; align-items: baseline; } #sc-lg .lg-txt { flex: 1; } #sc-lg .lg-main small { flex: none; font-variant-numeric: tabular-nums; } }
-/* 整块折叠 */
-#sc-out .sc-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; -webkit-tap-highlight-color: transparent; }
-#sc-out .sc-fold > summary::-webkit-details-marker { display: none; }
+/* 流水先露 5 条，其余折叠（站长 2026-11-11） */
+#sc-out .sc-histc .card-head { align-items: center; flex-wrap: nowrap; }
 #sc-out .sc-fh { flex: 1; min-width: 0; } #sc-out .sc-fh h2 { margin: 0; } #sc-out .sc-fh .muted { display: block; margin-top: 2px; font-size: 12.5px; }
-#sc-out .sc-fold > summary::after { content: "点开看 ▾"; flex: none; padding: 7px 14px; border-radius: 99px; background: var(--grad); color: #fff; font-size: 13px; font-weight: 700; box-shadow: 0 8px 16px -10px rgba(73, 54, 255, .9); }
-#sc-out .sc-fold[open] > summary { margin-bottom: 10px; }
-#sc-out .sc-fold[open] > summary::after { content: "收起 ▴"; background: #f3edff; color: #5a35d6; box-shadow: none; }
-#sc-out .sc-fold[open] > .lg-list { animation: scRise .35s ease-out both; }
+#sc-out .sc-hbtn { flex: none; padding: 7px 14px; border: 0; border-radius: 99px; background: #f3edff; color: #5a35d6; font-size: 13px; font-weight: 700; cursor: pointer; }
+#sc-lg.sc-clip .lg-fold, #sc-lg.sc-clip .sc-more, #sc-lg.sc-clip .sc-other { display: none; }
+#sc-lg .lg-end::before { display: none; }
+#sc-out .sc-unfold { width: 100%; margin-top: 10px; padding: 12px; border: 0; border-radius: 14px; background: var(--grad); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 20px -12px rgba(73, 54, 255, .9); }
+/* 每一笔的行为判断标签 */
+#sc-out .lg-tag { display: inline-block; margin-bottom: 4px; padding: 2px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; line-height: 1.5; white-space: nowrap; background: #f1ecff; color: #6a55b8; }
+#sc-out .lg-k-buy { background: #e6f0ff; color: #1f5fd6; } #sc-out .lg-k-sell { background: #fff0e0; color: #c25a00; } #sc-out .lg-k-wait { background: #efe7ff; color: #6a35d6; }
+#sc-out .lg-k-in { background: #e2f8ee; color: #0b8a5c; } #sc-out .lg-k-out { background: #ffe9e2; color: #d04a25; } #sc-out .lg-k-game { background: #fff4cf; color: #8a5a00; }
+#sc-out .lg-k-name { background: #e0f6f8; color: #0a7c8a; } #sc-out .lg-k-loan { background: #e8eaff; color: #3f4bd0; } #sc-out .lg-k-bad { background: #f3f0f5; color: #8a7f96; }
+@media (min-width: 760px) { #sc-lg .lg-tag { flex: none; min-width: 92px; margin: 0; text-align: center; } }
 /* 域名小标签改成本站紫色 */
 #sc-out .sc-names a { padding: 7px 12px; background: linear-gradient(135deg, #f5f0ff, #ecf3ff); color: #5a35d6; border: 1px solid #e3d9ff; }
 /* 单笔交易页 */
@@ -3397,4 +3402,4 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 #sc-out .lg-flow div { padding: 10px 12px; border: 1px solid #efe9ff; border-radius: 12px; background: #fcfbff; }
 #sc-out .lg-arr { color: #7c5cff; font-weight: 700; }
 #sc-out .lg-raw { padding-top: 10px; border-top: 1px dashed #e6dcff; }
-@media (prefers-reduced-motion: reduce) { .sc-home::before, .sc-home::after, #sc-out > .card, #sc-out .sc-wait, #sc-out .sc-coin.sc-has::after, #sc-out .sc-fold[open] > .lg-list { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .sc-home::before, .sc-home::after, #sc-out > .card, #sc-out .sc-wait, #sc-out .sc-coin.sc-has::after { animation: none !important; } }
