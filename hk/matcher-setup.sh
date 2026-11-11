@@ -1,14 +1,14 @@
 #!/bin/bash
 # 香港机上装「撮合机器人常驻循环」：每 3 秒检查 LGNS / AiLGNS 市场的交叉单，有就调用撮合合约（合约只认触发钱包 0x89dd）
 # 用法（在 Mac 上运行，会提示你粘贴触发钱包私钥，私钥只进服务器的 /etc/ailgns/keeper.env）：
-#   ssh -t root@140.235.99.27 'bash -s' < hk/matcher-setup.sh
+#   scp hk/matcher-setup.sh root@140.235.99.27:/root/ && ssh -t root@140.235.99.27 bash /root/matcher-setup.sh
 set -e
 umask 077
 mkdir -p /opt/ailgns /etc/ailgns
 apt-get install -y -qq git python3-venv >/dev/null 2>&1 || true
 cd /opt/ailgns
 [ -d monita ] || git clone -q https://github.com/yaoyederener/monita.git
-(cd monita && git pull -q)
+(cd monita && git fetch -q origin && git reset -q --hard origin/main)  # 本机跑出来的 data/*.json 不要，以仓库为准
 [ -d venv ] || python3 -m venv venv
 ./venv/bin/pip install -q "eth-account==0.13.4"
 
@@ -42,7 +42,7 @@ EOF
 
 cat > /etc/cron.daily/ailgns-monita-pull <<"EOF"
 #!/bin/sh
-cd /opt/ailgns/monita && git pull -q && systemctl restart ailgns-matcher
+cd /opt/ailgns/monita && git fetch -q origin && git reset -q --hard origin/main && systemctl restart ailgns-matcher
 EOF
 chmod 755 /etc/cron.daily/ailgns-monita-pull
 
