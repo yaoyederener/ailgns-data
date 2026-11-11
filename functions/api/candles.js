@@ -38,7 +38,7 @@ async function tick(kv) {
 }
 async function backfill(kv, st, latest, tsL, cur) {
   if (await kv.get("kc:busy")) return; // 别人正在补
-  await kv.put("kc:busy", "1", { expirationTtl: 50 });
+  await kv.put("kc:busy", "1", { expirationTtl: 60 }); // KV 过期时间最短 60 秒，写 50 会报错
   try {
     let budget = MAXC, dirty = !!st.fresh; delete st.fresh;
     while (st.to < latest && budget-- > 0) { const f = st.to + 1, e = Math.min(latest, f + CHUNK - 1), r = await readChunk(st, f, e); st.to = e; st.tsTo = r.tsE; if (r.changed) dirty = true; }

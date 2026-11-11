@@ -50,28 +50,44 @@ export async function onRequestPost(ctx) {
     if (!keyOk(ctx)) { ctx.waitUntil(kv.put("dbx:gkeymiss", String(Date.now()), { expirationTtl: 86400 })); return new Response("ok"); }
     ctx.waitUntil(kv.put("dbx:g:" + gid, "1", { expirationTtl: 90 * 86400 })); // 记住这个群，群发新网址时用
     if (/^@?\S*\s*(网址|新网址|备用网址|最新网址|网站打不开|打不开)\s*[?？!！]*$/.test(text)) { ctx.waitUntil(sendDebox(ctx.env, gid, domainsText(), "group").catch(() => {})); return new Response("ok"); }
-    const asked = (u.mention_users && u.mention_users.length) || /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
+    const mention = !!(u.mention_users && u.mention_users.length); // 有人被 @（一般就是 @客服）：优先接，不被群里别的问题挡住
+    // 每一步为什么没回话都记一笔（不存正文），?diag=1 能看到最近 20 条：lock 限速挡住 / aierr 大脑没答成 / fallback 回了「线路忙」 / senderr 发不出去 / ok
+    const glog = async (r0, extra) => { try { const l = (await kv.get("dbx:glog", "json")) || []; l.unshift(Object.assign({ t: Date.now(), r: r0, m: mention ? 1 : 0 }, extra || {})); await kv.put("dbx:glog", JSON.stringify(l.slice(0, 40))); } catch (e) { /* 记不上就算了 */ } };
+    const asked = mention || /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
     if (!asked || (text.match(/0x[0-9a-fA-F]{40}/g) || []).length > 1) return new Response("ok");
     const lastBot = await kv.get("dbx:gbot:" + gid); if (lastBot && text === lastBot) return new Response("ok"); // 自己的话不接
     const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
     const [gl, ul, dn] = await Promise.all([kv.get("dbx:gl:" + gid), kv.get("dbx:ul:" + user), kv.get("dbx:gd:" + gid + ":" + day)]);
-    if (gl || ul || Number(dn || 0) >= 300) return new Response("ok");
-    await Promise.all([kv.put("dbx:gl:" + gid, "1", { expirationTtl: 60 }), kv.put("dbx:ul:" + user, "1", { expirationTtl: 60 })]);
+    // 限速自己按时间戳算（2026-11-11 修）：KV 的过期时间最短 60 秒，原来写 15 / 10 秒会报错，锁实际成了 60 秒，@客服 常被前一条问题挡掉，群问答记录也没写上
+    const now = Date.now(), gWait = mention ? 3000 : 15000, uWait = mention ? 5000 : 10000;
+    if (now - Number(gl || 0) < gWait || now - Number(ul || 0) < uWait || Number(dn || 0) >= 300) { ctx.waitUntil(glog("lock")); return new Response("ok"); }
+    await Promise.all([kv.put("dbx:gl:" + gid, String(now), { expirationTtl: 60 }), kv.put("dbx:ul:" + user, String(now), { expirationTtl: 60 })]);
     ctx.waitUntil((async () => {
+      const t0 = Date.now(), sleep = (ms) => new Promise((res) => setTimeout(res, ms));
       const hist = (await kv.get("dbx:h:" + user, "json")) || [];
       const msgs = hist.concat([{ role: "user", content: text.replace(/@\S+/g, "").trim() || text }]);
-      const r = await answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 的 AiLGNS OTC 交流群里回答群友。纯文本、不要 Markdown、不要列表符号，2-4 句说完；只答和本站有关的问题，无关的话题一句话礼貌带过；需要人工就说「可以在网站客服窗口留言或提交工单，站长会处理」。" });
-      if (!r || !r.answer) return;
+      // 后台任务最多 30 秒：大脑 18 秒内没答完就不等了
+      const r = await Promise.race([answer(ctx.env, msgs, { style: "【现在的场合】你在 DeBox 的 AiLGNS OTC 交流群里回答群友。纯文本、不要 Markdown、不要列表符号，2-4 句说完；只答和本站有关的问题，无关的话题一句话礼貌带过；需要人工就说「可以在网站客服窗口留言或提交工单，站长会处理」。" }), sleep(18000).then(() => ({ error: "timeout" }))]).catch((e) => ({ error: String(e && e.message || e) }));
+      const ok = !!(r && r.answer), who = u.name ? "@" + u.name + " " : "";
+      // 大脑没答成：被 @ 的一定回一句（不瞎编，只给出路），没被 @ 的普通问题就不出声
+      if (!ok && !mention) { await glog("aierr", { ms: Date.now() - t0, err: String(r && (r.claudeErr || r.error) || "").slice(0, 80) }); return; }
       // 回答结尾引导：有问题 @我（站长 2026-11-05 定：客服机器人自己接所有问题，不 @站长）
       // 答不了的：直接把工单入口甩给对方（站长 2026-11-05 定），答得了的：引导继续 @我
-      const out = (u.name ? "@" + u.name + " " : "") + r.answer + (r.human ? "\n\n📮 这个问题需要人工核实，请提交工单（填钱包地址 + 截图），会按轻重缓急处理：https://ailgns.dev/#/feedback" : "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。");
-      await sendDebox(ctx.env, gid, out, "group").catch((e) => kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: String(e.message || e) }), { expirationTtl: 86400 }));
+      const out = !ok ? who + "客服这会儿线路忙，这条没答上来。请过一分钟再 @我 问一次；着急的话到网站右下角客服窗口留言，或提交工单（填钱包地址 + 截图）：https://ailgns.dev/#/feedback" : who + r.answer + (r.human ? "\n\n📮 这个问题需要人工核实，请提交工单（填钱包地址 + 截图），会按轻重缓急处理：https://ailgns.dev/#/feedback" : "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。");
+      // DeBox 说「发太快」(429) 就等 2 秒、4 秒再发，最多 3 次
+      let sendErr = "";
+      for (let i = 0; i < 3; i++) {
+        try { await sendDebox(ctx.env, gid, out, "group"); sendErr = ""; break; } catch (e) { sendErr = String(e && e.message || e); if (!/ 429 /.test(sendErr)) break; if (i < 2) await sleep(2000 * (i + 1)); }
+      }
+      if (sendErr) await kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: sendErr }), { expirationTtl: 86400 }).catch(() => {});
+      await glog(sendErr ? "senderr" : ok ? "ok" : "fallback", { ms: Date.now() - t0, err: (sendErr || String(!ok && r && (r.claudeErr || r.error) || "")).slice(0, 80) });
+      if (sendErr) return;
       await Promise.all([
         kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),
-        kv.put("dbx:gl:" + gid, "1", { expirationTtl: 15 }), kv.put("dbx:ul:" + user, "1", { expirationTtl: 10 }),
         kv.put("dbx:gd:" + gid + ":" + day, String(Number(dn || 0) + 1), { expirationTtl: 2 * 86400 }),
-        kv.put("dbx:h:" + user, JSON.stringify(msgs.concat([{ role: "assistant", content: r.answer }]).slice(-6)), { expirationTtl: 3600 }),
       ]);
+      if (!ok) return;
+      await kv.put("dbx:h:" + user, JSON.stringify(msgs.concat([{ role: "assistant", content: r.answer }]).slice(-6)), { expirationTtl: 3600 });
       const log = (await kv.get("dbx:qa", "json")) || []; log.unshift({ t: Date.now(), g: gid, u: user, n: u.name || "", q: text.slice(0, 200), a: r.answer.slice(0, 400), e: r.engine });
       await kv.put("dbx:qa", JSON.stringify(log.slice(0, 100)));
     })());
@@ -153,6 +169,6 @@ function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv || !(u.searchParams.get("diag") || u.searchParams.get("debug"))) return new Response("AiLGNS DeBox webhook ok");
-  const [hit, err, qa, miss] = await Promise.all([kv.get("dbx:lasthit", "json"), kv.get("dbx:lasterr", "json"), kv.get("dbx:qa", "json"), kv.get("dbx:gkeymiss")]);
-  return Response.json({ lastHit: hit, lastErr: err, qa: (qa || []).length, lastQa: qa && qa[0] ? { t: qa[0].t, e: qa[0].e } : null, keyMissAt: miss ? Number(miss) : 0, hookKeySet: !!ctx.env.DEBOX_HOOK_KEY, apiKeySet: !!ctx.env.DEBOX_API_KEY, now: Date.now() }, { headers: { "cache-control": "no-store" } });
+  const [hit, err, qa, miss, gl] = await Promise.all([kv.get("dbx:lasthit", "json"), kv.get("dbx:lasterr", "json"), kv.get("dbx:qa", "json"), kv.get("dbx:gkeymiss"), kv.get("dbx:glog", "json")]);
+  return Response.json({ lastHit: hit, lastErr: err, qa: (qa || []).length, lastQa: qa && qa[0] ? { t: qa[0].t, e: qa[0].e } : null, glog: (gl || []).slice(0, 20), groupQa: (qa || []).filter((x) => x.g).length, keyMissAt: miss ? Number(miss) : 0, hookKeySet: !!ctx.env.DEBOX_HOOK_KEY, apiKeySet: !!ctx.env.DEBOX_API_KEY, now: Date.now() }, { headers: { "cache-control": "no-store" } });
 }

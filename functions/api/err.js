@@ -4,8 +4,9 @@ export async function onRequestPost(ctx) {
   let b; try { b = JSON.parse(await ctx.request.text()); } catch (e) { return new Response("ok"); }
   const m = String(b.m || "").slice(0, 300); if (!m) return new Response("ok");
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x";
-  if (await kv.get("err:rl:" + ip)) return new Response("ok");
-  await kv.put("err:rl:" + ip, "1", { expirationTtl: 20 });
+  // 每个 IP 20 秒收一条。KV 过期时间最短 60 秒（原来写 20 会报错，导致报错一条都没存上，2026-11-11 修），所以存时间戳自己比
+  if (Date.now() - Number(await kv.get("err:rl:" + ip) || 0) < 20000) return new Response("ok");
+  await kv.put("err:rl:" + ip, String(Date.now()), { expirationTtl: 60 });
   const list = (await kv.get("err:list", "json")) || [];
   const same = list.find((x) => x.m === m && x.p === String(b.p || "").slice(0, 60));
   if (same) { same.n = (same.n || 1) + 1; same.t = Date.now(); } else list.unshift({ t: Date.now(), p: String(b.p || "").slice(0, 60), m, ua: String(b.ua || "").slice(0, 120), v: String(b.v || "").split("?v=")[1] || "", n: 1 });
