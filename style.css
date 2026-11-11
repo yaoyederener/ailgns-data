@@ -3528,3 +3528,31 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .mj-tbl th { color: var(--muted); font-weight: 600; font-size: 12px; }
 .mj-list { list-style: none; margin: 0; padding: 0; font-size: 13px; line-height: 1.7; }
 .mj-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+/* 麻将联机：房卡、房间 */
+.mj h2 { margin: 0 0 6px; }
+.mj-t.mj-bk { background: #cdbff0; border-color: #a996dc; }
+.mj-in { width: 100%; box-sizing: border-box; padding: 11px 12px; font-size: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); }
+.mj-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.mj-two button { padding: 12px 4px; border-radius: 12px; font-size: 15px; background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+.mj-two button.pri { background: var(--soft); border-color: var(--gold); color: var(--purple-ink); font-weight: 700; }
+.mj-two small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.mj-join { display: flex; gap: 8px; }
+.mj-join .mj-in { flex: 1; min-width: 0; letter-spacing: 2px; }
+.mj-join button { padding: 0 18px; border-radius: 10px; }
+.mj-say { font-size: 13px; line-height: 1.6; color: var(--purple-ink); margin: 10px 2px 0; }
+.mj-say:empty { display: none; }
+.mj-buy { border: 1px solid var(--soft-line); border-radius: 14px; padding: 0 12px 12px; margin: 0 0 6px; }
+.mj-buy .mj-bases { grid-template-columns: repeat(3, 1fr); }
+.mj-buy .mj-res b { font-size: 26px; }
+.mj-start[disabled] { opacity: .5; }
+.mj-code { display: flex; align-items: center; gap: 10px; background: var(--soft); border: 1px solid var(--soft-line); border-radius: 14px; padding: 12px 14px; margin: 12px 0; }
+.mj-code span { color: var(--muted); font-size: 13px; }
+.mj-code b { font-size: 28px; letter-spacing: 3px; color: var(--purple-ink); flex: 1; }
+.mj-code button { padding: 7px 10px; font-size: 13px; }
+.mj-seats { list-style: none; margin: 12px 0 0; padding: 0; }
+.mj-seats li { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; font-size: 15px; min-height: 26px; }
+.mj-seats li.empty { color: var(--muted); border-style: dashed; font-size: 13px; }
+.mj-seats i { font-style: normal; font-size: 11px; color: var(--purple-ink); background: var(--soft); border-radius: 6px; padding: 1px 6px; }
+.mj-seats button { margin-left: auto; padding: 4px 9px; font-size: 12px; }
+.mj-top .mj-cd { font-weight: 700; color: var(--text); }
+.mj-cd.hot { color: #dc2626; }

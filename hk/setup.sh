@@ -6,6 +6,7 @@
 #   /rpc  -> rpc.anubispace.org（链上节点）
 #   /api/ -> ailgns.dev（Cloudflare 后端，GET 短缓存 + 出错给旧数据）
 #   /     -> ailgns.dev（静态文件本地缓存）
+# 注意：重跑本脚本会重写 nginx 站点配置，跑完要再跑一次 hk/mj-setup.sh（它会把麻将的 /mj/ 加回来）
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
