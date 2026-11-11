@@ -3175,6 +3175,8 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .gs-bs small { display: block; font-size: 12px; font-weight: 700; color: #7a68b8; } .gs-bs b { display: block; font-size: 30px; line-height: 1.1; margin: 4px 0 2px; color: #4b2fb0; font-variant-numeric: tabular-nums; } .gs-bs span { display: block; font-size: 11px; color: #9a8fc0; }
 .gs-bs.hot { background: linear-gradient(135deg, #f97316, #ef4444); border: 0; box-shadow: 0 6px 16px rgba(239, 68, 68, .28); } .gs-bs.hot small, .gs-bs.hot b, .gs-bs.hot span { color: #fff; } .gs-bs.hot b { font-size: 34px; }
 .gs-act .gs-bwarn { margin: 0; padding: 8px 10px; border-radius: 12px; background: #fff7ed; border: 1px dashed #fdba74; color: #9a3412; font-size: 12.5px; line-height: 1.5; text-align: center; } .gs-act .gs-bwarn b { color: #c2410c; }
+.gs-act .gs-how { margin: 4px 0 0; padding: 10px 12px; border-radius: 12px; background: #f6f2ff; border: 1px solid #e0d6fb; color: #3d2a8c; font-size: 13.5px; line-height: 1.6; text-align: left; }
+.gs-how > b { display: block; font-size: 14.5px; color: #4b2fb0; } .gs-how ol { margin: 6px 0 0; padding-left: 20px; } .gs-how li { margin: 3px 0; } .gs-how a { color: #6d3bd6; font-weight: 700; } .gs-how p { margin: 6px 0 0; font-weight: 700; color: #c2410c; }
 .gs-blist.fold li.more { display: none; } .gs-bmore { display: block; width: 100%; margin-top: 8px; padding: 9px; border-radius: 12px; border: 1px dashed #fdba74; background: #fff; color: #c2410c; font-weight: 700; font-size: 13px; cursor: pointer; }
 .gs-bcap { margin: 12px 0 0; font-size: 12.5px; font-weight: 700; color: #7a68b8; }
 @media (max-width: 400px) { .gs-bs b { font-size: 24px; } .gs-bs.hot b { font-size: 28px; } .gs-bs span { display: none; } }
