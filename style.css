@@ -3330,3 +3330,4 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 
 /* 挂单价偏离市价一倍以上：大字红框（站长 2026-11-11） */
 .otc-far { margin-top: 8px; padding: 10px 12px; border: 2px solid var(--down); border-radius: 10px; background: #fff3f3; color: var(--down); font-weight: 700; font-size: 15px; line-height: 1.5; }
+.sc-cats .gd-xin,.oq-seg .gd-xin{width:1.5em;height:1.5em;font-size:.8em;box-shadow:none;vertical-align:-.3em;margin-right:1px}

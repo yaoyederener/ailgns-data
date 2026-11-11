@@ -592,7 +592,7 @@
 
   // 地址：我的钱、我的域名、我做过的事
   // ===== 订单分类：OTC / 借贷 / 域名 / 其他（全站「查订单」都走这里）=====
-  var CATS = { all: "全部", otc: "💱 OTC", loan: "🤝 借贷", names: "🌐 域名", other: "✨ 其他" };
+  var CATS = { all: "全部", otc: '<i class="gd-xin">信</i> OTC', loan: "🤝 借贷", names: "🌐 域名", other: "✨ 其他" };
   function catOf(txt) { return /域名|注册|续费|\.ailgns|\.lgns|主名字|转赠|置顶|名字/.test(txt) ? "names" : /借|还款|出借|抵押|逾期|利息/.test(txt) ? "loan" : /OTC|挂单|吃单|成交|撤单|买入|卖出|盘口|求购|手续费|套利|回购/.test(txt) ? "otc" : "other"; }
   function catBtns(a, cur) { return '<div class="seg sc-cats">' + Object.keys(CATS).map(function (k) { return '<a href="#/scan/' + a + (k === "all" ? "" : "/" + k) + '" data-cat="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + CATS[k] + '<b class="sc-n" hidden></b></a>'; }).join("") + "</div>"; }
   // 「在本站的事」：每个分类按钮上标出有几单（OTC 2 · 借贷 0…），一眼看到有没有订单挂着
