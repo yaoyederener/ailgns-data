@@ -412,7 +412,11 @@
     } catch (err) { if (window.console) console.error("mj", err); }
   }
   A.pages.mj = function () {
-    try { if (!bound) { bound = true; document.addEventListener("click", onClick); } lobby(); }
+    try {
+      if (!bound) { bound = true; document.addEventListener("click", onClick); }
+      if (document.getElementById("mj-root") && (G || document.querySelector("#mj-root .mj-res"))) return; // 网站后台刷新数据会重画当前页：牌局打到一半、结算页都不能被冲掉
+      lobby();
+    }
     catch (e) { A.app.innerHTML = '<section class="card"><p class="note">麻将页面打开失败，请刷新再试。</p></section>'; }
   };
 })();

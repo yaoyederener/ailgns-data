@@ -111,5 +111,6 @@ if(a&&a.indexOf("gang")===0){answer({gang:Number(a.slice(4))});return;}
 if(a==="hu"||a==="peng"||a==="pass"){answer(a);return;}
 if(a==="cgang"){answer("gang");return;}
 if(el.getAttribute("data-t")==null)return;i=Number(el.getAttribute("data-i"));t=Number(el.getAttribute("data-t"));if(q.type==="swap"){l=myList().list;if(sel.indexOf(i)>=0)sel.splice(sel.indexOf(i),1);else if(sel.length&&((l[sel[0]]/9)|0)!==((t/9)|0))sel=[i];else if(sel.length<3)sel.push(i);paint();}else if(q.type==="turn"){if(q.discards.indexOf(t)<0)return;if(pick===i)answer({discard:t});else{pick=i;paint();}}}catch(err){if(window.console)console.error("mj",err);}}
-A.pages.mj=function(){try{if(!bound){bound=true;document.addEventListener("click",onClick);}lobby();}
+A.pages.mj=function(){try{if(!bound){bound=true;document.addEventListener("click",onClick);}
+if(document.getElementById("mj-root")&&(G||document.querySelector("#mj-root .mj-res")))return;lobby();}
 catch(e){A.app.innerHTML='<section class="card"><p class="note">麻将页面打开失败，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] mj.js',e);}
