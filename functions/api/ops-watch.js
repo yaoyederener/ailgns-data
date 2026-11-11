@@ -43,6 +43,22 @@ async function gasWatch(ctx, kv) {
   await sendDebox(ctx.env, SUPPORT_USER, txt + "\n\n工单 #" + id + " 👉 https://ailgns.dev/#/feedback/admin", "private").catch(() => {});
 }
 
+// 🤖 撮合机器人利润汇报（站长 2026-11-11：有利润后台推送汇报）：每 5 分钟读一次撮合合约的累计次数 / 累计利润，涨了就推站长收件箱 + DeBox 私信
+const MATCHER = "0xdcc5354175d60ffc8364e71e792fcd66366f00fe", SRC_WALLET = OWNER, MATCH_FLOOR = 300; // 谷歌社交账号钱包里 DAI 少于这个数就顺带提醒（撮合本金从这里临时借）
+async function matcherWatch(ctx, kv) {
+  const call = (to, data) => fetch("https://rpc.anubispace.org", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }) }).then((x) => x.json()).then((j) => BigInt(j.result || "0x0"));
+  const n = Number(await call(MATCHER, "0x2a5b1451")), p = Number(await call(MATCHER, "0x86001519")) / 1e18;
+  const seen = (await kv.get("mt:seen", "json")) || null;
+  if (!seen) { await kv.put("mt:seen", JSON.stringify({ n, p })); return; } // 第一次只记基线，不补发历史
+  if (n <= seen.n) return;
+  await kv.put("mt:seen", JSON.stringify({ n, p }));
+  const bal = Number(await call("0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", "0x70a08231" + SRC_WALLET.slice(2).padStart(64, "0"))) / 1e18;
+  const txt = "🤖 撮合机器人刚赚了 " + amt(p - seen.p) + " DAI（" + (n - seen.n) + " 次）。累计 " + n + " 次 / " + amt(p) + " DAI。利润已进回购合约，机器人下一轮自动转回谷歌社交账号钱包。" +
+    (bal < MATCH_FLOOR ? "\n⚠️ 谷歌社交账号钱包现在只有 " + amt(bal) + " DAI，撮合本金是从这里临时借的，低于 " + MATCH_FLOOR + " 可能吃不完大单，建议补到 500–1,000。" : "");
+  await pushInbox(kv, OWNER, "sys", txt, "#/scan/" + MATCHER);
+  await sendDebox(ctx.env, SUPPORT_USER, txt, "private").catch(() => {});
+}
+
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
 const SPLIT = "0xb1fafb8bf72e6705dba1b22c347f53d50b1b8539bc5f9ce17a1cf52973dfbe79"; // Split(token, amount, toPayee1, toPayee2, toPayee3, by)
 const BUYBACK = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3"; // 回购分账合约（Anubis，2026-11-03 部署）；它分的是买到的 AiLGNS，三份都转出去
@@ -140,6 +156,7 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   ctx.waitUntil(gasWatch(ctx, kv).catch(() => {}));
+  ctx.waitUntil(matcherWatch(ctx, kv).catch(() => {})); // 🤖 撮合利润汇报
   ctx.waitUntil(todoPush(kv).catch(() => {})); // 📝 站长待办推送
   ctx.waitUntil(buildAdminStats(ctx.env, kv, ctx).then(() => buildPartner(ctx.env, kv, ctx)).catch(() => {})); // 🤝 合伙人面板：接着站长面板算（要用它的日表）
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
