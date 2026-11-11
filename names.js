@@ -234,13 +234,13 @@
   function info1(label) {
     var s = "0000000000000000000000000000000000000000000000000000000000000020" + str(label);
     // 站长 2026-11-12「查询很慢」：三个读链同时发，但「能不能注册」一回来就出结果，不等另外两个
-    var aP = hedged(SEL.available + s), rP = call(SEL.resolve + s), iP = call(SEL.idOf + s);
+    var aP = hedged(SEL.available + s), rP = hedged(SEL.resolve + s), iP = hedged(SEL.idOf + s);
     rP.catch(function () {}); iP.catch(function () {});
     return aP.then(function (a) {
       if (BigInt("0x" + word(a, 0)) === 1n) return { free: true, addr: ZERO, id: null, exp: 0, owner: null }; // 能注册：不用再查指向、主人、到期，直接出结果
       return Promise.all([rP, iP]).then(function (r) {
         var id = word(r[1], 0);
-        return Promise.all([call(SEL.expires + id), call(SEL.ownerOf + id).catch(function () { return null; })]).then(function (x) {
+        return Promise.all([hedged(SEL.expires + id), hedged(SEL.ownerOf + id).catch(function () { return null; })]).then(function (x) {
           return { free: false, addr: addrOf(r[0]), id: id, exp: Number(BigInt("0x" + word(x[0], 0))), owner: x[1] ? addrOf(x[1]) : null };
         });
       });
