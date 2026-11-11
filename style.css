@@ -3581,3 +3581,13 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .mj-seats button { margin-left: auto; padding: 4px 9px; font-size: 12px; }
 .mj-top .mj-cd { font-weight: 700; color: var(--text); }
 .mj-cd.hot { color: #dc2626; }
+
+/* 域名：查询中 / 注册中进度条（站长 2026-11-12「查询慢、点注册反应慢」） */
+.nm-wait { margin: 10px 0; padding: 12px 14px; border: 1px solid #e6dcff; border-radius: 12px; background: #faf7ff; }
+.nm-wait p { margin: 0 0 8px; font-size: 15px; color: var(--purple-ink, #2d1b69); word-break: break-all; }
+.nm-wait small { display: block; margin-top: 6px; color: #8a7fb0; font-size: 12.5px; }
+.nm-wait small[hidden] { display: none; }
+.nm-prog { height: 8px; margin: 8px 0 4px; border-radius: 99px; background: #ece4ff; overflow: hidden; }
+.nm-prog i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #8b5cf6, #3b82f6); transition: width .5s ease; }
+.nm-prog-run i { width: 40%; animation: nmRun 1.1s ease-in-out infinite; }
+@keyframes nmRun { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }

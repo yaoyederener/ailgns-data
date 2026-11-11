@@ -147,12 +147,15 @@
     });
   }
   function prepay(dai, k, say) {
-    var t = TOK[k], max, lgLeft = null;
+    var t = TOK[k], max, lgLeft = null, ks = Object.keys(TOK);
+    // 站长 2026-11-12「点注册反应慢」：余额、授权额度和报价同时查（以前一个等一个，钱包要晚几秒才弹）
+    var balP = Promise.all(ks.map(function (x) { return W.rpcOn("anubis", "eth_call", [{ to: TOK[x].a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt, function () { return -1n; }); })
+      .concat([W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(BigInt, function () { return -1n; })]));
+    var alwP = W.rpcOn("anubis", "eth_call", [{ to: t.a, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
+    alwP.catch(function () {});
     return quote(dai, k).then(function (q) {
       // 先查余额：币不够时钱包的「确定」是灰的点不动，客户不知道为什么，这里先说清楚
-      var ks = Object.keys(TOK);
-      return Promise.all(ks.map(function (x) { return W.rpcOn("anubis", "eth_call", [{ to: TOK[x].a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt, function () { return -1n; }); })
-        .concat([W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(BigInt, function () { return -1n; })])).then(function (bal) {
+      return balP.then(function (bal) {
         if (bal[ks.length] === 0n) throw new Error("你的钱包里没有 Anubis 链的 Gas 币，付不了手续费（钱包「确定」会点不动）。请先转一点 Gas 币进这个钱包再来");
         var mine = bal[ks.indexOf(k)];
         if (k !== "LGNS" && mine >= 0n && mine < q) {
@@ -182,7 +185,7 @@
     }).then(function (q) {
       max = k === "DAI" ? q : q * 102n / 100n;
       if (k === "LGNS" && lgLeft !== null && max > lgLeft) max = lgLeft; // 余额刚好够（比如要 112.8 有 113）：不再因为 2% 价格余量判成不够 // DAI 价格固定：扣多少授权多少；AiLGNS / LGNS 按 DEX 实时价，留 2% 防价格在确认期间变动（实际只扣当时价格）
-      return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: SEL.allowance + A.pad(account) + A.pad(NAMES) }, "latest"]);
+      return alwP;
     }).then(function (a) {
       if (BigInt(a) >= max) return; // 额度还够：跳过授权，钱包只弹「注册」一次
       // 只授权这一次要付的金额（客户反馈多授权不放心）：扣多少，授权多少
@@ -220,11 +223,16 @@
   }
   function info1(label) {
     var s = "0000000000000000000000000000000000000000000000000000000000000020" + str(label);
-    return Promise.all([call(SEL.available + s), call(SEL.resolve + s), call(SEL.idOf + s)]).then(function (r) {
-      var id = word(r[2], 0);
-      if (BigInt("0x" + word(r[0], 0)) === 1n) return { free: true, addr: addrOf(r[1]), id: id, exp: 0, owner: null }; // 能注册：不用再查主人、到期，直接出结果
-      return Promise.all([call(SEL.expires + id), call(SEL.ownerOf + id).catch(function () { return null; })]).then(function (x) {
-        return { free: BigInt("0x" + word(r[0], 0)) === 1n, addr: addrOf(r[1]), id: id, exp: Number(BigInt("0x" + word(x[0], 0))), owner: x[1] ? addrOf(x[1]) : null };
+    // 站长 2026-11-12「查询很慢」：三个读链同时发，但「能不能注册」一回来就出结果，不等另外两个
+    var aP = call(SEL.available + s), rP = call(SEL.resolve + s), iP = call(SEL.idOf + s);
+    rP.catch(function () {}); iP.catch(function () {});
+    return aP.then(function (a) {
+      if (BigInt("0x" + word(a, 0)) === 1n) return { free: true, addr: ZERO, id: null, exp: 0, owner: null }; // 能注册：不用再查指向、主人、到期，直接出结果
+      return Promise.all([rP, iP]).then(function (r) {
+        var id = word(r[1], 0);
+        return Promise.all([call(SEL.expires + id), call(SEL.ownerOf + id).catch(function () { return null; })]).then(function (x) {
+          return { free: false, addr: addrOf(r[0]), id: id, exp: Number(BigInt("0x" + word(x[0], 0))), owner: x[1] ? addrOf(x[1]) : null };
+        });
       });
     });
   }
@@ -296,10 +304,25 @@
     allowance: function (token, spender) { return call2(token, SEL.allowance + A.pad(account) + A.pad(spender)).then(BigInt); },
     balance: function (token) { return call2(token, "0x70a08231" + A.pad(account)).then(BigInt); },
     sign: function (text) { return connect().then(function () { bigTip("签名"); return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(text), account] }); }).then(function (r) { bigTip(""); return r; }, function (e) { bigTip(""); throw e; }); } };
+  // 注册进度条：按提示文字往前走，只进不退；等链上确认时慢慢爬
+  function progSay(st) {
+    var bar = document.createElement("div"), p = 0, tm; bar.className = "nm-prog"; bar.innerHTML = "<i></i>"; st.before(bar);
+    function to(x) { p = Math.max(p, x); bar.firstChild.style.width = p + "%"; }
+    var say = function (t) {
+      st.textContent = t; clearInterval(tm);
+      if (/连接钱包/.test(t)) to(10);
+      else if (/查余额/.test(t)) to(28);
+      else if (/请在钱包确认/.test(t)) to(Math.max(45, Math.min(p + 10, 82)));
+      else if (/已提交/.test(t)) { var cap = Math.min(p + 18, 97); to(p + 4); tm = setInterval(function () { to(p + (cap - p) * 0.15); }, 600); }
+    };
+    say.done = function () { clearInterval(tm); if (bar.parentNode) bar.parentNode.removeChild(bar); };
+    return say;
+  }
   function call2(to, data) { return W.rpcOn("anubis", "eth_call", [{ to: to, data: data }, "latest"]); }
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
     tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
-    return connect().then(function () { return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
+    say("⏳ 正在连接钱包…");
+    return connect().then(function () { say("⏳ 正在查余额和价格，马上弹出钱包…"); return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
       var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
       return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
     });
@@ -356,7 +379,7 @@
       var hint = document.getElementById("nm-hint");
       if (hint) hint.innerHTML = v ? "👇 下面就是 <b>" + esc(v) + "." + TLD + "</b> 能不能注册，能注册就点下面的「注册」按钮" : "👇 输入你想要的名字，下面马上显示能不能注册";
       // 停顿一下就自动出结果，不用找「搜索」按钮
-      if (valid(v)) typing = setTimeout(function () { if (document.getElementById("nm-t").value === TLD) f.onsubmit({ preventDefault: function () {}, auto: true }); }, 700);
+      if (valid(v)) typing = setTimeout(function () { if (document.getElementById("nm-t").value === TLD) f.onsubmit({ preventDefault: function () {}, auto: true }); }, 300);
     };
     // 我的域名：填地址（或用当前钱包）→ 列出这个地址名下所有 .ailgns / .lgns 名字，创世域名大大地显示创世徽章
     function myNames(a) {
@@ -538,7 +561,8 @@
         bindBuy(v, true);
         return;
       }
-      out.innerHTML = '<p class="muted">查询中…</p>';
+      out.innerHTML = '<div class="nm-wait"><p>⏳ 正在查 <b>' + esc(v) + "." + TLD + '</b> 能不能注册…</p><div class="nm-prog nm-prog-run"><i></i></div><small id="nm-slow" hidden>链上有点慢，再等几秒就出来，不用重复点</small></div>';
+      setTimeout(function () { var sl = document.getElementById("nm-slow"); if (my === showSeq && sl) sl.hidden = false; }, 2500);
       info(v).then(function (r) {
         if (my !== showSeq) return; // 已经换了别的名字，这个结果作废
         // .lgns 暂停新注册（站长决定先只开放 .ailgns）；已注册的老名字照常显示、续费、转赠、改指向
@@ -652,9 +676,12 @@
           (x.rank > 1 ? "，再注册 <b>" + x.gap + "</b> 个就超过第 " + (x.rank - 1) + " 名" : "，👑 你是注册王！") + "</div>";
       }, function () {});
     }
-    function guide(box, v, r) {
+    function guide(box, v, r, fast) {
       var full = v + "." + TLD;
-      call(SEL.nameOf + A.pad(account)).then(function (x) { return decStr(x) === v; }, function () { return false; }).then(function (done) {
+      var chk = call(SEL.nameOf + A.pad(account)).then(function (x) { return decStr(x) === v; }, function () { return false; });
+      // fast：刚注册完，第 2 步按钮马上出来；后台查到已经是主名字再换成「完成」
+      if (fast) { draw(false); chk.then(function (d) { if (d && document.body.contains(box)) draw(true); }); } else chk.then(draw);
+      function draw(done) {
         if (done) {
           stepTo(3);
           box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字，你的地址在本站会显示成这个名字</p>' + (TLD === "ailgns" ? '<a class="nm-go nm-go-or" href="#/oracle">🔮 现在就能玩预言家了，去预测 →</a>' : "") + '<div id="nm-mine"></div>' +
@@ -690,11 +717,11 @@
         document.getElementById("nm-again").onclick = again;
         var b = document.getElementById("nm-pri"), pst = document.getElementById("nm-pst");
         b.onclick = function () {
-          b.disabled = true;
-          tx(NAMES, SEL.setPrimary + r.id, function (t) { pst.textContent = t; }, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认")
+          b.disabled = true; pst.textContent = "⏳ 马上弹出钱包…";
+          (r.ready || Promise.resolve()).then(function () { return tx(NAMES, SEL.setPrimary + r.id, function (t) { pst.textContent = t; }, "🔒 设置主名字（不花钱，只付一点 Gas）。请在钱包确认"); })
             .then(function () { show(v); }, function (e) { b.disabled = false; pst.textContent = ""; A.errTip(e.message || String(e), b); });
         };
-      });
+      }
     }
     function stepTo(n) {
       document.querySelectorAll("#nm-steps li").forEach(function (li) {
@@ -757,9 +784,13 @@
           if (to === account) to = "";
           else if (!confirm("确认帮这个地址注册吗？\n\n" + v + "." + TLD + "\n→ " + to + "\n\n地址填错了收不回来")) return;
         }
-        b.disabled = true;
-        register(v, Number(y.value), kk.value, function (t) { st.textContent = t; }, to).then(function () {
-          st.textContent = "";
+        b.disabled = true; b.textContent = "⏳ 注册中，请稍等…";
+        var say = progSay(st);
+        // 名字的编号是按名字算出来的，注册前就能拿到：注册一成功马上出第 2 步，不用再等读链
+        var idP = call(SEL.idOf + "0000000000000000000000000000000000000000000000000000000000000020" + str(v)).then(function (x) { return word(x, 0); });
+        idP.catch(function () {});
+        register(v, Number(y.value), kk.value, say, to).then(function () {
+          say.done(); st.textContent = "";
           if (to) { // 帮别人注册：名字已经在对方地址上，后面的「设主名字」只能对方自己做，这里不引导
             delete infoCache[TLD + ":" + v];
             out.innerHTML = '<p class="nm-ok nm-big">✅ 代注册成功：<b>' + esc(v) + "." + TLD + '</b> 已经归 <span class="mono">' + to.slice(0, 6) + "…" + to.slice(-4) + '</span></p><p class="nm-gen" id="nm-gen"></p>' +
@@ -769,13 +800,18 @@
             return;
           }
           out.innerHTML = '<p class="nm-ok nm-big">✅ 第 1 步完成：<b>' + esc(v) + "." + TLD + '</b> 注册成功，已经指向你的地址</p><p class="nm-gen" id="nm-gen"></p><div id="nm-next"><p class="muted">正在准备第 2 步…</p></div>';
+          out.scrollIntoView({ behavior: "smooth", block: "start" });
           delete infoCache[TLD + ":" + v]; // 注册前查过的缓存是「还没注册」，不能用
-          (function fresh(n) { return info1(v).then(function (r) { return (r.free || r.addr !== account) && n > 0 ? new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return fresh(n - 1); }) : r; }); })(4).then(function (r) {
+          // 后台核对链上已经认到这个名字（个别节点会慢一两秒）；第 2 步按钮不等它，点的时候才等
+          var ready = (function fresh(n) { return info1(v).then(function (r) { return (r.free || r.addr !== account) && n > 0 ? new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () { return fresh(n - 1); }) : r; }); })(4).then(function (r) {
             infoCache[TLD + ":" + v] = { t: Date.now(), p: Promise.resolve(r) };
             genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 你是创世域名 #" + g[r.id]; }, function () {});
-            guide(document.getElementById("nm-next"), v, r);
+            return r;
           });
-        }, function (e) { b.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), b); });
+          ready.catch(function () {});
+          idP.then(function (id) { var nx = document.getElementById("nm-next"); if (nx) guide(nx, v, { addr: account, owner: account, id: id, ready: ready.then(function () {}, function () {}) }, true); },
+            function () { ready.then(function (r) { var nx = document.getElementById("nm-next"); if (nx) guide(nx, v, r); }, function () {}); });
+        }, function (e) { say.done(); b.disabled = false; b.textContent = "注册 " + v + "." + TLD; st.textContent = ""; A.errTip(e.message || String(e), b); });
       };
     }
     stepTo(1);
