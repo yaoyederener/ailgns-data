@@ -11,18 +11,33 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
 
   // 📊 运营分配统计（2026-11-08）：比例、地址、谷歌社交账号钱包实际转过去多少
   // 📍 所有部署地址（lib/addresses.js 登记）：名称 · 链 · 地址 · Gas / DAI / AiLGNS / LGNS · 状态；异常的排前面
+  // 站长 2026-11-11：余额从高到低排（点 Gas / DAI / AiLGNS / LGNS），「默认」= 异常在前的原顺序；刷新数据后保持选择
+  var adSort = "";
+  function sortAddr(k) {
+    var tb = document.querySelector(".ptn-addr tbody"); if (!tb) return;
+    adSort = k || "";
+    var at = function (r, n) { return parseFloat(r.getAttribute("data-" + n)); }, rows = [].slice.call(tb.children);
+    rows.sort(function (x, y) {
+      if (adSort) { var p = at(x, adSort), q = at(y, adSort), dv = (isNaN(q) ? -1 : q) - (isNaN(p) ? -1 : p); if (dv) return dv; }
+      return at(x, "i") - at(y, "i");
+    });
+    rows.forEach(function (r) { tb.appendChild(r); });
+    [].forEach.call(document.querySelectorAll("#ptn-sort button"), function (b) { b.className = (b.getAttribute("data-k") || "") === adSort ? "on" : ""; });
+  }
   function addrTable(j) {
     var L = j.addrs || []; if (!L.length) return "";
     var bad = L.filter(function (d) { return d.st !== "✅"; }), good = L.filter(function (d) { return d.st === "✅"; });
     var scan = function (d) { return d.c === "polygon" ? "https://polygonscan.com/address/" + d.a : "#/scan/" + d.a; };
     var f4 = function (v) { return v == null ? "—" : v >= 100 ? fm(v, 0) : String(Math.round(v * 1e4) / 1e4); };
-    var row = function (d) {
-      return '<tr class="' + (d.st === "✅" ? "" : "ptn-bad") + '"><td><b>' + esc(d.n) + "</b><small>" + (d.k === "contract" ? "合约" : "钱包") + " · " + (d.c === "polygon" ? "Polygon" : "Anubis") + ' · <a href="' + scan(d) + '"' + (d.c === "polygon" ? ' target="_blank" rel="noopener"' : "") + '><code>' + d.a.slice(0, 6) + "…" + d.a.slice(-4) + "</code></a>" + (d.note ? " · " + esc(d.note) : "") + "</small></td>" +
+    var dv = function (v) { return v == null ? "" : v; };
+    var row = function (d, i) {
+      return '<tr data-i="' + i + '" data-gas="' + dv(d.gas) + '" data-dai="' + dv(d.tok.DAI) + '" data-ailgns="' + dv(d.tok.AiLGNS) + '" data-lgns="' + dv(d.tok.LGNS) + '" class="' + (d.st === "✅" ? "" : "ptn-bad") + '"><td><b>' + esc(d.n) + "</b><small>" + (d.k === "contract" ? "合约" : "钱包") + " · " + (d.c === "polygon" ? "Polygon" : "Anubis") + ' · <a href="' + scan(d) + '"' + (d.c === "polygon" ? ' target="_blank" rel="noopener"' : "") + '><code>' + d.a.slice(0, 6) + "…" + d.a.slice(-4) + "</code></a>" + (d.note ? " · " + esc(d.note) : "") + "</small></td>" +
         "<td data-l=Gas>" + f4(d.gas) + "</td><td data-l=DAI>" + f4(d.tok.DAI) + "</td><td data-l=AiLGNS>" + f4(d.tok.AiLGNS) + "</td><td data-l=LGNS>" + f4(d.tok.LGNS) + "</td><td data-l=状态>" + esc(d.st) + "</td></tr>";
     };
     // 站长 2026-11-09：表太长，默认折叠；有异常才默认展开
     return '<details class="ptn-addrs"' + (bad.length ? " open" : "") + '><summary><h3 class="ad-h">📍 所有部署地址（' + L.length + " 个" + (bad.length ? " · ⚠️ " + bad.length + " 个异常" : " · ✅ 全部正常") + '）<small class="muted">' + (bad.length ? "有异常，已展开" : "点开看每个地址的余额") + "</small></h3></summary>" +
       '<p class="muted">合约、机器人钱包、合伙人收款全在这，有异常会同时出现在上面的风险里。新部署的合约或钱包必须登记到这张表（lib/addresses.js），不然看不见。</p>' +
+      '<div class="ptn-sort" id="ptn-sort"><span>余额从高到低排：</span><button type="button" data-k="" class="on">默认</button><button type="button" data-k="gas">Gas</button><button type="button" data-k="dai">DAI</button><button type="button" data-k="ailgns">AiLGNS</button><button type="button" data-k="lgns">LGNS</button></div>' +
       '<div class="ad-tw"><table class="ad-t ptn-t ptn-addr"><thead><tr><th>地址</th><th>Gas</th><th>DAI</th><th>AiLGNS</th><th>LGNS</th><th>状态</th></tr></thead><tbody>' + bad.concat(good).map(row).join("") + "</tbody></table></div></details>";
   }
   function allocHtml(j) {
@@ -111,6 +126,8 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       var v = document.getElementById("ptn-cpa").textContent, ok = function () { cpb.textContent = "✅ 已复制，去钱包粘贴"; setTimeout(function () { cpb.textContent = "📋 点击复制中转地址"; }, 2500); };
       try { navigator.clipboard.writeText(v).then(ok, function () { prompt("长按复制：", v); }); } catch (e) { prompt("长按复制：", v); }
     };
+    var so = document.getElementById("ptn-sort");
+    if (so) { so.onclick = function (e) { var b = e.target && e.target.closest ? e.target.closest("button") : null; if (b) sortAddr(b.getAttribute("data-k")); }; if (adSort) sortAddr(adSort); }
     var ad = document.getElementById("ptn-adone");
     if (ad) ad.onclick = function () {
       var t = (j.split.parts || []).map(function (y) { return y.n + " " + y.p + "% ≈ " + fm(y.amt, 0) + " DAI"; }).join("\n");

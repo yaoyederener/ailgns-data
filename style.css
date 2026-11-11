@@ -3088,6 +3088,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .ptn-ast.wait{background:#fff7ed;border:1.5px solid #fdba74}.ptn-ast.done{background:#f0fdf4;border:1.5px solid #86efac}
 .ptn-ast .nm-go{margin-left:auto;padding:6px 14px}.ptn-ahist{margin:0 0 8px;font-size:13px}.ptn-ahist>div{padding:4px 0;border-top:1px dashed #ede9fe}
 .ptn-atx{margin-top:6px;display:grid;gap:4px}.ptn-atx a{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid #ede9fe;font-size:13px;color:inherit}
+.ptn-sort{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0 8px;font-size:13px;color:#6b6190}.ptn-sort button{border:1.5px solid #ddd6fe;background:#fff;color:#6d28d9;border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600;cursor:pointer;width:auto;min-height:0}.ptn-sort button.on{background:#ede9fe;border-color:#8b5cf6}
 .ptn-ald{margin:0 0 8px}.ptn-ald>summary{cursor:pointer;font-size:13px;padding:2px 0}.ptn-ald[open]>summary{margin-bottom:8px}
 .ptn-atxd{margin-top:4px}.ptn-atxd summary{cursor:pointer;font-size:13px;color:#7c3aed;padding:4px 0}
 .ptn-atx a b{color:#6d28d9}.ptn-atx a small{color:#7c3aed;margin-left:auto}
