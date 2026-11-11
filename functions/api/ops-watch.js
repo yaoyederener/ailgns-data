@@ -56,7 +56,12 @@ async function matcherWatch(ctx, kv) {
   const txt = "🤖 撮合机器人刚赚了 " + amt(p - seen.p) + " DAI（" + (n - seen.n) + " 次）。累计 " + n + " 次 / " + amt(p) + " DAI。利润已进回购合约，机器人下一轮自动转回谷歌社交账号钱包。" +
     (bal < MATCH_FLOOR ? "\n⚠️ 谷歌社交账号钱包现在只有 " + amt(bal) + " DAI，撮合本金是从这里临时借的，低于 " + MATCH_FLOOR + " 可能吃不完大单，建议补到 500–1,000。" : "");
   await pushInbox(kv, OWNER, "sys", txt, "#/scan/" + MATCHER);
-  await sendDebox(ctx.env, SUPPORT_USER, txt, "private").catch(() => {});
+  // 站长 2026-11-11：在工单后台通知（常看工单）→ 开一张「系统」工单，和 Gas 看门狗同一套
+  const id = Number((await kv.get("tk:seq")) || "0") + 1;
+  await kv.put("tk:seq", String(id));
+  await kv.put("tk:" + id, JSON.stringify({ id, a: "system", txt, n: 0, t: Date.now(), st: "new", note: "", tri: { ok: true, lv: 2, cat: "资金", topic: "撮合机器人利润", why: "系统自动", dup: 0, ai: false } }), { expirationTtl: 180 * 86400 });
+  await kv.put("tk:list", JSON.stringify(((await kv.get("tk:list", "json")) || []).concat(id).slice(-1000)));
+  await sendDebox(ctx.env, SUPPORT_USER, txt + "\n\n工单 #" + id + " 👉 https://ailgns.dev/#/feedback/admin", "private").catch(() => {});
 }
 
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
