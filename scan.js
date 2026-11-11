@@ -322,12 +322,12 @@
   }
   // 站长 2026-11-11：每一笔给一个简单判断（买入 AiLGNS / 卖出 AiLGNS / 挂单…），一眼扫过去就知道干了什么
   function tagOf(r) {
-    var s = String(r.text).replace(/<[^>]+>/g, ""), sym = (s.match(/AiLGNS|gLGNS|LGNS/) || [""])[0], i = r.ico;
+    var full = String(r.text).replace(/<[^>]+>/g, ""), s = full.replace(/（[^）]*）/g, ""), sym = (s.match(/AiLGNS|gLGNS|LGNS/) || [""])[0], i = r.ico; // 括号里是补充说明，不参与判断
     var what = /域名/.test(s) ? "域名" : /卡牌/.test(s) ? "卡牌" : sym ? " " + sym : "";
     if (i === "❌") return ["没成功", "bad"];
     if (i === "💬" || i === "📬") return ["留言", "etc"];
     if (i === "🔮" || i === "🔗") return ["预测", "game"];
-    if (i === "🔑" || /授权（/.test(s)) return ["授权", "etc"];
+    if (i === "🔑" || /授权（/.test(full)) return ["授权", "etc"];
     if (i === "🎮") return ["游戏", "game"];
     if (/手续费收入/.test(s)) return ["手续费收入", "in"];
     if (/自动撮合：/.test(s)) return ["自动撮合", "buy"];
@@ -348,6 +348,7 @@
     if (/换了|兑换|其他平台|非本站/.test(s)) return ["其他平台", "etc"];
     if (/转出|付出/.test(s)) return ["转出", "out"];
     if (/收到|转来|到账/.test(s)) return ["收款", "in"];
+    if (/OTC/.test(s)) return ["OTC 操作", "etc"];
     return ["其他", "etc"];
   }
   var DIR = { "🪙": "in", "🤖": "trade",  "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
