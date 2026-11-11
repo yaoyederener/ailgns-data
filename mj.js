@@ -434,7 +434,9 @@
   function utf8hex(str) { var b = unescape(encodeURIComponent(str)), h = "0x", i; for (i = 0; i < b.length; i++) h += b.charCodeAt(i).toString(16).padStart(2, "0"); return h; }
   function api(o) {
     function net() { var e = new Error("连不上麻将服务器，请检查网络，过一会儿再试。"); e.net = true; throw e; }
-    return fetch(MJAPI, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }).then(null, net)
+    var ac = window.AbortController ? new AbortController() : null, tm = ac && setTimeout(function () { ac.abort(); }, 35000); // 手机切网络时请求会一直挂着，35 秒没回音就当断了重连
+    return fetch(MJAPI, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(o), signal: ac ? ac.signal : undefined }).then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(tm); return j; }, function () { clearTimeout(tm); net(); })
       .then(function (j) { if (!j || j.err) { var e = new Error((j && j.err) || "服务器开小差了，稍后再试"); e.srv = true; throw e; } return j; });
   }
   function sid() { // 这台手机在牌桌上的身份：随机的一串，只存在本机，和钱包没关系
@@ -483,7 +485,7 @@
   function confirmTx(tx, left) { // 链上确认后服务器还要几秒才查得到，多试几次
     return api({ act: "buy", tx: tx }).then(null, function (e) { if (left > 0 && (e.net || /查不到/.test(e.message))) return sleep(3000).then(function () { return confirmTx(tx, left - 1); }); throw e; });
   }
-  function pay() {
+  function payCards() {
     var b = BUY, W = A.wallet, eth, me, q, data, sent = false;
     if (!b || !b.q || b.busy) return;
     function st(t) { b.busy = t; b.err = ""; if (BUY === b) buyDraw(); }
@@ -584,6 +586,7 @@
     var o = ON, v = o && o.v, el = document.getElementById("mj-cd"), ms, s;
     if (!o) { clearInterval(cdTimer); cdTimer = 0; return; }
     if (!el || !v) return;
+    if (o.fail >= 2) { el.textContent = "📶 网络不好，重连中…"; el.className = "mj-cd hot"; return; }
     ms = v.st === "between" ? v.left : v.st === "play" && v.q && v.q.qid !== doneQid ? v.q.left : -1;
     if (ms < 0) { el.textContent = ""; return; }
     s = Math.max(0, Math.ceil((ms - (Date.now() - o.at)) / 1000));
@@ -631,7 +634,7 @@
     var o = ON, v = o && o.v, st;
     if (a === "buy") { if (BUY && BUY.busy) return true; BUY = BUY ? null : { n: 1, tk: "dai" }; if (BUY) buyQuote(); else buyDraw(); return true; }
     if (a === "buyx") { if (!BUY || !BUY.busy) { BUY = null; buyDraw(); } return true; }
-    if (a === "pay") { pay(); return true; }
+    if (a === "pay") { payCards(); return true; }
     if (a === "mk8" || a === "mk16") { make(a === "mk8" ? 8 : 16); return true; }
     if (a === "join") { join((document.getElementById("mj-code") || {}).value); return true; }
     if (a === "rejoin") { join(ls("mj:room")); return true; }

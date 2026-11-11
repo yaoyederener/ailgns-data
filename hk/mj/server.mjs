@@ -15,7 +15,7 @@ const RPCS = (process.env.MJ_RPC || "https://rpc.anubispace.org,https://rpc2.anu
 const PAY_TO = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 谷歌社交账号钱包（收入钱包），和 lib/addresses.js 一致
 const TOKENS = { // 都在 Anubis 链。pair = 和 DAI 的池子，daiAt = DAI 是池子里第几个币，k = 折算系数（LGNS 全站按池价 5 折算）
   dai: { sym: "DAI", addr: "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", dec: 18, show: 2 },
-  ailgns: { sym: "AiLGNS", addr: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", dec: 18, show: 4, pair: "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0", daiAt: 1, k: 1 },
+  ailgns: { sym: "AiLGNS", addr: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", dec: 18, show: 6, pair: "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0", daiAt: 1, k: 1 },
   lgns: { sym: "LGNS", addr: "0x4d1d808a081fdac440703b3765fc61f8028c06b8", dec: 9, show: 2, pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", daiAt: 1, k: 0.5 },
 };
 const CARD_DAI = 1; // 一张房卡 1 DAI
@@ -319,7 +319,7 @@ const H = {
     if (Object.keys(room.asks).length) bump(room); // 还在等别人：先让我看到「等其他人」
     return { ok: true };
   },
-  ready(o) { const room = getRoom(o), i = seatOf(room, o); if (room.st === "between") { room.seats[i].ready = true; bump(room); checkReady(room); } return { ok: true }; },
+  ready(o) { const room = getRoom(o), i = seatOf(room, o); if (room.st === "between" && !room.seats[i].ready) { room.seats[i].ready = true; bump(room); checkReady(room); } return { ok: true }; },
   back(o) { const room = getRoom(o), s = room.seats[seatOf(room, o)]; s.auto = false; s.gone = false; s.miss = 0; s.seen = now(); bump(room); return { ok: true }; }, // 取消托管
 };
 function poll(o, res) {
