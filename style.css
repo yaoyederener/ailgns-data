@@ -3088,6 +3088,7 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .ptn-ast.wait{background:#fff7ed;border:1.5px solid #fdba74}.ptn-ast.done{background:#f0fdf4;border:1.5px solid #86efac}
 .ptn-ast .nm-go{margin-left:auto;padding:6px 14px}.ptn-ahist{margin:0 0 8px;font-size:13px}.ptn-ahist>div{padding:4px 0;border-top:1px dashed #ede9fe}
 .ptn-atx{margin-top:6px;display:grid;gap:4px}.ptn-atx a{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:baseline;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid #ede9fe;font-size:13px;color:inherit}
+.ptn-atxd{margin-top:4px}.ptn-atxd summary{cursor:pointer;font-size:13px;color:#7c3aed;padding:4px 0}
 .ptn-atx a b{color:#6d28d9}.ptn-atx a small{color:#7c3aed;margin-left:auto}
 .ptn-tr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px 12px;border-radius:12px;background:#f5f3ff;border:1.5px solid #c4b5fd}.ptn-tr b{color:#6d28d9;font-size:16px}
 .ptn-cp{padding:14px;border-radius:14px;background:#fff7ed;border:2px solid #fb923c;margin-bottom:8px;text-align:center}
