@@ -3445,3 +3445,9 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .bn-est-n b { font-size: 28px; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
 .bn-est-s { margin-top: 6px !important; font-size: 13px; color: var(--muted); line-height: 1.6; }
 .bn-est-w { margin-top: 8px !important; padding-top: 8px; border-top: 1px dashed #ecd9ad; font-size: 13px; color: #8a6a1c; line-height: 1.6; }
+.bn-clock { margin: 12px 0 8px; }
+.bn-clock p { margin: 0 0 6px; font-size: 13px; color: #5b4a86; font-weight: 600; }
+.bn-clock div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.bn-clock span { padding: 8px 0 6px; border-radius: 12px; background: #fff; border: 1px solid #e6dbfb; text-align: center; font-size: 12px; color: var(--muted); }
+.bn-clock b { display: block; font-size: 26px; line-height: 1.15; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
+.bn-meta.bn-meta2 span:first-child { color: var(--muted); font-weight: 400; }
