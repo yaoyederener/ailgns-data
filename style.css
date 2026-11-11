@@ -2463,8 +2463,8 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 @keyframes ib-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(152, 40, 220, .45); } 50% { box-shadow: 0 0 0 8px rgba(152, 40, 220, 0); } }
 @media (prefers-reduced-motion: reduce) { .ib-bell.has { animation: none; } }
 .ib-cnt { margin: 10px 0 0; color: #c0353a; font-weight: 700; font-size: 14px; } .ib-cnt:empty { display: none; }
-/* 站长私信气泡和工单回复气泡同时出现时，后来的那个往上挪，不叠在一起 */
-#fb-pill ~ #ib-pill, #ib-pill ~ #fb-pill { bottom: calc(78px + env(safe-area-inset-bottom)); }
+/* 站长私信气泡：样式和工单回复气泡一样，位置高一截，不挡右下角「客服」按钮，两个气泡同时出现也不叠 */
+.ib-pill { bottom: calc(78px + env(safe-area-inset-bottom)); }
 @keyframes ib-ring { 0%,100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-12deg); } 60% { transform: rotate(8deg); } 80% { transform: rotate(-4deg); } }
 .ib-ops { display: inline-flex; gap: 6px; }
 .ib-who { margin: 4px 0 12px; }
