@@ -3324,3 +3324,6 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .lp-mkt a { flex: 1; text-align: center; padding: 10px 8px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--panel); color: var(--text); font-weight: 800; font-size: 16px; text-decoration: none; }
 .lp-mkt a small { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 4px; }
 .lp-mkt a.on { border-color: #7027d9; color: #5a35d6; background: #f3eeff; }
+
+/* 挂单价偏离市价一倍以上：大字红框（站长 2026-11-11） */
+.otc-far { margin-top: 8px; padding: 10px 12px; border: 2px solid var(--down); border-radius: 10px; background: #fff3f3; color: var(--down); font-weight: 700; font-size: 15px; line-height: 1.5; }

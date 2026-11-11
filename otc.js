@@ -946,10 +946,13 @@
           if (side === "sell") verdict = r < DEX_SELL ? "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI" : ""; // 站长 2026-11-10：不再提示偏高/偏低，市场自由定价；只提醒比去 DEX 还吃亏的价
           else verdict = r > DEX_BUY ? "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI" : "";
         }
+        // 站长 2026-11-11：单价和市价差了一倍以上（卖价不到市价一半 / 买价超过市价两倍），大字红框提醒，多半是少写或多写了一个零；发布前还要再确认一次
+        var far = r ? (side === "sell" ? r <= 0.5 : r >= 2) : false;
+        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比市价（约 " + A.fmt(mkt, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" : "";
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
-          (r && verdict ? '<br><span class="down">' + verdict + "</span>" : "");
-        return { q: q, total: total };
+          (far ? '<div class="otc-far">' + farMsg + "</div>" : (r && verdict ? '<br><span class="down">' + verdict + "</span>" : ""));
+        return { q: q, total: total, far: far, farMsg: farMsg };
       }
       qty.oninput = function () { lastEd = "qty"; syncFrom("qty"); calc(); if (pickSync) pickSync(); };
       tot.oninput = function () { lastEd = "tot"; syncFrom("tot"); calc(); if (pickSync) pickSync(); };
@@ -1024,6 +1027,7 @@
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
+        if (v.far && !confirm(v.farMsg.replace("⛔ ", "") + "\n\n确定要按这个价格挂单吗？")) return; // 偏离市价一倍以上：再确认一次（站长 2026-11-11）
         btn.disabled = true;
         ready().then(function () {
           walletCard();
