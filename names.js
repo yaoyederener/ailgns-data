@@ -221,10 +221,20 @@
     p.catch(function () { delete infoCache[key]; });
     return p;
   }
+  // 「能不能注册」这一问：主节点 0.7 秒没回，就同时问备用节点，谁先回用谁（节点偶尔卡几秒，客户以为网站坏了）
+  function hedged(data) {
+    return new Promise(function (ok, no) {
+      var done = 0, fails = 0, total = 1, tm;
+      function fin(v) { if (!done) { done = 1; clearTimeout(tm); ok(v); } }
+      function bad(e) { if (++fails >= total && !done) { done = 1; clearTimeout(tm); no(e); } }
+      tm = setTimeout(function () { total++; A.rpc("eth_call", [{ to: NAMES, data: data }, "latest"], 1).then(fin, bad); }, 700);
+      call(data).then(fin, bad);
+    });
+  }
   function info1(label) {
     var s = "0000000000000000000000000000000000000000000000000000000000000020" + str(label);
     // 站长 2026-11-12「查询很慢」：三个读链同时发，但「能不能注册」一回来就出结果，不等另外两个
-    var aP = call(SEL.available + s), rP = call(SEL.resolve + s), iP = call(SEL.idOf + s);
+    var aP = hedged(SEL.available + s), rP = call(SEL.resolve + s), iP = call(SEL.idOf + s);
     rP.catch(function () {}); iP.catch(function () {});
     return aP.then(function (a) {
       if (BigInt("0x" + word(a, 0)) === 1n) return { free: true, addr: ZERO, id: null, exp: 0, owner: null }; // 能注册：不用再查指向、主人、到期，直接出结果
@@ -564,7 +574,7 @@
       out.innerHTML = '<div class="nm-wait"><p>⏳ 正在查 <b>' + esc(v) + "." + TLD + '</b> 能不能注册…</p><div class="nm-prog nm-prog-run"><i></i></div><small id="nm-slow" hidden>链上有点慢，再等几秒就出来，不用重复点</small></div>';
       setTimeout(function () { var sl = document.getElementById("nm-slow"); if (my === showSeq && sl) sl.hidden = false; }, 2500);
       info(v).then(function (r) {
-        if (my !== showSeq) return; // 已经换了别的名字，这个结果作废
+        if (my !== showSeq || !document.body.contains(out)) return; // 已经换了别的名字，或页面已经重画，这个结果作废
         // .lgns 暂停新注册（站长决定先只开放 .ailgns）；已注册的老名字照常显示、续费、转赠、改指向
         if (r.free && TLD === "lgns") { out.innerHTML = '<p class="muted">.lgns 暂不开放注册，<a href="#/names/' + encodeURIComponent(v) + '.ailgns">看看 ' + esc(v) + '.ailgns →</a></p>'; return; }
         if (r.free) { stepTo(1); out.innerHTML = '<p class="nm-ok">🎉 <b>' + esc(v) + "." + TLD + "</b> 可以注册！</p>" + rarTag(v) + buy; bindBuy(v); return; }
