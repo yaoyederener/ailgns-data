@@ -3415,3 +3415,26 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 #sc-out .lg-arr { color: #7c5cff; font-weight: 700; }
 #sc-out .lg-raw { padding-top: 10px; border-top: 1px dashed #e6dcff; }
 @media (prefers-reduced-motion: reduce) { .sc-home::before, .sc-home::after, #sc-out > .card, #sc-out .sc-wait, #sc-out .sc-coin.sc-has::after { animation: none !important; } }
+
+/* 🎁 创世域名每日分红 · 上线倒计时页 #/bonus */
+.bn-cd { margin: 6px 0 14px; padding: 18px 16px; border-radius: 16px; background: linear-gradient(135deg, #f4eeff, #fbf8ff); border: 1px solid #e6dbfb; }
+.bn-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bn-big b { font-size: 46px; line-height: 1; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
+.bn-big span { font-size: 16px; color: #5b4a86; font-weight: 600; }
+.bn-bar { height: 10px; margin: 14px 0 8px; border-radius: 99px; background: #e9e0fa; overflow: hidden; }
+.bn-bar i { display: block; height: 100%; width: 2%; border-radius: 99px; background: var(--grad-dot); transition: width .6s ease; }
+.bn-meta { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--muted); }
+.bn-meta span:first-child { color: #3d2f66; font-weight: 600; }
+.bn-me { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #f7f3ff; font-size: 14px; color: #3d2f66; }
+.bn-me b { color: #6927db; }
+.bn-go { display: block; text-align: center; padding: 13px 16px; border-radius: 14px; background: var(--grad-dot); color: #fff; font-weight: 700; font-size: 16px; text-decoration: none; }
+.bn-rules { list-style: none; margin: 8px 0 0; padding: 0; counter-reset: bn; }
+.bn-rules li { counter-increment: bn; position: relative; padding: 12px 0 12px 42px; border-top: 1px solid #efe8fb; }
+.bn-rules li:first-child { border-top: 0; }
+.bn-rules li::before { content: counter(bn); position: absolute; left: 0; top: 12px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--grad-dot); color: #fff; font-weight: 700; font-size: 14px; }
+.bn-rules b { display: block; font-size: 16px; }
+.bn-rules span { display: block; margin-top: 3px; font-size: 14px; color: var(--muted); line-height: 1.6; }
+.bn details { border-top: 1px solid #efe8fb; padding: 11px 0; }
+.bn details:first-of-type { border-top: 0; }
+.bn summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.bn details p { margin: 8px 0 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
