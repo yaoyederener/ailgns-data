@@ -91,12 +91,21 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       allocHtml(j) +
       addrTable(j) +
       // 3. 生意
-      '<h3 class="ad-h">📈 今天的生意（今天 · 昨天 · 近 7 天合计）</h3><div class="ad-tw"><table class="ad-t ptn-t"><thead><tr><th></th><th>今天 ' + dayCn(d0.day) + "</th><th>昨天 " + dayCn(d1.day) + "</th><th>近 7 天</th></tr></thead><tbody>" +
-      "<tr><td>OTC 成交额</td><td data-l=今天><b>" + fm(d0.fillDai, 0) + "</b> DAI · " + (d0.fills || 0) + " 笔</td><td data-l=昨天>" + fm(d1.fillDai, 0) + " · " + (d1.fills || 0) + " 笔</td><td data-l=近7天>" + fm(sum("fillDai"), 0) + " · " + sum("fills") + " 笔</td></tr>" +
-      "<tr><td>域名销售</td><td data-l=今天><b>" + (d0.nmN || 0) + "</b> 个 · " + fm(d0.nmDai, 0) + " DAI</td><td data-l=昨天>" + (d1.nmN || 0) + " 个 · " + fm(d1.nmDai, 0) + "</td><td data-l=近7天>" + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + "</td></tr>" +
-      "<tr><td>会员付款</td><td data-l=今天><b>" + fm(d0.member, 0) + "</b> DAI</td><td data-l=昨天>" + fm(d1.member, 0) + "</td><td data-l=近7天>" + fm(sum("member"), 0) + "</td></tr>" +
-      '<tr class="ptn-real"><td>实际到账<small>链上真转进谷歌社交账号钱包的 DAI / AiLGNS，自己撤单退回的本金不算</small></td><td data-l=今天><b>' + inV(d0) + "</b></td><td data-l=昨天>" + inV(d1) + "</td><td data-l=近7天>" + inSum + (inDays < 7 ? "<small>（" + inDays + " 天有记录）</small>" : "") + "</td></tr>" +
-      "</tbody></table></div>" +
+      // 站长 2026-11-12：近 7 天逐天列出来（原来只有今天 / 昨天 / 7 天合计），看增长和运营；手机上一天一张卡
+      '<h3 class="ad-h">📈 生意和使用（近 7 天，一天一行）</h3><div class="ad-tw"><table class="ad-t ptn-d"><thead><tr><th>日期</th><th>OTC 成交额</th><th>域名销售</th><th>会员付款</th><th>实际到账</th><th>访客</th><th>App 装机</th><th>在线峰值</th></tr></thead><tbody>' +
+      w7.map(function (r, i) {
+        var wk = r.day ? "周" + "日一二三四五六".charAt(new Date(r.day + "T00:00:00Z").getUTCDay()) : "", pk = r.pk || (i === 0 && j.traffic ? j.traffic.peak : 0);
+        return "<tr" + (i === 0 ? ' class="now"' : "") + "><td>" + (i === 0 ? "今天 " : i === 1 ? "昨天 " : "") + dayCn(r.day) + " <small>" + wk + (i === 0 ? " · 还没过完" : "") + "</small></td>" +
+          '<td data-l="OTC 成交额"><b>' + fm(r.fillDai, 0) + "</b> DAI · " + (r.fills || 0) + " 笔</td>" +
+          '<td data-l="域名销售"><b>' + (r.nmN || 0) + "</b> 个 · " + fm(r.nmDai, 0) + " DAI</td>" +
+          '<td data-l="会员付款"><b>' + fm(r.member, 0) + "</b> DAI</td>" +
+          '<td data-l="实际到账" class="in">' + inV(r) + "</td>" +
+          '<td data-l="访客"><b>' + fm(r.v, 0) + "</b> 次 · 首次 " + (r.v1 || 0) + " 人</td>" +
+          '<td data-l="App 装机"><b>' + (r.an || 0) + "</b> 台</td>" +
+          '<td data-l="在线峰值">' + (pk ? "<b>" + pk + "</b> 人" : "—") + "</td></tr>";
+      }).join("") +
+      '<tr class="sum"><td>近 7 天合计</td><td data-l="OTC 成交额"><b>' + fm(sum("fillDai"), 0) + "</b> DAI · " + sum("fills") + ' 笔</td><td data-l="域名销售"><b>' + sum("nmN") + "</b> 个 · " + fm(sum("nmDai"), 0) + ' DAI</td><td data-l="会员付款"><b>' + fm(sum("member"), 0) + '</b> DAI</td><td data-l="实际到账" class="in">' + inSum + (inDays < 7 ? '<small class="muted">（' + inDays + " 天有记录）</small>" : "") + '</td><td data-l="访客"><b>' + fm(sum("v"), 0) + "</b> 次 · 首次 " + fm(sum("v1"), 0) + ' 人</td><td data-l="App 装机"><b>' + sum("an") + '</b> 台</td><td data-l="在线峰值">最高 <b>' + w7.reduce(function (m, r, i) { return Math.max(m, r.pk || (i === 0 && j.traffic ? j.traffic.peak : 0) || 0); }, 0) + "</b> 人</td></tr>" +
+      '</tbody></table></div><p class="muted ptn-dn">实际到账 = 链上真转进谷歌社交账号钱包的 DAI / AiLGNS，自己撤单退回的本金不算。访客「首次」= 第一次打开网站的人。</p>' +
       // 4. 客户
       '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +

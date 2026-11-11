@@ -2961,6 +2961,22 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .cred6 { background: linear-gradient(90deg, #1e1b4b, #4c1d95); color: #fde68a; border-color: #7c3aed; }
 .credking { background: linear-gradient(90deg, #fff1b8, #ffd45c); color: #7a4d00; border-color: #e2b64a; }
 
+/* 📅 合伙人面板「近 7 天，一天一行」（站长 2026-11-12）：电脑是表格，手机一天一张卡 */
+.ptn-d td small { font-weight: 400; color: #8a7fb0; font-size: 11px; } .ptn-d td.in small { display: block; } .ptn-d td.in { background: #eefbf3; }
+.ptn-d tr.now td { background: #faf7ff; } .ptn-d tr.now td.in { background: #e3f7ec; } .ptn-d tr.now td:first-child { font-weight: 700; color: #4b2fb0; }
+.ptn-d tr.sum td { font-weight: 700; border-top: 2px solid #d9ccff; background: #f6f2ff; } .ptn-d tr.sum td.in { background: #e3f7ec; }
+.ptn-dn { margin: 6px 0 0; font-size: 12px; }
+@media (max-width: 600px) {
+  .ptn-d thead { display: none; }
+  .ptn-d, .ptn-d tbody { display: block; white-space: normal; }
+  .ptn-d tr { display: block; margin: 8px 0; padding: 8px 12px; border: 1px solid #e6dcff; border-radius: 12px; background: #fff; }
+  .ptn-d tr.now { border-color: #b9a4f5; background: #faf7ff; } .ptn-d tr.sum { background: #f6f2ff; border-color: #d9ccff; }
+  .ptn-d td, .ptn-d tr.now td, .ptn-d tr.sum td, .ptn-d td.in, .ptn-d tr.now td.in, .ptn-d tr.sum td.in { display: block; text-align: right; border: 0; padding: 3px 0; font-size: 13px; background: transparent; font-weight: 400; }
+  .ptn-d td:first-child, .ptn-d tr.now td:first-child, .ptn-d tr.sum td:first-child { text-align: left; font-weight: 700; font-size: 14.5px; color: var(--purple-ink, #2d1b69); border-bottom: 1px dashed #e6dcff; padding-bottom: 5px; margin-bottom: 4px; }
+  .ptn-d td[data-l]::before { content: attr(data-l); color: #8a7fb0; float: left; }
+  .ptn-d td.in { color: #0f7a4a; }
+}
+
 /* 📱 合伙人面板「今天的生意」手机版：表格变成一行一张卡（站长 2026-11-08：显示不全；以后更新先适配手机） */
 @media (max-width: 600px) {
   .ptn-t thead { display: none; }
