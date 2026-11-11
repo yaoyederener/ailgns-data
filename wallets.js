@@ -67,7 +67,13 @@
   function ask(eth, a) {
     var t = safeText(a);
     if (t) safeShow(t);
-    return Promise.resolve().then(function () { return eth.request(a); }).then(function (r) { if (t) safeShow(""); return r; }, function (e) { if (t) safeShow(""); throw e; });
+    return Promise.resolve().then(function () { return eth.request(a); }).then(function (r) { if (t) safeShow(""); try { noteInbox(a, r); } catch (e) {} return r; }, function (e) { if (t) safeShow(""); throw e; });
+  }
+  // 🔔 钱包一返回交易哈希就告诉收件箱（每笔操作即时通知，2026-11-11）；拿到地址也顺手记一下，铃铛好亮未读数。出错不影响交易本身
+  function noteInbox(a, r) {
+    var ib = window.AIL && window.AIL.inbox; if (!ib || !a) return;
+    if (a.method === "eth_sendTransaction" && ib.tx) ib.tx(r, a.params && a.params[0] && a.params[0].from);
+    else if ((a.method === "eth_requestAccounts" || a.method === "eth_accounts") && r && r[0] && ib.acct) ib.acct(r[0]);
   }
   function use(w) {
     if (current && current.provider === w.provider) return w.provider;

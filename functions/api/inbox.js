@@ -1,9 +1,13 @@
 // 🔔 收件箱接口。钱包签一次名（管 30 天）证明「我控制这个地址」，之后每次请求带 a / ts / sig
 //   GET  ?a&ts&sig            → { list, seen, unread }
-//   POST { a, ts, sig, action: "seen" } → 全部标为已读
+//   GET  ?n=地址              → { unread, dm }（dm = 其中站长私信几条；只给数字，不给内容；没签名的钱包铃铛也能亮，点进去再签名看）
+//   POST { a, ts, sig, action: "seen" } → 全部标为已读（页面一打开就自动调）
+//   POST { action: "tx", tx }  → 客户刚在本站发的交易：读链核对后给发起人写一条通知（不用签名，文字全由链上回执生成）
 import { recoverAddress } from "../../lib/evmsig.js";
 import { inboxText, AUTH_TTL, pushInbox } from "../../lib/inbox.js";
 import { ensureWeek } from "../../lib/cred.js";
+import { rpc } from "../../lib/oracle.js";
+import { txNote } from "../../lib/txnote.js";
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 function auth(a, ts, sig) {
   a = String(a || "").toLowerCase(); ts = Number(ts);
@@ -20,15 +24,9 @@ async function view(kv, a) {
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV; if (!kv) return json({ error: "没有存储" }, 500);
   const u = new URL(ctx.request.url);
-  // 6 位码换登录：拿一次就作废
-  const code = String(u.searchParams.get("code") || "").replace(/\D/g, "");
-  if (code) {
-    if (code.length !== 6) return json({ error: "码是 6 位数字" }, 400);
-    const rec = await kv.get("ib:code:" + code, "json");
-    if (!rec) return json({ error: "这个码不对或已过期（10 分钟内有效，只能用一次）" }, 404);
-    await kv.delete("ib:code:" + code);
-    return json({ auth: rec });
-  }
+  // 只要未读数（2026-11-11）：不用签名，只回一个数字
+  const n = String(u.searchParams.get("n") || "").toLowerCase();
+  if (n) { if (!/^0x[0-9a-f]{40}$/.test(n)) return json({ error: "地址不对" }, 400); const v = await view(kv, n); return json({ unread: v.unread, dm: v.list.filter((x) => x.t > v.seen && String(x.txt).startsWith("📣 站长通知")).length }); }
   const a = auth(u.searchParams.get("a"), u.searchParams.get("ts"), u.searchParams.get("sig"));
   if (!a) return json({ error: "登录已过期，请重新用钱包签名" }, 401);
   return json(await view(kv, a));
@@ -55,13 +53,24 @@ export async function onRequestPost(ctx) {
     await kv.put("ib:adminlog", JSON.stringify(log.slice(0, 50)));
     return json({ ok: true, n: to.length, log: log.slice(0, 50) });
   }
+  // 🔔 客户自己的每笔操作即时通知（2026-11-11）：只认 15 分钟内、调用本站合约的交易；每笔只通知一次
+  if (b.action === "tx") {
+    const h = String(b.tx || "").toLowerCase();
+    if (!/^0x[0-9a-f]{64}$/.test(h)) return json({ error: "参数不对" }, 400);
+    if (await kv.get("ib:tx:" + h)) return json({ ok: true, dup: true });
+    let rc, tx, blk;
+    try { rc = await rpc("eth_getTransactionReceipt", [h]); } catch (e) { return json({ pending: true }); } // 还没打包
+    if (!rc || !rc.blockNumber) return json({ pending: true });
+    try { [tx, blk] = await Promise.all([rpc("eth_getTransactionByHash", [h]), rpc("eth_getBlockByNumber", [rc.blockNumber, false])]); } catch (e) { return json({ pending: true }); }
+    if (Date.now() / 1000 - parseInt(blk.timestamp, 16) > 900) return json({ ok: true, skip: "old" });
+    const note = txNote(rc, tx);
+    await kv.put("ib:tx:" + h, "1", { expirationTtl: 86400 });
+    if (!note) return json({ ok: true, skip: "other" });
+    await pushInbox(kv, rc.from, note.k, note.txt, note.link);
+    return json({ ok: true, a: String(rc.from).toLowerCase() });
+  }
   const a = auth(b.a, b.ts, b.sig);
   if (!a) return json({ error: "登录已过期，请重新用钱包签名" }, 401);
   if (b.action === "seen") { await kv.put("ib:seen:" + a, String(Date.now())); return json(await view(kv, a)); }
-  if (b.action === "code") { // 生成 6 位码，10 分钟有效，拿去别的设备 / 桌面图标 App 里登录
-    let code; for (let i = 0; i < 5; i++) { code = String(Math.floor(100000 + Math.random() * 900000)); if (!(await kv.get("ib:code:" + code))) break; }
-    await kv.put("ib:code:" + code, JSON.stringify({ a, ts: Number(b.ts), sig: String(b.sig) }), { expirationTtl: 600 });
-    return json({ code, ttl: 600 });
-  }
   return json({ error: "不认识的操作" }, 400);
 }

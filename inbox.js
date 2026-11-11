@@ -1,11 +1,13 @@
 // 🔔 收件箱（站内信）：成交、借贷、工单回复、预言家、链上留言的通知都在这里，不依赖任何社交软件
 // 钱包签一次名（管 30 天）证明是本人，之后每分钟悄悄拉一次；顶栏铃铛显示未读数；开了浏览器通知的，新消息会弹系统通知
+// 2026-11-11 站长：铃铛放大；点开就算已读（不用点「全部已读」）；6 位码取消；客户自己的每笔操作即时进收件箱；
+//   站长私信像工单回复一样弹悬浮气泡；没签名的钱包铃铛也亮未读数（只有数字，内容要签名才看得到）
 (function () {
   "use strict";
   var A = window.AIL, KEY = "ibAuth", W = A.wallets;
   var ICO = { otc: "💱", loan: "🤝", ticket: "📮", msg: "📬", oracle: "🔮", sys: "📣" };
   var PAUSED = false; // 2026-11-08 站长：重新开通（原 2026-11-06：手机 App 里连不上钱包，先暂停对客户开放，方案想好再开（改成 false 即恢复）
-  var auth = null, lastMax = 0, timer = null, eth = null, account = "";
+  var auth = null, lastMax = 0, timer = null, eth = null, account = "", openSeen = null, marking = false, DM = "📣 站长通知";
   try { auth = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { auth = null; }
   if (auth && (!auth.a || !auth.sig || Date.now() - auth.ts > 29 * 86400e3)) auth = null;
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
@@ -22,12 +24,42 @@
   bell.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><i class="ib-n" hidden></i>';
   var right = document.querySelector(".top-r"); if (right && !PAUSED) right.insertBefore(bell, right.firstChild);
   function badge(n) { var i = bell.querySelector(".ib-n"); i.hidden = !n; i.textContent = n > 99 ? "99+" : n; bell.classList.toggle("has", !!n); }
+  function onInbox() { return location.hash.indexOf("#/inbox") === 0; }
+  function isAddr(a) { return /^0x[0-9a-f]{40}$/.test(a || ""); }
+  // 这台设备最近用的钱包地址（没签名时只用来问「有几条未读」）
+  function getAcct() { if (auth) return auth.a; try { var a = localStorage.getItem("ib:acct") || ""; return isAddr(a) ? a : ""; } catch (e) { return ""; } }
+  function setAcct(a) {
+    a = String(a || "").toLowerCase(); if (!isAddr(a)) return;
+    var old = ""; try { old = localStorage.getItem("ib:acct") || ""; if (old !== a) localStorage.setItem("ib:acct", a); } catch (e) {}
+    if (old !== a && !auth && !PAUSED) { schedule(); count(); }
+  }
+  // 📬 站长私信悬浮气泡：和工单回复同一个样式，点开收件箱就消失
+  function pill(n, txt) {
+    var el = document.getElementById("ib-pill");
+    if (!n || onInbox() || PAUSED) { if (el) el.remove(); return; }
+    var k = n + "|" + txt; if (el && el.getAttribute("data-k") === k) return;
+    if (!el) { el = document.createElement("a"); el.id = "ib-pill"; el.className = "fb-pill ib-pill"; el.href = "#/inbox"; document.body.appendChild(el); }
+    el.setAttribute("data-k", k);
+    el.innerHTML = '<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来' + (n > 1 ? " " + n + " 条" : "一条") + "私信</b><small>" + (txt ? esc(txt.slice(0, 40)) + (txt.length > 40 ? "…" : "") : "点开用钱包签个名就能看（免费）") + '</small></span><span class="fb-pill-go">查看 ›</span>';
+  }
+  // 没签名：只问未读数（不含内容）
+  function count() {
+    var a = getAcct(); if (!a || auth || document.hidden) return Promise.resolve(null);
+    return fetch("/api/inbox?n=" + a).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || j.error) return null;
+      badge(j.unread); pill(j.dm, "");
+      var c = document.getElementById("ib-cnt"); if (c) c.textContent = j.unread ? "🔴 钱包 " + A.short(a) + " 有 " + j.unread + " 条未读通知，签名后就能看" : "";
+      return j;
+    }).catch(function () { return null; });
+  }
 
   function pull(render) {
-    if (!auth) return Promise.resolve(null);
+    if (!auth) return count();
     return fetch("/api/inbox?" + q()).then(function (r) { return r.json(); }).then(function (j) {
       if (j.error) { if (/过期/.test(j.error)) logout(false); return null; }
       badge(j.unread);
+      var dms = j.list.filter(function (x) { return x.t > j.seen && String(x.txt).indexOf(DM) === 0; });
+      pill(dms.length, dms.length ? String(dms[0].txt).split("\n").slice(1).join(" ") : "");
       var top = j.list.length ? j.list[0].t : 0;
       var hasPush = false; try { hasPush = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
       if (!hasPush && lastMax && top > lastMax && "Notification" in window && Notification.permission === "granted") {
@@ -40,8 +72,8 @@
       return j;
     }).catch(function () { return null; });
   }
-  function schedule() { clearInterval(timer); if (!auth) return; timer = setInterval(function () { pull(location.hash.indexOf("#/inbox") === 0 ? paint : null); }, location.hash.indexOf("#/inbox") === 0 ? 20000 : 60000); }
-  function logout(clear) { auth = null; badge(0); clearInterval(timer); try { if (clear !== false) localStorage.removeItem(KEY); } catch (e) {} }
+  function schedule() { clearInterval(timer); if (PAUSED || (!auth && !getAcct())) return; timer = setInterval(function () { pull(onInbox() ? paint : null); }, auth && onInbox() ? 20000 : 60000); }
+  function logout(clear) { auth = null; openSeen = null; badge(0); pill(0); clearInterval(timer); try { if (clear !== false) localStorage.removeItem(KEY); } catch (e) {} }
 
   // ---------- 钱包签名登录 ----------
   function login(btn) {
@@ -63,7 +95,7 @@
       });
     }).then(function (sig) {
       if (!sig || !/^0x[0-9a-fA-F]{100,}$/.test(String(sig))) throw new Error("钱包返回的签名不对，请换个钱包试试");
-      auth = { a: account, ts: ts, sig: sig }; try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (e) {}
+      auth = { a: account, ts: ts, sig: sig }; try { localStorage.setItem(KEY, JSON.stringify(auth)); localStorage.setItem("ib:acct", account); } catch (e) {}
       btn.disabled = false; lastMax = 0; schedule(); say("✅ 已登录");
       return pull(paint).then(function () { if (location.hash.indexOf("#/inbox") === 0 && A.pages.inbox) A.pages.inbox(cur); });
     }).catch(function (e) {
@@ -104,12 +136,21 @@
   var shown = [];
   function paint(j) {
     var box = document.getElementById("ib-list"); if (!box || !j) return;
-    var un = document.getElementById("ib-un"); if (un) un.textContent = j.unread ? j.unread + " 条未读" : "没有未读";
+    // 点开就算已读：铃铛数字马上清零；这一趟里「新」字照旧标着（按进页面那一刻的已读时间算），离开再回来就没了
+    if (openSeen === null) openSeen = j.seen;
+    var fresh = j.list.filter(function (x) { return x.t > openSeen; }).length;
+    var un = document.getElementById("ib-un"); if (un) un.textContent = fresh ? fresh + " 条新消息" : "";
+    pill(0);
+    if (j.unread && !document.hidden) { badge(0); markSeen(); }
     if (box.querySelector(".ib-rbox")) return; // 正在写回复：不刷新列表，免得字被清掉
     shown = j.list;
     box.innerHTML = j.list.length ? j.list.map(function (x) {
-      return '<div class="ib-it' + (x.t > j.seen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
+      return '<div class="ib-it' + (x.t > openSeen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
     }).join("") : '<p class="muted ib-empty">还没有消息。以后你的成交、借贷、工单回复、预言家中奖、链上留言都会出现在这里。</p>';
+  }
+  function markSeen() {
+    if (!auth || marking) return; marking = true;
+    fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "seen" }) }).then(function (r) { return r.json(); }).then(function (j) { marking = false; if (j && !j.error && onInbox()) badge(0); }, function () { marking = false; });
   }
   // 💬 回复站长（2026-11-08 站长定）：回复内容进工单后台，站长收件箱同时提醒
   document.addEventListener("click", function (e) {
@@ -137,55 +178,51 @@
     }
     if (!auth) {
       A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱</h2><p>成交、借贷、工单回复、预言家中奖、链上留言……所有和你钱包有关的通知都在这里，<b>不用加任何社交软件</b>。</p>' +
-        '<p class="muted">用钱包签一次名证明是你本人（免费、不花 Gas、不是交易），管 30 天。</p><button type="button" class="nm-go" id="ib-go">🔏 钱包签名，打开我的收件箱</button><p class="muted nm-st" id="ib-st"></p>' +
+        '<p class="muted">用钱包签一次名证明是你本人（免费、不花 Gas、不是交易），管 30 天。</p><button type="button" class="nm-go" id="ib-go">🔏 钱包签名，打开我的收件箱</button><p class="muted nm-st" id="ib-st"></p><p class="ib-cnt" id="ib-cnt"></p>' +
         '<p class="muted ib-tip">手机请在钱包 App（OKX / Bitget / TokenPocket / MetaMask 等）内置浏览器里打开 ailgns.dev 再点；点了弹出钱包就选「签名」。</p><p class="muted ib-diag" id="ib-diag"></p></section>';
       // 诊断行：这台设备检测到了哪些钱包（排查「点了没反应」用）
       setTimeout(function () { var d = document.getElementById("ib-diag"); if (!d) return; var ws = (W.list && W.list()) || []; d.textContent = "诊断 v2 · " + (ws.length ? "检测到钱包：" + ws.map(function (w) { return w.name; }).join("、") : "没检测到钱包（当前不是钱包内置浏览器，或钱包还没注入）") + (W.standalone && W.standalone() ? " · 桌面图标模式" : ""); }, 600);
       document.getElementById("ib-go").onclick = function () { login(this); };
-      // iPhone 桌面图标 / 别的设备：没钱包也能用 6 位码登录
-      var box = document.querySelector(".ib-login");
-      box.insertAdjacentHTML("beforeend", '<div class="ib-code"><p class="muted">已经在钱包里登录过？在那边点「生成 6 位码」，这里输入就能登录（iPhone 桌面图标 App 里没有钱包，用这个）：</p><form class="ib-codef"><input inputmode="numeric" maxlength="6" placeholder="6 位数字" autocomplete="one-time-code"><button type="submit" class="ghost">用码登录</button></form></div>');
-      box.querySelector(".ib-codef").onsubmit = function (e) {
-        e.preventDefault(); var inp = this.querySelector("input"), b = this.querySelector("button"), code = inp.value.replace(/\D/g, "");
-        if (code.length !== 6) return A.errTip("输入 6 位数字", inp);
-        b.disabled = true;
-        fetch("/api/inbox?code=" + code).then(function (r) { return r.json(); }).then(function (j) {
-          b.disabled = false; if (j.error) return A.errTip(j.error, inp);
-          auth = j.auth; try { localStorage.setItem(KEY, JSON.stringify(auth)); } catch (x) {}
-          lastMax = 0; schedule(); A.pages.inbox(id);
-        }).catch(function () { b.disabled = false; A.errTip("网络不好，再试一次", inp); });
-      };
+      count();
       return;
     }
     var canN = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window, perm = canN ? Notification.permission : "denied";
     var pushed = false; try { pushed = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
-    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>🔔 收件箱 <small class="muted" id="ib-un"></small></h2><span class="ib-ops"><button type="button" class="ghost" id="ib-seen">全部已读</button><button type="button" class="ghost" id="ib-out" title="换一个钱包">退出</button></span></div>' +
+    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>🔔 收件箱 <small class="muted" id="ib-un"></small></h2><span class="ib-ops"><button type="button" class="ghost" id="ib-out" title="换一个钱包">退出</button></span></div>' +
       '<p class="muted ib-who">钱包 <a class="mono" href="#/scan/' + auth.a + '">' + A.short(auth.a) + "</a>" +
       (canN && (perm === "default" || (perm === "granted" && !pushed)) ? ' · <button type="button" class="link" id="ib-notify">开启通知</button>（新消息像微信一样弹到手机/电脑）' : perm === "granted" && pushed ? ' · ✅ 通知已开 <button type="button" class="link" id="ib-notify">重新开启</button>' : perm === "denied" && canN ? ' · <span class="muted">通知被浏览器拒绝了，去浏览器设置里允许本站通知后再来</span>' : (/iPhone|iPad/.test(navigator.userAgent) && !navigator.standalone ? ' · <span class="muted">iPhone 要先把本站「添加到主屏幕」再从桌面图标打开，才能开通知（<a href="#/app">怎么加 →</a>）</span>' : "")) + "</p>" +
       '<div id="ib-list"><p class="muted">读取中…</p></div></section>';
-    document.getElementById("ib-seen").onclick = function () {
-      var b = this; b.disabled = true;
-      fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "seen" }) }).then(function (r) { return r.json(); }).then(function (j) { b.disabled = false; if (j.error) return A.errTip(j.error, b); badge(0); paint(j); });
-    };
     document.getElementById("ib-out").onclick = function () { logout(true); A.pages.inbox(id); };
-    // 生成 6 位码：拿到 iPhone 桌面图标 App（或电脑）里登录，不用再签名
-    var who = document.querySelector(".ib-who");
-    if (who) {
-      who.insertAdjacentHTML("beforeend", ' · <button type="button" class="link" id="ib-code">生成 6 位码</button><span class="muted">（在 iPhone 桌面图标 / 电脑上登录用）</span>');
-      document.getElementById("ib-code").onclick = function () {
-        var b = this; b.disabled = true;
-        fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "code" }) }).then(function (r) { return r.json(); }).then(function (j) {
-          b.disabled = false; if (j.error) return A.errTip(j.error, b);
-          b.outerHTML = '<b class="ib-codev">' + j.code + '</b><span class="muted">（10 分钟内有效，只能用一次：到另一台设备的收件箱页输入）</span>';
-        }).catch(function () { b.disabled = false; A.errTip("网络不好，再试一次", b); });
-      };
-    }
     var nb = document.getElementById("ib-notify");
     if (nb) nb.onclick = function () { subscribePush(nb, id); };
     pull(paint); schedule();
   };
-  // 开站就拉一次（已登录的），之后按节奏
-  if (auth && !PAUSED) { setTimeout(function () { pull(null); schedule(); }, 1500); }
-  window.addEventListener("hashchange", schedule);
-  A.inbox = { login: function (b) { return login(b); }, authed: function () { return !!auth; } };
+  // ---------- 客户自己的每笔操作：钱包一返回交易哈希就报给服务器，服务器读链核对后写进收件箱 ----------
+  // 排队存在本机（最多 12 笔、15 分钟内）：钱包 App 切来切去、页面刷新了也接着报
+  var TXW = [2500, 4000, 6000, 10000, 20000, 40000, 60000];
+  function txq(fn) { try { var l = JSON.parse(localStorage.getItem("ib:txq") || "[]").filter(function (x) { return x && x.h && Date.now() - x.t < 900e3; }); if (fn) { l = fn(l).slice(-12); localStorage.setItem("ib:txq", JSON.stringify(l)); } return l; } catch (e) { return []; } }
+  function txGo(h, i) {
+    if (i >= TXW.length) return;
+    setTimeout(function () {
+      fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "tx", tx: h }) }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || j.pending) return txGo(h, i + 1);
+        txq(function (l) { return l.filter(function (x) { return x.h !== h; }); });
+        if (j.ok && !j.skip && !j.dup) { if (j.a) setAcct(j.a); pull(onInbox() ? paint : null); }
+      }).catch(function () { txGo(h, i + 1); });
+    }, TXW[i]);
+  }
+  function tx(h, from) {
+    if (PAUSED) return; h = String(h || "").toLowerCase(); if (!/^0x[0-9a-f]{64}$/.test(h)) return;
+    if (from) setAcct(from);
+    txq(function (l) { return l.filter(function (x) { return x.h !== h; }).concat([{ h: h, t: Date.now() }]); });
+    txGo(h, 0);
+  }
+  // 开站就拉一次，之后按节奏；没签名的先悄悄问一下钱包地址（不弹窗），只为了让铃铛亮未读数
+  if (!PAUSED) setTimeout(function () {
+    try { txq().forEach(function (x) { txGo(x.h, 0); }); } catch (e) {}
+    if (auth || getAcct()) { pull(onInbox() ? paint : null); schedule(); return; }
+    try { if (W.silent) W.silent().then(function (a) { if (a) setAcct(a); }).catch(function () {}); } catch (e) {}
+  }, 1500);
+  window.addEventListener("hashchange", function () { if (!onInbox()) openSeen = null; else pill(0); schedule(); });
+  A.inbox = { login: function (b) { return login(b); }, authed: function () { return !!auth; }, tx: tx, acct: setAcct };
 })();
