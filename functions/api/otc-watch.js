@@ -348,6 +348,10 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
 // 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 近 1 小时成交（不报累计） ② 域名累计注册 + 这段新增 ③ 创世域名免费预测 + 奖池 ④ 网址
 // tot：KV st:tot 全站累计（daily-stats 攒的）；fills：上次播报以来的新成交；names：/api/name-genesis；pool：/api/oracle funds 算出的奖池钱包实际余额 { ail, dai }
+// 群发结果记录（最近 20 次）：/api/otc-watch?bcdry=1 的 log 里能看到每次发没发成、DeBox 报了什么错
+async function bcLog(kv, row) {
+  try { const l = (await kv.get("bc:log", "json")) || []; l.push(row); await kv.put("bc:log", JSON.stringify(l.slice(-20))); } catch (e) { /* 记不上不影响播报 */ }
+}
 const BC_HOURS = [8, 12, 16, 20]; // 北京时间这几个整点各发一条（夜里不发）
 function bcText(fills, tot, names, newNames, pool, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
@@ -480,12 +484,13 @@ export async function onRequestGet(ctx) {
     return bcText(hr.fills, (await kv.get("st:tot", "json")) || {}, bcNames, newNames, bcPool, until);
   };
   // bcdry=1：只看播报文字不发送；bc=1&key=口令：立刻发一条到群里（站长看效果用），不清空这段的成交
-  if (url.searchParams.get("bcdry") === "1") return Response.json({ text: await build(true), due, quiet, gids });
+  if (url.searchParams.get("bcdry") === "1") return Response.json({ text: await build(true), due, quiet, gids, since: hr.since, log: (await kv.get("bc:log", "json")) || [] });
   if (url.searchParams.get("bc") === "1") {
     const k = url.searchParams.get("key"); if (!k || !((ctx.env.FEEDBACK_KEY && k === ctx.env.FEEDBACK_KEY) || (ctx.env.BACKUP_KEY && k === ctx.env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
     const text = await build(false), r = {};
     for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); r[g] = "ok"; } catch (e) { r[g] = String(e.message || e).slice(0, 200); } }
     await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
+    await bcLog(kv, { at: now, how: "手动", n: hr.fills.length, sent: r });
     return Response.json({ sent: r, text });
   }
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
@@ -494,11 +499,16 @@ export async function onRequestGet(ctx) {
     const text = await build(false);
     if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
-      catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); } // 机器人还没进群时会失败，这一段就不补发了
+      catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); }
     }
-    await kv.put("otcw:hr1", "1");
-    await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
-    await kv.put("otcw:hr", JSON.stringify({ since: until, fills: [] }));
+    // 站长 2026-11-11：以前 DeBox 没收也当发过了，不重发也不留记录，漏发了没人知道。现在每次结果记进 bc:log；一个群都没发成就不清空，5 分钟后下一轮重发
+    const okAny = Object.keys(groupSent).some((g) => groupSent[g] === true);
+    await bcLog(kv, { at: now, how: "定时", n: hr.fills.length, sent: groupSent });
+    if (okAny || !gids.length) {
+      await kv.put("otcw:hr1", "1");
+      await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
+      await kv.put("otcw:hr", JSON.stringify({ since: until, fills: [] }));
+    } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr));
   } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr)); // 有新成交才写，省 KV 写入次数
   // 低于市价的挂单推送给关注机器人的人（站长确认文案后把 PP_ON 改成 true 才真的发）
   let fans = null;
