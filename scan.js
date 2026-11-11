@@ -306,9 +306,10 @@
     var k = KNOWN[to];
     return { ico: "🔧", text: (k ? "与「" + esc(k) + "」交互" : (EXT[sel] ? EXT[sel] + "（其他平台）" : "与其他平台的合约交互")) + (METHODS[sel] ? "：" + METHODS[sel] : "") + (ms.length ? "，" + ms.map(function (m) { return (m.dir === "in" ? "收到 " : "付出 ") + (m.nft ? "域名" : fmtN(m.v, m.sym)); }).join("、") : "") };
   }
+  var DIR = { "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
   function rowHtml(a, row) {
     var r = translate(a, row), money = (row.tr && row.tr.length) || (row.tx && row.tx.value && Number(row.tx.value) > 0) || /收到|付出|转出|转入|买入|卖出|成交|退回|注册|续费/.test(r.text);
-    return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
+    return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + (DIR[r.ico] ? '" data-dir="' + DIR[r.ico] : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
   }
   // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
   function ledger(a, box) {
@@ -342,6 +343,7 @@
           }).catch(function () { el.textContent = ""; });
         });
         first = false;
+        var hs = document.getElementById("sc-hsum"), ht = "最近一笔 " + bj(rows[0].t); if (hs && box.id === "sc-lg" && hs.textContent !== ht) hs.textContent = ht;
         fillNames(box);
       });
     }
@@ -648,7 +650,8 @@
     return { set: function (k) { c = k; seg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-c") === k); }); }, fill: fill };
   };
   function addrView(a, out, via, cat) {
-    var wait = '<p class="muted">读取中…</p>';
+    var wait = '<p class="muted sc-wait">读取中…</p>';
+    try { out.style.setProperty("--sc-h", String(225 + parseInt(a.slice(2, 8), 16) % 70)); } catch (e) {} // 每个地址一个专属的紫蓝色调（只管头像色）
     // 站长 2026-11-10：运营地址不再整页隐藏（站长自己也看不到挂单没法撤）；对外顶部一张说明卡，明细照常显示但支出说法婉转（见 translate）
     var teamNote = TEAM[a] && !isMe(a) ? '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营维护和市场托底</b>用的地址：服务器、节点、客服、开发等日常开支，以及在 OTC 挂买单托底、注入预测奖池的资金都从这里出。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>' : "";
     var S = { head: teamNote + (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
@@ -661,7 +664,8 @@
       bal: '<section class="card sc-balc"><div class="card-head"><h2>💰 账户余额</h2><span class="muted" id="sc-balsum"></span></div><div class="sc-bal" id="sc-bal">' + wait + '</div><div id="sc-balx"></div></section>',
       pos: '<section class="card" id="sc-posc"><div class="card-head"><h2>📌 在本站的事</h2><span class="muted" id="sc-possum">挂单 · 借贷 · 预测</span></div>' + catBtns(a, cat || "all") + '<div class="lg-list" id="sc-pos">' + wait + "</div></section>",
       names: '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>",
-      hist: '<section class="card"><div class="card-head"><h2>📜 钱的来龙去脉</h2><span class="muted">转进来、转出去、买了什么 · 最新在上</span></div><div class="lg-list" id="sc-lg">' + wait + "</div></section>" };
+      // 站长 2026-11-10：整块折叠，点开才看流水
+      hist: '<section class="card sc-histc"><details class="sc-fold"><summary><div class="sc-fh"><h2>📜 钱的来龙去脉</h2><span class="muted" id="sc-hsum">转进来、转出去、买了什么</span></div></summary><div class="lg-list" id="sc-lg">' + wait + "</div></details></section>" };
     // 顺序：查订单（带分类）或查自己的钱包时，「正在进行中」紧跟在钱包信息后面，一打开就看到；查别人才先看留言
     var mine = A.otcKit && A.otcKit.account && A.otcKit.account() === a;
     // 站长 2026-11-06 定（白居易原则：大爷大妈一眼看懂）：先看有多少钱 → 在本站有什么事（挂单/到期/借贷）→ 钱去了哪里 → 域名 → 留言

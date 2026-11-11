@@ -3331,3 +3331,69 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 /* 挂单价偏离市价一倍以上：大字红框（站长 2026-11-11） */
 .otc-far { margin-top: 8px; padding: 10px 12px; border: 2px solid var(--down); border-radius: 10px; background: #fff3f3; color: var(--down); font-weight: 700; font-size: 15px; line-height: 1.5; }
 .sc-cats .gd-xin,.oq-seg .gd-xin{width:1.5em;height:1.5em;font-size:.8em;box-shadow:none;vertical-align:-.3em;margin-right:1px}
+
+/* ===== 账本美化 2026-11-10（只作用于 #/scan：.sc-home 和 #sc-out 里面；配色用本站浅紫，不做深色大块） ===== */
+@keyframes scRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes scShim { to { background-position: -200% 0; } }
+@keyframes scAura { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-8%, 10%) scale(1.18); } }
+@keyframes scSheen { from { transform: translateX(-140%) skewX(-20deg); } to { transform: translateX(420%) skewX(-20deg); } }
+/* 搜索卡：柔光背景 + 渐变描边 */
+.sc-home { position: relative; overflow: hidden; padding: 20px 16px 15px; border: 1px solid #e3d9ff; background: linear-gradient(160deg, #fbf9ff 0%, #f3eeff 55%, #eef4ff 100%); box-shadow: 0 18px 44px -24px rgba(104, 72, 220, .5), 0 2px 6px rgba(104, 72, 220, .06); }
+.sc-home::before, .sc-home::after { content: ""; position: absolute; border-radius: 50%; filter: blur(36px); pointer-events: none; animation: scAura 14s ease-in-out infinite; }
+.sc-home::before { width: 220px; height: 220px; right: -70px; top: -120px; background: #cdb8ff; opacity: .6; }
+.sc-home::after { width: 200px; height: 200px; left: -80px; bottom: -140px; background: #b9dcff; opacity: .55; animation-delay: -7s; }
+.sc-home > * { position: relative; z-index: 1; }
+.sc-search input { border: 2px solid transparent; background: linear-gradient(#fff, #fff) padding-box, linear-gradient(110deg, #6aa8ff, #7c5cff 55%, #c06bff) border-box; box-shadow: 0 8px 22px -10px rgba(124, 92, 255, .5); }
+.sc-search input:focus { border-color: transparent; background: linear-gradient(#fff, #fff) padding-box, var(--grad) border-box; box-shadow: 0 0 0 4px #e4dcff, 0 10px 26px -10px rgba(124, 92, 255, .6); }
+.sc-search button { background: var(--grad); box-shadow: 0 10px 20px -10px rgba(73, 54, 255, .8); transition: transform .12s; }
+.sc-search button:active { transform: scale(.96); }
+/* 卡片：轻边框、柔影子、依次浮现 */
+#sc-out > .card { border: 1px solid #ece5ff; box-shadow: 0 16px 38px -26px rgba(90, 53, 214, .45), 0 1px 3px rgba(90, 53, 214, .05); animation: scRise .5s cubic-bezier(.2, .8, .2, 1) both; }
+#sc-out > .card:nth-child(2) { animation-delay: .05s; } #sc-out > .card:nth-child(3) { animation-delay: .1s; } #sc-out > .card:nth-child(4) { animation-delay: .15s; } #sc-out > .card:nth-child(5) { animation-delay: .2s; } #sc-out > .card:nth-child(n+6) { animation-delay: .25s; }
+#sc-out .sc-wait { grid-column: 1 / -1; margin: 4px 0; height: 54px; border-radius: 14px; color: transparent; user-select: none; background: linear-gradient(100deg, #f3edff 30%, #fbf9ff 50%, #f3edff 70%) 0 0 / 200% 100%; animation: scShim 1.3s linear infinite; }
+/* 名片：每个地址一个专属色的头像 */
+#sc-out .sc-head { position: relative; overflow: hidden; min-height: 78px; padding-left: 78px; display: flex; flex-direction: column; justify-content: center; background: linear-gradient(120deg, hsl(var(--sc-h, 258) 100% 97%), #fff 65%); border-color: hsl(var(--sc-h, 258) 80% 91%); }
+#sc-out .sc-head::before { content: ""; position: absolute; left: 16px; top: 50%; width: 46px; height: 46px; margin-top: -23px; border-radius: 16px; background: conic-gradient(from calc(var(--sc-h, 258) * 4deg), hsl(var(--sc-h, 258) 90% 66%), #6fb4ff, #c58bff, hsl(var(--sc-h, 258) 90% 66%)); box-shadow: 0 10px 20px -10px hsl(var(--sc-h, 258) 80% 55%), inset 0 0 0 3px rgba(255, 255, 255, .6); }
+#sc-out .sc-head h2 { margin: 0 0 2px; font-size: 19px; color: #2d1b69; word-break: break-all; }
+#sc-out .sc-addr { margin: 0; }
+#sc-out .sc-copy { border-radius: 99px; }
+#sc-out #sc-balsum:not(:empty), #sc-out #sc-possum:not(:empty) { padding: 3px 10px; border-radius: 99px; background: #f3edff; color: #5a35d6; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+/* 金色余额卡保留，加一道扫光 */
+#sc-out .sc-coin { border-radius: 16px; }
+#sc-out .sc-coin.sc-has { position: relative; overflow: hidden; }
+#sc-out .sc-coin.sc-has::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 34%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .65), transparent); pointer-events: none; animation: scSheen 1.5s .7s ease-out both; }
+/* 流水和订单行 */
+#sc-out .lg-row { position: relative; padding: 12px 8px; border-bottom: 0; border-radius: 14px; transition: background .15s; }
+#sc-out .lg-row + .lg-row { box-shadow: inset 0 1px 0 #f3eeff; }
+#sc-out .lg-row:hover { background: #faf7ff; }
+#sc-out .lg-ico { width: 38px; height: 38px; border-radius: 13px; font-size: 18px; background: linear-gradient(145deg, #f7f2ff, #ebe3ff); box-shadow: inset 0 0 0 1px #e6dcff; }
+#sc-out .lg-row[data-dir="in"] .lg-ico { background: linear-gradient(145deg, #edfcf5, #d6f6e7); box-shadow: inset 0 0 0 1px #bfecd6; }
+#sc-out .lg-row[data-dir="out"] .lg-ico { background: linear-gradient(145deg, #fff5f0, #ffe5db); box-shadow: inset 0 0 0 1px #ffd3c3; }
+#sc-out .lg-row[data-dir="trade"] .lg-ico { background: linear-gradient(145deg, #f0f6ff, #dfeaff); box-shadow: inset 0 0 0 1px #cfdcff; }
+#sc-out .lg-row[data-dir="in"] .lg-txt b:first-of-type { color: #0b9a68; }
+#sc-out .lg-row[data-dir="out"] .lg-txt b:first-of-type { color: #e0562f; }
+#sc-out .lg-link { align-self: center; padding: 5px 11px; border-radius: 99px; background: #f6f1ff; color: #6a45e0; font-size: 12.5px; font-weight: 600; transition: background .15s; }
+#sc-out .lg-link:hover { background: #e9e0ff; }
+#sc-out .sc-more { padding: 12px; border-radius: 14px; border: 1px solid #e3d9ff; background: linear-gradient(135deg, #f5f0ff, #ecf3ff); }
+#sc-lg .lg-row::before { content: ""; position: absolute; left: 26px; top: 54px; bottom: -8px; width: 2px; border-radius: 2px; background: linear-gradient(#e2d8ff, #f3eeff); }
+#sc-lg .lg-row:last-child::before, #sc-lg.sc-moneyonly .lg-row:not(:has(~ .lg-row[data-kind="money"]:not(.sc-hide)))::before { display: none; }
+@media (min-width: 760px) { #sc-lg .lg-main { display: flex; gap: 14px; align-items: baseline; } #sc-lg .lg-txt { flex: 1; } #sc-lg .lg-main small { flex: none; font-variant-numeric: tabular-nums; } }
+/* 整块折叠 */
+#sc-out .sc-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; -webkit-tap-highlight-color: transparent; }
+#sc-out .sc-fold > summary::-webkit-details-marker { display: none; }
+#sc-out .sc-fh { flex: 1; min-width: 0; } #sc-out .sc-fh h2 { margin: 0; } #sc-out .sc-fh .muted { display: block; margin-top: 2px; font-size: 12.5px; }
+#sc-out .sc-fold > summary::after { content: "点开看 ▾"; flex: none; padding: 7px 14px; border-radius: 99px; background: var(--grad); color: #fff; font-size: 13px; font-weight: 700; box-shadow: 0 8px 16px -10px rgba(73, 54, 255, .9); }
+#sc-out .sc-fold[open] > summary { margin-bottom: 10px; }
+#sc-out .sc-fold[open] > summary::after { content: "收起 ▴"; background: #f3edff; color: #5a35d6; box-shadow: none; }
+#sc-out .sc-fold[open] > .lg-list { animation: scRise .35s ease-out both; }
+/* 域名小标签改成本站紫色 */
+#sc-out .sc-names a { padding: 7px 12px; background: linear-gradient(135deg, #f5f0ff, #ecf3ff); color: #5a35d6; border: 1px solid #e3d9ff; }
+/* 单笔交易页 */
+#sc-out .lg-one { align-items: flex-start; gap: 12px; margin: 4px 0 14px; padding: 16px; border-radius: 18px; border: 1px solid #e6dcff; background: linear-gradient(135deg, #f7f2ff, #eef5ff); font-size: 17.5px; }
+#sc-out .lg-one .lg-ico { width: 46px; height: 46px; border-radius: 15px; font-size: 22px; background: #fff; box-shadow: 0 8px 16px -10px rgba(124, 92, 255, .7); }
+#sc-out .nm-dl { padding: 12px; border-radius: 14px; background: #faf8ff; gap: 8px 12px; }
+#sc-out .lg-flow { display: grid; gap: 8px; }
+#sc-out .lg-flow div { padding: 10px 12px; border: 1px solid #efe9ff; border-radius: 12px; background: #fcfbff; }
+#sc-out .lg-arr { color: #7c5cff; font-weight: 700; }
+#sc-out .lg-raw { padding-top: 10px; border-top: 1px dashed #e6dcff; }
+@media (prefers-reduced-motion: reduce) { .sc-home::before, .sc-home::after, #sc-out > .card, #sc-out .sc-wait, #sc-out .sc-coin.sc-has::after, #sc-out .sc-fold[open] > .lg-list { animation: none !important; } }
