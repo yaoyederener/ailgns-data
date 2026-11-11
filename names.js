@@ -1321,20 +1321,20 @@
         '<div class="nm-pin-q" id="nm-pinq"></div>' +
         '<div class="nm-pin-in"><input id="nm-pinv" inputmode="decimal" value=""><span>DAI</span></div>' +
         '<div class="nm-pin-b"><button type="button" class="nm-go" id="nm-pinok">⭐ 确认付款置顶</button><button type="button" class="ghost" id="nm-pinno">取消</button></div><p class="nm-st" id="nm-pinst"></p>';
-      var inp = document.getElementById("nm-pinv"), st = document.getElementById("nm-pinst"), ok = document.getElementById("nm-pinok");
+      var inp = box.querySelector("#nm-pinv"), st = box.querySelector("#nm-pinst"), ok = box.querySelector("#nm-pinok");
       var say2 = function (t) { st.textContent = t; say(t); };
       var pick = function (k) { // 选天数：换起步价、快捷金额、默认出价（想排第 1 就比现在最高的多 1）
         tier = tiers[k] || tiers[0];
         box.querySelectorAll("[data-pd]").forEach(function (d) { d.classList.toggle("on", Number(d.getAttribute("data-pd")) === k); });
         var qs = [tier.min, tier.min * 2, tier.min * 5]; if (beat > tier.min && qs.indexOf(beat) < 0) qs.push(beat);
-        var qb = document.getElementById("nm-pinq");
+        var qb = box.querySelector("#nm-pinq");
         qb.innerHTML = qs.sort(function (a, c) { return a - c; }).map(function (x) { return '<button type="button" data-pq="' + x + '">' + x + (x === beat ? "<i>排第 1</i>" : "") + "</button>"; }).join("");
         qb.querySelectorAll("[data-pq]").forEach(function (q) { q.onclick = function () { inp.value = q.getAttribute("data-pq"); }; });
         inp.value = Math.max(tier.min, beat); ok.textContent = "⭐ 确认付款，置顶 " + tier.d + " 天"; st.textContent = "";
       };
       box.querySelectorAll("[data-pd]").forEach(function (d) { d.onclick = function () { pick(Number(d.getAttribute("data-pd"))); }; });
       pick(0);
-      document.getElementById("nm-pinno").onclick = function () { box.remove(); };
+      box.querySelector("#nm-pinno").onclick = function () { box.remove(); };
       ok.onclick = function () {
         var v = String(inp.value || "").trim().replace(/[，,]/g, ""), n = Number(v);
         if (!(n >= tier.min) || !/^\d+(\.\d{1,2})?$/.test(v)) { st.textContent = "⚠️ 置顶 " + tier.d + " 天最少 " + tier.min + " DAI，最多 2 位小数"; inp.focus(); return; }
