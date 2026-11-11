@@ -1281,11 +1281,13 @@
       }).then(function () { return tx(O, SEL.oBuy + u256(id) + u256(total), say, "🔒 第 2 步：付款，名字同一笔交易直接到你钱包。请在钱包确认"); });
     });
   }
-  // ⭐ 付费置顶：卖家付 DAI（进回购分账，和域名收入一起分），置顶 3 天，出得多的排前面；没卖掉也不退
+  // ⭐ 付费置顶：卖家付 DAI（进回购分账，和域名收入一起分），可选 3 / 7 / 30 / 90 天（时间越长起步价越高），出得多的排前面；没卖掉也不退
   var BUYBACK = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", PIN_MIN = 10;
+  var PIN_TIERS = [{ d: 3, min: 10 }, { d: 7, min: 20 }, { d: 30, min: 80 }, { d: 90, min: 200 }]; // 接口读不到时用这份，和 functions/api/name-pin.js 一致
   function pinsGet() {
     return fetch("/api/name-pin?r=" + Date.now()).then(function (r) { return r.json(); }).then(function (j) {
-      var m = {}; (j.pins || []).forEach(function (p) { m[p.t + ":" + p.id] = p.amt; }); m._top = (j.pins || []).map(function (p) { return p.amt; }); return m;
+      var m = {}; (j.pins || []).forEach(function (p) { m[p.t + ":" + p.id] = p.amt; }); m._top = (j.pins || []).map(function (p) { return p.amt; }); m._exp = {}; (j.pins || []).forEach(function (p) { m._exp[p.t + ":" + p.id] = p.exp; });
+      if (j.tiers && j.tiers.length) m._tiers = j.tiers; return m;
     }, function () { return { _top: [] }; });
   }
   function pinPost(p, say) {
@@ -1308,24 +1310,38 @@
     (tbl || row).parentNode.insertBefore(box, (tbl || row).nextSibling);
     box.scrollIntoView({ behavior: "smooth", block: "center" });
     pinsGet().then(function (m) {
-      var top = m._top || [], mine = m[it.t + ":" + it.id] || 0, def = Math.max(PIN_MIN, top.length ? Math.floor(top[0] - mine + 1) : PIN_MIN);
+      var top = m._top || [], mine = m[it.t + ":" + it.id] || 0, mexp = (m._exp || {})[it.t + ":" + it.id], beat = top.length ? Math.floor(top[0] - mine + 1) : 0;
+      var tiers = m._tiers || PIN_TIERS, tier = tiers[0];
       box.innerHTML = '<b>⭐ 付费置顶「' + esc(it.label + "." + it.t) + '」</b>' +
-        '<ul><li>置顶 3 天，出价越高排越前（同一张单再付会累加）</li><li>最少 <b>' + PIN_MIN + ' DAI</b>，从你的钱包直接付</li><li>⚠️ 3 天内没卖掉也不退</li></ul>' +
-        '<p class="nm-pin-now">' + (top.length ? "现在置顶出价：<b>" + top.slice(0, 5).join(" / ") + "</b> DAI" : "现在还没有人置顶，你付了就是第 1 名") + (mine ? "<br>你这张单已付 <b>" + mine + "</b> DAI" : "") + "</p>" +
-        '<div class="nm-pin-q">' + [PIN_MIN, 20, 50, 100].filter(function (x, k, z) { return z.indexOf(x) === k; }).map(function (x) { return '<button type="button" data-pq="' + x + '">' + x + "</button>"; }).join("") + "</div>" +
-        '<div class="nm-pin-in"><input id="nm-pinv" inputmode="decimal" value="' + def + '"><span>DAI</span></div>' +
+        '<p class="nm-pin-t">① 置顶多久？时间越长，起步价越高</p>' +
+        '<div class="nm-pin-d">' + tiers.map(function (x, k) { return '<button type="button" data-pd="' + k + '"><b>' + x.d + ' 天</b><i>' + x.min + ' DAI 起</i></button>'; }).join("") + "</div>" +
+        '<ul><li>出价越高排越前（同一张单再付会累加，到期时间只会延后）</li><li>从你的钱包直接付</li><li>⚠️ 到期没卖掉也不退</li></ul>' +
+        '<p class="nm-pin-now">' + (top.length ? "现在置顶出价：<b>" + top.slice(0, 5).join(" / ") + "</b> DAI" : "现在还没有人置顶，你付了就是第 1 名") + (mine ? "<br>你这张单已付 <b>" + mine + "</b> DAI" + (mexp ? "，置顶到 " + new Date(mexp).toLocaleString() : "") : "") + "</p>" +
+        '<p class="nm-pin-t">② 付多少？</p>' +
+        '<div class="nm-pin-q" id="nm-pinq"></div>' +
+        '<div class="nm-pin-in"><input id="nm-pinv" inputmode="decimal" value=""><span>DAI</span></div>' +
         '<div class="nm-pin-b"><button type="button" class="nm-go" id="nm-pinok">⭐ 确认付款置顶</button><button type="button" class="ghost" id="nm-pinno">取消</button></div><p class="nm-st" id="nm-pinst"></p>';
       var inp = document.getElementById("nm-pinv"), st = document.getElementById("nm-pinst"), ok = document.getElementById("nm-pinok");
       var say2 = function (t) { st.textContent = t; say(t); };
-      box.querySelectorAll("[data-pq]").forEach(function (q) { q.onclick = function () { inp.value = q.getAttribute("data-pq"); }; });
+      var pick = function (k) { // 选天数：换起步价、快捷金额、默认出价（想排第 1 就比现在最高的多 1）
+        tier = tiers[k] || tiers[0];
+        box.querySelectorAll("[data-pd]").forEach(function (d) { d.classList.toggle("on", Number(d.getAttribute("data-pd")) === k); });
+        var qs = [tier.min, tier.min * 2, tier.min * 5]; if (beat > tier.min && qs.indexOf(beat) < 0) qs.push(beat);
+        var qb = document.getElementById("nm-pinq");
+        qb.innerHTML = qs.sort(function (a, c) { return a - c; }).map(function (x) { return '<button type="button" data-pq="' + x + '">' + x + (x === beat ? "<i>排第 1</i>" : "") + "</button>"; }).join("");
+        qb.querySelectorAll("[data-pq]").forEach(function (q) { q.onclick = function () { inp.value = q.getAttribute("data-pq"); }; });
+        inp.value = Math.max(tier.min, beat); ok.textContent = "⭐ 确认付款，置顶 " + tier.d + " 天"; st.textContent = "";
+      };
+      box.querySelectorAll("[data-pd]").forEach(function (d) { d.onclick = function () { pick(Number(d.getAttribute("data-pd"))); }; });
+      pick(0);
       document.getElementById("nm-pinno").onclick = function () { box.remove(); };
       ok.onclick = function () {
         var v = String(inp.value || "").trim().replace(/[，,]/g, ""), n = Number(v);
-        if (!(n >= PIN_MIN) || !/^\d+(\.\d{1,2})?$/.test(v)) { st.textContent = "⚠️ 最少 " + PIN_MIN + " DAI，最多 2 位小数（例如 10 或 12.5）"; inp.focus(); return; }
+        if (!(n >= tier.min) || !/^\d+(\.\d{1,2})?$/.test(v)) { st.textContent = "⚠️ 置顶 " + tier.d + " 天最少 " + tier.min + " DAI，最多 2 位小数"; inp.focus(); return; }
         ok.disabled = true; b.disabled = true;
         var wei = BigInt(Math.round(n * 100)) * 10n ** 16n;
-        tx(DAI, "0xa9059cbb" + A.pad(BUYBACK) + u256(wei), say2, "⭐ 付置顶费 " + n + " DAI（3 天，不退）。请在钱包确认").then(function (h) {
-          var p = { tx: h, t: it.t, id: it.id };
+        tx(DAI, "0xa9059cbb" + A.pad(BUYBACK) + u256(wei), say2, "⭐ 付置顶费 " + n + " DAI（置顶 " + tier.d + " 天，不退）。请在钱包确认").then(function (h) {
+          var p = { tx: h, t: it.t, id: it.id, days: tier.d };
           try { localStorage.setItem("nmPinTx", JSON.stringify(p)); } catch (e) {}
           say2("付款成功，登记置顶中…");
           return pinPost(p, say2);
