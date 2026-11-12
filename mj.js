@@ -96,7 +96,8 @@
     else if (c[d] === 3 && g.wall.length) { w0 = waits(c, q).join(); c[d] -= 3; o.gang = waits(c, q).join() === w0; c[d] += 3; }
     return o;
   }
-  function nm(g, s) { return (g.names || NAMES)[s]; } // 联机时用玩家昵称
+  function wind(g, s) { return "东南西北".charAt((s - (g.dealer || 0) + 4) % 4); } // 座位按东南西北叫：庄家是东，照出牌顺序往下是南、西、北（客户 2026-11-12 反馈「不要上下位置」）
+  function nm(g, s) { return g.names ? g.names[s] : s ? wind(g, s) + "家" : "你"; } // 联机时用玩家昵称；单机叫 东家 / 南家 / 西家 / 北家
   function settleHu(g, w, tile, from, f) {
     var c = g.hand[w].slice(), r, amt, got = 0, o;
     c[tile]++; r = fanOf(c, g.melds[w], f); amt = g.base * r.mul;
@@ -377,7 +378,7 @@
   function n(v) { return Number(v || 0).toLocaleString("en-US"); }
   function sgn(v) { return (v > 0 ? "+" : "") + n(v); }
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
-  function un(s) { return G && G.names ? esc(G.names[s]) : NAMES[s]; } // 联机显示昵称，单机显示「下家 / 对家 / 上家」
+  function un(s) { return !G ? NAMES[s] : G.names ? esc(G.names[s]) : nm(G, s); } // 联机显示昵称，单机显示「东家 / 南家 / 西家 / 北家」
   var SPR = false;
   function sprite() { // 27 张牌面只画一次，藏在页面最底下；每张牌再用 <use> 引用，重画牌桌时不用反复生成
     if (SPR) return; SPR = true;
@@ -458,7 +459,7 @@
   }
   function head(s) {
     var g = G, d = g.delta[s], st = ON && ON.v && ON.v.seats[s];
-    return '<div class="mj-oh"><b>' + un(s) + (g.dealer === s ? "<sup>庄</sup>" : "") + "</b>" + (st && !st.bot && (st.off || st.auto) ? '<span class="mj-cnt">' + (st.off ? "离线" : "托管") + "</span>" : "") + (g.que[s] >= 0 ? '<span class="mj-que mj-s' + g.que[s] + '">缺' + SUIT[g.que[s]] + "</span>" : "") +
+    return '<div class="mj-oh"><b>' + un(s) + (g.names || !s ? "<sup>" + wind(g, s) + (g.dealer === s ? "·庄" : "") + "</sup>" : g.dealer === s ? "<sup>庄</sup>" : "") + "</b>" + (st && !st.bot && (st.off || st.auto) ? '<span class="mj-cnt">' + (st.off ? "离线" : "托管") + "</span>" : "") + (g.que[s] >= 0 ? '<span class="mj-que mj-s' + g.que[s] + '">缺' + SUIT[g.que[s]] + "</span>" : "") +
       (g.hus[s].length ? '<span class="mj-hun">胡×' + g.hus[s].length + "</span>" : "") + (s ? '<span class="mj-cnt">' + (g.cnt ? g.cnt[s] : sum(g.hand[s])) + " 张</span>" : "") +
       '<span class="mj-sc' + (g.score[s] < 0 ? " neg" : g.score[s] > 0 ? " pos" : "") + '">' + sgn(g.score[s]) + "</span>" + (d ? '<span class="mj-fl ' + (d > 0 ? "up" : "dn") + '">' + sgn(d) + "</span>" : "") + "</div>";
   }
@@ -522,7 +523,7 @@
     if (!root) return;
     root.className = "card mj";
     root.innerHTML = "<h1>这局结束</h1>" + '<div class="mj-res ' + (me >= 0 ? "pos" : "neg") + '"><span>你这局</span><b>' + sgn(me) + ' 豆</b><small>现在有 ' + n(b) + " 豆</small></div>" +
-      '<table class="mj-tbl"><tr><th>谁</th><th>胡了几次</th><th>输赢</th></tr>' + [0, 1, 2, 3].map(function (s) { return "<tr><td>" + NAMES[s] + "</td><td>" + g.hus[s].length + '</td><td class="' + (g.score[s] >= 0 ? "pos" : "neg") + '">' + sgn(g.score[s]) + "</td></tr>"; }).join("") + "</table>" +
+      '<table class="mj-tbl"><tr><th>谁</th><th>胡了几次</th><th>输赢</th></tr>' + [0, 1, 2, 3].map(function (s) { return "<tr><td>" + nm(g, s) + (s ? "" : "（" + wind(g, s) + "）") + "</td><td>" + g.hus[s].length + '</td><td class="' + (g.score[s] >= 0 ? "pos" : "neg") + '">' + sgn(g.score[s]) + "</td></tr>"; }).join("") + "</table>" +
       (g.hus[0].length ? '<p class="mj-lb">你胡的牌</p><ul class="mj-list">' + g.hus[0].map(function (h) { return "<li>" + tile(h.tile, " sm") + " " + h.names.join(" ") + "，" + h.fan + " 番 <b>+" + n(h.got) + "</b></li>"; }).join("") + "</ul>" : '<p class="mj-lb">这局你没胡到，再来一局。</p>') +
       (g.endNotes.length ? '<p class="mj-lb">牌摸完时的结算</p><ul class="mj-list">' + g.endNotes.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>" : "") +
       '<button type="button" class="mj-start" data-act="start">再来一局</button><button type="button" class="ghost mj-back" data-act="lobby">回大厅</button>' +
