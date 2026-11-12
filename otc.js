@@ -39,6 +39,8 @@
     RANGE = { sell: [DEX_SELL, DEX_BUY * TAKER], buy: [DEX_SELL / TAKER, DEX_BUY] };
   }
   // Anubis LGNS 卖出实测扣费（/api/sell-tax，服务器每 5 分钟看一次最近的卖单）；读到后重新算 DEX 到手价和指导价
+  // 站长 2026-11-12：「比 DEX 多拿」按官方 DEX 页面写的最少到手算（卖出手续费 50% + 池子 0.3%），不跟实测税走；实测税只用来算指导价
+  function dexSellCmp() { return M.liveTax ? M.dexSell : DEX_SELL; }
   var SELL_TAX = null;
   function loadTax() {
     if (!M.liveTax) return Promise.resolve();
@@ -194,15 +196,17 @@
       return b;
     }).catch(function () { return b; });
   }
-  function loadBook(fresh) {
-    var mk = MK, tax = loadTax();
-    return tax.then(function () { return fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+  // 站长 2026-11-12 要秒开：税和挂单一起读（以前先等税再读挂单，多等一轮）；noMine = 扫单确认时用，不等税、不查自己的老单（自己的单本来就不能吃）
+  function loadBook(fresh, noMine) {
+    var mk = MK, tax = noMine ? null : loadTax();
+    var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || j.error || !j.orders) throw new Error("book");
       try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
       return bookOf(j);
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
-    }).then(function (b) { return withMine(b, fresh); }); });
+    }).then(function (b) { return noMine ? b : withMine(b, fresh); });
+    return noMine ? book : Promise.all([book, tax]).then(function (r) { return r[0]; });
   }
   // 读当前市场所在的链
   function read(to, data) { return W.rpcOn(M.chain, "eth_call", [{ to: to, data: data }, "latest"]); }
@@ -1161,8 +1165,8 @@
     var lastPnl = null; // 最近一次报价算出来的「比 DEX 多赚」，成交后拿去记账 + 庆祝
     function pnlOf(buy, tok, dai, mkt) {
       if (!mkt || !tok || !dai) return null;
-      var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
-      return d > 0 && dex > 0 ? { d: d, dex: dex, pct: d / dex * 100, dai: buy ? mine : mine } : null;
+      var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * dexSellCmp(), mine = num(dai), d = buy ? dex - mine : mine - dex;
+      return d > 0 && dex > 0 ? { d: d, dex: dex, pct: d / dex * 100, dai: buy ? mine : mine, min: !buy && !!M.liveTax } : null;
     }
     // 成交后：记一笔「比 DEX 多赚」到后台（全站合计 + 个人累计），返回庆祝文案
     function savedRecord(tx, pnl) {
@@ -1172,7 +1176,7 @@
     function winHtml(pnl, rec) {
       if (!pnl) return "";
       var me = rec && rec.me, all = rec && rec.all;
-      return '<div class="win-big"><div class="win-t">🎉 这一单比去 DEX <b>多赚 +' + A.fmt(pnl.d, 2) + ' DAI</b><small>多 ' + pnl.pct.toFixed(1) + '%</small></div>' +
+      return '<div class="win-big"><div class="win-t">🎉 这一单比' + (pnl.min ? "官方 DEX 最少到手" : "去 DEX ") + '<b>多赚 +' + A.fmt(pnl.d, 2) + ' DAI</b><small>多 ' + pnl.pct.toFixed(1) + '%</small></div>' +
         (me ? '<div class="win-me">你在本站累计多赚 <b>' + A.fmt(me.dai, 2) + ' DAI</b>（' + me.n + ' 笔）</div>' : "") +
         (all ? '<div class="win-all muted">全站客户累计比 DEX 多赚 ' + A.fmt(all.dai, 0) + ' DAI</div>' : "") +
         '<div class="win-tip">以后卖币先来这里挂一单或吃一单，每一单都比 DEX 划算 💚</div></div>';
@@ -1180,16 +1184,16 @@
     function pnlHtml(buy, tok, dai, mkt) {
       if (!mkt || !tok || !dai) return "";
       // AiLGNS 不能直接从底池买，只能场外收，买入按场外行情算：DEX 价 + 30% 溢价（站长定的标准，buyRef）
-      var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
+      var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * dexSellCmp(), mine = num(dai), d = buy ? dex - mine : mine - dex;
       if (!(d > 0) || !(dex > 0)) return "";
       // 站长 2026-11-12：比官方 DEX 多拿要一眼看到（大数字 + 官方 DEX / 本站两格对比）；不比 DEX 划算上面已经整块不显示
       var who = ref ? "场外行情" : M.chain === "anubis" ? "官方 DEX" : "DEX", pct = (d / dex * 100).toFixed(1), sp = ref ? "" : " ";
       var how = ref ? "场外行情按 DEX 价 + " + Math.round((ref - 1) * 100) + "% 溢价算" :
         buy ? who + " 的数已含池子手续费" :
-        M.liveTax && SELL_TAX !== null ? who + " 卖出要扣约 " + (SELL_TAX * 100).toFixed(1) + "% 的税（链上最近实测）+ 0.3% 手续费" : who + " 的数已扣它的手续费和卖出税";
+        M.liveTax ? who + " 的数按它页面写的「最少到手」算：卖出手续费 50% + 池子 0.3%" : who + " 的数已扣它的手续费和卖出税";
       return '<div class="sw-pnl win"><div class="pn-t"><span>🔥 比' + who + sp + (buy ? "少付" : "多拿") + "</span><em>" + (buy ? "省 " : "多 ") + pct + "%</em></div>" +
         '<b class="pn-n">+' + A.fmt(d, 2) + " DAI</b>" +
-        '<div class="pn-vs"><div><i>' + who + sp + (buy ? "要付" : "到手") + "</i><u>约 " + A.fmt(dex, 2) + ' DAI</u></div><div class="me"><i>✅ 本站' + (buy ? "只付" : "到手") + "</i><u>" + A.fmt(mine, 2) + " DAI</u></div></div>" +
+        '<div class="pn-vs"><div><i>' + who + sp + (buy ? "要付" : M.liveTax ? "最少到手" : "到手") + "</i><u>约 " + A.fmt(dex, 2) + ' DAI</u></div><div class="me"><i>✅ 本站' + (buy ? "只付" : "到手") + "</i><u>" + A.fmt(mine, 2) + " DAI</u></div></div>" +
         "<small>同样" + (buy ? "买 " : "卖 ") + tShow(tok) + " " + SYM + "。" + how + "；本站的数已扣 1% 手续费。</small></div>";
     }
     function bindSweep(sells, buys, mkt, reload) {
@@ -1242,7 +1246,7 @@
         r.style.setProperty("--m", m / 100 + "%");
         box.querySelectorAll(".sw-quick [data-swp]").forEach(function (q) { var v = q.getAttribute("data-swp"); q.disabled = v !== "max" && Number(v) > m; q.classList.toggle("on", (v === "max" ? m : Number(v)) === bp); });
         if (!l.length) { out.innerHTML = '<div class="empty">现在没有可以扫的' + (side === "buy" ? "卖单" : "买单") + "</div>"; ladder.innerHTML = ""; go.disabled = true; return; }
-        go.disabled = !p.steps.length;
+        go.disabled = sweeping || !p.steps.length; // 正在扫单时别把按钮点亮，防止连点两次
         if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
         var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt); lastPnl = pnlOf(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
@@ -1265,10 +1269,13 @@
       go.onclick = function () {
         var buy = side === "buy", token = buy ? DAI : AILGNS, name = buy ? "DAI" : SYM, payDec = buy ? 18 : TD;
         go.disabled = true; sweeping = true;
+        // 站长 2026-11-12：一点就要有反应。按钮马上变字，后面的核对一起做，钱包尽快弹出来
+        go.innerHTML = "<b>⏳ 正在打开钱包…</b><small>" + (account ? "正在核对最新挂单，马上弹出钱包确认" : "请在钱包里点「连接」") + "</small>";
+        say(account ? "正在核对最新挂单和余额…" : "正在连接钱包…");
         var p, done = 0, skipped = 0, paid = 0n, got = 0n, recs = [], rec = document.getElementById("sw-rec");
         rec.innerHTML = "";
         function end(msg, bad) {
-          sweeping = false; go.disabled = false; say(msg, bad);
+          sweeping = false; go.disabled = false; try { draw(); } catch (e) { /* 页面已经换了 */ } say(msg, bad);
           if (done) { // 扫单记录：每张单的成交和链上交易，另附全部成交记录入口（站长要求）
             if (A.quiet) A.quiet(12000); // 成功了：接下来 2 秒自动刷新冒出的链上读取错误不要弹「没成功」
             var getName = buy ? SYM : "DAI", getDec = buy ? TD : 18;
@@ -1299,8 +1306,9 @@
         }
         // 🔄 客户只点一次：发交易前重读链上最新挂单，没了的单剔掉、自动换成现在最便宜的；贵了 1% 以上才问一句。整笔作废再自动换新重试 1 次
         var p0 = null, tried = 0;
-        function refreshPlan(msg) {
-          return loadBook(true).then(function (b) {
+        function refreshPlan(msg, bk) {
+          return (bk || loadBook(true, true)).then(function (b) {
+            if (!b) return; // 读不到就用页面上的
             var now = Date.now() / 1000, live = b.orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); });
             sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (x, y) { return priceOf(x) - priceOf(y); });
             buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (x, y) { return priceOf(y) - priceOf(x); });
@@ -1318,19 +1326,23 @@
         function retryable(e) { return /NOTHING_FILLED|CLOSED|EXPIRED|抢先|已经成交完/.test(String((e && e.message) || e)); }
         ready().then(function () {
           walletCard();
-          return Promise.all([balance(DAI, account), balance(AILGNS, account)]).then(function (b) { bal = { buy: b[0], sell: b[1] }; draw(); });
-        }).then(function () {
-          p0 = plan(Number(r.value));
-          if (!p0.steps.length) throw new Error("没有可以扫的单");
-          return refreshPlan();
-        }).then(function () {
-          var need = p.steps.reduce(function (t, x) { return t + x.pay; }, 0n);
-          return balance(token, account).then(function (b) {
-            var reserve = buy ? gasKeep(p.steps.length) : 0n; // Anubis 上 Gas 用 DAI 付，留一点
-            if (b < need + reserve) throw new Error("余额不足：扫这么多要 " + show(need, 4, payDec) + " " + name + (reserve ? "（另留一点 DAI 付 Gas）" : "") + "，钱包里有 " + show(b, 4, payDec) + "。把滑块往左拉一点");
-            if (!buy && M.gas === "DAI") return balance(DAI, account).then(function (d) { if (d < gasKeep(p.steps.length) - GAS_RESERVE) throw new Error("钱包里的 DAI 不够付 Gas：Anubis 链 Gas 用 DAI 付，请先转一点 DAI（约 " + show(gasKeep(p.steps.length), 2) + "）进来"); });
-            return M.gas === "POL" ? checkPol() : null;
-          }).then(function () { return ensureAllowance(token, need, say, name, undefined, useRouter() ? ROUTER : undefined); });
+          say("正在核对最新挂单和余额…");
+          var spender = useRouter() ? ROUTER : undefined;
+          // 余额、最新挂单、授权额度一起查（以前一个接一个要等 5 轮），查到的数直接用，不再重读
+          return Promise.all([balance(DAI, account), balance(AILGNS, account),
+            loadBook(true, true).catch(function () { return null; }),
+            allowance(token, account, spender).catch(function () { return undefined; })]).then(function (x) {
+            bal = { buy: x[0], sell: x[1] }; draw();
+            p0 = plan(Number(r.value));
+            if (!p0.steps.length) throw new Error("没有可以扫的单");
+            return refreshPlan(null, Promise.resolve(x[2])).then(function () {
+              var need = p.steps.reduce(function (t, s) { return t + s.pay; }, 0n), b = buy ? x[0] : x[1];
+              var reserve = buy ? gasKeep(p.steps.length) : 0n; // Anubis 上 Gas 用 DAI 付，留一点
+              if (b < need + reserve) throw new Error("余额不足：扫这么多要 " + show(need, 4, payDec) + " " + name + (reserve ? "（另留一点 DAI 付 Gas）" : "") + "，钱包里有 " + show(b, 4, payDec) + "。把滑块往左拉一点");
+              if (!buy && M.gas === "DAI" && x[0] < gasKeep(p.steps.length) - GAS_RESERVE) throw new Error("钱包里的 DAI 不够付 Gas：Anubis 链 Gas 用 DAI 付，请先转一点 DAI（约 " + show(gasKeep(p.steps.length), 2) + "）进来");
+              return Promise.resolve(M.gas === "POL" ? checkPol() : null).then(function () { return ensureAllowance(token, need, say, name, x[3], spender); });
+            });
+          });
         }).then(function () {
           function fire() { return useRouter() ? viaRouter() : seq(); }
           return fire().catch(function (e) {
