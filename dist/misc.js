@@ -162,3 +162,4 @@ if(t.closest("#fx-all")){qty=Math.max(1,left());betLabel();return;}
 if(t.closest("#fx-bet"))bet();});var go=function(){load();};try{if(!acct&&A.wallets&&A.wallets.silent)A.wallets.silent().then(function(a){if(a)acct=String(a).toLowerCase();go();},go);else go();}catch(e){go();}
 clearInterval(tick);clearInterval(poll);tick=setInterval(function(){if(!el("fx-main")){clearInterval(tick);return;}try{clock();}catch(e){}},1000);poll=setInterval(function(){if(!el("fx-main")){clearInterval(poll);return;}if(!document.hidden&&!busy)load();},10000);}
 A.pages.fast=function(){try{render();}catch(e){A.app.innerHTML='<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] fast.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]=1;

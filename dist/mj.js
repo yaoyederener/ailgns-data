@@ -212,3 +212,4 @@ A.pages.mj=function(){try{if(!bound){bound=true;document.addEventListener("click
 var m=/^#\/?mj\/(\d{6})/.exec(location.hash);if(m){try{history.replaceState(null,"","#/mj");}catch(e2){}if(!ON||ON.room!==m[1]){lobby();join(m[1]);}return;}
 if(document.getElementById("mj-root"))return;lobby();}
 catch(e){A.app.innerHTML='<section class="card"><p class="note">麻将页面打开失败，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] mj.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["mj"]=1;

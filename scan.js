@@ -766,7 +766,8 @@
       var v = inp.value.trim();
       if (!v) {
         // 排查用（站长 2026-11-09 晚：进域名页就弹这条，面板复现不了）：把触发现场悄悄记到错误日志，看是谁在没人点的时候提交了这个表单
-        try { navigator.sendBeacon("/api/err", JSON.stringify({ p: location.hash.slice(0, 60), m: "oq-empty trusted=" + trusted + " " + String((new Error()).stack || "").replace(/\s+/g, " ").slice(0, 220), ua: navigator.userAgent.slice(0, 100) })); } catch (e) {}
+        // 2026-11-12：客户亲手点「查询」但没填地址是正常操作（下面会自动连钱包），不再记到错误日志；只记不是人点的那种
+        if (!trusted) try { navigator.sendBeacon("/api/err", JSON.stringify({ p: location.hash.slice(0, 60), m: "oq-empty trusted=" + trusted + " " + String((new Error()).stack || "").replace(/\s+/g, " ").slice(0, 220), ua: navigator.userAgent.slice(0, 100) })); } catch (e) {}
         if (!trusted) return; // 不是客户亲手点的（脚本 / 浏览器自动触发）：不弹、不连钱包
         var kit = A.otcKit;
         if (kit && kit.connect && !connecting) {

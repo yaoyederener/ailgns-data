@@ -577,7 +577,16 @@
     function tryLoad(u, n) {
       return new Promise(function (res, rej) {
         var s = document.createElement("script"); s.src = u; s.setAttribute("data-lazy", "1");
-        s.onload = function () { res(); };
+        // 2026-11-12（错误日志：一台 iPad 上 names.js 一小时报 33 次 SyntaxError: Unexpected EOF）：下载到一半的残缺包被手机存下来了，
+        // 语法错的脚本 onload 照样触发，以前当成加载成功，那台手机就一直坏到下次发版。现在包的末尾有记号（tools/build.py），
+        // 没看到记号 = 包不完整：删掉手机里存的那份，换地址重下；重试完还不行就照旧放行，不比以前差
+        s.onload = function () {
+          if (window.AIL_LOADED && window.AIL_LOADED[k]) return res();
+          s.remove();
+          try { if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (c) { caches.open(c).then(function (x) { x.delete(url); }); }); }).catch(function () {}); } catch (e) {}
+          if (n >= GAPS.length) return res();
+          setTimeout(function () { tryLoad(url + (url.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now(), n + 1).then(res, rej); }, GAPS[n]);
+        };
         s.onerror = function () {
           s.remove();
           if (n >= GAPS.length) return rej(new Error("bundle " + k));

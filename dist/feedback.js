@@ -80,3 +80,4 @@ var l=j.list||[],t=l.filter(function(x){return x.id===id;})[0],box=document.getE
 box.innerHTML=card(t,true);bindCards(box,function(cd,s){if(s!=="done"){cd.querySelector(".fb-tag").textContent=ST[s][0];return;}
 var next=todo.filter(function(x){return x.id!==id;})[0];box.innerHTML='<p class="fb-st ok">✅ #'+id+" 已处理，回复已发给客户</p>"+(next?'<p class="muted">正在打开下一张 #'+next.id+"…</p>":'<p class="muted">全部处理完了 🎉</p><a href="#/feedback/admin">← 回到工单列表</a>');if(next)setTimeout(function(){location.hash="#/feedback/admin/"+next.id;},900);});});}
 A.pages.feedback=page;})();}catch(e){console.error('[bundle] feedback.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["feedback"]=1;

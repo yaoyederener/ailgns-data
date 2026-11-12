@@ -172,3 +172,4 @@ out.innerHTML='<section class="card"><p class="muted">读取中…</p></section>
 timer=setInterval(function(){if(!A.isCurrent(rid)){clearInterval(timer);return;}
 if(tab!=="farm"||!me)return;var t=now(),redraw=false;out.querySelectorAll("[data-ripe]").forEach(function(el){var s=+el.getAttribute("data-ripe")-t;if(s<=0&&el.textContent!=="已成熟")redraw=true;el.textContent=left(s);});if(redraw)draw();},1000);fetch("/api/farm?list=1").then(function(r){return r.json();}).then(function(d){burned=d.burned||0;stat();}).catch(function(){});fetch("/api/farm?rules=2",{cache:"no-store"}).then(function(r){return r.json();}).then(function(r){R=r;if(sig)return post("me").then(draw,function(e){toast(e.message,true);draw();});draw();},function(){out.innerHTML='<section class="card"><p class="muted">读取失败，请稍后再试</p></section>';});}
 A.pages.farm=page;})();}catch(e){console.error('[bundle] farm.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]=1;

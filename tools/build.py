@@ -194,6 +194,9 @@ def main():
     for g, files in GROUPS.items():
         if g == "core": continue
         js = minjs("\n;\n".join(wrap(f) for f in files))
+        # 2026-11-12：包的最后一行打个「我完整跑到底了」的记号。手机上下载到一半的残缺包会报 SyntaxError 但 onload 照样触发，
+        # app.js 的 loadBundle 看不到这个记号就知道包是坏的，换地址重新下载
+        js += '\n;(window.AIL_LOADED=window.AIL_LOADED||{})["%s"]=1;' % g
         name = "dist/%s.js" % g
         out[name] = js
         manifest[g] = name + "?v=" + h(js)
