@@ -104,6 +104,30 @@ server {
         add_header X-HK-Cache $upstream_cache_status always;
     }
 
+    # 首页：香港本地缓存 30 秒（源站写的是 max-age=0，这里不看它）；带参数的（/?v= /?fresh=）不走缓存，新版本马上能拿到
+    location = / {
+        proxy_pass https://ailgns.dev;
+        proxy_set_header Host ailgns.dev;
+        proxy_ssl_server_name on;
+        proxy_ssl_name ailgns.dev;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 30s;
+        proxy_cache ailgns;
+        proxy_cache_key "$scheme$request_method$host$request_uri";
+        proxy_ignore_headers Cache-Control Expires;
+        proxy_cache_valid 200 30s;
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+        proxy_cache_lock on;
+        proxy_no_cache $is_args;
+        proxy_cache_bypass $is_args;
+        add_header X-HK-Cache $upstream_cache_status always;
+    }
+
     # 网页和静态文件：香港本地缓存（带版本号的 js/css 按源站头缓存一年）
     location / {
         proxy_pass https://ailgns.dev;
