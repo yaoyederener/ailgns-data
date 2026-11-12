@@ -539,6 +539,32 @@
       };
     });
   }
+  // 一键批量撤单（站长 2026-11-12：挂单太多，一张张点很累）：只撤自己的 OTC 挂单，按市场分组，走 OTC 页同一套「一键撤销」
+  // 钱包支持一次确认发一串就只确认一次；不支持就连着弹，每张只点一下确认。不改合约，和客户自己一张张撤完全一样
+  function bindCancelAll(box, reload) {
+    var bs = box.querySelectorAll("[data-cancel]"); if (bs.length < 2 || !box.parentNode) return;
+    var bar = document.createElement("div"); bar.className = "sc-call";
+    bar.innerHTML = '<button type="button" class="sc-callbtn">🧹 一键撤掉全部 OTC 挂单（' + bs.length + ' 张）</button><p class="sc-callst" hidden></p>';
+    box.parentNode.insertBefore(bar, box);
+    var btn = bar.querySelector("button"), st = bar.querySelector(".sc-callst");
+    function say(t, bad) { st.hidden = false; st.className = "sc-callst" + (bad ? " down" : ""); st.textContent = t; }
+    btn.onclick = function () {
+      var K = A.otcKit; if (!K || !K.useMarket || !K.cancelMany) return;
+      var by = {}, ks = [], n = 0;
+      box.querySelectorAll("[data-cancel]").forEach(function (b) { if (b.disabled) return; var k = b.getAttribute("data-k"); if (!by[k]) { by[k] = []; ks.push(k); } by[k].push(Number(b.getAttribute("data-cancel"))); n++; });
+      if (!n) return;
+      if (!confirm("确定撤掉全部 " + n + " 张 OTC 挂单？币会全部退回你的钱包。" + (ks.length > 1 ? "\n你的单分在 " + ks.length + " 个市场，会一个市场一个市场撤。" : ""))) return;
+      btn.disabled = true; say("正在连接钱包…");
+      var i = 0;
+      (function next() {
+        if (i >= ks.length) return Promise.resolve();
+        var k = ks[i++], tag = ks.length > 1 && MK[k] ? "【" + MK[k].chain + " " + MK[k].sym + "】" : "";
+        K.useMarket(k);
+        return K.cancelMany(by[k], function (t) { say(tag + t); }).then(function () { if (A.just) A.just.set("otc", k); return next(); });
+      })().then(function () { say("✅ 全部撤掉了，币已退回你的钱包"); setTimeout(reload, 2500); },
+        function (e) { btn.disabled = false; say((K.niceError ? K.niceError(e) : (e && e.message) || String(e)) + "（已撤的不受影响，刷新页面后再点一次撤剩下的）", true); });
+    };
+  }
   function positions(a, box) {
     var now = Date.now() / 1000, out = [];
     var jobs = [];
@@ -604,6 +630,7 @@
     return Promise.all(jobs).then(function () {
       if (!box) return out;
       if (!box.isConnected) return out;
+      var oc0 = box.parentNode && box.parentNode.querySelector(".sc-call"); if (oc0) oc0.remove();
       if (!out.length) { box.innerHTML = '<p class="muted">现在没有挂着的单、没有借贷、没有预测 · <a href="#/otc">去 OTC 挂一单 →</a></p>'; var ps0 = document.getElementById("sc-possum"); if (ps0) ps0.textContent = "暂时没有"; return out; }
       // 刚挂的 OTC 单：同一市场里编号最大的那张高亮
       if (A.just) A.just.list("otc").forEach(function (j) { var cand = out.filter(function (x) { return x.k && (!j.key || x.k === j.key); }); if (cand.length) { var top = cand.reduce(function (m, x) { return x.id > m.id ? x : m; }); top.just = true; top.ico = "🆕"; } });
@@ -613,6 +640,7 @@
       var ps = document.getElementById("sc-possum"); if (ps) ps.textContent = "共 " + out.length + " 件" + (soon ? " · ⏰ " + soon + " 件快到期" : "") + (expired ? " · " + expired + " 件已到期（会自动退回）" : "");
       box.innerHTML = out.map(function (x) { x.owner = a; return posRow(x.ico, x.html, x.href, x.cta, x.just, x); }).join("");
       bindCancel(box, a, function () { positions(a, box); });
+      bindCancelAll(box, function () { positions(a, box); });
       fillNames(box);
       return out;
     });
@@ -708,6 +736,7 @@
       r.classList.toggle("sc-hide", !!cat && cat !== "all" && r.getAttribute("data-cat") !== cat);
     });
     posCounts(root);
+    var call = root.querySelector(".sc-call"); if (call) call.hidden = !!cat && cat !== "all" && cat !== "otc"; // 批量撤单只在「全部 / OTC」里出现
     root.querySelectorAll(".lg-list:not(#sc-msgs)").forEach(function (l) {
       var vis = l.querySelectorAll(".lg-row:not(.sc-hide)").length, none = l.querySelector(".sc-none");
       if (!vis && cat && cat !== "all" && l.querySelector(".lg-row") && !none) { none = document.createElement("p"); none.className = "muted sc-none"; none.textContent = "这一类暂时没有"; l.appendChild(none); }

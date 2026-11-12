@@ -313,6 +313,25 @@
       });
     }, function () { return false; });
   }
+  // 一次撤多张（当前市场）：OTC 页「一键撤销全部」和账本「一键批量撤单」共用（站长 2026-11-12）。只发客户自己的 cancel，不碰合约
+  function cancelMany(ids, here) {
+    var calls = ids.map(function (id) { return { to: OTC, data: SEL.cancel + u256(id) }; });
+    return ready().then(function () {
+      return sendCallsOtc(calls, here).then(function (ok) { if (ok) return; return seq(); }, function () { return seq(); });
+    function seq() { // 钱包不支持一次确认：连着弹，每张只点一下确认，不等上一张上链（站长 2026-11-10：点太多次太慢）
+      var hashes = [], i = 0;
+      function next() {
+        if (i >= ids.length) { here("已全部提交，等待链上确认…"); return Promise.all(hashes.map(function (h) { return W.waitOn(M.chain, h); })); }
+        var data = SEL.cancel + u256(ids[i]);
+        here("第 " + (i + 1) + " / " + ids.length + " 张（#" + ids[i] + "）：钱包弹出就点确认，连着点完即可，不用等上链");
+        return W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: OTC, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; })
+          .then(function (gas) { var tx = { from: account, to: OTC, data: data }; if (gas) tx.gas = gas; return AIL.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [tx] }); })
+          .then(function (h) { hashes.push(h); i++; return next(); });
+      }
+      return next();
+    }
+    });
+  }
   function send(to, data, say, label) {
     var eth = W.get();
     say("正在检查交易能否成功…");
@@ -1087,22 +1106,7 @@
         function here(t, bad) { st.className = "note cx-all" + (bad ? " down" : ""); st.textContent = t; }
         ca.disabled = true; sweeping = true;
         here("正在连接钱包…");
-        var calls = ids.map(function (id) { return { to: OTC, data: SEL.cancel + u256(id) }; });
-        ready().then(function () {
-          return sendCallsOtc(calls, here).then(function (ok) { if (ok) return; return seq(); }, function () { return seq(); });
-          function seq() { // 钱包不支持一次确认：连着弹，每张只点一下确认，不等上一张上链（站长 2026-11-10：点太多次太慢）
-            var hashes = [], i = 0;
-            function next() {
-              if (i >= ids.length) { here("已全部提交，等待链上确认…"); return Promise.all(hashes.map(function (h) { return W.waitOn(M.chain, h); })); }
-              var data = SEL.cancel + u256(ids[i]);
-              here("第 " + (i + 1) + " / " + ids.length + " 张（#" + ids[i] + "）：钱包弹出就点确认，连着点完即可，不用等上链");
-              return W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: OTC, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; })
-                .then(function (gas) { var tx = { from: account, to: OTC, data: data }; if (gas) tx.gas = gas; return AIL.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [tx] }); })
-                .then(function (h) { hashes.push(h); i++; return next(); });
-            }
-            return next();
-          }
-        }).then(function () { sweeping = false; here("✅ 全部撤销，币已退回你的钱包"); setTimeout(reload, 1500); },
+        cancelMany(ids, here).then(function () { sweeping = false; here("✅ 全部撤销，币已退回你的钱包"); setTimeout(reload, 1500); },
           function (e) { sweeping = false; here(niceError(e) + "（已撤的不受影响，刷新后再点一次撤剩下的）", true); ca.disabled = false; });
       };
 
@@ -1701,6 +1705,7 @@
     u256: u256, toWei: toWei, left: left, niceError: niceError, marketTabs: marketTabs, placeTabs: placeTabs, DURATIONS: DURATIONS, DUR_DEFAULT: DUR_DEFAULT, durSlider: durSlider,
     M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; },
     useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
+    cancelMany: cancelMany, // 账本「一键批量撤单」用
     deboxCard: deboxCard // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
   };
   A.pages.otc = function (id) {

@@ -97,7 +97,7 @@
         return '<div class="fm-hen' + (full ? "" : " hungry") + (h.g ? " gold" : "") + '"><span class="fm-ic">' + (full ? (h.g ? "🐓" : "🐔") : "😵") + "</span><b>" + (h.eggs ? (h.g ? "🟡" : "🥚").repeat(h.eggs) : "还没下蛋") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才下蛋") + "</small></div>";
       }).join("");
       var hungry = me.hens.filter(function (h) { return h.fed - t < 16 * 3600; }).length;
-      return '<section class="card"><div class="card-head"><h2>🌾 菜地</h2><button type="button" id="fm-harvest"' + (ripe ? ' class="fm-hot"' : " disabled") + ">" + (ripe ? "🧺 一键收获（" + ripe + "）" : "一键收获") + "</button></div>" +
+      return '<section class="card"><div class="card-head"><h2>🌾 菜地</h2><button type="button" id="fm-harvest"' + (ripe ? ' class="fm-ripe"' : " disabled") + ">" + (ripe ? "🧺 一键收获（" + ripe + "）" : "一键收获") + "</button></div>" +
         '<div class="fm-grid">' + plots + more + "</div></section>" +
         '<section class="card"><div class="card-head"><h2>🐔 鸡舍</h2><span class="muted">每 2 小时下 1 个蛋，蛋 ' + H.egg + " 金币</span></div>" +
         (hens ? '<div class="fm-grid">' + hens + "</div>" : '<p class="muted">还没有鸡。买一只小母鸡，喂饱了每 2 小时下一个蛋（最多攒 4 个，攒多了会被人偷）。</p>') +
