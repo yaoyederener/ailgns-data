@@ -105,7 +105,7 @@
         (me.hens.length ? '<button type="button" class="ghost" id="fm-feed"' + (hungry ? "" : " disabled") + ">喂鸡（" + H.feed + " 金币/只）</button>" : "") +
         (me.hens.filter(function (h) { return !h.g; }).length < H.max ? '<button type="button" class="ghost" id="fm-hen">买鸡（' + H.price + " 金币）</button>" : "") + "</div></section>" +
         '<section class="card fm-shop"><div class="card-head"><h2>🏪 道具商店</h2></div><div class="fm-items">' +
-        '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>有狗没人偷得了，来偷的被咬赔 " + R.dog.bite + " 金币</em></button>" +
+        '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
         '<button type="button" id="fm-ghen"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🐓</span><b>金鸡</b><small>' + R.goldHen.price + " 金币 · 最多 " + R.goldHen.max + " 只</small><em>" + (me.paid ? "金蛋每个 " + R.goldHen.egg + " 金币，是普通蛋的 3 倍多" : "👑 充值玩家专属：金蛋每个 " + R.goldHen.egg + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pump"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🎃</span><b>黄金南瓜</b><small>种子 ' + R.crops.pumpkin.seed + " · 24 小时</small><em>" + (me.paid ? "一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币，到空地里种" : "👑 充值玩家专属：一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pay2"><span class="fm-ic">💎</span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
@@ -133,7 +133,7 @@
       var rows = top ? d.top : d.friends;
       if (!rows.length) return '<section class="card"><p class="muted">' + (top ? "还没有人" : "还没有别的农场主。把 ailgns.dev/#/farm 发给朋友，一起来偷菜！") + "</p></section>";
       return '<section class="card"><ul class="fm-fr">' + rows.map(function (x, i) {
-        return "<li>" + (top ? '<span class="fm-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</span>" : "") + '<span class="fm-who">' + (x.king ? "👑 " : "") + A.nameTag(x.a) + "</span><small>⭐" + x.lv + " · 💰" + A.fmt(x.c) + (x.dog ? " · 🐕" : "") + "</small>" +
+        return "<li>" + (top ? '<span class="fm-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</span>" : "") + '<span class="fm-who">' + (x.king ? "👑 " : "") + A.nameTag(x.a) + "</span><small>⭐" + x.lv + " · 💰" + A.fmt(x.c) + "</small>" +
           (top ? "" : x.ripe ? '<button type="button" data-steal="' + x.a + '">🕵️ 偷</button>' : '<span class="muted fm-wait">没熟</span>') + "</li>";
       }).join("") + "</ul></section>" + (top ? burnHtml(d) : "");
     }
@@ -227,9 +227,9 @@
       var want = tab;
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
-        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。</p>" : "");
+        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。</p>" : "");
         out.querySelectorAll("[data-steal]").forEach(function (b) {
-          b.onclick = function () { b.disabled = true; post("steal", { to: b.getAttribute("data-steal") }).then(function () { stat(); b.textContent = "✅ 偷到了"; }, function (e) { toast(e.message, true); b.textContent = "偷不到"; }); };
+          b.onclick = function () { b.disabled = true; post("steal", { to: b.getAttribute("data-steal") }).then(function (j) { stat(); b.textContent = j && j.bit ? "🐕 被咬了" : "✅ 偷到了"; }, function (e) { toast(e.message, true); b.textContent = "偷不到"; }); };
         });
         A.fillNames(out);
       }, function () { out.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>'; });
