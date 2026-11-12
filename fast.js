@@ -70,7 +70,7 @@
     var have = left(), secs = data ? data.ends - Date.now() / 1000 : 0;
     b.disabled = busy;
     b.textContent = busy ? "处理中…" : !acct ? "连接钱包再下注" : have <= 0 ? "没有票，先去买票" : pick < 0 ? "先选一个数字" : "压 " + qty + " 张票，猜 " + pick;
-    b.className = "fx-bet" + (acct && have > 0 && pick >= 0 && !busy ? " ready" : "");
+    b.className = "fx-bet" + (!busy && (!acct || (have > 0 && pick >= 0)) ? " ready" : "");
     if (el("fx-n")) el("fx-n").textContent = qty;
     if (!busy && acct && have > 0 && pick >= 0 && secs < 20 && secs > -5) say("本期快结束了，现在压多半会算到下一期。");
   }
