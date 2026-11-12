@@ -267,13 +267,62 @@
   function sgn(v) { return (v > 0 ? "+" : "") + n(v); }
   function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
   function un(s) { return G && G.names ? esc(G.names[s]) : NAMES[s]; } // 联机显示昵称，单机显示「下家 / 对家 / 上家」
-  function tile(t, cls, attr) { if (t < 0) return '<i class="mj-t mj-bk' + (cls || "") + '"></i>'; return '<i class="mj-t mj-s' + ((t / 9) | 0) + (cls || "") + '"' + (attr || "") + "><b>" + (t % 9 + 1) + "</b><em>" + SUIT[(t / 9) | 0] + "</em></i>"; }
+  var SPR = false;
+  function sprite() { // 27 张牌面只画一次，藏在页面最底下；每张牌再用 <use> 引用，重画牌桌时不用反复生成
+    if (SPR) return; SPR = true;
+    var B = "#1668b8", GR = "#12915a", R = "#d0312d", IV = "#fffdf3", CN = "一二三四五六七八九", FF = "'Songti SC','STSong','Noto Serif CJK SC','Source Han Serif SC',serif", h = "", k, i, a, box;
+    function dot(x, y, r, c) { return '<g transform="translate(' + x + " " + y + ") scale(" + (r / 10) + ')" style="color:' + c + '"><use href="#mjd"/></g>'; }
+    function bam(x, y, c, sc, rot) { return '<g transform="translate(' + x + " " + y + ")" + (rot ? " rotate(" + rot + ")" : "") + " scale(" + (sc || 1) + ')" style="color:' + c + '"><use href="#mjb"/></g>'; }
+    function dotc(x, y, c, r) { return dot(x, y, r, c); }
+    function grid(fn, xs, ys, c, sc) { var o = ""; ys.forEach(function (y, yi) { xs.forEach(function (x, xi) { o += fn(x, y, typeof c === "function" ? c(xi, yi) : c, sc); }); }); return o; }
+    var F = [];
+    for (k = 0; k < 9; k++) F.push('<text x="20" y="' + (k ? 24 : 21) + '" text-anchor="middle" font-size="24" font-weight="900" fill="#17233f" font-family="' + FF + '">' + CN.charAt(k) + '</text><text x="20" y="51" text-anchor="middle" font-size="25" font-weight="900" fill="' + R + '" font-family="' + FF + '">萬</text>');
+    // 条
+    F.push('<path d="M14 36Q6 42 5 50M16 39Q11 46 11 52M18 40Q17 47 18 52" fill="none" stroke="' + B + '" stroke-width="2.8" stroke-linecap="round"/><circle cx="5" cy="50" r="2.3" fill="' + R + '"/><circle cx="11" cy="52" r="2.3" fill="' + R + '"/><circle cx="18" cy="52" r="2.3" fill="' + R + '"/>' +
+      '<path d="M23 41L25 49M25 49L22 51.5M25 49L28.5 51" fill="none" stroke="#e59a12" stroke-width="1.7" stroke-linecap="round"/>' +
+      '<ellipse cx="19" cy="30" rx="9" ry="12.5" transform="rotate(-22 19 30)" fill="' + GR + '"/><ellipse cx="16.5" cy="32" rx="4.6" ry="8.5" transform="rotate(-22 16.5 32)" fill="#0b6b42"/><path d="M14 27Q17 32 17.5 38" fill="none" stroke="#8fe3b9" stroke-width="1.2" stroke-linecap="round"/>' +
+      '<path d="M24 8L22.5 3M27 7.5L27.5 2.5M29.5 9L32.5 5" fill="none" stroke="' + B + '" stroke-width="1.5" stroke-linecap="round"/><circle cx="26.5" cy="14" r="6.3" fill="' + R + '"/><path d="M32 12.5L37.5 15.5L31.5 17.5Z" fill="#f0a81c"/><circle cx="28" cy="12.8" r="1.9" fill="#fff"/><circle cx="28.5" cy="12.8" r=".95" fill="#17233f"/>');
+    F.push(bam(20, 15, GR) + bam(20, 41, GR));
+    F.push(bam(20, 15, GR) + bam(11, 41, GR) + bam(29, 41, GR));
+    F.push(grid(bam, [11, 29], [15, 41], GR));
+    F.push(grid(bam, [9, 31], [14, 42], GR, .92) + bam(20, 28, R, .92));
+    F.push(grid(bam, [9, 20, 31], [15, 41], GR));
+    F.push(bam(20, 10, R, .72) + grid(bam, [9, 20, 31], [28, 45.5], GR, .72));
+    F.push(bam(6, 15, GR, .9) + bam(15, 15, GR, .9, -22) + bam(25, 15, GR, .9, 22) + bam(34, 15, GR, .9) + bam(6, 41, GR, .9) + bam(15, 41, GR, .9, 22) + bam(25, 41, GR, .9, -22) + bam(34, 41, GR, .9));
+    F.push(grid(bam, [9, 20, 31], [10, 28, 46], function (xi) { return xi === 1 ? R : GR; }, .72));
+    // 筒
+    box = '<circle cx="20" cy="28" r="16.5" fill="' + B + '"/><circle cx="20" cy="28" r="12.8" fill="' + IV + '"/><circle cx="20" cy="28" r="10.6" fill="' + R + '"/><circle cx="20" cy="28" r="6" fill="' + IV + '"/><circle cx="20" cy="28" r="3.6" fill="' + GR + '"/>';
+    for (i = 0; i < 12; i++) { a = i * Math.PI / 6; box += '<circle cx="' + (20 + 14.6 * Math.cos(a)).toFixed(1) + '" cy="' + (28 + 14.6 * Math.sin(a)).toFixed(1) + '" r="1" fill="' + IV + '"/>'; }
+    for (i = 0; i < 8; i++) { a = i * Math.PI / 4; box += '<circle cx="' + (20 + 8.3 * Math.cos(a)).toFixed(1) + '" cy="' + (28 + 8.3 * Math.sin(a)).toFixed(1) + '" r="1.1" fill="' + IV + '"/>'; }
+    F.push(box);
+    F.push(dot(20, 15, 9.5, B) + dot(20, 41, 9.5, GR));
+    F.push(dot(10, 11, 7.6, B) + dot(20, 28, 7.6, R) + dot(30, 45, 7.6, GR));
+    F.push(dot(11, 15, 8.4, B) + dot(29, 15, 8.4, GR) + dot(11, 41, 8.4, GR) + dot(29, 41, 8.4, B));
+    F.push(dot(10, 12, 6.8, B) + dot(30, 12, 6.8, GR) + dot(20, 28, 6.8, R) + dot(10, 44, 6.8, GR) + dot(30, 44, 6.8, B));
+    F.push(grid(dotc, [11, 29], [10], GR, 7.2) + grid(dotc, [11, 29], [29, 46], R, 7.2));
+    F.push(dot(9, 7, 4.8, GR) + dot(20, 12, 4.8, GR) + dot(31, 17, 4.8, GR) + dot(11, 32, 6.6, R) + dot(29, 32, 6.6, R) + dot(11, 47.5, 6.6, R) + dot(29, 47.5, 6.6, R));
+    F.push(grid(dotc, [11, 29], [8, 21.3, 34.7, 48], B, 6));
+    F.push(grid(dotc, [8.5, 20, 31.5], [10, 28, 46], function (xi, yi) { return [GR, R, B][yi]; }, 5.6));
+    for (k = 0; k < 27; k++) h += '<symbol id="mjf' + k + '" viewBox="0 0 40 56">' + F[k] + "</symbol>";
+    var d = document.createElement("div");
+    d.id = "mj-sprite"; d.setAttribute("aria-hidden", "true"); d.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
+    d.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"><defs>' +
+      '<g id="mjd"><circle r="10" fill="currentColor"/><circle r="6.9" fill="none" stroke="' + IV + '" stroke-width="1.7"/><circle r="3.5" fill="' + IV + '"/><circle r="1.7" fill="currentColor"/></g>' +
+      '<g id="mjb"><rect x="-2.6" y="-9" width="5.2" height="18" rx="2.2" fill="currentColor"/><rect x="-3.5" y="-9.6" width="7" height="2.7" rx="1.35" fill="currentColor"/><rect x="-3.5" y="-1.35" width="7" height="2.7" rx="1.35" fill="currentColor"/><rect x="-3.5" y="6.9" width="7" height="2.7" rx="1.35" fill="currentColor"/><rect x="-1" y="-6.1" width="1.3" height="3.9" rx=".65" fill="#fff" opacity=".55"/><rect x="-1" y="2.2" width="1.3" height="3.9" rx=".65" fill="#fff" opacity=".55"/></g>' +
+      "</defs>" + h + "</svg>";
+    document.body.appendChild(d);
+  }
+  function tile(t, cls, attr) {
+    if (t < 0) return '<i class="mj-t mj-bk' + (cls || "") + '"></i>';
+    try { sprite(); } catch (e) { /* 画不出图案就退回数字 */ return '<i class="mj-t mj-s' + ((t / 9) | 0) + (cls || "") + '"' + (attr || "") + "><b>" + (t % 9 + 1) + "</b><em>" + SUIT[(t / 9) | 0] + "</em></i>"; }
+    return '<i class="mj-t mj-s' + ((t / 9) | 0) + (cls || "") + '"' + (attr || "") + ' title="' + (t % 9 + 1) + SUIT[(t / 9) | 0] + '"><svg viewBox="0 0 40 56"><use href="#mjf' + t + '"/></svg></i>';
+  }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
   function lobby() {
     run++; G = null; pend = null; ON = null; BUY = null;
     var b = beans(), base = Number(ls("mj:base")) || 100;
-    A.app.innerHTML = '<a class="px-back" href="#/play">← 销毁乐园</a><section class="card mj" id="mj-root"><h1>🀄 血流成河麻将 <small class="mj-tag">试玩版</small></h1>' +
+    A.app.innerHTML = '<a class="px-back" href="#/play">← 销毁乐园</a><section class="card mj" id="mj-root"><h1 class="mj-hero"><span class="mj-fan">' + tile(0) + tile(9) + tile(18) + '</span><span class="mj-logo">血流成河</span><span class="mj-sub2">四川麻将</span><small class="mj-tag">试玩版</small></h1>' +
       '<p class="sub">四川麻将，你一个人对三个机器人。胡了不下桌，一局能胡好多次。</p>' +
       '<div class="mj-bean"><span>我的欢乐豆</span><b>' + n(b) + "</b>" + (b < 2000 ? '<button type="button" class="ghost" data-act="refill">免费领 10,000 豆</button>' : "") + "</div>" +
       '<p class="mj-lb">选底分（底分越大，输赢越大）</p><div class="mj-bases">' + [50, 100, 500, 1000].map(function (x) { return '<button type="button" class="' + (x === base ? "on" : "") + '" data-base="' + x + '">' + n(x) + "</button>"; }).join("") + "</div>" +
@@ -359,6 +408,7 @@
     var g = G, me = g.score[0], b = Math.max(0, beans() + me), root = document.getElementById("mj-root");
     lsSet("mj:beans", b); G = null; pend = null;
     if (!root) return;
+    root.className = "card mj";
     root.innerHTML = "<h1>这局结束</h1>" + '<div class="mj-res ' + (me >= 0 ? "pos" : "neg") + '"><span>你这局</span><b>' + sgn(me) + ' 豆</b><small>现在有 ' + n(b) + " 豆</small></div>" +
       '<table class="mj-tbl"><tr><th>谁</th><th>胡了几次</th><th>输赢</th></tr>' + [0, 1, 2, 3].map(function (s) { return "<tr><td>" + NAMES[s] + "</td><td>" + g.hus[s].length + '</td><td class="' + (g.score[s] >= 0 ? "pos" : "neg") + '">' + sgn(g.score[s]) + "</td></tr>"; }).join("") + "</table>" +
       (g.hus[0].length ? '<p class="mj-lb">你胡的牌</p><ul class="mj-list">' + g.hus[0].map(function (h) { return "<li>" + tile(h.tile, " sm") + " " + h.names.join(" ") + "，" + h.fan + " 番 <b>+" + n(h.got) + "</b></li>"; }).join("") + "</ul>" : '<p class="mj-lb">这局你没胡到，再来一局。</p>') +
@@ -387,7 +437,7 @@
       }
       p.then(function (v) { if (!alive()) return; pend = null; sel = []; pick = -1; r = it.next(v); loop(); }).catch(fail);
     }
-    function fail(e) { if (!alive()) return; G = null; pend = null; var root = document.getElementById("mj-root"); if (root) root.innerHTML = '<h1>这局出了点问题</h1><p class="sub">这局不算，豆子没有变化。</p><button type="button" class="mj-start" data-act="lobby">回大厅</button>'; if (window.console) console.error("mj", e); }
+    function fail(e) { if (!alive()) return; G = null; pend = null; var root = document.getElementById("mj-root"); if (root) root.className = "card mj"; if (root) root.innerHTML = '<h1>这局出了点问题</h1><p class="sub">这局不算，豆子没有变化。</p><button type="button" class="mj-start" data-act="lobby">回大厅</button>'; if (window.console) console.error("mj", e); }
     document.getElementById("mj-root").className = "card mj mj-tb";
     try { r = it.next(); loop(); } catch (e) { fail(e); }
   }
