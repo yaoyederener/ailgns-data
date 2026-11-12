@@ -78,10 +78,10 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
     var Z = function () { return { dai: 0, ail: 0, lgns: 0 }; };
     var tk = function (o) {
       var a = [];
-      if (Math.abs(o.dai) >= 0.005) a.push("<b>" + fm(o.dai, Math.abs(o.dai) >= 100 ? 0 : 2) + "</b> DAI");
-      if (Math.abs(o.ail) >= 0.00005) a.push("<b>" + fm(o.ail, 4) + "</b> AiLGNS");
-      if (Math.abs(o.lgns) >= 0.5) a.push("<b>" + fm(o.lgns, 0) + "</b> LGNS");
-      return a.length ? a.join(" + ") : "<b>0</b>";
+      if (Math.abs(o.dai) >= 0.005) a.push('<span class="tk1"><b>' + fm(o.dai, Math.abs(o.dai) >= 100 ? 0 : 2) + "</b> DAI</span>");
+      if (Math.abs(o.ail) >= 0.00005) a.push('<span class="tk1"><b>' + fm(o.ail, 4) + "</b> AiLGNS</span>");
+      if (Math.abs(o.lgns) >= 0.5) a.push('<span class="tk1"><b>' + fm(o.lgns, 0) + "</b> LGNS</span>");
+      return a.length ? a.join("") : "<b>0</b>"; // 一种币一行（手机上三种币挤一行会被切掉）
     };
     var parts = function (r) { // 一天的留存：OTC 手续费 + （域名钱进来 − 转给奖池）+ 会员费 + 其它
       if (!r.fl) return null;
