@@ -53,7 +53,7 @@
         return '<div class="ptn-risk ' + r.level + '"><div class="ptn-rh">' + LV[r.level] + " <b>" + esc(r.title) + '</b><i>' + esc(r.who) + "</i></div><p>" + esc(r.why) + '</p><p class="ptn-todo">👉 ' + esc(r.todo) + "</p></div>";
       }).join("") + "</div>" +
       // 最坏情况
-      '<h3 class="ad-h" id="ops-worst">☠️ 最坏情况与防护（按损失从大到小）</h3>' + li(j.worst, function (w) { return "<li><b>" + esc(w.t) + '</b><div class="ops-k">会丢什么</div><p>' + esc(w.lose) + '</p><div class="ops-k">怎么防</div><p>' + esc(w.guard) + "</p></li>"; }) +
+      '<h3 class="ad-h" id="ops-worst">☠️ 最坏情况与防护（按损失从大到小）</h3>' + li(j.worst, function (w) { return "<li><b>" + esc(w.t) + '</b><div class="ops-k">会丢什么</div><p>' + esc(w.lose) + '</p><div class="ops-k">怎么防</div><p>' + esc(w.guard) + "</p>" + (w.done ? '<div class="ops-k ok">✅ 已经做了</div><p>' + esc(w.done) + "</p>" : "") + (w.next ? '<div class="ops-k go">🔧 继续优化</div><p>' + esc(w.next) + "</p>" : "") + "</li>"; }) +
       // 安全维护
       '<h3 class="ad-h" id="ops-sec">🔐 网站怎么维护保证安全</h3><h4 class="ops-h4">每天</h4>' + li(j.security.daily, function (x) { return "<li><b>" + esc(x.t) + "</b><p>" + esc(x.d) + "</p></li>"; }) +
       '<h4 class="ops-h4">每周</h4>' + li(j.security.weekly, function (x) { return "<li><b>" + esc(x.t) + "</b><p>" + esc(x.d) + "</p></li>"; }) +
