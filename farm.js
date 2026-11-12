@@ -74,7 +74,7 @@
       var lv = me.lv, lo = (lv - 1) * (lv - 1) * 10, hi = lv * lv * 10, pct = Math.max(0, Math.min(100, (me.xp - lo) / (hi - lo) * 100));
       var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0;
       el.innerHTML = '<div class="fm-stat"><span>💰 <b class="num">' + A.fmt(me.coins) + '</b> 金币</span><span>⭐ <b>' + lv + "</b> 级</span>" + (me.paid >= R.king ? '<span class="fm-king">👑 农场主</span>' : "") +
-        (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<span class="fm-who">' + A.nameTag(sig.addr) + '</span><button type="button" class="fm-pay" id="fm-pay">💎 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
+        (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<span class="fm-who">' + A.nameTag(sig.addr) + '</span><button type="button" class="fm-pay" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
         '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i></div><small class="muted">经验 ' + me.xp + " / " + hi + "，升级解锁更贵的种子" + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>";
       document.getElementById("fm-pay").onclick = payPicker;
       A.fillNames(el);
@@ -108,7 +108,7 @@
         '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
         '<button type="button" id="fm-ghen"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🐓</span><b>金鸡</b><small>' + R.goldHen.price + " 金币 · 最多 " + R.goldHen.max + " 只</small><em>" + (me.paid ? "金蛋每个 " + R.goldHen.egg + " 金币，是普通蛋的 3 倍多" : "👑 充值玩家专属：金蛋每个 " + R.goldHen.egg + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pump"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🎃</span><b>黄金南瓜</b><small>种子 ' + R.crops.pumpkin.seed + " · 24 小时</small><em>" + (me.paid ? "一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币，到空地里种" : "👑 充值玩家专属：一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币") + "</em></button>" +
-        '<button type="button" id="fm-pay2"><span class="fm-ic">💎</span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
+        '<button type="button" id="fm-pay2"><span class="fm-ic"><i class="fm-coin"></i></span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
         "</div></section>" +
         (me.log.length ? '<section class="card"><div class="card-head"><h2>📜 农场动态</h2></div><ul class="fm-log">' + me.log.slice(0, 10).map(function (l) {
           return "<li><small>" + new Date(l.t * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "</small> " + esc(l.m) + "</li>";
@@ -149,7 +149,7 @@
     function payPicker() {
       var m = document.getElementById("fm-modal"), first = !me.paid;
       m.hidden = false;
-      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>💎 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2><i class="fm-coin"></i> 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
         (first ? '<p class="fm-first">🔥 首充翻倍！第一次充值任意一档，金币 ×2</p>' : "") + '<div class="fm-packs">' +
         R.packs.map(function (p, i) {
           var bonus = Math.round((p.coins / (p.lgns * 100) - 1) * 100), get = p.coins * (first ? 2 : 1);
