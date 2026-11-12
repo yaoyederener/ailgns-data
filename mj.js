@@ -262,6 +262,67 @@
   var run = 0, G = null, pend = null, sel = [], pick = -1, bound = false, DELAY = { discard: 420, peng: 650, gang: 900, hu: 1500, swap: 1800, que: 700, end: 500 };
   function ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* 存不上就算了 */ } }
+  // ===== 音效（站长 2026-11-11「麻将没有声音」）：不用音频文件，浏览器现场合成；这里出任何错都不能影响打牌 =====
+  var AC = null, SND = { key: "" };
+  function sndOn() { return ls("mj:snd") !== "0"; }
+  function sndWake() { // 手机要人点过一下屏幕才让出声，所以每次点击都叫醒一下
+    try {
+      var C = window.AudioContext || window.webkitAudioContext;
+      if (!AC && C) AC = new C();
+      if (AC && AC.state === "suspended") AC.resume();
+    } catch (e) { /* 出不了声就算了 */ }
+  }
+  function tone(f, at, dur, vol, type, f2) {
+    var o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime + at;
+    o.type = type || "sine"; o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function clack(at, vol) { // 牌拍在桌上的「啪」：一小段沙沙声 + 一个往下掉的短音
+    var len = (AC.sampleRate * 0.07) | 0, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0), i,
+      src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+    for (i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    src.buffer = buf; f.type = "bandpass"; f.frequency.value = 2400; f.Q.value = 0.8; g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(AC.destination); src.start(AC.currentTime + at);
+    tone(1200, at, 0.06, vol * 0.45, "triangle", 420);
+  }
+  function say(w) { // 喊「碰」「杠」「胡了」：手机自带的中文朗读，没有这功能的浏览器就只有音效
+    try {
+      if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+      var u = new SpeechSynthesisUtterance(w); u.lang = "zh-CN"; u.rate = 1.2; u.pitch = 1.15; u.volume = 1;
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    } catch (e) { /* 不喊也行 */ }
+  }
+  function tsay(t) { return t === 9 ? "幺鸡" : "一二三四五六七八九".charAt(t % 9) + SUIT[(t / 9) | 0]; } // 播报用的牌名：三万、五条、七筒，1 条叫幺鸡
+  function snd(k, zimo, t) {
+    try {
+      if (!sndOn()) return;
+      window.__mjSnd = (window.__mjSnd || 0) + 1; // 自检用：数一数响了几次
+      if (k === "tile" && t >= 0) say(tsay(t)); else if (k === "peng") say("碰"); else if (k === "gang") say("杠"); else if (k === "hu") say(zimo ? "自摸" : "胡了");
+      if (!AC || AC.state !== "running") return;
+      if (k === "tile") clack(0, 0.5);
+      else if (k === "peng") { clack(0, 0.6); clack(0.1, 0.6); tone(660, 0.02, 0.22, 0.18, "triangle"); }
+      else if (k === "gang") { tone(170, 0, 0.3, 0.5, "sine", 55); clack(0, 0.7); clack(0.12, 0.6); clack(0.24, 0.6); tone(880, 0.1, 0.3, 0.16, "triangle"); tone(1320, 0.2, 0.4, 0.14, "triangle"); }
+      else if (k === "hu") { clack(0, 0.7); [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.05 + i * 0.09, i === 4 ? 0.7 : 0.25, 0.2, "triangle"); }); tone(262, 0.05, 0.9, 0.16, "sine"); }
+    } catch (e) { /* 出不了声就算了 */ }
+  }
+  function sndScan(g) { // 每次重画牌桌前，跟上一次比一比：多了胡 / 杠 / 碰 / 新打出的牌，就响对应的声音（单机、联机都走这里）
+    try {
+      var key = ON ? "o" + ON.room + ":" + (ON.v && ON.v.k) : "s" + run, hu = 0, gang = 0, peng = 0, last = "", s, p = SND;
+      for (s = 0; s < 4; s++) {
+        hu += ((g.hus || [])[s] || []).length;
+        ((g.melds || [])[s] || []).forEach(function (m) { if (m.k === "peng") peng++; else gang++; });
+      }
+      if (g.last) last = g.last.seat + ":" + g.last.tile + ":" + ((g.river || [])[g.last.seat] || []).length;
+      SND = { key: key, hu: hu, gang: gang, peng: peng, last: last };
+      if (p.key !== key) return; // 新的一局、刚进房：只记下来，不响
+      if (hu > p.hu) snd("hu", /自摸 /.test(g.msg || ""));
+      else if (gang > p.gang) snd("gang");
+      else if (peng > p.peng) snd("peng");
+      else if (last && last !== p.last) snd("tile", false, g.last.tile);
+    } catch (e) { /* 出不了声就算了 */ }
+  }
   function beans() { var v = ls("mj:beans"); return v == null ? 10000 : Math.max(0, Number(v) || 0); }
   function n(v) { return Number(v || 0).toLocaleString("en-US"); }
   function sgn(v) { return (v > 0 ? "+" : "") + n(v); }
@@ -393,12 +454,13 @@
   function paint() {
     var g = G, root = document.getElementById("mj-root"), q = pend && pend.req, can = q && q.type === "turn" ? q.discards : null, ml, hand;
     if (!g || !root) return;
+    sndScan(g);
     ml = myList();
     hand = ml.list.map(function (t, i) {
       var isNew = ml.drawn >= 0 && i === ml.list.length - 1;
       return tile(t, (isNew ? " new" : "") + (sel.indexOf(i) >= 0 || pick === i ? " up" : "") + (((t / 9) | 0) === g.que[0] ? " q" : "") + (can && can.indexOf(t) < 0 ? " dim" : ""), ' data-t="' + t + '" data-i="' + i + '"');
     }).join("");
-    root.innerHTML = '<div class="mj-top">' + (ON ? "<span>第 <b>" + ON.v.k + "/" + ON.v.n + "</b> 局</span><span>房 <b>" + esc(ON.v.code) + "</b></span><span>剩 <b>" + g.wall.length + '</b></span><span class="mj-cd" id="mj-cd"></span>' : "<span>底分 <b>" + n(g.base) + "</b></span><span>还剩 <b>" + g.wall.length + "</b> 张</span>") + '<button type="button" class="mj-quit" data-act="quit">退出</button></div>' +
+    root.innerHTML = '<div class="mj-top">' + (ON ? "<span>第 <b>" + ON.v.k + "/" + ON.v.n + "</b> 局</span><span>房 <b>" + esc(ON.v.code) + "</b></span><span>剩 <b>" + g.wall.length + '</b></span><span class="mj-cd" id="mj-cd"></span>' : "<span>底分 <b>" + n(g.base) + "</b></span><span>还剩 <b>" + g.wall.length + "</b> 张</span>") + '<button type="button" class="mj-quit mj-snd" data-act="snd" aria-label="声音开关">' + (sndOn() ? "🔊" : "🔇") + '</button><button type="button" class="mj-quit" data-act="quit">退出</button></div>' +
       [1, 2, 3].map(function (s) { return '<div class="mj-opp' + (g.turn === s ? " on" : "") + '">' + head(s) + '<div class="mj-row">' + melds(s) + "</div>" + river(s) + "</div>"; }).join("") +
       '<div class="mj-msg' + (g.flash ? " big" : "") + '">' + esc(g.msg || "发牌中…") + "</div>" +
       '<div class="mj-me' + (g.turn === 0 ? " on" : "") + '">' + head(0) + river(0) + '<div class="mj-row">' + melds(0) + '</div><div class="mj-hand">' + hand + "</div>" + acts() + "</div>";
@@ -428,7 +490,7 @@
       if (!alive()) return;
       if (r.done) { finish(); return; }
       var q = r.value, p, ans;
-      if (q.type === "ev") { paint(); p = sleep(DELAY[q.ev] || 400); }
+      if (q.type === "ev") { paint(); p = sleep((q.ev === "discard" && sndOn() && window.speechSynthesis ? 850 : DELAY[q.ev]) || 400); /* 开着声音时电脑出牌放慢一点，等牌名念完 */ }
       else if (q.seat === 0 && !q.locked) p = ask(q);
       else {
         ans = bot(g, q);
@@ -446,12 +508,14 @@
     if (!document.getElementById("mj-root") || !e.target.closest) return;
     var el = e.target.closest("[data-act],[data-base],[data-t],[data-n],[data-tk]"), a, q, i, t, l;
     if (!el || !el.closest(".mj")) return;
+    sndWake();
     try {
       if (el.getAttribute("data-base")) { lsSet("mj:base", el.getAttribute("data-base")); nameNow(); lobby(); return; }
       if (el.getAttribute("data-n") || el.getAttribute("data-tk")) { if (BUY && !BUY.busy) { if (el.getAttribute("data-n")) BUY.n = Number(el.getAttribute("data-n")); else BUY.tk = el.getAttribute("data-tk"); buyQuote(); } return; } // 买房卡：选张数、选币
       a = el.getAttribute("data-act"); q = pend && pend.req;
       if (a === "start") { if (!document.querySelector("#mj-root .mj-top")) { if (beans() <= 0) lsSet("mj:beans", 10000); start(); } return; }
       if (a === "refill") { lsSet("mj:beans", 10000); lobby(); return; }
+      if (a === "snd") { lsSet("mj:snd", sndOn() ? "0" : "1"); if (sndOn()) snd("tile"); else { try { window.speechSynthesis.cancel(); } catch (e2) { /* 没有朗读功能 */ } } paint(); return; }
       if (onAct(a, el)) return; // 联机的按钮
       if (a === "lobby" || a === "quit") { lobby(); return; }
       if (!q) return;

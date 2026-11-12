@@ -3603,6 +3603,8 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .mj-tb .mj-top b, .mj-tb .mj-top .mj-cd { color: #ffe9a8; }
 .mj-tb .mj-cd.hot { color: #ff8f8f; }
 .mj-tb .mj-quit { border-color: rgba(255, 255, 255, .4); color: #eafff5; }
+.mj-quit + .mj-quit { margin-left: 6px; }
+.mj-snd { padding: 4px 8px; font-size: 14px; line-height: 1; }
 .mj-tb .mj-opp, .mj-tb .mj-me { background: rgba(6, 46, 31, .32); border: 1px solid rgba(255, 255, 255, .14); }
 .mj-tb .mj-me { background: rgba(6, 46, 31, .46); padding: 7px 4px; }
 .mj-tb .mj-opp.on, .mj-tb .mj-me.on { border-color: #ffd34d; animation: mj-turn 1.4s ease-in-out infinite; }
