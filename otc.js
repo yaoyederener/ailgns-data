@@ -670,7 +670,7 @@
       var acts = '<div class="otc-acts" hidden><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = placeTabs() + acts + '<div class="otc-top"><a class="ot-sw" href="#/scan' + (account ? "/" + account + "/otc" : "") + '">订单查询</a><a class="ot-sw" href="#/trade">盘口</a>' + // 站长 2026-11-09 晚：三个按钮 订单查询 / 一键扫单 / 盘口（挂单、做市在上面四步引导卡里）
+      var html = placeTabs() + acts + '<div class="otc-top"><a class="ot-sw" href="#/scan/' + (account || "~") + '/otc">订单查询</a><a class="ot-sw" href="#/trade">盘口</a>' + // 站长 2026-11-09 晚：三个按钮 订单查询 / 一键扫单 / 盘口（挂单、做市在上面四步引导卡里）
      '' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
         (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';

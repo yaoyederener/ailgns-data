@@ -450,6 +450,14 @@
     var segs = location.hash.split("/").slice(2).map(function (x) { return decodeURIComponent(x || "").trim(); }).filter(Boolean);
     if (segs.length > 1 && /^(tx|address|token)$/.test(segs[0])) segs.shift(); // 兼容 #/scan/tx/哈希、#/scan/address/地址（全站以前指向官方浏览器的链接）
     var q = segs[0] || "", cat = CATS[segs[1]] ? segs[1] : "";
+    // 站长 2026-11-12：点「订单查询」不要中转。#/scan/~/otc = 查我自己的：认出钱包就直接跳到结果，认不出才回搜索页
+    if (q === "~") {
+      A.app.innerHTML = '<section class="card"><p class="muted">查询中…</p></section>';
+      var back = function () { if (location.hash.indexOf("#/scan/~") === 0) location.replace("#/scan"); };
+      if (!A.wallets || !A.wallets.silent) return back();
+      A.wallets.silent().then(function (acc) { if (location.hash.indexOf("#/scan/~") !== 0) return; if (acc) location.replace("#/scan/" + acc + (cat ? "/" + cat : "")); else back(); }, back);
+      return;
+    }
     /* 站长 2026-11-11：极简——一个高亮大搜索框 + 一行例子，别的都不要 */
     A.app.innerHTML = '<section class="card sc-home"><form class="nm-search sc-search" id="sc-f"><input id="sc-q" placeholder="域名 / 钱包地址 / 交易哈希" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><button type="submit">查询</button></form>' +
       '<p class="muted sc-tip">例：发财.ailgns、0x 开头的地址、交易哈希 · 每一笔都写成人话</p><div id="sc-me"></div></section><div id="sc-out"></div>';
