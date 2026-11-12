@@ -6,6 +6,7 @@ import { SUPPORT_USER } from "../../lib/support.js";
 import { domainsText, pushDomains } from "../../lib/domains.js";
 import { pushInbox } from "../../lib/inbox.js";
 import { answer } from "../../lib/chatbot.js";
+import { faqPick } from "../../lib/faq.js";
 
 const MAX_ADDR = 10;
 const HELP = "👋 这里是 AiLGNS 服务站通知机器人。\n\n把你挂单用的钱包地址（0x 开头）直接发给我，就能绑定。之后这个钱包的 OTC 挂单：\n• 成交（包括部分成交）\n• 撤单退回\n• 到期自动退回\n都会第一时间私信通知你。\n\n其他指令：\n• 解绑 0x…  取消某个地址\n• 我的绑定  查看已绑定的地址\n\n👉 交易：https://ailgns.dev/#/otc";
@@ -73,14 +74,18 @@ export async function onRequestPost(ctx) {
       if (!ok && !mention) { await glog("aierr", { ms: Date.now() - t0, err: String(r && (r.claudeErr || r.error) || "").slice(0, 80) }); return; }
       // 回答结尾引导：有问题 @我（站长 2026-11-05 定：客服机器人自己接所有问题，不 @站长）
       // 答不了的：直接把工单入口甩给对方（站长 2026-11-05 定），答得了的：引导继续 @我
-      const out = !ok ? who + "客服这会儿线路忙，这条没答上来。请过一分钟再 @我 问一次；着急的话到网站右下角客服窗口留言，或提交工单（填钱包地址 + 截图）：https://ailgns.dev/#/feedback" : who + r.answer + (r.human ? "\n\n📮 这个问题需要人工核实，请提交工单（填钱包地址 + 截图），会按轻重缓急处理：https://ailgns.dev/#/feedback" : "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。");
+      // 站长 2026-11-12：AI 大脑按提问方 IP 所在地拒绝（DeBox 的服务器在被拒地区，群里一次都没答成过），「过一分钟再问」是误导。
+      // 改成：先用人写的标准答案（和网页客服同一份 FAQ），对不上的直接给工单入口
+      const q0 = text.replace(/@\S+/g, "").trim(), fq = ok ? null : faqPick(q0), fa = fq && fq.a !== "HUMAN" ? fq.a : "";
+      const out = !ok ? (fa ? who + fa + "\n\n没答到点上的话，请提交工单（填钱包地址 + 截图），技术人员会按轻重缓急处理：https://ailgns.dev/#/feedback"
+        : who + "这个问题我这里没有现成的答案。请到网站右下角客服窗口留言，或提交工单（填钱包地址 + 截图），技术人员会按轻重缓急处理：https://ailgns.dev/#/feedback") : who + r.answer + (r.human ? "\n\n📮 这个问题需要人工核实，请提交工单（填钱包地址 + 截图），会按轻重缓急处理：https://ailgns.dev/#/feedback" : "\n\n有其他问题随时 @我，OTC / 域名 / 借贷 / 预言家都能答。");
       // DeBox 说「发太快」(429) 就等 2 秒、4 秒再发，最多 3 次
       let sendErr = "";
       for (let i = 0; i < 3; i++) {
         try { await sendDebox(ctx.env, gid, out, "group"); sendErr = ""; break; } catch (e) { sendErr = String(e && e.message || e); if (!/ 429 /.test(sendErr)) break; if (i < 2) await sleep(2000 * (i + 1)); }
       }
       if (sendErr) await kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: sendErr }), { expirationTtl: 86400 }).catch(() => {});
-      await glog(sendErr ? "senderr" : ok ? "ok" : "fallback", { ms: Date.now() - t0, n: (r && r.tries) || 0, err: (sendErr || String(!ok && r && (r.claudeErr || r.error) || "")).slice(0, 80) });
+      await glog(sendErr ? "senderr" : ok ? "ok" : fa ? "faq" : "fallback", { ms: Date.now() - t0, n: (r && r.tries) || 0, err: (sendErr || String(!ok && r && (r.claudeErr || r.error) || "")).slice(0, 80) });
       if (sendErr) return;
       await Promise.all([
         kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),

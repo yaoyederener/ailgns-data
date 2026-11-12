@@ -156,10 +156,29 @@ def gen_rules():
     if read("lib/rules-auto.js") != body if os.path.exists("lib/rules-auto.js") else True: write("lib/rules-auto.js", body)
     print("rules-auto: %d 条%s" % (len(out), ("；⚠️ 抠不到：" + "、".join(warn)) if warn else ""))
 
+def gen_faq():
+    """群客服兜底（站长 2026-11-12）：AI 答不上来时用人写的标准答案。标准答案只在 chat.js 里维护，这里原样抄一份给后端（lib/faq.js）。"""
+    m = re.search(r"  var FAQ = \[\n(.*?)\n  \];", read("chat.js"), re.S)
+    if not m: sys.exit("chat.js 里找不到 FAQ 列表")
+    body = "\n".join(l[2:] if l.startswith("    ") else l for l in m.group(1).split("\n"))
+    out = ("// ⚠️ 自动生成，不要手改：内容来自 chat.js 的 FAQ（python3 tools/build.py）\n"
+           "export const FAQ = [\n" + body + "\n];\n"
+           "const norm = (s) => String(s || \"\").toLowerCase().replace(/\\s+/g, \"\");\n"
+           "// 和网页客服同一套算法：命中的关键词越长分越高，取最高的一条；没命中返回 null\n"
+           "export function faqPick(q) {\n"
+           "  const t = norm(q); let best = null, score = 0;\n"
+           "  for (const f of FAQ) { let s = 0; for (const k of f.k) if (t.indexOf(norm(k)) >= 0) s += k.length; if (s > score) { score = s; best = f; } }\n"
+           "  return best ? { a: best.a, score } : null;\n"
+           "}\n")
+    old = read("lib/faq.js") if os.path.exists("lib/faq.js") else ""
+    if out != old: write("lib/faq.js", out)
+    print("faq ok: %d 条标准答案 → lib/faq.js" % len(re.findall(r"^  \{ k: ", body, re.M)))
+
 def main():
     syntax_check()
     registry_check()
     gen_rules()
+    gen_faq()
     src = read("index.src.html")
     listed = re.findall(r'<script src="([^"?]+)[^"]*"></script>', src)
     grouped = [f for g in GROUPS.values() for f in g]
