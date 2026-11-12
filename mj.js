@@ -462,9 +462,10 @@
       (g.hus[s].length ? '<span class="mj-hun">胡×' + g.hus[s].length + "</span>" : "") + (s ? '<span class="mj-cnt">' + (g.cnt ? g.cnt[s] : sum(g.hand[s])) + " 张</span>" : "") +
       '<span class="mj-sc' + (g.score[s] < 0 ? " neg" : g.score[s] > 0 ? " pos" : "") + '">' + sgn(g.score[s]) + "</span>" + (d ? '<span class="mj-fl ' + (d > 0 ? "up" : "dn") + '">' + sgn(d) + "</span>" : "") + "</div>";
   }
-  function river(s) {
+  function seat(s, pos) { return '<div class="mj-opp mj-p-' + pos + (G.turn === s ? " on" : "") + '">' + head(s) + '<div class="mj-row">' + melds(s) + "</div></div>"; }
+  function river(s, cls) {
     var g = G, r = g.river[s];
-    return '<div class="mj-river">' + r.map(function (t, i) { return tile(t, " sm" + (g.last && g.last.seat === s && i === r.length - 1 ? " last" : "")); }).join("") + "</div>";
+    return '<div class="mj-river' + (cls || "") + '">' + r.map(function (t, i) { return tile(t, " sm" + (g.last && g.last.seat === s && i === r.length - 1 ? " last" : "")); }).join("") + "</div>";
   }
   function myList() { // 我的手牌：按花色点数排，缺的那门放最后；刚摸的那张单独放最右
     var g = G, c = g.hand[0].slice(), q = g.que[0], out = [], t, k, dr = g.turn === 0 ? g.drawn : -1;
@@ -511,9 +512,12 @@
       return tile(t, (isNew ? " new" : "") + (sel.indexOf(i) >= 0 || pick === i ? " up" : "") + (((t / 9) | 0) === g.que[0] ? " q" : "") + (can && can.indexOf(t) < 0 ? " dim" : ""), ' data-t="' + t + '" data-i="' + i + '"');
     }).join("");
     root.innerHTML = '<div class="mj-top">' + (ON ? "<span>第 <b>" + ON.v.k + "/" + ON.v.n + "</b> 局</span><span>房 <b>" + esc(ON.v.code) + "</b></span><span>剩 <b>" + g.wall.length + '</b></span><span class="mj-cd" id="mj-cd"></span>' : "<span>底分 <b>" + n(g.base) + "</b></span><span>还剩 <b>" + g.wall.length + "</b> 张</span>") + '<button type="button" class="mj-quit mj-snd" data-act="snd" aria-label="声音开关">' + (sndOn() ? "🔊" : "🔇") + '</button><button type="button" class="mj-quit" data-act="quit">退出</button></div>' +
-      '<div class="mj-ring">' + [[2, "top"], [3, "left"], [1, "right"]].map(function (x) { var s = x[0]; return '<div class="mj-opp mj-p-' + x[1] + (g.turn === s ? " on" : "") + '">' + head(s) + '<div class="mj-row">' + melds(s) + "</div>" + river(s) + "</div>"; }).join("") + "</div>" + // 像真牌桌那样坐：对家在上面，上家在左、下家在右，自己在下面（客户 2026-11-12 反馈「不要上下排，要左右那种布局」）
+      '<div class="mj-table">' + seat(2, "top") + seat(3, "left") + // 四家围一桌（站长 2026-11-12 发来别家麻将截图）：对家在上、上家在左、下家在右，打出的牌都放到中间，正中是东南西北转盘
+      '<div class="mj-mid">' + river(2, " mj-rv-t") + river(3, " mj-rv-l") +
+      '<div class="mj-cp">' + [[2, "t"], [3, "l"], [1, "r"], [0, "b"]].map(function (x) { return '<i class="mj-w mj-w' + x[1] + (g.turn === x[0] ? " on" : "") + '">' + "东南西北".charAt((x[0] - (g.dealer || 0) + 4) % 4) + "</i>"; }).join("") + "<b>" + g.wall.length + "</b><small>剩余</small></div>" + // 庄家是东，按出牌顺序往下数：南、西、北；轮到谁谁的字亮
+      river(1, " mj-rv-r") + river(0, " mj-rv-b") + "</div>" + seat(1, "right") + "</div>" +
       '<div class="mj-msg' + (g.flash ? " big" : "") + '">' + esc(g.msg || "发牌中…") + "</div>" +
-      '<div class="mj-me' + (g.turn === 0 ? " on" : "") + '">' + head(0) + river(0) + '<div class="mj-row">' + melds(0) + '</div><div class="mj-hand">' + hand + "</div>" + acts() + "</div>";
+      '<div class="mj-me' + (g.turn === 0 ? " on" : "") + '">' + head(0) + '<div class="mj-row">' + melds(0) + '</div><div class="mj-hand">' + hand + "</div>" + acts() + "</div>";
     if (ON) tick();
   }
   function finish() {
