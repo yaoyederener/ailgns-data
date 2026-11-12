@@ -1183,13 +1183,13 @@
       var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
       if (!(d > 0) || !(dex > 0)) return "";
       // 站长 2026-11-12：比官方 DEX 多拿要一眼看到（大数字 + 官方 DEX / 本站两格对比）；不比 DEX 划算上面已经整块不显示
-      var who = ref ? "场外行情" : M.chain === "anubis" ? "官方 DEX" : "DEX", pct = (d / dex * 100).toFixed(1);
+      var who = ref ? "场外行情" : M.chain === "anubis" ? "官方 DEX" : "DEX", pct = (d / dex * 100).toFixed(1), sp = ref ? "" : " ";
       var how = ref ? "场外行情按 DEX 价 + " + Math.round((ref - 1) * 100) + "% 溢价算" :
         buy ? who + " 的数已含池子手续费" :
         M.liveTax && SELL_TAX !== null ? who + " 卖出要扣约 " + (SELL_TAX * 100).toFixed(1) + "% 的税（链上最近实测）+ 0.3% 手续费" : who + " 的数已扣它的手续费和卖出税";
-      return '<div class="sw-pnl win"><div class="pn-t"><span>🔥 比' + who + (buy ? "少付" : "多拿") + "</span><em>" + (buy ? "省 " : "多 ") + pct + "%</em></div>" +
+      return '<div class="sw-pnl win"><div class="pn-t"><span>🔥 比' + who + sp + (buy ? "少付" : "多拿") + "</span><em>" + (buy ? "省 " : "多 ") + pct + "%</em></div>" +
         '<b class="pn-n">+' + A.fmt(d, 2) + " DAI</b>" +
-        '<div class="pn-vs"><div><i>' + who + (buy ? "要付" : "到手") + "</i><u>约 " + A.fmt(dex, 2) + ' DAI</u></div><div class="me"><i>✅ 本站' + (buy ? "只付" : "到手") + "</i><u>" + A.fmt(mine, 2) + " DAI</u></div></div>" +
+        '<div class="pn-vs"><div><i>' + who + sp + (buy ? "要付" : "到手") + "</i><u>约 " + A.fmt(dex, 2) + ' DAI</u></div><div class="me"><i>✅ 本站' + (buy ? "只付" : "到手") + "</i><u>" + A.fmt(mine, 2) + " DAI</u></div></div>" +
         "<small>同样" + (buy ? "买 " : "卖 ") + tShow(tok) + " " + SYM + "。" + how + "；本站的数已扣 1% 手续费。</small></div>";
     }
     function bindSweep(sells, buys, mkt, reload) {
