@@ -16,6 +16,11 @@
   ! Cache-Control
   Cache-Control: public, max-age=31536000, immutable
 
+# 麻将报牌录音：文件名里带版本号（mj-voice-1.m4a），换录音就换名字，所以也可以长期缓存
+/snd/*
+  ! Cache-Control
+  Cache-Control: public, max-age=31536000, immutable
+
 # Service Worker 不能长期缓存（改了要马上生效），覆盖上面 *.js 的一年缓存
 /sw.js
   ! Cache-Control

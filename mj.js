@@ -262,8 +262,41 @@
   var run = 0, G = null, pend = null, sel = [], pick = -1, bound = false, DELAY = { discard: 420, peng: 650, gang: 900, hu: 1500, swap: 1800, que: 700, end: 500 };
   function ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* 存不上就算了 */ } }
-  // ===== 音效（站长 2026-11-11「麻将没有声音」）：不用音频文件，浏览器现场合成；这里出任何错都不能影响打牌 =====
+  // ===== 音效（站长 2026-11-11「麻将没有声音」）：拍牌声是浏览器现场合成的；报牌用一小段录音（见下面 VOXURL）；这里出任何错都不能影响打牌 =====
   var AC = null, WOKE = false, SAYU = null, SND = { key: "" };
+  // 报牌录音（站长 2026-11-12「有声音了，但是不报牌」：很多手机没有中文朗读）：31 句排在一个文件里，每句占 1.1 秒一格，
+  // 顺序 = 27 张牌（一万…九万、幺鸡、二条…九条、一筒…九筒）+ 碰、杠、胡了、自摸。声音由开源语音模型 Kokoro（Apache 2.0，可商用）在本机生成。
+  // 换录音要换文件名里的数字（文件按名字长期缓存）。
+  var VOXURL = "/snd/mj-voice-1.m4a", VSLOT = 1.1, VOX = null, VBYTES = null, VTRY = 0, VBUSY = false, VSRC = null;
+  function voxLoad() { // 分两步：先把文件拿下来（不用等人点屏幕），等声音设备被点醒后再解码
+    try {
+      if (VOX || VBUSY || VTRY >= 3 || !sndOn()) return;
+      if (!VBYTES) {
+        if (!window.fetch) return;
+        VBUSY = true; VTRY++;
+        fetch(VOXURL).then(function (r) { if (!r.ok) throw new Error("voice " + r.status); return r.arrayBuffer(); })
+          .then(function (b) { VBYTES = b; VBUSY = false; VTRY = 0; voxLoad(); }, function () { VBUSY = false; });
+        return;
+      }
+      if (!AC) return;
+      VBUSY = true; VTRY++;
+      var b = VBYTES, done = function (buf) { VBUSY = false; if (buf && buf.duration > VSLOT * 30) VOX = buf; }, fail = function () { VBUSY = false; }, p;
+      VBYTES = null; // 解码会把这块数据用掉；失败了下次重新下载
+      p = AC.decodeAudioData(b, done, fail);
+      if (p && p.catch) p.catch(function () { /* 上面 fail 已经处理 */ });
+    } catch (e) { VBUSY = false; }
+  }
+  function vox(i) { // 放第 i 句录音；放不了返回 false，外面改用手机朗读
+    try {
+      if (!VOX || !AC || AC.state !== "running" || !(i >= 0 && i < 31)) return false;
+      var src = AC.createBufferSource(), g = AC.createGain(), now = AC.currentTime;
+      if (VSRC) { try { VSRC.g.gain.setTargetAtTime(0.0001, now, 0.01); VSRC.s.stop(now + 0.06); } catch (e1) { /* 上一句已经放完 */ } } // 上一句没念完就收掉，不叠在一起
+      src.buffer = VOX; g.gain.value = 1; src.connect(g); g.connect(AC.destination);
+      src.start(now, i * VSLOT + 0.08, VSLOT - 0.1); // 每格开头留了 0.12 秒空白，从 0.08 秒处起播：出声快，各种手机解码差几十毫秒也切不到字
+      VSRC = { s: src, g: g };
+      return true;
+    } catch (e) { return false; }
+  }
   function sndOn() { return ls("mj:snd") !== "0"; }
   function sndWake() { // 手机要人点过一下屏幕才让出声，所以每次点击都叫醒一下
     try {
@@ -272,6 +305,7 @@
       try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e0) { /* 老系统没有这个开关 */ } // iPhone 侧面静音键拨着也照样出声
       if (!AC && C) AC = new C();
       if (AC && AC.state !== "running") AC.resume();
+      voxLoad();
       if (WOKE) return;
       WOKE = true; // 下面两步只在第一次点击时做：iPhone 要在「手指点击」的那一下里真的放过一次声、念过一次字，之后才肯自动出声
       if (AC) { b = AC.createBuffer(1, 1, 22050); src = AC.createBufferSource(); src.buffer = b; src.connect(AC.destination); src.start(0); }
@@ -307,10 +341,11 @@
     try {
       if (!sndOn()) return;
       window.__mjSnd = (window.__mjSnd || 0) + 1; // 自检用：数一数响了几次
-      if (k === "tile" && t >= 0) say(tsay(t)); else if (k === "peng") say("碰"); else if (k === "gang") say("杠"); else if (k === "hu") say(zimo ? "自摸" : "胡了");
-      if (!AC) return;
-      if (AC.state === "running") fx(k);
-      else { var t0 = Date.now(); AC.resume().then(function () { if (Date.now() - t0 < 600) { try { fx(k); } catch (e) { /* 出不了声就算了 */ } } }, function () { /* 还没被点醒 */ }); } // 刚点醒还差一口气：等它醒了马上补上这一声，过期的就不补了
+      var i = k === "tile" ? (t >= 0 ? t : -1) : k === "peng" ? 27 : k === "gang" ? 28 : k === "hu" ? (zimo ? 30 : 29) : -1, // 第几句录音
+        w = i < 0 ? "" : i < 27 ? tsay(i) : ["碰", "杠", "胡了", "自摸"][i - 27];
+      if (!AC) { if (w) say(w); return; }
+      if (AC.state === "running") { fx(k); if (w && !vox(i)) say(w); } // 有录音放录音，没有（还没下载完 / 手机解不了）才用手机朗读
+      else { if (w && !VOX) say(w); var t0 = Date.now(); AC.resume().then(function () { if (Date.now() - t0 < 600) { try { fx(k); if (w && VOX) vox(i); } catch (e) { /* 出不了声就算了 */ } } }, function () { /* 还没被点醒 */ }); } // 刚点醒还差一口气：等它醒了马上补上这一声，过期的就不补了
     } catch (e) { /* 出不了声就算了 */ }
   }
   function fx(k) {
@@ -324,6 +359,7 @@
   function sndScan(g) { // 每次重画牌桌前，跟上一次比一比：多了胡 / 杠 / 碰 / 新打出的牌，就响对应的声音（单机、联机都走这里）
     try {
       var key = ON ? "o" + ON.room + ":" + (ON.v && ON.v.k) : "s" + run, hu = 0, gang = 0, peng = 0, last = "", s, p = SND;
+      voxLoad();
       for (s = 0; s < 4; s++) {
         hu += ((g.hus || [])[s] || []).length;
         ((g.melds || [])[s] || []).forEach(function (m) { if (m.k === "peng") peng++; else gang++; });
@@ -504,7 +540,7 @@
       if (!alive()) return;
       if (r.done) { finish(); return; }
       var q = r.value, p, ans;
-      if (q.type === "ev") { paint(); p = sleep((q.ev === "discard" && sndOn() && window.speechSynthesis ? 850 : DELAY[q.ev]) || 400); /* 开着声音时电脑出牌放慢一点，等牌名念完 */ }
+      if (q.type === "ev") { paint(); p = sleep((q.ev === "discard" && sndOn() && (VOX || window.speechSynthesis) ? 850 : DELAY[q.ev]) || 400); /* 开着声音时电脑出牌放慢一点，等牌名念完 */ }
       else if (q.seat === 0 && !q.locked) p = ask(q);
       else {
         ans = bot(g, q);
