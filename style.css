@@ -2901,6 +2901,12 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .nft-swsum{margin:8px 0 10px;font-size:14px}
 
 /* 🛠️ 网站优化页 */
+.ops-roll{position:relative;height:54px;overflow:hidden;border-radius:12px;border:1px solid #eee6ff;background:#faf7ff;margin:8px 0 4px;cursor:pointer}
+.ops-rt{will-change:transform}
+.ops-ri{height:54px;box-sizing:border-box;padding:7px 44px 7px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;font-size:13.5px;line-height:1.35}
+.ops-ri b,.ops-ri span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ops-ri b{color:#191839;font-size:14px}.ops-ri span{color:#4b3d8f;font-size:12.5px}
+.ops-ri.red{background:#fff1f1}.ops-ri.yellow{background:#fff8e6}.ops-roll.ok .ops-ri{background:#eefbf3}
+.ops-rn{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-style:normal;font-size:11.5px;color:#8a7fb0;background:rgba(255,255,255,.75);border-radius:999px;padding:1px 7px}
 .ops-toc{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}.ops-toc a{font-size:12.5px;padding:5px 10px;border-radius:999px;background:#f6f2ff;border:1px solid #eee6ff;color:#5a35d6;text-decoration:none}
 .ops-ul{list-style:none;padding:0;margin:0 0 6px;display:grid;gap:8px}.ops-ul li{background:#faf7ff;border:1px solid #eee6ff;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.55}.ops-ul li b{display:block;font-size:15px;margin-bottom:2px}.ops-ul li p{margin:2px 0 0;color:#4b3d8f}.ops-ul li.done{opacity:.6}
 .ops-k{font-size:11.5px;color:#9a8acc;margin-top:6px}.ops-h4{margin:10px 0 6px;font-size:14px;color:#6b5aa6}.ops-pri{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:#eee6ff;color:#5a35d6;margin-left:6px;vertical-align:middle}

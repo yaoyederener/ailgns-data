@@ -15,9 +15,38 @@
   function nav(cur) {
     return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb' + (cur === "ops" ? " on" : "") + '">🛠️ 网站优化</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/todo" class="ad-nb' + (cur === "todo" ? " on" : "") + '">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
   }
+  // 站长 2026-11-12：「弄个动态的滚动页，把紧急、重要的推送放前面滚动」→ 导航下面一条滚动条：红的在前、黄的在后，4 秒换一条，点一下跳到下面的详情
+  function hot(j) { var rs = j.risks || []; return rs.filter(function (r) { return r.level === "red"; }).concat(rs.filter(function (r) { return r.level === "yellow"; })); }
+  function roll(j) {
+    var hs = hot(j);
+    if (!hs.length) return '<div class="ops-roll ok"><div class="ops-ri"><b>🟢 现在没有紧急的事</b><span>下面的清单有空再看</span></div></div>';
+    return '<div class="ops-roll" id="ops-roll"><div class="ops-rt" id="ops-rt">' + hs.concat(hs.length > 1 ? [hs[0]] : []).map(function (r) {
+      return '<div class="ops-ri ' + r.level + '"><b>' + LV[r.level] + " " + (r.level === "red" ? "紧急" : "重要") + "：" + esc(r.title) + "</b><span>👉 " + esc(r.todo) + "</span></div>";
+    }).join("") + '</div><i class="ops-rn" id="ops-rn">1/' + hs.length + "</i></div>";
+  }
+  function rollGo(n) {
+    try {
+      var box = document.getElementById("ops-roll"), t = document.getElementById("ops-rt"), num = document.getElementById("ops-rn");
+      if (!box || !t) return;
+      box.onclick = function () { var x = document.getElementById("ops-now"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
+      if (n < 2) return;
+      var i = 0, hold = false;
+      box.onmouseenter = box.ontouchstart = function () { hold = true; };
+      box.onmouseleave = box.ontouchend = function () { hold = false; };
+      var iv = setInterval(function () {
+        try {
+          if (!document.body.contains(box)) { clearInterval(iv); return; }
+          if (hold || document.hidden) return;
+          i++; t.style.transition = "transform .45s ease"; t.style.transform = "translateY(-" + (i * 54) + "px)";
+          if (num) num.textContent = ((i % n) + 1) + "/" + n;
+          if (i === n) setTimeout(function () { i = 0; t.style.transition = "none"; t.style.transform = "translateY(0)"; }, 500);
+        } catch (e) { clearInterval(iv); }
+      }, 4000);
+    } catch (e) {}
+  }
   function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
   function render(rid, j) {
-    var h = '<section class="card ops"><div class="card-head"><h2>🛠️ 网站优化</h2><span class="muted">内容更新于 ' + esc(j.updated) + "</span></div>" + nav("ops") +
+    var h = '<section class="card ops"><div class="card-head"><h2>🛠️ 网站优化</h2><span class="muted">内容更新于 ' + esc(j.updated) + "</span></div>" + nav("ops") + roll(j) +
       '<nav class="ops-toc"><a href="javascript:void 0" data-ops-to="ops-now">当前风险</a><a href="javascript:void 0" data-ops-to="ops-worst">最坏情况</a><a href="javascript:void 0" data-ops-to="ops-sec">安全维护</a><a href="javascript:void 0" data-ops-to="ops-todo">待优化</a><a href="javascript:void 0" data-ops-to="ops-dec">定的方案</a><a href="javascript:void 0" data-ops-to="ops-learn">学习清单</a></nav>' +
       // 当前风险
       '<h3 class="ad-h" id="ops-now">🚦 当前风险（合伙人面板算的' + (j.risksAt ? "，" + tm(j.risksAt) : "") + '）</h3><div class="ptn-risks">' + (j.risks || []).map(function (r) {
@@ -36,6 +65,7 @@
       '<h3 class="ad-h" id="ops-learn">📚 学习清单（小白站长 + AI 开发，你要掌握什么）</h3>' + li(j.learn || [], function (x) { return "<li><b>" + esc(x.t) + '</b><div class="ops-k">为什么</div><p>' + esc(x.why) + '</p><div class="ops-k">怎么练</div><p>' + esc(x.how) + "</p></li>"; }) +
       '<p class="muted ptn-note">这页的内容由开发维护：每次你定了新规矩、每做完一件事都会同步到这里。要改内容告诉开发。</p></section>';
     A.app.innerHTML = h;
+    rollGo(hot(j).length);
     // 站长 2026-11-08：目录点了只在本页滚动（以前用 #ops-xx 锚点，被网站路由当成新页面跳回首页）
     A.app.querySelectorAll("[data-ops-to]").forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var t = document.getElementById(a.getAttribute("data-ops-to")); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" }); }; });
   }
