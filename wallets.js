@@ -231,7 +231,7 @@
     return ENV.android ? "安卓" : "";
   }
   var installPrompt = null; // 安卓 Chrome / Edge 的一键安装
-  // 注册 Service Worker（sw.js 不缓存任何东西），安卓 Chrome / Edge / 三星浏览器才会给「一键安装」
+  // 注册 Service Worker：安卓 Chrome / Edge / 三星浏览器才会给「一键安装」；它还负责秒开缓存（首页和 dist 脚本存在手机里，见 sw.js）
   if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () { /* 不支持也不影响使用 */ }); });
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); installPrompt = e; });
 
