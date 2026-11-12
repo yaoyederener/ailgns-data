@@ -265,9 +265,9 @@
   // ===== 音效（站长 2026-11-11「麻将没有声音」）：拍牌声是浏览器现场合成的；报牌用一小段录音（见下面 VOXURL）；这里出任何错都不能影响打牌 =====
   var AC = null, WOKE = false, SAYU = null, SND = { key: "" };
   // 报牌录音（站长 2026-11-12「有声音了，但是不报牌」：很多手机没有中文朗读）：31 句排在一个文件里，每句占 1.1 秒一格，
-  // 顺序 = 27 张牌（一万…九万、幺鸡、二条…九条、一筒…九筒）+ 碰、杠、胡了、自摸。声音由开源语音模型 Kokoro（Apache 2.0，可商用）在本机生成。
+  // 顺序 = 27 张牌（一万…九万、幺鸡、二条…九条、一筒…九筒）+ 碰、杠、胡了、自摸。mj-voice-2 是四川话（站长 2026-11-12「报牌声音很生硬，有没有四川的」），由开源语音模型 CosyVoice 2（Apache 2.0，可商用）在本机生成，音色是合成声不是真人；mj-voice-1 是旧的普通话版，留着给还缓存着旧页面的人用。
   // 换录音要换文件名里的数字（文件按名字长期缓存）。
-  var VOXURL = "/snd/mj-voice-1.m4a", VSLOT = 1.1, VOX = null, VBYTES = null, VTRY = 0, VBUSY = false, VSRC = null;
+  var VOXURL = "/snd/mj-voice-2.m4a", VSLOT = 1.1, VOX = null, VBYTES = null, VTRY = 0, VBUSY = false, VSRC = null;
   function voxLoad() { // 分两步：先把文件拿下来（不用等人点屏幕），等声音设备被点醒后再解码
     try {
       if (VOX || VBUSY || VTRY >= 3 || !sndOn()) return;
