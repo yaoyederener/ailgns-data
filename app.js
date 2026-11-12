@@ -656,7 +656,8 @@
   var GUIDES = {
     // 站长 2026-11-09 又加回来（小白太多，要不停教学）：四步引导放在币种标签正下方，点哪步就跳到哪步
     otc: ['<i class="gd-xin">信</i>', "AiLGNS 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 AiLGNS", "click:[data-sw=buy]"], ["我要卖 AiLGNS", "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["我要做市", "#/lp"]]],
-    trade: ["📊", "交易所盘口", "订单簿 + K 线 + 一键买卖，撮合在链上合约里完成", [["买入", "sel:.tr-form"], ["看盘口", "sel:.tr-book"], ["我的委托", "sel:.tr-mine"], ["回普通版", "#/otc"]]],
+    /* 站长 2026-11-12：盘口页去掉引导卡和「查我的订单」条，进来直接看盘口 */
+    _tradeOff: ["📊", "交易所盘口", "订单簿 + K 线 + 一键买卖，撮合在链上合约里完成", [["买入", "sel:.tr-form"], ["看盘口", "sel:.tr-book"], ["我的委托", "sel:.tr-mine"], ["回普通版", "#/otc"]]],
     names: ["🌐", ".ailgns 域名", "注册一个属于你的名字，可以设为主号、转赠、挂单卖", [["注册新域名", ".ailgns 域名"], ["查我的域名", "查询域名"], ["买别人的域名", "域名市场"], ["卖我的域名", "click:#nm-sellgo"]]],
     oracle: ["🔮", "每日预言家", "免费猜今晚揭晓价，猜中平分大奖", [["看奖池", "sel:.or-pool"], ["怎么玩", "sel:.or-how"], ["提交我的预言", "✍️ 预测"], ["开通获奖通知", "揭晓通知"]]],
     lend: ["🤝", "借贷", "押 AiLGNS 借 DAI，或者出借 DAI 赚利息，合约托管", [["我要借 DAI", "押 AiLGNS 借 DAI"], ["我要出借 DAI", "想借 DAI 的人"], ["正在借的单", "借款中"], ["怎么还款", "还款怎么操作"]]],
@@ -667,8 +668,8 @@
     /* 站长 2026-11-11：账本页引导卡去掉，只留极简搜索框 */
     _scanOff: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
   };
-  // 全站「查我的订单」条：OTC / 盘口 / 借贷 / 预言家 / 荣耀榜 页顶部都有（域名页 2026-11-08 站长要求去掉），输入框自动填当前钱包
-  var OQ = { otc: "otc", trade: "otc", lp: "otc", flows: "otc", lend: "loan", oracle: "other", rank: "other", wallet: "other", team: "other" }, oqCtl = null;
+  // 全站「查我的订单」条：OTC / 借贷 / 预言家 / 荣耀榜 页顶部都有（域名页 2026-11-08、盘口页 2026-11-12 站长要求去掉），输入框自动填当前钱包
+  var OQ = { otc: "otc", lp: "otc", flows: "otc", lend: "loan", oracle: "other", rank: "other", wallet: "other", team: "other" }, oqCtl = null;
   function orderBar(tab) {
     var host = document.getElementById("oq");
     if (!host) { host = document.createElement("div"); host.id = "oq"; host.className = "wrap"; var app = document.getElementById("app"); app.parentNode.insertBefore(host, app); }
