@@ -85,7 +85,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       (j.split.parts || []).map(function (y) { return tile(y.n + " " + y.p + "%（应分）", fm(y.ail || 0, 4) + " AiLGNS", "≈ " + fm(y.amt, 0) + " DAI · " + (j.split.basis === "transit" ? "按中转地址余额" : "按待分配余额") + " · " + '<a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + "</a>", "money"); }).join("") +
       tile("另有 LGNS（未折算）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
-      (j.bal.fast ? tile("⚡ 极速资金池（批量注册 90%，分开放）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
+      (j.bal.fast ? tile("⚡ 极速资金池（暂停进账，留给极速预言家）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
       tile("触发钱包 Gas", fm(j.bal.keeper.dai, 1) + " DAI", j.bal.keeper.dai < 8 ? "⚠️ 低于 8 机器人会停" : "够用", j.bal.keeper.dai < 8 ? "warn" : "") +
       "</div>" +
       allocHtml(j) +

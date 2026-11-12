@@ -89,11 +89,11 @@
     }
     A.genesisBurn = { html: burnHtml, bind: bindBurn, full: function (root) { render(root, false); } };
     // 🏆 大奖一键工具（站长 2026-11-10 定）：注册 K 个随机 .ailgns 名字（5 DAI/个，一次授权、钱包支持就一次确认发一串）→ 查 tokenId → 全部转进黑洞。
-    //    注册打「批量注册」标记（费用 90% 进极速预言家资金池）。机器人下次来取名单时核对黑洞记录数 ≥ 需要数才发奖
+    //    注册打「批量注册」标记（2026-11-11 起费用和普通注册一样：30% 谷歌社交账号钱包、70% 每日奖池）。机器人下次来取名单时核对黑洞记录数 ≥ 需要数才发奖
     function jackpotPanel(box, jp) {
       var nm = A.nm, acct = nm.account(), K = jp.need - (jp.bn || 0), price = jp.price || 5;
       box.innerHTML = '<div class="gs-jp"><b>🏆 你有待领大奖 ' + n(jp.amt) + ' DAI（' + Number(jp.ail || 0).toFixed(4) + ' AiLGNS）</b>' +
-        '<p>领奖前要注册并销毁 <b>' + n(jp.need) + '</b> 个 .ailgns 名字（奖金 30% ÷ ' + price + ' DAI），已烧 <b>' + n(jp.bn || 0) + '</b> 个，还差 <b>' + n(K) + '</b> 个，约 <b>' + n(K * price) + ' DAI</b>。注册费进极速预言家奖池。</p>' +
+        '<p>领奖前要注册并销毁 <b>' + n(jp.need) + '</b> 个 .ailgns 名字（奖金 30% ÷ ' + price + ' DAI），已烧 <b>' + n(jp.bn || 0) + '</b> 个，还差 <b>' + n(K) + '</b> 个，约 <b>' + n(K * price) + ' DAI</b>。注册费和普通注册一样，70% 进每日奖池。</p>' +
         '<p class="muted">点下面一键完成：先授权 DAI，再一次确认注册一批，再一次确认全部转进黑洞（钱包不支持批量就逐个确认，有进度）。截止 ' + new Date(jp.due + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") + '（北京时间）。</p>' +
         '<button type="button" class="nm-go gs-off gs-on gs-jpgo">⚡ 一键注册并销毁 ' + n(K) + ' 个名字（约 ' + n(K * price) + ' DAI）</button><p class="muted gs-jpst"></p></div>';
       var go = box.querySelector(".gs-jpgo"), st = box.querySelector(".gs-jpst"), say = function (t) { st.textContent = t || ""; };
