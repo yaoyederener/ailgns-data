@@ -294,15 +294,20 @@
     var t = j.totals, rows = j.rows, td = rows[0] || {}, y = rows[1] || {};
     var pend = '<p class="muted">数据更新于 ' + tm(j.at || j.walletsAt) + '，每 5 分钟自动更新一次' + (j.pending ? '；还有 ' + j.pending + ' 天历史在后台补算' : "") + '</p>';
     var tile = function (k, v, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + k + "</small><b>" + v + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; };
+    // 💰 留存口径（站长 2026-11-12：不要毛收入）：只算真留在谷歌社交账号钱包里的钱，三种币分开写、不折算；数据和合伙人面板同一份
+    var K = j.keep || {}, KS = { dai: 0, ail: 0, lgns: 0 }, KN = 0, KP = 0;
+    rows.forEach(function (r) { var P = K[r.day]; if (!P) return; KN++; KP += P.pool || 0; ["dai", "ail", "lgns"].forEach(function (k) { KS[k] += P.all[k] || 0; }); });
+    var kd = function (o, k, d) { return o ? fm(o[k], d) : "—"; };
+    var keepTile = function (name, o, cls) { return o ? tile(name, fm(o.dai, Math.abs(o.dai) >= 100 ? 0 : 2) + " DAI", "另有 " + fm(o.ail, 4) + " AiLGNS · " + fm(o.lgns, 0) + " LGNS", cls) : tile(name, "—", "正在从链上数", cls); };
     var h = pend + '<div class="ad-tiles">' +
       tile("今日成交额", fm(td.fillDai, 0) + " DAI", td.fills + " 笔 · 昨日 " + fm(y.fillDai, 0), "big") +
-      tile("今日毛收入", fm(td.income) + " DAI", "手续费 " + fm(td.fee) + " + 域名 " + fm(td.nmDai, 0) + " + 会员 " + fm(td.member, 0), "big money") +
-      tile("今日净收入", fm(td.income - td.nmDai * 0.7) + " DAI", "毛收入 − 域名×70%（留给奖池 " + fm(td.nmDai * 0.7, 0) + "）", "big money") +
+      keepTile("今日留存（真到钱包的）", K[td.day] && K[td.day].all, "big money") +
+      keepTile("昨日留存", K[y.day] && K[y.day].all, "big money") +
       tile("今日域名销售", td.nmN + " 个", fm(td.nmDai, 0) + " DAI") +
       tile("今日新装 App", td.an + " 台", "桌面打开 " + td.a1 + " 次") +
       tile("今日访问", fm(td.v, 0) + " 次", td.v1 + " 人首次 · 查询 " + td.q + " 次") +
-      tile("总毛收入（上线至今）", fm(t.income) + " DAI", "手续费 " + fm(t.fee, 0) + " + 域名 " + fm(t.nmDai, 0) + " + 会员 " + fm(t.member, 0), "money") +
-      tile("总净收入", fm(t.income - t.nmDai * 0.7) + " DAI", "扣掉域名×70% 奖池 " + fm(t.nmDai * 0.7, 0), "money") +
+      keepTile("近 " + KN + " 天留存合计", KN ? KS : null, "money") +
+      tile("近 " + KN + " 天已转奖池", fm(KP, 0) + " DAI", "域名的钱里转给预言家奖池 / 极速资金池的，不算留存", "money") +
       tile("总成交额", fm(t.fillDai, 0) + " DAI", t.fills + " 笔 · 挂单 " + t.orders + " 张") +
       tile("累计装机", t.installs + " 台", "最近 " + rows.length + " 天") + "</div>";
     h += '<h3 class="ad-h">🏦 钱托管在哪（链上实时，每 2 分钟刷新）</h3><div class="ad-wal">' + j.wallets.map(function (w) {
@@ -310,9 +315,9 @@
       if (w.gas) toks.unshift("<b>" + fm(w.gas) + "</b> DAI(Gas)");
       return '<div class="ad-w"><div><b>' + esc(w.name) + '</b> <small class="muted">' + esc(w.note) + '</small><br><a class="mono" href="#/scan/' + w.a + '">' + w.a.slice(0, 8) + "…" + w.a.slice(-6) + "</a></div><div class=\"ad-wb\">" + (toks.length ? toks.join(" · ") : '<span class="muted">0</span>') + "</div></div>";
     }).join("") + "</div>";
-    h += '<h3 class="ad-h">📅 每日明细（北京时间，最近 ' + rows.length + ' 天）</h3><div class="ad-tw"><table class="ad-t"><thead><tr><th>日期</th><th>成交额</th><th>笔数</th><th>域名</th><th>域名 DAI</th><th>会员</th><th>毛收入</th><th>新装</th><th>访问</th><th>首次</th></tr></thead><tbody>' +
-      rows.map(function (r) { if (r.pending) return "<tr><td>" + r.day.slice(5) + '</td><td colspan="9" class="muted">计算中…</td></tr>'; return "<tr><td>" + r.day.slice(5) + "</td><td>" + fm(r.fillDai, 0) + "</td><td>" + r.fills + "</td><td>" + r.nmN + "</td><td>" + fm(r.nmDai, 0) + "</td><td>" + fm(r.member, 0) + "</td><td><b>" + fm(r.income) + "</b></td><td>" + r.an + "</td><td>" + r.v + "</td><td>" + r.v1 + "</td></tr>"; }).join("") + "</tbody></table></div>" +
-      '<p class="muted">' + esc(j.note) + "</p>";
+    h += '<h3 class="ad-h">📅 每日明细（北京时间，最近 ' + rows.length + ' 天）</h3><div class="ad-tw"><table class="ad-t"><thead><tr><th>日期</th><th>成交额</th><th>笔数</th><th>域名</th><th>留存 DAI</th><th>留存 AiLGNS</th><th>留存 LGNS</th><th>新装</th><th>访问</th><th>首次</th></tr></thead><tbody>' +
+      rows.map(function (r) { if (r.pending) return "<tr><td>" + r.day.slice(5) + '</td><td colspan="9" class="muted">计算中…</td></tr>'; return "<tr><td>" + r.day.slice(5) + "</td><td>" + fm(r.fillDai, 0) + "</td><td>" + r.fills + "</td><td>" + r.nmN + "</td><td><b>" + kd(K[r.day] && K[r.day].all, "dai", 0) + "</b></td><td>" + kd(K[r.day] && K[r.day].all, "ail", 4) + "</td><td>" + kd(K[r.day] && K[r.day].all, "lgns", 0) + "</td><td>" + r.an + "</td><td>" + r.v + "</td><td>" + r.v1 + "</td></tr>"; }).join("") + "</tbody></table></div>" +
+      '<p class="muted">成交额 = OTC 四个市场成交（DAI 计）。留存 = 真留在谷歌社交账号钱包里的钱，从链上一笔一笔数出来：OTC 手续费 + 域名的钱（减掉转给奖池的）+ 会员费 + 其它；收到什么币就写什么币，不折算、不估算，和合伙人面板是同一份数。显示「—」的日子还没从链上数。装机 = 第一次从手机桌面图标打开的设备数；访问 = 打开网站次数 / 当天首次打开的人数。</p>';
     return h;
   }
   var adminSt = "";
