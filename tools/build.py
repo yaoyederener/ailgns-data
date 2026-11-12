@@ -35,7 +35,7 @@ GROUPS = {
     "feedback": ["feedback.js"],
     "games":    ["pixel.js", "games.js", "farm.js"],
     "mj":       ["mj.js"],
-    "misc":     ["trades.js", "arb.js", "updates.js", "orders.js", "med.js", "partner.js", "ops.js", "square.js", "bonus.js"],
+    "misc":     ["trades.js", "arb.js", "updates.js", "orders.js", "med.js", "partner.js", "ops.js", "square.js", "bonus.js", "fast.js"],
 }
 
 try:
