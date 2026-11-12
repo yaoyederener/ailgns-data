@@ -97,7 +97,7 @@
         return '<div class="fm-hen' + (full ? "" : " hungry") + (h.g ? " gold" : "") + '"><span class="fm-ic">' + (full ? (h.g ? "🐓" : "🐔") : "😵") + "</span><b>" + (h.eggs ? (h.g ? "🟡" : "🥚").repeat(h.eggs) : "还没下蛋") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才下蛋") + "</small></div>";
       }).join("");
       var hungry = me.hens.filter(function (h) { return h.fed - t < 16 * 3600; }).length;
-      return '<section class="card"><div class="card-head"><h2>🌾 菜地</h2><button type="button" id="fm-harvest"' + (ripe ? "" : " disabled") + ">一键收获" + (ripe ? "（" + ripe + "）" : "") + "</button></div>" +
+      return '<section class="card"><div class="card-head"><h2>🌾 菜地</h2><button type="button" id="fm-harvest"' + (ripe ? ' class="fm-hot"' : " disabled") + ">" + (ripe ? "🧺 一键收获（" + ripe + "）" : "一键收获") + "</button></div>" +
         '<div class="fm-grid">' + plots + more + "</div></section>" +
         '<section class="card"><div class="card-head"><h2>🐔 鸡舍</h2><span class="muted">每 2 小时下 1 个蛋，蛋 ' + H.egg + " 金币</span></div>" +
         (hens ? '<div class="fm-grid">' + hens + "</div>" : '<p class="muted">还没有鸡。买一只小母鸡，喂饱了每 2 小时下一个蛋（最多攒 4 个，攒多了会被人偷）。</p>') +
@@ -211,6 +211,8 @@
         out.querySelectorAll("[data-plant]").forEach(function (b) { b.onclick = function () { seedPicker(+b.getAttribute("data-plant")); }; });
         var on = function (id, fn) { var e = document.getElementById(id); if (e) e.onclick = fn; };
         on("fm-harvest", function () { run("harvest"); });
+        // 站长 2026-11-12：熟了的菜地一闪一闪，客户会去点它 → 点熟菜地也等于点「一键收获」
+        out.querySelectorAll(".fm-plot.ripe").forEach(function (b) { b.onclick = function () { run("harvest"); }; });
         on("fm-buyplot", function () { if (confirm("花 " + R.plots[me.plots.length - 6] + " 金币开垦一块新地？")) run("buyPlot"); });
         on("fm-eggs", function () { run("eggs"); });
         on("fm-feed", function () { run("feed"); });

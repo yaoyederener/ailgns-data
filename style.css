@@ -1556,6 +1556,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .fm-toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 60; max-width: 86vw; padding: 10px 18px; border-radius: 999px; background: #166534; color: #fff; font-weight: 600; box-shadow: 0 6px 20px rgba(0, 0, 0, .2); }
 .fm-toast.bad { background: #b91c1c; }
 @keyframes fm-pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+/* 站长 2026-11-12：有菜可收时「一键收获」放大高亮（绿色，和熟了的菜地一个颜色）；熟菜地也能点 */
+.fm-plot.ripe { cursor: pointer; }
+#fm-harvest.fm-hot { padding: 11px 18px; font-size: 16.5px; font-weight: 800; border-radius: 14px; color: #fff; background: linear-gradient(135deg, #34d399, #16a34a); box-shadow: 0 0 0 4px rgba(34, 197, 94, .22), 0 4px 12px rgba(22, 163, 74, .35); animation: fm-hot 1.4s ease-in-out infinite; }
+@keyframes fm-hot { 0%, 100% { box-shadow: 0 0 0 4px rgba(34, 197, 94, .22), 0 4px 12px rgba(22, 163, 74, .35); } 50% { box-shadow: 0 0 0 9px rgba(34, 197, 94, .1), 0 4px 12px rgba(22, 163, 74, .35); } }
+@media (prefers-reduced-motion: reduce) { #fm-harvest.fm-hot { animation: none; } }
 @media (max-width: 600px) { .fm-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; } .fm-ic { font-size: 30px; } }
 .fm-king { padding: 2px 8px; border-radius: 99px; background: linear-gradient(90deg, #fde68a, #f59e0b); color: #78350f; font-weight: 700; font-size: 13px; }
 .fm-dog { font-size: 13px; color: #92400e; }
