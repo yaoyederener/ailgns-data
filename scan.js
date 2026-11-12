@@ -214,7 +214,10 @@
   var fmtN = function (v, sym) { return "<b>" + (v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4)) + " " + esc(sym) + "</b>"; };
   var firstIn = function (ms, sym) { return ms.filter(function (m) { return m.dir === "in" && (!sym || m.sym === sym); })[0]; };
   var firstOut = function (ms, sym) { return ms.filter(function (m) { return m.dir === "out" && (!sym || m.sym === sym); })[0]; };
-  var pxOf = function (dai, coin) { return coin > 0 ? "，单价 " + (dai / coin).toFixed(3) : ""; };
+  // 站长 2026-11-12：客户看价 824.99、账本写「单价 833」以为被多收了。吃单方的 1% 手续费是从收到的币里扣的，
+  // 所以直接吃单两个价都写：挂单价（OTC 页面上看到的那个）+ 算上手续费的价；扫单一次吃多张，只写均价并说明已含手续费
+  var pxFee = function (dai, coin, buy) { if (!(coin > 0)) return ""; var real = dai / coin; return "，挂单价 " + (buy ? real * 0.99 : real / 0.99).toFixed(3) + "（" + (buy ? "含" : "扣") + " 1% 手续费" + (buy ? "合 " : "后合 ") + real.toFixed(3) + "）"; };
+  var pxAvg = function (dai, coin, buy) { return coin > 0 ? "，均价 " + (dai / coin).toFixed(3) + "（已" + (buy ? "含" : "扣") + " 1% 手续费）" : ""; };
   // 链上留言：0 元交易，data = utf8("ailgns-msg:" + 文字)
   var MSG_PREFIX = "ailgns-msg:", GUESS_PREFIX = "ailgns-oracle-guess:", ANCHOR_PREFIX = "ailgns-oracle:";
   function decodeMsg(input) {
@@ -282,8 +285,8 @@
     }
     // —— 一键扫单 / 自动撮合（合约替你一次吃多张单）——
     if (C.sweep[to] || (!t && ms.some(function (m) { return C.sweep[m.other]; }))) {
-      if (coinIn && daiOut) return { ico: "🛒", text: "<b>一键扫单买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxOf(daiOut, coinIn.v) };
-      if (coinOut && daiIn) return { ico: "💰", text: "<b>一键扫单卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxOf(daiIn, coinOut.v) };
+      if (coinIn && daiOut) return { ico: "🛒", text: "<b>一键扫单买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxAvg(daiOut, coinIn.v, true) };
+      if (coinOut && daiIn) return { ico: "💰", text: "<b>一键扫单卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxAvg(daiIn, coinOut.v, false) };
       if (coinIn) return { ico: "🛒", text: "<b>扫单买入</b>到账 " + fmtN(coinIn.v, coinIn.sym) };
       if (daiIn) return { ico: "💰", text: "<b>扫单卖出</b>到账 " + fmtN(daiIn, "DAI") };
       if (daiOut) return { ico: "🛒", text: "<b>一键扫单</b>，付出 " + fmtN(daiOut, "DAI") };
@@ -294,8 +297,8 @@
     if (C.otc[to]) {
       var mk = C.otc[to];
       if (sel === "0x6fe4a448" || sel === "0xd6febde8") { // 吃单 / 买
-        if (coinIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxOf(daiOut, coinIn.v) };
-        if (coinOut && daiIn) return { ico: "💰", text: "在 OTC <b>卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxOf(daiIn, coinOut.v) };
+        if (coinIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxFee(daiOut, coinIn.v, true) };
+        if (coinOut && daiIn) return { ico: "💰", text: "在 OTC <b>卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxFee(daiIn, coinOut.v, false) };
         if (nftIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b>卡牌，花了 " + fmtN(daiOut, "DAI") };
       }
       if (sel === "0x9128a740" || sel === "0xca690ea2") { // 挂单
