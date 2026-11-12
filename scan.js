@@ -544,24 +544,27 @@
   function bindCancelAll(box, reload) {
     var bs = box.querySelectorAll("[data-cancel]"); if (bs.length < 2 || !box.parentNode) return;
     var bar = document.createElement("div"); bar.className = "sc-call";
-    bar.innerHTML = '<button type="button" class="sc-callbtn">🧹 一键撤掉全部 OTC 挂单（' + bs.length + ' 张）</button><p class="sc-callst" hidden></p>';
+    bar.innerHTML = '<button type="button" class="sc-callbtn">🧹 一键撤掉全部 OTC 挂单（' + bs.length + ' 张）</button><div class="sc-callbar" hidden><i></i></div><p class="sc-callst" hidden></p>';
     box.parentNode.insertBefore(bar, box);
-    var btn = bar.querySelector("button"), st = bar.querySelector(".sc-callst");
+    var btn = bar.querySelector("button"), st = bar.querySelector(".sc-callst"), pb = bar.querySelector(".sc-callbar");
     function say(t, bad) { st.hidden = false; st.className = "sc-callst" + (bad ? " down" : ""); st.textContent = t; }
     btn.onclick = function () {
       var K = A.otcKit; if (!K || !K.useMarket || !K.cancelMany) return;
       var by = {}, ks = [], n = 0;
       box.querySelectorAll("[data-cancel]").forEach(function (b) { if (b.disabled) return; var k = b.getAttribute("data-k"); if (!by[k]) { by[k] = []; ks.push(k); } by[k].push(Number(b.getAttribute("data-cancel"))); n++; });
       if (!n) return;
-      if (!confirm("确定撤掉全部 " + n + " 张 OTC 挂单？币会全部退回你的钱包。" + (ks.length > 1 ? "\n你的单分在 " + ks.length + " 个市场，会一个市场一个市场撤。" : ""))) return;
+      // 站长 2026-11-12：点之前先说清楚钱包会弹几次、要多久（以前客户以为点一次就完，钱包连着弹以为出错了）
+      var secs = n * 3, how = secs < 60 ? secs + " 秒" : Math.ceil(secs / 60) + " 分钟";
+      if (!confirm("要撤掉全部 " + n + " 张 OTC 挂单吗？\n\n① 钱包会连着弹出 " + n + " 次，每次点「确认」就行\n② 不用等，连着点完，大约 " + how + "\n③ 币全部退回你的钱包，不收费" + (ks.length > 1 ? "\n④ 你的单分在 " + ks.length + " 个市场，会一个市场一个市场撤" : "") + "\n\n（少数钱包支持一次确认，那就只弹 1 次）")) return;
       btn.disabled = true; say("正在连接钱包…");
-      var i = 0;
+      var i = 0, base = 0;
+      function prog(d) { pb.hidden = false; pb.firstChild.style.width = Math.round((base + d) / n * 100) + "%"; }
       (function next() {
         if (i >= ks.length) return Promise.resolve();
         var k = ks[i++], tag = ks.length > 1 && MK[k] ? "【" + MK[k].chain + " " + MK[k].sym + "】" : "";
         K.useMarket(k);
-        return K.cancelMany(by[k], function (t) { say(tag + t); }).then(function () { if (A.just) A.just.set("otc", k); return next(); });
-      })().then(function () { say("✅ 全部撤掉了，币已退回你的钱包"); setTimeout(reload, 2500); },
+        return K.cancelMany(by[k], function (t) { say(tag + t); }, prog).then(function () { base += by[k].length; prog(0); if (A.just) A.just.set("otc", k); return next(); });
+      })().then(function () { say("✅ " + n + " 张全部撤掉了，币已退回你的钱包"); setTimeout(reload, 2500); },
         function (e) { btn.disabled = false; say((K.niceError ? K.niceError(e) : (e && e.message) || String(e)) + "（已撤的不受影响，刷新页面后再点一次撤剩下的）", true); });
     };
   }

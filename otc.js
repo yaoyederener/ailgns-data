@@ -314,19 +314,21 @@
     }, function () { return false; });
   }
   // 一次撤多张（当前市场）：OTC 页「一键撤销全部」和账本「一键批量撤单」共用（站长 2026-11-12）。只发客户自己的 cancel，不碰合约
-  function cancelMany(ids, here) {
+  function cancelMany(ids, here, prog) { // prog(已确认几张, 一共几张)：账本用来画进度条
     var calls = ids.map(function (id) { return { to: OTC, data: SEL.cancel + u256(id) }; });
     return ready().then(function () {
       return sendCallsOtc(calls, here).then(function (ok) { if (ok) return; return seq(); }, function () { return seq(); });
     function seq() { // 钱包不支持一次确认：连着弹，每张只点一下确认，不等上一张上链（站长 2026-11-10：点太多次太慢）
       var hashes = [], i = 0;
       function next() {
-        if (i >= ids.length) { here("已全部提交，等待链上确认…"); return Promise.all(hashes.map(function (h) { return W.waitOn(M.chain, h); })); }
+        if (i >= ids.length) { here(ids.length + " 张都确认了，正在等链上记账，大约十几秒…"); return Promise.all(hashes.map(function (h) { return W.waitOn(M.chain, h); })); }
         var data = SEL.cancel + u256(ids[i]);
-        here("第 " + (i + 1) + " / " + ids.length + " 张（#" + ids[i] + "）：钱包弹出就点确认，连着点完即可，不用等上链");
+        // 站长 2026-11-12：先说清楚要点几次、点到第几张了，客户心里有数
+        here(i ? "已确认 " + i + " / " + ids.length + " 张 · 钱包再弹出来继续点「确认」，不用等" : "第 1 / " + ids.length + " 张：请在钱包点「确认」。后面会连着弹，每张点一下，不用等");
+        if (prog) prog(i, ids.length);
         return W.rpcOn(M.chain, "eth_estimateGas", [{ from: account, to: OTC, data: data }]).then(function (g) { return "0x" + (BigInt(g) * 13n / 10n).toString(16); }, function () { return null; })
           .then(function (gas) { var tx = { from: account, to: OTC, data: data }; if (gas) tx.gas = gas; return AIL.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [tx] }); })
-          .then(function (h) { hashes.push(h); i++; return next(); });
+          .then(function (h) { hashes.push(h); i++; if (prog) prog(i, ids.length); return next(); });
       }
       return next();
     }
