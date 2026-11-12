@@ -1125,6 +1125,11 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .book-n { font-size: 13px; font-weight: 600; margin-left: 4px; }
 .book-more { display: block; width: 100%; margin-top: 10px; padding: 9px 12px; font-size: 13.5px; color: var(--purple-ink); background: var(--soft); border: 1px solid var(--soft-line); box-shadow: none; }
 .book-more:hover { background: var(--gold-soft); }
+/* 站长 2026-11-12：一次只多看 5 张，旁边随时能收起 */
+.book-bar { display: flex; gap: 8px; margin-top: 10px; }
+.book-bar .book-more, .book-bar .book-less { flex: 1; width: auto; margin-top: 0; }
+.book-bar .book-less { padding: 9px 12px; font-size: 13.5px; color: var(--purple-ink); background: var(--soft); border: 1px solid var(--soft-line); box-shadow: none; }
+.book-bar .book-less:hover { background: var(--gold-soft); }
 .otc-acts { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin: 0 0 14px; } /* 等宽铺满一行，和上面的市场切换左右对齐 */
 .otc-acts[hidden] { display: none !important; }
 .otc-acts button { height: 40px; padding: 0 10px; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: none; white-space: nowrap; }

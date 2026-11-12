@@ -403,7 +403,10 @@
   }
 
   var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
-  var openBook = {}; // 用户点开了哪个列表（自动刷新后保持展开）
+  var BOOK_STEP = 5; // 站长 2026-11-12：点一次只多看 5 张（一下全铺开要滚很久），旁边随时有「收起」
+  var bookShow = BOOK_SHOW; // 正在画的这个列表露几张（book() 里设）
+  function moreTxt(more) { return "再看 " + Math.min(BOOK_STEP, more) + " 张 ▾ · 还剩 " + more + " 张"; }
+  var openBook = {}; // 每个列表多展开了几张（自动刷新后保持）
   var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
   var bookRaw = null, bookTimer = 0; // 当前画在页面上的订单簿原文 + 自动刷新定时器
   // ---------- 全站累计成交（给客户信心）：/api/totals，读一次缓存 5 分钟 ----------
@@ -620,20 +623,21 @@
         var act = o.maker === account
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
-        return '<tr' + (i >= BOOK_SHOW ? ' class="bk-x"' : "") + ' style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
+        return '<tr' + (i >= bookShow ? ' class="bk-x"' : "") + ' style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
           '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.nameTag(o.maker)) + "</td></tr>";
       }
       function book(key, title, list, hint) {
-        var bk = MK + key, open = openBook[bk], more = list.length - BOOK_SHOW;
+        var bk = MK + key, ext = Math.max(0, Math.min(+openBook[bk] || 0, list.length - BOOK_SHOW)), more = list.length - BOOK_SHOW - ext;
+        bookShow = BOOK_SHOW + ext;
         // 深度条：每一行背景按「到这一档为止累计多少 DAI」铺色，一眼看出哪边厚；配合扫光动画有「扫单」的感觉
         var daiOf = function (o) { return o.sellAilgns ? tNum(o.giveLeft) * priceOf(o) : num(o.giveLeft); }; // 这一档还剩多少 DAI 的量
         var cum = 0, tot = list.reduce(function (sum, o) { return sum + daiOf(o); }, 0) || 1;
         list.forEach(function (o) { cum += daiOf(o); o._w = Math.min(100, cum / tot * 100).toFixed(1); });
-        return '<section class="card' + (open ? " bk-open" : "") + '" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 张</small></h2><span class="muted">' + hint + "</span></div>" +
+        return '<section class="card" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 张</small></h2><span class="muted">' + hint + "</span></div>" +
           (list.length ? '<div class="tbl-wrap bk-sweep"><table class="cards book ' + key + '"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
             list.map(row).join("") + "</tbody></table></div>" +
-            (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + bk + '">' + (open ? "收起 ▴" : "展开其余 " + more + " 张 ▾") + "</button>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
+            (list.length > BOOK_SHOW ? '<div class="book-bar" data-book="' + bk + '"><button type="button" class="ghost book-more"' + (more > 0 ? "" : ' style="display:none"') + ">" + moreTxt(more) + '</button><button type="button" class="ghost book-less"' + (ext > 0 ? "" : ' style="display:none"') + ">收起 ▴</button></div>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
       }
 
       // 顶部小按钮：直接跳到挂单表单（订单多时客户找不到挂单的地方）
@@ -685,15 +689,20 @@
       } catch (e) {}
       deboxCard(id);
       fillTotals();
-      app.querySelectorAll(".book-more").forEach(function (b) {
-        b.onclick = function () {
-          // 只切换显示，不重画页面（免得清掉挂单表单里填了一半的内容）
-          var k = b.getAttribute("data-book"), sec = b.closest("section"), n = sec.querySelectorAll("tr.bk-x").length;
-          openBook[k] = !openBook[k];
-          sec.classList.toggle("bk-open", openBook[k]);
-          b.textContent = openBook[k] ? "收起 ▴" : "展开其余 " + n + " 张 ▾";
-          if (!openBook[k]) sec.scrollIntoView({ block: "start" }); // 收起后回到这个列表开头
-        };
+      app.querySelectorAll(".book-bar").forEach(function (bar) {
+        // 只切换显示，不重画页面（免得清掉挂单表单里填了一半的内容）
+        var k = bar.getAttribute("data-book"), sec = bar.closest("section"), mb = bar.querySelector(".book-more"), lb = bar.querySelector(".book-less");
+        function set(ext, back) {
+          var rows = sec.querySelectorAll("table.book tbody tr"), tot = rows.length;
+          ext = Math.max(0, Math.min(ext, tot - BOOK_SHOW)); openBook[k] = ext;
+          for (var i = 0; i < tot; i++) rows[i].classList.toggle("bk-x", i >= BOOK_SHOW + ext);
+          var more = tot - BOOK_SHOW - ext;
+          mb.style.display = more > 0 ? "" : "none"; if (more > 0) mb.textContent = moreTxt(more);
+          lb.style.display = ext > 0 ? "" : "none";
+          if (back) sec.scrollIntoView({ block: "start" }); // 收起后回到这个列表开头
+        }
+        mb.onclick = function () { set((+openBook[k] || 0) + BOOK_STEP); };
+        lb.onclick = function () { set(0, true); };
       });
       // 站长 2026-11-08：顶部「查询订单」→ 滑到挂单簿下面的「查我的订单」并聚焦输入框
       /* 站长 2026-11-11：顶部「查询」改为直接跳中文账本（连了钱包就带上自己的订单页），让客户熟悉用账本 */
