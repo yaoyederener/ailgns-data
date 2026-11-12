@@ -70,13 +70,17 @@ return best;}
 function bot(g,q){var c=g.hand[q.seat];if(q.type==="swap")return botSwap(c);if(q.type==="que")return botQue(c);if(q.type==="claim")return q.hu?"hu":q.gang?"gang":q.peng&&!waits(c,g.que[q.seat]).length?"peng":"pass";if(q.hu)return{hu:true};if(q.gangs.length)return{gang:0};return{discard:botDiscard(g,q.seat,q.discards)};}
 window.AILMJ={newGame:newGame,play:play,bot:bot,canHu:canHu,waits:waits,fanOf:fanOf,claimOpts:claimOpts,tn:tn,sum:sum,REL:NAMES};var run=0,G=null,pend=null,sel=[],pick=-1,bound=false,DELAY={discard:420,peng:650,gang:900,hu:1500,swap:1800,que:700,end:500};function ls(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,String(v));}catch(e){}}
-var AC=null,SND={key:""};function sndOn(){return ls("mj:snd")!=="0";}
-function sndWake(){try{var C=window.AudioContext||window.webkitAudioContext;if(!AC&&C)AC=new C();if(AC&&AC.state==="suspended")AC.resume();}catch(e){}}
+var AC=null,WOKE=false,SAYU=null,SND={key:""};function sndOn(){return ls("mj:snd")!=="0";}
+function sndWake(){try{var C=window.AudioContext||window.webkitAudioContext,b,src,u;if(!sndOn())return;try{if(navigator.audioSession)navigator.audioSession.type="playback";}catch(e0){}
+if(!AC&&C)AC=new C();if(AC&&AC.state!=="running")AC.resume();if(WOKE)return;WOKE=true;if(AC){b=AC.createBuffer(1,1,22050);src=AC.createBufferSource();src.buffer=b;src.connect(AC.destination);src.start(0);}
+if(window.speechSynthesis&&window.SpeechSynthesisUtterance){u=new SpeechSynthesisUtterance(" ");u.volume=0;u.lang="zh-CN";window.speechSynthesis.speak(u);}}catch(e){}}
 function tone(f,at,dur,vol,type,f2){var o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+at;o.type=type||"sine";o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+dur+0.03);}
-function clack(at,vol){var len=(AC.sampleRate*0.07)|0,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0),i,src=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();for(i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3);src.buffer=buf;f.type="bandpass";f.frequency.value=2400;f.Q.value=0.8;g.gain.value=vol;src.connect(f);f.connect(g);g.connect(AC.destination);src.start(AC.currentTime+at);tone(1200,at,0.06,vol*0.45,"triangle",420);}
-function say(w){try{if(!window.speechSynthesis||!window.SpeechSynthesisUtterance)return;var u=new SpeechSynthesisUtterance(w);u.lang="zh-CN";u.rate=1.2;u.pitch=1.15;u.volume=1;window.speechSynthesis.cancel();window.speechSynthesis.speak(u);}catch(e){}}
+function clack(at,vol){var len=(AC.sampleRate*0.07)|0,buf=AC.createBuffer(1,len,AC.sampleRate),d=buf.getChannelData(0),i,src=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();for(i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3);src.buffer=buf;f.type="bandpass";f.frequency.value=2400;f.Q.value=0.8;g.gain.value=vol*2;src.connect(f);f.connect(g);g.connect(AC.destination);src.start(AC.currentTime+at);tone(1200,at,0.06,vol*0.45,"triangle",420);}
+function say(w){try{var ss=window.speechSynthesis,u;if(!ss||!window.SpeechSynthesisUtterance)return;u=SAYU=new SpeechSynthesisUtterance(w);u.lang="zh-CN";u.rate=1.2;u.pitch=1.15;u.volume=1;if(ss.speaking||ss.pending){ss.cancel();setTimeout(function(){try{if(SAYU===u)ss.speak(u);}catch(e){}},60);}
+else ss.speak(u);}catch(e){}}
 function tsay(t){return t===9?"幺鸡":"一二三四五六七八九".charAt(t%9)+SUIT[(t/9)|0];}
-function snd(k,zimo,t){try{if(!sndOn())return;window.__mjSnd=(window.__mjSnd||0)+1;if(k==="tile"&&t>=0)say(tsay(t));else if(k==="peng")say("碰");else if(k==="gang")say("杠");else if(k==="hu")say(zimo?"自摸":"胡了");if(!AC||AC.state!=="running")return;if(k==="tile")clack(0,0.5);else if(k==="peng"){clack(0,0.6);clack(0.1,0.6);tone(660,0.02,0.22,0.18,"triangle");}
+function snd(k,zimo,t){try{if(!sndOn())return;window.__mjSnd=(window.__mjSnd||0)+1;if(k==="tile"&&t>=0)say(tsay(t));else if(k==="peng")say("碰");else if(k==="gang")say("杠");else if(k==="hu")say(zimo?"自摸":"胡了");if(!AC)return;if(AC.state==="running")fx(k);else{var t0=Date.now();AC.resume().then(function(){if(Date.now()-t0<600){try{fx(k);}catch(e){}}},function(){});}}catch(e){}}
+function fx(k){try{if(k==="tile")clack(0,0.5);else if(k==="peng"){clack(0,0.6);clack(0.1,0.6);tone(660,0.02,0.22,0.18,"triangle");}
 else if(k==="gang"){tone(170,0,0.3,0.5,"sine",55);clack(0,0.7);clack(0.12,0.6);clack(0.24,0.6);tone(880,0.1,0.3,0.16,"triangle");tone(1320,0.2,0.4,0.14,"triangle");}
 else if(k==="hu"){clack(0,0.7);[523,659,784,1047,1319].forEach(function(f,i){tone(f,0.05+i*0.09,i===4?0.7:0.25,0.2,"triangle");});tone(262,0.05,0.9,0.16,"sine");}}catch(e){}}
 function sndScan(g){try{var key=ON?"o"+ON.room+":"+(ON.v&&ON.v.k):"s"+run,hu=0,gang=0,peng=0,last="",s,p=SND;for(s=0;s<4;s++){hu+=((g.hus||[])[s]||[]).length;((g.melds||[])[s]||[]).forEach(function(m){if(m.k==="peng")peng++;else gang++;});}
@@ -128,7 +132,7 @@ function onClick(e){if(!document.getElementById("mj-root")||!e.target.closest)re
 if(el.getAttribute("data-n")||el.getAttribute("data-tk")){if(BUY&&!BUY.busy){if(el.getAttribute("data-n"))BUY.n=Number(el.getAttribute("data-n"));else BUY.tk=el.getAttribute("data-tk");buyQuote();}return;}
 a=el.getAttribute("data-act");q=pend&&pend.req;if(a==="start"){if(!document.querySelector("#mj-root .mj-top")){if(beans()<=0)lsSet("mj:beans",10000);start();}return;}
 if(a==="refill"){lsSet("mj:beans",10000);lobby();return;}
-if(a==="snd"){lsSet("mj:snd",sndOn()?"0":"1");if(sndOn())snd("tile");else{try{window.speechSynthesis.cancel();}catch(e2){}}paint();return;}
+if(a==="snd"){lsSet("mj:snd",sndOn()?"0":"1");if(sndOn()){sndWake();snd("tile");say("声音已开");}else{try{window.speechSynthesis.cancel();}catch(e2){}}paint();return;}
 if(onAct(a,el))return;if(a==="lobby"||a==="quit"){lobby();return;}
 if(!q)return;if(a==="swap"){if(sel.length===3){l=myList().list;answer(sel.map(function(x){return l[x];}));}return;}
 if(a&&a.indexOf("que")===0){answer(Number(a.slice(3)));return;}

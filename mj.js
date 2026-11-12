@@ -263,13 +263,19 @@
   function ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* 存不上就算了 */ } }
   // ===== 音效（站长 2026-11-11「麻将没有声音」）：不用音频文件，浏览器现场合成；这里出任何错都不能影响打牌 =====
-  var AC = null, SND = { key: "" };
+  var AC = null, WOKE = false, SAYU = null, SND = { key: "" };
   function sndOn() { return ls("mj:snd") !== "0"; }
   function sndWake() { // 手机要人点过一下屏幕才让出声，所以每次点击都叫醒一下
     try {
-      var C = window.AudioContext || window.webkitAudioContext;
+      var C = window.AudioContext || window.webkitAudioContext, b, src, u;
+      if (!sndOn()) return;
+      try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e0) { /* 老系统没有这个开关 */ } // iPhone 侧面静音键拨着也照样出声
       if (!AC && C) AC = new C();
-      if (AC && AC.state === "suspended") AC.resume();
+      if (AC && AC.state !== "running") AC.resume();
+      if (WOKE) return;
+      WOKE = true; // 下面两步只在第一次点击时做：iPhone 要在「手指点击」的那一下里真的放过一次声、念过一次字，之后才肯自动出声
+      if (AC) { b = AC.createBuffer(1, 1, 22050); src = AC.createBufferSource(); src.buffer = b; src.connect(AC.destination); src.start(0); }
+      if (window.speechSynthesis && window.SpeechSynthesisUtterance) { u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "zh-CN"; window.speechSynthesis.speak(u); }
     } catch (e) { /* 出不了声就算了 */ }
   }
   function tone(f, at, dur, vol, type, f2) {
@@ -283,15 +289,17 @@
     var len = (AC.sampleRate * 0.07) | 0, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0), i,
       src = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
     for (i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-    src.buffer = buf; f.type = "bandpass"; f.frequency.value = 2400; f.Q.value = 0.8; g.gain.value = vol;
+    src.buffer = buf; f.type = "bandpass"; f.frequency.value = 2400; f.Q.value = 0.8; g.gain.value = vol * 2; // 手机喇叭小，放大一倍
     src.connect(f); f.connect(g); g.connect(AC.destination); src.start(AC.currentTime + at);
     tone(1200, at, 0.06, vol * 0.45, "triangle", 420);
   }
   function say(w) { // 喊「碰」「杠」「胡了」：手机自带的中文朗读，没有这功能的浏览器就只有音效
     try {
-      if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
-      var u = new SpeechSynthesisUtterance(w); u.lang = "zh-CN"; u.rate = 1.2; u.pitch = 1.15; u.volume = 1;
-      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+      var ss = window.speechSynthesis, u;
+      if (!ss || !window.SpeechSynthesisUtterance) return;
+      u = SAYU = new SpeechSynthesisUtterance(w); u.lang = "zh-CN"; u.rate = 1.2; u.pitch = 1.15; u.volume = 1; // SAYU 留着这句话，免得手机没念完就把它回收了
+      if (ss.speaking || ss.pending) { ss.cancel(); setTimeout(function () { try { if (SAYU === u) ss.speak(u); } catch (e) { /* 不喊也行 */ } }, 60); } // 有些手机「打断」后马上念会被吞掉，隔一小会儿再念
+      else ss.speak(u);
     } catch (e) { /* 不喊也行 */ }
   }
   function tsay(t) { return t === 9 ? "幺鸡" : "一二三四五六七八九".charAt(t % 9) + SUIT[(t / 9) | 0]; } // 播报用的牌名：三万、五条、七筒，1 条叫幺鸡
@@ -300,7 +308,13 @@
       if (!sndOn()) return;
       window.__mjSnd = (window.__mjSnd || 0) + 1; // 自检用：数一数响了几次
       if (k === "tile" && t >= 0) say(tsay(t)); else if (k === "peng") say("碰"); else if (k === "gang") say("杠"); else if (k === "hu") say(zimo ? "自摸" : "胡了");
-      if (!AC || AC.state !== "running") return;
+      if (!AC) return;
+      if (AC.state === "running") fx(k);
+      else { var t0 = Date.now(); AC.resume().then(function () { if (Date.now() - t0 < 600) { try { fx(k); } catch (e) { /* 出不了声就算了 */ } } }, function () { /* 还没被点醒 */ }); } // 刚点醒还差一口气：等它醒了马上补上这一声，过期的就不补了
+    } catch (e) { /* 出不了声就算了 */ }
+  }
+  function fx(k) {
+    try {
       if (k === "tile") clack(0, 0.5);
       else if (k === "peng") { clack(0, 0.6); clack(0.1, 0.6); tone(660, 0.02, 0.22, 0.18, "triangle"); }
       else if (k === "gang") { tone(170, 0, 0.3, 0.5, "sine", 55); clack(0, 0.7); clack(0.12, 0.6); clack(0.24, 0.6); tone(880, 0.1, 0.3, 0.16, "triangle"); tone(1320, 0.2, 0.4, 0.14, "triangle"); }
@@ -515,7 +529,7 @@
       a = el.getAttribute("data-act"); q = pend && pend.req;
       if (a === "start") { if (!document.querySelector("#mj-root .mj-top")) { if (beans() <= 0) lsSet("mj:beans", 10000); start(); } return; }
       if (a === "refill") { lsSet("mj:beans", 10000); lobby(); return; }
-      if (a === "snd") { lsSet("mj:snd", sndOn() ? "0" : "1"); if (sndOn()) snd("tile"); else { try { window.speechSynthesis.cancel(); } catch (e2) { /* 没有朗读功能 */ } } paint(); return; }
+      if (a === "snd") { lsSet("mj:snd", sndOn() ? "0" : "1"); if (sndOn()) { sndWake(); snd("tile"); say("声音已开"); } else { try { window.speechSynthesis.cancel(); } catch (e2) { /* 没有朗读功能 */ } } paint(); return; }
       if (onAct(a, el)) return; // 联机的按钮
       if (a === "lobby" || a === "quit") { lobby(); return; }
       if (!q) return;
