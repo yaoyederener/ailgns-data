@@ -1242,6 +1242,14 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .cb-msg.cb-human .cb-bubble { background: #fff7ed; border: 1px solid #fdba74; color: #431407; }
 .cb-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #c2410c; background: #ffedd5; border-radius: 999px; padding: 1px 8px; margin: 0 0 4px; }
 .cb-fab { position: relative; }
+/* 站长 2026-11-12（工单 #136 老误点）：客服按钮左上角加 ×，点了缩成屏幕右边的小耳朵，点小耳朵再放出来 */
+.cb-hide { position: absolute; left: -9px; top: -9px; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid #d9d4f5; background: #fff; color: #6b7280; font-size: 15px; line-height: 1; box-shadow: 0 2px 8px rgba(73, 54, 255, .18); }
+.cb-hide::after { content: ""; position: absolute; inset: -8px; }
+.cb-tab { display: none; position: fixed; right: 0; bottom: calc(26px + env(safe-area-inset-bottom)); width: 22px; padding: 10px 0; border: 0; border-radius: 10px 0 0 10px; background: rgba(112, 39, 217, .5); color: #fff; font-size: 12px; font-weight: 700; line-height: 1.15; writing-mode: vertical-rl; letter-spacing: 2px; }
+.cb.mini .cb-fab, .cb.mini .cb-hide, .cb.open .cb-hide { display: none; }
+.cb.mini .cb-tab { display: block; }
+.cb.open .cb-tab { display: none; }
+.cb.mini:has(.cb-new) .cb-tab::after { content: ""; position: absolute; top: -3px; left: -3px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }
 .cb-fab.cb-new::after { content: ""; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }
 /* 手机上市场切换缩小：三列、小字、窄内边距，少占屏幕 */
 @media (max-width: 600px) {

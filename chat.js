@@ -170,6 +170,7 @@
   function build() {
     root = el('<div class="cb" id="cb">' +
       '<button class="cb-fab" aria-label="在线客服"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.4c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" fill="currentColor"/><circle cx="9" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="12" cy="9.6" r="1.2" fill="#7027d9"/><circle cx="15" cy="9.6" r="1.2" fill="#7027d9"/></svg><span>客服</span></button>' +
+      '<button class="cb-hide" type="button" aria-label="收起客服按钮">×</button><button class="cb-tab" type="button" aria-label="展开客服按钮">客服</button>' +
       '<section class="cb-panel" hidden aria-label="在线客服">' +
       '<header class="cb-head"><b>AiLGNS 客服</b><button class="cb-x" aria-label="关闭">×</button></header>' +
             '<div class="cb-list"></div>' +
@@ -190,6 +191,13 @@
       if (open && matchMedia("(min-width: 601px)").matches) input.focus();
     }
     fab.onclick = function () { toggle(panel.hidden); };
+    // 站长 2026-11-12（工单 #136，很多客户说老误点）：按钮左上角的 × 把它缩成屏幕右边一个小耳朵，点小耳朵再放出来；记住客户的选择
+    try {
+      var MINI = "cb:mini", mini = function (on) { root.classList.toggle("mini", on); try { if (on) localStorage.setItem(MINI, "1"); else localStorage.removeItem(MINI); } catch (e) { /* 无痕模式 */ } };
+      root.querySelector(".cb-hide").onclick = function (e) { e.stopPropagation(); mini(true); };
+      root.querySelector(".cb-tab").onclick = function () { mini(false); };
+      try { if (localStorage.getItem(MINI)) root.classList.add("mini"); } catch (e) { /* 无痕模式 */ }
+    } catch (e) { /* 收不起来不影响客服本身 */ }
     if (window.AIL) window.AIL.chatOpen = function (q) { toggle(true); if (q && input) { input.value = q; input.focus(); } };
     // 从 App 壳页带问题过来：?chat=问题 → 打开窗口直接问
     try { var cq = new URLSearchParams(location.search).get("chat"); if (cq) { setTimeout(function () { toggle(true); ask(cq); }, 600); } } catch (e) {} // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
