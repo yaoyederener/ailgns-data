@@ -1831,7 +1831,14 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-rk input { flex: 1; min-width: 0; }
 
 /* 价格卡缩小：5 个价格一行，手机两列 */
-.nm-pcard .card-head h2 small { font-size: 13px; font-weight: 400; }
+/* 站长 2026-11-12：价格挪到搜索栏下面并高亮（浅紫底 + 紫边，价钱加大加粗） */
+.nm-pbox { margin: 10px 0 2px; padding: 10px 10px 8px; border: 2px solid #b79cf5; border-radius: 14px; background: #f6f1ff; }
+.nm-pbt { margin: 0 0 8px; font-size: 16px; font-weight: 800; color: #5b21b6; }
+.nm-pbt small { margin-left: 8px; font-size: 12.5px; font-weight: 500; color: #7c6aa8; }
+.nm-pbox .nm-price.nm-pc div { background: #fff; border-color: #dccdfa; }
+.nm-pbox .nm-price.nm-pc span { font-size: 19px; font-weight: 800; color: #6927db; }
+.nm-pbox .nm-pdet { margin-top: 8px; }
+.nm-pbox .nm-pdet > p.muted { font-size: 12.5px; margin: 8px 0 4px; }
 .nm-price.nm-pc { grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .nm-price.nm-pc div { padding: 7px 4px; }
 .nm-price.nm-pc b { font-size: 12px; font-weight: 600; }
@@ -1840,6 +1847,7 @@ details.nm-rules ol { margin: 8px 0 6px; padding-left: 20px; }
 .nm-pcard > p.muted { font-size: 12.5px; margin: 8px 0 4px; }
 .nm-pdet summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 @media (max-width: 640px) { .nm-price.nm-pc { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .nm-pbox .nm-price.nm-pc { grid-template-columns: repeat(3, 1fr); gap: 5px; } .nm-pbox .nm-price.nm-pc div { padding: 7px 2px; } .nm-pbox .nm-price.nm-pc small.nm-q { font-size: 10px; } }
 
 /* 注册搜索框：名字 → 后缀 → 搜索，一行一个，不并排 */
 #nm-f.nm-search { display: grid; grid-template-columns: 1fr; gap: 8px; }
