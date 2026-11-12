@@ -44,8 +44,8 @@
       return r.text().then(function (b) { return { t: Number(r.headers.get("x-ail-at")) || 0, b: b, ct: r.headers.get("content-type") || "application/json" }; });
     }).catch(function () { return null; });
   }
-  // 只有「生成时间」变了、内容没变：不算变化，不用重画整页（重画会把页面上读到一半的链上数据全部重来）
-  function same(b) { return String(b).replace(/"at":\d+/g, ""); }
+  // 只有「生成时间 at / 扫到第几个区块 to」变了、内容没变：不算变化，不用重画整页（重画会把页面上读到一半的链上数据全部重来）
+  function same(b) { return String(b).replace(/"(at|to)":\d+/g, ""); }
   function emit(name, d) { try { window.dispatchEvent(new CustomEvent(name, { detail: d || {} })); } catch (e) {} }
   window.fetch = function (input, init) {
     try {
