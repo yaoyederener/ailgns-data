@@ -1309,6 +1309,17 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .sw-pnl.lose { background: #fef2f2; border: 1px solid #fecaca; box-shadow: none; color: #991b1b; }
 .sw-pnl em { background: #d1fae5; }
 .sw-pnl b { font-size: 24px; }
+/* 站长 2026-11-12：比官方 DEX 多拿要一眼看到。浅绿底 + 粗绿边 + 大数字 + 两格对比（官方 DEX 灰、本站绿） */
+.sw-pnl.win { display: block; padding: 14px; border: 2px solid #10b981; box-shadow: 0 4px 14px rgba(16, 185, 129, .18); }
+.sw-pnl .pn-t { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.sw-pnl .pn-t em { background: #059669; color: #fff; font-size: 14px; padding: 2px 10px; border-radius: 999px; }
+.sw-pnl .pn-n { display: block; margin: 4px 0 10px; font-size: 34px; font-weight: 900; line-height: 1.1; color: #047857; font-variant-numeric: tabular-nums; }
+.sw-pnl .pn-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.sw-pnl .pn-vs div { min-width: 0; padding: 8px 10px; border-radius: 10px; background: #fff; border: 1px solid #e5e7eb; color: #6b7280; }
+.sw-pnl .pn-vs div.me { border: 2px solid #10b981; color: #065f46; }
+.sw-pnl .pn-vs i { display: block; font-style: normal; font-size: 12.5px; font-weight: 700; }
+.sw-pnl .pn-vs u { display: block; text-decoration: none; font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.sw-pnl small { display: block; }
 .sweep .sw-get { background: #f5f3ff; border: 1px solid #ddd6fe; color: #3b0764; box-shadow: none; }
 .sweep .sw-get b { font-size: 24px; }
 .sweep .sw-go { background: #6d28d9 !important; color: #fff !important; border: 0; box-shadow: 0 6px 16px rgba(109, 40, 217, .3); } /* 站长 2026-11-08：付款蓝和下方统计重复，改成本站紫 */

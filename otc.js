@@ -1182,9 +1182,15 @@
       // AiLGNS 不能直接从底池买，只能场外收，买入按场外行情算：DEX 价 + 30% 溢价（站长定的标准，buyRef）
       var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * DEX_SELL, mine = num(dai), d = buy ? dex - mine : mine - dex;
       if (!(d > 0) || !(dex > 0)) return "";
-      var refTxt = ref ? "场外行情（DEX 价 + " + Math.round((ref - 1) * 100) + "% 溢价）" : "";
-      return '<div class="sw-pnl win"><span>✅ 赚了</span><b>+' + A.fmt(d, 2) + " DAI</b><em>" + (buy ? (ref ? "比场外行情便宜 " : "比去 DEX 买便宜 ") : "比在 DEX 卖多拿 ") + (d / dex * 100).toFixed(1) + "%</em>" +
-        "<small>同样" + (buy ? "买 " + tShow(tok) + " " + SYM + "，" + (ref ? "按" + refTxt + "要付约 " : "在 DEX 要付约 ") : "卖 " + tShow(tok) + " " + SYM + "，在 DEX 只能拿约 ") + A.fmt(dex, 2) + " DAI" + (ref ? "" : "（含 DEX 手续费" + (buy ? "" : "和卖出税") + "）") + "</small></div>";
+      // 站长 2026-11-12：比官方 DEX 多拿要一眼看到（大数字 + 官方 DEX / 本站两格对比）；不比 DEX 划算上面已经整块不显示
+      var who = ref ? "场外行情" : M.chain === "anubis" ? "官方 DEX" : "DEX", pct = (d / dex * 100).toFixed(1);
+      var how = ref ? "场外行情按 DEX 价 + " + Math.round((ref - 1) * 100) + "% 溢价算" :
+        buy ? who + " 的数已含池子手续费" :
+        M.liveTax && SELL_TAX !== null ? who + " 卖出要扣约 " + (SELL_TAX * 100).toFixed(1) + "% 的税（链上最近实测）+ 0.3% 手续费" : who + " 的数已扣它的手续费和卖出税";
+      return '<div class="sw-pnl win"><div class="pn-t"><span>🔥 比' + who + (buy ? "少付" : "多拿") + "</span><em>" + (buy ? "省 " : "多 ") + pct + "%</em></div>" +
+        '<b class="pn-n">+' + A.fmt(d, 2) + " DAI</b>" +
+        '<div class="pn-vs"><div><i>' + who + (buy ? "要付" : "到手") + "</i><u>约 " + A.fmt(dex, 2) + ' DAI</u></div><div class="me"><i>✅ 本站' + (buy ? "只付" : "到手") + "</i><u>" + A.fmt(mine, 2) + " DAI</u></div></div>" +
+        "<small>同样" + (buy ? "买 " : "卖 ") + tShow(tok) + " " + SYM + "。" + how + "；本站的数已扣 1% 手续费。</small></div>";
     }
     function bindSweep(sells, buys, mkt, reload) {
       var box = document.getElementById("otc-sweep");
@@ -1239,8 +1245,9 @@
         go.disabled = !p.steps.length;
         if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
-        if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI</small>"; // 分两行：付多少一行，得多少一行
         var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt); lastPnl = pnlOf(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
+        var more = lastPnl ? " · 比" + (buy && M.buyRef ? "场外行情" : " DEX ") + (buy ? "省 " : "多拿 ") + A.fmt(lastPnl.d, 2) + " DAI" : ""; // 按钮上也写一遍多拿多少
+        if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + more + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI" + more + "</small>"; // 分两行：付多少一行，得多少一行
         out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + " · 吃掉 " + p.steps.length + " 张单</small></div>"; // 平均单价和明细表去掉了（站长要求）
         ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
@@ -1252,6 +1259,8 @@
       r.oninput = draw;
       draw();
       loadBal();
+      // 市价没读到（后台没带池子数据）时对比框出不来：这里自己再读一次池子，读到就补上
+      if (!mkt && M.pair) marketPrice().then(function (v) { if (v > 0 && document.getElementById("sw-out") === out) { mkt = v; draw(); } }).catch(function () {});
       // 一键扫单：先一次授权总额，再按价格从优到差一张一张成交（合约一次只能吃一张单，每张都要在钱包里确认一次）
       go.onclick = function () {
         var buy = side === "buy", token = buy ? DAI : AILGNS, name = buy ? "DAI" : SYM, payDec = buy ? 18 : TD;
