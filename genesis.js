@@ -164,7 +164,15 @@
         box.querySelectorAll(".gs-bpick").forEach(function (b) {
           b.onclick = function () {
             var id = b.getAttribute("data-id"), no = b.getAttribute("data-no"), full = b.getAttribute("data-full");
-            if (!confirm("确认销毁 " + full + "（创世 #" + no + "）吗？\n\n它会被转进黑洞地址，永久拿不回来。\n一枚只能抵一次奖。")) return;
+            // 2026-11-12：不用浏览器自带的确认框（有的钱包浏览器不弹，客户点了没反应），改成同一个按钮点两次
+            if (b.getAttribute("data-sure") !== "1") {
+              box.querySelectorAll(".gs-bpick").forEach(function (x) { x.removeAttribute("data-sure"); x.textContent = "🔥 销毁这枚"; });
+              b.setAttribute("data-sure", "1"); b.textContent = "⚠️ 再点一次，确认销毁";
+              say("要销毁 " + full + "（创世 #" + no + "）：它会被转进黑洞地址，永久拿不回来，一枚只能抵一次奖。确定的话，再点一次那个按钮。");
+              setTimeout(function () { if (b.getAttribute("data-sure") === "1" && !b.disabled) { b.removeAttribute("data-sure"); b.textContent = "🔥 销毁这枚"; say(""); } }, 15000);
+              return;
+            }
+            b.removeAttribute("data-sure"); b.textContent = "🔥 销毁这枚";
             box.querySelectorAll(".gs-bpick").forEach(function (x) { x.disabled = true; });
             nm.tx(nm.NAMES(), "0x23b872dd" + A.pad(acct) + A.pad(DEAD) + id, say, "🔥 销毁 " + full + "（创世 #" + no + "）：转进黑洞地址，永久拿不回。请在钱包确认").then(function (h) {
               box.innerHTML = '<div class="gs-bdone"><b>✅ ' + esc(full) + '（创世 #' + n(no) + '）已销毁</b><p>机器人会核对这条链上记录，核对无误后发奖；奖金发到你中奖时用的钱包。</p>' +
