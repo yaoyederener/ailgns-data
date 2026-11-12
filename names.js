@@ -262,7 +262,7 @@
       return W.rpcOn("anubis", "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) { throw new Error(e && /PAY_FAILED|transfer/i.test(e.message) ? "DAI 不够（还要一点 DAI 付 Gas）" : "交易会失败：" + ((e && e.message) || "请检查名字和余额")); })
       .then(function () { bigTip(msg); return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: to, data: data }] }); });
     })
-      .then(function (h) { bigTip(""); say("已提交，等待链上确认…"); return W.waitOn("anubis", h).then(function () { return h; }); }, function (e) { bigTip(""); throw e; });
+      .then(function (h) { bigTip(""); say("已提交，等待链上确认…"); return W.waitOn("anubis", h).then(function () { if (A.nameForget) A.nameForget(account); return h; }); }, function (e) { bigTip(""); throw e; });
   }
   // 大字提示层：钱包弹出前先告诉老人家「点绿色确定」，点一下就关
   function bigTip(msg) {

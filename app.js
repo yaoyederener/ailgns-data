@@ -93,6 +93,25 @@
     });
   }
   function call(to, data) { return rpc("eth_call", [{ to: to, data: data }, "latest"]); }
+  // 一次请求读多条（站长 2026-11-11 提速）：全站查名字用，几百次读链合成几次请求。整批读不到就换下一个节点；单条出错的位置给 null
+  function rpcMany(list, i) {
+    i = i || 0;
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null, timer = ctl && setTimeout(function () { ctl.abort(); }, 8000);
+    return fetch(RPCS[i % RPCS.length], {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(list.map(function (x, k) { return { jsonrpc: "2.0", id: k, method: x[0], params: x[1] }; })),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) { clearTimeout(timer); return r.json(); }).then(function (j) {
+      if (!Array.isArray(j) || j.length !== list.length) throw new Error("batch");
+      var out = list.map(function () { return null; });
+      j.forEach(function (x) { if (x && !x.error && x.id >= 0 && x.id < out.length) out[x.id] = x.result; });
+      return out;
+    }).catch(function (e) {
+      if (i < RPCS.length - 1) return rpcMany(list, i + 1);
+      throw e;
+    });
+  }
   function pad(a) { return a.toLowerCase().replace("0x", "").padStart(64, "0"); }
   function word(hex, i) { return BigInt("0x" + (hex.slice(2 + i * 64, 2 + (i + 1) * 64) || "0")); }
   function units(b) { return Number(b / 10n ** 12n) / 1e6; }
@@ -803,7 +822,7 @@
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
     hiddenNames: new Proxy({ "加拿大局长.ailgns": 1, "aiotc.ailgns": 1, "四哥.ailgns": 1, "觉醒人生.ailgns": 1, "加拿大局长.lgns": 1 }, { get: function (o, k) { return o[k] || (typeof k === "string" && BAN_RE.test(k) ? 1 : undefined); } }),
     nameBanned: function (n) { return BAN_RE.test(String(n || "")); }, // 🚫 涉政名字：不开放注册、全站不显示（和 lib/ban.js 保持一致）
-    pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, call: call, pad: pad, word: word, getJSON: getJSON,
+    pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, rpcMany: rpcMany, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv, just: just,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
     track: track,

@@ -108,7 +108,7 @@
         // 优先 .ailgns，再按拿到的先后（最早的那个）
         Object.keys(by).forEach(function (a) { by[a].sort(function (p, q) { return (p.t === "ailgns" ? 0 : 1) - (q.t === "ailgns" ? 0 : 1) || p.b - q.b; }); });
         return by;
-      }, function () { return {}; });
+      }, function () { fails++; return {}; });
     }
     return owned;
   }
@@ -118,20 +118,67 @@
       return list.reduce(function (pr, x) {
         return pr.then(function (got) {
           if (got) return got;
-          return call(NAMES[x.t], "0x36bf1f0c" + x.id.slice(2)).then(function (r) { var n = decStr(r); return n && !HN[n + "." + x.t] ? n + "." + x.t : ""; }, function () { return ""; });
+          return bcall(NAMES[x.t], "0x36bf1f0c" + x.id.slice(2)).then(function (r) { var n = decStr(r); return n && !HN[n + "." + x.t] ? n + "." + x.t : ""; }, function () { fails++; return ""; });
         });
       }, Promise.resolve(""));
     });
   }
+  // 查名字专用的批量读（站长 2026-11-11 提速）：30 毫秒内的查询合成一批（每批最多 100 条），一批读不到再退回逐条读
+  var bq = [], bt = 0, fails = 0;
+  function bcall(to, data) {
+    if (!A.rpcMany) return call(to, data);
+    return new Promise(function (ok, no) { bq.push([to, data, ok, no]); if (!bt) bt = setTimeout(bflush, 30); });
+  }
+  function bflush() {
+    bt = 0; var all = bq; bq = [];
+    for (var i = 0; i < all.length; i += 100) (function (part) {
+      A.rpcMany(part.map(function (x) { return ["eth_call", [{ to: x[0], data: x[1] }, "latest"]]; })).then(function (rs) {
+        part.forEach(function (x, k) { if (rs[k] == null) x[3](new Error("rpc")); else x[2](rs[k]); });
+      }, function () { part.forEach(function (x) { call(x[0], x[1]).then(x[2], x[3]); }); });
+    })(all.slice(i, i + 100));
+  }
+  // 查到的名字记在浏览器里：下次打开直接用记住的，不用再读链；超过 5 分钟的在后台悄悄核对一遍，变了再换
+  var NMK = "nmc1", store = {}, saveT = 0;
+  try { store = JSON.parse(localStorage.getItem(NMK) || "{}") || {}; } catch (e) { store = {}; }
+  function remember(a, n) {
+    store[a] = [n, Math.floor(Date.now() / 60000)];
+    if (saveT) return;
+    saveT = setTimeout(function () {
+      saveT = 0;
+      try {
+        var ks = Object.keys(store);
+        if (ks.length > 3000) ks.sort(function (x, y) { return store[x][1] - store[y][1]; }).slice(0, ks.length - 2000).forEach(function (k) { delete store[k]; });
+        localStorage.setItem(NMK, JSON.stringify(store));
+      } catch (e) {}
+    }, 1500);
+  }
+  function lookup(a) {
+    return candidates().then(function (set) {
+      if (set && !set[a]) return "";
+      return Promise.all(["ailgns", "lgns"].map(function (t) {
+        return bcall(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n && !(A.hiddenNames || {})[n + "." + t] ? n + "." + t : ""; }, function () { fails++; return ""; });
+      })).then(function (x) { return x[0] || x[1]; });
+    }).then(function (n) { return n || anyName(a); }); // 设了主名字用主名字；没设就用他名下的域名
+  }
+  // 读链查一次；中途有读不到的（结果可能不准）就不记，返回 null
+  function fresh(a) {
+    var f0 = fails;
+    return lookup(a).then(function (n) { if (!n && fails !== f0) return null; remember(a, n); return n; }, function () { return null; });
+  }
   function nameOf(a) {
     a = String(a).toLowerCase();
     if (A.hidden && A.hidden[a]) return Promise.resolve(""); // 匿名持有人：不把地址换成名字
-    if (!nameCache[a]) nameCache[a] = candidates().then(function (set) {
-      if (set && !set[a]) return "";
-      return Promise.all(["ailgns", "lgns"].map(function (t) {
-        return call(NAMES[t], SEL.nameOf + A.pad(a)).then(function (r) { var n = decStr(r); return n && !(A.hiddenNames || {})[n + "." + t] ? n + "." + t : ""; }, function () { return ""; });
-      })).then(function (x) { return x[0] || x[1]; });
-    }).then(function (n) { return n || anyName(a); }); // 设了主名字用主名字；没设就用他名下的域名
+    if (!nameCache[a]) {
+      var c = store[a];
+      if (c && typeof c[0] === "string" && !(c[0] && (A.hiddenNames || {})[c[0]])) {
+        nameCache[a] = Promise.resolve(c[0]);
+        if (Date.now() / 60000 - c[1] > 5) fresh(a).then(function (n) {
+          if (n === null || n === c[0]) return;
+          nameCache[a] = Promise.resolve(n);
+          if (!timer) timer = setTimeout(swapAll, 300); // 名字变了：页面上还显示短地址的地方补换一次
+        });
+      } else nameCache[a] = fresh(a).then(function (n) { return n || ""; });
+    }
     return nameCache[a];
   }
   // 页面里所有 data-a 的地址，查到名字就换成「名字 + 短地址」
@@ -140,7 +187,7 @@
     root.querySelectorAll("[data-nft]").forEach(function (e) {
       var x = e.getAttribute("data-nft").split(":");
       e.removeAttribute("data-nft");
-      call(NAMES[x[0]], "0x36bf1f0c" + u256(x[1])).then(function (r) { var n = decStr(r); if (n) e.textContent = "🌐 " + n + "." + x[0]; }, function () {});
+      bcall(NAMES[x[0]], "0x36bf1f0c" + u256(x[1])).then(function (r) { var n = decStr(r); if (n) e.textContent = "🌐 " + n + "." + x[0]; }, function () {});
     });
     root.querySelectorAll("[data-a]").forEach(function (e) {
       if (KNOWN[e.getAttribute("data-a").toLowerCase()]) return;
@@ -870,6 +917,8 @@
     });
   };
   A.credOf = function (a) { return fetch("/api/cred?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var c = j[String(a).toLowerCase()] || { vol: 0, n: 0, lv: 0, wk: null }; c.name = CREDN[c.lv]; c.players = j.players || 0; c.next = null; return c; }); };
+  // 自己刚注册 / 设主名字 / 转让之后：忘掉记住的旧名字，下次显示重新读链
+  A.nameForget = function (a) { a = String(a || "").toLowerCase(); delete nameCache[a]; delete store[a]; try { localStorage.setItem(NMK, JSON.stringify(store)); } catch (e) {} };
   A.nameOf = nameOf; // 荣耀榜播报：没域名的大哥引导去注册
   A.pages.scan = page;
 })();
