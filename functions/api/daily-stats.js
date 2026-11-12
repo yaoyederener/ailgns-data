@@ -5,6 +5,7 @@ import { RPCS } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 import { bjDay, counts } from "../../lib/stats.js";
 import { keccak256 } from "../../lib/evmsig.js";
+import { FAST_START, FAST_REG_TOPIC, fastPaid } from "../../lib/fast.js";
 
 const OPS_GROUP = "uqw6tsqb"; // 内部运营群（不要和行情群 oes8etcm、fvg4wksw 混用）
 const ENABLED = false; // 2026-11-07 站长：内部群先暂停汇总通报，改在工单后台「📊 数据」看（数据照常记）
@@ -197,20 +198,21 @@ async function catchUp(kv) {
     });
   }
   // 域名收入：Paid 按 DAI 价值记；LGNS 转进分账合约、但同一笔交易里没有 Paid 的，是「补税差」
-  let paidTx = new Set();
+  let paidTx = new Set(), fastSet = new Set(); // fastSet：极速预言家的票款（上线后新注册的纯数字 .ailgns），单独记在 nm.fast，不进每日奖池
   const tn = tot.nm || (tot.nm = { n: 0, dai: 0, tok: {}, top: 0 });
-  await walk("nm", "anubis", NM.deploy, { address: NM.names.concat([NM.lgns]), topics: [[NM.paid, TRANSFER]] }, async (l, d) => {
+  await walk("nm", "anubis", NM.deploy, { address: NM.names.concat([NM.lgns]), topics: [FAST_START ? [NM.paid, TRANSFER, FAST_REG_TOPIC] : [NM.paid, TRANSFER]] }, async (l, d) => {
     const dn = d.nm || (d.nm = { n: 0, dai: 0, tok: {}, top: 0 });
     if (l.topics[0] === NM.paid) {
       const payer = "0x" + l.topics[1].slice(26), tok = "0x" + l.topics[2].slice(26), w = words(l.data);
       if (NM.own.has(payer)) return;
       const [sym, dec] = PAY_TOKENS.anubis[tok] || [tok.slice(0, 8), 18], a = Number(w[0]) / 10 ** dec, v = dai(w[1]);
       for (const x of [dn, tn]) { x.n++; x.dai += v; x.tok[sym] = (x.tok[sym] || 0) + a; }
+      if (fastSet.has(l.transactionHash + ":" + parseInt(l.logIndex, 16))) for (const x of [dn, tn]) x.fast = (x.fast || 0) + v;
     } else if (l.address.toLowerCase() === NM.lgns && "0x" + l.topics[2].slice(26) === NM.payee && !paidTx.has(l.transactionHash) && !NM.own.has("0x" + l.topics[1].slice(26))) {
       const a = Number(BigInt(l.data)) / 1e9;
       dn.top += a; tn.top += a;
     }
-  }, (logs) => { paidTx = new Set(logs.filter((l) => l.topics[0] === NM.paid).map((l) => l.transactionHash)); });
+  }, (logs) => { paidTx = new Set(logs.filter((l) => l.topics[0] === NM.paid).map((l) => l.transactionHash)); fastSet = fastPaid(logs); });
   for (const [d, v] of Object.entries(days)) await kv.put("st:d:" + d, JSON.stringify(v), { expirationTtl: 90 * 86400 });
   await kv.put("st:tot", JSON.stringify(tot));
   await kv.put("st:cur", JSON.stringify(st));
@@ -259,6 +261,7 @@ async function report(kv, day) {
     orr.jackpot.winners.length ? `· 🔮 神算子：${orr.jackpot.winners.map((w) => w.name).join("、")} 各 ${money(orr.jackpot.each)} DAI` : `· 大奖池滚存：${money(orr.poolAfter)} DAI`);
   if (orPay.length) lines.push(`· ⚠️ 还没发出的奖金 ${orPay.length} 笔，共 ${money(orPay.reduce((s, x) => s + x.amt, 0))} DAI（检查发奖额度授权）`);
   lines.push("", "🌐 域名收入", `· 今日：${nm.n} 笔，合计 ${money(nm.dai)} DAI` + (nm.n ? `（${tokStr(nm)}）` : ""));
+  if (nm.fast) lines.push(`· 其中极速预言家票款：${money(nm.fast)} DAI（90% 进极速池，不进每日奖池）`);
   if (nm.top) lines.push(`· 今日 LGNS 补税差：${amt(nm.top)} LGNS`);
   lines.push(`· 累计：${tn.n} 笔，合计 ${money(tn.dai)} DAI` + (tn.n ? `（${tokStr(tn)}）` : ""), `· 累计 LGNS 补税差：${amt(tn.top)} LGNS`);
   const nag = await renewNag().catch(() => []);

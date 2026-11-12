@@ -41,7 +41,7 @@
       '<p class="fx-h">① 选一个数字</p><div class="fx-grid">' + grid + "</div>" +
       '<p class="fx-h">② 压几张票</p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
       '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +
-      '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，发等值的 AiLGNS。猜不中：这几张票就用掉了。</p>';
+      '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>';
     say(stT, stBad); betLabel(); clock();
     // 最近开奖
     var dr = el("fx-draws");
@@ -52,7 +52,7 @@
       var bets = (me && me.bets) || [];
       mb.hidden = !acct;
       mb.querySelector(".fx-list").innerHTML = bets.length ? bets.map(function (x) {
-        var res = x.st === "wait" ? '<span class="fx-tag wait">等开奖</span>' : x.st === "win" ? '<span class="fx-tag win">中了 ' + money(x.pay) + " DAI</span>" : '<span class="fx-tag lose">没中，开的是 ' + x.open + "</span>";
+        var res = x.st === "wait" ? '<span class="fx-tag wait">等开奖</span>' : x.st === "win" ? '<span class="fx-tag win">中了 ' + money(x.pay) + " DAI" + (x.ail ? "，已发 " + x.ail + " AiLGNS" : data.trial ? "" : "，几分钟内到账") + "</span>" : '<span class="fx-tag lose">没中，开的是 ' + x.open + "</span>";
         return '<div class="fx-row"><span><b>' + at(x.r) + "</b> 期　压 <b>" + x.d + "</b>　" + x.n + " 票</span>" + res + "</div>";
       }).join("") : '<p class="muted">还没有下注记录。</p>';
     }
@@ -108,11 +108,12 @@
       '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">数字下面是开奖时间。</p></section>' +
       '<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>' +
-      '<section class="card fx"><h2>规则一共五条</h2><ol class="bn-rules">' +
+      '<section class="card fx"><h2>规则一共六条</h2><ol class="bn-rules">' +
       "<li><b>票从哪来</b><span>注册一个纯数字的 .ailgns 域名，付多少 DAI 就得多少张票，5 DAI 就是 5 张。票记在付款的钱包上，续费不算。</span></li>" +
       "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
-      "<li><b>奖池怎么分</b><span>每张票带 0.9 DAI 进本期奖池，另外 0.1 DAI 是平台服务费。猜中的人按票数平分奖池，发等值的 AiLGNS。</span></li>" +
+      "<li><b>奖池怎么分</b><span>每张票带 0.9 DAI 进本期奖池，另外 0.1 DAI 是平台服务费。猜中的人按票数平分奖池。</span></li>" +
+      "<li><b>奖金怎么发</b><span>只发 AiLGNS。分到的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后几分钟内自动转到你下注的钱包，不用自己领。</span></li>" +
       "<li><b>没人猜中</b><span>整个奖池滚到下一期。</span></li></ol>" +
       '<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p></section>' +
       '<section class="card fx"><h2>常见问题</h2>' +
