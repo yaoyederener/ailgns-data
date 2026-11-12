@@ -123,20 +123,9 @@
       }, Promise.resolve(""));
     });
   }
-  // 查名字专用的批量读（站长 2026-11-11 提速）：30 毫秒内的查询合成一批（每批最多 100 条），一批读不到再退回逐条读
-  var bq = [], bt = 0, fails = 0;
-  function bcall(to, data) {
-    if (!A.rpcMany) return call(to, data);
-    return new Promise(function (ok, no) { bq.push([to, data, ok, no]); if (!bt) bt = setTimeout(bflush, 30); });
-  }
-  function bflush() {
-    bt = 0; var all = bq; bq = [];
-    for (var i = 0; i < all.length; i += 100) (function (part) {
-      A.rpcMany(part.map(function (x) { return ["eth_call", [{ to: x[0], data: x[1] }, "latest"]]; })).then(function (rs) {
-        part.forEach(function (x, k) { if (rs[k] == null) x[3](new Error("rpc")); else x[2](rs[k]); });
-      }, function () { part.forEach(function (x) { call(x[0], x[1]).then(x[2], x[3]); }); });
-    })(all.slice(i, i + 100));
-  }
+  // 查名字用攒批读（站长 2026-11-11 提速）：几百个地址的名字合成几次请求，不再把页面自己的读链堵在后面
+  var fails = 0;
+  function bcall(to, data) { return A.bcall ? A.bcall(to, data) : call(to, data); }
   // 查到的名字记在浏览器里：下次打开直接用记住的，不用再读链；超过 5 分钟的在后台悄悄核对一遍，变了再换
   var NMK = "nmc1", store = {}, saveT = 0;
   try { store = JSON.parse(localStorage.getItem(NMK) || "{}") || {}; } catch (e) { store = {}; }

@@ -1039,8 +1039,8 @@
       if (!rows.length) { out.innerHTML = '<p class="muted">' + A.short(a) + ' 在域名市场还没有成交记录。</p>'; return; }
       return Promise.all(rows.map(function (r) {
         return Promise.all([
-          W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[r.t], data: SEL.labelOf + r.tid }, "latest"]).then(decStr).catch(function () { return "#" + r.id; }),
-          W.rpcOn("anubis", "eth_getBlockByNumber", ["0x" + r.b.toString(16), false]).then(function (b) { return parseInt(b.timestamp, 16); }).catch(function () { return 0; }),
+          A.bcall(CONTRACTS[r.t], SEL.labelOf + r.tid).then(decStr).catch(function () { return "#" + r.id; }),
+          A.brpc("eth_getBlockByNumber", ["0x" + r.b.toString(16), false]).then(function (b) { return parseInt(b.timestamp, 16); }).catch(function () { return 0; }),
         ]);
       })).then(function (info) {
         var bought = 0, sold = 0;
@@ -1063,7 +1063,7 @@
       var fills = x[0].map(function (l) { return { b: l[0], tid: l[2].slice(2, 66), price: BigInt("0x" + l[2].slice(66, 130)) }; }), g = x[1];
       if (!fills.length) { box.innerHTML = '<p class="muted">还没有成交。第一笔成交会出现在这里！</p>'; return; }
       var top = fills.slice().sort(function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; }).slice(0, 10), last = fills.slice(-10).reverse(), all = top.concat(last), names = {};
-      return Promise.all(all.map(function (f) { return names[f.tid] || (names[f.tid] = call(SEL.labelOf + f.tid).then(decStr)); })).then(function (labels) {
+      return Promise.all(all.map(function (f) { return names[f.tid] || (names[f.tid] = A.bcall(NAMES, SEL.labelOf + f.tid).then(decStr)); })).then(function (labels) {
         all.forEach(function (f, i) { f.label = labels[i]; });
         var row = function (f, i) { return '<li><span>' + (i + 1) + ". <b>" + esc(f.label) + "." + TLD + "</b>" + (g[f.tid] ? ' <i class="nm-gb">🌟 创世 #' + g[f.tid] + "</i>" : "") + "</span><b>" + Number(f.price / 10n ** 12n) / 1e6 + " DAI</b></li>"; };
         box.innerHTML = '<div class="nm-rk2"><div><h3>💎 最贵成交</h3><ol>' + top.map(row).join("") + '</ol></div><div><h3>🕒 最新成交</h3><ol>' + last.map(row).join("") + "</ol></div></div>";
@@ -1121,7 +1121,7 @@
     tlds.forEach(function (t) { delete genCache[t]; }); // 创世编号重新读（增量，很快），刚注册的名字也能拿到编号
     return Promise.all(tlds.map(function (t) {
       var C = CONTRACTS[t];
-      function on(d) { return W.rpcOn("anubis", "eth_call", [{ to: C, data: d }, "latest"]); }
+      function on(d) { return A.bcall(C, d); } // 攒批读：名字多的钱包也只发几次请求
       return logs(C, T_XFER, START[t]).then(function (l) {
         var ids = {}; l.forEach(function (x) { if (x[1][2] === pad) ids[x[1][3]] = 1; });
         return Promise.all(Object.keys(ids).map(function (id) {

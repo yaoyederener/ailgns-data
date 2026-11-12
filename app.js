@@ -112,6 +112,21 @@
       throw e;
     });
   }
+  // 攒批读：30 毫秒内的读链请求合成一批（每批最多 100 条）。整批读不到、或其中某条出错，那几条退回老办法逐条读（会自动换节点）
+  var bq = [], bt = 0;
+  function brpc(method, params) {
+    return new Promise(function (ok, no) { bq.push([method, params, ok, no]); if (!bt) bt = setTimeout(bflush, 30); });
+  }
+  function bflush() {
+    bt = 0; var all = bq; bq = [];
+    for (var i = 0; i < all.length; i += 100) (function (part) {
+      if (part.length === 1) { rpc(part[0][0], part[0][1]).then(part[0][2], part[0][3]); return; }
+      rpcMany(part).then(function (rs) {
+        part.forEach(function (x, k) { if (rs[k] == null) rpc(x[0], x[1]).then(x[2], x[3]); else x[2](rs[k]); });
+      }, function () { part.forEach(function (x) { rpc(x[0], x[1]).then(x[2], x[3]); }); });
+    })(all.slice(i, i + 100));
+  }
+  function bcall(to, data) { return brpc("eth_call", [{ to: to, data: data }, "latest"]); }
   function pad(a) { return a.toLowerCase().replace("0x", "").padStart(64, "0"); }
   function word(hex, i) { return BigInt("0x" + (hex.slice(2 + i * 64, 2 + (i + 1) * 64) || "0")); }
   function units(b) { return Number(b / 10n ** 12n) / 1e6; }
@@ -822,7 +837,7 @@
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
     hiddenNames: new Proxy({ "加拿大局长.ailgns": 1, "aiotc.ailgns": 1, "四哥.ailgns": 1, "觉醒人生.ailgns": 1, "加拿大局长.lgns": 1 }, { get: function (o, k) { return o[k] || (typeof k === "string" && BAN_RE.test(k) ? 1 : undefined); } }),
     nameBanned: function (n) { return BAN_RE.test(String(n || "")); }, // 🚫 涉政名字：不开放注册、全站不显示（和 lib/ban.js 保持一致）
-    pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, rpcMany: rpcMany, call: call, pad: pad, word: word, getJSON: getJSON,
+    pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, rpcMany: rpcMany, brpc: brpc, bcall: bcall, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv, just: just,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
     track: track,

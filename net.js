@@ -44,6 +44,8 @@
       return r.text().then(function (b) { return { t: Number(r.headers.get("x-ail-at")) || 0, b: b, ct: r.headers.get("content-type") || "application/json" }; });
     }).catch(function () { return null; });
   }
+  // 只有「生成时间」变了、内容没变：不算变化，不用重画整页（重画会把页面上读到一半的链上数据全部重来）
+  function same(b) { return String(b).replace(/"at":\d+/g, ""); }
   function emit(name, d) { try { window.dispatchEvent(new CustomEvent(name, { detail: d || {} })); } catch (e) {} }
   window.fetch = function (input, init) {
     try {
@@ -58,7 +60,7 @@
         return Promise.race([p.then(function (r) { return { r: r }; }, function () { return null; }), delay(wait).then(function () { return null; })]).then(function (x) {
           if (x && x.r) return x.r;
           // 先给缓存，真数据到了再通知页面
-          p.then(function (r) { return r.clone().text(); }).then(function (b) { emit("ail:fresh", { url: key, changed: b !== m.b }); }).catch(function () {});
+          p.then(function (r) { return r.clone().text(); }).then(function (b) { emit("ail:fresh", { url: key, changed: same(b) !== same(m.b) }); }).catch(function () {});
           return new Response(m.b, { status: 200, headers: { "content-type": m.ct, "x-ail-cache": String(Date.now() - m.t) } });
         });
       });
