@@ -72,16 +72,43 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
   function render(rid, j) {
     var d0 = j.rows[0] || {}, d1 = j.rows[1] || {}, d2 = j.rows[2] || {}, w7 = j.rows.slice(0, 7); // d2 = 前天（站长 2026-11-09：两天太少，看三天）
     var sum = function (k) { return w7.reduce(function (s, r) { return s + (r[k] || 0); }, 0); };
-    // 实际到账：DAI 和 AiLGNS 分开写、不折算（站长 2026-11-11：折算成 DAI 看着像现金，对不上钱包）；back = 自己撤单退回的本金，不算收入
-    var inV = function (r) { return r && r.in ? fm(r.in.dai, 0) + " DAI + " + fm(r.in.ail, 2) + " AiLGNS" + (r.in.back ? '<small class="muted">（另退回自己本金 ' + fm(r.in.back, 0) + "）</small>" : "") : "—"; };
-    var inSum = fm(w7.reduce(function (s, r) { return s + (r.in ? r.in.dai : 0); }, 0), 0) + " DAI + " + fm(w7.reduce(function (s, r) { return s + (r.in ? r.in.ail : 0); }, 0), 2) + " AiLGNS", inDays = w7.filter(function (r) { return r.in; }).length; // 实际到账 2026-11-07 起才有记录
-    // 站长 2026-11-13：「会员付款」看不懂（它其实是所有转进谷歌社交账号钱包的币，早就不只是会员费了），撤掉。只看三样钱：OTC 手续费、域名归我们的 30%、实际到账
-    var feeOf = function (r) { return r.fee != null ? r.fee : (r.fillDai || 0) * 0.01; }, nmOf = function (r) { return r.nmOwn != null ? r.nmOwn : (r.nmDai || 0) * 0.3; };
-    // 会员费 / 其它（r.src，后台没算到的日子显示 —）
-    var memV = function (x) { return x ? "<b>" + fm(x.mem, 0) + "</b> 美元" + (x.memN ? '<small class="muted">（' + x.memN + " 笔）</small>" : "") : "—"; };
-    var othV = function (x) { return x ? "<b>" + fm(x.dai, 0) + "</b> DAI" + (x.ail || x.lgns || x.n ? '<small class="muted">（' + (x.ail ? "另 " + fm(x.ail, 4) + " AiLGNS · " : "") + (x.lgns ? "另 " + fm(x.lgns, 0) + " LGNS · " : "") + (x.n || 0) + " 笔）</small>" : "") : "—"; };
-    var srcSum = w7.reduce(function (s, r) { var x = r.src; if (!x) return s; s.k++; ["mem", "memN", "dai", "ail", "lgns", "n"].forEach(function (f) { s[f] += x[f] || 0; }); return s; }, { mem: 0, memN: 0, dai: 0, ail: 0, lgns: 0, n: 0, k: 0 });
-    var feeSum = w7.reduce(function (s, r) { return s + feeOf(r); }, 0), nmSum = w7.reduce(function (s, r) { return s + nmOf(r); }, 0);
+    // 站长 2026-11-12：「不要毛收入，要统计谷歌账户留存的真实收入，我也不作假」。成交额×1%、域名×30% 这种算出来的数全撤掉，
+    // 只写链上真转进谷歌社交账号钱包并留下来的钱（r.fl 后台逐笔扫链；r.src 外面钱包直接转来的）。三种币分开写、不折算（2026-11-11 定）
+    var TK = ["dai", "ail", "lgns"], MK = { dai: "mDai", ail: "mAil", lgns: "mLgns" }, GK = ["otc", "nm", "pool", "mem", "oth", "all"];
+    var Z = function () { return { dai: 0, ail: 0, lgns: 0 }; };
+    var tk = function (o) {
+      var a = [];
+      if (Math.abs(o.dai) >= 0.005) a.push("<b>" + fm(o.dai, Math.abs(o.dai) >= 100 ? 0 : 2) + "</b> DAI");
+      if (Math.abs(o.ail) >= 0.00005) a.push("<b>" + fm(o.ail, 4) + "</b> AiLGNS");
+      if (Math.abs(o.lgns) >= 0.5) a.push("<b>" + fm(o.lgns, 0) + "</b> LGNS");
+      return a.length ? a.join(" + ") : "<b>0</b>";
+    };
+    var parts = function (r) { // 一天的留存：OTC 手续费 + （域名钱进来 − 转给奖池）+ 会员费 + 其它
+      if (!r.fl) return null;
+      var f = r.fl, x = r.src || {}, g = function (k) { return f[k] || {}; };
+      var P = { otc: Z(), nm: Z(), pool: Z(), mem: Z(), oth: Z(), all: Z(), memN: x.memN || 0, usd: x.mem || 0, othN: (x.n || 0) + (g("oth").n || 0), k: 1 };
+      TK.forEach(function (t) {
+        P.otc[t] = g("otc")[t] || 0; P.pool[t] = g("pool")[t] || 0; P.nm[t] = (g("nm")[t] || 0) - P.pool[t];
+        P.mem[t] = x[MK[t]] || 0; P.oth[t] = (x[t] || 0) + (g("oth")[t] || 0);
+        P.all[t] = P.otc[t] + P.nm[t] + P.mem[t] + P.oth[t];
+      });
+      return P;
+    };
+    var cells = function (P, r, fills, fillDai, nmN) {
+      if (!P) return '<td data-l="OTC 手续费">—</td><td data-l="域名留存">—</td><td data-l="会员费">—</td><td data-l="其它">—</td><td data-l="留存合计" class="in">—<small class="muted">正在从链上补</small></td>';
+      return '<td data-l="OTC 手续费">' + tk(P.otc) + '<small class="muted">（成交 ' + fm(fillDai, 0) + " · " + (fills || 0) + " 笔）</small></td>" +
+        '<td data-l="域名留存">' + tk(P.nm) + '<small class="muted">（卖 ' + (nmN || 0) + " 个 · 已转奖池 " + fm(P.pool.dai, 0) + " DAI）</small></td>" +
+        '<td data-l="会员费">' + tk(P.mem) + (P.memN ? '<small class="muted">（' + P.memN + " 笔 · 合 " + fm(P.usd, 0) + " 美元）</small>" : "") + "</td>" +
+        '<td data-l="其它">' + tk(P.oth) + (P.othN ? '<small class="muted">（' + P.othN + " 笔）</small>" : "") + "</td>" +
+        '<td data-l="留存合计" class="in">' + tk(P.all) + "</td>";
+    };
+    var PS = w7.map(parts), SUM = PS.reduce(function (S, P) {
+      if (!P) return S;
+      GK.forEach(function (g) { TK.forEach(function (t) { S[g][t] += P[g][t]; }); });
+      S.memN += P.memN; S.usd += P.usd; S.othN += P.othN; S.k++;
+      return S;
+    }, { otc: Z(), nm: Z(), pool: Z(), mem: Z(), oth: Z(), all: Z(), memN: 0, usd: 0, othN: 0, k: 0 });
+    var flWait = j.flLag > 3000 ? Math.ceil(j.flLag / 29400) * 5 : 0; // 后台每 5 分钟补 6 段 × 4900 块
     var b = j.bal.src;
     var h = '<section class="card ptn-top"><div class="card-head"><h2>🤝 合伙人面板</h2><span class="muted">' + tm(j.at) + " 更新 · 每 5 分钟</span></div>" +
       (j.canWrite ? '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' : "") +
@@ -99,21 +126,19 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       addrTable(j) +
       // 3. 生意
       // 站长 2026-11-12：近 7 天逐天列出来（原来只有今天 / 昨天 / 7 天合计），看增长和运营；手机上一天一张卡
-      '<h3 class="ad-h">📈 生意和使用（近 7 天，一天一行）</h3><div class="ad-tw"><table class="ad-t ptn-d"><thead><tr><th>日期</th><th>OTC 收入</th><th>域名收入（30%）</th><th>会员费</th><th>其它收入</th><th>实际到账</th><th>访客</th><th>App 装机</th><th>在线峰值</th></tr></thead><tbody>' +
+      '<h3 class="ad-h">📈 生意和使用（近 7 天，一天一行）</h3><div class="ad-tw"><table class="ad-t ptn-d"><thead><tr><th>日期</th><th>OTC 手续费</th><th>域名留存</th><th>会员费</th><th>其它</th><th>留存合计</th><th>访客</th><th>App 装机</th><th>在线峰值</th></tr></thead><tbody>' +
       w7.map(function (r, i) {
         var wk = r.day ? "周" + "日一二三四五六".charAt(new Date(r.day + "T00:00:00Z").getUTCDay()) : "", pk = r.pk || (i === 0 && j.traffic ? j.traffic.peak : 0);
         return "<tr" + (i === 0 ? ' class="now"' : "") + "><td>" + (i === 0 ? "今天 " : i === 1 ? "昨天 " : "") + dayCn(r.day) + " <small>" + wk + (i === 0 ? " · 还没过完" : "") + "</small></td>" +
-          '<td data-l="OTC 收入"><b>' + fm(feeOf(r), 0) + '</b> DAI<small class="muted">（成交 ' + fm(r.fillDai, 0) + " · " + (r.fills || 0) + " 笔）</small></td>" +
-          '<td data-l="域名收入（30%）"><b>' + fm(nmOf(r), 0) + '</b> DAI<small class="muted">（卖 ' + (r.nmN || 0) + " 个 · " + fm(r.nmDai, 0) + " DAI）</small></td>" +
-          '<td data-l="会员费">' + memV(r.src) + "</td>" +
-          '<td data-l="其它收入">' + othV(r.src) + "</td>" +
-          '<td data-l="实际到账" class="in">' + inV(r) + "</td>" +
+          cells(PS[i], r, r.fills, r.fillDai, r.nmN) +
           '<td data-l="访客"><b>' + fm(r.v, 0) + "</b> 次 · 首次 " + (r.v1 || 0) + " 人</td>" +
           '<td data-l="App 装机"><b>' + (r.an || 0) + "</b> 台</td>" +
           '<td data-l="在线峰值">' + (pk ? "<b>" + pk + "</b> 人" : "—") + "</td></tr>";
       }).join("") +
-      '<tr class="sum"><td>近 7 天合计</td><td data-l="OTC 收入"><b>' + fm(feeSum, 0) + '</b> DAI<small class="muted">（成交 ' + fm(sum("fillDai"), 0) + " · " + sum("fills") + ' 笔）</small></td><td data-l="域名收入（30%）"><b>' + fm(nmSum, 0) + '</b> DAI<small class="muted">（卖 ' + sum("nmN") + " 个 · " + fm(sum("nmDai"), 0) + ' DAI）</small></td><td data-l="会员费">' + memV(srcSum.k ? srcSum : null) + '</td><td data-l="其它收入">' + othV(srcSum.k ? srcSum : null) + '</td><td data-l="实际到账" class="in">' + inSum + (inDays < 7 ? '<small class="muted">（' + inDays + " 天有记录）</small>" : "") + '</td><td data-l="访客"><b>' + fm(sum("v"), 0) + "</b> 次 · 首次 " + fm(sum("v1"), 0) + ' 人</td><td data-l="App 装机"><b>' + sum("an") + '</b> 台</td><td data-l="在线峰值">最高 <b>' + w7.reduce(function (m, r, i) { return Math.max(m, r.pk || (i === 0 && j.traffic ? j.traffic.peak : 0) || 0); }, 0) + "</b> 人</td></tr>" +
-      '</tbody></table></div><p class="muted ptn-dn">OTC 收入 = 当天成交额的 1% 手续费。域名收入 = 当天域名卖的钱里归我们的 30%（另外 70% 进预言家奖池；极速预言家的票款我们只留 10%）。会员费 = 客户在会员页开通 / 升级付的钱，按下单时的美元数记。其它收入 = 外面的钱包直接转进来、又不是会员费的钱（游戏充值等）。实际到账 = 链上真转进谷歌社交账号钱包的 DAI / AiLGNS（自己挂的单卖出去收回的钱也在里面，所以会比前四栏加起来多），自己撤单退回的本金不算。访客「首次」= 第一次打开网站的人。</p>' +
+      '<tr class="sum"><td>近 7 天合计' + (SUM.k && SUM.k < w7.length ? " <small>留存只有 " + SUM.k + " 天</small>" : "") + "</td>" + cells(SUM.k ? SUM : null, null, sum("fills"), sum("fillDai"), sum("nmN")) +
+      '<td data-l="访客"><b>' + fm(sum("v"), 0) + "</b> 次 · 首次 " + fm(sum("v1"), 0) + ' 人</td><td data-l="App 装机"><b>' + sum("an") + '</b> 台</td><td data-l="在线峰值">最高 <b>' + w7.reduce(function (m, r, i) { return Math.max(m, r.pk || (i === 0 && j.traffic ? j.traffic.peak : 0) || 0); }, 0) + "</b> 人</td></tr>" +
+      '</tbody></table></div>' + (flWait ? '<p class="muted ptn-dn">⏳ 前几天的数正在从链上一笔一笔补，大约 ' + flWait + " 分钟补齐，没补到的日子先显示「—」。</p>" : "") +
+      '<p class="muted ptn-dn">这张表只算真留在谷歌社交账号钱包里的钱，从链上一笔一笔数出来，收到什么币就写什么币，不折算、不估算。OTC 手续费 = 每笔成交时托管合约转进钱包的手续费（买卖两边收的币不一样，所以有 DAI、AiLGNS、LGNS）。域名留存 = 域名的钱转进钱包的数，减掉转给预言家奖池 / 极速资金池的数（那是客户的奖金，不是我们的）。会员费 = 会员页开通 / 升级实际收到的币。其它 = 外面的钱包直接转进来的钱（游戏充值等）和像素墙收入。留存合计 = 前四栏相加。不算收入的：自己挂单的本金进出、自己换币、撤单退回、自己钱包之间互转。给客户的退款、分出去和提走的钱没有从这里减。访客「首次」= 第一次打开网站的人。</p>' +
       // 4. 客户
       '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
       '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
