@@ -20,8 +20,9 @@ export async function onRequestPost(ctx) {
   try { body = await ctx.request.json(); } catch (e) { return new Response("bad json", { status: 400 }); }
   const r = await answer(ctx.env, body.messages, { a: body.a, ctxLines: body.ctx });
   if (r.error === "no question") return new Response("no question", { status: 400 });
-  if (r.error || !r.answer) return new Response("ai error", { status: 502 });
+  const colo = (ctx.request.cf && ctx.request.cf.colo) || "";
+  if (r.error || !r.answer) return body.debug ? Response.json({ error: "ai error", claudeErr: r.claudeErr, tries: r.tries, colo }) : new Response("ai error", { status: 502 });
   const lastQ = (Array.isArray(body.messages) ? body.messages : []).filter((m) => m && m.role === "user").slice(-1)[0];
   if (ctx.env.TEAM_KV && lastQ) ctx.waitUntil(remember(ctx.env.TEAM_KV, lastQ.content, r.answer, r.engine, r.claudeErr));
-  return Response.json(body.debug ? { answer: r.answer, human: r.human, engine: r.engine, claudeErr: r.claudeErr, hasKey: !!ctx.env.ANTHROPIC_API_KEY } : { answer: r.answer, human: r.human, engine: r.engine });
+  return Response.json(body.debug ? { answer: r.answer, human: r.human, engine: r.engine, claudeErr: r.claudeErr, hasKey: !!ctx.env.ANTHROPIC_API_KEY, tries: r.tries, colo } : { answer: r.answer, human: r.human, engine: r.engine });
 }

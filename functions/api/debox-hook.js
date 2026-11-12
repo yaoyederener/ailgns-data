@@ -52,7 +52,7 @@ export async function onRequestPost(ctx) {
     if (/^@?\S*\s*(网址|新网址|备用网址|最新网址|网站打不开|打不开)\s*[?？!！]*$/.test(text)) { ctx.waitUntil(sendDebox(ctx.env, gid, domainsText(), "group").catch(() => {})); return new Response("ok"); }
     const mention = !!(u.mention_users && u.mention_users.length); // 有人被 @（一般就是 @客服）：优先接，不被群里别的问题挡住
     // 每一步为什么没回话都记一笔（不存正文），?diag=1 能看到最近 20 条：lock 限速挡住 / aierr 大脑没答成 / fallback 回了「线路忙」 / senderr 发不出去 / ok
-    const glog = async (r0, extra) => { try { const l = (await kv.get("dbx:glog", "json")) || []; l.unshift(Object.assign({ t: Date.now(), r: r0, m: mention ? 1 : 0 }, extra || {})); await kv.put("dbx:glog", JSON.stringify(l.slice(0, 40))); } catch (e) { /* 记不上就算了 */ } };
+    const glog = async (r0, extra) => { try { const l = (await kv.get("dbx:glog", "json")) || []; l.unshift(Object.assign({ t: Date.now(), r: r0, m: mention ? 1 : 0, colo: (ctx.request.cf && ctx.request.cf.colo) || "" }, extra || {})); await kv.put("dbx:glog", JSON.stringify(l.slice(0, 40))); } catch (e) { /* 记不上就算了 */ } };
     const asked = mention || /[?？]|怎么|怎样|如何|什么|啥|吗\b|多少|哪里|哪儿|为什么|为啥|能不能|可以|是不是|有没有|几点|多久|请问|@/.test(text);
     if (!asked || (text.match(/0x[0-9a-fA-F]{40}/g) || []).length > 1) return new Response("ok");
     const lastBot = await kv.get("dbx:gbot:" + gid); if (lastBot && text === lastBot) return new Response("ok"); // 自己的话不接
@@ -80,7 +80,7 @@ export async function onRequestPost(ctx) {
         try { await sendDebox(ctx.env, gid, out, "group"); sendErr = ""; break; } catch (e) { sendErr = String(e && e.message || e); if (!/ 429 /.test(sendErr)) break; if (i < 2) await sleep(2000 * (i + 1)); }
       }
       if (sendErr) await kv.put("dbx:lasterr", JSON.stringify({ at: Date.now(), err: sendErr }), { expirationTtl: 86400 }).catch(() => {});
-      await glog(sendErr ? "senderr" : ok ? "ok" : "fallback", { ms: Date.now() - t0, err: (sendErr || String(!ok && r && (r.claudeErr || r.error) || "")).slice(0, 80) });
+      await glog(sendErr ? "senderr" : ok ? "ok" : "fallback", { ms: Date.now() - t0, n: (r && r.tries) || 0, err: (sendErr || String(!ok && r && (r.claudeErr || r.error) || "")).slice(0, 80) });
       if (sendErr) return;
       await Promise.all([
         kv.put("dbx:gbot:" + gid, out, { expirationTtl: 600 }),
