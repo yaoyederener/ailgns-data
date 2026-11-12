@@ -191,7 +191,7 @@
       if (open && matchMedia("(min-width: 601px)").matches) input.focus();
     }
     fab.onclick = function () { toggle(panel.hidden); };
-    // 站长 2026-11-12（工单 #136，很多客户说老误点）：按钮左上角的 × 把它缩成屏幕右边一个小耳朵，点小耳朵再放出来；记住客户的选择
+    // 站长 2026-11-12（工单 #136，很多客户说老误点）：按钮移到左下角；右上角的 × 把它缩成屏幕左边一个小耳朵，点小耳朵再放出来；记住客户的选择
     try {
       var MINI = "cb:mini", mini = function (on) { root.classList.toggle("mini", on); try { if (on) localStorage.setItem(MINI, "1"); else localStorage.removeItem(MINI); } catch (e) { /* 无痕模式 */ } };
       root.querySelector(".cb-hide").onclick = function (e) { e.stopPropagation(); mini(true); };

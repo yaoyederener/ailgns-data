@@ -574,7 +574,8 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 @media (max-width: 600px) { .plans { grid-template-columns: 1fr; } }
 
 /* 右下角机器人客服 */
-.cb { position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 40; font-size: 14px; }
+/* 站长 2026-11-12（工单 #136 老误点）：客服按钮从右下角移到左下角，右边留给「撤单」「卖出」这些按钮 */
+.cb { position: fixed; left: 18px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 40; font-size: 14px; }
 .cb-fab { display: flex; align-items: center; gap: 6px; background: var(--grad); color: #fff; border: 0; border-radius: 999px; padding: 12px 18px 12px 14px; font-weight: 700; box-shadow: 0 10px 30px rgba(73, 54, 255, .35); }
 .cb-fab svg { width: 22px; height: 22px; color: #fff; }
 .cb.open .cb-fab { display: none; }
@@ -606,7 +607,7 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .cb-typing i:nth-child(3) { animation-delay: .3s; }
 @keyframes cbdot { 50% { opacity: 1; transform: translateY(-2px); } }
 @media (max-width: 600px) {
-  .cb { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .cb { left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); }
   .cb-fab { padding: 11px 14px 11px 12px; }
   .cb.open { inset: 0; right: 0; bottom: 0; }
   .cb-panel { width: 100%; height: 100%; border-radius: 0; }
@@ -1242,14 +1243,14 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .cb-msg.cb-human .cb-bubble { background: #fff7ed; border: 1px solid #fdba74; color: #431407; }
 .cb-tag { display: inline-block; font-size: 11px; font-weight: 700; color: #c2410c; background: #ffedd5; border-radius: 999px; padding: 1px 8px; margin: 0 0 4px; }
 .cb-fab { position: relative; }
-/* 站长 2026-11-12（工单 #136 老误点）：客服按钮左上角加 ×，点了缩成屏幕右边的小耳朵，点小耳朵再放出来 */
-.cb-hide { position: absolute; left: -9px; top: -9px; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid #d9d4f5; background: #fff; color: #6b7280; font-size: 15px; line-height: 1; box-shadow: 0 2px 8px rgba(73, 54, 255, .18); }
+/* 站长 2026-11-12（工单 #136 老误点）：客服按钮左上角加 ×，点了缩成屏幕左边的小耳朵，点小耳朵再放出来 */
+.cb-hide { position: absolute; right: -9px; top: -9px; width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid #d9d4f5; background: #fff; color: #6b7280; font-size: 15px; line-height: 1; box-shadow: 0 2px 8px rgba(73, 54, 255, .18); }
 .cb-hide::after { content: ""; position: absolute; inset: -8px; }
-.cb-tab { display: none; position: fixed; right: 0; bottom: calc(26px + env(safe-area-inset-bottom)); width: 22px; padding: 10px 0; border: 0; border-radius: 10px 0 0 10px; background: rgba(112, 39, 217, .5); color: #fff; font-size: 12px; font-weight: 700; line-height: 1.15; writing-mode: vertical-rl; letter-spacing: 2px; }
+.cb-tab { display: none; position: fixed; left: 0; bottom: calc(26px + env(safe-area-inset-bottom)); width: 22px; padding: 10px 0; border: 0; border-radius: 0 10px 10px 0; background: rgba(112, 39, 217, .5); color: #fff; font-size: 12px; font-weight: 700; line-height: 1.15; writing-mode: vertical-rl; letter-spacing: 2px; }
 .cb.mini .cb-fab, .cb.mini .cb-hide, .cb.open .cb-hide { display: none; }
 .cb.mini .cb-tab { display: block; }
 .cb.open .cb-tab { display: none; }
-.cb.mini:has(.cb-new) .cb-tab::after { content: ""; position: absolute; top: -3px; left: -3px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }
+.cb.mini:has(.cb-new) .cb-tab::after { content: ""; position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }
 .cb-fab.cb-new::after { content: ""; position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; background: #ef4444; border: 2px solid #fff; }
 /* 手机上市场切换缩小：三列、小字、窄内边距，少占屏幕 */
 @media (max-width: 600px) {
@@ -2440,7 +2441,7 @@ details.bk-fold[open] > summary { margin-bottom: 10px; }
 .sc-mrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 4px; flex-wrap: wrap; }
 .sc-mrow .nm-go { margin: 0; padding: 9px 18px; }
 .lg-row.msg-me .lg-ico { background: #e8f3ff; }
-.msg-pill { position: fixed; left: 14px; bottom: 18px; z-index: 40; padding: 10px 14px; border-radius: 999px; background: linear-gradient(120deg, #7c4dff, #a855f7); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 8px 22px rgba(124, 77, 255, .35); }
+.msg-pill { position: fixed; left: 14px; bottom: calc(76px + env(safe-area-inset-bottom)); /* 客服按钮搬到左下角了，新留言提示往上让一格 */ z-index: 40; padding: 10px 14px; border-radius: 999px; background: linear-gradient(120deg, #7c4dff, #a855f7); color: #fff; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 8px 22px rgba(124, 77, 255, .35); }
 
 /* ===== 交易所盘口 #/trade ===== */
 .tr-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; padding: 12px 14px; margin: 10px 0; border-radius: 16px; background: #fff; border: 1px solid #e3d8ff; }
