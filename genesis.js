@@ -137,6 +137,77 @@
         }).catch(function (e) { go.disabled = false; say(""); if (e && e.message !== "已取消") A.errTip((e && e.message) || "没完成，请重试", go); });
       };
     }
+    // 🤖 机器人代烧（站长 2026-11-14）：普通钱包烧上千个名字要点上千次。改成：授权一次（setApprovalForAll 给代注册机器人钱包）+ 签名一次，
+    //    机器人（monita/burn_bot.py，每 5 分钟一轮）替他转进黑洞；烧完这里出「取消授权」。委托接口 /api/burn-order
+    var REG = "0x21425f852a1e0fb798fb9ebeb288def27bc0f2d1";
+    function burnText(k, keep, a, day) { return "AiLGNS 代销毁委托\n请机器人把我钱包里的 " + k + " 个 .ailgns 名字转进黑洞地址（永久销毁，拿不回来），用来领取预言家大奖。\n不动的名字：" + (keep ? keep + ".ailgns" : "无") + "\n我的地址：" + a + "\n日期：" + day; } // 和 functions/api/burn-order.js、monita/burn_bot.py 一字不差
+    function approved(acct) { return A.wallet.rpcOn("anubis", "eth_call", [{ to: A.nm.NAMES(), data: "0xe985e9c5" + A.pad(acct) + A.pad(REG) }, "latest"]).then(function (r) { return /1$/.test(String(r || "")); }, function () { return false; }); }
+    function botOrder(acct) { return fetch("/api/burn-order?a=" + acct, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { return (j && j.order) || null; }, function () { return null; }); }
+    // 授权还开着就给一个「取消授权」按钮（烧完、或者不想让机器人烧了，都点它）
+    function revokeBtn(host, acct, tip) {
+      if (!host) return;
+      host.innerHTML = '<div class="gs-bot"><b>🔓 机器人的操作权还开着</b><p class="muted">' + tip + '</p><button type="button" class="nm-go gs-ghost gs-botoff">取消授权（钱包确认 1 次）</button><p class="muted gs-botst2"></p></div>';
+      var b = host.querySelector(".gs-botoff"), st = host.querySelector(".gs-botst2");
+      b.onclick = function () {
+        b.disabled = true;
+        A.nm.tx(A.nm.NAMES(), "0xa22cb465" + A.pad(REG) + "0".repeat(64), function (t) { st.textContent = t || ""; }, "取消机器人对你 .ailgns 名字的操作权，请在钱包确认").then(function () {
+          host.innerHTML = '<div class="gs-bot"><b>✅ 已取消授权</b><p class="muted">机器人现在动不了你钱包里的任何名字。</p></div>';
+        }, function (e) { b.disabled = false; st.textContent = ""; if (e && e.message !== "已取消") A.errTip((e && e.message) || "没完成，请重试", b); });
+      };
+    }
+    function botPanel(host, jp, N, prim, acct, hideManual) {
+      if (!host) return;
+      var alive = function () { return document.body.contains(host); };
+      function showRun(o) {
+        hideManual(true);
+        host.innerHTML = '<div class="gs-bot"><b>🤖 机器人正在替你烧：' + n(o.done || 0) + " / " + n(o.n) + '</b><p class="muted">每 5 分钟一轮，一轮几百个，全部烧完大约 10～20 分钟。这期间<b>不用再手点</b>，可以关掉页面，烧完会发站内信。' + (o.note ? "<br>" + esc(o.note) : "") + '</p><p class="muted gs-botst"></p></div>';
+        setTimeout(function () { if (alive()) refresh(); }, 30000);
+      }
+      function showIdle(ap) {
+        hideManual(false);
+        host.innerHTML = '<div class="gs-bot"><b>🤖 嫌一个个点太累？授权一次，机器人替你烧</b>' +
+          '<p class="muted">你只要在钱包确认 <b>1 次授权</b>、再 <b>签 1 次名</b>（签名不花钱）。之后机器人替你把这 ' + n(N) + ' 个名字转进黑洞，每 5 分钟一轮，大约 10～20 分钟烧完，Gas 我们出。' +
+          '授权只管 .ailgns 名字，不碰你的 DAI 和别的币；' + (prim ? "主名字 <b>" + esc(prim) + ".ailgns</b> 不会动；" : "") + '烧完这里会出现「取消授权」按钮，记得点一下收回权限。</p>' +
+          '<button type="button" class="nm-go gs-off gs-on gs-botgo">🤖 授权机器人代烧 ' + n(N) + ' 个名字</button><p class="muted gs-botst"></p>' + (ap ? '<div class="gs-botrv"></div>' : "") + "</div>";
+        if (ap) revokeBtn(host.querySelector(".gs-botrv"), acct, "你之前授权过机器人。不想让机器人烧了，可以取消。");
+        var go = host.querySelector(".gs-botgo"), st = host.querySelector(".gs-botst"), say = function (t) { st.textContent = t || ""; }, label = go.textContent;
+        go.onclick = function () {
+          if (go.getAttribute("data-sure") !== "1") {
+            go.setAttribute("data-sure", "1"); go.textContent = "⚠️ 再点一次，确认让机器人烧 " + n(N) + " 个";
+            say("机器人会把这 " + n(N) + " 个名字转进黑洞地址，永久拿不回来。确定的话，再点一次按钮。");
+            setTimeout(function () { if (go.getAttribute("data-sure") === "1" && !go.disabled) { go.removeAttribute("data-sure"); go.textContent = label; say(""); } }, 15000);
+            return;
+          }
+          go.disabled = true;
+          var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+          (ap ? Promise.resolve() : A.nm.tx(A.nm.NAMES(), "0xa22cb465" + A.pad(REG) + "0".repeat(63) + "1", say, "第 1 步：授权机器人操作你的 .ailgns 名字（只用来销毁），请在钱包确认")).then(function () {
+            ap = true; say("第 2 步：请在钱包里签名委托（不花钱、不转账）");
+            return A.nm.sign(burnText(N, prim, acct, day));
+          }).then(function (sig) {
+            say("正在提交委托…");
+            return fetch("/api/burn-order", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: acct, n: N, keep: prim, day: day, sig: sig }) }).then(function (r) { return r.json(); });
+          }).then(function (j) {
+            if (!j || j.error) throw new Error((j && j.error) || "提交失败，请重试");
+            showRun({ n: j.n || N, done: 0 });
+          }).catch(function (e) { go.disabled = false; go.removeAttribute("data-sure"); go.textContent = label; say(ap ? "授权已经完成，只差签名委托：再点一次按钮接着做。" : ""); if (e && e.message !== "已取消") A.errTip((e && e.message) || "没完成，请重试", go); });
+        };
+      }
+      function refresh() {
+        Promise.all([botOrder(acct), approved(acct)]).then(function (r) {
+          if (!alive()) return;
+          var o = r[0], ap = r[1];
+          if (o && o.state === "pending") return showRun(o);
+          if (o && o.state === "done" && o.done >= o.n && Date.now() - (o.doneAt || 0) < 86400e3) { // 刚烧完：等网站核对（几分钟），先让他取消授权
+            hideManual(true);
+            host.innerHTML = '<div class="gs-bot"><b>✅ 机器人已烧完 ' + n(o.done) + ' 个名字</b><p class="muted">网站几分钟内核对完链上记录。接下来到 DeBox 的 AiLGNS 社区发帖宣告中奖，把帖子链接交到预言家页，团队核对后发奖。</p><a class="nm-go" href="#/oracle">👉 去预言家页交宣告帖</a><div class="gs-botrv"></div></div>';
+            if (ap) revokeBtn(host.querySelector(".gs-botrv"), acct, "名字已经烧完，机器人用不着这个权限了，请点一下收回。");
+            return;
+          }
+          showIdle(ap);
+        });
+      }
+      refresh();
+    }
     function ownBurnPanel(box, jp, pick, haveN, prim, K) {
       var nm = A.nm, acct = nm.account(), N = pick.length, label = "🔥 一键销毁钱包里的 " + n(N) + " 个名字";
       function chunks(arr, size) { var out = []; for (var i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size)); return out; }
@@ -146,7 +217,8 @@
         '<p>✅ 你钱包里已经有 <b>' + n(haveN) + '</b> 个名字可以烧' + (prim ? "（主名字 <b>" + esc(prim) + ".ailgns</b> 不会动）" : "") + '，<b>不用再花钱注册</b>。' + (N < K ? "烧完这 " + n(N) + " 个还差 " + n(K - N) + " 个，到时候这里会出现注册按钮。" : "") + '</p>' +
         '<details class="gs-jpl"><summary>看看要烧哪 ' + n(N) + ' 个（新注册的先烧）</summary><p>' + pick.map(function (x) { return esc(x.label); }).join("、") + '</p></details>' +
         '<button type="button" class="nm-go gs-off gs-on gs-jpburn">' + label + '</button>' +
-        '<p class="muted">销毁 = 转进黑洞地址，<b>永久拿不回来</b>；不扣钱，只花一点 Gas（每个约 0.001 DAI）。钱包支持批量的，每 50 个确认一次；不支持的要一个一个确认，页面有进度，中途停了再点一次接着烧。截止 ' + new Date(jp.due + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") + '（北京时间）。</p><p class="muted gs-jpst"></p></div>';
+        '<p class="muted">销毁 = 转进黑洞地址，<b>永久拿不回来</b>；不扣钱，只花一点 Gas（每个约 0.001 DAI）。钱包支持批量的，每 50 个确认一次；不支持的要一个一个确认，页面有进度，中途停了再点一次接着烧。截止 ' + new Date(jp.due + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") + '（北京时间）。</p><p class="muted gs-jpst"></p><div class="gs-bothost"></div></div>';
+      try { botPanel(box.querySelector(".gs-bothost"), jp, N, prim, acct, function (hide) { var b0 = box.querySelector(".gs-jpburn"); if (b0) b0.hidden = !!hide; }); } catch (eB) { /* 代烧面板出错不影响手动烧 */ }
       var bb = box.querySelector(".gs-jpburn"), st = box.querySelector(".gs-jpst"), say = function (t) { st.textContent = t || ""; };
       bb.onclick = function () {
         // 不用浏览器自带确认框（有的钱包浏览器不弹）：同一个按钮点两次
@@ -196,7 +268,8 @@
       }).then(function (all) {
         var list = (all || []).filter(function (x) { return x && x.no && x.t === "ailgns"; }).sort(function (x, y) { return x.no - y.no; });
         btn.disabled = false;
-        if (jp) { jackpotPanel(box, jp, all, prim); return; } // 🏆 大奖：走一键注册并销毁
+        if (jp) { jackpotPanel(box, jp, all, prim); return; }
+        approved(acct).then(function (ap) { if (!ap || !document.body.contains(box)) return; var h = document.createElement("div"); box.insertBefore(h, box.firstChild); revokeBtn(h, acct, "你之前授权过机器人代烧名字。现在用不着了，请点一下收回权限。"); }, function () {}); // 🏆 大奖：走一键注册并销毁
         if (!list.length) {
           box.innerHTML = '<div class="gs-bnone"><b>😅 这个钱包（' + A.short(acct) + '）里没有创世名</b><p>去域名市场任意买一枚，买到后回到这页再点一次销毁按钮（刚买 / 刚注册的等 1 分钟再点）。</p>' +
             '<a class="nm-go gs-ghost" href="#/names">🛒 去域名市场买一枚</a><a class="nm-go gs-reg" href="#/names">🌟 还没铸满，也可以直接注册一枚</a>' +

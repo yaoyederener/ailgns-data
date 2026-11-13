@@ -4249,3 +4249,10 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 /* 🔥 大奖一键销毁已有名字：要烧的名单（默认折叠） */
 .gs-jpl { margin: 8px 0; font-size: 13px; } .gs-jpl summary { cursor: pointer; color: #6d28d9; }
 .gs-jpl p { max-height: 180px; overflow: auto; margin: 6px 0 0; padding: 8px; background: #faf8ff; border: 1px solid #e4dbff; border-radius: 10px; line-height: 1.7; word-break: break-all; color: #5b4b8a; }
+
+/* 🤖 机器人代烧卡（销毁页大奖面板里） */
+.gs-bot { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #f6f2ff; border: 1.5px solid #c4b5fd; text-align: left; }
+.gs-bot > b { display: block; color: #4c1d95; font-size: 15px; } .gs-bot p { margin: 6px 0 8px; font-size: 13.5px; line-height: 1.6; }
+.gs-bot .gs-bot { margin-top: 10px; background: #fff; }
+
+.gs-bot .gs-ghost { background: #fff; color: #4b2fb0; border: 1.5px solid #d9ccff; }
