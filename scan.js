@@ -671,6 +671,7 @@
   }
   function messages(a, via) {
     var box = document.getElementById("sc-msgs"), btn = document.getElementById("sc-msgbtn"), form = document.getElementById("sc-msgbox"), ta = document.getElementById("sc-mtxt"), st = document.getElementById("sc-mst"), n = document.getElementById("sc-mn");
+    if (!box || !btn) return; /* 留言区不在页面上（客户已经切到别的页） */
     var me = A.otcKit && A.otcKit.account && A.otcKit.account();
     if (me && me === a) { btn.textContent = "📬 这是我的信箱"; btn.disabled = true; try { localStorage.setItem(SEEN_KEY, String(Date.now())); } catch (e) {} var pill = document.getElementById("msg-pill"); if (pill) pill.remove(); }
     fetch("/api/msg?a=" + a).then(function (r) { return r.json(); }).then(function (d) {

@@ -64,10 +64,12 @@
     el.innerHTML = t;
   }
   // 弹钱包时顺便显示说明。不改钱包对象本身（OKX 钱包内部会回调自己的 request，改了会无限循环）
+  /* 钱包锁着或没选账户时会回一个空名单，以前被当成地址「undefined」拿去读链直接报错（2026-11-13 错误日志）：不是正常地址就当没连上 */
+  var ADDR_OK = /^0x[0-9a-f]{40}$/i;
   function ask(eth, a) {
     var t = safeText(a);
     if (t) safeShow(t);
-    return Promise.resolve().then(function () { return eth.request(a); }).then(function (r) { if (t) safeShow(""); try { noteInbox(a, r); } catch (e) {} return r; }, function (e) { if (t) safeShow(""); throw e; });
+    return Promise.resolve().then(function () { return eth.request(a); }).then(function (r) { if (t) safeShow(""); if (a && a.method === "eth_requestAccounts" && !(r && ADDR_OK.test(String(r[0])))) throw new Error("钱包没有给出地址。请先在钱包里解锁、选好账户，再回来点一次。"); try { noteInbox(a, r); } catch (e) {} return r; }, function (e) { if (t) safeShow(""); throw e; });
   }
   // 🔔 钱包一返回交易哈希就告诉收件箱（每笔操作即时通知，2026-11-11）；拿到地址也顺手记一下，铃铛好亮未读数。出错不影响交易本身
   function noteInbox(a, r) {
@@ -107,7 +109,7 @@
       var w = ws.filter(function (x) { return x.id === id; })[0] || (ws.length === 1 ? ws[0] : null);
       if (!w) return null;
       return w.provider.request({ method: "eth_accounts" }).then(function (a) {
-        if (!a || !a[0]) return null;
+        if (!a || !ADDR_OK.test(String(a[0]))) return null;
         use(w);
         return String(a[0]).toLowerCase();
       }, function () { return null; });

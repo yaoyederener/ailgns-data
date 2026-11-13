@@ -768,13 +768,18 @@
   // 把钱包 / 合约 / 网络 / 程序抛出来的英文错误，翻成客户看得懂的中文 + 原因 + 怎么办（站长 2026-11-07 定）；程序自身错误顺手上报，我们能看到
   var ERRS = [
     [/NOTHING_FILLED/, "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。"],
-    [/user rejected|user denied|rejected the request|cancel|取消|拒绝|4001/i, "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次，在钱包里点「确认」。"],
+    [/user reject|user denied|rejected the request|cancel|取消|拒绝|4001/i, "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次，在钱包里点「确认」。"],
     [/insufficient funds for gas|insufficient funds|gas required exceeds|out of gas/i, "钱包里的 DAI 不够付这笔交易的 Gas（Anubis 链的 Gas 就是 DAI）。留 0.5 DAI 以上再试。"],
     [/insufficient allowance|transfer amount exceeds allowance|ERC20: insufficient/i, "授权额度不够：请先点「授权」把币授权给托管合约（只需一次），再重新提交。"],
     [/transfer amount exceeds balance|exceeds balance|BALANCE/i, "余额不够：钱包里的币比你要用的少。先充值或改小数量。"],
     [/nonce too low|replacement transaction underpriced|already known/i, "钱包里有一笔还没确认的交易挡住了。等它确认（一般几秒），或者在钱包里取消那笔再试。"],
     [/execution reverted|revert/i, "合约拒绝了这笔交易：多半是单子刚被别人成交/撤单、金额不够最低要求、或授权不够。刷新页面看最新状态再试。"],
-    [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT/i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
+    [/Invalid custom network|custom network param/i, "钱包没能自动添加 Anubis 链。请在钱包的「自定义网络」里手动添加：链 ID 填 6714，RPC 填 https://rpc.anubispace.org，币种符号填 DAI；加好后切到 Anubis 链，再刷新本页。"],
+    [/already pending|request is pending/i, "钱包里还有一个弹窗没处理完。请打开钱包 App，把那个弹窗点掉（确认或拒绝都行），再回来点一次。"],
+    [/Failed to connect to MetaMask|Java bridge|invoking postMessage/i, "钱包 App 没接住这次请求。请先打开钱包解锁，再回来点一次；还不行就把本页关掉重新打开。"],
+    [/gas ?limit is too low/i, "钱包给这笔交易的 Gas 上限填得太低，没发出去。请再点一次；还不行，在钱包确认页把 Gas 上限调高一些，或换一个钱包 App 打开本站。"],
+    [/Transaction status unknown/i, "钱包说这笔交易的结果暂时查不到。先别重复点：过一两分钟到「账本」里看这笔成没成，没成再重新操作。"],
+    [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT|aborted|failed to connect to [\w.-]+\//i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
     [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
     [/No wallet|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
     [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们）。十有八九是浏览器还在用旧版本：点下面「刷新页面重试」就好；刷新了还不行，点「报给客服」，错误信息会自动带上，你只要写一句点的是哪一步。"],
@@ -789,20 +794,21 @@
   }
   // 程序错误自动上报（只记页面、错误文字、浏览器，不记钱包地址），站长在工单后台能看到
   var reported = {}, lastRaw = "";
-  /* 不算程序错、不上报的两类：① 客户网络断了（苹果手机叫 Load failed，安卓叫 Failed to fetch）；② 无头浏览器（爬虫、检测机器人）里的报错 */
-  var NET_RE = /Load failed|Failed to fetch|NetworkError|network error/i;
+  /* 不算程序错、不上报的：① 客户网络断了或请求被掐断（苹果手机叫 Load failed，安卓叫 Failed to fetch，还有各种 aborted）；② 无头浏览器（爬虫、检测机器人）里的报错；③ 浏览器自己的排版提示（ResizeObserver loop） */
+  var NET_RE = /Load failed|Failed to fetch|NetworkError|network error|aborted|ResizeObserver loop/i;
   /* 别人家的脚本（比如 Cloudflare 自带的访问统计）抛的错，不是我们的程序 */
   function foreign(f) { f = String(f || ""); return /^https?:/.test(f) && f.indexOf(location.origin) !== 0; }
   function report(msg) {
     try {
       if (NET_RE.test(msg) || /HeadlessChrome/.test(navigator.userAgent)) return;
       var k = location.hash.split("/")[1] + "|" + msg.slice(0, 80); if (reported[k]) return; reported[k] = 1;
-      var body = JSON.stringify({ p: location.hash.slice(0, 60), m: msg.slice(0, 300), ua: navigator.userAgent.slice(0, 120), v: (document.querySelector('script[src*="app.js"]') || {}).src });
+      var body = JSON.stringify({ p: location.hash.slice(0, 60), m: msg.slice(0, 300), ua: navigator.userAgent.slice(0, 120), v: (document.querySelector('script[src*="core.js"],script[src*="app.js"]') || {}).src });
       var ok = navigator.sendBeacon && navigator.sendBeacon("/api/err", body);
       if (!ok) fetch("/api/err", { method: "POST", body: body, keepalive: true }).catch(function () {});
     } catch (e) {}
   }
-  window.addEventListener("error", function (e) { if (e && e.message && !foreign(e.filename)) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
+  /* 没有文件名的报错（Script error. @:0）是钱包 App、浏览器插件往页面里塞的脚本抛的，看不到内容也修不了，不记 */
+  window.addEventListener("error", function (e) { if (e && e.message && e.filename && !foreign(e.filename)) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
   window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) report(m); });
   function errTip(t, el) {
     // 站长 2026-11-12：没装钱包时 A.wallets.choose() 已经弹了「到钱包 App 里操作」的选择框，这里再弹红色报错会把它盖住，客户以为出错了。有那个框就不报错

@@ -254,7 +254,13 @@
       if (id && parseInt(id, 16) === parseInt(params.chainId, 16)) return;
       return timeout(eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
         if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
-          return eth.request({ method: "wallet_addEthereumChain", params: [params] });
+          return eth.request({ method: "wallet_addEthereumChain", params: [params] }).catch(function (e2) {
+            /* 个别钱包不认我们填的「区块浏览器网址」，报 Invalid custom network parameters：换成官方浏览器网址再加一次 */
+            if (!/invalid|custom network/i.test((e2 && e2.message) || "")) throw e2;
+            var p2 = {}; Object.keys(params).forEach(function (k) { p2[k] = params[k]; });
+            p2.blockExplorerUrls = [chain === "polygon" ? "https://polygonscan.com" : "https://browser.anubispace.org"];
+            return eth.request({ method: "wallet_addEthereumChain", params: [p2] });
+          });
         }
         throw e;
       }));

@@ -671,6 +671,8 @@
       };
     }
     // 傻瓜式三步：① 注册 ② 设为主名字 ③ OTC 出售（站长要求去掉「链上查询」）。每步做完都能「继续注册下一个」，并显示我注册了几个、排第几
+    /* 客户已经切到别的页面时按钮不在了：不在就不绑，别报错 */
+    function bindAgain() { var ab = document.getElementById("nm-again"); if (ab) ab.onclick = again; }
     function again() { // 回到第 1 步，接着注册下一个
       inp.value = ""; out.innerHTML = ""; stepTo(1);
       history.replaceState(null, "", "#/names");
@@ -690,13 +692,14 @@
       // fast：刚注册完，第 2 步按钮马上出来；后台查到已经是主名字再换成「完成」
       if (fast) { draw(false); chk.then(function (d) { if (d && document.body.contains(box)) draw(true); }); } else chk.then(draw);
       function draw(done) {
+        if (!box || !document.body.contains(box)) return; /* 查完主名字时客户已经离开这一页：不画了 */
         if (done) {
           stepTo(3);
           box.innerHTML = '<div class="nm-guide"><p class="nm-ok">✅ 第 2 步完成：<b>' + esc(full) + '</b> 是你的主名字，你的地址在本站会显示成这个名字</p>' + (TLD === "ailgns" ? '<a class="nm-go nm-go-or" href="#/oracle">🔮 现在就能玩预言家了，去预测 →</a>' : "") + '<div id="nm-mine"></div>' +
             (OTC[TLD] ? '<button type="button" class="nm-go nm-go4" id="nm-go4">第 3 步：挂到 OTC 市场出售</button><p class="muted">想转手赚钱就挂单：你定价格，买家付 DAI 后名字自动过户，你拿完整标价（买家另付 3% 手续费）。不卖就不用做这一步。</p>' : "") +
             '<button type="button" class="nm-go nm-again" id="nm-again">➕ 继续注册下一个</button></div>';
           mine(document.getElementById("nm-mine"));
-          document.getElementById("nm-again").onclick = again;
+          bindAgain();
           var g4 = document.getElementById("nm-go4");
           if (g4) g4.onclick = function () {
             var sell = document.getElementById("nm-sell");
@@ -722,7 +725,7 @@
           '<button type="button" class="nm-skip" id="nm-again">这个钱包已经有主名字了，跳过 →</button></div>';
         if (/[?&]pri=1/.test(location.hash)) setTimeout(function () { var e = document.getElementById("nm-pri"); if (e) e.scrollIntoView({ behavior: "smooth", block: "center" }); }, 200);
         mine(document.getElementById("nm-mine"));
-        document.getElementById("nm-again").onclick = again;
+        bindAgain();
         var b = document.getElementById("nm-pri"), pst = document.getElementById("nm-pst");
         b.onclick = function () {
           b.disabled = true; pst.textContent = "⏳ 马上弹出钱包…";
@@ -758,6 +761,7 @@
     function bindBuy(v, preview) {
       var y = document.getElementById("nm-y"), st = document.getElementById("nm-st");
       var kk = document.getElementById("nm-k"), cost = document.getElementById("nm-cost");
+      if (!y || !kk || !document.getElementById("nm-go")) return; /* 注册表单已经不在页面上（客户切走了） */
       var cn = document.getElementById("nm-cn");
       if (!cn) { cn = document.createElement("p"); cn.id = "nm-cn"; cn.className = "nm-cn"; document.getElementById("nm-go").before(cn); }
       y.onchange = kk.onchange = function () { // 换年数或币种：显示要付多少个币
@@ -803,7 +807,7 @@
             delete infoCache[TLD + ":" + v];
             out.innerHTML = '<p class="nm-ok nm-big">✅ 代注册成功：<b>' + esc(v) + "." + TLD + '</b> 已经归 <span class="mono">' + to.slice(0, 6) + "…" + to.slice(-4) + '</span></p><p class="nm-gen" id="nm-gen"></p>' +
               '<p class="muted">对方以后转账、收款报这个名字就行。</p><button type="button" class="nm-go nm-again" id="nm-again">➕ 继续帮下一个人注册</button>';
-            document.getElementById("nm-again").onclick = again;
+            bindAgain();
             info1(v).then(function (r) { genesis().then(function (g) { var e = document.getElementById("nm-gen"); if (e && g[r.id]) e.textContent = "🌟 创世域名 #" + g[r.id]; }, function () {}); }, function () {});
             return;
           }
