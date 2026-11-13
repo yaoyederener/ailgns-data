@@ -296,12 +296,17 @@
       if (G.hands[c].length) { G.turn = c; return; }
     }
   }
-  function play(G, s, cards) {
-    var h = G.hands[s], i, ks, k = null, m = {}, rest;
-    if (G.ph !== "play" || G.turn !== s || !cards.length) return null;
+  // 这手牌现在能不能出：能就返回牌型，不能返回 null（只看，不动牌局）
+  function check(G, s, cards) {
+    var h = G.hands[s], i, ks, m = {};
+    if (G.ph !== "play" || G.turn !== s || !cards || !cards.length) return null;
     for (i = 0; i < cards.length; i++) { if (h.indexOf(cards[i]) < 0 || m[cards[i]]) return null; m[cards[i]] = 1; }
     ks = kinds(cards, G.L);
-    for (i = 0; i < ks.length; i++) if (!G.last || beats(ks[i], G.last.k)) { k = ks[i]; break; }
+    for (i = 0; i < ks.length; i++) if (!G.last || beats(ks[i], G.last.k)) return ks[i];
+    return null;
+  }
+  function play(G, s, cards) {
+    var h = G.hands[s], k = check(G, s, cards), rest;
     if (!k) return null;
     if (!G.last) G.tb = [null, null, null, null];
     G.hands[s] = minus(h, cards); G.wind = -1;
@@ -319,12 +324,13 @@
   }
   function pass(G, s) { if (G.ph !== "play" || G.turn !== s || !G.last) return false; G.tb[s] = { pass: 1 }; next(G, s); return true; }
 
-  var E = { kinds: kinds, beats: beats, isB: isB, gen: gen, cost: cost, bot: bot, backPick: backPick, canBack: canBack, newMatch: newMatch, startRound: startRound, giveBack: giveBack, play: play, pass: pass, pw: pw, nat: nat, suit: suit, wild: wild, isJ: isJ };
+  var E = { kinds: kinds, beats: beats, isB: isB, gen: gen, cost: cost, bot: bot, backPick: backPick, canBack: canBack, newMatch: newMatch, startRound: startRound, giveBack: giveBack, check: check, play: play, pass: pass, pw: pw, nat: nat, suit: suit, wild: wild, isJ: isJ };
   if (!W) { (typeof globalThis !== "undefined" ? globalThis : this).GD = E; return; }
   if (!A) return;
 
   // ====================== 页面 ======================
   var G = null, sel = {}, hints = null, hi = 0, tm = 0, bound = false, drag = null, toastT = 0, toastTxt = "", toastEnd = 0, just = -1, showRule = false, resetArm = false, ST = {};
+  var ON = null, MYQ = null, BUY = null, CARDS = null, OPEN = null, SID = "", SAY = "", doneQid = 0, cdTimer = 0, busy = false; // 联机用的
   var NAMES = ["你", "下家", "对家", "上家"], FACE = ["🧑", "🐯", "🐼", "🦊"], PLACE = ["头游", "二游", "三游", "末游"], MEDAL = ["🥇", "🥈", "🥉", "🐢"];
   var KN = { single: "单张", pair: "对子", triple: "三张", full: "三带二", straight: "顺子", tube: "三连对", plate: "钢板", bomb: "炸弹", sf: "同花顺", king: "天王炸" };
   function ls(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
@@ -332,6 +338,10 @@
   function save() { lsSet("gd:g", G ? JSON.stringify(G) : ""); }
   function load() { try { var g = JSON.parse(ls("gd:g") || "null"); if (g && g.lv && g.hands && g.hands.length === 4 && g.ph && g.ph !== "idle") return g; } catch (e) { /* 存档坏了就当没有 */ } return null; }
   function stats() { try { ST = JSON.parse(ls("gd:st") || "{}") || {}; } catch (e) { ST = {}; } ST.w = ST.w || 0; ST.l = ST.l || 0; ST.best = ST.best || 2; return ST; }
+  function esc(v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return "&#" + c.charCodeAt(0) + ";"; }); }
+  function nf(v) { return Number(v || 0).toLocaleString("en-US"); }
+  function nm(s) { var g = ON && ON.v && ON.v.g; return s && g && g.names && g.names[s] ? esc(g.names[s]) : NAMES[s]; } // 单机：下家 / 对家 / 上家；联机：桌上的昵称
+  function offH(s) { var x = ON && ON.v && ON.v.seats && ON.v.seats[s]; return x && !x.bot && (x.off || x.auto) ? '<small class="off">' + (x.off ? "离线" : "托管") + "</small>" : ""; }
   function cn(c) { return isJ(c) ? rn(nat(c)) : SUITS[suit(c)] + rn(nat(c)); }
 
   function cardH(c, extra, L) {
@@ -360,30 +370,32 @@
   }
   function seatH(s) {
     var n = G.hands[s].length, pos = G.out.indexOf(s), on = G.ph === "play" && G.turn === s;
-    return '<div class="gdn-seat s' + s + (on ? " on" : "") + (s === 2 ? " mate" : "") + '"><span class="gdn-av">' + FACE[s] + (pos >= 0 ? '<i class="gdn-md">' + MEDAL[pos] + "</i>" : "") + '</span><span class="gdn-nm">' + NAMES[s] + (s === 2 ? "<small>队友</small>" : "") + '</span><span class="gdn-n' + (pos < 0 && n <= 5 ? " hot" : "") + '">' + (pos >= 0 ? PLACE[pos] : "剩 " + n + " 张") + "</span></div>";
+    return '<div class="gdn-seat s' + s + (on ? " on" : "") + (s === 2 ? " mate" : "") + '"><span class="gdn-av">' + FACE[s] + (pos >= 0 ? '<i class="gdn-md">' + MEDAL[pos] + "</i>" : "") + '</span><span class="gdn-nm">' + nm(s) + (s === 2 ? "<small>队友</small>" : "") + offH(s) + '</span><span class="gdn-n' + (pos < 0 && n <= 5 ? " hot" : "") + '">' + (pos >= 0 ? PLACE[pos] : "剩 " + n + " 张") + "</span></div>";
   }
   function topH() {
-    return '<div class="gdn-top"><a class="gdn-x" href="#/play" aria-label="回销毁乐园">‹</a><span class="gdn-tm me' + (G.cur === 0 ? " cur" : "") + '">我方 打 <b>' + rn(G.lv[0]) + '</b></span><span class="gdn-cur">本局级牌 <b>' + rn(G.L) + "</b><i>♥" + rn(G.L) + ' 百搭</i></span><span class="gdn-tm op' + (G.cur === 1 ? " cur" : "") + '">对方 打 <b>' + rn(G.lv[1]) + '</b></span><button class="gdn-q" data-gd="rule" aria-label="规则">?</button></div>';
+    return '<div class="gdn-top"><button type="button" class="gdn-x" data-gd="home" aria-label="返回">‹</button><span class="gdn-tm me' + (G.cur === 0 ? " cur" : "") + '">我方 打 <b>' + rn(G.lv[0]) + '</b></span><span class="gdn-cur">本局级牌 <b>' + rn(G.L) + "</b><i>♥" + rn(G.L) + " 百搭" + (ON && ON.v ? " · 第 " + ON.v.k + "/" + ON.v.n + " 局" : "") + '</i></span><span class="gdn-tm op' + (G.cur === 1 ? " cur" : "") + '">对方 打 <b>' + rn(G.lv[1]) + '</b></span><button class="gdn-q" data-gd="rule" aria-label="规则">?</button></div>';
   }
   function midH() {
-    var t = G.turn;
-    if (G.ph === "trib") return "进贡 · 还贡";
+    var t = G.turn, it;
+    if (G.ph === "trib") { it = G.trib.items[G.trib.i]; return ON && it && !MYQ ? "等" + nm(it.t) + "还贡…" : "进贡 · 还贡"; }
     if (G.ph !== "play") return "";
-    if (t === 0) return G.last ? "轮到你 · 要压过" + NAMES[G.last.who] : (G.wind === 0 ? "对家走完了，你接风 · 随便出" : "轮到你 · 随便出一手");
-    return (G.wind === t ? NAMES[t] + "接风 · " : "") + "等" + NAMES[t] + "出牌…";
+    if (t === 0 && ON && !MYQ) return ON.v.q ? "出牌中…" : G.last ? "要不起，自动不出" : "机器人在替你出牌…";
+    if (t === 0) return G.last ? "轮到你 · 要压过" + nm(G.last.who) : (G.wind === 0 ? "对家走完了，你接风 · 随便出" : "轮到你 · 随便出一手");
+    return (G.wind === t ? nm(t) + "接风 · " : "") + "等" + nm(t) + "出牌…";
   }
   function noteH() {
     var T = G.trib, left = G.hands[0].length + G.hands[1].length + G.hands[2].length + G.hands[3].length, t;
     if (!T || (G.ph !== "trib" && left !== 108)) return "";
-    if (T.anti) t = "抗贡：垫底的一方抓到两个大王，这局不用进贡，" + NAMES[T.lead] + "先出。";
-    else t = T.items.map(function (it) { return NAMES[it.f] + "进贡 <b>" + cn(it.c) + "</b> 给" + NAMES[it.t] + (it.b >= 0 ? "，" + NAMES[it.t] + "还 <b>" + cn(it.b) + "</b>" : ""); }).join("；") + "。";
+    if (T.anti) t = "抗贡：垫底的一方抓到两个大王，这局不用进贡，" + nm(T.lead) + "先出。";
+    else t = T.items.map(function (it) { return nm(it.f) + "进贡 <b>" + cn(it.c) + "</b> 给" + nm(it.t) + (it.b >= 0 ? "，" + nm(it.t) + "还 <b>" + cn(it.b) + "</b>" : ""); }).join("；") + "。";
     return '<p class="gdn-note">' + t + "</p>";
   }
   function barH() {
-    var it, pos;
-    if (G.ph === "trib") { it = G.trib.items[G.trib.i]; if (it && it.t === 0) return '<div class="gdn-bar"><span class="gdn-tip">点一张 10 以下的牌还给' + NAMES[it.f] + '</span><button class="gdn-b go" data-gd="back" id="gdn-go">还这张</button></div>'; }
-    if (G.ph === "play" && G.turn === 0) return '<div class="gdn-bar">' + (G.last ? '<button class="gdn-b" data-gd="pass">不出</button>' : "") + '<button class="gdn-b" data-gd="hint">提示</button><button class="gdn-b go" data-gd="play" id="gdn-go">出牌</button></div>';
-    pos = G.out.indexOf(0);
+    var it, pos = G.out.indexOf(0), cd = ON ? '<span class="gdn-cd" id="gdn-cd"></span>' : "", my;
+    if (G.ph === "trib") { it = G.trib.items[G.trib.i]; if (it && it.t === 0 && (!ON || (MYQ && MYQ.type === "gback"))) return '<div class="gdn-bar">' + cd + '<span class="gdn-tip">点一张 10 以下的牌还给' + nm(it.f) + '</span><button class="gdn-b go" data-gd="back" id="gdn-go">还这张</button></div>'; }
+    my = ON ? !!MYQ && MYQ.type === "gturn" : G.ph === "play" && G.turn === 0;
+    if (my) return '<div class="gdn-bar">' + cd + (G.last ? '<button class="gdn-b" data-gd="pass">不出</button>' : "") + '<button class="gdn-b" data-gd="hint">提示</button><button class="gdn-b go" data-gd="play" id="gdn-go">出牌</button></div>';
+    if (ON && ON.v.auto && ON.v.st === "play") return '<div class="gdn-bar"><span class="gdn-tip">托管中，机器人在替你打</span><button class="gdn-b go ok" data-gd="unauto">我回来了</button></div>';
     return '<div class="gdn-bar"><span class="gdn-tip">' + (pos >= 0 && G.ph === "play" ? "你是" + PLACE[pos] + " " + MEDAL[pos] + "，看队友的了" : G.ph === "play" ? "等别人出牌，可以先把牌选好" : "") + "</span></div>";
   }
   function handH() {
@@ -391,13 +403,24 @@
     for (i = 0; i < h.length; i++) s += cardH(h[i], "", G.L);
     return '<div class="gdn-hand" id="gdn-hand">' + s + "</div>";
   }
-  function resH() {
+  function resParts() { // 这一局的名次和升级，单机、联机共用
     var R = G.res, me = R.w === 0, o = R.o, i, rows = "", how = R.up === 3 ? "头游 + 二游（双下）" : R.up === 2 ? "头游 + 三游" : "头游 + 末游", side = me ? "我方" : "对方", line;
-    for (i = 0; i < 4; i++) rows += '<span class="' + (o[i] % 2 === 0 ? "me" : "") + '">' + MEDAL[i] + " " + PLACE[i] + " · " + NAMES[o[i]] + "</span>";
+    for (i = 0; i < 4; i++) rows += '<span class="' + (o[i] % 2 === 0 ? "me" : "") + '">' + MEDAL[i] + " " + PLACE[i] + " · " + nm(o[i]) + "</span>";
     if (R.win) line = side + "打过了 A，整场结束。";
     else if (R.to === R.from) line = side + how + "，还在打 A（要头游、而且队友不垫底才算过）。";
     else line = side + how + "，升 " + (R.to - R.from) + " 级：打 " + rn(R.from) + " → 打 " + rn(R.to) + "。";
-    return '<div class="gdn-ov"><div class="gdn-res ' + (me ? "win" : "lose") + '"><div class="gdn-rt">' + (R.win ? (me ? "🏆 打过 A，通关！" : "这场输了，再来") : (me ? "🎉 这局赢了" : "😵 这局输了")) + '</div><div class="gdn-rs">' + line + '</div><div class="gdn-ro">' + rows + '</div><button class="gdn-b go ok" data-gd="' + (R.win ? "new" : "next") + '">' + (R.win ? "再来一场" : "下一局") + "</button></div></div>";
+    return { me: me, rows: rows, line: line, win: R.win };
+  }
+  function resH() {
+    var p = resParts();
+    return '<div class="gdn-ov"><div class="gdn-res ' + (p.me ? "win" : "lose") + '"><div class="gdn-rt">' + (p.win ? (p.me ? "🏆 打过 A，通关！" : "这场输了，再来") : (p.me ? "🎉 这局赢了" : "😵 这局输了")) + '</div><div class="gdn-rs">' + p.line + '</div><div class="gdn-ro">' + p.rows + '</div><button class="gdn-b go ok" data-gd="' + (p.win ? "new" : "next") + '">' + (p.win ? "再来一场" : "下一局") + "</button></div></div>";
+  }
+  function onResH(v) { // 联机：一局打完等下一局 / 全部打完
+    var p = resParts(), done = v.st === "done", rdy = v.seats[0] && v.seats[0].ready, a = G.lv[0], b = G.lv[1], fin = "";
+    if (done) fin = p.win ? (p.me ? "我方打过了 A，赢下这一桌！" : "对方打过了 A，这一桌输了。") : a === b ? "两边都打到 " + rn(a) + "，打平。" : a > b ? "我方打到 " + rn(a) + "，对方打到 " + rn(b) + "，我方赢。" : "对方打到 " + rn(b) + "，我方打到 " + rn(a) + "，对方赢。";
+    return '<div class="gdn-ov"><div class="gdn-res ' + (p.me ? "win" : "lose") + '"><div class="gdn-rt">' + (done ? "打完了，一共 " + v.k + " 局" : "第 " + v.k + "/" + v.n + " 局 · " + (p.me ? "🎉 赢了" : "😵 输了")) + '</div><div class="gdn-rs">' + p.line + (fin ? "<br><b>" + fin + "</b>" : "") + '</div><div class="gdn-ro">' + p.rows + "</div>" +
+      (done ? '<button class="gdn-b go ok" data-gd="olobby">回大厅</button><p class="gdn-rs gdn-rs2">打到几级只是这一桌的记分，到这里就清零了。</p>'
+        : '<button class="gdn-b go' + (rdy ? "" : " ok") + '" data-gd="ready">' + (rdy ? "准备好了，等其他人…" : "下一局") + '</button><p class="gdn-rs gdn-rs2"><span id="gdn-cd"></span> 秒后自动开始下一局</p>') + "</div></div>";
   }
   var RULES = "<li>四个人打两副牌。你和对面的<b>对家</b>是一队，一起打上家、下家。</li>" +
     "<li>谁先把手里的牌出完谁是<b>头游</b>。头游的队友是二游，升 3 级；是三游，升 2 级；是末游，升 1 级。</li>" +
@@ -408,7 +431,7 @@
     "<li><b>进贡</b>：上一局垫底的，要把最大的一张牌给头游，头游还一张 10 以下的牌。双下两个人都要进贡。垫底的一方抓到两个大王可以不进贡。</li>" +
     "<li>队友走完了、没人压他最后一手，就由你<b>接风</b>先出。</li>";
   function ruleH() {
-    return '<div class="gdn-sheet" data-gd="rule"><div class="gdn-sh" data-gd="noop"><h3>掼蛋怎么打</h3><ul>' + RULES + '</ul><p class="gdn-safe">纯娱乐：不收费、不用连钱包、没有任何币进出。</p><div class="gdn-shb"><button class="gdn-b" data-gd="reset">' + (resetArm ? "再点一次，确认重开" : "重新开一场") + '</button><button class="gdn-b go ok" data-gd="rule">继续打牌</button></div></div></div>';
+    return '<div class="gdn-sheet" data-gd="rule"><div class="gdn-sh" data-gd="noop"><h3>掼蛋怎么打</h3><ul>' + RULES + '</ul><p class="gdn-safe">纯娱乐：不收费、不用连钱包、没有任何币进出。</p><div class="gdn-shb">' + (ON ? '<button class="gdn-b" data-gd="quit">离开房间' + (ON.v && (ON.v.st === "play" || ON.v.st === "between") ? "（机器人替我打）" : "") + "</button>" : '<button class="gdn-b" data-gd="reset">' + (resetArm ? "再点一次，确认重开" : "重新开一场") + "</button>") + '<button class="gdn-b go ok" data-gd="rule">继续打牌</button></div></div></div>';
   }
 
   function layHand() {
@@ -446,22 +469,25 @@
     if (!G || G.ph === "idle") return lobby();
     A.app.innerHTML = '<section class="gdn" id="gdn-root">' + topH() + '<div class="gdn-table">' + seatH(2) + seatH(3) + seatH(1) +
       '<div class="gdn-p p2">' + playH(2) + '</div><div class="gdn-p p3">' + playH(3) + '</div><div class="gdn-p p1">' + playH(1) + '</div><div class="gdn-p p0">' + playH(0) + "</div>" +
-      '<div class="gdn-mid">' + midH() + "</div>" + (G.ph === "done" || G.ph === "over" ? resH() : "") + "</div>" + noteH() + barH() + handH() + (showRule ? ruleH() : "") + "</section>";
+      '<div class="gdn-mid">' + midH() + "</div>" + (G.ph === "done" || G.ph === "over" ? (ON ? onResH(ON.v) : resH()) : "") + "</div>" + noteH() + barH() + handH() + (showRule ? ruleH() : "") + "</section>";
     layHand(); refreshSel(); showToast();
   }
-  function lobby() {
-    var fan = [12, 24, 53, 49, 35], i, f = "";
-    stats();
+  function lobby() { // 大厅：单机练习 + 和朋友开房
+    var fan = [12, 24, 53, 49, 35], i, f = "", sv = load();
+    stats(); clearTimeout(tm); G = null; ON = null; MYQ = null; showRule = false;
     for (i = 0; i < fan.length; i++) f += cardH(fan[i], "", 0);
-    A.app.innerHTML = '<section class="gdn" id="gdn-root"><div class="gdn-hero"><div class="gdn-fan">' + f + '</div><h2>掼蛋</h2><p>两副牌 · 你和对家一队 · 从 2 一路打到 A</p><button class="gdn-b go ok big" data-gd="new">开始打牌</button>' +
-      (ST.w + ST.l ? '<div class="gdn-st">战绩：赢 ' + ST.w + " 场 · 输 " + ST.l + " 场 · 最高打到 " + rn(ST.best) + "</div>" : "") +
-      '<p class="gdn-safe">纯娱乐：不收费、不用连钱包、没有任何币进出。打到一半关掉，下次接着打。</p></div><details class="gdn-rules" open><summary>掼蛋怎么打（一分钟看懂）</summary><ul>' + RULES + "</ul></details></section>";
+    A.app.innerHTML = '<section class="gdn" id="gdn-root"><div class="gdn-hero"><div class="gdn-fan">' + f + '</div><h2>掼蛋</h2><p>两副牌 · 你和对家一队 · 从 2 一路打到 A</p>' +
+      (sv ? '<button class="gdn-b go ok big" data-gd="resume">接着打单机这一局</button><button class="gdn-b gdn-sub" data-gd="new">重开一场单机</button>' : '<button class="gdn-b go ok big" data-gd="new">单机练习（打电脑）</button>') +
+      (ST.w + ST.l ? '<div class="gdn-st">单机战绩：赢 ' + ST.w + " 场 · 输 " + ST.l + " 场 · 最高打到 " + rn(ST.best) + "</div>" : "") +
+      '<p class="gdn-safe">单机不收费、不用连钱包。打到一半关掉，下次接着打。</p></div><div id="gdn-on">' + onCard() + '</div><details class="gdn-rules"><summary>掼蛋怎么打（一分钟看懂）</summary><ul>' + RULES + "</ul></details></section>";
+    probe(); loadCards();
   }
 
   // 每次牌局变了以后：机器人还贡 → 存档 → 重画 → 安排下一个机器人
   function step() {
     var it;
     clearTimeout(tm);
+    if (ON || !G) return; /* 联机时牌局由服务器推着走 */
     while (G.ph === "trib") { it = G.trib.items[G.trib.i]; if (it.t === 0) break; E.giveBack(G, backPick(G.hands[it.t], G.L)); }
     if ((G.ph === "done" || G.ph === "over") && G.sc !== G.rd) {
       G.sc = G.rd; toastTxt = ""; stats();
@@ -475,32 +501,37 @@
     hints = null; hi = 0;
     if (G.last && !gen(G.hands[0], G.L, G.last.k).length) {
       toast("要不起");
-      tm = setTimeout(function () { if (G && G.ph === "play" && G.turn === 0 && G.last && document.getElementById("gdn-root")) { E.pass(G, 0); sel = {}; just = 0; step(); } }, 900);
+      tm = setTimeout(function () { if (!ON && G && G.ph === "play" && G.turn === 0 && G.last && document.getElementById("gdn-root")) { E.pass(G, 0); sel = {}; just = 0; step(); } }, 900);
     }
   }
   function botAct() {
     var s, cs;
     try {
-      if (!G || G.ph !== "play" || G.turn === 0 || !document.getElementById("gdn-root")) return;
+      if (ON || !G || G.ph !== "play" || G.turn === 0 || !document.getElementById("gdn-root")) return;
       s = G.turn; cs = bot(G, s);
       if (!cs || !play(G, s, cs)) { if (G.last) pass(G, s); else play(G, s, [G.hands[s][G.hands[s].length - 1]]); }
       just = s; step();
     } catch (e) { /* 机器人出错不让整页挂掉：停在原地，刷新能接着打 */ }
   }
-  function doAct(a) {
+  function doAct(a, el) {
     var cs, k, b, i;
     if (a === "noop") return;
-    if (a === "new") { G = newMatch(); sel = {}; showRule = false; startRound(G, Math.random); return step(); }
+    if (a === "new") { ON = null; MYQ = null; G = newMatch(); sel = {}; showRule = false; startRound(G, Math.random); return step(); }
+    if (a === "resume") { ON = null; MYQ = null; G = load(); sel = {}; if (G) return step(); return lobby(); }
+    if (a === "home") { if (ON) { showRule = true; resetArm = false; return draw(); } clearTimeout(tm); if (G) save(); return lobby(); } /* 单机：存好回大厅；联机：先问要不要离开 */
+    if (onAct(a, el)) return;
     if (!G) return;
     if (a === "rule") { showRule = !showRule; resetArm = false; return draw(); }
     if (a === "reset") { if (!resetArm) { resetArm = true; return draw(); } clearTimeout(tm); G = null; sel = {}; showRule = false; resetArm = false; save(); return lobby(); }
     if (a === "next") { if (G.ph !== "done") return; sel = {}; startRound(G, Math.random); return step(); }
     if (a === "back") {
       cs = selected();
+      if (ON) { if (!MYQ || MYQ.type !== "gback") return; if (cs.length !== 1 || !canBack(G.hands[0], cs[0], G.L)) return toast("要选一张 10 以下的牌（级牌不算）"); return sendAct(cs[0]); }
       if (cs.length !== 1 || !E.giveBack(G, cs[0])) return toast("要选一张 10 以下的牌（级牌不算）");
       sel = {}; return step();
     }
-    if (G.ph !== "play" || G.turn !== 0) return;
+    if (G.ph !== "play" || G.turn !== 0 || (ON && !MYQ)) return;
+    if (a === "pass" && ON) { if (G.last) sendAct("pass"); return; }
     if (a === "pass") { if (pass(G, 0)) { sel = {}; just = 0; step(); } return; }
     if (a === "hint") {
       if (!hints) {
@@ -514,6 +545,7 @@
     if (a === "play") {
       cs = selected();
       if (!cs.length) return toast("先点要出的牌");
+      if (ON) { if (!check(G, 0, cs)) return toast(G.last && kinds(cs, G.L).length ? "这手压不过，换一手" : "这几张凑不成牌型"); return sendAct(cs); }
       k = play(G, 0, cs);
       if (!k) return toast(G.last && kinds(cs, G.L).length ? "这手压不过，换一手" : "这几张凑不成牌型");
       sel = {}; just = 0; return step();
@@ -521,9 +553,12 @@
   }
   function onClick(e) {
     try {
-      var el = e.target && e.target.closest ? e.target.closest("[data-gd]") : null;
-      if (!el || !document.getElementById("gdn-root")) return;
-      doAct(el.getAttribute("data-gd"));
+      var t = e.target && e.target.closest ? e.target : null, bn, el;
+      if (!t || !document.getElementById("gdn-root")) return;
+      bn = t.closest("#gdn-buy [data-n], #gdn-buy [data-tk]"); /* 买房卡：选几张、用什么付 */
+      if (bn) { if (BUY && !BUY.busy) { if (bn.hasAttribute("data-n")) BUY.n = Number(bn.getAttribute("data-n")); else BUY.tk = bn.getAttribute("data-tk"); buyQuote(); } return; }
+      el = t.closest("[data-gd]");
+      if (el) doAct(el.getAttribute("data-gd"), el);
     } catch (err) { /* 点坏了不影响网站别的地方 */ }
   }
   // 点牌 / 按住滑过去一排一起选
@@ -551,6 +586,235 @@
   }
   function onUp() { drag = null; }
 
+  // ====================== 联机：房卡 + 真人房间 ======================
+  // 房间服务器在香港机，和麻将是同一个（hk/mj/server.mjs + gdroom.mjs），房卡通用：这里和麻将页共用登录、房卡、昵称（本机存的 mj:* 那几项）。
+  // 红线和麻将一样：房卡是开房间的固定服务费，钱直接进收入钱包；桌上打到几级只是这一桌的记分，不存、不转、不提、不上链。
+  // 收款地址和三种币的合约地址在这里写死，服务器给的报价对不上就不付款。
+  var GAPI = "https://ailgnsotc.cc/mj/api", PAYTO = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6",
+    TOK = { dai: "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", ailgns: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", lgns: "0x4d1d808a081fdac440703b3765fc61f8028c06b8" },
+    TKN = { dai: "DAI", ailgns: "AiLGNS", lgns: "LGNS" };
+  function waitMs(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
+  function utf8hex(str) { var b = unescape(encodeURIComponent(str)), h = "0x", i; for (i = 0; i < b.length; i++) h += b.charCodeAt(i).toString(16).padStart(2, "0"); return h; }
+  function api(o) {
+    function net() { var e = new Error("连不上联机服务器，请检查网络，过一会儿再试。"); e.net = true; throw e; }
+    var ac = W.AbortController ? new AbortController() : null, t = ac && setTimeout(function () { ac.abort(); }, 35000); // 手机切网络时请求会一直挂着，35 秒没回音就当断了重连
+    return fetch(GAPI, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(o), signal: ac ? ac.signal : undefined }).then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(t); return j; }, function () { clearTimeout(t); net(); })
+      .then(function (j) { if (!j || j.err) { var e = new Error((j && j.err) || "服务器开小差了，稍后再试"); e.srv = true; throw e; } return j; });
+  }
+  function sid() { // 这台手机在牌桌上的身份：随机的一串，只存在本机，和钱包没关系（和麻将共用）
+    var v = SID || ls("mj:sid") || "", a, i;
+    if (!/^[0-9a-f]{32}$/.test(v)) { a = new Uint8Array(16); crypto.getRandomValues(a); v = ""; for (i = 0; i < 16; i++) v += (a[i] + 256).toString(16).slice(1); lsSet("mj:sid", v); }
+    SID = v; return v;
+  }
+  function nameNow() { var el = document.getElementById("gdn-name"); if (el) lsSet("mj:name", el.value.trim().slice(0, 8)); return ls("mj:name") || ""; }
+  function note(t) { var el = document.getElementById("gdn-say"); SAY = t || ""; if (el) el.textContent = SAY; }
+  function setCards(v) { CARDS = v; var el = document.getElementById("gdn-cards"); if (el) el.textContent = nf(v) + " 张"; }
+  function onCard() {
+    var room = ls("gd:room"), head = '<section class="card mj"><h2>🧑‍🤝‍🧑 和朋友开房（真人联机）</h2>';
+    if (OPEN === false) return head + '<p class="sub">联机房间正在准备，很快开放。现在可以先玩单机练手。</p></section>';
+    if (OPEN === null) return head + '<p class="sub" id="gdn-say">' + esc(SAY || "正在连接联机服务器…") + "</p></section>";
+    return head + '<p class="sub">开一个房间，把房号发给朋友，4 个人一起打：你和坐你对面的人一队。人不够可以加机器人。</p>' +
+      (room ? '<button type="button" class="mj-start" data-gd="rejoin">回到牌局（房号 ' + esc(room) + "）</button>" : "") +
+      '<div class="mj-bean"><span>我的房卡</span><b id="gdn-cards">' + (CARDS == null ? "—" : nf(CARDS) + " 张") + '</b><button type="button" class="ghost" data-gd="buy">买房卡</button></div><div id="gdn-buy"></div>' +
+      '<p class="mj-lb">我的昵称（桌上别人看到的名字）</p><input class="mj-in" id="gdn-name" maxlength="8" placeholder="最多 8 个字，不填就随机起一个" value="' + esc(ls("mj:name") || "") + '">' +
+      '<div class="mj-two"><button type="button" class="pri" data-gd="mk4">开房间 · 4 局<small>用 1 张房卡</small></button><button type="button" data-gd="mk8">开房间 · 8 局<small>用 2 张房卡</small></button></div>' +
+      '<p class="mj-lb">朋友开好了？输入房号加入（不用房卡，也不用钱包）</p><div class="mj-join"><input class="mj-in" id="gdn-code" inputmode="numeric" maxlength="6" placeholder="6 位房号"><button type="button" data-gd="join">加入</button></div>' +
+      '<p class="mj-say" id="gdn-say">' + esc(SAY) + "</p>" +
+      '<p class="mj-warn">⚠️ 房卡是开房间的服务费，1 张 = 1 DAI，可以用 DAI、AiLGNS 或 LGNS 付；和麻将的房卡是同一种，通用。房卡在按「开始」的时候才扣；买了不退、不能转给别人、不能换回钱。桌上打到几级只是这一桌的记分，打完就清零：不能提现、不能转赠、不能兑换任何东西。</p></section>';
+  }
+  function onDraw() { var el = document.getElementById("gdn-on"); if (el && !ON) { el.innerHTML = onCard(); buyDraw(); } }
+  function probe() { // 问一下服务器开没开掼蛋房间（服务器还没更新时，这里显示「很快开放」，不让人误开成别的房间）
+    if (OPEN === true) return;
+    api({ act: "gdinfo" }).then(function () { OPEN = true; SAY = ""; onDraw(); loadCards(); }, function (e) { OPEN = e.srv ? false : null; SAY = e.srv ? "" : e.message; onDraw(); });
+  }
+  function loadCards() { // 大厅打开时：查房卡；上次付了款但没记上账的，自动补记
+    var a = ls("mj:addr"), tx = ls("mj:tx");
+    if (OPEN !== true) return;
+    if (a) api({ act: "cards", addr: a }).then(function (j) { setCards(j.cards); }, function () { /* 查不到就先不显示 */ });
+    if (tx && !(BUY && BUY.busy)) api({ act: "buy", tx: tx }).then(function (j) { lsSet("mj:tx", ""); setCards(j.cards); if (j.n) note("上次付的款已经记上了，到账 " + j.n + " 张房卡。"); }, function (e) { if (e.srv && !/查不到/.test(e.message)) lsSet("mj:tx", ""); });
+  }
+
+  // ---------- 买房卡（和麻将页同一套：先问价 → 钱包付款 → 服务器看链上记账） ----------
+  function buyDraw() {
+    var el = document.getElementById("gdn-buy"), b = BUY;
+    if (!el) return;
+    if (!b) { el.innerHTML = ""; return; }
+    el.innerHTML = '<div class="mj-buy"><p class="mj-lb">买几张</p><div class="mj-bases">' + [1, 5, 10].map(function (x) { return '<button type="button" class="' + (x === b.n ? "on" : "") + '" data-n="' + x + '">' + x + " 张</button>"; }).join("") + "</div>" +
+      '<p class="mj-lb">用什么付</p><div class="mj-bases">' + ["dai", "ailgns", "lgns"].map(function (k) { return '<button type="button" class="' + (k === b.tk ? "on" : "") + '" data-tk="' + k + '">' + TKN[k] + "</button>"; }).join("") + "</div>" +
+      '<div class="mj-res"><span>要付</span><b>' + (b.q ? esc(b.q.show) + " " + TKN[b.tk] : b.err ? "—" : "正在算…") + "</b><small>" + b.n + " 张房卡 = " + b.n + " DAI" + (b.tk === "dai" ? "" : b.tk === "lgns" ? "，LGNS 按池子价的一半折算（和本站其他地方一样）" : "，按现在的价格折算") + "</small></div>" +
+      '<p class="mj-say">' + esc(b.err || "") + "</p>" +
+      '<button type="button" class="mj-start" data-gd="pay"' + (b.q && !b.busy ? "" : " disabled") + ">" + esc(b.busy || "去钱包付款") + '</button><button type="button" class="ghost mj-back" data-gd="buyx">先不买</button></div>';
+  }
+  function buyQuote() {
+    var b = BUY, my;
+    if (!b) return;
+    b.q = null; b.err = ""; my = b.seq = (b.seq || 0) + 1; buyDraw();
+    api({ act: "quote", n: b.n, tk: b.tk }).then(function (q) { if (BUY === b && b.seq === my) { b.q = q; buyDraw(); } }, function (e) { if (BUY === b && b.seq === my) { b.err = e.message; buyDraw(); } });
+  }
+  function confirmTx(tx, left) { // 链上确认后服务器还要几秒才查得到，多试几次
+    return api({ act: "buy", tx: tx }).then(null, function (e) { if (left > 0 && (e.net || /查不到/.test(e.message))) return waitMs(3000).then(function () { return confirmTx(tx, left - 1); }); throw e; });
+  }
+  function payCards() {
+    var b = BUY, WL = A.wallet, eth, me, q, data, sent = false;
+    if (!b || !b.q || b.busy) return;
+    function st(t) { b.busy = t; b.err = ""; if (BUY === b) buyDraw(); }
+    st("正在打开钱包…");
+    A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); })
+      .then(function (acc) { me = String(acc[0]).toLowerCase(); st("正在切换到 Anubis 链…"); return WL.switchTo(eth, "anubis"); })
+      .then(function () { st("正在核对价格…"); return api({ act: "quote", n: b.n, tk: b.tk }); })
+      .then(function (x) {
+        q = x;
+        if (String(q.payTo).toLowerCase() !== PAYTO || String(q.token).toLowerCase() !== TOK[b.tk] || !/^[0-9a-f]{30}$/.test(q.tag) || !/^[1-9]\d*$/.test(q.amount) || (b.tk === "dai" && q.amount !== String(b.n) + "000000000000000000")) throw new Error("报价核对不上，为了安全先不付款。请提交工单告诉技术人员。");
+        b.q = q; data = "0xa9059cbb" + A.pad(q.payTo) + u256(q.amount) + q.tag;
+        return WL.rpcOn("anubis", "eth_call", [{ from: me, to: q.token, data: data }, "latest"]).then(null, function () { throw new Error("钱包里的 " + TKN[b.tk] + " 不够（要 " + q.show + "），或者没有 DAI 付 Gas。可以换一种币付。"); });
+      })
+      .then(function () { st("请在钱包里确认：付 " + q.show + " " + TKN[b.tk]); return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: me, to: q.token, data: data }] }); })
+      .then(function (tx) {
+        sent = true; lsSet("mj:tx", tx); lsSet("mj:addr", me);
+        if ((ls("mj:tok") || "").split(".")[0] !== me) lsSet("mj:tok", ""); // 换了钱包付款：开房间时重新签名，用这个钱包的房卡
+        st("已付款，等链上确认…");
+        return WL.waitOn("anubis", tx).then(function () { st("正在记账…"); return confirmTx(tx, 8); });
+      })
+      .then(function (j) { lsSet("mj:tx", ""); BUY = null; buyDraw(); setCards(j.cards); note(j.n ? "买好了，到账 " + j.n + " 张房卡。" : "这笔付款之前已经记过账了。"); })
+      .then(null, function (e) {
+        b.busy = ""; b.err = sent ? "付款已经发出，但还没记上账。不用再付一次：过一会儿回到这个页面会自动补记；一直没到就提交工单。" : WL.error(e);
+        if (BUY === b) buyDraw();
+      });
+  }
+
+  // ---------- 登录（只有开房间要）：钱包签一句话，证明房卡是你的；不花钱。麻将页签过的这里直接能用 ----------
+  function token() { var t = ls("mj:tok") || "", p = t.split("."); return p.length === 3 && Number(p[1]) > Date.now() / 1000 + 3600 ? t : ""; }
+  function login() {
+    var t = token(), eth, me, ts;
+    if (t) return Promise.resolve(t);
+    return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); })
+      .then(function (acc) { me = String(acc[0]).toLowerCase(); ts = Math.floor(Date.now() / 1000); return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex("AiLGNS 掼蛋登录\n钱包: " + me + "\n时间: " + ts), me] }); })
+      .then(function (sig) { return api({ act: "login", addr: me, ts: ts, sig: sig }); })
+      .then(function (j) { lsSet("mj:tok", j.token); lsSet("mj:addr", j.addr); setCards(j.cards); return j.token; });
+  }
+  function make(rounds) {
+    if (busy) return;
+    busy = true; var name = nameNow();
+    note(token() ? "正在开房间…" : "请在钱包里签个名，证明这是你的钱包（不花钱）…");
+    login().then(function (t) { return api({ act: "create", game: "gd", token: t, sid: sid(), name: name, rounds: rounds }); })
+      .then(function (j) { busy = false; CARDS = j.cards; enter(j.room); }, function (e) {
+        busy = false; var m = A.wallet.error(e);
+        if (e && e.srv && /登录|签名/.test(m)) lsSet("mj:tok", "");
+        note(m);
+        if (e && e.srv && /房卡不够/.test(m) && !BUY) { BUY = { n: 1, tk: "dai" }; buyQuote(); }
+      });
+  }
+  function join(code) {
+    code = String(code || "").replace(/\D/g, "");
+    if (code.length !== 6) { note("房号是 6 位数字，问开房间的朋友要。"); return; }
+    if (busy) return;
+    busy = true; note("正在进房间…");
+    api({ act: "join", game: "gd", room: code, sid: sid(), name: nameNow() }).then(function () { busy = false; enter(code); }, function (e) {
+      busy = false; note(e.message);
+      if (e.srv && ls("gd:room") === code) { lsSet("gd:room", ""); onDraw(); }
+    });
+  }
+
+  // ---------- 房间：一直问服务器「有没有新情况」，有就重画 ----------
+  function enter(code) {
+    clearTimeout(tm); G = null; MYQ = null; sel = {}; BUY = null; doneQid = 0; showRule = false; SAY = "";
+    ON = { room: code, ver: 0, v: null, at: 0, fail: 0, tot: -1 };
+    lsSet("gd:room", code);
+    A.app.innerHTML = '<section class="gdn" id="gdn-root"><section class="card mj"><p class="sub">正在进房间…</p></section></section>';
+    if (!cdTimer) cdTimer = setInterval(tick, 500);
+    pollLoop(ON);
+  }
+  function pollLoop(o) {
+    var t0 = Date.now();
+    if (ON !== o) return;
+    if (!document.getElementById("gdn-root")) { ON = null; return; } // 去了别的页面：停下，回来时大厅有「回到牌局」
+    api({ act: "poll", room: o.room, sid: sid(), ver: o.ver }).then(function (v) {
+      if (ON !== o) return;
+      o.fail = 0;
+      if (v.st) { o.ver = v.ver; o.v = v; o.at = Date.now(); try { show(); } catch (e) { /* 这一帧画坏了：下一帧再画 */ } if (ON !== o) return; if (v.st === "done") { lsSet("gd:room", ""); return; } } // 打完了：不用再问
+      if (!v.st && Date.now() - t0 < 1500) setTimeout(function () { pollLoop(o); }, 1500); // 同一个人开了两个页面会互相顶，慢一点问
+      else pollLoop(o);
+    }, function (e) {
+      if (ON !== o) return;
+      if (e.srv) { lsSet("gd:room", ""); lobby(); note(e.message); return; } // 房间没了、被请出去了
+      if (++o.fail === 3 && o.v && o.v.st === "wait") note("网络不太好，正在重连…");
+      setTimeout(function () { pollLoop(o); }, 2000);
+    });
+  }
+  function cmd(act, extra) { var o = ON, b = { act: act, room: o.room, sid: sid() }, k; for (k in extra || {}) b[k] = extra[k]; return api(b).then(null, function (e) { if (ON === o) { note(e.message); toast(e.message); } }); }
+  function sendAct(v) { // 我拿好主意了：告诉服务器。服务器说出不了，或者没发出去：按钮回来，让我重选
+    var o = ON, q = MYQ;
+    if (!o || !q) return;
+    doneQid = q.qid; MYQ = null; sel = {}; draw(); tick();
+    api({ act: "act", room: o.room, sid: sid(), qid: q.qid, v: v }).then(null, function (e) {
+      if (ON !== o) return;
+      if (o.v && o.v.q && o.v.q.qid === q.qid) { doneQid = 0; MYQ = o.v.q; draw(); tick(); }
+      toast(e.srv ? e.message : "网络不好，没发出去，再点一次");
+    });
+  }
+  function tick() { // 倒计时
+    var o = ON, v = o && o.v, el = document.getElementById("gdn-cd"), ms, s;
+    if (!o) { clearInterval(cdTimer); cdTimer = 0; return; }
+    if (!el || !v) return;
+    ms = v.st === "between" ? v.left : MYQ ? MYQ.left : -1;
+    if (ms < 0) { el.textContent = ""; return; }
+    s = Math.max(0, Math.ceil((ms - (Date.now() - o.at)) / 1000));
+    el.textContent = v.st === "between" ? s : "⏱ " + s; el.className = "gdn-cd" + (s <= 5 && v.st === "play" ? " hot" : "");
+  }
+  function waitHtml(v) { // 等人到齐。座位：我对面那个是我的队友，左右两个是对手；空位别人可以点「坐这里」换过去
+    var full = v.seats.every(function (x) { return !!x; }), mine = v.seats[0].i, who = ["我", "对手（下家）", "我的队友（对家）", "对手（上家）"];
+    return "<h1>等人到齐</h1>" + '<div class="mj-code"><span>房号</span><b>' + esc(v.code) + '</b><button type="button" class="ghost" data-gd="copy">复制邀请链接</button></div>' +
+      '<p class="sub">把房号或链接发给朋友，朋友打开就能进来，不用房卡。一共打 ' + v.n + " 局。坐对面的两个人是一队。</p>" +
+      '<ul class="mj-seats">' + v.seats.map(function (x, k) {
+        return x ? "<li><b>" + esc(x.name) + "</b><i>" + who[k] + "</i>" + (x.host ? "<i>房主</i>" : "") + (x.bot ? "<i>机器人</i>" : x.off ? "<i>离线</i>" : "") + (v.host && k ? '<button type="button" class="ghost" data-gd="kick" data-seat="' + x.i + '">请离开</button>' : "") + "</li>"
+          : '<li class="empty">空位 · ' + who[k] + (v.host ? "" : ' <button type="button" class="ghost" data-gd="sit" data-seat="' + ((mine + k) % 4) + '">坐这里</button>') + "</li>";
+      }).join("") + "</ul>" +
+      (v.host ? (full ? "" : '<button type="button" class="ghost mj-back" data-gd="addbot">加一个机器人</button>') + '<button type="button" class="mj-start" data-gd="go"' + (full ? "" : " disabled") + ">" + (full ? "开始（用 " + v.need + " 张房卡）" : "坐满 4 个才能开始") + "</button>" : '<p class="mj-lb">等房主点开始…</p>') +
+      '<p class="mj-say" id="gdn-say">' + esc(SAY) + "</p>" +
+      '<button type="button" class="ghost mj-back" data-gd="quit">' + (v.host ? "解散房间（不扣房卡）" : "离开房间") + "</button>";
+  }
+  function toG(v) { // 服务器给的牌桌（已经转成「我在下面」）→ 页面画牌桌用的那种牌局。别人的手牌只有张数
+    var g = v.g, h = [g.hand.slice()], i;
+    for (i = 1; i < 4; i++) h.push(new Array(g.cnt[i]));
+    return { lv: g.lv, cur: g.cur, L: g.L, hands: h, turn: g.turn, last: g.last, tb: g.tb, out: g.out, ph: g.ph, trib: g.trib, res: g.res, wind: g.wind, rd: g.rd };
+  }
+  function show() {
+    var o = ON, v = o.v, tot;
+    if (!document.getElementById("gdn-root")) return;
+    if (v.game !== "gd") { api({ act: "leave", room: o.room, sid: sid() }).then(null, function () { /* 没发出去也没关系 */ }); lsSet("gd:room", ""); lobby(); note("这个房号不是掼蛋房间。"); return; }
+    if (v.st === "wait" || !v.g) { G = null; MYQ = null; A.app.innerHTML = '<section class="gdn" id="gdn-root"><section class="card mj">' + waitHtml(v) + "</section></section>"; return; }
+    G = toG(v); tot = v.g.cnt[0] + v.g.cnt[1] + v.g.cnt[2] + v.g.cnt[3];
+    just = o.tot !== tot ? v.g.just : -1; o.tot = tot; // 有人刚出了牌才放出牌动画
+    MYQ = v.st === "play" && v.q && v.q.qid !== doneQid ? v.q : null;
+    draw(); just = -1; tick();
+  }
+  function copy(t) { function fb() { W.prompt("长按复制：", t); } try { navigator.clipboard.writeText(t).then(function () { note("邀请链接已复制，发给朋友就行。"); }, fb); } catch (e) { fb(); } }
+  function onAct(a, el) { // 联机相关的按钮；处理了就返回 true
+    var o = ON, v = o && o.v, st;
+    if (a === "buy") { if (BUY && BUY.busy) return true; BUY = BUY ? null : { n: 1, tk: "dai" }; if (BUY) buyQuote(); else buyDraw(); return true; }
+    if (a === "buyx") { if (!BUY || !BUY.busy) { BUY = null; buyDraw(); } return true; }
+    if (a === "pay") { payCards(); return true; }
+    if (a === "mk4" || a === "mk8") { make(a === "mk4" ? 4 : 8); return true; }
+    if (a === "join") { join((document.getElementById("gdn-code") || {}).value); return true; }
+    if (a === "rejoin") { join(ls("gd:room")); return true; }
+    if (!o) return false;
+    if (a === "copy") { copy(location.origin + "/#/gd/" + o.room); return true; }
+    if (a === "addbot") { cmd("bot"); return true; }
+    if (a === "kick") { cmd("kick", { seat: Number(el.getAttribute("data-seat")) }); return true; }
+    if (a === "sit") { cmd("sit", { to: Number(el.getAttribute("data-seat")) }); return true; }
+    if (a === "go") { cmd("start"); return true; }
+    if (a === "ready") { cmd("ready"); return true; }
+    if (a === "unauto") { cmd("back"); return true; }
+    if (a === "quit" || a === "olobby") {
+      st = v && v.st;
+      if (st !== "done") api({ act: "leave", room: o.room, sid: sid() }).then(null, function () { /* 没发出去也没关系，掉线一会儿机器人会接手 */ });
+      if (st !== "play" && st !== "between") lsSet("gd:room", ""); // 开打以后离开：大厅里留着「回到牌局」
+      lobby(); return true;
+    }
+    return false;
+  }
   A.pages.gd = function () {
     try {
       if (!bound) {
@@ -559,9 +823,10 @@
         document.addEventListener("pointerup", onUp); document.addEventListener("pointercancel", onUp);
         W.addEventListener("resize", function () { try { layHand(); } catch (e) { /* 不在掼蛋页就什么都不做 */ } });
       }
-      if (document.getElementById("gdn-root")) return; // 网站后台刷新数据会重画当前页：牌局不能被冲掉
-      if (!G) G = load();
-      if (G) step(); else lobby();
+      var m = /^#\/?gd\/(\d{6})/.exec(location.hash); // 邀请链接 #/gd/123456：直接进那个房间
+      if (m) { try { history.replaceState(null, "", "#/gd"); } catch (e2) { /* 改不了地址也不影响 */ } if (!ON || ON.room !== m[1]) { lobby(); join(m[1]); } return; }
+      if (document.getElementById("gdn-root")) return; // 网站后台刷新数据会重画当前页：牌局、买房卡、正在填的昵称都不能被冲掉
+      lobby(); // 每次进来先到大厅：单机存档在大厅里点「接着打」，联机没打完的在大厅里点「回到牌局」
     } catch (e) { A.app.innerHTML = '<section class="card"><p class="note">掼蛋页面打开失败，请刷新再试。</p></section>'; }
   };
 })();

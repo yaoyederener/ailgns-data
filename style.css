@@ -4126,6 +4126,16 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 
 /* 🃏 掼蛋 #/gd：浅紫牌桌，手机 390 优先 */
 .gdn { max-width: 520px; margin: 0 auto 16px; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.gdn-x { border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+.gdn-cd { flex: none; min-width: 40px; font-size: 13px; font-weight: 700; color: var(--purple-ink); }
+.gdn-cd.hot { color: #ef4444; }
+.gdn-sub { display: block; margin: 10px auto 0; padding: 7px 16px; font-size: 13px; }
+.gdn-nm small.off { background: #fde8e8; color: #b91c1c; }
+.gdn-seat.s1 .gdn-nm, .gdn-seat.s3 .gdn-nm { max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+.gdn-ov { overflow: auto; }
+.gdn-rs2 { margin: 8px 0 0; }
+#gdn-on { margin-top: 12px; }
+#gdn-on .card.mj, .gdn > .card.mj { margin-bottom: 0; }
 .gdn-top { display: flex; align-items: center; gap: 6px; padding: 2px 0 8px; font-size: 12px; color: var(--muted); }
 .gdn-x { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #fff; box-shadow: 0 0 0 1px var(--line); color: var(--purple-ink); font-size: 18px; text-decoration: none; line-height: 1; }
 .gdn-tm { flex: none; padding: 5px 9px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px var(--line); white-space: nowrap; }

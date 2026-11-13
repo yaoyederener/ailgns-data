@@ -35,6 +35,17 @@ const now = () => Date.now();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pad = (a) => a.replace(/^0x/, "").toLowerCase().padStart(64, "0");
 
+// ---------- 掼蛋（2026-11-13 加）：规则用网站那份 gd.js，房间怎么打在 gdroom.mjs。这两个文件缺了或坏了，只是掼蛋开不了，麻将照常 ----------
+let GDR = null;
+async function loadGd() {
+  try {
+    new Function(fs.readFileSync(path.join(DIR, "gd.js"), "utf8"))(); // 没有 window 时，引擎挂在 globalThis.GD
+    const { makeGdRooms } = await import("./gdroom.mjs");
+    GDR = makeGdRooms({ GD: globalThis.GD, E, now, sleep, timer: (f, ms) => setTimeout(f, ms), clear: (t) => clearTimeout(t), rnd: () => crypto.randomInt(0x100000000) / 0x100000000,
+      bump: (r) => bump(r), online: (r, i) => online(r, i), humansHere: (r) => humansHere(r), closeRoom: (r, w) => closeRoom(r, w), log: (e) => log(e), openUse });
+  } catch (e) { GDR = null; console.error("掼蛋没装上（麻将不受影响）:", e && e.message); }
+}
+
 // ---------- 账本：一行一条，只追加。余额 = 从头加一遍 ----------
 fs.mkdirSync(DATA, { recursive: true });
 const LEDGER = path.join(DATA, "ledger.jsonl");
@@ -123,7 +134,8 @@ async function buy(o) {
 function login(o) {
   const addr = String(o.addr || "").toLowerCase(), ts = Number(o.ts);
   if (!/^0x[0-9a-f]{40}$/.test(addr) || !Number.isInteger(ts) || Math.abs(now() / 1000 - ts) > 600) throw new E("登录过期了，请重新签名");
-  if (recoverAddress("AiLGNS 麻将登录\n钱包: " + addr + "\n时间: " + ts, String(o.sig || "")) !== addr) throw new E("签名不对，请重新签名");
+  const tail = "\n钱包: " + addr + "\n时间: " + ts, sig = String(o.sig || ""); // 麻将页和掼蛋页各签各的一句话，房卡是同一份
+  if (recoverAddress("AiLGNS 麻将登录" + tail, sig) !== addr && recoverAddress("AiLGNS 掼蛋登录" + tail, sig) !== addr) throw new E("签名不对，请重新签名");
   const exp = Math.floor(now() / 1000) + 30 * 86400;
   return { token: addr + "." + exp + "." + mac("t|" + addr + "|" + exp), addr, cards: bal.get(addr) || 0 };
 }
@@ -153,6 +165,7 @@ function view(room, me) {
   const o = { ver: room.ver, code: room.code, st: room.st, k: room.k, n: room.rounds, need: room.need, host: me === 0, auto: room.seats[me].auto,
     seats: [0, 1, 2, 3].map((v) => { const i = abs(v), s = room.seats[i]; return s ? { i, name: s.name, bot: s.bot, host: i === 0, auto: s.auto || s.gone, off: !s.bot && !online(room, i), ready: s.ready } : null; }),
     tot: R(room.total), left: room.until ? Math.max(0, room.until - now()) : 0, note: room.note || "" };
+  if (room.game === "gd") return GDR.view(room, me, o);
   if (!g) return o;
   o.g = { base: g.base, wall: { length: g.wall.length }, turn: g.turn < 0 ? -1 : rot(g.turn), dealer: rot(g.dealer), flash: g.flash, over: g.over, endNotes: g.endNotes,
     msg: g.swapIn ? "换三张：每人把牌换给" + MJ.REL[g.swapDir] + "。你换到了 " + g.swapIn[me].map(MJ.tn).join(" ") : g.msg,
@@ -228,6 +241,7 @@ async function runGame(room) {
 }
 async function runRoom(room) {
   try {
+    if (room.game === "gd") { await GDR.runRoom(room); return; }
     for (;;) {
       room.st = "play"; room.until = 0;
       if (!(await runGame(room))) { if (openUse.has(room.rid)) log({ t: "done", room: room.rid, k: room.k, why: "empty" }); return; }
@@ -254,20 +268,24 @@ function checkReady(room) { if (room.st === "between" && room.go && room.seats.e
 // ---------- 接口 ----------
 const H = {
   quote, buy, login,
+  gdinfo() { if (!GDR) throw new E("掼蛋联机暂时开不了，过一会儿再试"); return { ok: true, rounds: GDR.ROUNDS, card: CARD_DAI }; }, // 掼蛋页用它确认服务器已经支持掼蛋
   cards(o) { const a = String(o.addr || "").toLowerCase(); if (!/^0x[0-9a-f]{40}$/.test(a)) throw new E("地址不对"); return { addr: a, cards: bal.get(a) || 0 }; },
   create(o) {
-    const addr = whoIs(o.token), sid = cleanSid(o.sid), rounds = Number(o.rounds) === 16 ? 16 : 8, need = ROUNDS[rounds];
+    const addr = whoIs(o.token), sid = cleanSid(o.sid), game = o.game === "gd" ? "gd" : "mj";
+    if (game === "gd" && !GDR) throw new E("掼蛋联机暂时开不了，过一会儿再试");
+    const rounds = game === "gd" ? (Number(o.rounds) === 8 ? 8 : 4) : (Number(o.rounds) === 16 ? 16 : 8), need = game === "gd" ? GDR.ROUNDS[rounds] : ROUNDS[rounds];
     if ((bal.get(addr) || 0) < need) throw new E("房卡不够：开 " + rounds + " 局要 " + need + " 张，你有 " + (bal.get(addr) || 0) + " 张");
     if (rooms.size >= 500) throw new E("现在房间太多了，过一会儿再开");
     if ([...rooms.values()].filter((r) => r.host === addr && r.st !== "done").length >= 2) throw new E("你已经开了 2 个房间，先打完或解散一个");
     let code; do { code = String(100000 + crypto.randomInt(900000)); } while (rooms.has(code));
-    const room = { code, rid: code + "-" + now().toString(36), host: addr, rounds, need, st: "wait", k: 0, seats: [null, null, null, null], total: [0, 0, 0, 0], ver: 1, qid: 0, waiters: new Map(), asks: {}, g: null, at: now(), humanAt: now(), dealer: crypto.randomInt(4), until: 0 };
+    const room = { game, code, rid: code + "-" + now().toString(36), host: addr, rounds, need, st: "wait", k: 0, seats: [null, null, null, null], total: [0, 0, 0, 0], ver: 1, qid: 0, waiters: new Map(), asks: {}, g: null, at: now(), humanAt: now(), dealer: crypto.randomInt(4), until: 0 };
     room.seats[0] = newSeat(room, sid, o.name);
     rooms.set(code, room);
     return { room: code, cards: bal.get(addr) || 0 };
   },
   join(o) {
     const room = getRoom(o), sid = cleanSid(o.sid);
+    if ((o.game === "gd" ? "gd" : "mj") !== room.game) throw new E("这个房号是" + (room.game === "gd" ? "掼蛋" : "麻将") + "房间，请到" + (room.game === "gd" ? "掼蛋" : "麻将") + "页面里加入");
     let i = room.seats.findIndex((s) => s && s.sid === sid);
     if (i >= 0) { room.seats[i].gone = false; room.seats[i].seen = now(); bump(room); return { room: room.code }; } // 本来就在：回到座位
     if (room.st !== "wait") throw new E("这一桌已经开打了，进不去了");
@@ -291,11 +309,18 @@ const H = {
     if (w) { clearTimeout(w.timer); send(w.res, { err: "房主请你离开了房间" }); room.waiters.delete(i); }
     bump(room); return { ok: true };
   },
+  sit(o) { // 掼蛋：开打前换到一个空位（坐对面的两个人一队）。房主不动，一直是 0 号位
+    const room = getRoom(o), i = seatOf(room, o), to = Number(o.to);
+    if (room.game !== "gd" || room.st !== "wait" || i === 0 || !(to >= 1 && to <= 3) || room.seats[to]) throw new E("这个位置现在坐不了");
+    room.seats[to] = room.seats[i]; room.seats[i] = null;
+    const w = room.waiters.get(i); if (w) { room.waiters.delete(i); room.waiters.set(to, w); }
+    bump(room); return { ok: true };
+  },
   leave(o) {
     const room = getRoom(o), i = seatOf(room, o);
     if (room.st === "wait") { if (i === 0) closeRoom(room, "房主解散了房间"); else { room.seats[i] = null; room.waiters.delete(i); bump(room); } }
     else if (room.st === "done") room.seats[i].gone = true;
-    else { room.seats[i].gone = true; const a = room.asks[i]; if (a && !a.hidden) a.fin(MJ.bot(room.g, a.q)); bump(room); checkReady(room); }
+    else { room.seats[i].gone = true; const a = room.asks[i]; if (a && !a.hidden) a.fin(room.game === "gd" ? GDR.botAns(room, a.q) : MJ.bot(room.g, a.q)); bump(room); checkReady(room); }
     return { ok: true };
   },
   start(o) {
@@ -309,6 +334,7 @@ const H = {
   },
   act(o) {
     const room = getRoom(o), i = seatOf(room, o), a = room.asks[i], seat = room.seats[i];
+    if (room.game === "gd") return GDR.act(room, i, o);
     let v = o.v;
     if (!a || a.hidden || a.qid !== Number(o.qid)) return { ok: false };
     if (a.q.type === "swap") v = Array.isArray(v) && v.length === 3 && v.every((t) => Number.isInteger(t) && t >= 0 && t < 27) ? v : null;
@@ -339,6 +365,7 @@ setInterval(() => { // 打扫：没人的等待房 30 分钟、打完的房 15 �
   }
 }, 30000).unref();
 
+await loadGd();
 http.createServer((req, res) => {
   const origin = String(req.headers.origin || ""), ok = ALLOW.has(origin) || /^https:\/\/[a-z0-9-]+\.ailgns-data\.pages\.dev$/.test(origin);
   res.writeHead(200, Object.assign({ "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }, ok ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" } : {}));
@@ -359,6 +386,6 @@ http.createServer((req, res) => {
       send(res, { err: e instanceof E ? e.message : e instanceof SyntaxError ? "请求不对" : "服务器开小差了，稍后再试" });
     }
   });
-}).listen(PORT, "127.0.0.1", () => console.log("麻将房间服务已启动，端口", PORT, "账本里", bal.size, "个钱包"));
+}).listen(PORT, "127.0.0.1", () => console.log("麻将房间服务已启动，端口", PORT, "账本里", bal.size, "个钱包", GDR ? "掼蛋已装上" : "掼蛋没装上"));
 process.on("uncaughtException", (e) => console.error("uncaught", e));
 process.on("unhandledRejection", (e) => console.error("unhandled", e));
