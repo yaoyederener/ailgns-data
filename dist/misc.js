@@ -185,4 +185,5 @@ var six=0,guard=0,pool=d.f[6];d.f.forEach(function(x,i){if(i<6)six+=x.dai;if(i>=
 A.pages.funds=function(id){var st=null;try{st=JSON.parse(localStorage.getItem(CACHE));}catch(e){st=null;}
 if(!ok(st))st=null;draw(st,"loading");A.getJSON("/api/funds").then(function(d){if(!ok(d))throw new Error("bad");return d;}).catch(function(){return direct();}).then(function(d){try{localStorage.setItem(CACHE,JSON.stringify(d));}catch(e){}
 if(A.isCurrent(id))draw(d,"done");},function(){if(A.isCurrent(id))draw(st,st?"done":"fail");});};})();}catch(e){console.error('[bundle] funds.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]=1;
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h5f45478721";
+/*v:h5f45478721*/

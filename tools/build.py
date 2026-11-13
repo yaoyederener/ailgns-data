@@ -53,6 +53,8 @@ def write(p, s):
     os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
     io.open(p, "w", encoding="utf-8", newline="\n").write(s)
 def h(s): return "h" + hashlib.sha1(s.encode("utf-8")).hexdigest()[:10]
+# 盖章版指纹：盖了版本章的文件，指纹要跟没盖章的时代区分开，免得同一个 ?v= 指向两份不同内容（站长规矩：版本号不复用）
+def hv(s): return h(s + "\n/*stamped-v1*/")
 
 def wrap(f):
     src = read(f)
@@ -200,17 +202,22 @@ def main():
         js = minjs("\n;\n".join(wrap(f) for f in files))
         # 2026-11-12：包的最后一行打个「我完整跑到底了」的记号。手机上下载到一半的残缺包会报 SyntaxError 但 onload 照样触发，
         # app.js 的 loadBundle 看不到这个记号就知道包是坏的，换地址重新下载
-        js += '\n;(window.AIL_LOADED=window.AIL_LOADED||{})["%s"]=1;' % g
+        # 2026-11-13：记号从 1 改成版本号，再在最末尾盖一枚 /*v:版本号*/ 的章（sw.js 存之前要核）。
+        # 原因：发版那几秒 CDN 可能把旧内容发成新版本号，旧内容会被手机永久存住（preview 实测 misc.js 中招）
+        v = hv(js)
+        js += '\n;(window.AIL_LOADED=window.AIL_LOADED||{})["%s"]="%s";\n/*v:%s*/' % (g, v, v)
         name = "dist/%s.js" % g
         out[name] = js
-        manifest[g] = name + "?v=" + h(js)
+        manifest[g] = name + "?v=" + v
     core = "window.AIL_BUNDLES=" + json.dumps(manifest, separators=(",", ":")) + ";\n" + \
            minjs("\n;\n".join(wrap(f) for f in GROUPS["core"]))
-    out["dist/core.js"] = core
-    core_url = "dist/core.js?v=" + h(core)
+    cv = hv(core)
+    out["dist/core.js"] = core + '\n;window.AIL_CORE="%s";\n/*v:%s*/' % (cv, cv)
+    core_url = "dist/core.js?v=" + cv
     css = mincss(read("style.css"))
-    out["dist/style.css"] = css
-    css_url = "dist/style.css?v=" + h(css)
+    sv = hv(css)
+    out["dist/style.css"] = css + "\n/*v:%s*/" % sv
+    css_url = "dist/style.css?v=" + sv
 
     # 清掉旧生成物，写新的
     if os.path.isdir("dist"):

@@ -219,4 +219,5 @@ $("dt-grid").onclick=function(e){var el=e.target.closest?e.target.closest(".dt-r
 if(myBet(c)){toast("这一局你已经进房间了",true);return;}
 sel=Number(el.getAttribute("data-i"));draw();};$("dt-pay").onclick=function(){try{recharge();}catch(e){toast("充值暂时打不开，稍后再试",true);}};draw();pull();if(sig)post("me").then(draw,function(){draw();});tm=setInterval(tick,250);}
 A.pages.br=page;})();}catch(e){console.error('[bundle] br.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]=1;
+;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]="hddd67d4aeb";
+/*v:hddd67d4aeb*/

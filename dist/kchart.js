@@ -26,4 +26,5 @@ if(!best||score>best.score)best={i:IVS[k][0],score:score,pct:pct};});if(!best)re
 if(best.i!==iv)set(best.i);});}
 var c0=cacheGet();if(c0){data=c0.c;cur=c0.cur||0;draw();}
 load();timer=setInterval(load,5000);autoPick();return{set:set,stop:function(){dead=true;clearInterval(timer);if(ro)ro.disconnect();}};};})();}catch(e){console.error('[bundle] kchart.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["kchart"]=1;
+;(window.AIL_LOADED=window.AIL_LOADED||{})["kchart"]="h3aa395869e";
+/*v:h3aa395869e*/

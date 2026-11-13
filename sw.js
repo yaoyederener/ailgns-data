@@ -35,18 +35,31 @@ self.addEventListener("fetch", function (e) {
   }
   // 🚀 带版本号的脚本和样式（dist/xxx.js?v=h…）：内容永远不变，手机里有就直接用，没有才下载并存起来
   if (e.request.method === "GET" && u.origin === location.origin && u.pathname.indexOf("/dist/") === 0 && u.searchParams.get("v")) {
+    // 🔒 存之前先核版本章（站长 2026-11-13）：发版那几秒 CDN 可能把旧内容发成新版本号，
+    //   存下来就永久卡在旧版（preview 实测 misc.js 中招）。章对不上就不存、换地址重下一次；两次都不对照旧放行，但绝不存
+    var v = u.searchParams.get("v");
+    function stamped(r) {
+      if (!r || !r.ok || r.type !== "basic" || !/javascript|css/.test(r.headers.get("content-type") || "")) return Promise.resolve(false);
+      return r.clone().text().then(function (t) { return t.indexOf("/*v:" + v + "*/") > -1; }).catch(function () { return false; });
+    }
     e.respondWith(caches.open(PAGE).then(function (c) {
+      function save(r) {
+        // 存新版，顺手把同一个文件的旧版本删掉，不占手机空间
+        e.waitUntil(c.put(e.request, r.clone()).then(function () { return c.keys(); }).then(function (ks) {
+          return Promise.all(ks.filter(function (k) { var x = new URL(k.url); return x.pathname === u.pathname && x.search !== u.search; }).map(function (k) { return c.delete(k); }));
+        }).catch(function () {}));
+        return r;
+      }
       return c.match(e.request, { ignoreVary: true }).then(function (hit) {
-        if (hit) return hit;
+        // 以前存错的（章对不上）：这次照旧给出去，顺手删掉，下次打开就会重新下载正确的
+        if (hit) { e.waitUntil(stamped(hit).then(function (ok) { if (!ok) return c.delete(e.request); }).catch(function () {})); return hit; }
         return fetch(e.request).then(function (r) {
-          if (r && r.ok && r.type === "basic" && /javascript|css/.test(r.headers.get("content-type") || "")) {
-            var cp = r.clone();
-            // 存新版，顺手把同一个文件的旧版本删掉，不占手机空间
-            e.waitUntil(c.put(e.request, cp).then(function () { return c.keys(); }).then(function (ks) {
-              return Promise.all(ks.filter(function (k) { var x = new URL(k.url); return x.pathname === u.pathname && x.search !== u.search; }).map(function (k) { return c.delete(k); }));
-            }).catch(function () {}));
-          }
-          return r;
+          return stamped(r).then(function (ok) {
+            if (ok) return save(r);
+            return fetch(new Request(e.request.url + "&r=" + Date.now(), { cache: "reload" })).then(function (r2) {
+              return stamped(r2).then(function (ok2) { return ok2 ? save(r2) : r; });
+            }).catch(function () { return r; });
+          });
         });
       });
     }).catch(function () { return fetch(e.request); }));

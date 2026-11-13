@@ -574,6 +574,7 @@
     // 浏览器拒绝执行，整页「没加载出来」；换地址等于绕开那份坏缓存
     // 站长 2026-11-09（手机截图「页面没加载出来」）：弱网下一次失败就放弃太脆，改成最多重试 3 次（0.6s / 1.5s / 3s），第二次起换地址绕开坏缓存
     var GAPS = [600, 1500, 3000];
+    var ver = (url.split("v=")[1] || "").split("&")[0];
     function tryLoad(u, n) {
       return new Promise(function (res, rej) {
         var s = document.createElement("script"); s.src = u; s.setAttribute("data-lazy", "1");
@@ -581,7 +582,8 @@
         // 语法错的脚本 onload 照样触发，以前当成加载成功，那台手机就一直坏到下次发版。现在包的末尾有记号（tools/build.py），
         // 没看到记号 = 包不完整：删掉手机里存的那份，换地址重下；重试完还不行就照旧放行，不比以前差
         s.onload = function () {
-          if (window.AIL_LOADED && window.AIL_LOADED[k]) return res();
+          /* 2026-11-13：不光看有没有记号，还要看版本号对不对——发版瞬间可能拿到旧内容配新版本号 */
+          if (window.AIL_LOADED && window.AIL_LOADED[k] === ver) return res();
           s.remove();
           try { if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (c) { caches.open(c).then(function (x) { x.delete(url); }); }); }).catch(function () {}); } catch (e) {}
           if (n >= GAPS.length) return res();
