@@ -1682,6 +1682,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .fm-fr .fm-n { font-size: 18px; }
 .fm-fr li button { padding: 7px 14px; border: 0; border-radius: 12px; font-weight: 800; color: #fff; background: linear-gradient(180deg, #fb923c, #ef4444); box-shadow: 0 3px 0 #b91c1c; }
 .fm-fr li button:disabled { opacity: 1; background: #f1f5f9; color: #475569; box-shadow: inset 0 0 0 2px #dbe1e8; }
+/* 站长 2026-11-13：被警察抓过的那家，按钮变淡紫，一键偷菜绕开 */
+.fm-fr li button.cop { background: #ede9fe; color: #5b21b6; box-shadow: 0 3px 0 #c4b5fd; }
+.fm-skip { margin: 8px 0 0; padding: 6px 10px; border-radius: 10px; background: #ede9fe; color: #5b21b6; font-weight: 700; font-size: 13px; text-align: center; }
 .card.fm-allc { background: linear-gradient(180deg, #cdeab1, #b5db97); border: 2px solid #a0cf7f; border-radius: 22px; }
 .fm-allc .muted { color: #33691e; }
 .fm-all { padding: 13px; font-size: 17px; }
