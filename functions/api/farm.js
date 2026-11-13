@@ -1,6 +1,6 @@
 // 开心农场接口（POST { a: "recharge", tx } 核对 LGNS 充值，不用签名：金币加给付款地址）：GET ?u=地址 看某人的农场（串门 / 偷菜前看）；GET ?list=1&me=地址 好友列表和金币榜；POST { a, addr, day, sig, ... } 种菜、收菜、养鸡、偷菜（规则见 lib/farm.js）
 import { CHAINS } from "../../lib/pixel.js";
-import { act, load, view, neighbors, recharge, PACKS, DOG_PRICE, DOG_TIME, DOG_BITE, COP_PRICE, COP_TIME, COP_FINE, GOLD_HEN, BOOST, DAILY, DAILY_VIP, KING, TAG, CROPS, HEN_PRICE, MAX_HENS, FEED_COST, FEED_TIME, EGG_TIME, EGG_PRICE, MAX_EGGS, START_PLOTS, MAX_PLOTS, plotPrice, STEAL_SHARE, STEAL_DAY } from "../../lib/farm.js";
+import { act, load, view, neighbors, recharge, PACKS, DOG_PRICE, DOG_TIME, DOG_BITE, COP_PRICE, COP_TIME, COP_FINE, GOLD_HEN, BOOST, DAILY, DAILY_VIP, KING, TAG, CROPS, HEN_PRICE, MAX_HENS, FEED_COST, FEED_TIME, EGG_TIME, EGG_PRICE, MAX_EGGS, START_PLOTS, MAX_PLOTS, plotPrice, STEAL_SHARE, STEAL_DAY, BAODI_DAY } from "../../lib/farm.js";
 
 const NO_STORE = { headers: { "cache-control": "no-store" } };
 
@@ -11,7 +11,7 @@ export async function onRequestGet(ctx) {
   if (q.get("list")) return Response.json(await neighbors(kv, String(q.get("me") || "").toLowerCase()), NO_STORE);
   if (q.get("rules")) {
     const plots = []; for (let n = START_PLOTS; n < MAX_PLOTS; n++) plots.push(plotPrice(n));
-    return Response.json({ crops: CROPS, hen: { price: HEN_PRICE, max: MAX_HENS, feed: FEED_COST, feedTime: FEED_TIME, eggTime: EGG_TIME, egg: EGG_PRICE, maxEggs: MAX_EGGS }, plots, stealShare: STEAL_SHARE, stealDay: STEAL_DAY,
+    return Response.json({ crops: CROPS, hen: { price: HEN_PRICE, max: MAX_HENS, feed: FEED_COST, feedTime: FEED_TIME, eggTime: EGG_TIME, egg: EGG_PRICE, maxEggs: MAX_EGGS }, plots, stealShare: STEAL_SHARE, stealDay: STEAL_DAY, baodi: BAODI_DAY,
       packs: PACKS, pay: { token: CHAINS.anubis.lgns, payTo: CHAINS.anubis.payTo, tag: TAG }, dog: { price: DOG_PRICE, days: DOG_TIME / 86400, bite: DOG_BITE }, cop: { price: COP_PRICE, days: COP_TIME / 86400, fine: COP_FINE }, goldHen: GOLD_HEN, boost: BOOST, daily: DAILY, dailyVip: DAILY_VIP, king: KING }, NO_STORE);
   }
   const u = String(q.get("u") || "").toLowerCase();
