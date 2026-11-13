@@ -237,6 +237,7 @@ async function report(kv, day) {
   const lines = [`📊 AiLGNS 服务站日报 · ${mo}月${da}日（北京时间）`, ""];
   lines.push("👀 访问", `· 访问人数：${c.uv || 0}（按设备去重）`, `· 访问次数：${c.pv || 0}`, "");
   lines.push("📲 手机桌面 App", `· 新装：${c.app_new || 0} 台`, `· 从桌面图标打开：${c.app_uv || 0} 台`, `· 累计装到桌面：${apps} 台（${APP_FROM} 起统计）`, `· 安装教程点「加好了」：${c.app_guide || 0} 次`, "");
+  if (c.swp) lines.push("⚡ 闪兑（试运行）", `· 打开页面：${c.swp} 次 · 走完第 1 步：${c.swp1 || 0} 笔 · 换成功：${c.swp2 || 0} 笔`, "");
   const qAll = q("member") + q("wallet") + q("team") + q("growth") + q("tree") + q("upline");
   lines.push(`🔍 查询：${qAll} 次`, `· 会员查询 ${q("member")} · 钱包快查 ${q("wallet")} · 团队与等级 ${q("team")}`, `· 团队新增业绩 ${q("growth")} · 团队结构图 ${q("tree")} · 上级查询 ${q("upline")}`, "");
   lines.push("📝 挂单", `· 新挂单：${d.orders} 张，${d.makers.length} 个地址，共 ${money(d.orderDai)} DAI`);

@@ -2,7 +2,7 @@
 // a1（今天第一次从手机桌面图标打开）/ an（这台手机第一次从桌面图标打开 = 新装）/ gd（安装教程点了「加好了」）
 import { bump } from "../../lib/stats.js";
 
-const EVENTS = new Set(["v", "v1", "q_member", "q_wallet", "q_team", "q_growth", "q_tree", "q_upline", "q_trades", "a1", "an", "gd"]);
+const EVENTS = new Set(["v", "v1", "q_member", "q_wallet", "q_team", "q_growth", "q_tree", "q_upline", "q_trades", "a1", "an", "gd", "swp", "swp1", "swp2"]);
 
 export async function onRequestPost(ctx) {
   const e = new URL(ctx.request.url).searchParams.get("e") || "";
@@ -14,6 +14,7 @@ export async function onRequestPost(ctx) {
     if (e === "a1") bump(ctx, "app_uv");
     if (e === "an") bump(ctx, "app_new");
     if (e === "gd") bump(ctx, "app_guide");
+    if (e.startsWith("swp")) bump(ctx, e); // ⚡ 闪兑：swp 打开页面 / swp1 走完第 1 步 / swp2 换成功
   }
   return new Response(null, { status: 204 });
 }
