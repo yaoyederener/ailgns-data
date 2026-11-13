@@ -3958,6 +3958,8 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .fx-pot { margin-top: 6px !important; font-size: 16px; color: #3d2f66; }
 .fx-pot b { font-size: 24px; font-weight: 800; color: #b45309; font-variant-numeric: tabular-nums; }
 .fx-pot2 { margin-top: 2px !important; font-size: 13px; color: var(--muted); }
+.fx-res { margin: 10px 0 0 !important; padding: 8px 10px; border-radius: 12px; background: #f3efff; border: 1px solid #e2d8fb; font-size: 12.5px; line-height: 1.6; color: #4c3d80; text-align: left; }
+.fx-res b { color: #b45309; font-variant-numeric: tabular-nums; } .fx-res a { color: var(--purple-ink); }
 .fx-me { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: #f7f3ff; font-size: 15px; line-height: 1.6; color: #3d2f66; }
 .fx-me b { color: #6927db; font-size: 18px; }
 .fx .fx-link { background: none; box-shadow: none; padding: 0; height: auto; color: #6927db; font-size: 15px; font-weight: 700; text-decoration: underline; border-radius: 0; }
