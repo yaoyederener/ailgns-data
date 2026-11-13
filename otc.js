@@ -634,22 +634,28 @@
       return Array.prototype.some.call(app.querySelectorAll("input"), function (i) { return i === document.activeElement || (i.value && i.type !== "hidden" && i.type !== "radio" && i.type !== "checkbox" && i.type !== "range"); });
     }
 
+    /* 参考价（站长 2026-11-13）：不再拿 DEX 市价当基准，按本站 OTC 现在的最低卖价，让挂单的人互相比价；没有卖单用最高买价，盘口全空才退回 DEX 市价。
+       只管页面上的对比和提示；「比去 DEX 吃亏」的提醒、奖池折算价、预言家揭晓价都不走这里 */
+    var otcAsk, otcBid;
+    function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
       var now = Date.now() / 1000;
       var live = orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); });
       var sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (a, b) { return priceOf(a) - priceOf(b); });
       var buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
+      otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buys.length ? priceOf(buys[0]) : 0;
+      var oref = otcRef(mkt), orefN = oref ? oref.n : "市价";
 
       function row(o, i) {
         var p = priceOf(o), ail = o.sellAilgns ? o.giveLeft : (o.giveLeft * o.wantTotal) / o.giveTotal; // 剩余的挂单币数量
-        var diff = mkt ? (p / mkt - 1) * 100 : null;
+        var diff = oref ? (p / oref.p - 1) * 100 : null;
         // 操作按钮放在最前面：买入绿色、卖出红色，自己的单显示撤单
         var act = o.maker === account
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
         return '<tr' + (i >= bookShow ? ' class="bk-x"' : "") + ' style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
-          '<td data-l="对比市价" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
+          '<td data-l="对比' + orefN + '" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
           '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.nameTag(o.maker)) + "</td></tr>";
       }
       function book(key, title, list, hint) {
@@ -660,7 +666,7 @@
         var cum = 0, tot = list.reduce(function (sum, o) { return sum + daiOf(o); }, 0) || 1;
         list.forEach(function (o) { cum += daiOf(o); o._w = Math.min(100, cum / tot * 100).toFixed(1); });
         return '<section class="card" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 张</small></h2><span class="muted">' + hint + "</span></div>" +
-          (list.length ? '<div class="tbl-wrap bk-sweep"><table class="cards book ' + key + '"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比市价</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
+          (list.length ? '<div class="tbl-wrap bk-sweep"><table class="cards book ' + key + '"><thead><tr><th class="l">操作</th><th>单价 DAI</th><th>剩余 ' + SYM + '</th><th>总额 DAI</th><th>对比' + orefN + '</th><th>剩余时间</th><th class="l">挂单人</th></tr></thead><tbody>' +
             list.map(row).join("") + "</tbody></table></div>" +
             (list.length > BOOK_SHOW ? '<div class="book-bar" data-book="' + bk + '"><button type="button" class="ghost book-more"' + (more > 0 ? "" : ' style="display:none"') + ">" + moreTxt(more) + '</button><button type="button" class="ghost book-less"' + (ext > 0 ? "" : ' style="display:none"') + ">收起 ▴</button></div>" : "") : '<div class="empty">暂无挂单</div>') + "</section>";
       }
@@ -858,7 +864,8 @@
         };
       });
       var qty = document.getElementById("otc-qty"), price = document.getElementById("otc-price"), sum = document.getElementById("otc-sum");
-      if (mkt) price.placeholder = "市价约 " + mkt.toFixed(PD);
+      var oref = otcRef(mkt);
+      if (oref) price.placeholder = oref.n + " " + oref.p.toFixed(PD);
       // 站长 2026-11-10 折中：数量（币）和总额（DAI）两格都能填，填一格另一格自动算；进度条买单按 DAI 拖、卖单按币拖
       var tot = document.getElementById("otc-total"), lastEd = "qty"; // 注意：#otc-tot 已被顶部统计块占用
       function relabel() {
@@ -971,8 +978,8 @@
         var q = qtyWei(), p = toWei(price.value);
         if (!q || !p) { sum.textContent = "填好数量和单价后显示总额"; return null; }
         var total = (q * p) / TUNIT; // DAI
-        var diff = mkt ? (num(p) / mkt - 1) * 100 : null;
-        var r = mkt ? num(p) / mkt : null, verdict = "";
+        var r2 = oref ? num(p) / oref.p : null, diff = r2 ? (r2 - 1) * 100 : null; /* 对比本站 OTC 参考价 */
+        var r = mkt ? num(p) / mkt : null, verdict = ""; /* r：对比 DEX，只用来提醒「比去 DEX 还吃亏」 */
         if (r && M.flat) { // DEX 不扣税的币：只提醒比 DEX 还差的价格
           if (side === "sell" && r < DEX_SELL) verdict = "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI";
           if (side === "buy" && r > DEX_BUY) verdict = "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI";
@@ -981,10 +988,10 @@
           else verdict = r > DEX_BUY ? "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI" : "";
         }
         // 站长 2026-11-11：单价和市价差了一倍以上（卖价不到市价一半 / 买价超过市价两倍），大字红框提醒，多半是少写或多写了一个零；发布前还要再确认一次
-        var far = r ? (side === "sell" ? r <= 0.5 : r >= 2) : false;
-        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比市价（约 " + A.fmt(mkt, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" : "";
+        var far = r2 ? (side === "sell" ? r2 <= 0.5 : r2 >= 2) : false;
+        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" : "";
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
-          (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比市价 ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%</span>") +
+          (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
           (far ? '<div class="otc-far">' + farMsg + "</div>" : (r && verdict ? '<br><span class="down">' + verdict + "</span>" : ""));
         return { q: q, total: total, far: far, farMsg: farMsg };
       }
