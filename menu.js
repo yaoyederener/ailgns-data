@@ -28,18 +28,18 @@
   var GROUPS = [
     ["交易", "TRADE", [["#/trade", "📊 交易所盘口（专业版）", "otc"], ["#/lp", "💧 做市商（✅ 认证称号）", "flow"], ["#/aiswap", "🔁 aiswap 兑换池（试运行）", "flow"], ["#/fast", "⚡ 极速预言家（试运行）", "fire"]]], // 站长 2026-11-11：订单查询从这组撤下（页面顶部「查我的订单」和「链上身份 → 账本」都能查）；金融类新功能都先放这组试运行，冷启动、不宣传。资金流向 2026-11-09 从菜单撤下（页面 #/flows 还在，站长：交易组留给区块链底层玩法冷启动）
     ["链上身份", "ON-CHAIN", [["#/bonus", "🎁 创世域名每日分红（上线倒计时）", "promo"], ["#/genesis", "🔥 创世域名销毁进行中", "fire"], ["#/inbox", "🔔 收件箱", "bell"], ["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/scan", "💬 链上留言（在账本里）", "chat"], ["#/square", "🏛️ 链上广场（盖楼 · 时间胶囊 · 挂单帖）", "chat"]]],
-    ["销毁乐园（游戏）", "PLAY", [["#/farm", "🏡 开心农场", "fire"], ["#/br", "🐺 大逃杀（试运行）", "fire"], ["#/mj", "🀄 血流成河麻将（试玩）", "grid"], ["#/play", "销毁乐园", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
+    ["销毁乐园（游戏）", "PLAY", [["#/farm", "🏡 开心农场", "fire"], ["#/mj", "🀄 血流成河麻将（试玩）", "grid"], ["#/br", "🐺 大逃杀（试运行）", "fire"], ["#/play", "销毁乐园", "fire"], ["#/pixel", "LGNS 像素墙", "grid"], ["#/g2048", "2048", "grid"], ["#/snake", "贪吃蛇", "fire"], ["#/tetris", "俄罗斯方块", "grid"], ["#/flappy", "飞翔小鸟", "fire"], ["#/mines", "扫雷", "grid"], ["#/brick", "打砖块", "grid"], ["#/merge", "DNA 合成", "grid"], ["#/pet", "HELIX 宠物", "fire"]]],
     ["服务", "SUPPORT", [["#/feedback", "📮 问题反馈", "chat"], ["#/updates", "🆕 更新日志", "promo"], ["#/app", "📲 下载 App", "app"], ["#group", "💬 加 OTC 交流群（二维码）", "chat"], ["#/custom", "私人定制 · 商户合作", "custom"], ["#/promo", "营销广告", "promo"]]],
   ];
   // 🎮 游戏按最近 7 天打开次数排序（站长 2026-11-08：玩得最多的放上面，顺便知道哪个最火）；接口读不到就保持默认顺序
   // 站长 2026-11-11：开心农场、血流成河麻将固定在最上面，其它游戏收进「其它小游戏」，点一下再展开
-  var GAME_GROUP = GROUPS.filter(function (g) { return g[1] === "PLAY"; })[0], gameHot = {}, PIN = { "#/farm": 2, "#/mj": 1 }, moreOpen = false;
+  var GAME_GROUP = GROUPS.filter(function (g) { return g[1] === "PLAY"; })[0], gameHot = {}, PIN = { "#/farm": 3, "#/mj": 2, "#/br": 1 }, moreOpen = false;
   function sortGames(counts) {
     if (!GAME_GROUP || !counts) return;
     gameHot = counts;
     var any = GAME_GROUP[2].some(function (it) { return counts[it[0].slice(2)] > 0; });
     if (!any) return; // 还没有数据就保持默认顺序
-    GAME_GROUP[2].sort(function (a, b) { return (PIN[b[0]] || 0) - (PIN[a[0]] || 0) || (counts[b[0].slice(2)] || 0) - (counts[a[0].slice(2)] || 0); }); // 置顶的两个在前，其余多的在前，相同的保持原顺序
+    GAME_GROUP[2].sort(function (a, b) { return (PIN[b[0]] || 0) - (PIN[a[0]] || 0) || (counts[b[0].slice(2)] || 0) - (counts[a[0].slice(2)] || 0); }); // 置顶的几个（站长调研的游戏，按 PIN 从大到小）在前，其余多的在前，相同的保持原顺序
   }
   try { fetch("/api/games-top").then(function (r) { return r.json(); }).then(function (j) { if (j && j.counts) sortGames(j.counts); }).catch(function () {}); } catch (e) {}
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
