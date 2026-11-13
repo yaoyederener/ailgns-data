@@ -3212,6 +3212,40 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
   .ptn-d td.in { color: #0f7a4a; }
 }
 
+/* 📈 合伙人面板股东版（站长 2026-11-13）：一句话 + 三小卡 + 4 列表，手机一屏看全 */
+.ptn-hero { padding: 14px; border-radius: 14px; background: #e8fbf2; margin: 6px 0 10px; }
+.ptn-hero small { display: block; color: #3d6b57; font-size: 12.5px; }
+.ptn-hero b.big { display: block; font-size: 30px; line-height: 1.15; color: #0a7a52; margin: 3px 0 8px; }
+.ptn-hero p { margin: 3px 0 0; font-size: 13.5px; color: #1f4a3a; }
+.ptn-hero i.up { font-style: normal; color: #15803d; font-weight: 700; } .ptn-hero i.down { font-style: normal; color: #b91c1c; font-weight: 700; }
+.ptn-c3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 12px; }
+.ptn-c { padding: 10px 12px; border-radius: 14px; background: #f6f2ff; min-width: 0; }
+.ptn-c > small { display: block; color: #6b5aa6; font-size: 12px; }
+.ptn-c > b { display: block; font-size: 18px; color: #191839; margin: 4px 0 0; } .ptn-c > b span { font-size: 11.5px; font-weight: 400; color: #8a7fb0; }
+.ptn-bars { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin: 6px 0 4px; }
+.ptn-bars i { flex: 1; background: #9b83f0; border-radius: 3px 3px 0 0; } .ptn-bars i.now { background: #d5c8fb; }
+.ptn-share { display: flex; gap: 2px; height: 12px; border-radius: 6px; overflow: hidden; margin: 8px 0 6px; }
+.ptn-lg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: #4a4470; } .ptn-lg span { white-space: nowrap; }
+.ptn-lg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; }
+.ptn-share i.s-otc, .ptn-lg i.s-otc { background: #7c5cff; } .ptn-share i.s-nm, .ptn-lg i.s-nm { background: #2fa37a; }
+.ptn-share i.s-mem, .ptn-lg i.s-mem { background: #e0a23a; } .ptn-share i.s-oth, .ptn-lg i.s-oth { background: #9aa3b5; }
+.ptn-l { border: 1px solid #e6dcff; border-radius: 12px; overflow: hidden; background: #fff; }
+.ptn-lh, .ptn-day > summary { display: grid; grid-template-columns: 1.2fr 1.2fr 1.2fr .8fr; gap: 6px; align-items: baseline; padding: 9px 10px; font-size: 13px; }
+.ptn-lh { background: #f6f2ff; color: #6b5aa6; font-size: 12px; }
+.ptn-lh span:not(:first-child), .ptn-day > summary > span:not(:first-child) { text-align: right; }
+.ptn-day { border-top: 1px solid #efe8ff; }
+.ptn-day > summary { list-style: none; cursor: pointer; color: #191839; } .ptn-day > summary::-webkit-details-marker { display: none; }
+.ptn-day > summary small { color: #8a7fb0; font-size: 11px; } .ptn-day > summary .m { color: #0a7a52; font-weight: 700; }
+.ptn-day.now > summary { background: #faf7ff; } .ptn-day.now > summary > span:first-child { font-weight: 700; color: #4b2fb0; }
+.ptn-day.sum { border-top: 2px solid #d9ccff; } .ptn-day.sum > summary { background: #f6f2ff; font-weight: 700; }
+.ptn-day[open] > summary { border-bottom: 1px dashed #e6dcff; }
+.ptn-dd { padding: 6px 10px 10px; font-size: 12.5px; color: #333055; background: #fcfbff; }
+.ptn-dd p { margin: 5px 0; display: flex; gap: 10px; justify-content: space-between; } .ptn-dd p > span:first-child { color: #8a7fb0; flex: none; } .ptn-dd p > span:last-child { text-align: right; min-width: 0; }
+.ptn-dd small { display: block; color: #8a7fb0; font-size: 11px; }
+.ptn-est { font-style: normal; font-size: 10px; font-weight: 400; color: #8a5a1a; background: #fff1d6; border-radius: 4px; padding: 0 3px; margin-left: 3px; vertical-align: 1px; }
+.ptn-how > summary { cursor: pointer; color: #6b5aa6; font-size: 12.5px; margin: 6px 0; }
+@media (max-width: 600px) { .ptn-c3 { grid-template-columns: 1fr 1fr; } .ptn-c3 > .ptn-c:first-child { grid-column: 1 / -1; } }
+
 /* 📱 合伙人面板「今天的生意」手机版：表格变成一行一张卡（站长 2026-11-08：显示不全；以后更新先适配手机） */
 @media (max-width: 600px) {
   .ptn-t thead { display: none; }
