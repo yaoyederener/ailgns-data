@@ -1548,6 +1548,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .fm-fr li button { padding: 6px 14px; white-space: nowrap; }
 .fm-n { width: 28px; text-align: center; font-weight: 700; }
 .fm-wait { font-size: 12px; white-space: nowrap; }
+.fm-allc { text-align: center; }
+.fm-all { width: 100%; padding: 12px; font-size: 16px; font-weight: 700; }
+.fm-allc .muted { margin: 8px 0 0; font-size: 12px; }
 .fm-login { text-align: center; }
 .fm-big { font-size: 46px; margin: 6px 0; }
 .fm-seeds { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }

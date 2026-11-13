@@ -52,13 +52,13 @@
       try { if (/^0x[0-9a-f]{40}$/.test(l.a || "")) m = m.replace(l.a.slice(0, 6) + "…" + l.a.slice(-4), '<b class="fm-lw">' + A.nameTag(l.a) + "</b>"); } catch (e) { /* 换不了就显示原文 */ }
       return m;
     }
-    function post(a, extra) {
+    function post(a, extra, quiet) { // quiet：一键偷菜时不每家弹一次提示，最后汇总
       var b = { a: a, addr: sig.addr, day: sig.day, sig: sig.sig };
       Object.keys(extra || {}).forEach(function (k) { b[k] = extra[k]; });
       return fetch("/api/farm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }).then(function (j) {
         if (j.error) { if (/签名/.test(j.error)) { setSig(null); sig = null; } throw new Error(j.error); }
         me = j.me; skew = j.me.now - Math.floor(Date.now() / 1000);
-        if (j.msg) toast(j.msg);
+        if (j.msg && !quiet) toast(j.msg);
         return j;
       });
     }
@@ -139,7 +139,9 @@
     function friendsHtml(d, top) {
       var rows = top ? d.top : d.friends;
       if (!rows.length) return '<section class="card"><p class="muted">' + (top ? "还没有人" : "还没有别的农场主。把 ailgns.dev/#/farm 发给朋友，一起来偷菜！") + "</p></section>";
-      return '<section class="card"><ul class="fm-fr">' + rows.map(function (x, i) {
+      var can = top ? 0 : rows.filter(function (x) { return x.ripe; }).length; // 站长 2026-11-12：一键偷菜，把现在能偷的人家一家一家偷过去
+      return (can ? '<section class="card fm-allc"><button type="button" id="fm-all" class="fm-all">🧺 一键偷菜（' + can + ' 家能偷）</button><p class="muted">一家一家偷过去，每家算 1 次；有的人家养了狗或请了警察，可能被咬、被抓。</p></section>' : "") +
+        '<section class="card"><ul class="fm-fr">' + rows.map(function (x, i) {
         return "<li>" + (top ? '<span class="fm-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</span>" : "") + '<span class="fm-who">' + (x.king ? "👑 " : "") + A.nameTag(x.a) + "</span><small>⭐" + x.lv + " · 💰" + A.fmt(x.c) + "</small>" +
           (top ? "" : x.ripe ? '<button type="button" data-steal="' + x.a + '">🕵️ 偷</button>' : '<span class="muted fm-wait">没熟</span>') + "</li>";
       }).join("") + "</ul></section>" + (top ? burnHtml(d) : "");
@@ -238,6 +240,22 @@
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
         out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：一定被抓，空手而归，罚 " + R.cop.fine + " 金币。" : "") + "</p>" : "");
+        var all = out.querySelector("#fm-all");
+        if (all) all.onclick = function () {
+          var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled; }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, i = 0;
+          if (!bs.length) return toast("现在没有能偷的了", true);
+          all.disabled = true;
+          (function next() {
+            if (i >= bs.length || !A.isCurrent(rid)) return done();
+            var b = bs[i++]; b.disabled = true; all.textContent = "🧺 偷菜中… " + i + "/" + bs.length;
+            post("steal", { to: b.getAttribute("data-steal") }, true).then(function (j) { if (j && j.bit) { bad++; b.textContent = /警察/.test(j.msg || "") ? "👮 被抓了" : "🐕 被咬了"; } else { ok++; b.textContent = "✅ 偷到了"; } next(); },
+              function (e) { no++; b.textContent = "偷不到"; if (/今天已经偷了|签名/.test(e.message)) { toast(e.message, true); return done(); } next(); });
+          })();
+          function done() {
+            var d = (me ? me.coins : 0) - c0; stat(); all.textContent = "🧺 偷完了";
+            toast("一键偷菜：偷到 " + ok + " 家" + (bad ? "，被咬 / 被抓 " + bad + " 家" : "") + (no ? "，偷不到 " + no + " 家" : "") + "，金币 " + (d >= 0 ? "+" : "") + A.fmt(d));
+          }
+        };
         out.querySelectorAll("[data-steal]").forEach(function (b) {
           b.onclick = function () { b.disabled = true; post("steal", { to: b.getAttribute("data-steal") }).then(function (j) { stat(); b.textContent = j && j.bit ? "🐕 被咬了" : "✅ 偷到了"; }, function (e) { toast(e.message, true); b.textContent = "偷不到"; }); };
         });
