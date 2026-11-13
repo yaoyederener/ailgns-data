@@ -3832,3 +3832,47 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
   .subnav a.wide span { display: inline-block; }
   .fd-list { grid-template-columns: 1fr; }
 }
+
+/* ===== 大逃杀 #/br（试运行）：手机 390 宽优先，浅紫 ===== */
+.dt-hero { padding: 16px; }
+.dt-top { display: flex; align-items: center; gap: 8px; }
+.dt-top h2 { margin: 0; font-size: 20px; }
+.dt-beta { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #f1ebfd; color: var(--purple-ink); font-weight: 700; white-space: nowrap; }
+.dt-coins { margin-left: auto; font-weight: 800; color: #b45309; font-size: 15px; white-space: nowrap; }
+.dt-clock { margin-top: 12px; font-size: 15px; font-weight: 700; color: var(--purple-ink); }
+.dt-clock b { font-size: 26px; font-variant-numeric: tabular-nums; margin: 0 2px; }
+.dt-clock.lock { color: #b45309; }
+.dt-clock.show { color: var(--muted); }
+.dt-bar { height: 6px; border-radius: 999px; background: #efeaf9; margin-top: 8px; overflow: hidden; }
+.dt-bar i { display: block; height: 100%; width: 0; background: var(--grad-dot); border-radius: 999px; transition: width .25s linear; }
+.dt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.dt-room { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 2px 8px; border: 2px solid var(--line); border-radius: 16px; background: var(--panel); color: inherit; font: inherit; cursor: pointer; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.dt-room .dt-emo { font-size: 28px; line-height: 1.15; font-weight: 400; }
+.dt-room .dt-name { font-size: 14px; font-weight: 700; }
+.dt-room .dt-n, .dt-room .dt-t { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.dt-room.sel { border-color: #8b5cf6; background: #f5f0ff; box-shadow: 0 0 0 3px rgba(139, 92, 246, .16); }
+.dt-room.mine { border-color: #6927db; background: #f1ebfd; }
+.dt-room.mine .dt-n { color: var(--purple-ink); font-weight: 700; }
+.dt-room.safe { border-color: #86efac; background: #f0fdf4; }
+.dt-room.dead { border-color: #f87171; background: #fef2f2; }
+.dt-room.dead .dt-name { color: #b91c1c; }
+.dt-ban { padding: 12px 14px; border-radius: 14px; background: #f5f0ff; color: var(--purple-ink); font-weight: 600; margin-bottom: 10px; font-size: 15px; }
+.dt-ban.win { background: #f0fdf4; color: #166534; }
+.dt-ban.lose { background: #fef2f2; color: #b91c1c; }
+.dt-sum { font-size: 13px; color: var(--muted); margin: 0 2px 12px; }
+.dt-act { padding: 14px; }
+.dt-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+.dt-chips button { padding: 9px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); font: inherit; font-weight: 700; font-size: 14px; color: inherit; cursor: pointer; }
+.dt-chips button.on { border-color: #8b5cf6; background: #f1ebfd; color: var(--purple-ink); }
+.dt-go { display: block; width: 100%; padding: 14px 10px; border: 0; border-radius: 14px; background: var(--grad-dot); color: #fff; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+.dt-go[disabled] { opacity: .45; cursor: default; }
+.dt-tip { font-size: 13px; color: var(--muted); margin: 8px 0 0; text-align: center; }
+.dt-in { margin: 0; font-size: 15px; text-align: center; }
+.dt-h { margin: 0 0 10px; font-size: 15px; }
+.dt-hist { display: flex; flex-wrap: wrap; gap: 6px; }
+.dt-chip { font-size: 13px; padding: 4px 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
+.dt-fold summary { cursor: pointer; font-weight: 700; }
+.dt-rule { margin: 10px 0 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
+.dt-fairp { font-size: 14px; margin: 10px 0; }
+.dt-fair { font-size: 12px; }
+.dt-fair code { word-break: break-all; }
