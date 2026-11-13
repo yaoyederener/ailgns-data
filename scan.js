@@ -337,7 +337,7 @@
     }
     if (!t && ms.some(function (m) { return C.loan[m.other]; })) return { ico: "✅", text: "借贷合约转来 " + ms.filter(function (m) { return m.dir === "in"; }).map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（对方还款 / 你的单成交 / 到期退回）" };
     // —— 普通转账、授权 ——
-    if (t && C.tokens[to] && sel === "0xa9059cbb" && ms.length) { var o = firstOut(ms); return { ico: "💸", text: "<b>转出</b> " + fmtN(o.v, o.sym) + " 给 " + who(o.other) }; }
+    if (t && C.tokens[to] && sel === "0xa9059cbb" && firstOut(ms)) { var o = firstOut(ms); return { ico: "💸", text: "<b>转出</b> " + fmtN(o.v, o.sym) + " 给 " + who(o.other) }; }
     if (t && C.tokens[to] && sel === "0x095ea7b3") return { ico: "🔑", text: "<b>授权</b> " + esc(C.tokens[to]) + "（允许合约在交易时扣币，本身不扣钱）" };
     if (t && (!t.raw_input || t.raw_input === "0x") && Number(t.value) > 0) return { ico: "💸", text: "<b>转出</b> " + fmtN(Number(t.value) / 1e18, "DAI") + " 给 " + who(to) };
     if (!t && ms.length) {
