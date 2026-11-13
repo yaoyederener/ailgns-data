@@ -4245,3 +4245,7 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .fb-say { border: 2px solid #c4b5fd; background: #f6f2ff; border-radius: 14px; padding: 12px 14px; margin: 10px 0; font-size: 14.5px; line-height: 1.6; }
 .fb-say > b { display: block; font-size: 16px; color: #4c1d95; } .fb-say > small { display: block; color: #6b5a9a; margin-bottom: 6px; }
 .fb-say-r { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid #ddd0ff; } .fb-say-r button { align-self: flex-start; }
+
+/* 🔥 大奖一键销毁已有名字：要烧的名单（默认折叠） */
+.gs-jpl { margin: 8px 0; font-size: 13px; } .gs-jpl summary { cursor: pointer; color: #6d28d9; }
+.gs-jpl p { max-height: 180px; overflow: auto; margin: 6px 0 0; padding: 8px; background: #faf8ff; border: 1px solid #e4dbff; border-radius: 10px; line-height: 1.7; word-break: break-all; color: #5b4b8a; }
