@@ -17,7 +17,10 @@ export async function onRequestGet(ctx) {
   const u = String(q.get("u") || "").toLowerCase();
   if (!/^0x[0-9a-f]{40}$/.test(u)) return Response.json({ error: "地址格式不对" }, { status: 400 });
   const f = await load(kv, u);
-  return Response.json(f ? view(f) : { none: true }, NO_STORE);
+  if (!f) return Response.json({ none: true }, NO_STORE);
+  // 2026-11-12 站长：规则说「别人看不出谁家有狗、有警察」，公开接口不能带 dog / cop；动态里也有「狗咬了谁」，一起藏。农场主自己看走 POST（带签名）照常有
+  const { dog, cop, log, ...pub } = view(f);
+  return Response.json(pub, NO_STORE);
 }
 
 export async function onRequestPost(ctx) {
