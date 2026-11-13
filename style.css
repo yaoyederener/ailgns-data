@@ -2683,6 +2683,12 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
   .tr2-main > .tr2-book .tr2-row { flex: 1 1 auto; min-height: 0; align-items: center; }
   .tr2-main > .tr2-book .tr2-last2, .tr2-main > .tr2-book .tr2-mid, .tr2-main > .tr2-book .tr2-gauge, .tr2-main > .tr2-book .tr2-bh { flex: none; }
 }
+/* 窄屏（≤400）最新价那一行原来会折成两行占 68px，挤掉一档盘口：字号略小、不折行 */
+@media (max-width: 400px) {
+  .tr2-main > .tr2-book .tr2-last2 { padding: 5px 4px; gap: 4px; }
+  .tr2-main > .tr2-book .tr2-last2 b { font-size: 15px; white-space: nowrap; }
+  .tr2-main > .tr2-book .tr2-last2 small { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+}
 
 /* 💧 做市返佣 */
 .lp-hero { background: linear-gradient(135deg, #f3efff, #eaf6ff); }

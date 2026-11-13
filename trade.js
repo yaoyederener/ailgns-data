@@ -125,6 +125,8 @@
       '<div class="tr2-24"><div><small>24h 高</small><b>' + (hi ? f2(hi) : "—") + '</b></div><div><small>24h 低</small><b>' + (lo < Infinity ? f2(lo) : "—") + '</b></div><div><small>24h 量(DAI)</small><b>' + f(vol, 0) + "</b></div></div>";
     var mid = document.getElementById("tr-mid"); if (mid) mid.textContent = "买 " + book.bids.length + " 张 · 卖 " + book.asks.length + " 张" + (bestAsk() && bestBid() ? " · 价差 " + f2(bestAsk() - bestBid()) : "");
   }
+  // 下单卡高度变了（切限价/市价、提示换行、显示余额）就让盘口重新对齐；不靠浏览器回调，改完立刻算
+  function fitBook() { try { if (matchMedia("(min-width: 901px)").matches) return; var fm = document.querySelector(".tr2-form"); if (fm && Math.abs(fm.offsetHeight - fitH) > 1 && document.querySelector("#tr-bk .tr2-row")) renderBook(); } catch (e) {} }
   function renderBook() {
     var el = document.getElementById("tr-bk"); if (!el) return;
     var N = 9, bx = el.parentNode;
@@ -135,7 +137,7 @@
       N = 6;
       var fm = document.querySelector(".tr2-form"), fh = fm ? fm.offsetHeight : 0;
       if (bx && fh > 200) {
-        var l2 = el.querySelector(".tr2-last2"), used = bx.offsetHeight - el.offsetHeight + (l2 ? l2.offsetHeight + 6 : 44);
+        var l2 = el.querySelector(".tr2-last2"), used = bx.offsetHeight - el.offsetHeight + (l2 ? l2.offsetHeight + 6 : 40);
         N = Math.max(3, Math.min(6, Math.floor((fh - used) / 2 / 24)));
         bx.style.height = fh + "px";
       } else if (bx) bx.style.height = "";
@@ -212,7 +214,7 @@
   function updateBal() {
     var el = document.getElementById("tr-bal"); if (!el) return;
     if (!account) { el.textContent = ""; return; }
-    Promise.all([K().balance(DAI, account), K().balance(TOKEN, account)]).then(function (b) { bal = { dai: b[0], coin: b[1] }; if (el) el.textContent = "可用 " + (side === "buy" ? f(num(bal.dai), 2) + " DAI" : fq(num(bal.coin, TD)) + " " + SYM); }).catch(function () {});
+    Promise.all([K().balance(DAI, account), K().balance(TOKEN, account)]).then(function (b) { bal = { dai: b[0], coin: b[1] }; if (el) el.textContent = "可用 " + (side === "buy" ? f(num(bal.dai), 2) + " DAI" : fq(num(bal.coin, TD)) + " " + SYM); fitBook(); }).catch(function () {});
   }
   // 市价：从最优价开始吃，算出能成交多少、平均价多少
   function plan(coinWant) { // coinWant: BigInt 币数量
@@ -243,6 +245,7 @@
       var avg = pl.coin > 0n ? num(pl.dai) / num(pl.coin, TD) : 0;
       note.innerHTML = !coin ? "市价 = 从最优价开始逐张吃单，直到买够 / 卖够" : pl.steps.length ? "预计吃 " + pl.steps.length + " 张单，均价 <b>" + f2(avg) + "</b>" + (pl.short > 0n ? '，<b class="nm-bad">盘口不够，只能成交 ' + fq(num(pl.coin, TD)) + " " + SYM + "</b>" : "") + "，手续费 1% 从收到的币里扣" : '<b class="nm-bad">盘口没有可成交的单</b>';
     }
+    fitBook();
   }
   function bind() {
     document.querySelectorAll(".tr-side button").forEach(function (b) { b.onclick = function () { setSide(b.getAttribute("data-side")); document.getElementById("tr-p").value = ""; setDefaultPrice(); }; });
