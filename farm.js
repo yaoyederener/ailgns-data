@@ -46,6 +46,12 @@
       clearTimeout(el._t); el._t = setTimeout(function () { el.hidden = true; }, 2600);
     }
     function now() { return Math.floor(Date.now() / 1000) + skew; }
+    // 农场动态：有完整地址的，把短地址换成域名标签（有 .ailgns 主名字就显示名字，没有还是短地址）
+    function logText(l) {
+      var m = esc(l.m);
+      try { if (/^0x[0-9a-f]{40}$/.test(l.a || "")) m = m.replace(l.a.slice(0, 6) + "…" + l.a.slice(-4), '<b class="fm-lw">' + A.nameTag(l.a) + "</b>"); } catch (e) { /* 换不了就显示原文 */ }
+      return m;
+    }
     function post(a, extra) {
       var b = { a: a, addr: sig.addr, day: sig.day, sig: sig.sig };
       Object.keys(extra || {}).forEach(function (k) { b[k] = extra[k]; });
@@ -112,7 +118,7 @@
         '<button type="button" id="fm-pay2"><span class="fm-ic"><i class="fm-coin"></i></span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
         "</div></section>" +
         (me.log.length ? '<section class="card"><div class="card-head"><h2>📜 农场动态</h2></div><ul class="fm-log">' + me.log.slice(0, 10).map(function (l) {
-          return "<li><small>" + new Date(l.t * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "</small> " + esc(l.m) + "</li>";
+          return "<li><small>" + new Date(l.t * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "</small> " + logText(l) + "</li>";
         }).join("") + "</ul></section>" : "");
     }
 

@@ -1541,6 +1541,7 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .fm-log { list-style: none; margin: 0; padding: 0; font-size: 13.5px; }
 .fm-log li { padding: 6px 0; border-bottom: 1px solid var(--line, #eee); }
 .fm-log small { color: var(--muted, #888); margin-right: 6px; }
+.fm-log .fm-lw { font-weight: 600; color: #6d28d9; }
 .fm-fr { list-style: none; margin: 0; padding: 0; }
 .fm-fr li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line, #eee); }
 .fm-fr li small { color: var(--muted, #888); margin-left: auto; white-space: nowrap; }
