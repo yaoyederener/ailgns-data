@@ -3,6 +3,7 @@
 // 这页只读 /api/fast，下注时才连钱包发一笔 0 DAI 转账；算账和发奖都不在这里。
 (function () {
   var A = window.AIL, W = A.wallet, DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
+  var SHOW_RES = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname); /* 「资金池余额」那一行站长还没点头：先只在预览站显示，正式站不显示 */
   var data = null, acct = "", eth = null, pick = -1, qty = 1, busy = false, tick = 0, poll = 0, lastR = 0;
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -34,7 +35,7 @@
       '<div class="fx-hero"><p class="fx-t">本期 <b>' + at(data.r) + '</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>' +
       '<p class="fx-pot">本期奖池 <b>' + money(data.pot) + " DAI</b></p>" +
       '<p class="fx-pot2">' + (data.carry > 0 ? "其中 " + money(data.carry) + " DAI 是前面没人猜中滚过来的 · " : "") + "已压 " + data.tk + " 票</p>" +
-      (data.res ? '<p class="fx-res">💰 资金池里现在有 <b>' + money(data.res.dai) + " DAI</b>" + (data.res.ail > 0 ? " + " + data.res.ail.toFixed(4) + " AiLGNS" : "") + '（<a href="#/scan/' + data.pool + '">链上实际余额</a>）。已卖出、还没下注的票有 <b>' + Number(data.left || 0).toLocaleString("en-US") + "</b> 张：谁下注，谁的票才进当期奖池。</p>" : "") + "</div>" +
+      (data.res && SHOW_RES ? '<p class="fx-res">💰 资金池里现在有 <b>' + money(data.res.dai) + " DAI</b>" + (data.res.ail > 0 ? " + " + data.res.ail.toFixed(4) + " AiLGNS" : "") + '（<a href="#/scan/' + data.pool + '">链上实际余额</a>）。已卖出、还没下注的票有 <b>' + Number(data.left || 0).toLocaleString("en-US") + "</b> 张：谁下注，谁的票才进当期奖池。</p>" : "") + "</div>" +
       '<div class="fx-me">' + (!acct ? '还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>'
         : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
