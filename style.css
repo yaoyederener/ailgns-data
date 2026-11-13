@@ -4067,3 +4067,20 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .or-daily .or-dl { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13.5px; color: #5b5675; }
 .or-daily .or-dl li { padding: 7px 10px; border-radius: 10px; background: #faf8ff; }
 .or-simd { margin: 8px 0 0; font-size: 12.5px; }
+
+/* ⚡ 闪兑（#/otc/swap）：沿用一键扫单卡片的样式，只补几块 */
+.swp .sw-side button.on { color: #fff; background: var(--grad-dot); }
+.swp #swp-bal { margin: 6px 0 12px; min-height: 1em; }
+.swp-ref { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--soft); border: 1px solid var(--soft-line); color: var(--purple-ink); font-size: 15px; }
+.swp-ref small { display: block; margin-top: 2px; color: var(--muted); font-size: 12.5px; }
+.swp-steps { margin: 0 0 10px; padding: 10px 12px 10px 32px; border-radius: 12px; background: var(--soft); border: 1px solid var(--soft-line); font-size: 14px; line-height: 1.6; }
+.swp-steps small { display: block; color: var(--muted); font-size: 12px; }
+.swp-warn { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 13.5px; line-height: 1.5; }
+.swp-pend { margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; font-size: 14px; }
+.swp-pend p { margin: 4px 0 10px; }
+.swp-pend .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.swp-pend .row button { flex: 1; min-width: 130px; padding: 10px 12px; }
+.swp-how { margin-top: 12px; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+.swp-how summary { cursor: pointer; color: var(--purple-ink); font-weight: 700; }
+.swp-how ol { margin: 8px 0; padding-left: 20px; }
+.swp-how p { margin: 4px 0; }

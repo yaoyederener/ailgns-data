@@ -419,12 +419,299 @@
     return "";
   }
   function marketTabs() {
+    var swapOn = location.hash.indexOf("#/otc/swap") === 0; /* 闪兑页：币种按钮都不亮，「更多币种」展开、闪兑亮 */
     var BADGE = { ailgns: "🔥 热", lgns: "🔥 热", nft: "抢" }; // 成交量最大的两个挂「热」，NFT 卡牌挂「抢」
-    var tab = function (k) { var m = MARKETS[k]; var dup = MKEYS.filter(function (x) { return MARKETS[x].sym === m.sym; }).length > 1; /* 站长 2026-11-08：同名币（LGNS 有 Anubis / Polygon 两条链）按钮下面显示链名 */ return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '" class="' + (k === MK ? "on" : "") + (dup ? " dup" : "") + '">' + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
-    var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0;
+    var tab = function (k) { var m = MARKETS[k]; var dup = MKEYS.filter(function (x) { return MARKETS[x].sym === m.sym; }).length > 1; /* 站长 2026-11-08：同名币（LGNS 有 Anubis / Polygon 两条链）按钮下面显示链名 */ return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '" class="' + (k === MK && !swapOn ? "on" : "") + (dup ? " dup" : "") + '">' + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
+    var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0 || swapOn;
     return '<nav class="mkt-tabs" aria-label="选择交易币种">' + main.map(tab).join("") + "</nav>" +
-      (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "）</summary>" +
-        '<nav class="mkt-tabs mkt-tabs-more">' + rest.map(tab).join("") + "</nav></details>" : "");
+      (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "、⚡ 闪兑）</summary>" +
+        '<nav class="mkt-tabs mkt-tabs-more">' + rest.map(tab).join("") + '<a href="#/otc/swap" class="' + (swapOn ? "on" : "") + '"><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav></details>' : "");
+  }
+
+  // 按 DAI 金额从最优价开始吃，吃到 target（DAI，BigInt）为止；返回每张单吃多少 + 合计
+  // 买入（扫卖单）：amount = 拿走的币，pay = 付的 DAI；卖出（扫买单）：amount = 拿走的 DAI，pay = 付的币
+  function sweepPlan(list, target) {
+    var steps = [], dai = 0n, tok = 0n;
+    for (var i = 0; i < list.length && dai < target; i++) {
+      var o = list[i], full = daiLeft(o, o.giveLeft), amount = o.giveLeft;
+      if (dai + full > target) { // 最后一张只吃一部分
+        var need = target - dai;
+        amount = o.sellAilgns ? need * o.giveTotal / o.wantTotal : need;
+        if (amount <= 0n) break;
+        if (amount > o.giveLeft || isDustLeft(o, o.giveLeft - amount)) amount = o.giveLeft; // 剩的不到 1 DAI 就一起吃掉
+      }
+      var pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+      steps.push({ o: o, amount: amount, pay: pay });
+      if (o.sellAilgns) { dai += pay; tok += amount; } else { dai += amount; tok += pay; }
+    }
+    return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
+  }
+  // 扫买单（卖出）按手里的币算：最多付 budget 个币（BigInt），从出价最高的买单吃起
+  function sweepPlanTok(list, budget) {
+    var steps = [], dai = 0n, tok = 0n;
+    for (var i = 0; i < list.length && tok < budget; i++) {
+      var o = list[i], amount = o.giveLeft, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+      if (tok + pay > budget) { // 最后一张只吃一部分：币不够整张
+        amount = (budget - tok) * o.giveTotal / o.wantTotal;
+        if (amount <= 0n || amount < MIN_DAI) break;
+        pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
+        if (tok + pay > budget) { amount -= 1n; pay = ceilDiv(amount * o.wantTotal, o.giveTotal); }
+      }
+      steps.push({ o: o, amount: amount, pay: pay });
+      dai += amount; tok += pay;
+    }
+    return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
+  }
+  /* ⚡ 闪兑（站长 2026-11-13）：AiLGNS ⇄ LGNS 直接互换。不是新交易对、不碰合约、不经手客户的币：
+     用现成的批量扫单合约走两步——第 1 步在「换出的币」市场扫买单换成 DAI，第 2 步在「换入的币」市场用这笔 DAI 扫卖单。
+     两笔成交都落在现有两个盘口里（成交量加在一起，不分流）。两步是两笔交易：第 2 步没成时客户手里是 DAI，页面留「继续换」 */
+  var swapBusy = false, swapSeen = false, swapDir = "a2l", SWAP_PEND = "otc:swap:pend";
+  var SWEPT_TOPIC = "0x2dd220c0a634108812dcd2bfb91b386e16d5da52969e771d2a9bb90eb2995257", SWAP_RETRY = /NOTHING_FILLED|CLOSED|EXPIRED|抢先|已经成交完/;
+  var SWAP_NAME = { ailgns: "AiLGNS", lgns: "LGNS" }, SWAP_DEC = { ailgns: 18, lgns: 9 }, SWAP_D = { ailgns: 4, lgns: 2 };
+  function swapHit(e) { try { navigator.sendBeacon("/api/hit?e=" + e); } catch (x) { /* 统计失败不影响使用 */ } }
+  function swapCall(to, data) { return W.rpcOn("anubis", "eth_call", [{ to: to, data: data }, "latest"]); }
+  /* 读一个市场的挂单：不切「当前市场」（客户中途去了别的页面也不会串），后台没给就直接读链 */
+  function swapBook(k, fresh) {
+    return fetch("/api/book?m=" + k + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || j.error || !j.orders) throw new Error("book");
+      return { orders: parseOrders(j.orders, j.from) };
+    }).catch(function () {
+      var otc = MARKETS[k].otc;
+      return swapCall(otc, SEL.ordersCount).then(function (h) {
+        var count = Number(BigInt(h)), from = Math.max(0, count - 1000);
+        if (!count) return { orders: [] };
+        return swapCall(otc, SEL.getOrders + u256(from) + u256(count - from)).then(function (r) { return { orders: parseOrders(r, from) }; });
+      });
+    });
+  }
+  function swapBooks(fresh) { return Promise.all([swapBook("ailgns", fresh), swapBook("lgns", fresh)]).then(function (r) { return { ailgns: r[0], lgns: r[1] }; }); }
+  function swapBal(k) { return swapCall(MARKETS[k].token, SEL.balanceOf + u256(account)).then(BigInt); }
+  /* 某个市场现在能吃的单（自己的单不能吃，批量合约一次最多 40 张）；顺手把当前市场切过去，后面的 sweepPlan / isDust 都按这个市场的小数位算 */
+  function swapLive(k, b) {
+    useMarket(k);
+    var now = Date.now() / 1000, live = ((b && b.orders) || []).filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o) && o.maker !== account; });
+    return {
+      sells: live.filter(function (o) { return o.sellAilgns; }).sort(function (x, y) { return priceOf(x) - priceOf(y); }).slice(0, 40),
+      buys: live.filter(function (o) { return !o.sellAilgns; }).sort(function (x, y) { return priceOf(y) - priceOf(x); }).slice(0, 40)
+    };
+  }
+  function swapNet(steps) { return steps.reduce(function (t, s) { return t + s.amount - s.amount / 100n; }, 0n); }
+  /* 报价：amt 个 from 币 → 卖成 DAI（扣 1%）→ 买成 to 币（扣 1%）。只在闪兑页上调用，算完切回默认市场 */
+  function swapQuote(bk, from, to, amt) {
+    var p1 = sweepPlanTok(swapLive(from, bk[from]).buys, amt), dai = swapNet(p1.steps);
+    var p2 = sweepPlan(swapLive(to, bk[to]).sells, dai), out = swapNet(p2.steps);
+    useMarket("ailgns");
+    return { p1: p1, dai: dai, p2: p2, out: out };
+  }
+  /* 走一步：授权（不够才弹）→ 批量扫单合约一笔吃完 → 从 Swept 事件读实际付了多少、到手多少。chk()：客户离开闪兑页就停 */
+  function swapFire(k, buy, p, cap, say, label, chk) {
+    chk(); useMarket(k);
+    var ids = p.steps.map(function (x) { return x.o.id; }), amts = p.steps.map(function (x) { return x.amount; });
+    var max = p.steps.reduce(function (t, x) { return t + x.pay; }, 0n), arr = function (a) { return u256(a.length) + a.map(u256).join(""); };
+    if (cap !== undefined && max > cap) max = cap;
+    var data = "0x934a9456" + u256(OTC) + u256(buy ? 1 : 0) + u256(6 * 32) + u256((7 + ids.length) * 32) + u256(max) + u256(0) + arr(ids) + arr(amts);
+    return ensureAllowance(buy ? DAI : AILGNS, max, say, buy ? "DAI" : SYM, undefined, ROUTER).then(function () {
+      chk(); useMarket(k);
+      return send(ROUTER, data, say, label);
+    }).then(function (rc) {
+      var lg = (rc && rc.logs || []).filter(function (l) { return l.address.toLowerCase() === ROUTER && l.topics[0] === SWEPT_TOPIC; })[0];
+      if (!lg) throw new Error("交易成功了，但没读到结果，请到「账本」看这笔成没成");
+      var w = function (i) { return BigInt("0x" + lg.data.slice(2 + i * 64, 66 + i * 64)); };
+      return { paid: w(2), got: w(3), tx: rc.transactionHash };
+    });
+  }
+  function renderSwap() {
+    var app = A.app;
+    if (swapBusy && document.getElementById("swp")) return; /* 正在换：不重画，进度会丢 */
+    var hp = location.hash.split("/");
+    if (hp[3] === "l2a" || hp[3] === "a2l") swapDir = hp[3];
+    if (!swapSeen) { swapSeen = true; swapHit("swp"); }
+    var bk = { ailgns: null, lgns: null }, bal = {}, q = null, working = false;
+    function from() { return swapDir === "a2l" ? "ailgns" : "lgns"; }
+    function to() { return swapDir === "a2l" ? "lgns" : "ailgns"; }
+    function fmt(v, k) { return show(v, SWAP_D[k], SWAP_DEC[k]); }
+    function amt2(v, k) { return fmt(v, k) + " " + SWAP_NAME[k]; }
+    app.innerHTML = placeTabs() + '<section class="card sweep swp" id="swp"><div class="card-head"><h2>⚡ 闪兑</h2><span class="muted">AiLGNS 和 LGNS 直接互换 · 试运行</span></div>' +
+      '<div id="swp-pend"></div>' +
+      '<div class="sw-side"><button type="button" data-dir="a2l">AiLGNS → LGNS</button><button type="button" data-dir="l2a">LGNS → AiLGNS</button></div>' +
+      '<label class="full"><span id="swp-lab"></span><div class="row"><input id="swp-amt" inputmode="decimal" placeholder="0" autocomplete="off"><button type="button" class="ghost" id="swp-max" style="padding:0 14px">最大</button></div></label>' +
+      '<p class="note" id="swp-bal"></p><div class="sw-out" id="swp-out"></div>' +
+      '<button type="button" id="swp-go" class="sw-go"></button><p class="note" id="swp-st"></p>' +
+      '<details class="swp-how"><summary>闪兑是怎么换的？要注意什么？</summary>' +
+      "<ol><li>第 1 步：把你的币在本站 OTC 卖成 DAI。</li><li>第 2 步：用这笔 DAI 在本站 OTC 买入另一种币。</li></ol>" +
+      "<p>· 每一步收 1% 手续费（和平时扫单一样），两步合计约 2%。上面的「预计到手」已经扣掉了。</p>" +
+      "<p>· 钱包要确认 2 次；第一次用还要先点授权（只需一次）。</p>" +
+      "<p>· 两步是两笔交易。万一第 1 步成了、第 2 步没成，你拿到的是 DAI，一分不少：回到这页点「继续换」，或者 DAI 留着都行。</p>" +
+      "<p>· 全程走本站现有的 OTC 合约，没有新合约；币只在你自己的钱包进出，本站不经手。</p></details></section>";
+    var box = document.getElementById("swp"), inp = document.getElementById("swp-amt"), out = document.getElementById("swp-out"), go = document.getElementById("swp-go"),
+      st = document.getElementById("swp-st"), balEl = document.getElementById("swp-bal"), lab = document.getElementById("swp-lab"), pendEl = document.getElementById("swp-pend");
+    function alive() { return document.getElementById("swp") === box; }
+    function chk() { if (!alive()) throw new Error("你离开了闪兑页，已经停下；回到闪兑页可以接着换"); }
+    function say(t, bad) { if (!alive()) return; st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
+    function amtWei() { var v = toWei(inp.value, SWAP_DEC[from()]); return v && v > 0n ? v : null; }
+    function busy(on) { working = swapBusy = on; if (alive()) { go.disabled = inp.disabled = on; if (on) pendEl.innerHTML = ""; } }
+    function goText() {
+      if (working) return;
+      go.disabled = false;
+      go.innerHTML = q ? "<b>👉 开始闪兑</b><small>换出 " + amt2(q.p1.tok, from()) + " · 预计到手 " + amt2(q.out, to()) + " · 钱包确认 2 次</small>" : "<b>👉 开始闪兑</b><small>先在上面填要换多少</small>";
+      var p = !q && !amtWei() && pend();
+      if (p) go.innerHTML = "<b>👉 继续换成 " + SWAP_NAME[p.to] + "</b><small>上次第 1 步换来的 " + show(BigInt(p.dai), 2) + " DAI 还没换完 · 钱包确认 1 次</small>";
+    }
+    /* 没填数量时先给个参考价：按两边最优的那张单算 */
+    function refRate() {
+      var a = swapLive("ailgns", bk.ailgns), pa = swapDir === "a2l" ? a.buys[0] && priceOf(a.buys[0]) : a.sells[0] && priceOf(a.sells[0]);
+      var l = swapLive("lgns", bk.lgns), pl = swapDir === "a2l" ? l.sells[0] && priceOf(l.sells[0]) : l.buys[0] && priceOf(l.buys[0]);
+      useMarket("ailgns");
+      if (!pa || !pl) return 0;
+      return swapDir === "a2l" ? pa * 0.9801 / pl : pa / (pl * 0.9801);
+    }
+    function rateTxt(r) { return "1 AiLGNS ≈ " + A.fmt(r, r >= 100 ? 0 : 2) + " LGNS"; }
+    function draw() {
+      if (!alive()) return;
+      var f = from(), t = to(), amt = amtWei(), w = [];
+      box.querySelectorAll("[data-dir]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-dir") === swapDir); });
+      lab.textContent = "换出多少 " + SWAP_NAME[f];
+      balEl.textContent = bal[f] !== undefined ? "钱包里有 " + amt2(bal[f], f) : "";
+      q = null;
+      if (!bk[f] || !bk[t]) { out.innerHTML = '<p class="muted">正在读取两个市场的挂单…</p>'; return goText(); }
+      if (!amt) { var r0 = refRate(); out.innerHTML = r0 ? '<p class="swp-ref">现在大约 <b>' + rateTxt(r0) + "</b><small>" + (swapDir === "a2l" ? "换出 1 AiLGNS 大约到手这么多 LGNS" : "大约这么多 LGNS 能换到 1 AiLGNS") + "；已扣两步手续费，换得多会差一些</small></p>" : '<p class="swp-warn">现在两个市场的挂单不够，暂时换不了。</p>'; return goText(); }
+      var x = swapQuote(bk, f, t, amt);
+      if (!x.p1.steps.length) { out.innerHTML = '<p class="swp-warn">' + SWAP_NAME[f] + " 现在没有合适的买单接，暂时换不了。数量太小（不到 1 DAI）也换不了。</p>"; return goText(); }
+      if (!x.p2.steps.length || x.out <= 0n) { out.innerHTML = '<p class="swp-warn">' + SWAP_NAME[t] + " 现在没有卖单，或者数量太小，暂时换不了。</p>"; return goText(); }
+      q = x;
+      if (q.p1.tok < amt - amt / 1000n) w.push("现在的买单只够接 " + amt2(q.p1.tok, f) + "，这次按这个数换。");
+      var lost = q.dai - q.p2.dai;
+      if (lost > 10n ** 18n && lost * 50n > q.dai) w.push(SWAP_NAME[t] + " 的卖单不够：大约有 " + show(lost, 2) + " DAI 换不完，会留在你钱包里。建议把数量改小。");
+      var ra = swapDir === "a2l" ? num(q.out, 9) / num(q.p1.tok, 18) : num(q.p1.tok, 9) / num(q.out, 18);
+      out.innerHTML = '<div class="sw-get"><span>预计到手</span><b class="num">' + fmt(q.out, t) + "</b><em>" + SWAP_NAME[t] + "</em><small>" + rateTxt(ra) + " · 两步手续费已扣</small></div>" +
+        '<ol class="swp-steps"><li>卖出 <b>' + amt2(q.p1.tok, f) + "</b> → 得 <b>" + show(q.dai, 2) + " DAI</b><small>吃 " + q.p1.steps.length + " 张买单</small></li>" +
+        "<li>用这笔 DAI 买入 <b>" + amt2(q.out, t) + "</b><small>吃 " + q.p2.steps.length + " 张卖单</small></li></ol>" +
+        w.map(function (s) { return '<p class="swp-warn">⚠️ ' + s + "</p>"; }).join("");
+      goText();
+    }
+    function pend() { try { var p = JSON.parse(localStorage.getItem(SWAP_PEND) || "null"); return p && p.dai && SWAP_NAME[p.to] && SWAP_NAME[p.from] && Date.now() - p.t < 7 * 86400e3 ? p : null; } catch (e) { return null; } }
+    function setPend(p) { try { if (p) localStorage.setItem(SWAP_PEND, JSON.stringify(p)); else localStorage.removeItem(SWAP_PEND); } catch (e) { /* 存不了就算了 */ } }
+    function drawPend() {
+      if (!alive()) return;
+      var p = pend();
+      if (!p || working) { pendEl.innerHTML = ""; return; }
+      pendEl.innerHTML = '<div class="swp-pend"><b>⏸ 上次闪兑停在第 2 步</b><p>第 1 步换来的 <b>' + show(BigInt(p.dai), 2) + " DAI</b> 在你钱包里，还没换成 " + SWAP_NAME[p.to] + '。</p><div class="row"><button type="button" id="swp-cont">继续换成 ' + SWAP_NAME[p.to] + '</button><button type="button" class="ghost" id="swp-drop">不换了，留着 DAI</button></div></div>';
+      document.getElementById("swp-cont").onclick = function () { resume(p); };
+      document.getElementById("swp-drop").onclick = function () { setPend(null); drawPend(); goText(); };
+    }
+    function loadBal() {
+      if (!account) return Promise.resolve();
+      return Promise.all([swapBal("ailgns"), swapBal("lgns")]).then(function (x) { bal.ailgns = x[0]; bal.lgns = x[1]; if (!working) draw(); });
+    }
+    function refresh(fresh) {
+      swapBooks(fresh).then(function (b) { if (!alive() || working) return; bk = b; draw(); }, function () { if (alive() && !bk.ailgns) out.innerHTML = '<p class="swp-warn">挂单没读到，请检查网络后刷新本页。</p>'; });
+    }
+    /* 第 1 步：卖出换 DAI。单被抢先就读最新买单自动再试 1 次，少拿 1% 以上先问一句 */
+    function leg1(f, amt) {
+      var tried = 0;
+      function attempt(p) {
+        return swapFire(f, false, p, undefined, function (m) { say("第 1 步：" + m); }, "第 1 步", chk).catch(function (e) {
+          if (tried || !SWAP_RETRY.test(String((e && e.message) || e))) throw e;
+          tried = 1;
+          return swapBook(f, true).then(function (b) {
+            chk(); bk[f] = b;
+            var p2 = sweepPlanTok(swapLive(f, b).buys, amt);
+            if (!p2.steps.length) throw new Error(SWAP_NAME[f] + " 的买单刚被别人吃完了，没有扣你的币");
+            if (swapNet(p2.steps) * 100n < swapNet(p.steps) * 99n && !confirm("买单刚被别人吃了一些：现在卖出能得 " + show(swapNet(p2.steps), 2) + " DAI（原来 " + show(swapNet(p.steps), 2) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
+            return attempt(p2);
+          });
+        });
+      }
+      return attempt(q.p1);
+    }
+    /* 第 2 步：用 DAI 买入。budgetDai = 第 1 步到手的 DAI（留 0.1 DAI 付 Gas）；expect = 原来预计到手，少 3% 以上先问；ask = 接着上次换，先报个数让客户点头 */
+    function leg2(t, budgetDai, expect, ask) {
+      var tried = 0;
+      function attempt() {
+        chk(); say("第 2 步：正在看 " + SWAP_NAME[t] + " 的最新卖单…");
+        return Promise.all([swapBook(t, true), swapCall(ANUBIS_DAI, SEL.balanceOf + u256(account)).then(BigInt)]).then(function (x) {
+          chk(); bk[t] = x[0];
+          var p = null, s = swapLive(t, x[0]).sells, can = x[1] - GAS_RESERVE, budget = budgetDai < can ? budgetDai : can;
+          if (budget < MIN_DAI) throw new Error("钱包里能用的 DAI 不到 1 个，换不了");
+          p = sweepPlan(s, budget);
+          var outNow = swapNet(p.steps);
+          if (!p.steps.length || outNow <= 0n) throw new Error(SWAP_NAME[t] + " 现在没有卖单，暂时买不了");
+          if (ask && !tried && !confirm("用 " + show(budget, 2) + " DAI 买入约 " + amt2(outNow, t) + "。继续吗？")) throw new Error("已取消，DAI 还在你钱包里");
+          if (!ask && expect > 0n && outNow * 100n < expect * 97n && !confirm(SWAP_NAME[t] + " 的卖单刚变了：现在用 " + show(budget, 2) + " DAI 能买到约 " + amt2(outNow, t) + "（原来预计 " + fmt(expect, t) + "）。继续吗？\n点「取消」就停在这里，DAI 留在你钱包。")) throw new Error("已停下，DAI 还在你钱包里。");
+          return swapFire(t, true, p, budget, function (m) { say("第 2 步：" + m); }, "第 2 步", chk);
+        }).catch(function (e) {
+          if (tried || !SWAP_RETRY.test(String((e && e.message) || e))) throw e;
+          tried = 1; return attempt();
+        });
+      }
+      return attempt();
+    }
+    function done(f, t, r1, r2) {
+      setPend(null); swapHit("swp2"); busy(false);
+      if (A.quiet) A.quiet(12000);
+      var leftDai = r1.got - r2.paid, link = function (tx) { return tx ? '<a href="#/scan/tx/' + tx + '" target="_blank" rel="noopener">查看</a>' : ""; };
+      doneModal("✅ 闪兑成功！", '<div class="sweep"><div class="sw-get sw-done"><span>闪兑到手</span><b class="num">' + fmt(r2.got, t) + "</b><em>" + SWAP_NAME[t] + "</em>" + (r1.paid > 0n ? "<small>换出 " + amt2(r1.paid, f) + "</small>" : "") + "</div>" +
+        '<table class="sw-tbl"><thead><tr><th>步骤</th><th>付出</th><th>到手</th><th>交易</th></tr></thead><tbody>' +
+        "<tr><td>① 卖出</td><td>" + (r1.paid > 0n ? amt2(r1.paid, f) : SWAP_NAME[f]) + "</td><td><b>" + show(r1.got, 2) + " DAI</b></td><td>" + link(r1.tx) + "</td></tr>" +
+        "<tr><td>② 买入</td><td>" + show(r2.paid, 2) + " DAI</td><td><b>" + amt2(r2.got, t) + "</b></td><td>" + link(r2.tx) + "</td></tr></tbody></table>" +
+        (leftDai > 10n ** 16n ? '<p class="muted">第 1 步换来的 DAI 还剩 ' + show(leftDai, 2) + " 没用完，留在你钱包里。</p>" : "") + "</div>");
+      if (!alive()) return;
+      useMarket("ailgns"); inp.value = ""; draw(); drawPend(); say("✅ 闪兑完成，" + SWAP_NAME[t] + " 已到你的钱包");
+      loadBal().catch(function () {}); refresh(true);
+    }
+    function stop(msg) { busy(false); if (!alive()) return; useMarket("ailgns"); draw(); drawPend(); say(msg, true); }
+    function resume(p) {
+      busy(true);
+      go.innerHTML = "<b>⏳ 继续第 2 步</b><small>用 DAI 买入 " + SWAP_NAME[p.to] + " · 请看钱包</small>";
+      useMarket(p.to);
+      ready().then(function () {
+        if (p.a && p.a !== account) throw new Error("这笔闪兑是用钱包 " + p.a.slice(0, 6) + "…" + p.a.slice(-4) + " 做的，请在钱包里切回那个账户再点");
+        return leg2(p.to, BigInt(p.dai), 0n, true);
+      }).then(function (r2) { done(p.from, p.to, { paid: BigInt(p.paid || "0"), got: BigInt(p.dai), tx: p.tx }, r2); }, function (e) { stop(niceError(e)); });
+    }
+    box.querySelectorAll("[data-dir]").forEach(function (b) {
+      b.onclick = function () { if (working) return; swapDir = b.getAttribute("data-dir"); inp.value = ""; say(""); draw(); };
+    });
+    inp.oninput = function () { say(""); draw(); };
+    document.getElementById("swp-max").onclick = function () {
+      if (working) return;
+      var f = from();
+      function fill() { if (bal[f] === undefined) return; inp.value = floorStr(bal[f], Math.min(SWAP_DEC[f], 6), SWAP_DEC[f]); draw(); }
+      if (account && bal[f] !== undefined) return fill();
+      useMarket("ailgns");
+      (account ? Promise.resolve() : connect()).then(loadBal).then(fill, function (e) { say(niceError(e), true); });
+    };
+    go.onclick = function () {
+      var f = from(), t = to(), amt = amtWei(), q0 = q, r1 = null;
+      if (!amt) { var p0 = pend(); if (p0) return resume(p0); say("先在上面填要换多少 " + SWAP_NAME[f], true); return; }
+      busy(true);
+      go.innerHTML = "<b>⏳ 正在打开钱包…</b><small>" + (account ? "正在核对最新挂单，马上弹出钱包确认" : "请在钱包里点「连接」") + "</small>";
+      say(account ? "正在核对最新挂单和余额…" : "正在连接钱包…");
+      useMarket(f);
+      ready().then(function () {
+        chk(); say("正在核对最新挂单和余额…");
+        return Promise.all([swapBooks(true), swapBal(f), swapCall(ANUBIS_DAI, SEL.balanceOf + u256(account)).then(BigInt)]);
+      }).then(function (x) {
+        chk(); bk = x[0]; bal[f] = x[1]; draw();
+        if (!q) throw new Error("现在的挂单不够，这笔换不了（原因写在上面）");
+        if (x[1] < q.p1.tok) throw new Error("余额不足：要换出 " + amt2(q.p1.tok, f) + "，钱包里有 " + fmt(x[1], f) + "。把数量改小一点");
+        if (x[2] < 2n * 10n ** 17n) throw new Error("钱包里的 DAI 不够付 Gas：Anubis 链 Gas 用 DAI 付，请先转一点 DAI（约 0.3）进来");
+        if (q0 && q.out * 100n < q0.out * 99n && !confirm("挂单刚变了：现在预计到手 " + amt2(q.out, t) + "（刚才是 " + fmt(q0.out, t) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
+        go.innerHTML = "<b>⏳ 第 1 步 / 共 2 步</b><small>卖出 " + amt2(q.p1.tok, f) + " 换成 DAI · 请看钱包</small>";
+        return leg1(f, amt);
+      }).then(function (r) {
+        r1 = r;
+        setPend({ a: account, from: f, to: t, dai: r.got.toString(), paid: r.paid.toString(), tx: r.tx, t: Date.now() });
+        swapHit("swp1");
+        if (alive()) go.innerHTML = "<b>⏳ 第 2 步 / 共 2 步</b><small>第 1 步已到账 " + show(r.got, 2) + " DAI · 正在买入 " + SWAP_NAME[t] + "</small>";
+        return leg2(t, r.got, q && q.dai > 0n ? q.out * r.got / q.dai : 0n, false);
+      }).then(function (r2) { done(f, t, r1, r2); }, function (e) {
+        if (r1 && alive()) inp.value = "";
+        stop(r1 ? "✅ 第 1 步已成交，" + show(r1.got, 2) + " DAI 已到你钱包。第 2 步没成：" + niceError(e) + " 点「继续换成 " + SWAP_NAME[t] + "」再试，DAI 留着也行。" : niceError(e));
+      });
+    };
+    draw(); drawPend(); refresh(false);
+    silentAccount().then(loadBal).catch(function () {});
   }
 
   var BOOK_SHOW = 5; // 挂单太多时每个列表先只显示价格最好的几张，点「展开」看全部（挂单表单就不会被挤到很下面）
@@ -582,6 +869,7 @@
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
     if (sub === "split") return renderSplit(id);
+    if (sub === "swap") return renderSwap();
     if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
     if (!OTC) {
       app.innerHTML = placeTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
@@ -1137,40 +1425,6 @@
         '<div class="sw-quick">' + [10, 20, 30, 50, 90].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +
         '<div class="sw-out" id="sw-out"></div><div class="sw-ladder" id="sw-ladder"></div>' +
         '<button type="button" id="sw-go" class="sw-go">👉 点击确认付款</button><p class="note" id="sw-st"></p><div id="sw-rec"></div></section>';
-    }
-    // 按 DAI 金额从最优价开始吃，吃到 target（DAI，BigInt）为止；返回每张单吃多少 + 合计
-    // 买入（扫卖单）：amount = 拿走的币，pay = 付的 DAI；卖出（扫买单）：amount = 拿走的 DAI，pay = 付的币
-    function sweepPlan(list, target) {
-      var steps = [], dai = 0n, tok = 0n;
-      for (var i = 0; i < list.length && dai < target; i++) {
-        var o = list[i], full = daiLeft(o, o.giveLeft), amount = o.giveLeft;
-        if (dai + full > target) { // 最后一张只吃一部分
-          var need = target - dai;
-          amount = o.sellAilgns ? need * o.giveTotal / o.wantTotal : need;
-          if (amount <= 0n) break;
-          if (amount > o.giveLeft || isDustLeft(o, o.giveLeft - amount)) amount = o.giveLeft; // 剩的不到 1 DAI 就一起吃掉
-        }
-        var pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
-        steps.push({ o: o, amount: amount, pay: pay });
-        if (o.sellAilgns) { dai += pay; tok += amount; } else { dai += amount; tok += pay; }
-      }
-      return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
-    }
-    // 扫买单（卖出）按手里的币算：最多付 budget 个币（BigInt），从出价最高的买单吃起
-    function sweepPlanTok(list, budget) {
-      var steps = [], dai = 0n, tok = 0n;
-      for (var i = 0; i < list.length && tok < budget; i++) {
-        var o = list[i], amount = o.giveLeft, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
-        if (tok + pay > budget) { // 最后一张只吃一部分：币不够整张
-          amount = (budget - tok) * o.giveTotal / o.wantTotal;
-          if (amount <= 0n || amount < MIN_DAI) break;
-          pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
-          if (tok + pay > budget) { amount -= 1n; pay = ceilDiv(amount * o.wantTotal, o.giveTotal); }
-        }
-        steps.push({ o: o, amount: amount, pay: pay });
-        dai += amount; tok += pay;
-      }
-      return { steps: steps, dai: dai, tok: tok, avg: tok ? num(dai) / tNum(tok) : 0 };
     }
     function gasKeep(n) { return M.gas === "DAI" ? GAS_RESERVE + GAS_RESERVE / 10n * BigInt(n + 1) : 0n; } // Anubis 上 Gas 用 DAI 付：固定留 0.1，每张再留 0.01
     // 赚了多少：和同样数量在 DEX 买 / 卖比（已算 DEX 手续费、卖出税和本站 1% 手续费）。只在真的比 DEX 划算时显示，不划算就不显示（不能把亏的说成赚的）
