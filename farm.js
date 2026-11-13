@@ -28,6 +28,60 @@
   }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
+  // 充值弹窗（开心农场、大逃杀共用）：选档位 → 钱包转 LGNS 到运营资金（收款地址以后台返回的 pay.payTo 为准，数据末尾带农场标记）→ 链上确认后后台核对加金币
+  // o = { m: 弹窗元素, R: 农场规则（/api/farm?rules=2）, paid: 以前充过没有, addr: 签名进场的钱包, done: 到账后回调(j) }
+  function openPay(o) {
+    var m = o.m, R = o.R, first = !o.paid;
+    m.hidden = false;
+    m.innerHTML = '<div class="modal-box"><div class="card-head"><h2><i class="fm-coin"></i> 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
+      (first ? '<p class="fm-first">🔥 首充翻倍！第一次充值任意一档，金币 ×2</p>' : "") + '<div class="fm-packs">' +
+      R.packs.map(function (p, i) {
+        var bonus = Math.round((p.coins / (p.lgns * 100) - 1) * 100), get = p.coins * (first ? 2 : 1);
+        return '<button type="button" data-pack="' + i + '">' + (i === 2 ? '<i class="fm-hot">最划算</i>' : "") + "<b>" + A.fmt(get) + " 金币</b><small>" + p.lgns + " LGNS" + (bonus ? " · 多送 " + bonus + "%" : "") + (first ? " · 翻倍" : "") + "</small></button>";
+      }).join("") + "</div>" +
+      '<ul class="fm-perk"><li>👑 充值后解锁：🎃 黄金南瓜、🐓 金鸡，每日签到 ' + R.daily + " → <b>" + R.dailyVip + "</b> 金币</li><li>💯 累计充值 " + R.king + " LGNS：名字前挂 👑 农场主</li><li>💰 上充值榜：充值的 LGNS 进入运营资金</li></ul>" +
+      '<p class="note" id="fm-pst">只收 Anubis 链 LGNS，还要一点 DAI 付 Gas。金币加给付款的钱包，换不回币。</p></div>';
+    m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
+    m.onclick = function (e) { if (e.target === m) m.hidden = true; };
+    function lock(v) { m.querySelectorAll("[data-pack]").forEach(function (b) { b.disabled = v; }); }
+    function pay(p) {
+      var st = m.querySelector("#fm-pst"), eth, account, data;
+      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
+      lock(true);
+      A.wallets.choose().then(function (x) { eth = x; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) {
+        account = String(a[0]).toLowerCase();
+        if (account !== o.addr) throw new Error("请用签名进场的钱包 " + A.short(o.addr) + " 付款（现在是 " + A.short(account) + "）");
+        say("正在切换到 Anubis 链…");
+        return W.switchTo(eth, "anubis");
+      }).then(function () { return sha("farm"); }).then(function (h) {
+        data = "0xa9059cbb" + A.pad(R.pay.payTo) + u256(BigInt(p.lgns) * 10n ** 9n) + R.pay.tag + h;
+        say("正在检查 LGNS 余额…");
+        return W.rpcOn("anubis", "eth_call", [{ from: account, to: R.pay.token, data: data }, "latest"]).catch(function () { throw new Error("LGNS 不够：这档要 " + p.lgns + " LGNS（Anubis 链），还要一点 DAI 付 Gas"); });
+      }).then(function () {
+        say("🔒 请在钱包确认支付 " + p.lgns + " LGNS（进入运营资金）");
+        return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: R.pay.token, data: data }] });
+      }).then(function (tx) {
+        say("已付款，等待链上确认…");
+        return W.waitOn("anubis", tx).then(function () { return tx; });
+      }).then(function (tx) {
+        var n = 0;
+        function once() {
+          return fetch("/api/farm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: "recharge", tx: tx }) }).then(function (r) { return r.json(); }).then(function (j) {
+            if (j.error) { if (++n < 6 && /查不到/.test(j.error)) { say("正在核对付款…"); return new Promise(function (ok) { setTimeout(ok, 3000); }).then(once); } throw new Error(j.error + "（交易 " + tx + "，到账有问题请截图找客服）"); }
+            return j;
+          });
+        }
+        return once();
+      }).then(function (j) {
+        m.hidden = true; o.done(j);
+      }, function (e) {
+        say((e && e.message) || "付款没成功", true);
+        lock(false);
+      });
+    }
+    m.querySelectorAll("[data-pack]").forEach(function (b) { b.onclick = function () { pay(R.packs[+b.getAttribute("data-pack")]); }; });
+  }
+
   function page(rid) {
     var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "";
     A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span></div><div class="fm-top"><h2>开心农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
@@ -189,56 +243,9 @@
         }).join("") + "</ul>" : '<p class="muted">还没有人充值，第一个充值的就是榜一农场主！</p>') + "</section>";
     }
 
-    // 充值：选档位 → 钱包转 LGNS 到运营资金（收款地址以后台返回的 pay.payTo 为准，数据末尾带农场标记）→ 链上确认后后台核对加金币
+    // 充值：弹窗和付款流程在外层 openPay（开心农场、大逃杀共用）
     function payPicker() {
-      var m = document.getElementById("fm-modal"), first = !me.paid;
-      m.hidden = false;
-      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2><i class="fm-coin"></i> 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        (first ? '<p class="fm-first">🔥 首充翻倍！第一次充值任意一档，金币 ×2</p>' : "") + '<div class="fm-packs">' +
-        R.packs.map(function (p, i) {
-          var bonus = Math.round((p.coins / (p.lgns * 100) - 1) * 100), get = p.coins * (first ? 2 : 1);
-          return '<button type="button" data-pack="' + i + '">' + (i === 2 ? '<i class="fm-hot">最划算</i>' : "") + "<b>" + A.fmt(get) + " 金币</b><small>" + p.lgns + " LGNS" + (bonus ? " · 多送 " + bonus + "%" : "") + (first ? " · 翻倍" : "") + "</small></button>";
-        }).join("") + "</div>" +
-        '<ul class="fm-perk"><li>👑 充值后解锁：🎃 黄金南瓜、🐓 金鸡，每日签到 ' + R.daily + " → <b>" + R.dailyVip + "</b> 金币</li><li>💯 累计充值 " + R.king + " LGNS：名字前挂 👑 农场主</li><li>💰 上充值榜：充值的 LGNS 进入运营资金</li></ul>" +
-        '<p class="note" id="fm-pst">只收 Anubis 链 LGNS，还要一点 DAI 付 Gas。金币加给付款的钱包，换不回币。</p></div>';
-      m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
-      m.onclick = function (e) { if (e.target === m) m.hidden = true; };
-      m.querySelectorAll("[data-pack]").forEach(function (b) { b.onclick = function () { pay(R.packs[+b.getAttribute("data-pack")], b); }; });
-    }
-    function pay(p, btn) {
-      var st = document.getElementById("fm-pst"), eth, account, data;
-      function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; }
-      document.querySelectorAll("[data-pack]").forEach(function (b) { b.disabled = true; });
-      A.wallets.choose().then(function (x) { eth = x; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) {
-        account = String(a[0]).toLowerCase();
-        if (account !== sig.addr) throw new Error("请用进农场的钱包 " + A.short(sig.addr) + " 付款（现在是 " + A.short(account) + "）");
-        say("正在切换到 Anubis 链…");
-        return W.switchTo(eth, "anubis");
-      }).then(function () { return sha("farm"); }).then(function (h) {
-        data = "0xa9059cbb" + A.pad(R.pay.payTo) + u256(BigInt(p.lgns) * 10n ** 9n) + R.pay.tag + h;
-        say("正在检查 LGNS 余额…");
-        return W.rpcOn("anubis", "eth_call", [{ from: account, to: R.pay.token, data: data }, "latest"]).catch(function () { throw new Error("LGNS 不够：这档要 " + p.lgns + " LGNS（Anubis 链），还要一点 DAI 付 Gas"); });
-      }).then(function () {
-        say("🔒 请在钱包确认支付 " + p.lgns + " LGNS（进入运营资金）");
-        return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: R.pay.token, data: data }] });
-      }).then(function (tx) {
-        say("已付款，等待链上确认…");
-        return W.waitOn("anubis", tx).then(function () { return tx; });
-      }).then(function (tx) {
-        var n = 0;
-        function once() {
-          return fetch("/api/farm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: "recharge", tx: tx }) }).then(function (r) { return r.json(); }).then(function (j) {
-            if (j.error) { if (++n < 6 && /查不到/.test(j.error)) { say("正在核对付款…"); return new Promise(function (ok) { setTimeout(ok, 3000); }).then(once); } throw new Error(j.error + "（交易 " + tx + "，到账有问题请截图找客服）"); }
-            return j;
-          });
-        }
-        return once();
-      }).then(function (j) {
-        me = j.me; document.getElementById("fm-modal").hidden = true; toast(j.msg); draw();
-      }, function (e) {
-        say((e && e.message) || "付款没成功", true);
-        document.querySelectorAll("[data-pack]").forEach(function (b) { b.disabled = false; });
-      });
+      openPay({ m: document.getElementById("fm-modal"), R: R, paid: me.paid, addr: sig.addr, done: function (j) { me = j.me; toast(j.msg); draw(); } });
     }
 
     function draw() {
@@ -323,5 +330,6 @@
     }, function () { out.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>'; });
   }
 
+  A.farmPay = openPay;
   A.pages.farm = page;
 })();

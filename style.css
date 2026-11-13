@@ -3990,6 +3990,8 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .dt-head { display: flex; align-items: center; gap: 8px; margin: 2px 2px 10px; }
 .dt-head h2 { margin: 0; font-size: 20px; }
 .dt-beta { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #f1ebfd; color: var(--purple-ink); font-weight: 700; white-space: nowrap; }
+.dt-pay { margin-left: auto; padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 800; }
+.dt-pay[hidden] { display: none; }
 .dt-map { position: relative; aspect-ratio: 358 / 440; border-radius: 20px; overflow: hidden; margin-bottom: 12px; border: 3px solid #7fae62; background-color: #b4dc98; background-image: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, .28) 0 2px, transparent 3px), radial-gradient(circle at 70% 60%, rgba(60, 120, 40, .2) 0 2px, transparent 3px); background-size: 34px 34px, 46px 46px; -webkit-user-select: none; user-select: none; }
 .dt-hud { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px; z-index: 5; pointer-events: none; }
 .dt-coins { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #92400e; font-weight: 800; font-size: 14px; white-space: nowrap; }

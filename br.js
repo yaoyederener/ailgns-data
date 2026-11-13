@@ -36,9 +36,9 @@
   }
 
   function page(id) {
-    var S = null, me = null, sig = getSig(), skew = 0, sel = -1, amt = 100, busy = false, asked = 0, askAt = 0, lastPull = 0, lastPh = "", tm = null;
+    var S = null, me = null, sig = getSig(), skew = 0, sel = -1, amt = 100, busy = false, payBusy = false, asked = 0, askAt = 0, lastPull = 0, lastPh = "", tm = null;
     try { var sv = Number(localStorage.getItem("br:amt")); if (CHIPS.indexOf(sv) >= 0) amt = sv; } catch (e) { /* 忽略 */ }
-    A.app.innerHTML = '<div class="dt-head"><h2>🐺 大逃杀</h2><span class="dt-beta">试运行</span></div>' +
+    A.app.innerHTML = '<div class="dt-head"><h2>🐺 大逃杀</h2><span class="dt-beta">试运行</span><button type="button" class="dt-pay" id="dt-pay" hidden>＋ 充值金币</button></div>' +
       '<div class="dt-map" id="dt-grid"><div class="dt-hud"><span class="dt-coins" id="dt-coins"></span><span class="dt-clock" id="dt-clock">读取中…</span></div>' +
       DEF.map(function (r, i) { var L = LAY[i]; return '<button type="button" class="dt-room f' + i + '" data-i="' + i + '" style="left:' + L[0] + "%;top:" + L[1] + "%;width:" + L[2] + "%;height:" + L[3] + '%"><span class="dt-name">' + r[1] + '</span><span class="dt-t">💰 0</span><span class="dt-n"></span><b class="dt-emo">' + r[0] + '</b><span class="dt-ps"></span></button>'; }).join("") +
       '<i class="dt-deco" style="left:75%;top:70%">🌲</i><i class="dt-deco" style="left:92%;top:69%">🌳</i><i class="dt-deco" style="left:93%;top:82%">🌲</i><span class="dt-woods">大灰狼的树林</span>' +
@@ -47,7 +47,7 @@
       '<section class="card"><h3 class="dt-h">最近几局大灰狼进了哪间</h3><div class="dt-hist" id="dt-hist"><span class="muted">还没有记录</span></div></section>' +
       '<details class="card dt-fold"><summary>怎么玩？（点开看）</summary><ol class="dt-rule"><li>每 60 秒一局。前 40 秒，选一个房间躲进去，押 10 到 1,000 金币。一局只能进一次，进了不能换。</li><li>关门后，大灰狼随机闯进一间<b>有人的房间</b>，那间房的人这一局押的金币就没了。</li><li>被吃掉的金币，10% 销毁，90% 分给其它房间活下来的人，押得多分得多。</li><li>只有一个房间有人就不开杀，押金原样退回。</li><li>金币和开心农场是同一份，赢的输的都记在农场金币里。</li></ol></details>' +
       '<details class="card dt-fold"><summary>怎么保证公平？（点开看）</summary><p class="dt-fairp">每一局进哪个房间由一串「种子」决定，种子在你押注之前就定好了。押注时先公布种子的指纹，开杀后公布种子本身，任何人都能核对种子没被换过。</p><div class="dt-fair" id="dt-fair"></div></details>' +
-      '<p class="note">金币只能在游戏里玩，换不回币、不能提现、不能转给别人，没有奖金奖品。娱乐为主，量力而行。金币不够可以去 <a href="#/farm">开心农场</a> 签到、种菜。</p><div class="fm-toast" id="dt-toast" hidden></div>';
+      '<p class="note">金币只能在游戏里玩，换不回币、不能提现、不能转给别人，没有奖金奖品。娱乐为主，量力而行。金币不够可以点右上角「充值金币」，也可以去 <a href="#/farm">开心农场</a> 签到、种菜。</p><div class="fm-toast" id="dt-toast" hidden></div><div class="modal" id="dt-modal" hidden></div>';
     var $ = function (x) { return document.getElementById(x); };
 
     function toast(t, bad) {
@@ -97,11 +97,31 @@
       post("bet", { room: sel, amt: amt }).then(function () { busy = false; toast("躲进「" + rn(sel) + "」了，押 " + amt + " 金币"); draw(); pull(); }, function (e) { busy = false; toast(e.message, true); draw(); });
     }
 
+    /* 充值：和开心农场同一个弹窗、同一套档位（farm.js 的 A.farmPay），金币是同一份；先读档位和「以前充过没有」（首充翻倍用） */
+    function recharge() {
+      if (payBusy || !sig || !me) return;
+      if (!A.farmPay) { toast("充值暂时打不开，可以去开心农场充值", true); return; }
+      payBusy = true;
+      var who = sig, body = JSON.stringify({ a: "me", addr: who.addr, day: who.day, sig: who.sig });
+      Promise.all([
+        fetch("/api/farm?rules=2", { cache: "no-store" }).then(function (r) { return r.json(); }),
+        fetch("/api/farm", { method: "POST", headers: { "content-type": "application/json" }, body: body }).then(function (r) { return r.json(); })
+      ]).then(function (x) {
+        payBusy = false;
+        if (!A.isCurrent(id) || !$("dt-modal")) return;
+        var R = x[0], f = x[1];
+        if (!f || f.error || !f.me) throw new Error((f && f.error) || "充值暂时打不开，稍后再试");
+        if (!R || !R.packs || !R.pay) throw new Error("充值档位没读到，稍后再试");
+        A.farmPay({ m: $("dt-modal"), R: R, paid: f.me.paid, addr: who.addr, done: function (j) { if (me && j.me) me.coins = j.me.coins; toast(j.msg || "充值到账了"); draw(); } });
+      }).catch(function (e) { payBusy = false; toast((e && e.message) || "充值暂时打不开，稍后再试", true); });
+    }
+
     function draw() {
       if (!A.isCurrent(id) || !$("dt-grid")) return;
       var c = cur(), fresh = S && S.rid === c.rid, res = fresh && c.ph === "show" ? S.res : null, b = myBet(c), l = myLast(c);
       var mine = b ? b.r : l ? l.r : -1, kill = res ? res.kill : -1;
       $("dt-coins").textContent = me ? "💰 " + num(me.coins) : "";
+      if ($("dt-pay")) $("dt-pay").hidden = !(sig && me);
       Array.prototype.forEach.call($("dt-grid").querySelectorAll(".dt-room"), function (el, i) {
         var t = fresh ? S.tot[i] : 0, n = Math.max(fresh ? S.n[i] : 0, i === mine ? 1 : 0), dead = i === kill;
         el.className = "dt-room f" + i + (dead ? " dead" : "") + (i === mine ? " mine" : "") + (c.ph === "bet" && !b && i === sel ? " sel" : "") + (res && kill >= 0 && !dead && n ? " safe" : "");
@@ -177,6 +197,7 @@
       if (myBet(c)) { toast("这一局你已经进房间了", true); return; }
       sel = Number(el.getAttribute("data-i")); draw();
     };
+    $("dt-pay").onclick = function () { try { recharge(); } catch (e) { toast("充值暂时打不开，稍后再试", true); } };
     draw();
     pull();
     if (sig) post("me").then(draw, function () { draw(); });
