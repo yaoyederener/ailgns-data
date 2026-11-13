@@ -18,12 +18,31 @@
   function num(n) { return Number(n || 0).toLocaleString("en-US"); }
   var DEF = [["🌾", "谷仓"], ["🐔", "鸡舍"], ["🥕", "菜窖"], ["🍎", "果园"], ["🐟", "鱼塘"], ["🌻", "花房"], ["🛖", "草屋"], ["⛲", "水井"]];
 
+  /* 地图上每个房间的位置（左、上、宽、高，都是占地图的百分比）；右下角空着的是大灰狼的树林 */
+  var LAY = [[3, 12, 41, 21], [47, 14, 21, 17], [71, 12, 26, 21], [3, 37, 31, 22], [37, 35, 31, 26], [71, 37, 26, 25], [3, 63, 31, 23], [37, 65, 31, 21]];
+  var WOODS = [84, 80], PETS = ["🐥", "🐷", "🐮", "🐑", "🐰", "🦆"];
+  function ctr(i) { var L = LAY[i] || LAY[0]; return [L[0] + L[2] / 2, L[1] + L[3] / 2 + 3]; }
+  function rnd(a, b, c) { var x = Math.sin(a * 97.13 + b * 31.7 + c * 7.77) * 43758.5453; return x - Math.floor(x); }
+  function short(n) { n = Number(n || 0); return n >= 10000 ? (n / 10000).toFixed(n >= 100000 ? 0 : 1) + "万" : num(n); }
+  /* 房间里的小动物：位置按房间号和序号固定算出来，刷新时不会乱跳；最多画 8 只，多的写 +N */
+  function folks(i, n, mine, dead) {
+    var h = "", k, show = Math.min(n, 8);
+    for (k = 0; k < show; k++) {
+      var isMe = mine && k === 0;
+      h += '<i class="dt-p' + (isMe ? " me" : "") + '" style="left:' + (6 + rnd(i, k, 1) * 66).toFixed(0) + "%;top:" + (46 + rnd(i, k, 2) * 26).toFixed(0) + "%;animation-delay:-" + (rnd(i, k, 3) * 2).toFixed(2) + 's">' + (dead ? "💀" : isMe ? "🧑‍🌾" : PETS[Math.floor(rnd(i, k, 4) * PETS.length)]) + (isMe ? "<em>我</em>" : "") + "</i>";
+    }
+    if (n > show) h += '<i class="dt-more">+' + (n - show) + "</i>";
+    return h;
+  }
+
   function page(id) {
     var S = null, me = null, sig = getSig(), skew = 0, sel = -1, amt = 100, busy = false, asked = 0, askAt = 0, lastPull = 0, lastPh = "", tm = null;
     try { var sv = Number(localStorage.getItem("br:amt")); if (CHIPS.indexOf(sv) >= 0) amt = sv; } catch (e) { /* 忽略 */ }
-    A.app.innerHTML = '<section class="card dt-hero"><div class="dt-top"><h2>🐺 大逃杀</h2><span class="dt-beta">试运行</span><span class="dt-coins" id="dt-coins"></span></div>' +
-      '<div class="dt-clock" id="dt-clock">读取中…</div><div class="dt-bar"><i id="dt-bar"></i></div></section>' +
-      '<div class="dt-grid" id="dt-grid">' + DEF.map(function (r, i) { return '<button type="button" class="dt-room" data-i="' + i + '"><b class="dt-emo">' + r[0] + '</b><span class="dt-name">' + r[1] + '</span><span class="dt-n">0 人</span><span class="dt-t">0 金币</span></button>'; }).join("") + "</div>" +
+    A.app.innerHTML = '<div class="dt-head"><h2>🐺 大逃杀</h2><span class="dt-beta">试运行</span></div>' +
+      '<div class="dt-map" id="dt-grid"><div class="dt-hud"><span class="dt-coins" id="dt-coins"></span><span class="dt-clock" id="dt-clock">读取中…</span></div>' +
+      DEF.map(function (r, i) { var L = LAY[i]; return '<button type="button" class="dt-room f' + i + '" data-i="' + i + '" style="left:' + L[0] + "%;top:" + L[1] + "%;width:" + L[2] + "%;height:" + L[3] + '%"><span class="dt-name">' + r[1] + '</span><span class="dt-t">💰 0</span><span class="dt-n"></span><b class="dt-emo">' + r[0] + '</b><span class="dt-ps"></span></button>'; }).join("") +
+      '<i class="dt-deco" style="left:75%;top:70%">🌲</i><i class="dt-deco" style="left:92%;top:69%">🌳</i><i class="dt-deco" style="left:93%;top:82%">🌲</i><span class="dt-woods">大灰狼的树林</span>' +
+      '<div class="dt-wolf nap" id="dt-wolf">🐺</div><div class="dt-me" id="dt-me" hidden><i>🧑‍🌾</i><em>我</em></div></div>' +
       '<div id="dt-res"></div><section class="card dt-act" id="dt-act"></section>' +
       '<section class="card"><h3 class="dt-h">最近几局大灰狼进了哪间</h3><div class="dt-hist" id="dt-hist"><span class="muted">还没有记录</span></div></section>' +
       '<details class="card dt-fold"><summary>怎么玩？（点开看）</summary><ol class="dt-rule"><li>每 60 秒一局。前 40 秒，选一个房间躲进去，押 10 到 1,000 金币。一局只能进一次，进了不能换。</li><li>关门后，大灰狼随机闯进一间<b>有人的房间</b>，那间房的人这一局押的金币就没了。</li><li>被吃掉的金币，10% 销毁，90% 分给其它房间活下来的人，押得多分得多。</li><li>只有一个房间有人就不开杀，押金原样退回。</li><li>金币和开心农场是同一份，赢的输的都记在农场金币里。</li></ol></details>' +
@@ -82,14 +101,16 @@
       if (!A.isCurrent(id) || !$("dt-grid")) return;
       var c = cur(), fresh = S && S.rid === c.rid, res = fresh && c.ph === "show" ? S.res : null, b = myBet(c), l = myLast(c);
       var mine = b ? b.r : l ? l.r : -1, kill = res ? res.kill : -1;
-      $("dt-coins").textContent = me ? "💰 " + num(me.coins) + " 金币" : "";
-      Array.prototype.forEach.call($("dt-grid").children, function (el, i) {
-        var t = fresh ? S.tot[i] : 0, n = fresh ? S.n[i] : 0;
-        el.className = "dt-room" + (i === kill ? " dead" : "") + (i === mine ? " mine" : "") + (c.ph === "bet" && !b && i === sel ? " sel" : "") + (res && kill >= 0 && i !== kill && n ? " safe" : "");
-        el.querySelector(".dt-emo").textContent = i === kill ? "🐺" : rooms()[i][0];
-        el.querySelector(".dt-n").textContent = (i === mine ? "你在这 · " : "") + n + " 人";
-        el.querySelector(".dt-t").textContent = num(t) + " 金币";
+      $("dt-coins").textContent = me ? "💰 " + num(me.coins) : "";
+      Array.prototype.forEach.call($("dt-grid").querySelectorAll(".dt-room"), function (el, i) {
+        var t = fresh ? S.tot[i] : 0, n = Math.max(fresh ? S.n[i] : 0, i === mine ? 1 : 0), dead = i === kill;
+        el.className = "dt-room f" + i + (dead ? " dead" : "") + (i === mine ? " mine" : "") + (c.ph === "bet" && !b && i === sel ? " sel" : "") + (res && kill >= 0 && !dead && n ? " safe" : "");
+        el.querySelector(".dt-t").textContent = "💰 " + short(t);
+        el.querySelector(".dt-n").textContent = n ? n + " 人" : "";
+        var key = n + "|" + (i === mine) + "|" + dead, ps = el.querySelector(".dt-ps");
+        if (ps.getAttribute("data-k") !== key) { ps.setAttribute("data-k", key); ps.innerHTML = folks(i, n, i === mine, dead); }
       });
+      $("dt-me").hidden = !(sig && me) || mine >= 0;
       /* 结果条 */
       var h = "";
       if (c.ph === "show") {
@@ -126,9 +147,17 @@
         if (!A.isCurrent(id) || !$("dt-clock")) { clearInterval(tm); return; }
         var c = cur(), R = cfg("round", 60), B = cfg("bet", 40), W = cfg("show", 50);
         var left = Math.max(0, Math.ceil((c.ph === "bet" ? B : c.ph === "lock" ? W : R) - c.s));
-        $("dt-clock").innerHTML = !S ? "读取中…" : c.ph === "bet" ? "选房间押金币 · 还剩 <b>" + left + "</b> 秒" : c.ph === "lock" ? "关门了！大灰狼正在挑房间 · <b>" + left + "</b> 秒" : "下一局 <b>" + left + "</b> 秒后开始";
+        $("dt-clock").innerHTML = !S ? "读取中…" : c.ph === "bet" ? "<b>" + left + "</b> 秒后大灰狼出现" : c.ph === "lock" ? "关门了！大灰狼在挑房间 <b>" + left + "</b>" : "下一局 <b>" + left + "</b> 秒后开始";
         $("dt-clock").className = "dt-clock " + c.ph;
-        $("dt-bar").style.width = (c.ph === "bet" ? 100 - c.s / B * 100 : c.ph === "lock" ? 100 - (c.s - B) / (W - B) * 100 : (c.s - W) / (R - W) * 100).toFixed(1) + "%";
+        /* 大灰狼：押注时在树林里睡觉；关门后在有人的房间之间转悠（只是动画，真正进哪间由种子决定）；开杀后停在那间房 */
+        var wolf = $("dt-wolf"), live = S && S.rid === c.rid, rs = live && c.ph === "show" ? S.res : null, at = WOODS, wc = "dt-wolf nap";
+        if (c.ph === "lock") {
+          var occ = [];
+          (live ? S.n : []).forEach(function (n, i) { if (n) occ.push(i); });
+          if (!occ.length) occ = [0, 1, 2, 3, 4, 5, 6, 7];
+          at = ctr(occ[Math.floor(rnd(c.rid % 1000, Math.floor(c.s / 0.9), 5) * occ.length)]); wc = "dt-wolf hunt";
+        } else if (rs && rs.kill >= 0) { at = ctr(rs.kill); wc = "dt-wolf bite"; }
+        wolf.style.left = at[0] + "%"; wolf.style.top = at[1] + "%"; wolf.className = wc;
         var key = c.rid + c.ph;
         if (key !== lastPh) { lastPh = key; draw(); pull(); }
         else if (Date.now() - lastPull > (c.ph === "show" ? 5000 : 3000)) pull();

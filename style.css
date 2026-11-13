@@ -3834,28 +3834,57 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 }
 
 /* ===== 大逃杀 #/br（试运行）：手机 390 宽优先，浅紫 ===== */
-.dt-hero { padding: 16px; }
-.dt-top { display: flex; align-items: center; gap: 8px; }
-.dt-top h2 { margin: 0; font-size: 20px; }
+.dt-head { display: flex; align-items: center; gap: 8px; margin: 2px 2px 10px; }
+.dt-head h2 { margin: 0; font-size: 20px; }
 .dt-beta { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #f1ebfd; color: var(--purple-ink); font-weight: 700; white-space: nowrap; }
-.dt-coins { margin-left: auto; font-weight: 800; color: #b45309; font-size: 15px; white-space: nowrap; }
-.dt-clock { margin-top: 12px; font-size: 15px; font-weight: 700; color: var(--purple-ink); }
-.dt-clock b { font-size: 26px; font-variant-numeric: tabular-nums; margin: 0 2px; }
-.dt-clock.lock { color: #b45309; }
-.dt-clock.show { color: var(--muted); }
-.dt-bar { height: 6px; border-radius: 999px; background: #efeaf9; margin-top: 8px; overflow: hidden; }
-.dt-bar i { display: block; height: 100%; width: 0; background: var(--grad-dot); border-radius: 999px; transition: width .25s linear; }
-.dt-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
-.dt-room { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 2px 8px; border: 2px solid var(--line); border-radius: 16px; background: var(--panel); color: inherit; font: inherit; cursor: pointer; min-width: 0; -webkit-tap-highlight-color: transparent; }
-.dt-room .dt-emo { font-size: 28px; line-height: 1.15; font-weight: 400; }
-.dt-room .dt-name { font-size: 14px; font-weight: 700; }
-.dt-room .dt-n, .dt-room .dt-t { font-size: 11px; color: var(--muted); white-space: nowrap; }
-.dt-room.sel { border-color: #8b5cf6; background: #f5f0ff; box-shadow: 0 0 0 3px rgba(139, 92, 246, .16); }
-.dt-room.mine { border-color: #6927db; background: #f1ebfd; }
-.dt-room.mine .dt-n { color: var(--purple-ink); font-weight: 700; }
-.dt-room.safe { border-color: #86efac; background: #f0fdf4; }
-.dt-room.dead { border-color: #f87171; background: #fef2f2; }
-.dt-room.dead .dt-name { color: #b91c1c; }
+.dt-map { position: relative; aspect-ratio: 358 / 440; border-radius: 20px; overflow: hidden; margin-bottom: 12px; border: 3px solid #7fae62; background-color: #b4dc98; background-image: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, .28) 0 2px, transparent 3px), radial-gradient(circle at 70% 60%, rgba(60, 120, 40, .2) 0 2px, transparent 3px); background-size: 34px 34px, 46px 46px; -webkit-user-select: none; user-select: none; }
+.dt-hud { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px; z-index: 5; pointer-events: none; }
+.dt-coins { padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: #92400e; font-weight: 800; font-size: 14px; white-space: nowrap; }
+.dt-coins:empty { visibility: hidden; }
+.dt-clock { padding: 4px 12px; border-radius: 999px; background: #fff; border: 2px solid #ef4444; color: #b91c1c; font-size: 13px; font-weight: 700; white-space: nowrap; box-shadow: 0 2px 0 rgba(0, 0, 0, .12); }
+.dt-clock b { font-size: 18px; font-variant-numeric: tabular-nums; margin: 0 2px; }
+.dt-clock.lock { background: #ef4444; color: #fff; }
+.dt-clock.show { border-color: #a78bfa; color: var(--purple-ink); }
+.dt-room { position: absolute; padding: 0; border: 3px solid #7a5230; border-radius: 10px; background-color: #ecd3a2; color: inherit; font: inherit; cursor: pointer; overflow: hidden; box-shadow: 0 4px 0 rgba(70, 45, 20, .28); -webkit-tap-highlight-color: transparent; }
+.dt-room.f0 { background-image: repeating-linear-gradient(90deg, transparent 0 15px, rgba(120, 80, 30, .18) 15px 16px); }
+.dt-room.f1 { background-color: #f7e6a6; background-image: radial-gradient(rgba(180, 130, 30, .25) 1.5px, transparent 2px); background-size: 12px 12px; }
+.dt-room.f2 { background-color: #dcd6cc; background-image: linear-gradient(rgba(90, 80, 70, .14) 1px, transparent 1px), linear-gradient(90deg, rgba(90, 80, 70, .14) 1px, transparent 1px); background-size: 16px 16px; }
+.dt-room.f3 { background-color: #d5edae; background-image: radial-gradient(rgba(70, 130, 40, .28) 2px, transparent 3px); background-size: 18px 18px; }
+.dt-room.f4 { background-color: #b3e0f2; background-image: repeating-linear-gradient(0deg, transparent 0 9px, rgba(255, 255, 255, .5) 9px 11px); }
+.dt-room.f5 { background-color: #fbdbe5; background-image: linear-gradient(45deg, rgba(220, 120, 150, .14) 25%, transparent 25% 75%, rgba(220, 120, 150, .14) 75%), linear-gradient(45deg, rgba(220, 120, 150, .14) 25%, transparent 25% 75%, rgba(220, 120, 150, .14) 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; }
+.dt-room.f6 { background-color: #f1d6ad; background-image: repeating-linear-gradient(0deg, transparent 0 11px, rgba(120, 80, 30, .16) 11px 12px); }
+.dt-room.f7 { background-color: #d3dce8; background-image: radial-gradient(rgba(90, 110, 140, .22) 3px, transparent 4px); background-size: 14px 14px; }
+.dt-name { position: absolute; left: 4px; top: 4px; padding: 0 7px; line-height: 18px; border-radius: 999px; background: rgba(255, 255, 255, .92); font-size: 12px; font-weight: 800; color: #5b3a1a; white-space: nowrap; }
+.dt-t { position: absolute; left: 4px; top: 25px; padding: 0 7px; line-height: 17px; border-radius: 999px; background: rgba(70, 45, 20, .8); color: #fff; font-size: 11px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dt-n { position: absolute; right: 4px; top: 5px; font-size: 10px; line-height: 16px; font-weight: 700; color: #5b3a1a; white-space: nowrap; }
+.dt-emo { position: absolute; right: 3px; bottom: 2px; font-size: 22px; font-weight: 400; line-height: 1; }
+.dt-ps { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; }
+.dt-p { position: absolute; font-style: normal; font-size: 15px; line-height: 1; }
+.dt-p.me { font-size: 19px; z-index: 2; }
+.dt-p em, .dt-me em { position: absolute; left: 50%; top: -14px; transform: translateX(-50%); font-style: normal; font-size: 10px; font-weight: 800; line-height: 14px; padding: 0 5px; border-radius: 999px; background: #6927db; color: #fff; white-space: nowrap; }
+.dt-more { position: absolute; right: 30px; bottom: 5px; font-style: normal; font-size: 10px; font-weight: 700; color: #5b3a1a; }
+.dt-room.sel { border-color: #f59e0b; box-shadow: 0 0 0 3px #fde68a, 0 4px 0 rgba(70, 45, 20, .28); z-index: 3; }
+.dt-room.mine { border-color: #6927db; box-shadow: 0 0 0 3px rgba(139, 92, 246, .5), 0 4px 0 rgba(70, 45, 20, .28); }
+.dt-room.safe { box-shadow: 0 0 0 3px #86efac, 0 4px 0 rgba(70, 45, 20, .28); }
+.dt-room.dead { border-color: #dc2626; box-shadow: 0 0 0 3px #fca5a5, 0 4px 0 rgba(70, 45, 20, .28); }
+.dt-room.dead::after { content: ""; position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: rgba(220, 38, 38, .34); pointer-events: none; }
+.dt-deco { position: absolute; font-style: normal; font-size: 26px; line-height: 1; pointer-events: none; transform: translate(-50%, -50%); }
+.dt-woods { position: absolute; left: 70%; top: 88.5%; width: 28%; text-align: center; font-size: 10px; font-weight: 700; color: #3f6b2a; pointer-events: none; white-space: nowrap; }
+.dt-wolf { position: absolute; left: 84%; top: 80%; transform: translate(-50%, -50%); font-size: 34px; line-height: 1; z-index: 4; pointer-events: none; transition: left .7s ease-in-out, top .7s ease-in-out, font-size .3s; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .3)); }
+.dt-wolf.nap { font-size: 28px; }
+.dt-wolf.nap::after { content: "💤"; position: absolute; left: 82%; top: -42%; font-size: 13px; }
+.dt-wolf.bite { font-size: 46px; }
+.dt-me { position: absolute; left: 50%; top: 94.5%; transform: translate(-50%, -50%); z-index: 3; pointer-events: none; }
+.dt-me[hidden] { display: none; }
+.dt-me i { font-style: normal; font-size: 20px; line-height: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .dt-p { animation: dt-bob 1.6s ease-in-out infinite; }
+  .dt-room.sel { animation: dt-pulse 1s ease-in-out infinite; }
+  .dt-room.dead { animation: dt-shake .5s; }
+}
+@keyframes dt-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes dt-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+@keyframes dt-shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .dt-ban { padding: 12px 14px; border-radius: 14px; background: #f5f0ff; color: var(--purple-ink); font-weight: 600; margin-bottom: 10px; font-size: 15px; }
 .dt-ban.win { background: #f0fdf4; color: #166534; }
 .dt-ban.lose { background: #fef2f2; color: #b91c1c; }
@@ -3864,7 +3893,7 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .dt-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
 .dt-chips button { padding: 9px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); font: inherit; font-weight: 700; font-size: 14px; color: inherit; cursor: pointer; }
 .dt-chips button.on { border-color: #8b5cf6; background: #f1ebfd; color: var(--purple-ink); }
-.dt-go { display: block; width: 100%; padding: 14px 10px; border: 0; border-radius: 14px; background: var(--grad-dot); color: #fff; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+.dt-go { display: block; width: 100%; padding: 14px 10px; border: 0; border-radius: 14px; background: linear-gradient(180deg, #fcd34d, #f59e0b); color: #5b3a1a; box-shadow: 0 4px 0 #c2780a; font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
 .dt-go[disabled] { opacity: .45; cursor: default; }
 .dt-tip { font-size: 13px; color: var(--muted); margin: 8px 0 0; text-align: center; }
 .dt-in { margin: 0; font-size: 15px; text-align: center; }
