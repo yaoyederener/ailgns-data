@@ -366,6 +366,7 @@
       '<div class="nm-rk"><input id="nm-oa" placeholder="填钱包地址 0x…，查挂单和成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-ob">查询</button></div><div id="nm-olo"></div><div id="nm-ol"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var nbb = document.getElementById("nm-batch"); if (nbb) nbb.onclick = function () { if (A.namesBatch) A.namesBatch.open(); };
+    try { if (sessionStorage.getItem("nm:batch")) { sessionStorage.removeItem("nm:batch"); setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open(); } catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
     var tl = document.querySelector(".nm-tld"); if (tl) tl.textContent = "." + TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
