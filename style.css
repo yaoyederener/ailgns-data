@@ -4058,3 +4058,10 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .dt-fairp { font-size: 14px; margin: 10px 0; }
 .dt-fair { font-size: 12px; }
 .dt-fair code { word-break: break-all; }
+
+/* 🎯 每日前三（2026-11-13）：两格奖项 + 改规则提示条 + 说明卡 */
+.or-prz.or-prz2 { grid-template-columns: repeat(2, 1fr); max-width: 480px; }
+.or-chg { margin: 10px 0 0; padding: 9px 12px; border-radius: 12px; background: #f3efff; border: 1px solid #ddd0ff; color: #4c1d95; font-size: 13.5px; line-height: 1.6; text-align: left; }
+.or-daily .or-dl { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13.5px; color: #5b5675; }
+.or-daily .or-dl li { padding: 7px 10px; border-radius: 10px; background: #faf8ff; }
+.or-simd { margin: 8px 0 0; font-size: 12.5px; }

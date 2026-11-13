@@ -148,6 +148,7 @@
     var ocNote = oc.src === "otc24" ? "按本站 OTC 市场 <b>24 小时内真实成交最高价 " + opx.toFixed(3) + " DAI/枚</b>" + (oc.capped ? "（实际成交 " + oc.raw.toFixed(3) + "，已按 DEX +50% 封顶）" : "（" + ocWhen + " 成交）") + "折算，24 小时共 " + oc.n + " 笔 / " + (oc.vol || 0) + " DAI" + ocRule
       : oc.src === "otclast" ? "按本站 OTC 市场 <b>最近一笔真实成交价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + "）折算，24 小时内暂无新成交" + ocRule
       : "OTC 市场暂无成交记录，暂按 DEX 现价 " + opx.toFixed(3) + " DAI/枚 折算" + ocRule;
+    var dly = d.daily;
     var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
     var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
     top += '<section class="card or-pool"><div class="or-pc">' +
@@ -155,17 +156,20 @@
       '<div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
       (d.funds && d.funds.wallet ? '<a class="or-pwal" href="#/scan/' + d.funds.wallet + '">🏦 查看奖池钱包 ›</a>' : "") +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
-      '<div class="or-prz">' +
+      (dly && dly.on ? '<div class="or-prz or-prz2">' +
+        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 整个奖池</u>🔮 神算子</small>' + tile(1) + "</div>" +
+        '<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>' + dly.each + '</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 只花当天进账</s></div>' +
+      "</div>" : '<div class="or-prz">' +
         '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
         '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" +
         '<div class="or-pz p1"><small><u class="or-rk">三等奖 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
         '<div class="or-pz p2"><small><u class="or-rk">四等奖 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
-      "</div>" +
+      "</div>" + (dly ? '<p class="or-chg">📣 <b>' + dayCn(dly.from) + '起改规则</b>：贡献王本周日发完最后一期就取消；改成<b>每晚离揭晓价最近的 ' + dly.top + ' 个人各 ' + dly.prize + ' DAI</b>（天眼通、地灵通并进来），天天有人拿。</p>' : "")) +
       "</div></section>";
     // 正在揭晓 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
     // 提交预测
-    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上揭晓价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + kingsCard(d, potV) + playersCard(d);
+    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上揭晓价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + dailyCard(d) + kingsCard(d, potV) + playersCard(d);
     setTimeout(liveRank, 0);
     setTimeout(function () { if (A.credFill) A.credFill(A.app); }, 0); // 🏅 贡献榜名字后面加「认证商家」等信誉标志（站长 2026-11-07）
     setTimeout(countUp, 0);
@@ -204,8 +208,13 @@
     list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: Math.abs(Math.round(Number(p) * 1000) - res.px) }); }); });
     rows.sort(function (x, y) { return x.d - y.d; });
     var top = rows.slice(0, 3).map(function (r, i) { return '<span class="or-cdl' + (r.d === 0 ? " hit" : "") + '"><em>' + ["🥇", "🥈", "🥉"][i] + '</em><u>' + esc(r.name.replace(/\.ailgns$/, "")) + "</u><b>" + r.p + "</b><small>" + (r.d === 0 ? "猜中" : "差 " + (r.d / 1000).toFixed(3)) + "</small></span>"; }).join("");
+    var topT = "最接近的 3 位";
+    if (res.daily && res.daily.length) { /* 新规则：这里直接列当晚拿「每日前三」的人，和发奖记录对得上 */
+      topT = "🎯 每日前三 · 每人 " + res.daily[0].amt + " DAI";
+      top = res.daily.map(function (w, i) { return '<span class="or-cdl"><em>' + ["🥇", "🥈", "🥉"][i] + '</em><u>' + esc(w.name.replace(/\.ailgns$/, "")) + "</u><b>" + (w.p / 1000).toFixed(3) + "</b><small>差 " + (w.diff / 1000).toFixed(3) + "</small></span>"; }).join("");
+    }
     var no = Math.round((Date.UTC(+dr.day.slice(0, 4), +dr.day.slice(5, 7) - 1, +dr.day.slice(8, 10)) - Date.UTC(2026, 10, 6)) / 864e5) + 1; // 第几期：2026-11-06 是第 1 期
-    return '<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 ' + no + ' 期（' + dayCn(dr.day) + '）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">' + (res.px / 1000).toFixed(3) + '</b><span>DAI</span></div><div class="or-cdlm">' + (res.jackpot && res.jackpot.winners.length ? '<i class="ok">🎯 ' + res.jackpot.winners.map(function (w) { return esc(w.name); }).join("、") + ' 猜中！</i>' : '<i>没人猜中 · 奖金全部留在奖池，下一期继续</i>') + '</div>' + (top ? '<div class="or-cdlr"><div class="or-cdlt">最接近的 3 位</div>' + top + "</div>" : "") + payList(dr.day) + "</div>";
+    return '<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 ' + no + ' 期（' + dayCn(dr.day) + '）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">' + (res.px / 1000).toFixed(3) + '</b><span>DAI</span></div><div class="or-cdlm">' + (res.jackpot && res.jackpot.winners.length ? '<i class="ok">🎯 ' + res.jackpot.winners.map(function (w) { return esc(w.name); }).join("、") + ' 猜中！</i>' : '<i>没人猜中 · 奖金全部留在奖池，下一期继续</i>') + '</div>' + (top ? '<div class="or-cdlr"><div class="or-cdlt">' + topT + '</div>' + top + "</div>" : "") + payList(dr.day) + "</div>";
   }
   function cdTick() {
     var big = document.getElementById("or-cdbig"); if (!big || !data) return;
@@ -303,7 +312,7 @@
     if (res && !res.closest && !res.nearInfo && list.length) { var nr = null; list.forEach(function (g) { g.ps.forEach(function (p) { var d = Math.abs(Math.round(Number(p) * 1000) - res.px); if (!nr || d < nr.diff) nr = { name: g.name, p: p, diff: d }; }); }); res.nearInfo = nr; }
     if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 揭晓结果") + (list.length ? '<section class="card">' + proofBar(dr) + allGuess(list, res.px, dr) + "</section>" : "");
     drRows = []; list.forEach(function (g) { (g.ps || []).forEach(function (p) { drRows.push({ name: g.name, p: p, m: Math.round(Number(p) * 1000) }); }); });
-    drKings = (d.kings && d.kings.top) || []; drPot = (dr.allot || 0) + ((d.pool && d.pool.pool) || 0);
+    drDaily = !!(d.daily && dr.day >= d.daily.from); drKings = drDaily ? [] : (d.kings && d.kings.top) || []; drPot = (dr.allot || 0) + ((d.pool && d.pool.pool) || 0);
     return '<section class="card or-draw"><div class="card-head"><h2>🎲 ' + dayCn(dr.day) + ' 正在揭晓</h2><span class="muted">晚上 9:00–10:00 随机一刻 · 10:05 前公布</span></div>' +
       "<p>本轮已锁定，共 <b>" + list.length + "</b> 人参与。揭晓价 = 9–10 点之间随机一刻的链上价格，由 10 点整那个区块的哈希决定，谁都没法提前知道。</p>" +
       '<div class="or-sim" id="or-sim"><p class="muted">按当前价格模拟中…</p></div>' +
@@ -333,17 +342,18 @@
   document.addEventListener("click", function (e) { var b = e.target.closest(".or-pf-btn"); if (b) proofModal(b.getAttribute("data-day")); });
   // 所有人的预测（完整价格，3 位小数）；揭晓后按离揭晓价远近排，最接近的在前
   // 🎲 「如果此刻揭晓」：按当前链上价实时模拟谁会中奖（神算子/天眼通/地灵通候选）+ 贡献王（OTC 大户）候选，每 5 秒跟价滚；引导去 OTC 交易
-  var drRows = [], drKings = [], drPot = 0, simKey = "";
+  var drRows = [], drKings = [], drPot = 0, simKey = "", drDaily = false;
   function simShow() {
     var el = document.getElementById("or-sim"); if (!el || !drRows.length || !livePxV) return;
     var m = Math.round(livePxV * 1000), rows = drRows.slice().sort(function (a, b) { return Math.abs(a.m - m) - Math.abs(b.m - m); }), top = rows.slice(0, 3);
+    if (drDaily) { var seen = {}; top = rows.filter(function (r) { if (seen[r.name]) return false; seen[r.name] = 1; return true; }).slice(0, 3); } /* 每日前三：一个名字只占一个名额 */
     var key = top.map(function (r) { return r.name + r.p; }).join("|") + "|" + m, moved = simKey && key !== simKey; simKey = key;
     var hit = top[0] && top[0].m === m;
-    var tags = [["🔮 神算子候选", "最接近"], ["👁 天眼通候选", "第二"], ["🌿 地灵通候选", "第三"]];
+    var tags = drDaily ? [[hit ? "🔮 神算子！" : "🥇 今晚第 1 近", ""], ["🥈 今晚第 2 近", ""], ["🥉 今晚第 3 近", ""]] : [["🔮 神算子候选", "最接近"], ["👁 天眼通候选", "第二"], ["🌿 地灵通候选", "第三"]];
     el.innerHTML = '<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>' + livePxV.toFixed(3) + '</b> DAI<i class="or-dot"></i></span></div>' +
       '<div class="or-simg">' + top.map(function (r, i) { var d = Math.abs(r.m - m); return '<div class="or-simc r' + (i + 1) + (moved ? " moved" : "") + (i === 0 && hit ? " hit" : "") + '"><small>' + tags[i][0] + '</small><b>' + esc(r.name) + '</b><em>预测 ' + r.p + (d === 0 ? " · 🎯 完全猜中！" : " · 差 " + (d / 1000).toFixed(3)) + "</em></div>"; }).join("") + "</div>" +
       (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 领奖先烧 1 枚创世名 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
-      '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>';
+      (drDaily ? '<p class="muted or-simd">🎯 揭晓时离得最近的 3 个人各拿每日奖（每日奖冷却中的顺延给下一位）</p>' : '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>');
     // 名单里把当前最接近的 3 个点亮
     var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
     document.querySelectorAll(".or-all li[data-k]").forEach(function (li) { var r = names[li.getAttribute("data-k")]; li.className = (r ? "hot h" + r : "") + (li.hasAttribute("data-me") ? " me" : ""); });
@@ -378,11 +388,22 @@
   }
 
   // 本周期贡献榜：奖池 30% 给 OTC 手续费前 3 名
+  /* 🎯 每日前三（站长 2026-11-13 定）：开始前是预告，开始后显示今晚每人多少、我是不是在冷却 */
+  function dailyCard(d) {
+    var y = d.daily; if (!y) return "";
+    var me = d.me, low = y.on && y.each < y.prize;
+    return '<section class="card or-daily"><div class="card-head"><h2>🎯 每日前三</h2><span class="muted">' + (y.on ? "今晚每人 " + dai(y.each) : dayCn(y.from) + "开始") + "</span></div>" +
+      '<p>每晚揭晓后，<b>离揭晓价最近的 ' + y.top + " 个人各拿 " + y.prize + " DAI</b>（发 AiLGNS），不用等有人猜中大奖，天天发。</p>" +
+      (low ? '<p class="muted">今天进奖池的钱不够 ' + (y.prize * y.top) + " DAI，三个人平分今天的进账，每人 " + dai(y.each) + "。</p>" : "") +
+      (me && me.dcool ? '<p class="or-chg">⏳ 你最近中过每日奖，冷却到 <b>' + dayCn(me.dcool) + "</b>。这几天照样能猜，猜中 3 位小数大奖照拿。</p>" : "") +
+      '<ul class="or-dl"><li>💰 钱只从<b>当天新进奖池的钱</b>里出，<b>大奖池只进不出</b>。</li><li>🔥 领奖先在 3 天内销毁 1 枚创世名，过期算放弃。</li><li>⏳ 中一次休息 ' + y.cool + " 天（只停每日奖），名额顺延给下一位。</li><li>🙅 一个名字、一个钱包每晚只占一个名额；一样近，先提交的得。</li></ul></section>";
+  }
   function kingsCard(d, potV) {
     var k = d.kings; if (!k) return "";
     var b = k.budget, inflowMode = b && b.mode === "inflow", total = b ? b.total : Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king, cap = k.cap || 3;
     var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + ' <b data-a="' + esc(x.a || "") + '">' + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + (x.share ? ' <small class="muted">占 ' + Math.round(x.share * 100) + "%" + (x.demoted ? " · 上周第一，连庄按第二算" : "") + "</small>" : "") + "</span><b>" + dai(x.amt != null ? x.amt : 0) + "</b></li>"; }).join("");
     return '<section class="card"><div class="card-head"><h2>💰 本周贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 周日揭晓时结算</span></div>" +
+      (d.daily ? '<p class="or-chg">📣 <b>这是贡献王最后一期</b>：本周日晚照常结算发奖，' + dayCn(d.daily.from) + "起取消，改成「🎯 每日前三」。</p>" : "") +
       (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周还没有认证商家成交，第一笔就是第一名。</p>') +
       '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。<b>⚠️ 钱包必须绑定域名（设为主名字）才能拿贡献王奖励</b>，没绑的自动跳过、名额顺延。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
       '<p class="muted or-rulenote">📐 规则会随数据不断优化，以页面公布为准。</p></section>';
@@ -436,7 +457,8 @@
       '<p class="or-proof">揭晓时刻 ' + hm(r.blockTime * 1000) + ' · <span>区块 #' + r.block + "</span>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
       (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
         '<p>🎯 没人猜中 ' + px + "，奖金全部留在奖池，下一期继续！奖池现在实际有 <b>" + dai(curPotV) + "</b>（按奖池钱包余额）。</p>") +
-      (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + (r.nearInfo.diff / 1000).toFixed(3) + "。没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
+      (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + (c.p / 1000).toFixed(3) + "，只差 " + (c.diff / 1000).toFixed(3) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo && !(r.daily && r.daily.length) ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + (r.nearInfo.diff / 1000).toFixed(3) + "。" + (r.dailyRule ? "" : "没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。") + "</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
+      (r.daily && r.daily.length ? '<p class="or-win">🎯 每日前三（离揭晓价最近）：' + r.daily.map(function (w, i) { return ["🥇", "🥈", "🥉"][i] + " <b>" + esc(w.name) + "</b> 预测 " + (w.p / 1000).toFixed(3) + "，差 " + (w.diff / 1000).toFixed(3) + "，得 " + (w.ail ? Number(w.ail).toFixed(4) + " AiLGNS（≈ " + dai(w.amt) + "）" : dai(w.amt)); }).join("；") + "</p>" : r.dailyRule && r.n ? '<p class="muted">今天奖池没有新进账，每日前三这一期不发。</p>' : "") +
       (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + (r.second.p / 1000).toFixed(3) + "，差 " + (r.second.diff / 1000).toFixed(3) + "，得 " + dai(r.second.amt) + "</p>" : "") +
       (r.kings && r.kings.length ? '<p class="or-win">🏆 本周贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付手续费 " + dai(k.fee) + "，得 " + (k.ail ? Number(k.ail).toFixed(4) + " AiLGNS（≈ " + dai(k.amt) + "）" : dai(k.amt)); }).join("；") + "</p>" : "") +
       payList(r.day) +
@@ -445,7 +467,7 @@
   // 站长 2026-11-08：发奖记录公开——谁、什么奖、实发多少 AiLGNS、点开就是本站中文账本里的那笔转账
   function bjShort(ms) { var d = new Date(ms + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
   function payList(day) {
-    var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" };
+    var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子", daily: "🎯 每日前三" };
     var l = ((data && data.pays) || []).filter(function (x) { return x.day === day; });
     if (!l.length) return "";
     // 站长 2026-11-09：电脑端对齐成表格（奖项 | 获奖人 | 实发 | 状态），手机端还是一行行卡片（表头只在电脑端显示）
@@ -468,12 +490,13 @@
       "<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（上一期封卷前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>" +
       "<li><b>随时能猜</b>：<b>下午 3 点封卷</b>（11 月 12 日起；11 月 10–11 日是早上 9 点）。下午 3 点前提交的参加当晚揭晓；下午 3 点到晚上 9 点是锁定期（6 小时），这段时间提交的算第二天。</li>" +
       "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
-      "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b>（极速预言家的票款除外）进奖池买成 AiLGNS，页面大字显示的就是奖池钱包的实际余额，有多少发多少。<b>有人完全猜中那天，四个奖一起发</b>：🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖；💰 <b>贡献王</b> 拿 30%；🥇 <b>天眼通</b>（除神算子外最接近）拿 <b>10%</b>；🥈 <b>地灵通</b>（第二接近）拿 <b>5%</b>（一样接近先提交的得）。<b>没人猜中就一个奖都不发，全部留在奖池继续滚大。</b></li>" +
-      "<li><b>💰 贡献王</b>：有人猜中的那天，奖池 <b>30%</b> 给<b>本周期</b>（上次大奖清空的第二天起到当天）在 OTC 付手续费最多的前 3 名，按 50 / 30 / 20 分；发完周期清零，重新排。手续费按成交额算：币 OTC 吃单付 1%，卡牌买家付 3%。贡献王不占名额、不禁赛。</li>" +
+      "<li><b>奖金</b>：每天拿出域名收入的 <b>70%</b>（极速预言家的票款除外）进奖池买成 AiLGNS，页面大字显示的就是奖池钱包的实际余额，有多少发多少。🔮 <b>神算子</b>（3 位小数完全猜中）平分大奖池；没人猜中，大奖池继续滚大。</li>" +
+      "<li><b>🎯 每日前三</b>（2026-11-16 起）：每晚揭晓后，除神算子外<b>离揭晓价最近的 3 个人各拿 20 DAI</b>（发 AiLGNS），天天发。钱只从<b>当天新进奖池的钱</b>里出，当天进账不够 60 DAI 就三人平分当天进账；<b>大奖池只进不出</b>。一个名字、一个钱包每晚只占一个名额，一样近先提交的得。中一次休息 7 天（只停每日奖，照样能猜大奖），名额顺延。原来的天眼通、地灵通并进每日前三。</li>" +
+      "<li><b>💰 贡献王（2026-11-15 最后一期）</b>：本周一到周日本站 OTC 吃单手续费前 3 名，周日晚照常结算；<b>2026-11-16 起取消</b>。11-15 及以前有人猜中大奖的那天，天眼通 10%、地灵通 5% 照老规则发。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
-      "<li><b>领奖要先烧名字</b>（2026-11-09 起）：天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +
+      "<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +
       "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
-      "<li><b>每个名字、每个钱包只能中一次</b>：拿到神算子、天眼通或地灵通后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。</li>" +
+      "<li><b>大奖每个名字、每个钱包只能中一次</b>：拿到神算子（以及老规则下的天眼通、地灵通）后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。<b>每日前三不拉黑</b>，只休息 7 天。</li>" +
       "<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
       '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
   }

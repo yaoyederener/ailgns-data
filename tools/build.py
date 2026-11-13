@@ -125,11 +125,15 @@ def gen_rules():
     share, clo, sec, king = grab(o, r"SHARE = ([\d.]+)", "SHARE"), grab(o, r"CLOSEST = ([\d.]+)", "CLOSEST"), grab(o, r"SECOND = ([\d.]+)", "SECOND"), grab(o, r"KING = ([\d.]+)", "KING")
     if share: out.append("- 奖池来源：每天域名收入的 %s 进奖池买成 AiLGNS；奖金全部以 AiLGNS 发放。" % pct(share))
     if clo and sec and king:
-        out.append("- 有人完全猜中那天四个奖一起发：神算子（完全猜中，平分）%s、贡献王 %s、天眼通（最接近）%s、地灵通（第二接近）%s。没人猜中的日子大奖留在奖池滚到下一期。" % (pct(1 - float(clo) - float(sec) - float(king)), pct(king), pct(clo), pct(sec)))
+        out.append("- （老规则，只管到 2026-11-15 这一期）有人完全猜中那天四个奖一起发：神算子（完全猜中，平分）%s、贡献王 %s、天眼通（最接近）%s、地灵通（第二接近）%s。没人猜中的日子大奖留在奖池滚到下一期。" % (pct(1 - float(clo) - float(sec) - float(king)), pct(king), pct(clo), pct(sec)))
     kin, kcap, ktop, kbd = grab(o, r"KING_IN = ([\d.]+)", "KING_IN"), grab(o, r"KING_CAP = (\d+)", "KING_CAP"), grab(o, r"KING_TOP = (\d+)", "KING_TOP"), grab(o, r"KING_BADGE_DAYS = (\d+)", "KING_BADGE_DAYS")
-    if kin and kcap and ktop and kbd: out.append("- 贡献王（周榜）：每周一到周日本站 OTC 吃单付手续费最多的前 %s 名，周日揭晓时结算直接发；总额 = 本周新进奖池的钱的 %s，按三人手续费占比分，每人最多拿回自己手续费的 %s 倍；认证商家以上才进榜；进榜名字挂「本周贡献王」标志 %s 天。" % (ktop, pct(kin), kcap, kbd))
+    dfrom, dprize, dtop, dcool = grab(o, r'DAILY_FROM = "([\d-]+)"', "DAILY_FROM"), grab(o, r"DAILY_PRIZE = (\d+)", "DAILY_PRIZE"), grab(o, r"DAILY_TOP = (\d+)", "DAILY_TOP"), grab(o, r"DAILY_COOL_DAYS = (\d+)", "DAILY_COOL_DAYS")
+    if dfrom and dprize and dtop and dcool:
+        out.append("- 每日前三（%s 起，新规则）：每晚揭晓后，除神算子外离揭晓价最近的 %s 个人各拿 %s DAI（发 AiLGNS），天天发，不用等有人猜中大奖；钱只从当天新进奖池的钱里出，当天进账不够 %d DAI 就 %s 人平分当天进账，大奖池只进不出；一个名字、一个钱包每晚只占一个名额，一样近先提交的得；中一次休息 %s 天（只停每日奖，照样能猜大奖），名额顺延；领奖先在 3 天内销毁 1 枚创世名。同一天起贡献王取消、天眼通和地灵通并进每日前三，神算子平分整个大奖池。" % (dfrom, dtop, dprize, int(dprize) * int(dtop), dtop, dcool))
+        out.append("- 贡献王在 %s 之前的最后一个周日照常结算发奖，%s 起取消，不再有周榜奖金。" % (dfrom, dfrom))
+    if kin and kcap and ktop and kbd: out.append("- 贡献王（周榜，只到 2026-11-15 最后一期）：每周一到周日本站 OTC 吃单付手续费最多的前 %s 名，周日揭晓时结算直接发；总额 = 本周新进奖池的钱的 %s，按三人手续费占比分，每人最多拿回自己手续费的 %s 倍；认证商家以上才进榜；进榜名字挂「本周贡献王」标志 %s 天。" % (ktop, pct(kin), kcap, kbd))
     bd, jpr, npx = grab(o, r"BURN_DAYS = (\d+)", "BURN_DAYS"), grab(o, r"JP_RATE = ([\d.]+)", "JP_RATE"), grab(o, r"NAME_PRICE = (\d+)", "NAME_PRICE")
-    if bd and jpr and npx: out.append("- 领奖要先销毁域名：中奖后 %s 天内不销毁视为放弃。天眼通 / 地灵通 / 贡献王烧 1 枚创世 .ailgns 名；神算子大奖要烧价值 ≥ 奖金 %s 的 .ailgns 名字（每个按 %s DAI 折算，任何名字都算）。烧 = 转进黑洞地址，拿不回来。" % (bd, pct(jpr), npx))
+    if bd and jpr and npx: out.append("- 领奖要先销毁域名：中奖后 %s 天内不销毁视为放弃。每日前三 / 天眼通 / 地灵通 / 贡献王烧 1 枚创世 .ailgns 名；神算子大奖要烧价值 ≥ 奖金 %s 的 .ailgns 名字（每个按 %s DAI 折算，任何名字都算）。烧 = 转进黑洞地址，拿不回来。" % (bd, pct(jpr), npx))
     n = read("names.js")
     prices = re.findall(r"<b>(英文 \d 位\+?|中文 \d 字\+?)</b><span>(\d+) DAI</span>", n)
     if prices: out.append("- 域名价格（每年）：%s。可以用 DAI / AiLGNS / LGNS 付。" % "、".join("%s %s DAI" % (k, v) for k, v in prices))

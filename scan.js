@@ -815,7 +815,7 @@
     if (a === C.pool) S.pays = '<section class="card sc-pays"><div class="card-head"><h2>💸 发放记录</h2><span class="muted">奖金从这个钱包发出 · 链上可查</span></div><div id="sc-pays">' + wait + '</div></section>';
     out.innerHTML = ["head", "pledge", "bal", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
     if (S.pays) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
-      var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子" }, box = document.getElementById("sc-pays"); if (!box) return;
+      var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子", daily: "🎯 每日前三" }, box = document.getElementById("sc-pays"); if (!box) return;
       var l = (j.pays || []).slice().sort(function (x, y) { return x.day < y.day ? 1 : x.day > y.day ? -1 : 0; });
       box.innerHTML = l.length ? l.map(function (x) {
         return '<div class="sc-pay"><div><small class="muted">' + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + "</small><b>" + esc(x.name) + '</b></div><div class="sc-payr"><b>' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : Number(x.amt).toFixed(2) + " DAI") + "</b><small class=\"muted\">≈ " + Number(x.amt || 0).toFixed(2) + " DAI</small>" +

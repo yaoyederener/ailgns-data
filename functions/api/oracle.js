@@ -5,7 +5,7 @@
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { rpc } from "../../lib/oracle.js";
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -36,6 +36,7 @@ async function buildPub(kv, ctx, now) {
   const out = {
     now, round, cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot,
+    daily: { from: DAILY_FROM, on: round >= DAILY_FROM, prize: DAILY_PRIZE, top: DAILY_TOP, cool: DAILY_COOL_DAYS, each: Math.floor(Math.min(DAILY_PRIZE, al.allot / DAILY_TOP) * 100) / 100 }, /* 每日前三（站长 2026-11-13 定）：each = 今晚每人能拿多少（只花当天进账） */
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
     players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0])), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
     drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, cutoff: cutoffAt(drawing), from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
@@ -49,6 +50,7 @@ async function buildPub(kv, ctx, now) {
   } catch (e) { out.funds = null; }
   // 本周贡献榜（周一起到今天，认证商家以上；按手续费占比分奖池 30%，每人封顶手续费 KING_CAP 倍；周日揭晓时结算）
   try {
+    if (weekStart(bjDay(now)) >= DAILY_FROM) throw new Error("king off"); /* DAILY_FROM 那周起没有贡献王了 */
     const cyc = weekStart(bjDay(now)), held = out.funds ? (out.funds.dai + out.funds.ail * (out.funds.otc && out.funds.otc.px ? out.funds.otc.px : out.funds.px)) : 0;
     // 提速（站长 2026-11-08「读取太慢」）：手续费表只扫一次，并缓存 60 秒；算出来的榜单大家共用
     let kc = await kv.get("or:kcache", "json");
@@ -94,6 +96,7 @@ export async function onRequestGet(ctx) {
     try {
       const el = await eligibility(kv, a), name = el.name;
       out.me = { a, name, gno: el.gno, vol: el.vol, ok: el.ok, need: OTC_MIN, cool: el.cool };
+      if (round >= DAILY_FROM) { const dm = (await kv.get("or:dcool", "json")) || {}, dc = [dm[el.key] || "", dm[a] || ""].sort().pop(); out.me.dcool = dc >= round ? dc : ""; } /* 每日奖冷却到哪一轮（含）；照样能猜大奖 */
       if (out.kings) { const i = out.kings.all.findIndex((x) => x.a === a); out.me.king = i >= 0 ? { rank: i + 1, fee: out.kings.all[i].fee } : null; }
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
