@@ -2677,6 +2677,10 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
   .tr2-main > .tr2-form .tr2-side, .tr2-main > .tr2-form .tr2-type { margin-bottom: 12px; }
   .tr2-main > .tr2-form .tr2-in { min-height: 46px; margin-bottom: 10px; }
   .tr2-main > .tr2-form .tr2-pct { margin-bottom: 10px; }
+  /* 站长 2026-11-12「买入卖出要和右边一样高」：按钮下面那行提示没字时不占地方，按钮底边和右边盘口最后一行文字底边对齐（两边都离卡片底 10px） */
+  .tr2-main > .tr2-form #tr-st:empty { display: none; }
+  .tr2-main > .tr2-form #tr-st { margin-bottom: 0; }
+  .tr2-main > .tr2-book { padding-bottom: 10px; }
   .tr2-main > .tr2-book { display: flex; flex-direction: column; overflow: hidden; }
   .tr2-main > .tr2-book #tr-bk { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .tr2-main > .tr2-book .tr2-asks, .tr2-main > .tr2-book .tr2-bids { flex: 1; min-height: 0; display: flex; flex-direction: column; }

@@ -169,9 +169,8 @@
     book.asks.forEach(function (o) { if (priceOf(o) <= ref * 1.03) ad += num(leftDai(o)); });
     var tot = bd + ad;
     if (tot < 100) { el.innerHTML = '<small>现价 ±3% 内挂单很少，两边都缺流动性</small>'; return; }
-    var bp = Math.round(bd / tot * 100), ap = 100 - bp, lack = bp >= 60 ? "缺卖单，现在挂<b>卖单</b>更容易成交（做市返佣只算卖单）" : ap >= 60 ? "缺买单，现在挂<b>买单</b>更容易成交（做市返佣只算买单）" : "买卖基本平衡（做市返佣两边都算）";
-    el.innerHTML = '<div class="tg-bar"><span class="tg-b" style="width:' + bp + '%">买 ' + bp + "%</span><span class=\"tg-a\">卖 " + ap + "%</span></div>" +
-      "<small>现价 ±3% 内：买单 " + f(bd, 0) + " DAI · 卖单 " + f(ad, 0) + " DAI → " + lack + "</small>";
+    var bp = Math.round(bd / tot * 100), ap = 100 - bp;
+    el.innerHTML = '<div class="tg-bar"><span class="tg-b" style="width:' + bp + '%">买 ' + bp + "%</span><span class=\"tg-a\">卖 " + ap + "%</span></div>"; // 站长 2026-11-12：条下面那段说明文字去掉，只留买卖比例条
   }
   function renderTrades() {
     var el = document.getElementById("tr-tl"); if (!el) return;
