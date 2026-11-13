@@ -2662,7 +2662,7 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
   .tr2-pane[data-pane="fills"] { display: none !important; }
   .tr2 { display: flex; flex-direction: column; }
   .tr2-top { order: -2; }
-  .tr2-main { grid-template-columns: minmax(0, 1fr) 380px; max-width: 760px; align-items: stretch; }
+  .tr2-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; } /* 站长 2026-11-12：电脑版盘口 + 下单卡左右各一半铺满，和上面 K 线、下面委托卡一样宽（原来只占 760px，右边空一块） */
   .tr2-main > .tr-form { grid-column: auto; grid-row: auto; display: flex; flex-direction: column; } /* 老的 .tr-form 规则会把它推到第 3 列，留出一条空缝 */
   .tr2-main > .tr2-book { order: -1; display: flex; flex-direction: column; }
   .tr2-main > .tr2-book #tr-bk { flex: 1; }
