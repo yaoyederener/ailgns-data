@@ -1794,7 +1794,7 @@
     var el = document.getElementById("subnav");
     if (!el) return;
     var tab = (location.hash.replace(/^#\/?/, "").split("/")[0]) || "";
-    if (["member", "wallet", "team", "growth", "tree", "upline"].indexOf(tab) < 0) { el.hidden = true; return; }
+    if (["member", "wallet", "team", "growth", "tree", "upline", "funds"].indexOf(tab) < 0) { el.hidden = true; return; }
     var lock = member() ? "" : ' <span class="lock">🔒</span>';
     el.hidden = false;
     var mm = member();
@@ -1806,10 +1806,11 @@
       growth: '<path d="M4 19h16"/><path d="M5 15l4.5-4.5 3.5 3 6-6.5"/><path d="M14.5 7H19v4.5"/>',
       tree: '<rect x="9" y="3" width="6" height="4.5" rx="1.2"/><rect x="3" y="16" width="6" height="4.5" rx="1.2"/><rect x="15" y="16" width="6" height="4.5" rx="1.2"/><path d="M12 7.5V12M6 16v-2.5h12V16"/>',
       upline: '<path d="M12 21V8"/><path d="M7 12.5L12 7.5l5 5"/><circle cx="12" cy="4" r="1.6"/>',
+      funds: '<path d="M4 20h16"/><rect x="5" y="11" width="3.4" height="6" rx="1"/><rect x="10.3" y="6" width="3.4" height="11" rx="1"/><rect x="15.6" y="9" width="3.4" height="8" rx="1"/>',
       rank: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4"/>'
     };
-    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini ' + (mm.tier === "pro" ? "gold" : "green") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["wallet", "钱包快查", ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>']].map(function (t) {
-      return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on"' : "") + '><svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[t[0]] + "</svg><span>" + t[1] + t[2] + "</span></a>";
+    el.innerHTML = [["member", "会员中心", mm ? ' <span class="vip-mini ' + (mm.tier === "pro" ? "gold" : "green") + '">' + TIERS[mm.tier].short + "</span>" : ""], ["wallet", "钱包快查", ""], ["team", "团队与等级", lock], ["growth", "团队新增业绩", lock], ["tree", "团队结构图", lock], ["upline", "上级查询", isPro() ? "" : ' <span class="vip-mini">高级</span>'], ["funds", "官方资金池", ' <span class="vip-mini green">免费</span>']].map(function (t) {
+      return '<a href="#/' + t[0] + '"' + (t[0] === tab ? ' class="on' + (t[0] === "funds" ? " wide" : "") + '"' : t[0] === "funds" ? ' class="wide"' : "") + '><svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[t[0]] + "</svg><span>" + t[1] + t[2] + "</span></a>";
     }).join("");
   }
   window.addEventListener("hashchange", subnav);
