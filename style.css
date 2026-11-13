@@ -597,6 +597,8 @@ button:not(.ghost) .vip-mini { box-shadow: 0 0 0 1px rgba(255, 255, 255, .35); }
 .cb-off { color: var(--muted); font-size: 12.5px; }
 .cb-quick { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px 0; scrollbar-width: none; }
 .cb-quick::-webkit-scrollbar { display: none; }
+.cb-guess { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.cb-guess button { background: var(--panel-2); color: var(--gold); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; }
 .cb-quick button { flex: none; background: var(--panel-2); color: var(--gold); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; box-shadow: none; }
 .cb-form { display: flex; gap: 8px; padding: 10px 12px 12px; }
 .cb-form input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 15px; font-family: inherit; background: var(--panel); color: var(--text); }

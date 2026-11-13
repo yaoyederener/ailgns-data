@@ -35,8 +35,8 @@
     { k: ["荣耀榜", "排行", "排名", "段位", "王者", "名人堂", "百万"], a: "顶部「荣耀榜」按本站 OTC 累计成交排名（单笔满 50 DAI 才算，买卖都算），有总榜和本月榜。前 50 名全站显示段位徽章（最强王者 / 荣耀王者 / 王者 / 星耀 / 钻石），月底前三进名人堂；累计满 100 万 DAI 送👑至尊 VIP，永久进「百万俱乐部」。" },
     { k: ["手续费", "费用", "收费", "1%", "抽成"], a: "AiLGNS OTC 成交手续费 1%，由吃单方承担，直接从收到的币里扣。挂单、撤单、到期退回都不收费。手续费写死在合约里，谁都改不了。" },
     { k: ["安全", "靠谱", "跑路", "骗", "资金安全", "审计", "托管"], a: "挂单的币锁在智能合约里，不经过任何人的手：成交时付款和收币在同一笔交易里完成，要么都成功要么都不成功；到期没成交自动原路退回。合约没有管理员、不能升级，源码公开（OTC 页面有「开源源码」链接）。合约未经第三方审计，建议先小额试用。" },
-    { k: ["怎么买", "买入", "购买", "吃单", "怎么成交", "买ailgns", "买 ailgns"], a: "打开首页 AiLGNS OTC → 在「买入 AiLGNS」列表里挑一张 → 点「买入」→ 输入要买的数量 → 在钱包里确认（第一次会先授权 DAI）。成交后 AiLGNS 直接到你钱包。需要 Anubis 链上的 DAI 付款和少量 gasDAI 当手续费。" },
-    { k: ["怎么卖", "卖出", "出售", "怎么挂单", "挂单", "发布"], a: "AiLGNS OTC 页面 →「发布挂单」→ 选「我要卖 AiLGNS」→ 填数量、单价、有效期 → 在钱包里确认。币会存进托管合约，有人买就自动成交，DAI 直接到你钱包；成交前随时可以撤单，到期没成交自动退回。" },
+    { k: ["怎么买", "买入", "购买", "吃单", "怎么成交", "我买", "想买", "我要买", "买不了", "买不到", "买ailgns", "买 ailgns"], a: "打开首页 AiLGNS OTC → 在「买入 AiLGNS」列表里挑一张 → 点「买入」→ 输入要买的数量 → 在钱包里确认（第一次会先授权 DAI）。成交后 AiLGNS 直接到你钱包。需要 Anubis 链上的 DAI 付款和少量 gasDAI 当手续费。" },
+    { k: ["怎么卖", "卖出", "出售", "怎么挂单", "挂单", "发布", "卖不掉", "卖不出", "卖不了", "没人买", "没成交", "不成交"], a: "AiLGNS OTC 页面 →「发布挂单」→ 选「我要卖 AiLGNS」→ 填数量、单价、有效期 → 在钱包里确认。币会存进托管合约，有人买就自动成交，DAI 直接到你钱包；成交前随时可以撤单，到期没成交自动退回。" },
     { k: ["撤单", "取消", "取回", "退回", "过期", "到期"], a: "在 OTC 页面「我的挂单」里可以随时撤单，币马上退回。挂单多的可以一键批量撤：OTC 页「我的挂单」点「一键撤销全部」，或打开账本 ailgns.dev/#/scan/你的钱包地址 ，连上挂单的钱包，「在本站的事」里点「一键撤掉全部 OTC 挂单」（钱包不支持一次确认多笔时会连着弹，每张点一下确认即可）。设置的有效期（10 分钟到 30 天自选）到了还没成交，系统会自动把剩下的币原路退回给挂单人，不收任何费用。" },
     { k: ["有效期", "多久", "时间多长"], a: "挂单有效期可以选 10 分钟、30 分钟、1 小时……一直到 30 天，也能自定义。到期没成交自动退回。" },
     { k: ["钱包", "连接", "metamask", "okx", "bitget", "tp", "tokenpocket", "imtoken", "打不开"], a: "支持 OKX、Bitget Wallet、TokenPocket、MetaMask 等。手机上请在钱包 App 的「DApp 浏览器 / 发现」里打开 ailgns.dev，网站会自动识别钱包；电脑上需要装浏览器插件钱包。" },
@@ -61,6 +61,7 @@
     { k: ["中奖", "中了吗", "中没中", "中奖名单", "谁中了", "开奖", "揭晓结果", "中奖查询", "奖金到账", "奖金什么时候", "没收到奖金"], a: "🔗 中奖查询：https://ailgns.dev/#/oracle/result （打开直接到「揭晓结果」：揭晓价、神算子 / 天眼通 / 地灵通 / 贡献王是谁、每人多少奖金、所有人的预测按远近排）。奖金自动发到获奖钱包，到账记录在账本 https://ailgns.dev/#/scan/你的钱包地址 能看到。中奖领钱要先销毁 1 枚创世名（3 天内），还没烧的在预言家页连钱包会有提示。" },
     { k: ["预言家", "猜价格", "揭晓", "神算子", "奖池", "预测"], a: "顶部「预言家」：免费猜当晚 AiLGNS 揭晓价（小数点后 3 位，一次填 1 个价格），下午 3 点封卷（11 月 12 日起；下午 3 点到晚 9 点锁定 6 小时，锁定期间提交的算下一期）、当晚 9–10 点随机一刻揭晓。资格：主名字是创世 .ailgns 域名，或 OTC 累计成交满 5 万 DAI（已公告：1 万个创世名注册满那天起，任何 .ailgns 主名字都能玩，普通名每天 1 次，创世名每天 1～5 次；参与人数超 1 万会改猜 4 位小数、超 10 万猜 5 位，提前一期公告）。有人完全猜中那天发奖：神算子 55%、贡献王 30%、天眼通 10%、地灵通 5%，奖金全部以 AiLGNS 发放。详细规则在页面「玩法规则」。" },
     { k: ["备用网址", "打不开", "被墙", "网址", "新网址"], a: "主站 ailgns.dev；备用网址 ailgnsotc.com / ailgnsotc.net / ailgnsotc.org / ailgnsotc.cc / ailgnsotc.xyz，内容和数据完全一样，主站打不开换任意一个即可。" },
+    { k: ["无法发言", "不能发言", "发不了言", "没法发言", "禁言", "发不了消息", "群里发言", "不让说话"], a: "群里能不能发言是 DeBox 群自己的设置，网站这边看不到也改不了。发不了言不影响用网站：有问题直接在这里问我；要站长亲自看的，☰ 更多 → 合作与支持 →「📮 问题反馈」提交，站长会处理。" },
     { k: ["交流群", "加群", "群二维码", "社群", "群聊"], a: "网页右上角「💬 加 OTC 交流群」按钮（或 ☰ 更多 → 服务 → 加 OTC 交流群）会弹出群二维码，用 DeBox 扫一扫进群；手机长按保存二维码 → DeBox 扫一扫 → 相册选图。站长和机器人都在群里。" },
     { k: ["订单查询", "查订单", "我的订单", "成交查询", "查挂单", "查记录", "交易记录", "怎么查"], a: "OTC、借贷、预言家、荣耀榜等页面顶部都有「📋 查我的订单」条：连过钱包会自动填你的地址，点 OTC / 借贷 / 域名 / 其他 → 查询，就跳到账本里对应分类，看正在挂的单、借贷、域名和每一笔成交记录。也可以 ☰ 更多 → 链上身份 → AiLGNS 账本，或直接输入别人的地址 / 域名查。" },
     { k: ["收件箱", "通知", "消息提醒", "站内信", "铃铛", "怎么收到通知"], a: "右上角 🔔 铃铛就是收件箱（☰ 更多 → 链上身份 → 收件箱）。用钱包签一次名（免费、不是交易，管 30 天），你在本站的每笔操作（挂单、成交、撤单、域名、借贷、兑换）几秒内就会有一条通知，别人和你成交、工单回复、预言家中奖、站长私信也都在里面，不用加任何社交软件。有新消息铃铛会变紫、显示红色数字，点开就算已读，数字自动清零。点「开启通知」新消息还会弹到桌面/手机。DeBox 机器人只是可选的附加提醒。" },
@@ -79,6 +80,15 @@
       if (s > score) { score = s; best = f; }
     });
     return best ? { a: best.a, score: score } : null;
+  }
+
+  // 关键词没对上（比如走香港中转线路时不调用 AI）：按字面相近（两个字一组）挑最像的 3 个问题给客户点，不替客户瞎猜答案（站长 2026-11-12：老回「建议联系人工」体验太差）
+  function guess(q) {
+    var t = norm(q), bg = [], i;
+    for (i = 0; i < t.length - 1; i++) if (bg.indexOf(t.substr(i, 2)) < 0) bg.push(t.substr(i, 2));
+    return FAQ.filter(function (f) { return f.a !== "HUMAN"; }).map(function (f) {
+      var ks = norm(f.k.join("|")), s = 0; bg.forEach(function (b) { if (ks.indexOf(b) >= 0) s++; }); return { f: f, s: s };
+    }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; }).slice(0, 3);
   }
 
   // ---------- 界面 ----------
@@ -120,7 +130,8 @@
         wait.remove();
         if (j && j.answer) { reply(linkify(j.answer) + (j.human ? "<br><br>" + humanHtml() : ""), j.answer); return; }
         if (f) { reply(linkify(f.a), f.a); return; }
-        reply("这个问题我暂时答不好，建议直接问人工：<br>" + humanHtml(), "建议联系人工");
+        var g = guess(q);
+        reply((g.length ? "我没完全看懂，你是想问下面哪个？点一下就行：" + '<div class="cb-guess">' + g.map(function (x) { return '<button type="button" data-q="' + esc(x.f.k[0]) + '">' + esc(x.f.k[0]) + "</button>"; }).join("") + "</div>" + "都不是的话，" : "这个问题我暂时答不好，") + "可以直接问人工：<br>" + humanHtml(), "问答库没对上，给了相近问题，建议联系人工");
       });
   }
   var GRP = '<div class="cb-grp"><a href="#" data-group>💬 欢迎进 5000 人大群，和大家交流心得 →</a></div>'; // 每条回复都带进群入口（站长 2026-11-09 晚）
@@ -205,7 +216,7 @@
     try { var cq = new URLSearchParams(location.search).get("chat"); if (cq) { setTimeout(function () { toggle(true); ask(cq); }, 600); } } catch (e) {} // 别的页面一键呼出客服（预言家弹幕旁的「在线客服」）
     root.querySelector(".cb-x").onclick = function () { toggle(false); };
     // 窗口里点站内链接（提交工单等）：先把客服窗口收起来，不然手机上全屏的窗口把页面盖住，客户以为没反应（站长 2026-11-08 反馈）
-    panel.addEventListener("click", function (e) { if (e.target.closest("[data-group]")) { toggle(false); return; } var a = e.target.closest('a[href^="#/"]'); if (a) { toggle(false); if (location.hash === a.getAttribute("href")) { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (x) {} } } });
+    panel.addEventListener("click", function (e) { var gq = e.target.closest("[data-q]"); if (gq) { ask(gq.getAttribute("data-q")); return; } if (e.target.closest("[data-group]")) { toggle(false); return; } var a = e.target.closest('a[href^="#/"]'); if (a) { toggle(false); if (location.hash === a.getAttribute("href")) { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (x) {} } } });
     root.querySelector(".cb-form").onsubmit = function (e) { e.preventDefault(); var q = input.value; input.value = ""; ask(q); };
     poll();
   }
