@@ -72,9 +72,9 @@
       if (!el) return;
       if (!me) { el.innerHTML = ""; return; }
       var lv = me.lv, lo = (lv - 1) * (lv - 1) * 10, hi = lv * lv * 10, pct = Math.max(0, Math.min(100, (me.xp - lo) / (hi - lo) * 100));
-      var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0;
+      var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0, cop = me.cop > t ? Math.ceil((me.cop - t) / 3600) : 0;
       el.innerHTML = '<div class="fm-stat"><span>💰 <b class="num">' + A.fmt(me.coins) + '</b> 金币</span><span>⭐ <b>' + lv + "</b> 级</span>" + (me.paid >= R.king ? '<span class="fm-king">👑 农场主</span>' : "") +
-        (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<span class="fm-who">' + A.nameTag(sig.addr) + '</span><button type="button" class="fm-pay" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
+        (cop ? '<span class="fm-dog">👮 ' + (cop > 48 ? Math.round(cop / 24) + " 天" : cop + " 小时") + "</span>" : "") + (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<span class="fm-who">' + A.nameTag(sig.addr) + '</span><button type="button" class="fm-pay" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
         '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i></div><small class="muted">经验 ' + me.xp + " / " + hi + "，升级解锁更贵的种子" + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>";
       document.getElementById("fm-pay").onclick = payPicker;
       A.fillNames(el);
@@ -106,6 +106,7 @@
         (me.hens.filter(function (h) { return !h.g; }).length < H.max ? '<button type="button" class="ghost" id="fm-hen">买鸡（' + H.price + " 金币）</button>" : "") + "</div></section>" +
         '<section class="card fm-shop"><div class="card-head"><h2>🏪 道具商店</h2></div><div class="fm-items">' +
         '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
+        (R.cop ? '<button type="button" id="fm-cop"><span class="fm-ic">👮</span><b>警察</b><small>' + R.cop.price + " 金币 · " + R.cop.days + " 天</small><em>真正看家：来偷的一定被抓，一颗也偷不走，还罚 " + R.cop.fine + " 金币给你。别人看不到你家有警察</em></button>" : "") +
         '<button type="button" id="fm-ghen"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🐓</span><b>金鸡</b><small>' + R.goldHen.price + " 金币 · 最多 " + R.goldHen.max + " 只</small><em>" + (me.paid ? "金蛋每个 " + R.goldHen.egg + " 金币，是普通蛋的 3 倍多" : "👑 充值玩家专属：金蛋每个 " + R.goldHen.egg + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pump"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🎃</span><b>黄金南瓜</b><small>种子 ' + R.crops.pumpkin.seed + " · 24 小时</small><em>" + (me.paid ? "一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币，到空地里种" : "👑 充值玩家专属：一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pay2"><span class="fm-ic"><i class="fm-coin"></i></span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
@@ -218,6 +219,7 @@
         on("fm-feed", function () { run("feed"); });
         on("fm-hen", function () { run("buyHen"); });
         on("fm-dog", function () { if (confirm("花 " + R.dog.price + " 金币请看门狗看 " + R.dog.days + " 天？")) run("dog"); });
+        on("fm-cop", function () { if (confirm("花 " + R.cop.price + " 金币请警察看 " + R.cop.days + " 天？")) run("cop"); });
         on("fm-ghen", function () { if (!me.paid) return payPicker(); if (confirm("花 " + R.goldHen.price + " 金币买一只金鸡？")) run("goldHen"); });
         on("fm-pump", function () { if (!me.paid) return payPicker(); var i = me.plots.indexOf(null); if (i < 0) return toast("没有空地了，先收菜或开垦新地", true); seedPicker(i); });
         on("fm-pay2", payPicker);
@@ -229,7 +231,7 @@
       var want = tab;
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
-        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。</p>" : "");
+        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：一定被抓，空手而归，罚 " + R.cop.fine + " 金币。" : "") + "</p>" : "");
         out.querySelectorAll("[data-steal]").forEach(function (b) {
           b.onclick = function () { b.disabled = true; post("steal", { to: b.getAttribute("data-steal") }).then(function (j) { stat(); b.textContent = j && j.bit ? "🐕 被咬了" : "✅ 偷到了"; }, function (e) { toast(e.message, true); b.textContent = "偷不到"; }); };
         });
