@@ -7,10 +7,13 @@
   var SEL = { create: "0x9128a740", fill: "0x6fe4a448", cancel: "0x40e58ee5", approve: "0x095ea7b3" };
   var MAX_UINT = (1n << 256n) - 1n, MIN_DAI = 10n ** 18n;
   var MK = "ailgns", M, OTC, TOKEN, DAI, TD, SYM, PD;
+  // 盘口支持的币（站长 2026-11-12：LGNS 也要有盘口，#/trade/lgns）；Polygon LGNS、NFT 不做盘口
+  var TRADE_OTC = { ailgns: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", lgns: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818" };
   var liveCtl = null;
   var fitH = 0, fitRO = null; // 手机：盘口跟着下单卡的高度走
   function startLive() {
     var el = document.getElementById("tr-k"); if (!el || !A.kchart) return;
+    if (MK !== "ailgns") { el.innerHTML = '<p class="muted" style="padding:32px 12px;text-align:center">' + SYM + " 的 K 线还在接入中，先看盘口和最近成交。</p>"; return; } // K 线数据（/api/candles）目前只算 AiLGNS 池子
     if (liveCtl) liveCtl.stop();
     liveCtl = A.kchart(el, { i: "5m", alive: function () { return A.isCurrent(rid); } });
   }
@@ -64,7 +67,8 @@
   // ---------- 页面 ----------
   function page(id) {
     rid = id; clearInterval(timer); if (liveCtl) { liveCtl.stop(); liveCtl = null; }
-    M = A.otcKit.M(); if (M.otc !== "0x4e730be6d46be71223ded5a32dc45799f6d4bc15") { K().useMarket("ailgns"); M = K().M(); }
+    var hm = (location.hash.split("/")[2] || "").toLowerCase(); MK = TRADE_OTC[hm] ? hm : "ailgns";
+    M = A.otcKit.M(); if (M.otc !== TRADE_OTC[MK]) { K().useMarket(MK); M = K().M(); }
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym; PD = M.pd;
     A.app.innerHTML =
       '<div class="tr2">' +
