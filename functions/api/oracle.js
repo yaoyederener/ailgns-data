@@ -5,12 +5,12 @@
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { rpc } from "../../lib/oracle.js";
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const guessText = (day, ps, a) => "AiLGNS 每日预言家\n我预测 " + day + " 晚上 9-10 点 AiLGNS 价格：\n" + ps.join(", ") + " DAI\n地址：" + a;
-const pub = (g) => ({ name: g.name, ps: g.ps.map((x) => fmtP(x[0])), tx: g.tx || "" });
+const pub = (g, day) => ({ name: g.name, ps: g.ps.map((x) => fmtP(x[0], day)), tx: g.tx || "" });
 
 async function quota(kv, a, name, day) {
   const t = name ? tierOf(name) : { n: 1, label: "普通" }, bonus = await otcBonus(kv, a, day);
@@ -34,12 +34,12 @@ async function buildPub(kv, ctx, now) {
   try { res = await settle(kv, drawing, now); } catch (e) { res = null; }
   const [g, poolV, last, wins, al, alDraw] = await Promise.all([guessesOf(kv, round), poolNow(kv), kv.get("or:last", "json"), kv.get("or:wins", "json"), allotOf(kv, round), allotOf(kv, drawing)]);
   const out = {
-    now, round, cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
+    now, round, dec: decOf(round), cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot,
     daily: { from: DAILY_FROM, on: round >= DAILY_FROM, prize: DAILY_PRIZE, top: DAILY_TOP, cool: DAILY_COOL_DAYS, each: Math.floor(Math.min(DAILY_PRIZE, al.allot / DAILY_TOP) * 100) / 100 }, /* 每日前三（站长 2026-11-13 定）：each = 今晚每人能拿多少（只花当天进账） */
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
-    players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0])), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
-    drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, cutoff: cutoffAt(drawing), from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
+    players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0], round)), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
+    drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, dec: decOf(drawing), cutoff: cutoffAt(drawing), from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
     last, board: Object.entries(wins || {}).map(([name, w]) => ({ name, c: w[0], j: w[1] })).sort((x, y) => y.j - x.j || y.c - x.c).slice(0, 20),
   };
   // 奖金池里实际留了多少钱（发奖程序的记账文件，公开在 GitHub）：DAI、AiLGNS，LGNS 不留（按价值记成待留）
@@ -63,7 +63,7 @@ async function buildPub(kv, ctx, now) {
     out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, budget: kc.budget || null, inRate: KING_IN, inFrom: KING_IN_FROM, all: kc.all }; // all 只在服务端用，返回前删掉
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
-  if (now >= cutoffAt(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map(pub); // 封卷后公开全部预测
+  if (now >= cutoffAt(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map((g) => pub(g, drawing)); // 封卷后公开全部预测
   // 站长 2026-11-08：揭晓卡公开发奖记录（谁、什么奖、多少 AiLGNS、链上交易），公开公正；只给最近 14 天
   try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "", st: payState(x), due: needBurn(x) ? payDue(x) : 0, burn: x.burn ? x.burn.no : 0, need: needCount(x), bn: burnedCount(x) })); } catch (e) { out.pays = []; }
   return out;
@@ -100,7 +100,7 @@ export async function onRequestGet(ctx) {
       if (out.kings) { const i = out.kings.all.findIndex((x) => x.a === a); out.me.king = i >= 0 ? { rank: i + 1, fee: out.kings.all[i].fee } : null; }
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
-        out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0])) : [], taken: !!(mine && mine.a !== a) };
+        out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0], round)) : [], taken: !!(mine && mine.a !== a) };
         const gtx = await kv.get("or:gtx:" + round + ":" + a, "json"); out.me && (out.me.chain = gtx || null);
         const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
         if (lk && lk !== el.key) out.me.lock = lk;
@@ -167,8 +167,9 @@ export async function onRequestPost(ctx) {
   const round = openRound();
   if (day !== round) return json({ error: "这一轮已经开始揭晓了，请刷新页面，预测下一轮" }, 400);
   const raw = chainSubmit ? chainSubmit.ps : Array.isArray(b.ps) ? b.ps.map((x) => String(x).trim()) : [];
-  if (!raw.length || raw.some((x) => !/^\d{1,7}(\.\d{1,3})?$/.test(x))) return json({ error: "价格格式不对，例如 827.354（最多 3 位小数）" }, 400);
-  const ps = raw.map((x) => Number(x).toFixed(3));
+  const dec = decOf(round), sc = scOf(round), pOk = new RegExp("^\\d{1,7}(\\.\\d{1," + dec + "})?$"); /* 这一轮猜几位小数 */
+  if (!raw.length || raw.some((x) => !pOk.test(x))) return json({ error: "价格格式不对，例如 " + (dec === 4 ? "827.3546" : "827.354") + "（最多 " + dec + " 位小数）" }, 400);
+  const ps = raw.map((x) => Number(x).toFixed(dec));
   if (new Set(ps).size !== ps.length) return json({ error: "这次提交里有重复的价格" }, 400);
   if (!chainSubmit && recoverAddress(guessText(day, raw, a), sig) !== a) return json({ error: "签名核对失败，请用当前钱包重新签名" }, 400);
   if (a === "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6" || a === "0x89dd06754bb239b6c4c92bc47c8fa72889084e27") return json({ error: "站长钱包不参加" }, 400);
@@ -187,15 +188,15 @@ export async function onRequestPost(ctx) {
     let h; try { h = await heldSince(new URL(ctx.request.url).origin, a, el.name, round); } catch (e) { h = { ok: true }; }
     if (!h.ok) return json({ error: el.name + " 是本轮开放后才转进这个钱包的，要等下一轮才能用它预测（刚注册的名字不受此限）" }, 400);
   }
-  const q = await quota(kv, a, el.name, round), have = new Set(mine.ps.map((x) => fmtP(x[0])));
+  const q = await quota(kv, a, el.name, round), have = new Set(mine.ps.map((x) => fmtP(x[0], round)));
   const fresh = ps.filter((p) => !have.has(p));
   if (!fresh.length) return json({ error: "这些价格你已经预测过了" }, 400);
   if (mine.ps.length + fresh.length > q.n) return json({ error: "次数不够：你这一轮共 " + q.n + " 次，已用 " + mine.ps.length + " 次" }, 400);
   const t = Date.now();
-  fresh.forEach((p) => mine.ps.push([Math.round(Number(p) * 1000), t]));
+  fresh.forEach((p) => mine.ps.push([Math.round(Number(p) * sc), t]));
   mine.tier = q.tier; if (chainSubmit) mine.tx = chainSubmit.tx;
   await kv.put(key, JSON.stringify(mine), { expirationTtl: 400 * 86400 });
   if (!lk) await kv.put("or:w:" + round + ":" + a, el.key, { expirationTtl: 3 * 86400 });
-  return json({ ok: true, round, name, ps: mine.ps.map((x) => fmtP(x[0])), left: q.n - mine.ps.length });
+  return json({ ok: true, round, name, ps: mine.ps.map((x) => fmtP(x[0], round)), left: q.n - mine.ps.length });
 }
 

@@ -45,8 +45,8 @@
     var or = d.or;
     if (or) {
       if (or.last && Date.now() - or.last.at < 86400e3) {
-        if (or.last.j.length) msgs.unshift("🎯 神预测！" + or.last.j.join("、") + " 猜中揭晓价 " + (or.last.px / 1000).toFixed(3) + "，瓜分超级大奖池！");
-        else if (or.last.c) msgs.push("🔮 今日预言家 " + or.last.c.name + "：只差 " + (or.last.c.diff / 1000).toFixed(3) + "，拿下 " + or.last.c.amt + " DAI！");
+        if (or.last.j.length) msgs.unshift("🎯 神预测！" + or.last.j.join("、") + " 猜中揭晓价 " + (or.last.px / (or.last.sc || 1000)).toFixed(or.last.sc === 10000 ? 4 : 3) + "，瓜分超级大奖池！");
+        else if (or.last.c) msgs.push("🔮 今日预言家 " + or.last.c.name + "：只差 " + (or.last.c.diff / (or.last.sc || 1000)).toFixed(or.last.sc === 10000 ? 4 : 3) + "，拿下 " + or.last.c.amt + " DAI！");
       }
       msgs.push("🔮 预言家超级大奖池已累积 " + Math.floor(Number(or.pool)) + " DAI，猜中今晚 AiLGNS 价格就能拿走 →");
     }
