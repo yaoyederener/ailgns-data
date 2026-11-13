@@ -7,8 +7,11 @@ set -e
 cd "$(dirname "$0")/.."
 H=root@140.235.99.27
 for f in hk/mj/server.mjs hk/mj/gdroom.mjs gd.js mj.js; do [ -f "$f" ] || { echo "找不到 $f，请在网站代码目录里运行"; exit 1; }; done
-ssh $H 'rm -rf /tmp/gdnew && mkdir -p /tmp/gdnew'
-scp -q hk/mj/server.mjs hk/mj/gdroom.mjs gd.js mj.js $H:/tmp/gdnew/
+echo "① 正在连香港机（十几秒没动静是正常的，别关窗口）…"
+ssh -o ConnectTimeout=20 $H 'rm -rf /tmp/gdnew && mkdir -p /tmp/gdnew'
+echo "② 正在传文件…"
+scp -q -o ConnectTimeout=20 hk/mj/server.mjs hk/mj/gdroom.mjs gd.js mj.js $H:/tmp/gdnew/
+echo "③ 正在服务器上检查、换文件、重启、自检…"
 ssh $H FORCE="${FORCE:-0}" 'bash -s' <<'R'
 set -e
 D=/opt/ailgns-mj; N=/tmp/gdnew
