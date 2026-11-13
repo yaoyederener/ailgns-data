@@ -208,6 +208,7 @@ async function catchUp(kv) {
       const [sym, dec] = PAY_TOKENS.anubis[tok] || [tok.slice(0, 8), 18], a = Number(w[0]) / 10 ** dec, v = dai(w[1]);
       for (const x of [dn, tn]) { x.n++; x.dai += v; x.tok[sym] = (x.tok[sym] || 0) + a; }
       if (fastSet.has(l.transactionHash + ":" + parseInt(l.logIndex, 16))) for (const x of [dn, tn]) x.fast = (x.fast || 0) + v;
+      else if (sym === "LGNS") for (const x of [dn, tn]) x.lg = (x.lg || 0) + v; /* 站长 2026-11-14：客户用 LGNS 付的域名费（按 DAI 标价）不进每日奖池，单独记，和发奖机器人同一个口径 */
     } else if (l.address.toLowerCase() === NM.lgns && "0x" + l.topics[2].slice(26) === NM.payee && !paidTx.has(l.transactionHash) && !NM.own.has("0x" + l.topics[1].slice(26))) {
       const a = Number(BigInt(l.data)) / 1e9;
       dn.top += a; tn.top += a;
@@ -263,6 +264,7 @@ async function report(kv, day) {
   if (orPay.length) lines.push(`· ⚠️ 还没发出的奖金 ${orPay.length} 笔，共 ${money(orPay.reduce((s, x) => s + x.amt, 0))} DAI（检查发奖额度授权）`);
   lines.push("", "🌐 域名收入", `· 今日：${nm.n} 笔，合计 ${money(nm.dai)} DAI` + (nm.n ? `（${tokStr(nm)}）` : ""));
   if (nm.fast) lines.push(`· 其中极速预言家票款：${money(nm.fast)} DAI（90% 进极速池，不进每日奖池）`);
+  if (nm.lg) lines.push(`· 其中客户用 LGNS 付的：${money(nm.lg)} DAI 等值（不进每日奖池，站长手动加）`);
   if (nm.top) lines.push(`· 今日 LGNS 补税差：${amt(nm.top)} LGNS`);
   lines.push(`· 累计：${tn.n} 笔，合计 ${money(tn.dai)} DAI` + (tn.n ? `（${tokStr(tn)}）` : ""), `· 累计 LGNS 补税差：${amt(tn.top)} LGNS`);
   const nag = await renewNag().catch(() => []);

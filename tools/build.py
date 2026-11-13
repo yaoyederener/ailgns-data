@@ -126,7 +126,7 @@ def gen_rules():
         ch = int(cuth); cut_cn = ("早上 %d 点" % ch) if ch < 12 else ("下午 %d 点" % (ch - 12)) if ch < 18 else ("晚上 %d 点" % (ch - 12))
         out.append("- 预言家时间（北京时间）：%s封卷（封卷到晚上 %d 点是锁定期，锁定期间提交的算下一期）；晚上 %s:00–%s:00 之间随机一刻的链上价格就是揭晓价。" % (cut_cn, int(drawh) - 12, drawh, int(drawh) + 1))
     share, clo, sec, king = grab(o, r"SHARE = ([\d.]+)", "SHARE"), grab(o, r"CLOSEST = ([\d.]+)", "CLOSEST"), grab(o, r"SECOND = ([\d.]+)", "SECOND"), grab(o, r"KING = ([\d.]+)", "KING")
-    if share: out.append("- 奖池来源：每天域名收入的 %s 进奖池买成 AiLGNS；奖金全部以 AiLGNS 发放。" % pct(share))
+    if share: out.append("- 奖池来源：每天域名收入的 %s 进奖池买成 AiLGNS（只算客户用 DAI、AiLGNS 付的；用 LGNS 付的域名费和极速预言家票款不计入，2026-11-14 起）；团队还会不定期另外往奖池里加；奖金全部以 AiLGNS 发放。" % pct(share))
     if clo and sec and king:
         out.append("- （老规则，只管到 2026-11-15 这一期）有人完全猜中那天四个奖一起发：神算子（完全猜中，平分）%s、贡献王 %s、天眼通（最接近）%s、地灵通（第二接近）%s。没人猜中的日子大奖留在奖池滚到下一期。" % (pct(1 - float(clo) - float(sec) - float(king)), pct(king), pct(clo), pct(sec)))
     kin, kcap, ktop, kbd = grab(o, r"KING_IN = ([\d.]+)", "KING_IN"), grab(o, r"KING_CAP = (\d+)", "KING_CAP"), grab(o, r"KING_TOP = (\d+)", "KING_TOP"), grab(o, r"KING_BADGE_DAYS = (\d+)", "KING_BADGE_DAYS")
