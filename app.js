@@ -548,10 +548,10 @@
   var tracked = {};
   // 桌面图标（PWA）里没有钱包，主站交易做不了：从图标打开时直接进 App 壳页（网址墙 + 钱包直达 + 联系方式）；地址里带 full=1 才留在主站看
   (function () { try { var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone; if (sa && !/[?&]full=1/.test(location.search + location.hash) && !sessionStorage.getItem("full")) location.replace("/app"); if (/[?&]full=1/.test(location.search + location.hash)) sessionStorage.setItem("full", "1"); } catch (e) {} })();
-  var GAMES = { play: 1, farm: 1, br: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
+  var GAMES = { play: 1, farm: 1, br: 1, gd: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
   // 路由 → 要先加载的包（顺序加载；没打包的开发环境 window.AIL_BUNDLES 不存在，所有脚本照旧一次全载）
   var LAZY = (function () {
-    var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"],
+    var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"],
       games: ["pixel", "play", "farm", "br", "g2048", "snake", "tetris", "flappy", "mines", "brick", "merge", "pet"],
       misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds"] };
     Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
