@@ -3246,6 +3246,11 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 .ptn-how > summary { cursor: pointer; color: #6b5aa6; font-size: 12.5px; margin: 6px 0; }
 @media (max-width: 600px) { .ptn-c3 { grid-template-columns: 1fr 1fr; } .ptn-c3 > .ptn-c:first-child { grid-column: 1 / -1; } }
 
+/* 💼 分配比例（站长 2026-11-13）：一行一个人 */
+.ptn-rr { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 10px; font-size: 13.5px; border-top: 1px solid #efe8ff; color: #191839; }
+.ptn-rr:first-child { border-top: 0; } .ptn-rr.top { background: #e8fbf2; }
+.ptn-rr small { display: block; color: #8a7fb0; font-size: 11px; font-weight: 400; } .ptn-rr > span:last-child { text-align: right; flex: none; } .ptn-rr .m { color: #0a7a52; font-weight: 700; }
+
 /* 📱 合伙人面板「今天的生意」手机版：表格变成一行一张卡（站长 2026-11-08：显示不全；以后更新先适配手机） */
 @media (max-width: 600px) {
   .ptn-t thead { display: none; }
