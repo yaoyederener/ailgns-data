@@ -2672,6 +2672,17 @@ tr.nm-just td:first-child { border-left: 4px solid #f0b90b; }
 
 .tr2-step input { font-size: 15px; } .tr2-step label span { font-size: 11px; }
 @media (max-width: 380px) { .tr2-main { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } .tr2-row { font-size: 11.5px; padding: 3px 4px; } }
+/* 站长 2026-11-12「搞对称一点」：手机上下单卡和盘口卡拉成一样高，买入按钮沉到卡底，和盘口底边对齐 */
+@media (max-width: 900px) {
+  .tr2-main { align-items: stretch; }
+  .tr2-main > .tr2-form { display: flex; flex-direction: column; }
+  .tr2-main > .tr2-form .tr2-side, .tr2-main > .tr2-form .tr2-type { margin-bottom: 12px; }
+  .tr2-main > .tr2-form .tr2-in { min-height: 46px; margin-bottom: 10px; }
+  .tr2-main > .tr2-form .tr2-pct { margin-bottom: 10px; }
+  .tr2-main > .tr2-form .tr-go { margin-top: auto; }
+  .tr2-main > .tr2-book { display: flex; flex-direction: column; }
+  .tr2-main > .tr2-book #tr-bk { flex: 1; }
+}
 
 /* 💧 做市返佣 */
 .lp-hero { background: linear-gradient(135deg, #f3efff, #eaf6ff); }
