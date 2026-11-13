@@ -283,9 +283,29 @@
         '<a class="nm-go" href="#/names/' + encodeURIComponent(full) + '?pri=1">👉 去设为主名字（点进去按蓝色按钮）</a></div>';
     }, function () {});
   }
+  // 📣 先宣告再发奖（站长 2026-11-14 定）：中奖人烧完名字，还要到 DeBox 社区发帖宣告，把帖子链接交上来，团队认证后机器人才发奖
+  var DEBOX_GROUP = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
+  function sayText(id, url, a) { return "AiLGNS 每日预言家 · 领奖宣告\n奖项编号：" + id + "\n我在 DeBox 社区的宣告帖：" + url + "\n地址：" + a; } // 和 lib/oracle.js 的 sayText 一字不差
+  function sayBox(me) {
+    var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
+    var L = (me && me.sayDue) || [];
+    return L.map(function (x, i) {
+      var burnOk = (x.bn || 0) >= (x.need || 1), big = (x.need || 1) > 1;
+      var s1 = burnOk ? "✅ 名字已烧够" + (big ? "（" + x.need + " 个）" : "") : "⏳ 先销毁名字" + (big ? "：已烧 " + (x.bn || 0) + " / " + x.need + " 个" : "：1 枚创世 .ailgns 名") + ' <a href="#/genesis">去销毁 →</a>';
+      var s2 = x.url ? '✅ 宣告帖已提交 <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "⏳ 到 DeBox 社区发一条帖子，说自己中奖了（写上你的名字、哪一期、中了多少），再把帖子链接贴到下面";
+      var s3 = x.ok ? "✅ 团队已认证" + (burnOk ? "，机器人几分钟内发奖" : "，名字烧够后机器人自动发奖") : x.url ? "⏳ 等团队核对帖子（一般当天）" : "⏳ 团队核对后，机器人自动把 AiLGNS 发到这个钱包";
+      return '<div class="or-say"><b>🏆 你中了 ' + dayCn(x.day) + " 的" + (KN[x.kind] || "奖") + "：" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS（≈ " + dai(x.amt) + "）" : dai(x.amt)) + "</b>" +
+        "<small>领奖三步，做完才发奖。为什么要宣告：让社区看得见中奖的是真人，防作弊。</small><ol><li>" + s1 + "</li><li>" + s2 + "</li><li>" + s3 + "</li></ol>" +
+        (x.ok ? "" : '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 社区 ↗</a><div class="or-in"><input class="or-say-u" data-i="' + i + '" inputmode="url" placeholder="贴 DeBox 帖子链接（https://…）" autocomplete="off" value="' + esc(x.url || "") + '"><button type="button" class="nm-go or-say-go" data-i="' + i + '">' + (x.url ? "换一个链接" : "✍️ 签名提交") + '</button></div><p class="muted">提交时钱包会弹一次签名，证明是中奖钱包本人交的，不花钱、不转账。</p>') + "</div>";
+    }).join("");
+  }
   function meBox(d) {
     var me = d.me;
     if (account === SRC) return ownerBox();
+    return sayBox(me) + meBox0(d);
+  }
+  function meBox0(d) {
+    var me = d.me;
     if (!account) return '<p>参加资格（满足其一）：① 主名字是 <b>🌟 创世 .ailgns 域名</b> ② <b>OTC 累计成交满 5 万 DAI</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
     if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
     if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，<a href="#/names">买一个新的 🌟 创世 .ailgns 域名</a>，设为主名字就能再参加。</p>';
@@ -489,6 +509,8 @@
       var big = (x.need || 1) > 1, burnt = big ? "🔥 已烧 " + x.need + " 个名字" : (x.burn ? "🔥 已烧创世 #" + x.burn : "");
       var tail = x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' + (burnt ? "<small>" + burnt + "</small>" : "")
         : x.st === "forfeit" ? '<small class="or-pay-no">❌ 3 天内没销毁' + (big ? "够名字" : "创世名") + '，放弃，奖金留在奖池</small>'
+        : x.st === "say" ? "<small>📣 " + (burnt ? burnt + "，" : "") + "等中奖人到 DeBox 社区宣告中奖</small>"
+        : x.st === "review" ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">🔎 已宣告，团队认证中 · 看帖子 ↗</a>'
         : x.st === "wait" ? '<a href="#/genesis">⏳ ' + (big ? "等中奖人注册并销毁名字 " + (x.bn || 0) + "/" + x.need + " 个" : "等中奖人销毁 1 枚创世名") + "（" + (x.due ? "截止 " + bjShort(x.due) : "3 天内") + "）→</a>"
         : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">' + (burnt ? burnt + "，等机器人转账" : "奖池转出记录") + " →</a>";
       return '<div class="or-pay"><span class="or-pk">' + (KN[x.kind] || x.kind) + '</span><span class="or-pn"><b>' + esc(x.name) + '</b></span><span class="or-pa">' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + '</small></span><span class="or-pt">' + tail + "</span></div>";
@@ -508,6 +530,7 @@
       "<li><b>💰 贡献王（2026-11-15 最后一期）</b>：本周一到周日本站 OTC 吃单手续费前 3 名，周日晚照常结算；<b>2026-11-16 起取消</b>。11-15 及以前有人猜中大奖的那天，天眼通 10%、地灵通 5% 照老规则发。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
       "<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +
+      "<li><b>📣 领奖要到社区宣告</b>（2026-11-13 那一期起，所有奖项）：名字烧够以后，中奖的人还要<b>到 DeBox 的 AiLGNS 社区发帖宣告自己中奖</b>，把帖子链接交到本页（用中奖钱包签名，不花钱）。团队核对后机器人才发奖。目的：让社区看得见中奖的是真人，防作弊、防质疑。不宣告就一直不发，奖金留在奖池钱包里。</li>" +
       "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
       "<li><b>大奖每个名字、每个钱包只能中一次</b>：拿到神算子（以及老规则下的天眼通、地灵通）后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。<b>每日前三不拉黑</b>，只休息 7 天。</li>" +
       "<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
@@ -577,6 +600,19 @@
     return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return account; });
   }
   function bind(rid) {
+    document.querySelectorAll(".or-say-go").forEach(function (bt) {
+      bt.onclick = function () {
+        var x = ((data && data.me && data.me.sayDue) || [])[Number(bt.getAttribute("data-i"))], inp = document.querySelector('.or-say-u[data-i="' + bt.getAttribute("data-i") + '"]');
+        var url = inp ? inp.value.trim() : "";
+        if (!x) return;
+        if (!/^https:\/\/([a-z0-9-]+\.)*debox\.[a-z]{2,10}\/\S+$/i.test(url)) return A.errTip("请贴你在 DeBox 发的那条帖子的链接（https:// 开头的 DeBox 网址）", bt);
+        bt.disabled = true;
+        (eth ? Promise.resolve() : connect()).then(function () { return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(sayText(x.id, url, account)), account] }); })
+          .then(function (sig) { return fetch("/api/oracle", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "say", a: account, id: x.id, url: url, sig: sig }) }).then(function (r) { return r.json(); }); })
+          .then(function (j) { if (j.error) throw new Error(j.error); load(rid); })
+          .catch(function (e) { bt.disabled = false; A.errTip(e.message || String(e), bt); });
+      };
+    });
     var c = document.getElementById("or-conn");
     if (c) c.onclick = function () { connect().then(function () { load(rid); }, function (e) { A.errTip(e.message || String(e), c); }); };
     var go = document.getElementById("or-go"), st = document.getElementById("or-st");

@@ -4,7 +4,11 @@
 // GET  ?pay=1&key=BACKUP_KEY          → 还没发的奖金（发奖程序用；2026-11-09 起只给「已销毁 1 枚创世名」的，没烧的等，3 天没烧作废）；POST { action: "paid", id, tx, key } → 记为已发
 // 签名文字必须和 oracle.js（前端）里的 guessText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
-import { rpc } from "../../lib/oracle.js";
+import { rpc, needSay, sayUrlOk, sayText } from "../../lib/oracle.js";
+import { pushInbox } from "../../lib/inbox.js";
+const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 站长站内信（谷歌社交账号钱包），和工单后台同一个
+const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
+const admOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY)); // 后台只用工单口令（站长：只留一个口令）
 import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
@@ -65,7 +69,7 @@ async function buildPub(kv, ctx, now) {
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
   if (now >= cutoffAt(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map((g) => pub(g, drawing)); // 封卷后公开全部预测
   // 站长 2026-11-08：揭晓卡公开发奖记录（谁、什么奖、多少 AiLGNS、链上交易），公开公正；只给最近 14 天
-  try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "", st: payState(x), due: needBurn(x) ? payDue(x) : 0, burn: x.burn ? x.burn.no : 0, need: needCount(x), bn: burnedCount(x) })); } catch (e) { out.pays = []; }
+  try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "", st: payState(x), due: needBurn(x) ? payDue(x) : 0, burn: x.burn ? x.burn.no : 0, need: needCount(x), bn: burnedCount(x), say: x.say && sayUrlOk(x.say.url) ? x.say.url : "" })); } catch (e) { out.pays = []; }
   return out;
 }
 
@@ -107,7 +111,9 @@ export async function onRequestGet(ctx) {
         else if (name) { const h = await heldSince(u.origin, a, name, round); if (!h.ok) out.me.hold = h; }
       }
       { // 🔥 我有没有等着销毁创世名才能领的奖（给预言家页 / 销毁页提示用）；中奖后已停赛，所以放在 el.ok 外面
-        const wait = ((await kv.get("or:pay", "json")) || []).filter((x) => x.a === a && payState(x) === "wait");
+        const mineAll = ((await kv.get("or:pay", "json")) || []).filter((x) => x.a === a), wait = mineAll.filter((x) => payState(x) === "wait");
+        const sayDue = mineAll.filter((x) => needSay(x) && ["wait", "say", "review", "ready"].includes(payState(x))); // 📣 我还没到手的奖：要去 DeBox 宣告的
+        if (sayDue.length) out.me.sayDue = sayDue.map((x) => ({ id: x.id, kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, st: payState(x), need: needCount(x), bn: burnedCount(x), url: x.say && sayUrlOk(x.say.url) ? x.say.url : "", ok: !!x.ok }));
         if (wait.length) out.me.burnDue = wait.map((x) => ({ kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, due: payDue(x), need: needCount(x), bn: burnedCount(x), price: NAME_PRICE }));
         out.me.burnDays = BURN_DAYS;
       }
@@ -154,6 +160,36 @@ export async function onRequestPost(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   let b = {};
   try { b = await ctx.request.json(); } catch (e) { return json({ error: "格式不对" }, 400); }
+  if (b.action === "say") { // 📣 中奖人交 DeBox 宣告帖的链接（中奖钱包签名）
+    const a = String(b.a || "").toLowerCase(), url = String(b.url || "").trim(), id = String(b.id || "");
+    if (!isAddr(a)) return json({ error: "请先连接钱包" }, 400);
+    if (!sayUrlOk(url)) return json({ error: "请贴你在 DeBox 发的那条帖子的链接（https:// 开头的 DeBox 网址）" }, 400);
+    if (recoverAddress(sayText(id, url, a), String(b.sig || "")) !== a) return json({ error: "签名核对失败，请用中奖的那个钱包重新签名" }, 400);
+    const pay = (await kv.get("or:pay", "json")) || [], x = pay.find((p) => String(p.id) === id && p.a === a);
+    if (!x) return json({ error: "没找到这笔奖，请刷新页面再试" }, 404);
+    const st = payState(x);
+    if (!needSay(x) || st === "paid" || st === "forfeit") return json({ error: "这笔奖不用再交了" }, 400);
+    if (x.ok) return json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400);
+    x.say = { url, at: Date.now() };
+    await kv.put("or:pay", JSON.stringify(pay));
+    ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🏆 中奖人交了 DeBox 宣告帖，等你认证\n" + x.name + " · " + x.day + " · " + (KIND_CN[x.kind] || x.kind) + " · " + x.amt + " DAI\n" + url + "\n到工单后台最上面点「通过」，机器人才会发奖。", "#/feedback/admin").catch(() => {}));
+    return json({ ok: true, st: payState(x) });
+  }
+  if (b.action === "says") { // 📣 工单后台：还没发的奖（等烧名字 / 等宣告 / 等认证 / 已通过等机器人发）。口令走请求正文，不进网址
+    if (!admOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
+    const { pays } = await burnCheck(kv, new URL(ctx.request.url).origin, (await kv.get("or:pay", "json")) || [], Date.now());
+    return json({ list: pays.filter((x) => !x.tx && !x.forfeit && needSay(x)).map((x) => ({ id: x.id, day: x.day, kind: x.kind, name: x.name, a: x.a, amt: x.amt, ail: x.ail || 0, st: payState(x), need: needCount(x), bn: burnedCount(x), due: needBurn(x) ? payDue(x) : 0, say: x.say && sayUrlOk(x.say.url) ? x.say.url : "", sayAt: (x.say && x.say.at) || 0, ok: x.ok ? x.ok.at : 0 })) });
+  }
+  if (b.action === "approve") { // 📣 团队认证：通过 / 撤回（工单口令）
+    if (!admOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
+    const pay = (await kv.get("or:pay", "json")) || [], x = pay.find((p) => String(p.id) === String(b.id || ""));
+    if (!x) return json({ error: "没有这一笔" }, 404);
+    if (x.tx) return json({ error: "这笔已经发出去了" }, 400);
+    if (b.ok === false) delete x.ok; else x.ok = { at: Date.now() };
+    await kv.put("or:pay", JSON.stringify(pay));
+    if (x.ok) ctx.waitUntil(pushInbox(kv, x.a, "oracle", "✅ 你的中奖宣告已通过认证（" + x.day + " · " + (KIND_CN[x.kind] || x.kind) + "）。" + (payState(x) === "ready" ? "机器人几分钟内把 AiLGNS 发到这个钱包。" : "名字烧够以后，机器人自动把 AiLGNS 发到这个钱包。"), "#/oracle").catch(() => {}));
+    return json({ ok: true, st: payState(x) });
+  }
   if (b.action === "paid") {
     if (!ctx.env.BACKUP_KEY || b.key !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     const pay = (await kv.get("or:pay", "json")) || [], x = pay.find((p) => p.id === b.id);

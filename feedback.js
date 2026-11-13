@@ -330,11 +330,37 @@
     st = st || "new"; adminSt = st;
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' +
+      '<div id="fb-says"></div>' +
       '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
     document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
     document.querySelectorAll(".ad-nb").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); location.hash = b.getAttribute("href"); admin(rid, b.getAttribute("data-s")); }; });
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
     var nb = document.getElementById("fb-notify"); if (nb) nb.onclick = function () { Notification.requestPermission().then(function () { admin(rid, st); }); };
+    // 📣 预言家中奖待认证（站长 2026-11-14）：中奖人交了 DeBox 宣告帖 → 这里点「通过」→ 机器人才发奖
+    function says() {
+      var sb = document.getElementById("fb-says"); if (!sb) return;
+      var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
+      var post = function (o) { o.key = key(); return fetch("/api/oracle", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
+      post({ action: "says" }).then(function (j) {
+        var L = (j && j.list) || [];
+        if (!L.length) { sb.innerHTML = ""; return; }
+        sb.innerHTML = '<div class="fb-say"><b>🏆 预言家中奖待认证（' + L.length + ' 笔）</b><small>中奖人到 DeBox 宣告 → 你点开帖子看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
+          var burnOk = x.bn >= x.need, stT = x.ok ? (burnOk ? "✅ 已通过，机器人马上发" : "✅ 已通过，等他烧够名字（" + x.bn + "/" + x.need + "）") : x.say ? (burnOk ? "🔎 等你认证" : "🔎 帖子已交，名字还没烧够（" + x.bn + "/" + x.need + "）") : burnOk ? "📣 名字烧够了，等他去 DeBox 宣告" : "⏳ 等他烧名字（" + x.bn + "/" + x.need + "）和宣告";
+          return '<div class="fb-say-r"><span><b>' + esc(x.name) + "</b> · " + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + " · <b>" + Number(x.amt).toLocaleString("en-US") + " DAI</b></span><span>" + stT + "</span>" +
+            (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">👉 打开他的 DeBox 宣告帖 ↗</a>' : "") +
+            (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.say ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : "") + "</div>";
+        }).join("") + "</div>";
+        sb.querySelectorAll("button[data-i]").forEach(function (bt) {
+          bt.onclick = function () {
+            var x = L[Number(bt.getAttribute("data-i"))], ok = bt.getAttribute("data-ok") === "1";
+            if (ok && !confirm("确认通过？\n" + x.name + " · " + x.amt + " DAI\n通过后机器人会自动把奖金发给他，发出去收不回。")) return;
+            bt.disabled = true;
+            post({ action: "approve", id: x.id, ok: ok }).then(function (r) { if (r.error) alert(r.error); says(); }, function () { bt.disabled = false; });
+          };
+        });
+      }, function () {});
+    }
+    try { says(); } catch (e) {}
     function load(first) {
       var box = document.getElementById("fb-list"); if (!box) return clearInterval(adTimer);
       if (!first && box.querySelector("textarea:focus")) return; // 正在写回复：不刷新

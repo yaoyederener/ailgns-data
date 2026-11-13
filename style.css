@@ -4234,3 +4234,14 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 @keyframes gdn-in { from { opacity: 0; transform: translateY(10px) scale(.85); } to { opacity: 1; transform: none; } }
 @keyframes gdn-boom { 0% { opacity: 0; transform: scale(.5) rotate(-6deg); } 45% { opacity: 1; transform: scale(1.3) rotate(3deg); } 70% { transform: scale(.95) rotate(-1deg); } 100% { transform: none; } }
 @keyframes gdn-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* 📣 预言家：中奖人宣告卡（预言家页）+ 待认证清单（工单后台）——站长 2026-11-14 */
+.or-say { border: 2px solid #c4b5fd; background: #f6f2ff; border-radius: 14px; padding: 14px; margin-bottom: 12px; font-size: 15px; line-height: 1.6; text-align: left; }
+.or-say > b { display: block; font-size: 16px; color: #4c1d95; }
+.or-say small { display: block; color: #6b5a9a; font-size: 13px; margin: 4px 0 6px; }
+.or-say ol { margin: 6px 0 10px; padding-left: 22px; } .or-say li { margin: 4px 0; }
+.or-say-g { display: block; margin: 0 0 8px; font-weight: 600; }
+.or-say .or-in input { font-size: 15px; min-width: 0; }
+.fb-say { border: 2px solid #c4b5fd; background: #f6f2ff; border-radius: 14px; padding: 12px 14px; margin: 10px 0; font-size: 14.5px; line-height: 1.6; }
+.fb-say > b { display: block; font-size: 16px; color: #4c1d95; } .fb-say > small { display: block; color: #6b5a9a; margin-bottom: 6px; }
+.fb-say-r { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid #ddd0ff; } .fb-say-r button { align-self: flex-start; }
