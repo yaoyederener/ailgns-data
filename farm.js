@@ -1,4 +1,4 @@
-// 开心农场（#/farm）：仿 QQ 农场 / 牧场，种菜、养鸡、偷好友的菜和鸡蛋。金币可以用 Anubis 链 LGNS 充值（80% 销毁、20% 作为运营费用），金币换不回币
+// 开心农场（#/farm）：仿 QQ 农场 / 牧场，种菜、养鸡、偷好友的菜和鸡蛋。金币可以用 Anubis 链 LGNS 充值（充值的 LGNS 进入运营资金），金币换不回币
 // 进农场要用钱包签一条文字确认身份（不是交易、不花 Gas），7 天内不用再签；规则和数据在后台 /api/farm（lib/farm.js）
 (function () {
   "use strict";
@@ -33,7 +33,7 @@
     A.app.innerHTML = '<section class="card fm-hero"><div class="fm-top"><h2>🏡 开心农场</h2><span class="muted">种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
-      '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 80% 直接销毁、20% 作为运营费用。</p>';
+      '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 进入运营资金。</p>';
     document.querySelectorAll(".fm-tabs button").forEach(function (b) {
       b.onclick = function () { tab = b.getAttribute("data-t"); document.querySelectorAll(".fm-tabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); draw(); };
     });
@@ -148,13 +148,13 @@
     }
 
     function burnHtml(d) {
-      return '<section class="card"><div class="card-head"><h2>🔥 销毁榜</h2><span class="muted">全站农场已销毁 ' + A.fmt(d.burned || 0, 0) + " LGNS</span></div>" +
+      return '<section class="card"><div class="card-head"><h2>💰 充值榜</h2><span class="muted">全站农场已销毁 ' + A.fmt(d.burned || 0, 0) + " LGNS</span></div>" +
         (d.burners.length ? '<ul class="fm-fr">' + d.burners.map(function (x, i) {
           return '<li><span class="fm-n">' + (i < 3 ? ["👑", "🥈", "🥉"][i] : i + 1) + '</span><span class="fm-who">' + A.nameTag(x.a) + "</span><small>充值 <b>" + A.fmt(x.v) + "</b> LGNS</small></li>";
         }).join("") + "</ul>" : '<p class="muted">还没有人充值，第一个充值的就是榜一农场主！</p>') + "</section>";
     }
 
-    // 充值：选档位 → 钱包转 LGNS 到销毁乐园收款合约（数据末尾带农场标记）→ 链上确认后后台核对加金币
+    // 充值：选档位 → 钱包转 LGNS 到运营资金（收款地址以后台返回的 pay.payTo 为准，数据末尾带农场标记）→ 链上确认后后台核对加金币
     function payPicker() {
       var m = document.getElementById("fm-modal"), first = !me.paid;
       m.hidden = false;
@@ -164,7 +164,7 @@
           var bonus = Math.round((p.coins / (p.lgns * 100) - 1) * 100), get = p.coins * (first ? 2 : 1);
           return '<button type="button" data-pack="' + i + '">' + (i === 2 ? '<i class="fm-hot">最划算</i>' : "") + "<b>" + A.fmt(get) + " 金币</b><small>" + p.lgns + " LGNS" + (bonus ? " · 多送 " + bonus + "%" : "") + (first ? " · 翻倍" : "") + "</small></button>";
         }).join("") + "</div>" +
-        '<ul class="fm-perk"><li>👑 充值后解锁：🎃 黄金南瓜、🐓 金鸡，每日签到 ' + R.daily + " → <b>" + R.dailyVip + "</b> 金币</li><li>💯 累计充值 " + R.king + " LGNS：名字前挂 👑 农场主</li><li>🔥 上销毁榜：LGNS 80% 直接销毁、20% 作为运营费用</li></ul>" +
+        '<ul class="fm-perk"><li>👑 充值后解锁：🎃 黄金南瓜、🐓 金鸡，每日签到 ' + R.daily + " → <b>" + R.dailyVip + "</b> 金币</li><li>💯 累计充值 " + R.king + " LGNS：名字前挂 👑 农场主</li><li>💰 上充值榜：充值的 LGNS 进入运营资金</li></ul>" +
         '<p class="note" id="fm-pst">只收 Anubis 链 LGNS，还要一点 DAI 付 Gas。金币加给付款的钱包，换不回币。</p></div>';
       m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
       m.onclick = function (e) { if (e.target === m) m.hidden = true; };
@@ -184,7 +184,7 @@
         say("正在检查 LGNS 余额…");
         return W.rpcOn("anubis", "eth_call", [{ from: account, to: R.pay.token, data: data }, "latest"]).catch(function () { throw new Error("LGNS 不够：这档要 " + p.lgns + " LGNS（Anubis 链），还要一点 DAI 付 Gas"); });
       }).then(function () {
-        say("🔒 请在钱包确认支付 " + p.lgns + " LGNS（80% 销毁、20% 作为运营费用）");
+        say("🔒 请在钱包确认支付 " + p.lgns + " LGNS（进入运营资金）");
         return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: R.pay.token, data: data }] });
       }).then(function (tx) {
         say("已付款，等待链上确认…");
