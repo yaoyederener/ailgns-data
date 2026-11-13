@@ -8,6 +8,7 @@
   var MAX_UINT = (1n << 256n) - 1n, MIN_DAI = 10n ** 18n;
   var MK = "ailgns", M, OTC, TOKEN, DAI, TD, SYM, PD;
   var liveCtl = null;
+  var fitH = 0, fitRO = null; // 手机：盘口跟着下单卡的高度走
   function startLive() {
     var el = document.getElementById("tr-k"); if (!el || !A.kchart) return;
     if (liveCtl) liveCtl.stop();
@@ -95,6 +96,15 @@
       '<div class="tr2-bar"><button type="button" class="buy" data-bar="buy">买入</button><button type="button" class="sell" data-bar="sell">卖出</button></div>' +
       '</div>';
     bind();
+    // 下单卡高度一变（切市价、连钱包、提示换行），盘口重新对齐
+    if (fitRO) { try { fitRO.disconnect(); } catch (e) {} fitRO = null; }
+    try {
+      var fmEl = document.querySelector(".tr2-form");
+      if (window.ResizeObserver && fmEl) {
+        fitRO = new ResizeObserver(function () { if (!A.isCurrent(rid) || !fmEl.isConnected) return; if (Math.abs(fmEl.offsetHeight - fitH) > 1 && document.querySelector("#tr-bk .tr2-row")) renderBook(); });
+        fitRO.observe(fmEl);
+      }
+    } catch (e) {}
     refresh(true);
     if (matchMedia("(min-width: 901px)").matches) startLive(); // 电脑：K 线常驻；手机：点「K 线」标签再画
     document.querySelectorAll(".tr-ktabs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll(".tr-ktabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (b.getAttribute("data-k") === "live") startLive(); else { if (liveCtl) { liveCtl.stop(); liveCtl = null; } document.getElementById("tr-ktip").textContent = "参考：DEX 1 小时线，最近 24 小时"; drawKline(); } }; });
@@ -117,13 +127,25 @@
   }
   function renderBook() {
     var el = document.getElementById("tr-bk"); if (!el) return;
-    var N = matchMedia("(min-width: 901px)").matches ? 9 : 6;
+    var N = 9, bx = el.parentNode;
+    renderGauge();
+    if (matchMedia("(min-width: 901px)").matches) { if (bx) bx.style.height = ""; }
+    else {
+      // 手机：盘口和左边下单卡一样高（站长 2026-11-12）。以下单卡高度为准，算出每边放几档（3~6 档），放不下就少显示几档
+      N = 6;
+      var fm = document.querySelector(".tr2-form"), fh = fm ? fm.offsetHeight : 0;
+      if (bx && fh > 200) {
+        var l2 = el.querySelector(".tr2-last2"), used = bx.offsetHeight - el.offsetHeight + (l2 ? l2.offsetHeight + 6 : 44);
+        N = Math.max(3, Math.min(6, Math.floor((fh - used) / 2 / 24)));
+        bx.style.height = fh + "px";
+      } else if (bx) bx.style.height = "";
+      fitH = fh;
+    }
     // 🧊 展示层冰山（站长 2026-11-09）：某一档数量超过本侧总量 20% 的大单只露一截（本侧总量的 20% 或它自己的 30%，取大），标 🧊，点图标看真实数量；成交逻辑、合约、账本都不变，只是不让一张巨单把盘口吓歪
     var totA = agg(book.asks, 1e9).reduce(function (s, r) { return s + r.coin; }, 0), totB = agg(book.bids, 1e9).reduce(function (s, r) { return s + r.coin; }, 0);
     var iceberg = function (rows, total) { var cap = total * 0.2, cum = 0; return rows.map(function (r) { var o = { p: r.p, coin: r.coin, dai: r.dai, full: r.coin }; if (rows.length >= 4 && cap > 0 && r.coin > total * 0.35) o.coin = Math.max(cap, r.coin * 0.3); /* 只藏真正的巨单（超过本侧 35%） */ cum += o.coin; o.cum = cum; return o; }); };
     var asks = iceberg(agg(book.asks, N), totA), bids = iceberg(agg(book.bids, N), totB), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
     var row = function (r, cls) { var ice = r.full > r.coin + 1e-9; return '<div class="tr2-row ' + cls + (ice ? " ice" : "") + '" data-p="' + r.p + '" data-full="' + r.full + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + (ice ? '<i class="ice-tag" title="冰山单：这一档实际 ' + fq(r.full) + " " + SYM + '，点一下看全部">🧊</i>' : "") + "<em>" + fq(r.coin) + "</em></span></div>"; };
-    renderGauge();
     var last = fills[0], prev = fills[1], lcls = last && prev && last.px < prev.px ? "dn" : "up";
     var fill = function (list, cls) { var h = list.map(function (r) { return row(r, cls); }).join(""); for (var k = list.length; k < N; k++) h += '<div class="tr2-row empty"><span>—</span><span></span></div>'; return h; };
     var sig = JSON.stringify([asks, bids].map(function (l) { return l.map(function (r) { return [r.p, r.coin]; }); }));
