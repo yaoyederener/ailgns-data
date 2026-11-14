@@ -165,16 +165,18 @@ async function recordTrades(m, kv, logs, cache) {
 // 这里单独扫一遍「吃单的人 = 扫单合约」的成交，按发起这笔交易的钱包（tx.from）记给客户：以前的一段段补，新的每轮跟上。
 // 会员门槛：一次扫单的几笔合起来满 50 DAI 就算（扫单是客户的一次操作，不按拆出来的小笔算）。每笔交易只记一次（otcs:<交易哈希>）。
 const SWEEP_FROM = 18213000, SWEEP_MK = { ailgns: 1, lgns: 1, glgns: 1 }; /* 扫单合约最早的成交在 18213818 */
-async function sweepCredit(m, kv, upto, cache) {
+async function sweepCredit(m, kv, upto, cache, budget = 8000) {
   if (!SWEEP_MK[m.key]) return null;
   const sk = m.kv + "sw:scan", t0 = Date.now(), chain = m.chain.toLowerCase();
   let b = parseInt((await kv.get(sk)) || String(SWEEP_FROM - 1), 10) + 1, n = 0;
-  for (let i = 0; i < 12 && b <= upto && Date.now() - t0 < 8000; i++) {
+  while (b <= upto && Date.now() - t0 < budget) {
     const to = Math.min(upto, b + 4999);
     const logs = await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED, null, "0x" + SWEEP_ROUTER.slice(2).padStart(64, "0")] }]);
     const byTx = {};
     for (const l of logs) (byTx[l.transactionHash] = byTx[l.transactionHash] || []).push(l);
+    let cut = false;
     for (const h of Object.keys(byTx)) {
+      if (Date.now() - t0 > budget) { cut = true; break; } /* 时间到：这一段没记完，进度不往前挪，下一轮接着记（记过的交易有 otcs 标记，不会重复） */
       const key = "otcs:" + h;
       if (await kv.get(key)) continue;
       const t = await rpc(m, "eth_getTransactionByHash", [h]), real = t && t.from ? String(t.from).toLowerCase() : "";
@@ -204,10 +206,11 @@ async function sweepCredit(m, kv, upto, cache) {
       await kv.put("tr:" + real, JSON.stringify(list.slice(0, TR_MAX)));
       await kv.put(key, "1"); n++;
     }
+    if (cut) break;
     await kv.put(sk, String(to));
     b = to + 1;
   }
-  return { to: b - 1, n };
+  return { to: b - 1, n, behind: upto - (b - 1) };
 }
 // 指导价素材：新成交的单价 ÷ 现在的 DEX 市价，按挂单方向记进 gp:<市场>（最近 30 笔）
 async function recordGuide(m, kv, logs, cache) {
@@ -603,7 +606,7 @@ export async function onRequestGet(ctx) {
       ]);
     });
     await kv.put(m.kv + "block", String(latest));
-    if (SWEEP_MK[m.key] && Date.now() - T0 < 65000) sweep[m.key] = await timed("sweep:" + m.key, 10000, () => sweepCredit(m, kv, latest, cache)); /* 🧹 扫单成交记到客户本人名下 */
+    if (SWEEP_MK[m.key] && Date.now() - T0 < 65000) sweep[m.key] = await timed("sweep:" + m.key, 30000, () => sweepCredit(m, kv, latest, cache, Math.max(3000, Math.min(24000, 70000 - (Date.now() - T0))))); /* 🧹 扫单成交记到客户本人名下 */
     if (Date.now() - T0 < 60000) await timed("fill:" + m.key, 12000, async () => { /* 补历史数据：不急，时间不够就下轮 */
       await backfillTrades(m, kv, from - 1, cache).catch(() => {});
       if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
