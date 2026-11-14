@@ -27,13 +27,14 @@
       (canPay && p.owed > 0 ? '<div class="wkb-owed">钱包里另有 ' + dai(p.owed) + " DAI 是前几周已经分出去、等领奖的，不算进本周</div>" : "") + "</section>";
     html += '<section class="card"><div class="card-head"><h2>📋 本周榜单</h2><span class="muted">前 ' + d.rules.top + " 名分钱</span></div>" +
       (d.top && d.top.length ? '<ol class="wkb-list">' + d.top.map(function (x, i) { return row(x, i, canPay); }).join("") + "</ol>" : '<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>') +
-      '<p class="muted wkb-tip">' + (canPay ? "金额跟着成交和钱包余额实时变，<b>以周一结算那一刻为准</b>，不承诺金额。" : "现在只显示排名，开始计奖后这里会显示每人预计分多少。") + "</p>" +
+      '<p class="muted wkb-tip">' + (canPay ? "金额跟着成交和钱包余额实时变，<b>以周一结算那一刻为准</b>，不承诺金额。发的是 <b>AiLGNS</b>。" : "现在只显示排名，开始计奖后这里会显示每人预计分多少。") + "</p>" +
       '<a class="wkb-cta" href="#/otc">💱 去 OTC 吃一单，手续费直接计入 ›</a></section>';
     html += '<section class="card"><div class="card-head"><h2>📖 怎么算</h2></div><ul class="wkb-rules">' +
       "<li><b>排什么</b><span>每周一到周日（北京时间），你在本站 OTC <b>吃单付的手续费</b>加起来，从高到低排。挂单被别人吃不付手续费，不算。</span></li>" +
       "<li><b>谁能分</b><span>前 " + d.rules.top + " 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>" +
       "<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 " + d.rules.top + " 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>" +
-      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，先到「🔥 创世域名销毁」页销毁 1 枚创世名，机器人核对后自动把 DAI 转到你的钱包，不用申请。</span></li>" +
+      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，先到「🔥 创世域名销毁」页销毁 1 枚创世名，机器人核对后自动发到你的钱包，不用申请。</span></li>" +
+      "<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>" +
       "<li><b>没领的</b><span>" + d.rules.burnDays + " 天没烧算放弃，这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
       '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';
     if (d.last && d.last.top && d.last.top.length) {
@@ -43,7 +44,7 @@
     if (d.pays && d.pays.length) {
       html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x) {
         var s = ST[x.st] || x.st, more = x.st === "wait" ? " · 还剩 " + left(x.due) : "";
-        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>";
+        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>";
       }).join("") + "</ul></section>";
     }
     A.app.innerHTML = html;
