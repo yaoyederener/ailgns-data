@@ -55,7 +55,7 @@
         : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "")
         : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
-      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
+      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
       '<p class="fx-h">① 选一个数字</p><div class="fx-grid">' + grid + "</div>" +
       '<p class="fx-h">② 压几张票</p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
       '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +

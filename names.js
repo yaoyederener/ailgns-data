@@ -340,7 +340,8 @@
 
   function page(rid, arg) {
     // 路由只保留 0x 地址参数，名字自己从网址里取
-    var q = decodeURIComponent((location.hash.split("/")[2] || "").split("?")[0]).toLowerCase(), m = q.match(/\.(ailgns|lgns)$/); // ?pri=1 是预言家页跳过来设主名字的标记
+    var wantBatch = /^#\/names\/batch$/.test(location.hash); /* ailgns.dev/#/names/batch = 直接打开批量注册（极速预言家「去买票」、客服给客户的网址都用它；不靠浏览器记标记，新标签页打开也行） */
+    var q = wantBatch ? "" : decodeURIComponent((location.hash.split("/")[2] || "").split("?")[0]).toLowerCase(), m = q.match(/\.(ailgns|lgns)$/); // ?pri=1 是预言家页跳过来设主名字的标记
     if (q === "otc" || q === "mine") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
     TLD = m ? m[1] : "ailgns";
     NAMES = CONTRACTS[TLD]; window.__nmTLD = TLD;
@@ -366,7 +367,9 @@
       '<div class="nm-rk"><input id="nm-oa" placeholder="填钱包地址 0x…，查挂单和成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-ob">查询</button></div><div id="nm-olo"></div><div id="nm-ol"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var nbb = document.getElementById("nm-batch"); if (nbb) nbb.onclick = function () { if (A.namesBatch) A.namesBatch.open(); };
-    try { if (sessionStorage.getItem("nm:batch")) { sessionStorage.removeItem("nm:batch"); setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open(); } catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
+    try { var ssB = false; try { ssB = !!sessionStorage.getItem("nm:batch"); if (ssB) sessionStorage.removeItem("nm:batch"); } catch (e0) { /* 读不了标记就只看网址 */ }
+      if (wantBatch) { try { history.replaceState(null, "", "#/names"); } catch (e1) { /* 改不了网址不影响打开 */ } }
+      if (wantBatch || ssB) { setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open(); } catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
     var tl = document.querySelector(".nm-tld"); if (tl) tl.textContent = "." + TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
