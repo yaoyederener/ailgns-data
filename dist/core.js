@@ -1,5 +1,5 @@
 window.AIL_NIGHT="dist/night.css?v=hadeb115192";
-window.AIL_BUNDLES={"names":"dist/names.js?v=h7451fac9d0","kchart":"dist/kchart.js?v=h3aa395869e","oracle":"dist/oracle.js?v=h8f92ff8e1c","trade":"dist/trade.js?v=h1a41de62c9","lend":"dist/lend.js?v=h6ec5a27ebd","lp":"dist/lp.js?v=h19d4767a36","aiswap":"dist/aiswap.js?v=hd25e42a0f9","feedback":"dist/feedback.js?v=h0e101d51fc","games":"dist/games.js?v=hddd67d4aeb","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=hf5848741a6"};
+window.AIL_BUNDLES={"names":"dist/names.js?v=h7451fac9d0","kchart":"dist/kchart.js?v=h3aa395869e","oracle":"dist/oracle.js?v=h8f92ff8e1c","trade":"dist/trade.js?v=h1a41de62c9","lend":"dist/lend.js?v=h6ec5a27ebd","lp":"dist/lp.js?v=h589427330b","aiswap":"dist/aiswap.js?v=hd25e42a0f9","feedback":"dist/feedback.js?v=h0e101d51fc","games":"dist/games.js?v=hddd67d4aeb","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=hf5848741a6"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function load(){if(link||!window.AIL_NIGHT)return;link=document.createElement("link");link.rel="stylesheet";link.id="ntm-css";link.href=window.AIL_NIGHT;document.head.appendChild(link);}
@@ -243,7 +243,9 @@ function activate(addr,t){saveMember({addr:addr.toLowerCase(),tier:t.tier,usd:t.
 var ORDER_KEY="ailgns-member-order";function pendingOrder(){try{var o=JSON.parse(localStorage.getItem(ORDER_KEY));return o&&o.expires>Date.now()?o:null;}catch(e){return null;}}
 function saveOrder(o){try{if(o)localStorage.setItem(ORDER_KEY,JSON.stringify(o));else localStorage.removeItem(ORDER_KEY);}catch(e){}}
 var CHAIN=CHAINS.anubis.params;function wallet(){var p=A.wallets.current();if(!p)throw new Error("请先连接钱包");return p;}
-function walletError(e){if(e&&(e.code===4001||/reject|denied|cancel/i.test(e.message||"")))return"你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次。";return(e&&(e.message||e.reason))||"操作没完成，请刷新页面再试一次；还不行就提交工单。";}
+function errWords(e){if(!e)return"";if(typeof e==="string")return e;var m=e.message||e.reason||e.msg||e.details||e.shortMessage||"";if(!m&&e.error)m=typeof e.error==="string"?e.error:(e.error.message||e.error.reason||"");if(!m&&e.data)m=typeof e.data==="string"?e.data:(e.data.message||e.data.reason||"");if(!m&&e.cause)m=typeof e.cause==="string"?e.cause:(e.cause.message||"");if(!m){try{m=JSON.stringify(e);}catch(x){m="";}if(m==="{}"||m==="null")m=e.code!==undefined?"wallet error code "+e.code:"";}
+return String(m||"").slice(0,300);}
+function walletError(e){var m=errWords(e);if(e&&(e.code===4001||/user reject|user denied|rejected the request|\bcancell?ed\b|\bcancel\b/i.test(m)))return"钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」。想继续就再点一次，在钱包里点「确认」。（钱包原话："+(m||"code 4001").slice(0,80)+"）";return m||"操作没完成，请刷新页面再试一次；还不行就提交工单。";}
 function switchTo(eth,chain){var params=CHAINS[chain||"anubis"].params,name=chain==="polygon"?"Polygon":"Anubis";function timeout(p){return Promise.race([p,new Promise(function(_,fail){setTimeout(function(){fail(new Error("钱包没有响应：请在钱包 App 里手动切换到 "+name+" 链，然后刷新页面再试"));},20000);})]);}
 return timeout(eth.request({method:"eth_chainId"})).catch(function(){return null;}).then(function(id){if(id&&parseInt(id,16)===parseInt(params.chainId,16))return;return timeout(eth.request({method:"wallet_switchEthereumChain",params:[{chainId:params.chainId}]}).catch(function(e){if(e&&(e.code===4902||/unrecognized|not added|unknown chain/i.test(e.message||""))){return eth.request({method:"wallet_addEthereumChain",params:[params]}).catch(function(e2){if(!/invalid|custom network/i.test((e2&&e2.message)||""))throw e2;var p2={};Object.keys(params).forEach(function(k){p2[k]=params[k];});p2.blockExplorerUrls=[chain==="polygon"?"https://polygonscan.com":"https://browser.anubispace.org"];return eth.request({method:"wallet_addEthereumChain",params:[p2]});});}
 throw e;}));});}
@@ -973,5 +975,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hb26651ab04";
-/*v:hb26651ab04*/
+;window.AIL_CORE="hccaaa12d9c";
+/*v:hccaaa12d9c*/
