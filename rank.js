@@ -100,7 +100,7 @@
     };
     var rows = top.map(li);
     box.innerHTML = '<section class="card wkb-mini"><div class="card-head"><h2>🏆 本周 OTC 手续费周榜</h2><span class="muted">试运行' + (w.demo ? " · 示例数据" : "") + "</span></div>" +
-      '<p class="wkb-minip">' + (canPay ? "奖金钱包现在能分 <b>" + wkNum(p.avail) + " DAI</b>。" : "") + "每周按吃单手续费排名，前 " + w.rules.top + " 名按占比分奖金钱包里的钱，<b>有多少分多少</b>，不承诺金额，发 AiLGNS。" + (canPay ? "" : "奖金钱包准备中。") + "</p>" +
+      '<p class="wkb-minip">' + (canPay ? "奖金钱包现在能分 <b>" + wkNum(p.avail) + " DAI</b>。" : "") + "每周按吃单手续费排名，前 " + w.rules.top + " 名按占比分奖金钱包里的钱，<b>有多少分多少</b>，不承诺金额，发 AiLGNS。" + (canPay ? "" : w.on && w.pre ? "从 " + Number(String(w.rules.from).split("-")[1]) + " 月 " + Number(String(w.rules.from).split("-")[2]) + " 日这一周开始计奖，下面是本周的排名参考。" : "奖金钱包准备中。") + "</p>" +
       (rows.length ? '<ol class="wkb-list">' + rows.slice(0, 3).join("") + "</ol>" + (rows.length > 3 ? '<details class="wkb-fold"><summary>展开第 4–' + rows.length + ' 名</summary><ol class="wkb-list">' + rows.slice(3).join("") + "</ol></details>" : "")
         : '<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>') +
       '<a class="wkb-cta" href="#/weekly">📖 规则和发放记录 ›</a></section>';
