@@ -171,7 +171,10 @@
     // 超级大奖池 + 本轮奖金（放在页面最上面）
     // 奖池按 AiLGNS 计（奖金全部发 AiLGNS）：DAI 部分按 OTC 预言机价折成 AiLGNS；旁边再标折合多少 DAI
     var oc = (d.funds && d.funds.otc) || { px: d.funds ? d.funds.px : 0, n: 0, src: "dex" }, opx = oc.px || (d.funds ? d.funds.px : 0) || 1;
-    var potA = d.funds ? d.funds.ail + d.funds.dai / opx : 0, potV = Math.floor(potA * opx * 100) / 100; // 奖池 AiLGNS 数量 / 折合 DAI
+    var potA = d.funds ? d.funds.ail + d.funds.dai / opx : 0;
+    var kres = d.kings && d.kings.budget && d.kings.budget.mode === "wallet" ? (d.kings.top || []).reduce(function (t, x) { return t + (x.amt || 0); }, 0) : 0; /* 今晚先发给贡献王的那部分，不算进大奖 */
+    if (kres > 0) potA = Math.max(0, potA - kres / opx);
+    var potV = Math.floor(potA * opx * 100) / 100; // 奖池 AiLGNS 数量 / 折合 DAI
     var a2 = function (v) { return Math.round(v * 100); }, dai0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); };
     var ocT = oc.at ? new Date(oc.at + 8 * 3600e3) : null, ocWhen = ocT ? (ocT.getUTCMonth() + 1) + "/" + ocT.getUTCDate() + " " + String(ocT.getUTCHours()).padStart(2, "0") + ":" + String(ocT.getUTCMinutes()).padStart(2, "0") : "";
     var ocRule = "（只算单笔 ≥ 10 DAI 的真实成交，且不超过 DEX 现价 +50%，防小单刷价）";
@@ -467,12 +470,12 @@
   }
   function kingsCard(d, potV) {
     var k = d.kings; if (!k) return "";
-    var b = k.budget, inflowMode = b && b.mode === "inflow", total = b ? b.total : Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king, cap = k.cap || 3;
+    var b = k.budget, inflowMode = b && b.mode === "inflow", walletMode = b && b.mode === "wallet", total = b ? b.total : Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king, cap = k.cap || 3;
     var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + ' <b data-a="' + esc(x.a || "") + '">' + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + (x.share ? ' <small class="muted">占 ' + Math.round(x.share * 100) + "%" + (x.demoted ? " · 上周第一，连庄按第二算" : "") + "</small>" : "") + "</span><b>" + dai(x.amt != null ? x.amt : 0) + "</b></li>"; }).join("");
     return '<section class="card"><div class="card-head"><h2>💰 本周贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 周日揭晓时结算</span></div>" +
       (d.daily ? '<p class="or-chg">📣 <b>这是贡献王最后一期</b>：本周日晚照常结算发奖，' + dayCn(d.daily.from) + "起取消，改成「🎯 每日前三」。</p>" : "") +
       (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周还没有认证商家成交，第一笔就是第一名。</p>') +
-      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。<b>⚠️ 钱包必须绑定域名（设为主名字）才能拿贡献王奖励</b>，没绑的自动跳过、名额顺延。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
+      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (walletMode ? '<b>奖池钱包里现在实际有的钱</b>（约 ' + dai(total) + '）。按原来的算法是 ' + dai(b.want || 0) + '，但本周大奖两次被猜中，奖池已经清空发给了中奖人，钱包里没有这么多，所以<b>有多少发多少</b>；今晚奖池钱包里的钱先发贡献王，' : inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。<b>⚠️ 钱包必须绑定域名（设为主名字）才能拿贡献王奖励</b>，没绑的自动跳过、名额顺延。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
       '<p class="muted or-rulenote">📐 规则会随数据不断优化，以页面公布为准。</p></section>';
   }
   function playersCard(d) {
