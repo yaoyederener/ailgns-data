@@ -199,6 +199,7 @@
     tokens: { "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14": "DAI", "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb": "AiLGNS", "0x4d1d808a081fdac440703b3765fc61f8028c06b8": "LGNS", "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c": "gLGNS" }
   };
   KNOWN[C.pool] = "预言家奖池钱包";
+  C.fast = "0x8610bf581b1c10cb7d372f93b8cdcde382a7c1d1"; KNOWN[C.fast] = "⚡ 极速预言家奖池"; /* 站长 2026-11-14：这个地址在账本里标成「极速预言家奖池」 */
   var who = function (a) { return a ? '<span data-a="' + a + '" class="lg-who">' + (KNOWN[a.toLowerCase()] || A.short(a)) + "</span>" : ""; };
   var nftTag = function (m) { return m && m.nft ? '<b data-nft="' + m.nft.tld + ":" + m.nft.id + '">🌐 域名</b>' : ""; };
   function bj(ts) { var d = new Date(new Date(ts).getTime() + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
@@ -795,7 +796,8 @@
     try { out.style.setProperty("--sc-h", String(225 + parseInt(a.slice(2, 8), 16) % 70)); } catch (e) {} // 每个地址一个专属的紫蓝色调（只管头像色）
     // 站长 2026-11-10：运营地址不再整页隐藏（站长自己也看不到挂单没法撤）；对外顶部一张说明卡，明细照常显示但支出说法婉转（见 translate）
     var teamNote = TEAM[a] && !isMe(a) ? '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营维护和市场托底</b>用的地址：服务器、节点、客服、开发等日常开支，以及在 OTC 挂买单托底、注入预测奖池的资金都从这里出。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>' : "";
-    var S = { head: teamNote + (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
+    var fastNote = a === C.fast ? '<section class="card"><h2>⚡ 极速预言家奖池</h2><p>这是<b>极速预言家的奖池钱包</b>：客户批量注册域名换票的钱进到这里，猜中的奖金从这里发出（换成 AiLGNS 自动转到中奖的钱包）。</p><p class="muted">余额和每一笔进出都在链上，下面就能查。<a href="#/fast">去极速预言家 →</a></p></section>' : "";
+    var S = { head: teamNote + fastNote + (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
       (via || KNOWN[a] ? '<section class="card sc-head"><h2 id="sc-h2">' + (via ? "🌐 " + esc(via) : "👤 " + KNOWN[a]) + '</h2><p class="sc-addr"><span class="mono">' + a.slice(0, 6) + "…" + a.slice(-4) + '</span><button type="button" class="ghost sc-copy" data-cp="' + a + '">复制完整地址</button></p></section>' : '<div id="sc-head-slot"></div>') + '<div id="sc-who"></div>',
       msg: '<section class="card" id="sc-msgc"><div class="card-head"><h2>📬 留言</h2><button type="button" class="nm-go sc-msgbtn" id="sc-msgbtn">💬 给 TA 留言</button></div>' +
