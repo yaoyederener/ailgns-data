@@ -167,6 +167,7 @@
     top += '<section class="card or-pool"><div class="or-pc">' +
       '<div class="or-pcl"><span>🎯 本期奖池累计</span></div>' +
       '<div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
+      (d.funds && d.funds.owed > 0 ? '<div class="or-powed">钱包里另有 <b>' + Number(d.funds.owed).toFixed(4) + " AiLGNS</b> 是已经中奖、等领奖的，不算进本期奖池</div>" : "") +
       (d.funds && d.funds.wallet ? '<a class="or-pwal" href="#/scan/' + d.funds.wallet + '">🏦 查看奖池钱包 ›</a>' : "") +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       (dly && dly.on ? '<div class="or-prz or-prz2">' +

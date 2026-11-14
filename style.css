@@ -4328,3 +4328,7 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .fmw-sw{padding:1px 8px;border-radius:999px;border:1px solid #7cb342;background:#f1f8e9;color:#33691e;font-size:11.5px;font-weight:700}
 .fmw-bar{position:relative;z-index:1;margin:8px 0 0;padding:8px 10px;border-radius:12px;background:#fff8e1;border:1px solid #ffd54f;color:#5d4037;font-size:13px;line-height:1.5}
 .fmw-bar button{display:block;width:100%;margin-top:6px;padding:8px;border-radius:10px;border:0;background:#7c3aed;color:#fff;font-weight:700;font-size:14px}
+
+/* 预测页奖池卡：已中奖待发的钱单独说明，不算进本期奖池 */
+.or-powed{margin:6px 0 2px;font-size:12.5px;color:#7a7198;text-align:center}
+.or-powed b{color:#5a35d6}

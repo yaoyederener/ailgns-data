@@ -49,8 +49,12 @@ async function buildPub(kv, ctx, now) {
   // 奖金池里实际留了多少钱（发奖程序的记账文件，公开在 GitHub）：DAI、AiLGNS，LGNS 不留（按价值记成待留）
   try {
     const [f, px] = await Promise.all([poolFunds(), priceMilli()]); // 奖池钱包链上实际余额
-    out.funds = { dai: f.dai, ail: f.ail, px: px.raw, wallet: POOL };
-    try { out.funds.otc = await otcHi(kv); } catch (e) { out.funds.otc = { px: px.raw, at: Date.now(), n: 0, src: "dex" }; }
+    let otc; try { otc = await otcHi(kv); } catch (e) { otc = { px: px.raw, at: Date.now(), n: 0, src: "dex" }; }
+    /* 奖池 = 钱包里的钱 − 已经中奖还没发的（那是中奖人的，不能再显示成奖池；站长 2026-11-14 晚）。wAil / wDai = 钱包实际余额，owed = 欠中奖人多少 AiLGNS */
+    const owed = Math.round(((await kv.get("or:pay", "json")) || []).filter((x) => !x.tx && !["paid", "forfeit"].includes(payState(x))).reduce((t, x) => t + Number(x.ail || 0), 0) * 1e6) / 1e6;
+    let ail = f.ail - owed, dai = f.dai;
+    if (ail < 0) { dai = Math.max(0, Math.round((f.dai + ail * (otc.px || px.raw)) * 1e6) / 1e6); ail = 0; } /* AiLGNS 不够抵：差的部分从 DAI 里扣 */
+    out.funds = { dai, ail: Math.round(ail * 1e6) / 1e6, px: px.raw, wallet: POOL, owed, wAil: f.ail, wDai: f.dai, otc };
   } catch (e) { out.funds = null; }
   // 本周贡献榜（周一起到今天，认证商家以上；按手续费占比分奖池 30%，每人封顶手续费 KING_CAP 倍；周日揭晓时结算）
   try {
