@@ -116,8 +116,8 @@
         (canPay ? '<em class="num">' + (x.amt > 0 ? "≈ " + wkNum(x.amt) : "—") + "<small>DAI</small></em>" : "") + "</li>";
     };
     box.innerHTML = '<section class="card or-pool wkb-pool"><div class="or-pc">' +
-      '<div class="or-pcl"><span>🏆 本周 OTC 手续费周榜奖池' + (w.demo ? "（示例数据）" : "") + "</span></div>" +
-      '<div class="or-pbig"><em class="or-pdai"><i>' + big + "</i><span>DAI</span></em></div>" +
+      '<div class="or-pcl"><span>🏆 OTC 周榜奖池' + (w.demo ? "（示例数据）" : "") + "</span></div>" +
+      '<div class="or-pbig"><em><i>' + big + "</i><span>DAI</span></em></div>" +
       '<div class="wkb-sub">前 ' + w.rules.top + " 名按吃单手续费占比分 · <b>有多少分多少</b> · 发 AiLGNS<br>" +
       (w.pre ? "从 " + Number(String(w.rules.from).split("-")[1]) + " 月 " + Number(String(w.rules.from).split("-")[2]) + " 日这一周开始计奖，下面是本周的排名参考" : "周日 24 点截止，周一结算" + endTxt) + "</div>" +
       (known && p.owed > 0 ? '<div class="or-powed">钱包里另有 <b>' + wkNum(p.owed) + " DAI</b> 是前几周已经分出去、等领奖的，不算进本周</div>" : "") +
