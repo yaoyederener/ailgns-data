@@ -56,7 +56,7 @@
     box.innerHTML =
       (data.trial ? '<p class="fx-trial">🧪 预览演示：还没正式开始，现在下注<b>不发奖</b>，只用来看页面。</p>' : "") +
       '<div class="fx-hero"><p class="fx-t">本期 <b>' + at(data.r) + '</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>' +
-      (v2 ? '<p class="fx-pot">猜中每张票发 <b>1.9 DAI</b></p><p class="fx-pot2">压 1 张票（1 DAI），猜中拿回本金 1 再赚 0.9 · 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
+      (v2 ? '<p class="fx-pot">猜中每张票发 <b>1.9 DAI</b></p><p class="fx-pot2">押 1 张猜中发 1.9 DAI，押 10 张猜中发 <b>19 DAI</b>（1 张票 = 1 DAI）· 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
           (oldOn && oldMine ? '<p class="fx-res">你的老票（规则调整前买的）按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
         : data.res && SHOW_RES
           ? '<p class="fx-pot">资金池 <b>' + money(data.res.dai) + " DAI</b></p>" +
