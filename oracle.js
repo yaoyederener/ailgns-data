@@ -626,8 +626,7 @@
       raw = raw.map(function (x) { return Number(x).toFixed(RD); }).filter(function (x, i, z) { return z.indexOf(x) === i; }); // 重复的价格只算一次
       var left = data.me ? data.me.n - data.me.used : 0;
       if (raw.length > left) return A.errTip("你本轮只剩 " + left + " 次预测机会，但我们读到了 " + raw.length + " 个价格：" + raw.join("、") + "。\n一次只填 1 个价格，小数点用英文点，例如 831.462（还没扣次数）", go);
-      var day = data.round, bySig = !!(window.__orSig);
-      go.disabled = true;
+      var day = data.round;
       // 站长 2026-11-07：预测直接写上链（给自己发一笔 0 元转账，文字放交易里，只花约 0.001 DAI 的 Gas），链上永久留存、谁都能查；本站不收任何费用
       var chainGo = function () {
         st.textContent = "🔒 这是一笔 0 元转账（发给自己），预测写在交易里，只花约 0.001 DAI 的 Gas，本站不收费。请在钱包确认";
@@ -648,12 +647,25 @@
           return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: account, ps: raw, day: day, sig: sig }) }).then(function (x) { return x.json(); });
         });
       };
-      (bySig ? sigGo() : chainGo()).then(function (j) {
-        go.disabled = false;
-        if (j.error) throw new Error(j.error);
-        st.textContent = "✅ 已提交" + (bySig ? "" : "并写入链上") + "！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
-        load(rid);
-      }, function (e) { go.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), go); });
+      /* 上链没发出去（钱包没 DAI 付 Gas，或钱包拦下 / 点了取消）：原地给一个大按钮，同一个价格改用签名提交，不花 Gas（2026-11-14 站长点头先出预览） */
+      var NOSEND = /没有 DAI 付 Gas|user reject|user denied|rejected|\bcancel|取消|拒绝|拒絕|(^|[^0-9a-fx])4001([^0-9a-f]|$)|insufficient funds|gas/i;
+      var run = function (bySig) {
+        go.disabled = true;
+        (bySig ? sigGo() : chainGo()).then(function (j) {
+          go.disabled = false;
+          if (j.error) throw new Error(j.error);
+          st.textContent = "✅ 已提交" + (bySig ? "（签名方式，不上链）" : "并写入链上") + "！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
+          load(rid);
+        }).catch(function (e) {
+          var m = (e && e.message) || String(e);
+          go.disabled = false; st.textContent = "";
+          A.errTip(m, go);
+          if (bySig || !NOSEND.test(m)) return;
+          st.innerHTML = '没有 DAI 付 Gas 也能参加：<button type="button" class="nm-go or-sig2" id="or-sig2">✍️ 改用签名提交 ' + raw.join("、") + '（不花 Gas）</button><small class="or-sig2n">只是签个名，不扣钱；和上链预测一样算数，只是不写到链上。</small>';
+          var b2 = document.getElementById("or-sig2"); if (b2) b2.onclick = function () { b2.disabled = true; run(true); };
+        });
+      };
+      run(!!window.__orSig);
     };
     var sg = document.getElementById("or-sig"); if (sg) sg.onclick = function (e) { e.preventDefault(); window.__orSig = !window.__orSig; sg.textContent = window.__orSig ? "已切换为签名提交（不上链）· 改回上链" : "钱包没 DAI 付 Gas？用签名方式"; var g = document.getElementById("or-go"); if (g) g.textContent = window.__orSig ? "✍️ 签名预测" : "🔗 上链预测"; };
     var oc = document.getElementById("or-chain");

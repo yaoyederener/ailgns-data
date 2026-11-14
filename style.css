@@ -4304,3 +4304,7 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .ntm-btn { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--soft-line); background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .ntm-btn b { font-weight: 700; white-space: nowrap; } .ntm-btn small { color: var(--muted); font-size: 12px; }
 html.night, html.night body { background: #121219; } /* 夜间样式文件还在路上的那一瞬间，先把底色压暗，免得白一下 */
+
+/* 预测页：上链没发出去时的「改用签名提交」备用按钮 */
+.or-st .or-sig2{display:block;width:100%;margin:8px 0 4px;white-space:normal;line-height:1.35}
+.or-st .or-sig2n{display:block;font-size:12px;opacity:.8}
