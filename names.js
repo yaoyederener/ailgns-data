@@ -104,14 +104,26 @@
   }
   // 授权并返回付款参数：最多多付 2%，防止付款时币价小幅变动导致失败
   // 差价余额：这个地址转给分账合约的 LGNS 里，不在注册交易里的算「补差价」；每次用 LGNS 注册成功，按时间顺序用掉最早的一笔补差价。剩下没用掉的就是余额
+  /* 读一段链上记录，读不到再试两次（2026-11-14：客户网络不好，补过的差价没认出来，再注册提示 LGNS 不够） */
+  function logsTry(q, n) {
+    return W.rpcOn("anubis", "eth_getLogs", [q]).then(function (r) { if (!r) throw new Error("空"); return r; }).catch(function (e) {
+      if ((n || 0) >= 2) throw e;
+      return new Promise(function (ok) { setTimeout(ok, 500); }).then(function () { return logsTry(q, (n || 0) + 1); });
+    });
+  }
+  /* 这台手机上记一笔「补过差价、还没注册成」：链上记录实在读不到时拿它抵扣，注册成功就清掉 */
+  function tuKey() { return "nm:tu:" + String(account || "").toLowerCase(); }
+  function tuSave(v) { try { localStorage.setItem(tuKey(), String(v)); } catch (e) { /* 存不上不要紧，链上有记录 */ } }
+  function tuClear() { try { localStorage.removeItem(tuKey()); } catch (e) { /* 同上 */ } }
+  function tuLocal() { try { var v = localStorage.getItem(tuKey()); return v && /^\d+$/.test(v) ? BigInt(v) : 0n; } catch (e) { return 0n; } }
   function topUpCredit() {
     var L = TOK.LGNS.a, me = "0x" + A.pad(account), to = "0x" + A.pad(PAYEE), regs = {};
     Object.keys(CONTRACTS).forEach(function (t) { regs[CONTRACTS[t]] = 1; });
     return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
       var latest = parseInt(h, 16), ranges = [];
       for (var b = START.ailgns; b <= latest; b += 5000) ranges.push([b, Math.min(latest, b + 4999)]);
-      return A.pool(ranges, 4, function (r) {
-        return W.rpcOn("anubis", "eth_getLogs", [{ address: L, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [T_XFER, me, to] }]);
+      return A.pool(ranges, 6, function (r) {
+        return logsTry({ address: L, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [T_XFER, me, to] });
       });
     }).then(function (chunks) {
       var xs = [].concat.apply([], chunks.map(function (c) { if (!c) throw new Error("读链上记录失败"); return c; }));
@@ -136,8 +148,8 @@
       return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
         var latest = parseInt(h, 16), jobs = [];
         owners.forEach(function (o) { for (var b = START.ailgns; b <= latest; b += 5000) jobs.push([o, b, Math.min(latest, b + 4999)]); });
-        return A.pool(jobs, 4, function (j) {
-          return W.rpcOn("anubis", "eth_getLogs", [{ address: L, fromBlock: "0x" + j[1].toString(16), toBlock: "0x" + j[2].toString(16), topics: [T_XFER, "0x" + A.pad(j[0]), me] }]);
+        return A.pool(jobs, 6, function (j) {
+          return logsTry({ address: L, fromBlock: "0x" + j[1].toString(16), toBlock: "0x" + j[2].toString(16), topics: [T_XFER, "0x" + A.pad(j[0]), me] });
         });
       }).then(function (chunks) {
         var back = 0n;
@@ -169,7 +181,7 @@
       if (k !== "LGNS") return q;
       // LGNS：先把卖出税差价转给收款的分账合约，再注册（先补后注册，注册没完成的差价联系客服退回）
       // 之前补过差价、但注册没完成的（比如钱包里点了取消），这次直接抵扣，不再重复收
-      return Promise.all([topUp(q), topUpCredit().catch(function () { return 0n; })]).then(function (z) {
+      return Promise.all([topUp(q), topUpCredit().catch(function () { return tuLocal(); })]).then(function (z) {
         var e = z[0], cr = z[1];
         if (cr > 0n) { say("✅ 你之前补过的 " + fmt(cr, 9) + " LGNS 差价还没用上，这次直接抵扣"); e = cr * 100n >= e * 90n ? 0n : e - cr; }
         return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(function (b) {
@@ -177,7 +189,7 @@
           if (BigInt(b) < q + e) throw new Error("LGNS 不够：一共要约 " + fmt(q + e, 9) + " LGNS（含 DEX 卖出税补差），你的钱包只有 " + fmt(BigInt(b), 9) + "（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）");
           if (!e) { if (cr > 0n) { topUpAt = Date.now(); topUpAmt = fmt(cr, 9); } return; }
           return tx(t.a, "0xa9059cbb" + A.pad(PAYEE) + u256(e), say, "💸 第 1 笔：补 DEX 卖出税差价 " + fmt(e, 9) + " LGNS（LGNS 在 DEX 卖出要扣税，这部分补给平台；作为运营费用）。请在钱包确认").then(function () {
-            topUpAt = Date.now(); topUpAmt = fmt(e, 9);
+            topUpAt = Date.now(); topUpAmt = fmt(e, 9); tuSave(e);
             say("✅ 第 1 笔完成：差价 " + topUpAmt + " LGNS 已补好（网站记住了，不会重复扣）。马上弹第 2 笔付注册费，千万别关页面");
           });
         }).then(function () { return q; });
@@ -334,7 +346,7 @@
     say("⏳ 正在连接钱包…");
     return connect().then(function () { say("⏳ 正在查余额和价格，马上弹出钱包…"); return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
       var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
-      return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
+      return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认").then(function (h) { if (k === "LGNS") tuClear(); return h; });
     });
   }
 
