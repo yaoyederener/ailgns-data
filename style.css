@@ -4287,3 +4287,4 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .fx-pool-v { font-size: 13.5px; font-weight: 600; color: #6d28d9; text-decoration: none; }
 .fx-tags { flex: 1 1 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
 .fx-tags i { font-style: normal; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.fx-pool-t { flex: 1 1 100%; margin: 2px 0 0; font-size: 12px; line-height: 1.5; color: #6b5a9a; }
