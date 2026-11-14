@@ -47,6 +47,7 @@
     if (!data.open) { box.innerHTML = '<p class="fx-closed">⏳ 还没开放。开放时会在这里直接能玩，不用做任何准备。</p>'; ["fx-draws", "fx-mine", "fx-done"].forEach(function (i) { if (el(i)) el(i).hidden = true; }); return; }
     var me = data.me, have = left(), v2 = !!data.v2; /* v2 = 新规则已生效（接口说了算） */
     var oldOn = v2 && (data.left1 > 0 || data.tk > 0 || data.carry > 0), myOld = v2 && me && me.left1 > 0; /* 还有没有老票在用 */
+    var oldMine = myOld || !!(v2 && me && (me.bets || []).some(function (x) { return x.st === "wait" && x.r === data.r && x.n > (x.n2 || 0); })); /* 我手里有老票 / 这一期押了老票：才给我看老奖池那一行 */
     if (!data.multi && picks.length > 1) picks = picks.slice(0, 1);
     if (qty > maxPer()) qty = Math.max(1, maxPer());
     if (ruleV2 !== v2) { ruleV2 = v2; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
@@ -56,14 +57,16 @@
       (data.trial ? '<p class="fx-trial">🧪 预览演示：还没正式开始，现在下注<b>不发奖</b>，只用来看页面。</p>' : "") +
       '<div class="fx-hero"><p class="fx-t">本期 <b>' + at(data.r) + '</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>' +
       (v2 ? '<p class="fx-pot">猜中每张票发 <b>1.9 DAI</b></p><p class="fx-pot2">压 1 张票（1 DAI），猜中拿回本金 1 再赚 0.9 · 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
-          (oldOn ? '<p class="fx-res">老票（规则调整前买的）还按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
+          (oldOn && oldMine ? '<p class="fx-res">你的老票（规则调整前买的）按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
         : data.res && SHOW_RES
           ? '<p class="fx-pot">资金池 <b>' + money(data.res.dai) + " DAI</b></p>" +
             '<p class="fx-pot2">本期已压 ' + data.tk + " 票 · 本期可分 <b>" + money(data.pot) + " DAI</b>" + (data.carry > 0 ? "（含前面滚过来的 " + money(data.carry) + "）" : "") + "</p>" +
             '<p class="fx-res">资金池是<a href="#/scan/' + data.pool + '">链上实际余额</a>' + (data.res.ail > 0 ? "（另有 " + data.res.ail.toFixed(4) + " AiLGNS）" : "") + "。猜中的人按票数分「本期可分」那部分，不是分整个资金池。已卖出、还没下注的票有 <b>" + Number(data.left || 0).toLocaleString("en-US") + "</b> 张。</p>"
           : '<p class="fx-pot">本期奖池 <b>' + money(data.pot) + " DAI</b></p>" +
             '<p class="fx-pot2">' + (data.carry > 0 ? "其中 " + money(data.carry) + " DAI 是前面没人猜中滚过来的 · " : "") + "已压 " + data.tk + " 票</p>") +
-      (v2 && data.res && SHOW_RES ? '<p class="fx-res">💰 资金池里现在有 <b>' + money(data.res.dai) + " DAI</b>" + (data.res.ail > 0 ? " + " + data.res.ail.toFixed(4) + " AiLGNS" : "") + '（<a href="#/scan/' + data.pool + '">链上实际余额</a>）' + (v2 ? "，用来给猜中的人发奖" : "") + "。已卖出、还没下注的票有 <b>" + Number(data.left || 0).toLocaleString("en-US") + "</b> 张" + (v2 ? "。" : "：谁下注，谁的票才进当期奖池。") + "</p>" : "") + "</div>" +
+      (v2 && data.res && SHOW_RES ? '<div class="fx-pool"><span class="fx-pool-l">💰 资金池</span><b class="fx-pool-n">' + money(data.res.dai) + ' DAI</b>' +
+        '<a class="fx-pool-v" href="#/scan/' + data.pool + '">🔗 链上验证 ›</a>' +
+        '<div class="fx-tags"><i>✅ 全额兑付</i><i>⚡ 中奖自动发 · 几分钟到账</i></div></div>' : "") + "</div>" +
       '<div class="fx-me">' + (!acct ? '还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>'
         : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "")
         : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"

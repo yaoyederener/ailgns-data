@@ -4279,3 +4279,11 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 
 /* ⚡ 极速页：多选数字时的提示 */
 .fx-mn { margin: 6px 0 0; } .fx-mn b { color: #b45309; }
+
+/* ⚡ 极速页：资金池卡（只写金额 + 链上验证 + 标签；站长 2026-11-14） */
+.fx-pool { margin: 12px 0 0; padding: 12px 14px; border-radius: 14px; background: #f6f2ff; border: 1.5px solid #d9ccff; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px; text-align: center; }
+.fx-pool-l { font-size: 14px; color: #4c3d80; }
+.fx-pool-n { font-size: 26px; font-weight: 800; color: #b45309; font-variant-numeric: tabular-nums; }
+.fx-pool-v { font-size: 13.5px; font-weight: 600; color: #6d28d9; text-decoration: none; }
+.fx-tags { flex: 1 1 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
+.fx-tags i { font-style: normal; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
