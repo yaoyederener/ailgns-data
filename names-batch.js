@@ -99,10 +99,10 @@
     if (mode === "tk") {
       // 🎟 极简买票：只有一件事——选买多少票。1 张票 = 1 DAI；买票 = 注册域名（5 DAI 一个 = 5 张票），域名系统随机挑、归客户
       var TK = [10, 20, 50, 100], cur = 10;
-      p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">买多少张票？<b>1 张票 = 1 DAI</b>。买票就是注册域名（5 DAI 一个 = 5 张票），域名归你。</p>' +
-        '<div class="nb-qc">' + TK.map(function (k) { return '<button type="button" data-n="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + k + " 票<small>" + k + " DAI</small></button>"; }).join("") + "</div>" +
-        '<div class="nb-tkc"><span>或者自己填</span><input id="nb-tkn" type="number" min="10" max="250" step="5" inputmode="numeric" placeholder="比如 35"><span>张</span><button type="button" class="nm-go" id="nb-tkgo">确定</button></div>' +
-        '<p class="muted nb-tkh" id="nb-tkh">一个域名 5 张票，所以按 5 张一档；最少 10 张，一次最多 250 张，想多买可以再买一次。</p></div>';
+      p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">花多少 DAI 买票？<b>1 DAI = 1 张票</b>。买票就是注册域名（5 DAI 一个 = 5 张票），域名归你。</p>' +
+        '<div class="nb-qc">' + TK.map(function (k) { return '<button type="button" data-n="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + k + " DAI<small>" + k + " 张票</small></button>"; }).join("") + "</div>" +
+        '<div class="nb-tkc"><span>或者自己填</span><input id="nb-tkn" type="number" min="10" max="250" step="5" inputmode="numeric" placeholder="比如 35"><span>DAI</span><button type="button" class="nm-go" id="nb-tkgo">确定</button></div>' +
+        '<p class="muted nb-tkh" id="nb-tkh">一个域名 5 DAI，所以按 5 DAI 一档；最少 10 DAI，一次最多 250 DAI，想多买可以再买一次。</p></div>';
       var roll = function () {
         if (busy) return;
         p.querySelectorAll(".nb-qc button").forEach(function (b) { b.classList.toggle("on", Number(b.getAttribute("data-n")) === cur); b.disabled = true; });
@@ -120,7 +120,7 @@
         var v = Math.floor(Number(tkn.value));
         if (!(v > 0)) { tkh.textContent = "填一个数字，比如 35。"; return; }
         var k = Math.min(250, Math.max(10, Math.ceil(v / 5) * 5)); // 一个域名 5 张：往上凑到 5 的倍数；最少 2 个域名；最多 50 个域名
-        tkh.textContent = k === v ? "好，买 " + k + " 张。" : v > 250 ? "一次最多 250 张，先按 250 张挑；想多买可以再买一次。" : v < 10 ? "最少 10 张（2 个域名），按 10 张挑。" : "一个域名 5 张票，" + v + " 张凑成 " + k + " 张。";
+        tkh.textContent = k === v ? "好，花 " + k + " DAI 买 " + k + " 张票。" : v > 250 ? "一次最多 250 DAI，先按 250 DAI 挑；想多买可以再买一次。" : v < 10 ? "最少 10 DAI（2 个域名），按 10 DAI 挑。" : "一个域名 5 DAI，" + v + " DAI 凑成 " + k + " DAI。";
         tkn.value = k; cur = k; roll();
       };
       document.getElementById("nb-tkgo").onclick = custom;
