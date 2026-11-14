@@ -311,9 +311,17 @@
     if (!eth || !eth.request) return Promise.resolve(false);
     var chainId = "0x" + (6714).toString(16);
     return eth.request({ method: "wallet_getCapabilities", params: [account] }).then(function (cap) {
-      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); if (!c || !(c.atomicBatch && c.atomicBatch.supported) && !c.atomic) return false;
+      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); /* 钱包「能不能一次确认发多笔」：新写法是 atomic: { status: "supported" | "ready" | "unsupported" }。以前只看有没有 atomic 这一项，写着 unsupported 的也当成支持，钱包就报「不支持原子操作」（2026-11-15 一键做市客户截图） */
+      var okB = !!c && !!((c.atomicBatch && c.atomicBatch.supported) || c.atomic === true || (c.atomic && (c.atomic.status === "supported" || c.atomic.status === "ready" || c.atomic.supported === true)));
+      if (!okB) return false;
       say("钱包支持一次确认发 " + calls.length + " 笔，请在钱包确认一次");
-      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) {
+      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) { return { id: id }; }, function (e) {
+        /* 钱包当场拒收这种发法（还没发出任何交易）：不是客户自己点的取消，就退回「一张一张确认」，别让客户卡死 */
+        if (e && (e.code === 4001 || /user reject|user denied|rejected the request|cancel/i.test(String((e && e.message) || e)))) throw e;
+        return { no: 1 };
+      }).then(function (r) {
+        if (r.no) { say("钱包不能一次发多笔，改成一张一张确认"); return false; }
+        var id = r.id;
         var bid = typeof id === "string" ? id : (id && id.id);
         say("已提交，等待链上确认…");
         return new Promise(function (ok, no) { var n = 0; (function poll() { eth.request({ method: "wallet_getCallsStatus", params: [bid] }).then(function (st) { var s = st && (st.status || st.state); if (s === 200 || s === "CONFIRMED" || s === "success") return ok(true); if (s >= 400 || s === "FAILED" || s === "failure") return no(new Error("打包交易失败")); if (++n > 120) return no(new Error("等待超时")); setTimeout(poll, 2000); }, no); })(); });
