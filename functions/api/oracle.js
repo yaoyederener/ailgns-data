@@ -9,7 +9,7 @@ import { pushInbox } from "../../lib/inbox.js";
 const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 站长站内信（谷歌社交账号钱包），和工单后台同一个
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const admOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY)); // 后台只用工单口令（站长：只留一个口令）
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, normG, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -107,13 +107,13 @@ export async function onRequestGet(ctx) {
         const keys = [...new Set([el.key, a].filter(Boolean))];
         const rows = await Promise.all(days.map(async (d0) => {
           const [gs, r] = await Promise.all([Promise.all(keys.map((k) => kv.get("or:g:" + d0 + ":" + k, "json"))), kv.get("or:res:" + d0, "json")]);
-          const g = gs.find((x) => x && x.a === a && x.ps && x.ps.length); /* 只认这个钱包自己填的（名字转过手的不算） */
+          const g = normG(gs.find((x) => x && x.a === a && x.ps && x.ps.length), d0); /* 只认这个钱包自己填的（名字转过手的不算） */
           return g ? { day: d0, ps: g.ps.map((x) => fmtP(x[0], d0)), px: r && r.px ? fmtP(r.px, d0) : "" } : null;
         }));
         out.me.hist = rows.filter(Boolean);
       } catch (e) { out.me.hist = []; }
       if (el.ok) {
-        const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
+        const q = await quota(kv, a, name, round), mine = normG(await kv.get("or:g:" + round + ":" + el.key, "json"), round);
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0], round)) : [], taken: !!(mine && mine.a !== a) };
         const gtx = await kv.get("or:gtx:" + round + ":" + a, "json"); out.me && (out.me.chain = gtx || null);
         const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
@@ -224,7 +224,7 @@ export async function onRequestPost(ctx) {
   if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + "（或这个钱包）已经领过奖，不能再参加。想继续玩：用一个新钱包，买新的 🌟 创世 .ailgns 域名设为主名字" }, 400);
   if (!el.ok) return json({ error: "还没有参加资格：主名字是创世 .ailgns 域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，满足其一就能参加" }, 400);
   const name = el.name || a.slice(0, 6) + "…" + a.slice(-4); // 没有域名、靠 OTC 成交参加的，用短地址显示
-  const key = "or:g:" + round + ":" + el.key, mine = (await kv.get(key, "json")) || { a, name, ps: [] };
+  const key = "or:g:" + round + ":" + el.key, mine = normG(await kv.get(key, "json"), round) || { a, name, ps: [] };
   if (mine.a !== a) return json({ error: name + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次" }, 400);
   // 防刷 ①：一个钱包一轮只认一个名字（换主名字不给新额度）
   const lk = await kv.get("or:w:" + round + ":" + a);
@@ -241,6 +241,7 @@ export async function onRequestPost(ctx) {
   const t = Date.now();
   fresh.forEach((p) => mine.ps.push([Math.round(Number(p) * sc), t]));
   mine.tier = q.tier; if (chainSubmit) mine.tx = chainSubmit.tx;
+  if (dec === 4) mine.sc = 10000; /* 4 位小数的轮次：记上「已经是 ×10000」，读的时候不再补 0 */
   await kv.put(key, JSON.stringify(mine), { expirationTtl: 400 * 86400 });
   if (!lk) await kv.put("or:w:" + round + ":" + a, el.key, { expirationTtl: 3 * 86400 });
   return json({ ok: true, round, name, ps: mine.ps.map((x) => fmtP(x[0], round)), left: q.n - mine.ps.length });
