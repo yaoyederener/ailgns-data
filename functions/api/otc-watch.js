@@ -160,6 +160,55 @@ async function recordTrades(m, kv, logs, cache) {
     await kv.put(key, "1");
   }
 }
+// 🧹 一键扫单的成交补记到客户本人名下（客户 2026-11-14：扫单买卖好几次，不显示交易记录、也没送会员）
+// 原因：扫单是客户 → 扫单合约 → OTC，链上「吃单的人」是扫单合约，上面三套记账（排行榜 / 会员 / 成交记录）都记到了合约头上。
+// 这里单独扫一遍「吃单的人 = 扫单合约」的成交，按发起这笔交易的钱包（tx.from）记给客户：以前的一段段补，新的每轮跟上。
+// 会员门槛：一次扫单的几笔合起来满 50 DAI 就算（扫单是客户的一次操作，不按拆出来的小笔算）。每笔交易只记一次（otcs:<交易哈希>）。
+const SWEEP_FROM = 18213000, SWEEP_MK = { ailgns: 1, lgns: 1, glgns: 1 }; /* 扫单合约最早的成交在 18213818 */
+async function sweepCredit(m, kv, upto, cache) {
+  if (!SWEEP_MK[m.key]) return null;
+  const sk = m.kv + "sw:scan", t0 = Date.now(), chain = m.chain.toLowerCase();
+  let b = parseInt((await kv.get(sk)) || String(SWEEP_FROM - 1), 10) + 1, n = 0;
+  for (let i = 0; i < 12 && b <= upto && Date.now() - t0 < 8000; i++) {
+    const to = Math.min(upto, b + 4999);
+    const logs = await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED, null, "0x" + SWEEP_ROUTER.slice(2).padStart(64, "0")] }]);
+    const byTx = {};
+    for (const l of logs) (byTx[l.transactionHash] = byTx[l.transactionHash] || []).push(l);
+    for (const h of Object.keys(byTx)) {
+      const key = "otcs:" + h;
+      if (await kv.get(key)) continue;
+      const t = await rpc(m, "eth_getTransactionByHash", [h]), real = t && t.from ? String(t.from).toLowerCase() : "";
+      if (!real || real === SWEEP_ROUTER || real === MATCHER) { await kv.put(key, "1"); continue; }
+      const bn = parseInt(byTx[h][0].blockNumber, 16), ts = await blockTime(m, bn), recs = [];
+      let vol = 0, id0 = 0;
+      for (const l of byTx[h]) {
+        const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data);
+        const gd = o.sell ? m.dec : 18, wd = o.sell ? 18 : m.dec, amount = num(d[0], gd), paid = num(d[1], wd);
+        const qty = o.sell ? amount : paid, dai = o.sell ? paid : amount;
+        vol += fillDai(m, o, d); id0 = id0 || id;
+        recs.push({ m: m.key, id, t: ts, tx: h, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker: real, makerSide: o.sell ? "卖" : "买", sweep: 1 });
+      }
+      const r = (await kv.get("otct:" + real, "json")) || { id: id0, tx: h, block: bn, chain };
+      r.vol = (r.vol || 0) + vol; r.n = (r.n || 0) + recs.length;
+      await kv.put("otct:" + real, JSON.stringify(r));
+      await addVol(kv, { [real]: [vol, recs.length] });
+      if (vol >= VIP_MIN_FILL) {
+        const q = (await kv.get("otcq:" + real, "json")) || { id: id0, tx: h, block: bn, chain };
+        q.vol = (q.vol || 0) + vol; q.n = (q.n || 0) + 1;
+        await kv.put("otcq:" + real, JSON.stringify(q));
+        await addHonor(kv, { [real]: [vol, 1] }, upto - bn < 3000); /* 刚发生的算进当月榜，补记以前的只进总榜 */
+      }
+      const list = (await kv.get("tr:" + real, "json")) || [];
+      for (const rec of recs) if (!list.some((x) => x.tx === rec.tx && x.id === rec.id && x.m === rec.m)) list.push(rec);
+      list.sort((x, y) => (y.t || 0) - (x.t || 0));
+      await kv.put("tr:" + real, JSON.stringify(list.slice(0, TR_MAX)));
+      await kv.put(key, "1"); n++;
+    }
+    await kv.put(sk, String(to));
+    b = to + 1;
+  }
+  return { to: b - 1, n };
+}
 // 指导价素材：新成交的单价 ÷ 现在的 DEX 市价，按挂单方向记进 gp:<市场>（最近 30 笔）
 async function recordGuide(m, kv, logs, cache) {
   if (m.nft || !m.pair) return;
@@ -543,6 +592,7 @@ export async function onRequestGet(ctx) {
     }
   }
   let sent = 0, failed = 0, skipped = 0;
+  const sweep = {};
   await timed("inbox", 20000, () => pushMany(kv, msgs, "otc")); // 🔔 先写站内信（不依赖 DeBox）
   // 先记账、存进度，再发 DeBox 私信：后面哪一步卡了，这一轮读到的东西也不会白读
   for (const [m, logs, cache, from, latest] of done) {
@@ -553,6 +603,7 @@ export async function onRequestGet(ctx) {
       ]);
     });
     await kv.put(m.kv + "block", String(latest));
+    if (SWEEP_MK[m.key] && Date.now() - T0 < 65000) sweep[m.key] = await timed("sweep:" + m.key, 10000, () => sweepCredit(m, kv, latest, cache)); /* 🧹 扫单成交记到客户本人名下 */
     if (Date.now() - T0 < 60000) await timed("fill:" + m.key, 12000, async () => { /* 补历史数据：不急，时间不够就下轮 */
       await backfillTrades(m, kv, from - 1, cache).catch(() => {});
       if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
@@ -587,5 +638,5 @@ export async function onRequestGet(ctx) {
   const pixel = await timed("pixel", 10000, () => rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
-  return Response.json({ status, ms: Date.now() - T0, stage, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
+  return Response.json({ status, ms: Date.now() - T0, stage, sweep, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }
