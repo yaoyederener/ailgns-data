@@ -74,7 +74,7 @@
         '<div class="nb-cand" id="nb-cand"></div>' +
         '<div class="nb-foot"><div class="nb-sum" id="nb-sum"></div><button type="button" class="nm-go" id="nb-go" disabled>付款</button><button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button></div><p class="muted nb-botst" id="nb-botst"></p>' +
         '<p class="muted nb-st" id="nb-st"></p>' +
-        '<p class="muted nb-note">自己点付款：买完票马上能用。交给机器人代点：机器人注册完（一般几分钟）票才到。只用 DAI 付。</p></div>';
+        '<p class="muted nb-note">自己点付款：买完票马上能用。交给机器人代点：一般一分钟左右注册完，注册完票就能用。只用 DAI 付。</p></div>';
       document.body.appendChild(box);
       document.getElementById("nb-x").onclick = function () { if (busy && !confirm("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
       pane(); drawCand();
@@ -87,7 +87,7 @@
       '<div class="nb-cand" id="nb-cand"></div>' +
       '<div class="nb-foot"><div class="nb-sum" id="nb-sum">还没选</div><button type="button" class="nm-go" id="nb-go" disabled>注册选中的</button><button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button></div><p class="muted nb-botst" id="nb-botst"></p>' +
       '<p class="muted nb-st" id="nb-st"></p>' +
-      '<p class="muted nb-note">便宜档 <b>5 DAI / 年</b>：中文 3 字及以上、英文数字 5 位及以上。3 位英文 640、4 位 160、中文 2 字 50。批量只用 DAI 付，先授权一次总额，再逐个注册；钱包支持「一次确认」的只按一次，否则一个名字按一下，中途停了已注册的照样有效。<br>🤖 <b>交给机器人代点</b>：你只确认 2 次（授权这次的总额 + 签名委托），团队的机器人几分钟内替你逐个注册，名字直接归你；被人抢先的名字不扣钱。结果发到站内信。</p></div>';
+      '<p class="muted nb-note">便宜档 <b>5 DAI / 年</b>：中文 3 字及以上、英文数字 5 位及以上。3 位英文 640、4 位 160、中文 2 字 50。批量只用 DAI 付，先授权一次总额，再逐个注册；钱包支持「一次确认」的只按一次，否则一个名字按一下，中途停了已注册的照样有效。<br>🤖 <b>交给机器人代点</b>：你只确认 2 次（授权这次的总额 + 签名委托），团队的机器人一般一分钟左右替你逐个注册完，名字直接归你；被人抢先的名字不扣钱。结果发到站内信。</p></div>';
     document.body.appendChild(box);
     document.getElementById("nb-x").onclick = function () { if (busy && !confirm("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
     box.querySelectorAll(".nb-seg button").forEach(function (b) { b.onclick = function () { mode = b.getAttribute("data-m"); box.querySelectorAll(".nb-seg button").forEach(function (x) { x.classList.toggle("on", x === b); }); pane(); }; });
@@ -220,7 +220,7 @@
     if (simple) el.innerHTML = n ? "共 <b>" + t + " DAI</b> = <b>" + t + "</b> 张票" : "";
     go.disabled = !n || busy; go.innerHTML = n ? (simple ? "付 " + t + " DAI 买 " + t + " 张票" : "自己点：注册这 " + n + " 个（" + t + " DAI）") + "<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : simple ? "付款" : "注册选中的";
     go.onclick = run;
-    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.innerHTML = n ? "🤖 交给机器人代点<small>钱包只确认 2 次（授权 1 次 + 签名 1 次），几分钟内替你注册完</small>" : "🤖 交给机器人代点"; bt.onclick = robot; }
+    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.innerHTML = n ? "🤖 交给机器人代点<small>钱包只确认 2 次（授权 1 次 + 签名 1 次），一般一分钟左右替你注册完</small>" : "🤖 交给机器人代点"; bt.onclick = robot; }
   }
   // ---------- 🤖 机器人代点：客户授权 DAI 给机器人钱包 + 签名委托，机器人用客户的钱替客户注册（名字直接归客户） ----------
   var REG = "0x21425f852a1e0fb798fb9ebeb288def27bc0f2d1"; // 代注册机器人钱包（只放 Gas）
@@ -230,15 +230,39 @@
     var h = H(), el = document.getElementById("nb-botst"); if (!el || !h.account()) return;
     fetch("/api/reg-order?a=" + h.account()).then(function (r) { return r.json(); }).then(function (j) {
       var l = (j && j.list) || [], p = l.filter(function (o) { return o.state === "pending"; });
-      el.innerHTML = p.length ? "🤖 机器人正在处理你的 <b>" + p.reduce(function (s, o) { return s + o.names.length; }, 0) + "</b> 个名字，几分钟内完成，结果发<a href=\"#/inbox\">站内信</a>" : "";
+      el.innerHTML = p.length ? "🤖 机器人正在处理你的 <b>" + p.reduce(function (s, o) { return s + o.names.length; }, 0) + "</b> 个名字，一般一分钟左右完成，结果发<a href=\"#/inbox\">站内信</a>" : "";
     }).catch(function () {});
+  }
+  // 下单后盯着这张委托：每 5 秒看一次，机器人注册完就提示；买成 2 个及以上 → 记一笔「刚买的票」，极速页马上能押（和自己点付款一样）
+  function watchOrder(id, a, base, t0) {
+    var myBox = box, wasSimple = simple;
+    (function tick() {
+      if (!box || box !== myBox || Date.now() - t0 > 600000) return; /* 窗口关了 / 等了 10 分钟：不盯了，结果看站内信 */
+      fetch("/api/reg-order?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+        var o = ((j && j.list) || []).filter(function (x) { return x.id === id; })[0];
+        if (!o || o.state !== "done") { if (o) say("🤖 机器人正在替你注册 " + o.names.length + " 个名字…已等 " + Math.round((Date.now() - t0) / 1000) + " 秒（一般一分钟左右）"); return setTimeout(tick, 5000); }
+        var done = o.done || [], fail = o.fail || [], tk = done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false;
+        if (tk && base !== null) {
+          try {
+            var me0 = String(a).toLowerCase(), old = JSON.parse(localStorage.getItem("fx:pend") || "null");
+            var from = old && old.a === me0 && Date.now() - old.t < 180000 ? Math.max(old.target, base) : base;
+            localStorage.setItem("fx:pend", JSON.stringify({ a: me0, target: from + tk, n: tk, t: Date.now() })); quick = true;
+          } catch (e1) { /* 存不了就照常等账本 */ }
+        }
+        say((done.length ? "✅ 机器人注册好了 " + done.length + " 个" + (wasSimple ? "" : "：" + done.join("、")) + "。" : "机器人没注册成。") + (tk ? tk + " 张极速票" + (quick ? "已到账，现在就能去押。" : "大约半分钟到账。") : done.length === 1 ? "只成了 1 个，还没有票；10 分钟内再注册 1 个，两个的票一起到。" : "") + (fail.length ? " 没成功 " + fail.length + " 个（没扣钱）：" + fail.join("、") : ""), !done.length);
+        var el2 = document.getElementById("nb-botst"); if (el2) el2.innerHTML = "";
+        var b = document.getElementById("nb-go");
+        if (b && done.length) { b.textContent = wasSimple && tk ? "去押注 →" : "去看我的域名 →"; b.disabled = false; b.onclick = function () { box.remove(); box = null; location.hash = wasSimple && tk ? "#/fast" : "#/names/" + a; }; }
+      }, function () { setTimeout(tick, 5000); });
+    })();
   }
   function robot() {
     var h = H(), names = list(); if (!names.length || busy) return;
     busy = true; sum();
-    var t = total(), wei = BigInt(t) * 10n ** 18n, a;
+    var t = total(), wei = BigInt(t) * 10n ** 18n, a, base = null; /* base = 下单前账本上我还有几张极速票（读不到就不做「注册完马上能押」） */
     h.connect().then(function () {
       a = h.account();
+      try { fetch("/api/fast?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响下单 */ }
       return Promise.all([h.balance(h.DAI), h.allowance(h.DAI, REG)]);
     }).then(function (r) {
       if (r[0] < wei) throw new Error("DAI 不够：要 " + t + " DAI，钱包只有 " + (Number(r[0] / 10n ** 16n) / 100));
@@ -253,8 +277,9 @@
     }).then(function (j) {
       if (!j || j.error) throw new Error((j && j.error) || "提交失败");
       picked = {}; drawCand();
-      say("✅ 已交给机器人：" + names.length + " 个名字，共 " + t + " DAI。几分钟内替你注册完，名字直接到你钱包；被抢先的不扣钱。结果发站内信 📬");
+      say("✅ 已交给机器人：" + names.length + " 个名字，共 " + t + " DAI。一般一分钟左右替你注册完，名字直接到你钱包；被抢先的不扣钱。结果发站内信 📬");
       botStatus();
+      watchOrder(j.id, a, base, Date.now());
     }).catch(function (e) { say(String((e && e.message) || e), true); }).then(function () { busy = false; sum(); });
   }
   // ---------- 注册 ----------
