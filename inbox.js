@@ -42,12 +42,15 @@
     el.setAttribute("data-k", k);
     el.innerHTML = '<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来' + (n > 1 ? " " + n + " 条" : "一条") + "私信</b><small>" + (txt ? esc(txt.slice(0, 40)) + (txt.length > 40 ? "…" : "") : "点开用钱包签个名就能看（免费）") + '</small></span><span class="fb-pill-go">查看 ›</span>';
   }
+  /* 气泡记在本机：一打开网站先按上次查到的显示，后台再核对一遍（已读了就马上收起） */
+  function pillSave(n, txt) { try { var a = getAcct(); if (a) localStorage.setItem("ib:pill", JSON.stringify({ a: a, n: n || 0, txt: txt || "", t: Date.now() })); } catch (e) { /* 存不上不要紧 */ } }
+  function pillCached() { try { var c = JSON.parse(localStorage.getItem("ib:pill") || "null"); if (c && c.n > 0 && c.a === getAcct() && Date.now() - c.t < 7 * 86400e3) pill(c.n, c.txt || ""); } catch (e) { /* 读不到就等网络 */ } }
   // 没签名：只问未读数（不含内容）
   function count() {
     var a = getAcct(); if (!a || auth || document.hidden) return Promise.resolve(null);
     return fetch("/api/inbox?n=" + a).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || j.error) return null;
-      badge(j.unread); pill(j.dm, "");
+      badge(j.unread); pill(j.dm, ""); pillSave(j.dm, "");
       var c = document.getElementById("ib-cnt"); if (c) c.textContent = j.unread ? "🔴 钱包 " + A.short(a) + " 有 " + j.unread + " 条未读通知，签名后就能看" : "";
       return j;
     }).catch(function () { return null; });
@@ -59,7 +62,8 @@
       if (j.error) { if (/过期/.test(j.error)) logout(false); return null; }
       badge(j.unread);
       var dms = j.list.filter(function (x) { return x.t > j.seen && String(x.txt).indexOf(DM) === 0; });
-      pill(dms.length, dms.length ? String(dms[0].txt).split("\n").slice(1).join(" ") : "");
+      var dmTxt = dms.length ? String(dms[0].txt).split("\n").slice(1).join(" ") : "";
+      pill(dms.length, dmTxt); pillSave(dms.length, dmTxt);
       var top = j.list.length ? j.list[0].t : 0;
       var hasPush = false; try { hasPush = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
       if (!hasPush && lastMax && top > lastMax && "Notification" in window && Notification.permission === "granted") {
@@ -140,7 +144,7 @@
     if (openSeen === null) openSeen = j.seen;
     var fresh = j.list.filter(function (x) { return x.t > openSeen; }).length;
     var un = document.getElementById("ib-un"); if (un) un.textContent = fresh ? fresh + " 条新消息" : "";
-    pill(0);
+    pill(0); pillSave(0, ""); /* 点开收件箱就算看过：本机记的气泡也清掉，下次打开不再闪一下 */
     if (j.unread && !document.hidden) { badge(0); markSeen(); }
     if (box.querySelector(".ib-rbox")) return; // 正在写回复：不刷新列表，免得字被清掉
     shown = j.list;
@@ -241,11 +245,16 @@
     txGo(h, 0);
   }
   // 开站就拉一次，之后按节奏；没签名的先悄悄问一下钱包地址（不弹窗），只为了让铃铛亮未读数
+  if (!PAUSED) { try { pillCached(); } catch (e) { /* 忽略 */ } }
   if (!PAUSED) setTimeout(function () {
     try { txq().forEach(function (x) { txGo(x.h, 0); }); } catch (e) {}
     if (auth || getAcct()) { pull(onInbox() ? paint : null); schedule(); return; }
     try { if (W.silent) W.silent().then(function (a) { if (a) setAcct(a); }).catch(function () {}); } catch (e) {}
-  }, 1500);
+  }, 150);
+  var lastWake = 0;
+  function wake() { try { if (PAUSED || document.hidden || Date.now() - lastWake < 5000 || (!auth && !getAcct())) return; lastWake = Date.now(); pull(onInbox() ? paint : null); } catch (e) { /* 查不了就等下一轮 */ } }
+  document.addEventListener("visibilitychange", wake);
+  window.addEventListener("focus", wake);
   window.addEventListener("hashchange", function () { if (!onInbox()) openSeen = null; else pill(0); schedule(); });
   A.inbox = { login: function (b) { return login(b); }, authed: function () { return !!auth; }, tx: tx, acct: setAcct };
 })();
