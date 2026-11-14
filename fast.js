@@ -23,12 +23,19 @@
   }
 
   function left() { return data && data.me ? data.me.left : 0; }
+  /* 这一期我最多还能押几张：老票不限；新票每个钱包每期最多 cap2 张（站长 2026-11-14 定 100），已经押过的要扣掉 */
+  function maxQ() {
+    var me = data && data.me; if (!me) return 0;
+    if (!data.v2 || !data.cap2) return me.left;
+    var used = (me.bets || []).reduce(function (t, x) { return t + (x.st === "wait" && x.r === data.r ? (x.n2 || 0) : 0); }, 0);
+    return (me.left1 || 0) + Math.min(me.left2 || 0, Math.max(0, data.cap2 - used));
+  }
   function paint() {
     var box = el("fx-main"); if (!box || !data) return;
     if (!data.open) { box.innerHTML = '<p class="fx-closed">⏳ 还没开放。开放时会在这里直接能玩，不用做任何准备。</p>'; ["fx-draws", "fx-mine", "fx-done"].forEach(function (i) { if (el(i)) el(i).hidden = true; }); return; }
     var me = data.me, have = left(), v2 = !!data.v2; /* v2 = 新规则已生效（接口说了算） */
     var oldOn = v2 && (data.left1 > 0 || data.tk > 0 || data.carry > 0), myOld = v2 && me && me.left1 > 0; /* 还有没有老票在用 */
-    if (qty > have) qty = Math.max(1, have);
+    if (qty > maxQ()) qty = Math.max(1, maxQ());
     if (ruleV2 !== v2) { ruleV2 = v2; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
     var grid = "";
     for (var d = 0; d < 10; d++) grid += '<button type="button" class="fx-d' + (d === pick ? " on" : "") + '" data-d="' + d + '"><b>' + d + "</b><i>" + (data.by[d] ? data.by[d] + " 票" : "还没人压") + "</i></button>";
@@ -105,7 +112,8 @@
     var have = left();
     if (have <= 0) { location.hash = "#/names"; return; }
     if (pick < 0) return say("先在上面点一个数字。", true);
-    var n = Math.min(qty, have), d = pick;
+    if (data.v2 && maxQ() <= 0) return say("这一期你已经押满 " + data.cap2 + " 张了，每个钱包每期最多押 " + data.cap2 + " 张。等下一期再押。", true);
+    var n = Math.min(qty, have, Math.max(1, maxQ())), d = pick;
     if (!window.confirm("确定压 " + n + " 张票，猜 " + d + " 吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 猜中平分奖池；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回")) return;
     var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + d + ":" + n) };
     busy = true; betLabel(); say("请在钱包里点「确认」（显示转账 0 DAI 是正常的）");
@@ -128,7 +136,7 @@
       '<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p>';
     return '<h2>规则一共七条</h2><ol class="bn-rules">' +
       "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
-      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。</span></li>" +
+      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
       "<li><b>猜中发多少</b><span>每张票发 1.9 DAI：拿回本金 1 DAI，再赚 0.9 DAI。压 5 张猜中就是 9.5 DAI。不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
       "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后几分钟内自动转到你下注的钱包，不用自己领。</span></li>" +
@@ -158,8 +166,8 @@
       if (t.closest("#fx-buy")) { try { sessionStorage.setItem("nm:batch", "1"); } catch (e) { /* 存不了就只是打开域名页，客户自己点批量注册 */ } return; } /* 去买票：到域名页后自动打开批量注册 */
       if (t.closest("#fx-conn")) { say("请在钱包里点「连接」"); connect().then(function () { say(""); }, function (e) { say((e && e.message) || "钱包没连上", true); }); return; }
       if (t.closest("#fx-minus")) { qty = Math.max(1, qty - 1); betLabel(); return; }
-      if (t.closest("#fx-plus")) { qty = Math.min(Math.max(1, left()), qty + 1); betLabel(); return; }
-      if (t.closest("#fx-all")) { qty = Math.max(1, left()); betLabel(); return; }
+      if (t.closest("#fx-plus")) { qty = Math.min(Math.max(1, maxQ()), qty + 1); betLabel(); return; }
+      if (t.closest("#fx-all")) { qty = Math.max(1, maxQ()); betLabel(); return; }
       if (t.closest("#fx-bet")) bet();
     });
     var go = function () { load(); };
