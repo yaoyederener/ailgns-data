@@ -4270,3 +4270,9 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .nb-tkl i { font-style: normal; display: inline-block; margin: 0 6px 0 0; padding: 0 8px; border-radius: 8px; background: #f1ebff; color: #4c1d95; font-variant-numeric: tabular-nums; }
 .nb-tkl .link { background: none; border: 0; box-shadow: none; padding: 0 2px; color: #6d28d9; font-size: 14px; font-weight: 600; cursor: pointer; }
 .nb-foot .nm-go small { display: block; white-space: normal; line-height: 1.4; }
+
+/* 🎟 买票窗口：自定义票数那一行 */
+.nb-tkc { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; font-size: 14px; color: #3b2a70; }
+.nb-tkc input { width: 96px; padding: 8px 10px; font-size: 16px; border: 1.5px solid #d9ccff; border-radius: 10px; background: #fff; }
+.nb-tkc .nm-go { width: auto; padding: 8px 16px; font-size: 14px; margin: 0; }
+.nb-tkh { flex: 1 1 100%; margin: 0; font-size: 12.5px; }
