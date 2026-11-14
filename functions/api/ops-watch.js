@@ -7,6 +7,7 @@ import { build as buildAdminStats } from "../../lib/adminstats.js";
 import { build as buildPartner } from "../../lib/partner.js";
 import { TODO } from "../../lib/todo.js";
 import { pushInbox } from "../../lib/inbox.js";
+import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert } from "../../lib/alert.js";
 
 // 📝 站长待办实时推送（站长 2026-11-10：「带优化功能实时滚动推送给我，按当前运营状况推最紧急的」）
 //    清单（lib/todo.js）一有更新就推一次；另外每天北京时间 8 点推一次当日最紧急 5 条。只推到站长自己的收件箱（+ 开了通知的手机 / 电脑），不发客户
@@ -62,6 +63,21 @@ async function matcherWatch(ctx, kv) {
   await kv.put("tk:" + id, JSON.stringify({ id, a: "system", txt, n: 0, t: Date.now(), st: "new", note: "", tri: { ok: true, lv: 2, cat: "资金", topic: "撮合机器人利润", why: "系统自动", dup: 0, ai: false } }), { expirationTtl: 180 * 86400 });
   await kv.put("tk:list", JSON.stringify(((await kv.get("tk:list", "json")) || []).concat(id).slice(-1000)));
   await sendDebox(ctx.env, SUPPORT_USER, txt + "\n\n工单 #" + id + " 👉 https://ailgns.dev/#/feedback/admin", "private").catch(() => {});
+}
+
+// 🚨 站长实时提醒（2026-11-14）：读本站两个公开接口 + 收款钱包余额，够条件就提醒；每一项各管各的，一项读不到不影响别的
+async function ownerWatch(ctx, kv) {
+  const origin = new URL(ctx.request.url).origin, out = [];
+  const fire = async (a) => { if (a && (await alertOwner(ctx.env, kv, a[0], a[1], a[2], a[3]))) out.push(a[0]); };
+  const get = (p) => fetch(origin + p, { signal: AbortSignal.timeout(15000) }).then((r) => r.json());
+  try { const o = await get("/api/oracle"); await fire(jackpotAlert(o)); await fire(dailyPoolAlert(o)); } catch (e) { /* 读不到下一轮再看 */ }
+  try { await fire(fastPoolAlert(await get("/api/fast"))); } catch (e) { /* 同上 */ }
+  try {
+    const call = (m, p) => fetch("https://rpc.anubispace.org", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: m, params: p }), signal: AbortSignal.timeout(10000) }).then((x) => x.json()).then((j) => BigInt(j.result || "0x0"));
+    const [ail, dai, px] = await Promise.all([call("eth_call", [{ to: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", data: "0x70a08231" + OWNER.slice(2).padStart(64, "0") }, "latest"]), call("eth_getBalance", [OWNER, "latest"]), prices()]);
+    await fire(walletAlert(Number(ail) / 1e18, Number(dai) / 1e18, px["AiLGNS（Anubis）"] || 0, new Date(Date.now() + 8 * 3600e3).getUTCHours()));
+  } catch (e) { /* 同上 */ }
+  return out;
 }
 
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
@@ -163,6 +179,7 @@ export async function onRequestGet(ctx) {
   ctx.waitUntil(gasWatch(ctx, kv).catch(() => {}));
   ctx.waitUntil(matcherWatch(ctx, kv).catch(() => {})); // 🤖 撮合利润汇报
   ctx.waitUntil(todoPush(kv).catch(() => {})); // 📝 站长待办推送
+  ctx.waitUntil(ownerWatch(ctx, kv).catch(() => {})); // 🚨 站长实时提醒
   ctx.waitUntil(buildAdminStats(ctx.env, kv, ctx).then(() => buildPartner(ctx.env, kv, ctx)).catch(() => {})); // 🤝 合伙人面板：接着站长面板算（要用它的日表）
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1[&anubisFrom=区块&polygonFrom=区块]：只看汇总的文字，不发、不记进度
   const now = Math.floor(Date.now() / 1000), slot = slotOf(now); // 今天北京 0 点

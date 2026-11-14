@@ -15,6 +15,7 @@ import { addVol } from "../../lib/rank.js";
 import { addHonor } from "../../lib/honor.js";
 import { nmTop } from "../../lib/nmtop.js";
 import { oracleNotify } from "../../lib/ornotify.js";
+import { alertOwner, lagAlert } from "../../lib/alert.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -641,5 +642,9 @@ export async function onRequestGet(ctx) {
   const pixel = await timed("pixel", 10000, () => rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
+  await timed("alert", 8000, async () => { /* 🚨 站长提醒：心跳（看门狗靠它判断机器人断没断）+ 成交通知落后 */
+    await kv.put("hb:watch", String(Date.now()));
+    const la = lagAlert(status); if (la) await alertOwner(ctx.env, kv, la[0], la[1], la[2], la[3]);
+  });
   return Response.json({ status, ms: Date.now() - T0, stage, sweep, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }
