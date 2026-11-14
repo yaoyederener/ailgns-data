@@ -82,8 +82,10 @@
     m.querySelectorAll("[data-pack]").forEach(function (b) { b.onclick = function () { pay(R.packs[+b.getAttribute("data-pack")]); }; });
   }
 
+  var onAcc = null;
+  try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
-    var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "";
+    var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
     A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span></div><div class="fm-top"><h2>开心农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
@@ -116,15 +118,23 @@
         return j;
       });
     }
+    onAcc = function (a) { var x = String((a && a[0]) || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(x) && A.isCurrent(rid)) { walletNow = x; if (sig) stat(); } }; /* 客户在钱包里换了号：顶上马上提醒 */
     function run(a, extra) { return post(a, extra).then(draw, function (e) { toast(e.message, true); if (!sig) draw(); }); }
 
-    function login() {
+    /* sw = true：换钱包。农场认的是「签名进场的那个钱包」，记 6 天；以前换了钱包农场还是原来那个号，也没地方换（客户 2026-11-14 反馈） */
+    function login(sw) {
       var eth, addr;
       A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) {
         addr = String(a[0] || "").toLowerCase();
+        walletNow = addr;
+        if (sw === true && sig && addr === sig.addr) throw new Error("钱包里现在还是这个号 " + A.short(addr) + "。先在钱包 App 里切到你要用的那个账户，再回来点「换钱包」。");
         var day = today();
         return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(signText(addr, day)), addr] }).then(function (s) { sig = { addr: addr, day: day, sig: s }; setSig(sig); });
       }).then(function () { return post("me"); }).then(draw, function (e) { toast((e && e.message) || "钱包没连上", true); });
+    }
+    /* 悄悄问一下钱包现在是哪个号（不弹窗）：和农场的号不一样就在顶上提醒，一点就换 */
+    function checkWallet() {
+      try { if (A.wallets.silent) A.wallets.silent().then(function (a) { if (a && a !== walletNow) { walletNow = a; if (A.isCurrent(rid)) stat(); } }).catch(function () {}); } catch (e) { /* 问不到就算了，不影响农场 */ }
     }
 
     /* 金币变多变少、升级时的小动画：只是好看；出错或手机关了动态效果就跳过，不影响农场 */
@@ -164,8 +174,11 @@
       seenCoins = me.coins; seenLv = lv;
       el.innerHTML = '<div class="fm-hud"><span class="fm-pill fm-gold" id="fm-coins"><i class="fm-coin"></i><b class="num">' + A.fmt(me.coins) + '</b> 金币</span><span class="fm-pill fm-lv">⭐ <b>' + lv + "</b> 级</span>" + (me.paid >= R.king ? '<span class="fm-king">👑 农场主</span>' : "") +
         (cop ? '<span class="fm-dog">👮 ' + (cop > 48 ? Math.round(cop / 24) + " 天" : cop + " 小时") + "</span>" : "") + (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<button type="button" class="fm-pay' + (me.paid ? "" : " first") + '" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
-        '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i><em>经验 ' + me.xp + " / " + hi + '</em></div><small class="fm-sub"><span class="fm-who">' + A.nameTag(sig.addr) + "</span> · 升级解锁更贵的种子" + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>";
+        '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i><em>经验 ' + me.xp + " / " + hi + '</em></div><small class="fm-sub"><span class="fm-who">' + A.nameTag(sig.addr) + '</span> <button type="button" class="fmw-sw" id="fmw-sw">换钱包</button> · 升级解锁更贵的种子' + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>" +
+        (walletNow && walletNow !== sig.addr ? '<div class="fmw-bar">👛 钱包现在是 <b>' + A.short(walletNow) + "</b>，这里还是 <b>" + A.short(sig.addr) + '</b> 的农场。<button type="button" id="fmw-go">进 ' + A.short(walletNow) + " 的农场</button></div>" : "");
       document.getElementById("fm-pay").onclick = payPicker;
+      document.getElementById("fmw-sw").onclick = function () { login(true); };
+      var wg = document.getElementById("fmw-go"); if (wg) wg.onclick = function () { login(true); };
       A.fillNames(el);
       if (d0 || up) fx(d0, up);
     }
@@ -325,7 +338,7 @@
     fetch("/api/farm?list=1").then(function (r) { return r.json(); }).then(function (d) { burned = d.burned || 0; stat(); }).catch(function () {});
     fetch("/api/farm?rules=2", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (r) {
       R = r;
-      if (sig) return post("me").then(draw, function (e) { toast(e.message, true); draw(); });
+      if (sig) { checkWallet(); return post("me").then(draw, function (e) { toast(e.message, true); draw(); }); }
       draw();
     }, function () { out.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>'; });
   }

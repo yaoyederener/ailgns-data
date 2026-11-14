@@ -1,5 +1,5 @@
-window.AIL_NIGHT="dist/night.css?v=hadeb115192";
-window.AIL_BUNDLES={"names":"dist/names.js?v=h7451fac9d0","kchart":"dist/kchart.js?v=h3aa395869e","oracle":"dist/oracle.js?v=h8f92ff8e1c","trade":"dist/trade.js?v=h1a41de62c9","lend":"dist/lend.js?v=h6ec5a27ebd","lp":"dist/lp.js?v=h589427330b","aiswap":"dist/aiswap.js?v=hd25e42a0f9","feedback":"dist/feedback.js?v=h0e101d51fc","games":"dist/games.js?v=hddd67d4aeb","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=hf5848741a6"};
+window.AIL_NIGHT="dist/night.css?v=h7909bb2196";
+window.AIL_BUNDLES={"names":"dist/names.js?v=h7451fac9d0","kchart":"dist/kchart.js?v=h3aa395869e","oracle":"dist/oracle.js?v=h8f92ff8e1c","trade":"dist/trade.js?v=h1a41de62c9","lend":"dist/lend.js?v=h6ec5a27ebd","lp":"dist/lp.js?v=h589427330b","aiswap":"dist/aiswap.js?v=hd25e42a0f9","feedback":"dist/feedback.js?v=h0e101d51fc","games":"dist/games.js?v=ha046f5852d","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=hf5848741a6"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function load(){if(link||!window.AIL_NIGHT)return;link=document.createElement("link");link.rel="stylesheet";link.id="ntm-css";link.href=window.AIL_NIGHT;document.head.appendChild(link);}
@@ -975,5 +975,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hccaaa12d9c";
-/*v:hccaaa12d9c*/
+;window.AIL_CORE="h941a1a6de4";
+/*v:h941a1a6de4*/
