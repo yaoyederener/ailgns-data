@@ -74,7 +74,7 @@
         '<div class="nb-cand" id="nb-cand"></div>' +
         '<div class="nb-foot"><div class="nb-sum" id="nb-sum"></div><button type="button" class="nm-go" id="nb-go" disabled>付款</button><button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button></div><p class="muted nb-botst" id="nb-botst"></p>' +
         '<p class="muted nb-st" id="nb-st"></p>' +
-        '<p class="muted nb-note">票大约 10 分钟后到账，到极速预言家页就能看到。只用 DAI 付。</p></div>';
+        '<p class="muted nb-note">第 2 个域名注册成功后，票大约半分钟到账，到极速预言家页就能看到。只用 DAI 付。</p></div>';
       document.body.appendChild(box);
       document.getElementById("nb-x").onclick = function () { if (busy && !confirm("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
       pane(); drawCand();
