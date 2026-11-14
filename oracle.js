@@ -191,8 +191,8 @@
       (d.funds && d.funds.wallet ? '<a class="or-pwal" href="#/scan/' + d.funds.wallet + '">🏦 查看奖池钱包 ›</a>' : "") +
       (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
       (dly && dly.on ? '<div class="or-prz or-prz2">' +
-        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 整个奖池</u>🔮 神算子</small>' + tile(1) + "</div>" +
-        '<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>' + dly.each + '</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 只花当天进账</s></div>' +
+        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 发完每日前三剩下的</u>🔮 神算子</small>' + tile(potV > 0 ? Math.max(0, potV - dly.each * dly.top) / potV : 0) + "</div>" +
+        '<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>' + dly.each + '</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 从奖池里出</s></div>' +
       "</div>" : '<div class="or-prz">' +
         (d.kings ? '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
         '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" : '<div class="or-pz p3" style="grid-column:1/-1"><small><u class="or-rk">一等奖 · 85%</u>🔮 神算子</small>' + tile(0.85) + "</div>") +
@@ -464,9 +464,9 @@
     var me = d.me, low = y.on && y.each < y.prize;
     return '<section class="card or-daily"><div class="card-head"><h2>🎯 每日前三</h2><span class="muted">' + (y.on ? "今晚每人 " + dai(y.each) : dayCn(y.from) + "开始") + "</span></div>" +
       '<p>每晚揭晓后，<b>离揭晓价最近的 ' + y.top + " 个人各拿 " + y.prize + " DAI</b>（发 AiLGNS），不用等有人猜中大奖，天天发。</p>" +
-      (low ? '<p class="muted">今天进奖池的钱不够 ' + (y.prize * y.top) + " DAI，三个人平分今天的进账，每人 " + dai(y.each) + "。</p>" : "") +
+      (low ? '<p class="muted">奖池里现在不够 ' + (y.prize * y.top) + " DAI，三个人平分奖池里的钱，每人 " + dai(y.each) + "。</p>" : "") +
       (me && me.dcool ? '<p class="or-chg">⏳ 你最近中过每日奖，冷却到 <b>' + dayCn(me.dcool) + "</b>。这几天照样能猜，完全猜中的大奖照拿。</p>" : "") +
-      '<ul class="or-dl"><li>💰 钱只从<b>当天新进奖池的钱</b>里出，<b>大奖池只进不出</b>。</li><li>🔥 领奖先在 3 天内销毁 1 枚创世名，过期算放弃。</li><li>⏳ 中一次休息 ' + y.cool + " 天（只停每日奖），名额顺延给下一位。</li><li>🙅 一个名字、一个钱包每晚只占一个名额；一样近，先提交的得。</li></ul></section>";
+      '<ul class="or-dl"><li>💰 钱从<b>奖池钱包</b>里出；奖池不够时，三个人平分奖池里的钱。发完剩下的才是大奖。</li><li>🔥 领奖先在 3 天内销毁 1 枚创世名，过期算放弃。</li><li>⏳ 中一次休息 ' + y.cool + " 天（只停每日奖），名额顺延给下一位。</li><li>🙅 一个名字、一个钱包每晚只占一个名额；一样近，先提交的得。</li></ul></section>";
   }
   function kingsCard(d, potV) {
     var k = d.kings; if (!k) return "";
@@ -563,7 +563,7 @@
       "<li><b>随时能猜</b>：<b>下午 3 点封卷</b>（11 月 12 日起；11 月 10–11 日是早上 9 点）。下午 3 点前提交的参加当晚揭晓；下午 3 点到晚上 9 点是锁定期（6 小时），这段时间提交的算第二天。</li>" +
       "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
       "<li><b>奖金</b>：奖池的钱由<b>团队注入</b>（2026-11-15 起不再按域名收入自动划转），进了奖池的 DAI 会买成 AiLGNS；页面大字显示的就是奖池钱包的实际余额，有多少发多少。🔮 <b>神算子</b>（价格每一位都猜中）平分大奖池；没人猜中，大奖池继续滚大。</li>" +
-      "<li><b>🎯 每日前三</b>（2026-11-16 起）：每晚揭晓后，除神算子外<b>离揭晓价最近的 3 个人各拿 20 DAI</b>（发 AiLGNS），天天发。钱只从<b>当天新进奖池的钱</b>里出，当天进账不够 60 DAI 就三人平分当天进账；<b>大奖池只进不出</b>。一个名字、一个钱包每晚只占一个名额，一样近先提交的得。中一次休息 7 天（只停每日奖，照样能猜大奖），名额顺延。原来的天眼通、地灵通并进每日前三。</li>" +
+      "<li><b>🎯 每日前三</b>（2026-11-16 起）：每晚揭晓后，除神算子外<b>离揭晓价最近的 3 个人各拿 20 DAI</b>（发 AiLGNS），天天发。钱从<b>奖池钱包</b>里出，奖池不够 60 DAI 就三人平分奖池里的钱；发完剩下的才是大奖。一个名字、一个钱包每晚只占一个名额，一样近先提交的得。中一次休息 7 天（只停每日奖，照样能猜大奖），名额顺延。原来的天眼通、地灵通并进每日前三。</li>" +
       "<li><b>💰 贡献王（已取消）</b>：原定 2026-11-15 发最后一期，现已取消，本周不再结算；奖池里的钱全部留给大奖。11-15 这一期有人猜中大奖的话，天眼通 10%、地灵通 5% 照老规则发，其余归神算子。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
       "<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +

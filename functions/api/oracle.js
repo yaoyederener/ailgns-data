@@ -40,7 +40,7 @@ async function buildPub(kv, ctx, now) {
   const out = {
     now, round, dec: decOf(round), cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot,
-    daily: { from: DAILY_FROM, on: round >= DAILY_FROM, prize: DAILY_PRIZE, top: DAILY_TOP, cool: DAILY_COOL_DAYS, each: Math.floor(Math.min(DAILY_PRIZE, al.allot / DAILY_TOP) * 100) / 100 }, /* 每日前三（站长 2026-11-13 定）：each = 今晚每人能拿多少（只花当天进账） */
+    daily: { from: DAILY_FROM, on: round >= DAILY_FROM, prize: DAILY_PRIZE, top: DAILY_TOP, cool: DAILY_COOL_DAYS, each: DAILY_PRIZE }, /* 每日前三（站长 2026-11-13 定）：each = 今晚每人能拿多少（只花当天进账） */
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
     players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0], round)), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
     drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, dec: decOf(drawing), cutoff: cutoffAt(drawing), from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
@@ -55,6 +55,7 @@ async function buildPub(kv, ctx, now) {
     let ail = f.ail - owed, dai = f.dai;
     if (ail < 0) { dai = Math.max(0, Math.round((f.dai + ail * (otc.px || px.raw)) * 1e6) / 1e6); ail = 0; } /* AiLGNS 不够抵：差的部分从 DAI 里扣 */
     out.funds = { dai, ail: Math.round(ail * 1e6) / 1e6, px: px.raw, wallet: POOL, owed, wAil: f.ail, wDai: f.dai, otc };
+    if (out.daily) out.daily.each = Math.floor(Math.min(DAILY_PRIZE, Math.max(0, dai + out.funds.ail * (otc.px || px.raw)) / DAILY_TOP) * 100) / 100; /* 每日前三：奖池钱包里有多少发多少，每人最多 DAILY_PRIZE */
   } catch (e) { out.funds = null; }
   // 本周贡献榜（周一起到今天，认证商家以上；按手续费占比分奖池 30%，每人封顶手续费 KING_CAP 倍；周日揭晓时结算）
   try {
