@@ -1277,11 +1277,15 @@
         }
         // 站长 2026-11-11：单价和市价差了一倍以上（卖价不到市价一半 / 买价超过市价两倍），大字红框提醒，多半是少写或多写了一个零；发布前还要再确认一次
         var far = r2 ? (side === "sell" ? r2 <= 0.5 : r2 >= 2) : false;
-        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" : "";
+        /* 站长 2026-11-15「改」：这种价直接不让挂（以前只弹确认）。起因：客户把 0.076 挂成 0.76 的买单，同一秒被外人的抢单机器人按 10 倍价卖给他，钱追不回来。
+           只拦一定吃亏的方向：买价 ≥ 现有最低卖价的 2 倍（直接吃那张卖单就行，没理由出两倍）；卖价 ≤ 现有最高买价的一半。盘口没有对手单时按上面的参考价（最低卖价 / DEX）算。
+           卖价只是比最低卖价低一半、但没低过买单一半的（可能是盘口卖单本身挂得离谱），不拦，还是弹确认。 */
+        var block = far && (side === "buy" ? true : (otcBid ? num(p) <= otcBid * 0.5 : true));
+        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" + (block ? "【这个价不能挂】链上成交撤不回来，请把单价改到市价附近再发布。" : "") : "";
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
           (far ? '<div class="otc-far">' + farMsg + "</div>" : (r && verdict ? '<br><span class="down">' + verdict + "</span>" : ""));
-        return { q: q, total: total, far: far, farMsg: farMsg };
+        return { q: q, total: total, far: far, farMsg: farMsg, block: block };
       }
       qty.oninput = function () { lastEd = "qty"; syncFrom("qty"); calc(); if (pickSync) pickSync(); };
       tot.oninput = function () { lastEd = "tot"; syncFrom("tot"); calc(); if (pickSync) pickSync(); };
@@ -1356,6 +1360,7 @@
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
+        if (v.block) { say(v.farMsg.replace("⛔ ", ""), true); return; } // 一定吃亏的离谱价：直接不让挂（站长 2026-11-15）
         if (v.far && !confirm(v.farMsg.replace("⛔ ", "") + "\n\n确定要按这个价格挂单吗？")) return; // 偏离市价一倍以上：再确认一次（站长 2026-11-11）
         btn.disabled = true;
         ready().then(function () {
