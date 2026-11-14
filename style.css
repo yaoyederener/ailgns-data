@@ -4373,3 +4373,10 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-st { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: #92400e; text-align: right; }
 .wkb-st.paid, .wkb-st.paid a { color: #15803d; text-decoration: none; }
 .wkb-st.forfeit { color: var(--muted); }
+.wkb-minip { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 0 0 6px; }
+.wkb-minip b { color: #5b3fc4; }
+.wkb-fold > summary, .hn-fold > summary { list-style: none; cursor: pointer; text-align: center; padding: 12px 10px; margin-top: 8px; border-radius: 14px; background: var(--panel-2); color: #5b3fc4; font-weight: 700; font-size: 14.5px; }
+.wkb-fold > summary::-webkit-details-marker, .hn-fold > summary::-webkit-details-marker { display: none; }
+.wkb-fold > summary::after, .hn-fold > summary::after { content: " ▾"; }
+.wkb-fold[open] > summary::after, .hn-fold[open] > summary::after { content: " ▴"; }
+.wkb-fold[open] > summary, .hn-fold[open] > summary { margin-bottom: 6px; }

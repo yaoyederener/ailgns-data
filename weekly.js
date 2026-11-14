@@ -9,7 +9,7 @@
   function dayCn(d) { var p = String(d || "").split("-"); return p.length === 3 ? Number(p[1]) + "月" + Number(p[2]) + "日" : ""; }
   function pct(s) { var v = (s || 0) * 100; return (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + "%"; }
   function left(ms) { var h = Math.max(0, Math.floor((ms - Date.now()) / 3600e3)); return h >= 24 ? Math.floor(h / 24) + " 天 " + (h % 24) + " 小时" : h + " 小时"; }
-  var ST = { wait: "⏳ 等烧创世名", ready: "🕐 机器人待发", paid: "✅ 已到账", forfeit: "已放弃" };
+  var ST = { wait: "⏳ 等烧创世名", ready: "🕐 机器人待发", sending: "🕐 发放中", paid: "✅ 已到账", forfeit: "已放弃" };
 
   function row(x, i, showAmt) {
     return '<li><i class="wkb-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><div class="wkb-who"><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>付手续费 " + dai(x.fee) + " DAI · 占 " + pct(x.share) + "</small></div>" +
@@ -42,8 +42,8 @@
     }
     if (d.pays && d.pays.length) {
       html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x) {
-        var s = ST[x.st] || x.st, more = x.st === "wait" ? "（还剩 " + left(x.due) + "）" : "";
-        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + ' DAI</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s + more) + "</span></li>";
+        var s = ST[x.st] || x.st, more = x.st === "wait" ? " · 还剩 " + left(x.due) : "";
+        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>";
       }).join("") + "</ul></section>";
     }
     A.app.innerHTML = html;
