@@ -5,7 +5,7 @@
 (function () {
   var A = window.AIL;
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var picked = {}, avail = {}, mode = "num", busy = false;
+  var picked = {}, avail = {}, mode = "num", busy = false, simple = false; /* simple = 极简买票窗口（从极速预言家「去买票」进来） */
   function H() { return A.nm; } // names.js 暴露的内部函数（yearPrice、valid、register 等）
   function price(n) { return H().yearPrice(n); }
   function list() { return Object.keys(picked); }
@@ -49,9 +49,37 @@
   }
   // ---------- 界面 ----------
   var box = null;
-  function open() {
+  // 随机挑 n 个「现在就能注册」的数字域名（5～10 位）：已经被注册的、不合规的直接不要，不够再补，最多补 4 轮
+  function pickFree(n, done) {
+    var got = [], h = H(), round = 0;
+    (function more() {
+      var ns = genNums({ count: Math.min(90, Math.ceil((n - got.length) * 1.5) + 3), kind: "rand", len: 0, no4: true });
+      check(ns, function (err) {
+        if (err) return done(err, got);
+        ns.forEach(function (x) { if (got.length < n && avail[x] === 1 && h.valid(x) && got.indexOf(x) < 0) got.push(x); });
+        if (got.length < n && ++round < 4) return more();
+        done(null, got);
+      });
+    })();
+  }
+  function open(opt) {
     if (box) box.remove();
-    picked = {}; mode = "quick";
+    simple = !!(opt && opt.tickets);
+    picked = {}; mode = simple ? "tk" : "quick";
+    if (simple) {
+      cands = [];
+      box = document.createElement("div"); box.className = "modal nb-modal";
+      box.innerHTML = '<div class="modal-box nb-box"><div class="card-head"><h2>🎟 买极速预言家的票</h2><button type="button" class="ghost" id="nb-x" style="padding:4px 12px">关闭</button></div>' +
+        '<div id="nb-pane"></div>' +
+        '<div class="nb-cand" id="nb-cand"></div>' +
+        '<div class="nb-foot"><div class="nb-sum" id="nb-sum"></div><button type="button" class="nm-go" id="nb-go" disabled>付款</button><button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button></div><p class="muted nb-botst" id="nb-botst"></p>' +
+        '<p class="muted nb-st" id="nb-st"></p>' +
+        '<p class="muted nb-note">票大约 10 分钟后到账，到极速预言家页就能看到。只用 DAI 付。</p></div>';
+      document.body.appendChild(box);
+      document.getElementById("nb-x").onclick = function () { if (busy && !confirm("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
+      pane(); drawCand();
+      return;
+    }
     box = document.createElement("div"); box.className = "modal nb-modal";
     box.innerHTML = '<div class="modal-box nb-box"><div class="card-head"><h2>📦 批量注册域名</h2><button type="button" class="ghost" id="nb-x" style="padding:4px 12px">关闭</button></div>' +
       '<div class="seg nb-seg"><button type="button" data-m="quick" class="on">🎲 随机</button><button type="button" data-m="num">🔢 挑号码</button><button type="button" data-m="ai">🤖 AI 起名</button><button type="button" data-m="own">✍️ 自己填</button></div>' +
@@ -68,7 +96,26 @@
   function say(t, bad) { var el = document.getElementById("nb-st"); if (el) { el.textContent = t || ""; el.className = "muted nb-st" + (bad ? " nm-bad" : ""); } }
   function pane() {
     var p = document.getElementById("nb-pane"); if (!p) return;
-    if (mode === "quick") {
+    if (mode === "tk") {
+      // 🎟 极简买票：只有一件事——选买多少票。1 张票 = 1 DAI；买票 = 注册域名（5 DAI 一个 = 5 张票），域名系统随机挑、归客户
+      var TK = [10, 20, 50, 100], cur = 10;
+      p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">买多少张票？<b>1 张票 = 1 DAI</b>。买票就是注册域名（5 DAI 一个 = 5 张票），域名归你。</p>' +
+        '<div class="nb-qc">' + TK.map(function (k) { return '<button type="button" data-n="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + k + " 票<small>" + k + " DAI</small></button>"; }).join("") + "</div></div>";
+      var roll = function () {
+        if (busy) return;
+        p.querySelectorAll(".nb-qc button").forEach(function (b) { b.classList.toggle("on", Number(b.getAttribute("data-n")) === cur); b.disabled = true; });
+        cands = []; picked = {}; drawCand(); say("正在随机挑能注册的域名…");
+        pickFree(cur / 5, function (err, got) {
+          if (!document.getElementById("nb-pane")) return;
+          p.querySelectorAll(".nb-qc button").forEach(function (b) { b.disabled = false; });
+          cands = got.slice(); picked = {}; got.forEach(function (x) { picked[x] = 1; });
+          say(err ? err : got.length < cur / 5 ? "这次只挑到 " + got.length + " 个，点「换一批」再试" : "", !!err); drawCand();
+        });
+      };
+      p.querySelectorAll(".nb-qc button").forEach(function (b) { b.onclick = function () { cur = Number(b.getAttribute("data-n")); roll(); }; });
+      box.__roll = roll;
+      roll(); /* 一打开就先按 10 张票挑好 */
+    } else if (mode === "quick") {
       // 🎲 大道至简（站长 2026-11-14）：从极速预言家「去买票」进来的人只想买票——选要几个，一键随机生成能注册的域名，下面直接付款
       var qn = 2, lab = function () { return "🎲 一键随机生成 " + qn + " 个可注册的域名"; };
       p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">每个域名 <b>5 DAI</b>，注册了就归你，还送 <b>5 张极速预言家的票</b>。一次至少 2 个才有票。</p>' +
@@ -81,19 +128,13 @@
       cnt.oninput = function () { setN(cnt.value); };
       gen.onclick = function () {
         setN(cnt.value); cnt.value = qn;
-        var got = [], h = H(), round = 0;
         gen.disabled = true; say("正在挑能注册的域名…");
-        (function more() {
-          var ns = genNums({ count: Math.min(90, Math.ceil((qn - got.length) * 1.5) + 3), kind: "rand", len: 0, no4: true });
-          check(ns, function (err) {
-            if (err) { gen.disabled = false; return say(err, true); }
-            ns.forEach(function (x) { if (got.length < qn && avail[x] === 1 && h.valid(x) && got.indexOf(x) < 0) got.push(x); });
-            if (got.length < qn && ++round < 4) return more();
-            gen.disabled = false;
-            cands = got.slice(); picked = {}; got.forEach(function (x) { picked[x] = 1; }); // 换成这一批，全部勾上
-            say(got.length < qn ? "这次只挑到 " + got.length + " 个，再点一次换一批" : "挑好了，往下看：不喜欢就再点一次换一批，喜欢就在下面付款。"); drawCand();
-          });
-        })();
+        pickFree(qn, function (err, got) {
+          gen.disabled = false;
+          if (err) return say(err, true);
+          cands = got.slice(); picked = {}; got.forEach(function (x) { picked[x] = 1; }); // 换成这一批，全部勾上
+          say(got.length < qn ? "这次只挑到 " + got.length + " 个，再点一次换一批" : "挑好了，往下看：不喜欢就再点一次换一批，喜欢就在下面付款。"); drawCand();
+        });
       };
     } else if (mode === "num") {
       p.innerHTML = '<div class="nb-f"><label>要几个 <input id="nb-cnt" type="number" min="1" max="50" value="10" inputmode="numeric"></label>' +
@@ -141,6 +182,11 @@
   }
   function drawCand() {
     var el = document.getElementById("nb-cand"); if (!el) return;
+    if (simple) { // 极简买票：只列出挑好的名字（都是能注册的），不给勾选
+      el.innerHTML = cands.length ? '<p class="nb-tkl">随机挑好 <b>' + cands.length + "</b> 个能注册的域名：" + cands.map(function (n) { return "<i>" + esc(n) + "</i>"; }).join("") + ' <button type="button" class="link" id="nb-re">🎲 换一批</button></p>' : "";
+      var re = document.getElementById("nb-re"); if (re) re.onclick = function () { if (box && box.__roll) box.__roll(); };
+      botStatus(); sum(); return;
+    }
     if (!cands.length) { el.innerHTML = '<p class="muted">上面生成或填入名字，能注册的会自动勾上。</p>'; sum(); return; }
     el.innerHTML = '<div class="nb-tools"><button type="button" class="link" id="nb-all">全选能注册的</button> · <button type="button" class="link" id="nb-none">全不选</button> · <button type="button" class="link" id="nb-clear">清空列表</button></div>' +
       '<ul class="nb-list">' + cands.map(function (n) {
@@ -159,7 +205,8 @@
     var el = document.getElementById("nb-sum"), go = document.getElementById("nb-go"); if (!el || !go) return;
     var n = list().length, t = total();
     el.innerHTML = n ? "选了 <b>" + n + "</b> 个 · 1 年 · 共 <b>" + t + " DAI</b>" + (n >= 2 ? " · 送 <b>" + t + "</b> 张极速票" : " · <em>只选 1 个没有极速票，至少 2 个</em>") : "还没选";
-    go.disabled = !n || busy; go.innerHTML = n ? "自己点：注册这 " + n + " 个（" + t + " DAI）<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : "注册选中的";
+    if (simple) el.innerHTML = n ? "共 <b>" + t + " DAI</b> = <b>" + t + "</b> 张票" : "";
+    go.disabled = !n || busy; go.innerHTML = n ? (simple ? "付 " + t + " DAI 买 " + t + " 张票" : "自己点：注册这 " + n + " 个（" + t + " DAI）") + "<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : simple ? "付款" : "注册选中的";
     go.onclick = run;
     var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.innerHTML = n ? "🤖 交给机器人代点<small>钱包只确认 2 次（授权 1 次 + 签名 1 次），几分钟内替你注册完</small>" : "🤖 交给机器人代点"; bt.onclick = robot; }
   }

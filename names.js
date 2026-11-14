@@ -369,7 +369,7 @@
     var nbb = document.getElementById("nm-batch"); if (nbb) nbb.onclick = function () { if (A.namesBatch) A.namesBatch.open(); };
     try { var ssB = false; try { ssB = !!sessionStorage.getItem("nm:batch"); if (ssB) sessionStorage.removeItem("nm:batch"); } catch (e0) { /* 读不了标记就只看网址 */ }
       if (wantBatch) { try { history.replaceState(null, "", "#/names"); } catch (e1) { /* 改不了网址不影响打开 */ } }
-      if (wantBatch || ssB) { setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open(); } catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
+      if (wantBatch || ssB) { setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open({ tickets: true }); } /* 从「去买票」/ #/names/batch 进来：极简买票窗口；域名页的「📦 批量注册」按钮还是完整版 */ catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
     var tl = document.querySelector(".nm-tld"); if (tl) tl.textContent = "." + TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {

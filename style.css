@@ -4264,3 +4264,9 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .nb-qc button small { display: block; font-size: 12px; font-weight: 500; color: #7c6bb0; margin-top: 2px; }
 .nb-qc button.on { background: #f1ebff; border-color: #7c3aed; color: #5b21b6; }
 .nb-sum em { font-style: normal; color: #b45309; }
+
+/* 🎟 极简买票窗口：挑好的域名一行排开 */
+.nb-tkl { margin: 4px 0 10px; font-size: 14px; line-height: 2; color: #3b2a70; }
+.nb-tkl i { font-style: normal; display: inline-block; margin: 0 6px 0 0; padding: 0 8px; border-radius: 8px; background: #f1ebff; color: #4c1d95; font-variant-numeric: tabular-nums; }
+.nb-tkl .link { background: none; border: 0; box-shadow: none; padding: 0 2px; color: #6d28d9; font-size: 14px; font-weight: 600; cursor: pointer; }
+.nb-foot .nm-go small { display: block; white-space: normal; line-height: 1.4; }
