@@ -538,7 +538,7 @@ export async function onRequestGet(ctx) {
     }
   }
   let sent = 0, failed = 0, skipped = 0;
-  await timed("inbox", 25000, () => pushMany(kv, msgs, "otc")); // 🔔 先写站内信（不依赖 DeBox）
+  await timed("inbox", 20000, () => pushMany(kv, msgs, "otc")); // 🔔 先写站内信（不依赖 DeBox）
   // 先记账、存进度，再发 DeBox 私信：后面哪一步卡了，这一轮读到的东西也不会白读
   for (const [m, logs, cache, from, latest] of done) {
     await timed("rec:" + m.key, 20000, async () => {
@@ -554,9 +554,12 @@ export async function onRequestGet(ctx) {
     });
   }
   const tDm = Date.now();
+  const dmTo = {}, dmAddrs = [...new Set(msgs.map((x) => x[0]))];
+  await timed("dmwho", 10000, async () => { for (let i = 0; i < dmAddrs.length; i += 10) await Promise.all(dmAddrs.slice(i, i + 10).map(async (a) => { dmTo[a] = (await kv.get("dbx:a:" + a, "json").catch(() => null)) || []; })); });
   for (const [addr, text] of msgs) {
-    if (Date.now() - T0 > 75000) { skipped++; continue; } /* 这一轮已经跑了 75 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
-    const users = (await kv.get("dbx:a:" + addr, "json")) || [];
+    const users = dmTo[addr] || [];
+    if (!users.length) continue;
+    if (Date.now() - T0 > 70000) { skipped++; continue; } /* 这一轮已经跑了 70 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
     for (const u of users) {
       try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; }
     }
@@ -572,7 +575,7 @@ export async function onRequestGet(ctx) {
       for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
     }
   } catch (e) {}
-  const oracle = await timed("oracle", 30000, () => oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 🔮 预言家：开奖结果 + 每天提醒
+  const oracle = await timed("oracle", 20000, () => oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 🔮 预言家：开奖结果 + 每天提醒
   const pixel = await timed("pixel", 10000, () => rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
