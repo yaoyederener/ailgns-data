@@ -547,9 +547,10 @@ export async function onRequestGet(ctx) {
   // 先记账、存进度，再发 DeBox 私信：后面哪一步卡了，这一轮读到的东西也不会白读
   for (const [m, logs, cache, from, latest] of done) {
     await timed("rec:" + m.key, 30000, async () => {
-      await markTraders(m, kv, logs, cache, true).catch(() => {});
-      await recordTrades(m, kv, logs, cache).catch(() => {});
-      await recordGuide(m, kv, logs, cache).catch(() => {});
+      await Promise.all([
+        markTraders(m, kv, logs, cache, true).catch(() => {}),
+        recordTrades(m, kv, logs, cache).catch(() => {}).then(() => recordGuide(m, kv, logs, cache).catch(() => {})),
+      ]);
     });
     await kv.put(m.kv + "block", String(latest));
     if (Date.now() - T0 < 60000) await timed("fill:" + m.key, 12000, async () => { /* 补历史数据：不急，时间不够就下轮 */
@@ -561,12 +562,14 @@ export async function onRequestGet(ctx) {
   const tDm = Date.now();
   const dmTo = {}, dmAddrs = [...new Set(msgs.map((x) => x[0]))];
   await timed("dmwho", 10000, async () => { for (let i = 0; i < dmAddrs.length; i += 10) await Promise.all(dmAddrs.slice(i, i + 10).map(async (a) => { dmTo[a] = (await kv.get("dbx:a:" + a, "json").catch(() => null)) || []; })); });
+  let dmStop = false;
   for (const [addr, text] of msgs) {
     const users = dmTo[addr] || [];
     if (!users.length) continue;
-    if (Date.now() - T0 > 70000) { skipped++; continue; } /* 这一轮已经跑了 70 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
+    if (dmStop || Date.now() - T0 > 70000) { skipped++; continue; } /* 这一轮已经跑了 70 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
     for (const u of users) {
-      try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; if (!stage.dm_err) stage.dm_err = String((e && e.message) || e).slice(0, 160); }
+      try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; if (!stage.dm_err) stage.dm_err = String((e && e.message) || e).slice(0, 160); if (/ 429 /.test(String((e && e.message) || e))) dmStop = true; }
+      await new Promise((ok) => setTimeout(ok, 350)); /* 两条私信之间歇一下，DeBox 有发送频率上限 */
     }
   }
   stage.dm = Date.now() - tDm;
