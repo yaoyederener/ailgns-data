@@ -3,7 +3,7 @@
 // 这页只读 /api/fast，下注时才连钱包发一笔 0 DAI 转账；算账和发奖都不在这里。
 (function () {
   var A = window.AIL, W = A.wallet, DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
-  var SHOW_RES = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname); /* 「资金池余额」那一行站长还没点头：先只在预览站显示，正式站不显示 */
+  var SHOW_RES = true; /* 「资金池余额」那一行：站长 2026-11-14 说「显示资金池金额」，正式站也显示（本期没人下注时「本期奖池」是 0，容易被当成没钱） */
   var data = null, acct = "", eth = null, pick = -1, qty = 1, busy = false, tick = 0, poll = 0, lastR = 0;
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
