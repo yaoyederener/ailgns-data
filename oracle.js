@@ -302,7 +302,23 @@
   function meBox(d) {
     var me = d.me;
     if (account === SRC) return ownerBox();
-    return sayBox(me) + meBox0(d);
+    return sayBox(me) + meBox0(d) + histBox(d);
+  }
+  /* 📋 我的预测记录：这一轮 + 今晚揭晓那一轮 + 往前几轮，一眼看到自己每一轮填的是多少（客户 2026-11-14：封卷后找不到下午填的） */
+  function histBox(d) {
+    var me = d.me; if (!account || !me || me.err) return "";
+    var rows = [];
+    if (me.ps && me.ps.length) rows.push({ day: d.round, ps: me.ps, st: "✍️ 还没封卷 · " + dayCn(d.round) + "晚上揭晓" });
+    (me.hist || []).forEach(function (h) {
+      var st;
+      if (h.px) { var diff = Math.min.apply(null, h.ps.map(function (p) { return Math.abs(Number(p) - Number(h.px)); })); st = "揭晓价 <b>" + esc(h.px) + "</b> · 差 " + diff.toFixed(String(h.px).split(".")[1] ? String(h.px).split(".")[1].length : 3); }
+      else st = "🔒 已封卷 · " + dayCn(h.day) + "晚上 9–10 点揭晓";
+      rows.push({ day: h.day, ps: h.ps, st: st });
+    });
+    if (!rows.length) return '<div class="orh-box"><p class="orh-t">📋 我的预测记录</p><p class="muted orh-none">最近几轮你还没有提交过预测。</p></div>';
+    return '<div class="orh-box"><p class="orh-t">📋 我的预测记录<small>最近几轮</small></p>' + rows.map(function (r) {
+      return '<div class="orh-row"><span class="orh-d">' + dayCn(r.day) + '</span><b class="orh-p">' + r.ps.map(esc).join("、") + '</b><em class="orh-s">' + r.st + "</em></div>";
+    }).join("") + "</div>";
   }
   function meBox0(d) {
     var me = d.me;

@@ -4308,3 +4308,14 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 /* 预测页：上链没发出去时的「改用签名提交」备用按钮 */
 .or-st .or-sig2{display:block;width:100%;margin:8px 0 4px;white-space:normal;line-height:1.35}
 .or-st .or-sig2n{display:block;font-size:12px;opacity:.8}
+
+/* 预测页：📋 我的预测记录（封卷后也能看到自己每一轮填的价格） */
+.orh-box{margin:14px 0 0;padding:12px 12px 6px;border:1px solid #e3dbfa;border-radius:14px;background:#f8f5ff}
+.orh-t{margin:0 0 8px;font-weight:700;color:#3d2a8c}
+.orh-t small{margin-left:8px;font-weight:400;font-size:12px;color:#8a7fb5}
+.orh-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:8px 0;border-top:1px dashed #e3dbfa}
+.orh-d{flex:0 0 auto;font-size:13px;color:#6b6190}
+.orh-p{flex:1 1 auto;font-size:17px;color:#5a35d6;word-break:break-all}
+.orh-s{flex:1 0 100%;font-style:normal;font-size:12.5px;color:#7a7198}
+.orh-s b{color:#3d2a8c}
+.orh-none{margin:0 0 8px}

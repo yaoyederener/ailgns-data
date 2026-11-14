@@ -102,6 +102,16 @@ export async function onRequestGet(ctx) {
       out.me = { a, name, gno: el.gno, vol: el.vol, ok: el.ok, need: OTC_MIN, cool: el.cool };
       if (round >= DAILY_FROM) { const dm = (await kv.get("or:dcool", "json")) || {}, dc = [dm[el.key] || "", dm[a] || ""].sort().pop(); out.me.dcool = dc >= round ? dc : ""; } /* 每日奖冷却到哪一轮（含）；照样能猜大奖 */
       if (out.kings) { const i = out.kings.all.findIndex((x) => x.a === a); out.me.king = i >= 0 ? { rank: i + 1, fee: out.kings.all[i].fee } : null; }
+      try { // 📋 我的预测记录：今晚揭晓那一轮 + 往前 5 轮（客户 2026-11-14：封卷后页面只显示新一轮，下午填的找不到）；这块读不到不影响别的
+        const days = []; for (let d0 = out.drawing.day, i = 0; i < 6 && d0 >= FIRST_DAY; i++, d0 = prevDay(d0)) days.push(d0);
+        const keys = [...new Set([el.key, a].filter(Boolean))];
+        const rows = await Promise.all(days.map(async (d0) => {
+          const [gs, r] = await Promise.all([Promise.all(keys.map((k) => kv.get("or:g:" + d0 + ":" + k, "json"))), kv.get("or:res:" + d0, "json")]);
+          const g = gs.find((x) => x && x.a === a && x.ps && x.ps.length); /* 只认这个钱包自己填的（名字转过手的不算） */
+          return g ? { day: d0, ps: g.ps.map((x) => fmtP(x[0], d0)), px: r && r.px ? fmtP(r.px, d0) : "" } : null;
+        }));
+        out.me.hist = rows.filter(Boolean);
+      } catch (e) { out.me.hist = []; }
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = await kv.get("or:g:" + round + ":" + el.key, "json");
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0], round)) : [], taken: !!(mine && mine.a !== a) };
