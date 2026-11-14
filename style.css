@@ -4385,3 +4385,12 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-addr small { flex: 1 0 100%; font-size: 12.5px; color: var(--muted); }
 .wkb-addr a { flex: 1 1 0; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; color: #5b3fc4; word-break: break-all; text-decoration: none; }
 .wkb-cp { flex: 0 0 auto; border: 0; border-radius: 999px; padding: 7px 14px; background: #ede7fb; color: #5b3fc4; font-weight: 700; font-size: 13px; cursor: pointer; }
+.wkb-pool { margin-bottom: 16px; }
+.wkb-pool .or-pbig { margin: 6px 0 2px; }
+.wkb-sub { font-size: 13.5px; line-height: 1.7; color: var(--muted); margin: 2px 0 10px; }
+.wkb-sub b { color: #5b3fc4; }
+.wkb-pool .wkb-addr { margin: 10px auto 0; max-width: 480px; }
+.wkb-prz { margin-top: 14px; }
+.wkb-tn { display: block; font-size: 15px; opacity: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wkb-pool .wkb-fold, .wkb-pool .wkb-cta { max-width: 480px; margin-left: auto; margin-right: auto; text-align: left; }
+.wkb-pool .wkb-cta, .wkb-pool .wkb-fold > summary { text-align: center; }
