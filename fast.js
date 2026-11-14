@@ -125,7 +125,7 @@
   function hexOf(txt) { return Array.prototype.map.call(new TextEncoder().encode(txt), function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
   function bet() {
     if (busy) return;
-    if (!acct || !eth) { busy = true; betLabel(); say("请在钱包里点「连接」"); return connect().then(function () { busy = false; say(""); paint(); }, function (e) { busy = false; betLabel(); say((e && e.message) || "钱包没连上", true); }); }
+    if (!acct || !eth) { busy = true; betLabel(); say("请在钱包里点「连接」"); return connect().then(function () { busy = false; say(""); paint(); if (picks.length && left() > 0) bet(); /* 连上了、有票、数字也选好了：直接接着下注，不用再点一次 */ }, function (e) { busy = false; betLabel(); say((e && e.message) || "钱包没连上", true); }); }
     var have = left();
     if (have <= 0) { location.hash = "#/names"; return; }
     if (!picks.length) return say("先在上面点一个数字。", true);
