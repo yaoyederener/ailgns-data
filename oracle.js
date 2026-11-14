@@ -292,7 +292,7 @@
     return L.map(function (x, i) {
       var burnOk = (x.bn || 0) >= (x.need || 1), big = (x.need || 1) > 1;
       var s1 = burnOk ? "✅ 名字已烧够" + (big ? "（" + x.need + " 个）" : "") : "⏳ 先销毁名字" + (big ? "：已烧 " + (x.bn || 0) + " / " + x.need + " 个" : "：1 枚创世 .ailgns 名") + ' <a href="#/genesis">去销毁 →</a>';
-      var s2 = x.url ? '✅ 宣告帖已提交 <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "⏳ 到 DeBox 社区发一条帖子，说自己中奖了（写上你的名字、哪一期、中了多少），再把帖子链接贴到下面";
+      var s2 = x.ok && !x.url ? "✅ 团队已在社区看到你的宣告" : x.url ? '✅ 宣告帖已提交 <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "⏳ 到 DeBox 社区发一条帖子，说自己中奖了（写上你的名字、哪一期、中了多少），再把帖子链接贴到下面";
       var s3 = x.ok ? "✅ 团队已认证" + (burnOk ? "，机器人几分钟内发奖" : "，名字烧够后机器人自动发奖") : x.url ? "⏳ 等团队核对帖子（一般当天）" : "⏳ 团队核对后，机器人自动把 AiLGNS 发到这个钱包";
       return '<div class="or-say"><b>🏆 你中了 ' + dayCn(x.day) + " 的" + (KN[x.kind] || "奖") + "：" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS（≈ " + dai(x.amt) + "）" : dai(x.amt)) + "</b>" +
         "<small>领奖三步，做完才发奖。为什么要宣告：让社区看得见中奖的是真人，防作弊。</small><ol><li>" + s1 + "</li><li>" + s2 + "</li><li>" + s3 + "</li></ol>" +

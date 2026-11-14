@@ -348,12 +348,12 @@
           var burnOk = x.bn >= x.need, stT = x.ok ? (burnOk ? "✅ 已通过，机器人马上发" : "✅ 已通过，等他烧够名字（" + x.bn + "/" + x.need + "）") : x.say ? (burnOk ? "🔎 等你认证" : "🔎 帖子已交，名字还没烧够（" + x.bn + "/" + x.need + "）") : burnOk ? "📣 名字烧够了，等他去 DeBox 宣告" : "⏳ 等他烧名字（" + x.bn + "/" + x.need + "）和宣告";
           return '<div class="fb-say-r"><span><b>' + esc(x.name) + "</b> · " + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + " · <b>" + Number(x.amt).toLocaleString("en-US") + " DAI</b></span><span>" + stT + "</span>" +
             (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">👉 打开他的 DeBox 宣告帖 ↗</a>' : "") +
-            (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.say ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : "") + "</div>";
+            (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.say ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : burnOk ? '<small>他还没在网站交帖子链接。你已经在社区亲眼看到他宣告了，也可以直接通过：</small><button type="button" class="ghost" data-i="' + i + '" data-ok="1">🖐 我已看到他的宣告，手动通过，发奖</button>' : "") + "</div>";
         }).join("") + "</div>";
         sb.querySelectorAll("button[data-i]").forEach(function (bt) {
           bt.onclick = function () {
             var x = L[Number(bt.getAttribute("data-i"))], ok = bt.getAttribute("data-ok") === "1";
-            if (ok && !confirm("确认通过？\n" + x.name + " · " + x.amt + " DAI\n通过后机器人会自动把奖金发给他，发出去收不回。")) return;
+            if (ok && !confirm((x.say ? "确认通过？" : "他还没在网站交 DeBox 帖子链接。\n确认你已经在社区亲眼看到他的中奖宣告？") + "\n" + x.name + " · " + x.amt + " DAI\n通过后机器人会自动把奖金发给他，发出去收不回。")) return;
             bt.disabled = true;
             post({ action: "approve", id: x.id, ok: ok }).then(function (r) { if (r.error) alert(r.error); says(); }, function () { bt.disabled = false; });
           };
