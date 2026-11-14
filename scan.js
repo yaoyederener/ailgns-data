@@ -825,7 +825,11 @@
           (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : "") + "</div></div>";
       }).join("") : '<p class="muted">最近 14 天还没有发奖</p>';
     }).catch(function () { var b = document.getElementById("sc-pays"); if (b) b.innerHTML = '<p class="muted">发放记录暂时读不到，稍后刷新</p>'; });
-    var cpb = out.querySelector(".sc-copy"); if (cpb) cpb.onclick = function () { try { navigator.clipboard.writeText(a); } catch (e) {} cpb.textContent = "已复制"; };
+    var cpb = out.querySelector(".sc-copy"); if (cpb) cpb.onclick = function () {
+      var done = function () { cpb.textContent = "已复制"; };
+      var old = function () { try { var t = document.createElement("textarea"); t.value = a; t.setAttribute("readonly", ""); t.style.cssText = "position:fixed;left:-999px;top:0;opacity:0"; document.body.appendChild(t); t.select(); var ok = document.execCommand("copy"); t.remove(); cpb.textContent = ok ? "已复制" : "请长按地址复制"; } catch (e) { cpb.textContent = "请长按地址复制"; } };
+      try { navigator.clipboard.writeText(a).then(done, old); } catch (e) { old(); }
+    };
     var el = function (id) { return document.getElementById(id); };
     nameOf(a).then(function (primary) {
       if (!el("sc-who")) return;

@@ -753,7 +753,7 @@
 
   document.addEventListener("submit", function (e) {
     var f = e.target.closest("form.search");
-    if (!f || f.hasAttribute("data-custom")) return;
+    if (!f || f.hasAttribute("data-custom") || !f.a) return; /* 没有 name="a" 输入框的（比如查上级页）有自己的处理 */
     e.preventDefault();
     var a = f.a.value.trim();
     if (!isAddr(a)) { f.a.focus(); f.a.style.borderColor = "var(--down)"; return; }
@@ -770,7 +770,7 @@
   // 把钱包 / 合约 / 网络 / 程序抛出来的英文错误，翻成客户看得懂的中文 + 原因 + 怎么办（站长 2026-11-07 定）；程序自身错误顺手上报，我们能看到
   var ERRS = [
     [/NOTHING_FILLED/, "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。"],
-    [/user reject|user denied|rejected the request|rejected by user|\bcancell?ed\b|\bcancel\b|(用户|用戶|你|您|已)(取消|拒绝|拒絕)|^(取消|拒绝|拒絕)|(^|[^0-9a-fx])4001([^0-9a-f]|$)/i, "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」，或者钱包自己拦下了（比如没有 DAI 付 Gas）。想继续就再点一次，在钱包里点「确认」；还不行，把下面「钱包原话」截图发给客服。"],
+    [/user reject|user denied|rejected the request|rejected by user|\bcancell?ed\b|\bcancel\b|(用户|用戶|你|您|已)(取消|拒绝|拒絕)|^(取消|拒绝|拒絕)|^\s*(rejected|denied)\.?\s*$|(^|[^0-9a-fx])4001([^0-9a-f]|$)/i, "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」，或者钱包自己拦下了（比如没有 DAI 付 Gas）。想继续就再点一次，在钱包里点「确认」；还不行，把下面「钱包原话」截图发给客服。"],
     [/insufficient funds for gas|insufficient funds|gas required exceeds|out of gas/i, "钱包里的 DAI 不够付这笔交易的 Gas（Anubis 链的 Gas 就是 DAI）。留 0.5 DAI 以上再试。"],
     [/insufficient allowance|transfer amount exceeds allowance|ERC20: insufficient/i, "授权额度不够：请先点「授权」把币授权给托管合约（只需一次），再重新提交。"],
     [/transfer amount exceeds balance|exceeds balance|BALANCE/i, "余额不够：钱包里的币比你要用的少。先充值或改小数量。"],
@@ -784,6 +784,7 @@
     [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT|aborted|failed to connect to [\w.-]+\//i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
     [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
     [/No wallet|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
+    [/(Write|Read) permission denied|clipboard/i, "这个钱包 App 不让网页自动复制。请长按那段文字，手动选「复制」。"],
     [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们）。十有八九是浏览器还在用旧版本：点下面「刷新页面重试」就好；刷新了还不行，点「报给客服」，错误信息会自动带上，你只要写一句点的是哪一步。"],
   ];
   function friendly(t) {
@@ -811,7 +812,7 @@
   }
   /* 没有文件名的报错（Script error. @:0）是钱包 App、浏览器插件往页面里塞的脚本抛的，看不到内容也修不了，不记 */
   window.addEventListener("error", function (e) { if (e && e.message && e.filename && !foreign(e.filename)) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
-  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) report(m); });
+  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) { var at = ""; try { at = (String((r && r.stack) || "").match(/[\w.-]+\.js[^\s)]*/) || [""])[0].slice(0, 80); } catch (x) {} report(m + (at ? " @" + at : "")); } });
   function errTip(t, el) {
     // 站长 2026-11-12：没装钱包时 A.wallets.choose() 已经弹了「到钱包 App 里操作」的选择框，这里再弹红色报错会把它盖住，客户以为出错了。有那个框就不报错
     try { if (/没有检测到钱包|No wallet/i.test(String(t && (t.message || t.reason || t))) && document.querySelector(".wlist")) return; } catch (e) { /* 忽略 */ }

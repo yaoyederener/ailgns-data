@@ -1012,7 +1012,7 @@
     });
   }
   function myOpen(a, box) {
-    if (!box || !/^0x[0-9a-f]{40}$/.test(a || "")) return;
+    if (!box || !/^0x[0-9a-f]{40}$/.test(a || "")) return Promise.resolve(0);
     box.innerHTML = '<p class="muted">读取挂单中…</p>';
     return listings(true).then(function (all) {
       var list = all.filter(function (x) { return x.maker === a; }), me = account && a === account, now2 = Date.now() / 1000;
