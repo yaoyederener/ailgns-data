@@ -429,11 +429,16 @@ export async function onRequestGet(ctx) {
       // 一轮最多补这么多区块（站长 2026-11-14 反馈群播报、通知都不发了）：以前落后多少就一口气补多少，进度又是最后才存，
       // 一旦落后几个小时，一轮 120 秒跑不完 → 进度存不上 → 永远追不上。现在一轮只补一段，存了进度下一轮接着补。
       const maxB = m.chain === "Polygon" ? 20000 : 6000;
-      const upto = dry ? chainLatest : Math.min(chainLatest, from + maxB - 1);
+      let upto = dry ? chainLatest : Math.min(chainLatest, from + maxB - 1);
       const span = m.chain === "Polygon" ? 2000 : 5000, logs = [];
       for (let b = from; b <= upto; b += span) {
         const to = Math.min(upto, b + span - 1);
         logs.push(...(await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[filledTopic(m), closedTopic(m)]] }])));
+      }
+      /* 一轮一个市场最多处理 30 条：成交扎堆的时候，记账那一步 20 秒记不完。多出来的留给下一轮（按整块切，不会把同一个区块切两半） */
+      if (!dry && logs.length > 30) {
+        const cutB = parseInt(logs[29].blockNumber, 16), keep = logs.filter((l) => parseInt(l.blockNumber, 16) <= cutB);
+        logs.length = 0; logs.push(...keep); upto = cutB;
       }
       const cache = {};
       for (const l of logs) {
@@ -541,7 +546,7 @@ export async function onRequestGet(ctx) {
   await timed("inbox", 20000, () => pushMany(kv, msgs, "otc")); // 🔔 先写站内信（不依赖 DeBox）
   // 先记账、存进度，再发 DeBox 私信：后面哪一步卡了，这一轮读到的东西也不会白读
   for (const [m, logs, cache, from, latest] of done) {
-    await timed("rec:" + m.key, 20000, async () => {
+    await timed("rec:" + m.key, 30000, async () => {
       await markTraders(m, kv, logs, cache, true).catch(() => {});
       await recordTrades(m, kv, logs, cache).catch(() => {});
       await recordGuide(m, kv, logs, cache).catch(() => {});
@@ -561,7 +566,7 @@ export async function onRequestGet(ctx) {
     if (!users.length) continue;
     if (Date.now() - T0 > 70000) { skipped++; continue; } /* 这一轮已经跑了 70 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
     for (const u of users) {
-      try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; }
+      try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; if (!stage.dm_err) stage.dm_err = String((e && e.message) || e).slice(0, 160); }
     }
   }
   stage.dm = Date.now() - tDm;
