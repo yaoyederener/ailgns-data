@@ -385,6 +385,14 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const T0 = Date.now(); /* 这一轮从什么时候开始跑的 */
+  /* 每一步计时 + 超时：哪一步卡住，返回的 stage 里会写「xx_err: 超时」，这一步放弃、后面照常跑（2026-11-14：整轮不回，查不出卡在哪） */
+  const stage = {};
+  const timed = async (name, ms, fn) => {
+    const t = Date.now(); let timer;
+    try { return await Promise.race([Promise.resolve().then(fn), new Promise((_, no) => { timer = setTimeout(() => no(new Error("超时 " + ms + "ms")), ms); })]); }
+    catch (e) { stage[name + "_err"] = String((e && e.message) || e).slice(0, 120); return null; }
+    finally { clearTimeout(timer); stage[name] = Date.now() - t; }
+  };
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&from=区块：只看消息内容，不发送、不记进度（测试用）
   // ppdry=1：预览现在有哪些低于市价的挂单、推送文字长什么样（不发送）
   if (url.searchParams.get("ppdry") === "1") return Response.json(await Promise.all(MARKETS.map((m) => pushDeals(m, ctx.env, kv, false).then((r) => ({ market: m.key, ...r }), (e) => ({ market: m.key, err: String(e.message || e) })))));
@@ -410,6 +418,8 @@ export async function onRequestGet(ctx) {
   const markets = dry ? MARKETS.filter((m) => m.key === (url.searchParams.get("m") || "ailgns")) : MARKETS;
   const msgs = [], fills = [], status = {}, done = []; // msgs：[地址, 文字]；done：[市场, 日志, 订单缓存, 起点, 最新区块]
   for (const m of markets) {
+    if (!dry && Date.now() - T0 > 40000) { status[m.key] = { skipped: "这一轮时间不够，下一轮再读" }; continue; }
+    const tM = Date.now();
     try {
       const latest = parseInt(await rpc(m, "eth_blockNumber", []), 16);
       let from = dry ? parseInt(url.searchParams.get("from") || "0", 10) - 1 : parseInt((await kv.get(m.kv + "block")) || "0", 10);
@@ -466,7 +476,7 @@ export async function onRequestGet(ctx) {
         }
       }
       done.push([m, logs, cache, from, upto]);
-      status[m.key] = { from, latest: upto, events: logs.length, behind: chainLatest - upto }; /* behind > 0 = 还在补以前落下的 */
+      status[m.key] = { from, latest: upto, events: logs.length, behind: chainLatest - upto, ms: Date.now() - tM }; /* behind > 0 = 还在补以前落下的 */
     } catch (e) { status[m.key] = { err: String(e.message || e).slice(0, 160) }; } // 一条链的节点出问题，不影响别的市场，下次接着读
   }
   // 群播报：新成交先存进 otcw:hr，整点后发上一段的汇总，发完清空
@@ -504,7 +514,7 @@ export async function onRequestGet(ctx) {
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if ((due || first) && !quiet && HOURLY_ON) {
-    const text = await build(false);
+    const text = await timed("bctext", 15000, () => build(false));
     if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); }
@@ -528,23 +538,30 @@ export async function onRequestGet(ctx) {
     }
   }
   let sent = 0, failed = 0, skipped = 0;
-  await pushMany(kv, msgs, "otc"); // 🔔 先写站内信（不依赖 DeBox）
+  await timed("inbox", 25000, () => pushMany(kv, msgs, "otc")); // 🔔 先写站内信（不依赖 DeBox）
+  // 先记账、存进度，再发 DeBox 私信：后面哪一步卡了，这一轮读到的东西也不会白读
+  for (const [m, logs, cache, from, latest] of done) {
+    await timed("rec:" + m.key, 20000, async () => {
+      await markTraders(m, kv, logs, cache, true).catch(() => {});
+      await recordTrades(m, kv, logs, cache).catch(() => {});
+      await recordGuide(m, kv, logs, cache).catch(() => {});
+    });
+    await kv.put(m.kv + "block", String(latest));
+    if (Date.now() - T0 < 60000) await timed("fill:" + m.key, 12000, async () => { /* 补历史数据：不急，时间不够就下轮 */
+      await backfillTrades(m, kv, from - 1, cache).catch(() => {});
+      if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
+      await backfillVip(m, kv, from - 1, cache).catch(() => {});
+    });
+  }
+  const tDm = Date.now();
   for (const [addr, text] of msgs) {
-    if (Date.now() - T0 > 55000) { skipped++; continue; } /* 这一轮已经跑了 55 秒：剩下的 DeBox 私信不发了（站内信上面已经写了），先保证进度存得上 */
+    if (Date.now() - T0 > 75000) { skipped++; continue; } /* 这一轮已经跑了 75 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
     for (const u of users) {
       try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; }
     }
   }
-  for (const [m, logs, cache, from, latest] of done) {
-    await markTraders(m, kv, logs, cache, true).catch(() => {});
-    await recordTrades(m, kv, logs, cache).catch(() => {});
-    await recordGuide(m, kv, logs, cache).catch(() => {});
-    await backfillTrades(m, kv, from - 1, cache).catch(() => {});
-    if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
-    await backfillVip(m, kv, from - 1, cache).catch(() => {});
-    await kv.put(m.kv + "block", String(latest));
-  }
+  stage.dm = Date.now() - tDm;
   // 🤖 客服机器人自我介绍：每 8 小时在群里说一句「有问题 @我」，引导群友直接问（站长 2026-11-05 定）
   let greet = 0;
   try {
@@ -555,9 +572,9 @@ export async function onRequestGet(ctx) {
       for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
     }
   } catch (e) {}
-  const oracle = await oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 🔮 预言家：开奖结果 + 每天提醒
-  const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
+  const oracle = await timed("oracle", 30000, () => oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 🔮 预言家：开奖结果 + 每天提醒
+  const pixel = await timed("pixel", 10000, () => rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
-  return Response.json({ status, ms: Date.now() - T0, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
+  return Response.json({ status, ms: Date.now() - T0, stage, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }
