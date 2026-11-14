@@ -23,7 +23,7 @@ os.chdir(ROOT)
 
 # 分组：顺序 = 原 index 里的加载顺序（必须保持；A.start() 在 otc.js 末尾，menu.js 在它后面）
 GROUPS = {
-    "core":     ["net.js", "brand.js", "app.js", "livek.js", "wallets.js", "treemap.js", "member.js", "chat.js", "nft.js",
+    "core":     ["night.js", "net.js", "brand.js", "app.js", "livek.js", "wallets.js", "treemap.js", "member.js", "chat.js", "nft.js",
                  "scan.js", "rank.js", "inbox.js", "otc.js", "menu.js"],
     "names":    ["names.js", "names-batch.js", "genesis.js"],
     "kchart":   ["kchart.js"],
@@ -210,7 +210,15 @@ def main():
         name = "dist/%s.js" % g
         out[name] = js
         manifest[g] = name + "?v=" + v
-    core = "window.AIL_BUNDLES=" + json.dumps(manifest, separators=(",", ":")) + ";\n" + \
+    # 🌙 夜间模式样式：从 style.css 自动生成（tools/night.py），单独一个文件，开了夜间模式才加载（night.js 读 window.AIL_NIGHT）
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    from night import gen_night
+    ncss, nst = gen_night(read("style.css"))
+    ncss = mincss(ncss)
+    nv = hv(ncss)
+    out["dist/night.css"] = ncss + "\n/*v:%s*/" % nv
+    print("night.css: %d 条规则、%d 处颜色" % (nst["rules"], nst["colors"]))
+    core = "window.AIL_NIGHT=" + json.dumps("dist/night.css?v=" + nv) + ";\nwindow.AIL_BUNDLES=" + json.dumps(manifest, separators=(",", ":")) + ";\n" + \
            minjs("\n;\n".join(wrap(f) for f in GROUPS["core"]))
     cv = hv(core)
     out["dist/core.js"] = core + '\n;window.AIL_CORE="%s";\n/*v:%s*/' % (cv, cv)

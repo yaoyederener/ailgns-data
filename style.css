@@ -4299,3 +4299,8 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .nb-f .nb-tkc input[type=number] { flex: 1 1 auto; width: auto; min-width: 0; height: 46px; padding: 8px 12px; font-size: 18px; border: 1.5px solid #c4b5fd; border-radius: 12px; background: #fff; -moz-appearance: textfield; appearance: textfield; }
 .nb-f .nb-tkc input[type=number]::-webkit-outer-spin-button, .nb-f .nb-tkc input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .nb-f .nb-tkc .nm-go { flex: none; height: 46px; padding: 0 18px; font-size: 16px; }
+
+/* 🌙 夜间模式开关（☰ 更多 菜单头部）。夜间的颜色不在这里：tools/night.py 生成 dist/night.css，开了才加载 */
+.ntm-btn { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--soft-line); background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.ntm-btn b { font-weight: 700; white-space: nowrap; } .ntm-btn small { color: var(--muted); font-size: 12px; }
+html.night, html.night body { background: #121219; } /* 夜间样式文件还在路上的那一瞬间，先把底色压暗，免得白一下 */
