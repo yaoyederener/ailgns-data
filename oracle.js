@@ -52,7 +52,7 @@
       '<div id="or-top"></div>' +
       '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button><button type="button" class="ghost or-dmcs" id="or-dmcs">💬 在线客服</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
-      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 8 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b></p><p>🎯 整数猜对后，小数点后 <span class="or-decn">3</span> 位有 <b class="or-decrng">000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>💰 <b>本周 OTC 手续费前 3</b> → 贡献王（周日结算；11-10 起分本周新进奖池的 15%，大奖池只进不出；每人最多拿回手续费 3 倍，认证商家以上）</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
+      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 8 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？</b><div><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b></p><p>🎯 整数猜对后，小数点后 <span class="or-decn">3</span> 位有 <b class="or-decrng">000–999 共 1000 种</b>可能</p><p>⚡ <b>有人完全猜中那天才发奖</b>，没人猜中，奖池继续滚大</p></div><div><p>🔮 <b>完全猜中</b> → 神算子，平分大奖</p><p>👁 <b>最接近</b> → 天眼通（10%）　🌿 <b>第二接近</b> → 地灵通（5%）</p></div><small>免费参与，钱包签名即可 · 持创世 .ailgns 域名或 OTC 累计满 5 万 DAI 可玩</small></div></div>' +
       '<div id="or-chart" class="or-kc"></div>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 真实成交 K 线，最近 7 天，每 5 秒刷新</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -194,11 +194,11 @@
         '<div class="or-pz p3"><small><u class="or-rk">大奖 · 整个奖池</u>🔮 神算子</small>' + tile(1) + "</div>" +
         '<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>' + dly.each + '</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 只花当天进账</s></div>' +
       "</div>" : '<div class="or-prz">' +
-        '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
-        '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" +
+        (d.kings ? '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
+        '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" : '<div class="or-pz p3" style="grid-column:1/-1"><small><u class="or-rk">一等奖 · 85%</u>🔮 神算子</small>' + tile(0.85) + "</div>") +
         '<div class="or-pz p1"><small><u class="or-rk">三等奖 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
         '<div class="or-pz p2"><small><u class="or-rk">四等奖 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
-      "</div>" + (dly ? '<p class="or-chg">📣 <b>' + dayCn(dly.from) + '起改规则</b>：贡献王本周日发完最后一期就取消；改成<b>每晚离揭晓价最近的 ' + dly.top + ' 个人各 ' + dly.prize + ' DAI</b>（天眼通、地灵通并进来），天天有人拿。</p>' : "")) +
+      "</div>" + (dly ? '<p class="or-chg">📣 <b>' + dayCn(dly.from) + '起改规则</b>：贡献王已取消（本周不再结算，奖池里的钱全部留给大奖）；改成<b>每晚离揭晓价最近的 ' + dly.top + ' 个人各 ' + dly.prize + ' DAI</b>（天眼通、地灵通并进来），天天有人拿。</p>' : "")) +
       "</div></section>";
     // 正在揭晓 / 刚开完
     if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
@@ -423,7 +423,7 @@
     el.innerHTML = '<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>' + livePxV.toFixed(DS === 10000 ? 4 : 3) + '</b> DAI<i class="or-dot"></i></span></div>' +
       '<div class="or-simg">' + top.map(function (r, i) { var d = Math.abs(r.m - m); return '<div class="or-simc r' + (i + 1) + (moved ? " moved" : "") + (i === 0 && hit ? " hit" : "") + '"><small>' + tags[i][0] + '</small><b>' + esc(r.name) + '</b><em>预测 ' + r.p + (d === 0 ? " · 🎯 完全猜中！" : " · 差 " + fq(d, DS)) + "</em></div>"; }).join("") + "</div>" +
       (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 领奖先烧 1 枚创世名 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
-      (drDaily ? '<p class="muted or-simd">🎯 揭晓时离得最近的 3 个人各拿每日奖（每日奖冷却中的顺延给下一位）</p>' : '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>');
+      (drDaily ? '<p class="muted or-simd">🎯 揭晓时离得最近的 3 个人各拿每日奖（每日奖冷却中的顺延给下一位）</p>' : (drKings.length ? '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>' : ""));
     // 名单里把当前最接近的 3 个点亮
     var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
     document.querySelectorAll(".or-all li[data-k]").forEach(function (li) { var r = names[li.getAttribute("data-k")]; li.className = (r ? "hot h" + r : "") + (li.hasAttribute("data-me") ? " me" : ""); });
@@ -564,7 +564,7 @@
       "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
       "<li><b>奖金</b>：奖池的钱由<b>团队注入</b>（2026-11-15 起不再按域名收入自动划转），进了奖池的 DAI 会买成 AiLGNS；页面大字显示的就是奖池钱包的实际余额，有多少发多少。🔮 <b>神算子</b>（价格每一位都猜中）平分大奖池；没人猜中，大奖池继续滚大。</li>" +
       "<li><b>🎯 每日前三</b>（2026-11-16 起）：每晚揭晓后，除神算子外<b>离揭晓价最近的 3 个人各拿 20 DAI</b>（发 AiLGNS），天天发。钱只从<b>当天新进奖池的钱</b>里出，当天进账不够 60 DAI 就三人平分当天进账；<b>大奖池只进不出</b>。一个名字、一个钱包每晚只占一个名额，一样近先提交的得。中一次休息 7 天（只停每日奖，照样能猜大奖），名额顺延。原来的天眼通、地灵通并进每日前三。</li>" +
-      "<li><b>💰 贡献王（2026-11-15 最后一期）</b>：本周一到周日本站 OTC 吃单手续费前 3 名，周日晚照常结算；<b>2026-11-16 起取消</b>。11-15 及以前有人猜中大奖的那天，天眼通 10%、地灵通 5% 照老规则发。</li>" +
+      "<li><b>💰 贡献王（已取消）</b>：原定 2026-11-15 发最后一期，现已取消，本周不再结算；奖池里的钱全部留给大奖。11-15 这一期有人猜中大奖的话，天眼通 10%、地灵通 5% 照老规则发，其余归神算子。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
       "<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +
       "<li><b>📣 领奖要到社区宣告</b>（2026-11-13 那一期起，所有奖项）：名字烧够以后，中奖的人还要<b>到 DeBox 的 AiLGNS 社区发帖宣告自己中奖</b>，把帖子链接交到本页（用中奖钱包签名，不花钱）。团队核对后机器人才发奖。目的：让社区看得见中奖的是真人，防作弊、防质疑。不宣告就一直不发，奖金留在奖池钱包里。</li>" +
