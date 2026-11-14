@@ -193,9 +193,9 @@
       (dly && dly.on ? '<div class="or-prz or-prz2">' +
         '<div class="or-pz p3"><small><u class="or-rk">大奖 · 发完每日前三剩下的</u>🔮 神算子</small>' + tile(potV > 0 ? Math.max(0, potV - dly.each * dly.top) / potV : 0) + "</div>" +
         '<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>' + dly.each + '</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 从奖池里出</s></div>' +
-      "</div>" : '<div class="or-prz">' +
+      "</div>" : '<div class="or-prz' + (d.kings ? "" : " or-prz3") + '">' +
         (d.kings ? '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
-        '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" : '<div class="or-pz p3" style="grid-column:1/-1"><small><u class="or-rk">一等奖 · 85%</u>🔮 神算子</small>' + tile(0.85) + "</div>") +
+        '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" : '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 85%</u>🔮 神算子</small>' + tile(0.85) + "</div>") +
         '<div class="or-pz p1"><small><u class="or-rk">三等奖 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
         '<div class="or-pz p2"><small><u class="or-rk">四等奖 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
       "</div>" + (dly ? '<p class="or-chg">📣 <b>' + dayCn(dly.from) + '起改规则</b>：贡献王已取消（本周不再结算，奖池里的钱全部留给大奖）；改成<b>每晚离揭晓价最近的 ' + dly.top + ' 个人各 ' + dly.prize + ' DAI</b>（天眼通、地灵通并进来），天天有人拿。</p>' : "")) +
