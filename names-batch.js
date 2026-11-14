@@ -74,7 +74,7 @@
         '<div class="nb-cand" id="nb-cand"></div>' +
         '<div class="nb-foot"><div class="nb-sum" id="nb-sum"></div><button type="button" class="nm-go" id="nb-go" disabled>付款</button><button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button></div><p class="muted nb-botst" id="nb-botst"></p>' +
         '<p class="muted nb-st" id="nb-st"></p>' +
-        '<p class="muted nb-note">第 2 个域名注册成功后，票大约半分钟到账，到极速预言家页就能看到。只用 DAI 付。</p></div>';
+        '<p class="muted nb-note">自己点付款：买完票马上能用。交给机器人代点：机器人注册完（一般几分钟）票才到。只用 DAI 付。</p></div>';
       document.body.appendChild(box);
       document.getElementById("nb-x").onclick = function () { if (busy && !confirm("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
       pane(); drawCand();
@@ -261,8 +261,11 @@
   function run() {
     var h = H(), names = list(); if (!names.length || busy) return;
     busy = true; sum();
-    var done = [], fail = [], t = total();
-    h.connect().then(function () { return h.prepay(t, "DAI", say); }).then(function () {
+    var done = [], fail = [], t = total(), base = null; /* base = 付款前账本上我还有几张极速票（读不到就不做「秒到账」，照常等半分钟） */
+    h.connect().then(function () {
+      try { fetch("/api/fast?a=" + h.account(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响注册 */ }
+      return h.prepay(t, "DAI", say);
+    }).then(function () {
       // 先试「一次确认发一串」（EIP-5792 wallet_sendCalls）
       var calls = names.map(function (n) { return { to: h.NAMES(), data: h.regData(n, 1, "DAI", h.account()) }; });
       return h.sendCalls(calls, say).then(function (ok) { if (ok) { done = names.slice(); return; } return seq(); }, function () { return seq(); });
@@ -285,10 +288,19 @@
       busy = false; sum();
       if (done.length) {
         try { fetch("/api/batch-mark", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: h.account(), names: done }) }); } catch (e) {} // 🏷️ 标记为批量注册（2026-11-11 起先按普通注册分：30% / 70% 每日奖池；极速预言家上线再改回 10% / 90%）
-        say("✅ 注册成功 " + done.length + " 个：" + done.join("、") + (fail.length ? "；没成功 " + fail.length + " 个：" + fail.join("、") : ""));
+        // 🎟 票秒到账：自己点买成了 2 个及以上 → 记一笔「刚买的」，极速页马上算进可押的票（账本约半分钟后追上，自动消掉）
+        var tk = done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false;
+        if (tk && base !== null) {
+          try {
+            var me0 = String(h.account()).toLowerCase(), old = JSON.parse(localStorage.getItem("fx:pend") || "null");
+            var from = old && old.a === me0 && Date.now() - old.t < 180000 ? Math.max(old.target, base) : base; /* 上一笔还没上账：接着往上加 */
+            localStorage.setItem("fx:pend", JSON.stringify({ a: me0, target: from + tk, n: tk, t: Date.now() })); quick = true;
+          } catch (e1) { /* 存不了就照常等账本 */ }
+        }
+        say("✅ " + (simple ? "买好了：" : "注册成功 " + done.length + " 个：" + done.join("、") + "。") + (tk ? (simple ? "" : "送 ") + tk + " 张极速票" + (quick ? "已到账，现在就能去押。" : "大约半分钟到账。") : simple ? "只注册成了 1 个，还没有票；10 分钟内再注册 1 个，两个的票一起到。" : "") + (fail.length ? " 没成功 " + fail.length + " 个：" + fail.join("、") : ""));
         if (A.just) done.forEach(function (n) { A.just.set("names", n + ".ailgns"); });
         if (A.inbox && A.inbox.authed && A.inbox.authed()) { /* 收件箱会收到链上记录 */ }
-        var b = document.getElementById("nb-go"); if (b) { b.textContent = "去看我的域名 →"; b.disabled = false; b.onclick = function () { box.remove(); box = null; location.hash = "#/names/" + h.account(); }; }
+        var b = document.getElementById("nb-go"); if (b) { b.textContent = simple && tk ? "去押注 →" : "去看我的域名 →"; b.disabled = false; b.onclick = function () { box.remove(); box = null; location.hash = simple && tk ? "#/fast" : "#/names/" + h.account(); }; }
       } else if (!fail.length) say("一个都没注册", true);
       else say("没成功：" + fail.join("、"), true);
     }

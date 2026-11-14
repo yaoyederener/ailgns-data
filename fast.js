@@ -22,13 +22,22 @@
     }).catch(function () { if (!data) { var b = el("fx-main"); if (b) b.innerHTML = '<p class="muted">数据没读出来，稍等几秒会自动再试。</p>'; } });
   }
 
-  function left() { return data && data.me ? data.me.left : 0; }
+  /* 🎟 刚买的票秒到账（站长 2026-11-14）：买票窗口付款成功后记在 localStorage 的 fx:pend = { a, target, n, t }，target = 账本追上后我应该有几张。
+     账本还没追上（差 20 个区块）时，差的那几张先算进可押的票；这时下注在链上排在出票之后，两边账本都认。账本追上或过 3 分钟就作废。 */
+  function pend() { try { var p = JSON.parse(localStorage.getItem("fx:pend") || "null"); return p && acct && p.a === String(acct).toLowerCase() && Date.now() - p.t < 180000 ? p : null; } catch (e) { return null; } }
+  function extra() {
+    var me = data && data.me, p = me && data.v2 ? pend() : null; if (!p) return 0;
+    var x = p.target - me.left;
+    if (x <= 0) { try { localStorage.removeItem("fx:pend"); } catch (e) { /* 删不掉也只是多留 3 分钟 */ } return 0; }
+    return x;
+  }
+  function left() { return data && data.me ? data.me.left + extra() : 0; }
   /* 这一期我最多还能押几张：老票不限；新票每个钱包每期最多 cap2 张（站长 2026-11-14 定 100），已经押过的要扣掉 */
   function maxQ() {
     var me = data && data.me; if (!me) return 0;
     if (!data.v2 || !data.cap2) return me.left;
     var used = (me.bets || []).reduce(function (t, x) { return t + (x.st === "wait" && x.r === data.r ? (x.n2 || 0) : 0); }, 0);
-    return (me.left1 || 0) + Math.min(me.left2 || 0, Math.max(0, data.cap2 - used));
+    return (me.left1 || 0) + Math.min((me.left2 || 0) + extra(), Math.max(0, data.cap2 - used));
   }
   function paint() {
     var box = el("fx-main"); if (!box || !data) return;
@@ -52,7 +61,7 @@
             '<p class="fx-pot2">' + (data.carry > 0 ? "其中 " + money(data.carry) + " DAI 是前面没人猜中滚过来的 · " : "") + "已压 " + data.tk + " 票</p>") +
       (v2 && data.res && SHOW_RES ? '<p class="fx-res">💰 资金池里现在有 <b>' + money(data.res.dai) + " DAI</b>" + (data.res.ail > 0 ? " + " + data.res.ail.toFixed(4) + " AiLGNS" : "") + '（<a href="#/scan/' + data.pool + '">链上实际余额</a>）' + (v2 ? "，用来给猜中的人发奖" : "") + "。已卖出、还没下注的票有 <b>" + Number(data.left || 0).toLocaleString("en-US") + "</b> 张" + (v2 ? "。" : "：谁下注，谁的票才进当期奖池。") + "</p>" : "") + "</div>" +
       '<div class="fx-me">' + (!acct ? '还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>'
-        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "")
+        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "")
         : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
       (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
@@ -114,12 +123,12 @@
     if (pick < 0) return say("先在上面点一个数字。", true);
     if (data.v2 && maxQ() <= 0) return say("这一期你已经押满 " + data.cap2 + " 张了，每个钱包每期最多押 " + data.cap2 + " 张。等下一期再押。", true);
     var n = Math.min(qty, have, Math.max(1, maxQ())), d = pick;
-    if (!window.confirm("确定压 " + n + " 张票，猜 " + d + " 吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 猜中平分奖池；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回")) return;
+    if (!window.confirm("确定压 " + n + " 张票，猜 " + d + " 吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + (data.v2 ? "猜中每张票发 1.9 DAI" : "猜中平分奖池") + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回")) return;
     var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + d + ":" + n) };
     busy = true; betLabel(); say("请在钱包里点「确认」（显示转账 0 DAI 是正常的）");
     W.switchTo(eth, "anubis").then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [tx] }); })
       .then(function (h) { say("已发出，等链上记账，大约十几秒…"); return W.waitOn("anubis", h); })
-      .then(function () { busy = false; pick = -1; say("✅ 压好了：" + n + " 张票猜 " + d + "。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
+      .then(function () { try { var p0 = pend(); if (p0) { p0.target -= n; localStorage.setItem("fx:pend", JSON.stringify(p0)); } } catch (e9) { /* 记不了就等账本 */ } busy = false; pick = -1; say("✅ 压好了：" + n + " 张票猜 " + d + "。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
       .catch(function (e) { busy = false; betLabel(); say(/reject|denied|取消|cancel/i.test((e && e.message) || "") ? "你在钱包里点了取消，没有下注。" : "没发出去：" + ((e && e.message) || "请稍后再试"), true); });
   }
 
