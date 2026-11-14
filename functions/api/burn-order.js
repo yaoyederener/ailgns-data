@@ -49,6 +49,7 @@ export async function onRequestPost(ctx) {
     if (Number.isFinite(b.fail)) o.fail = Math.max(0, Math.floor(b.fail));
     if (Number.isFinite(b.blk0) && !o.blk0) o.blk0 = Math.floor(b.blk0); // 机器人第一次接单时的区块号：之后「烧了几个」从这里往后数链上黑洞记录
     if (typeof b.note === "string") o.note = b.note.slice(0, 200);
+    else if (b.state === "done") o.note = ""; /* 烧完了：清掉上一轮留下的「正在烧」提示，免得站内信里带着旧话 */
     o.seen = Date.now();
     if (b.state === "done" && o.state === "pending") {
       o.state = "done"; o.doneAt = Date.now();
