@@ -1232,10 +1232,11 @@
         function msay(t, bad) { mst.className = "note" + (bad ? " down" : ""); mst.textContent = t; if (bad) errTip(t, mst); }
         var token = m.sell ? AILGNS : DAI, name = m.sell ? SYM : "DAI", dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT; // 扫单面板里没有有效期控件（剩余部分挂单用默认 30 天）
         var need = m.p.steps.reduce(function (t, x) { return t + x.pay; }, 0n) + m.restGive, done = 0;
-        if (m.restGive) { /* 和下面「发布挂单」同一条线：买价 ≥ 最低卖价 2 倍 / 卖价 ≤ 最高买价一半（没有买单时按参考价）→ 剩余部分不能按这个价挂 */
+        { /* 和下面「发布挂单」同一条线：买价 ≥ 最低卖价 2 倍 / 卖价 ≤ 最高买价一半（没有买单时按参考价）→ 不让走。
+             有没有剩余都拦：单价就是「最贵 / 最便宜吃到哪」的线，线划得离谱，数量一大就会一路吃到很亏的单；剩下的还会按这个价挂出去 */
           var pv = num(toWei(price.value)), r2 = oref && pv ? pv / oref.p : null, far = r2 ? (m.sell ? r2 <= 0.5 : r2 >= 2) : false;
           if (far && (m.sell ? (otcBid ? pv <= otcBid * 0.5 : true) : true)) {
-            msay("你填的单价 " + A.fmt(pv, PD) + " 和现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）差了一倍以上。成交完剩下的部分会按这个价挂出去，会被别人马上" + (m.sell ? "低价买走" : "高价卖给你") + "，链上成交撤不回来。【这个价不能挂】请把单价改到市价附近再点。", true);
+            msay("你填的单价 " + A.fmt(pv, PD) + " 和现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）差了一倍以上。按这个价会一路" + (m.sell ? "卖给出价很低的买单" : "吃到要价很高的卖单") + "，剩下的还会按这个价挂出去、被别人马上" + (m.sell ? "低价买走" : "高价卖给你") + "，链上成交撤不回来。【这个价不能用】请把单价改到市价附近再点。", true);
             return;
           }
         }
