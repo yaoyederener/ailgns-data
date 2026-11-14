@@ -68,7 +68,7 @@
         '<a class="fx-pool-v" href="#/scan/' + data.pool + '">🔗 链上验证 ›</a>' +
         '' + (data.transit > 0 ? '<p class="fx-pool-t">其中 ' + money(data.transit) + ' DAI 是刚卖出的票款，正在转进奖池钱包（一般十几分钟内到），链上查到的会暂时少这么多。</p>' : "") + '<div class="fx-tags"><i>✅ 全额兑付</i><i>⚡ 中奖秒发 · 约 1 分钟到账</i></div></div>' : "") + "</div>" +
       '<div class="fx-me">' + (!acct ? '还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>'
-        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (v2 ? ' <a class="fx-more" href="#/names/batch">＋ 买更多票</a>' : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "")
+        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "") + (v2 ? ' <a class="fx-more" href="#/names/batch">＋ 买更多票</a>' : "")
         : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
       (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
