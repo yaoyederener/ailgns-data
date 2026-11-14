@@ -4380,3 +4380,8 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-fold > summary::after, .hn-fold > summary::after { content: " ▾"; }
 .wkb-fold[open] > summary::after, .hn-fold[open] > summary::after { content: " ▴"; }
 .wkb-fold[open] > summary, .hn-fold[open] > summary { margin-bottom: 6px; }
+.wkb-addr { margin-top: 12px; padding: 10px 12px; border-radius: 14px; background: var(--panel-2); text-align: left; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.wkb-mini .wkb-addr { margin: 0 0 8px; }
+.wkb-addr small { flex: 1 0 100%; font-size: 12.5px; color: var(--muted); }
+.wkb-addr a { flex: 1 1 0; min-width: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; color: #5b3fc4; word-break: break-all; text-decoration: none; }
+.wkb-cp { flex: 0 0 auto; border: 0; border-radius: 999px; padding: 7px 14px; background: #ede7fb; color: #5b3fc4; font-weight: 700; font-size: 13px; cursor: pointer; }

@@ -9,6 +9,16 @@
   function dayCn(d) { var p = String(d || "").split("-"); return p.length === 3 ? Number(p[1]) + "月" + Number(p[2]) + "日" : ""; }
   function pct(s) { var v = (s || 0) * 100; return (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + "%"; }
   function left(ms) { var h = Math.max(0, Math.floor((ms - Date.now()) / 3600e3)); return h >= 24 ? Math.floor(h / 24) + " 天 " + (h % 24) + " 小时" : h + " 小时"; }
+  function addrBox(a) { return '<div class="wkb-addr"><small>奖池托管地址（链上公开，点地址能看每一笔进出）</small><a href="#/scan/' + esc(a) + '">' + esc(a) + '</a><button type="button" class="wkb-cp" data-cp="' + esc(a) + '">复制</button></div>'; }
+  var bindCopy = function (root) { /* 「复制」按钮：钱包 App 不让复制就换老办法，再不行提示长按 */
+    Array.prototype.forEach.call(root.querySelectorAll(".wkb-cp"), function (b) {
+      b.onclick = function () {
+        var t = b.getAttribute("data-cp") || "", done = function () { b.textContent = "已复制"; };
+        var old = function () { try { var x = document.createElement("textarea"); x.value = t; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0;opacity:0"; document.body.appendChild(x); x.select(); var ok = document.execCommand("copy"); x.remove(); b.textContent = ok ? "已复制" : "请长按地址复制"; } catch (e) { b.textContent = "请长按地址复制"; } };
+        try { navigator.clipboard.writeText(t).then(done, old); } catch (e) { old(); }
+      };
+    });
+  };
   var ST = { wait: "⏳ 等烧创世名", ready: "🕐 机器人待发", sending: "🕐 发放中", paid: "✅ 已到账", forfeit: "已放弃" };
 
   function row(x, i, showAmt) {
@@ -22,7 +32,7 @@
     html += '<section class="card wkb-hero"><div class="wkb-tag">🏆 OTC 手续费周榜 · 试运行</div>' +
       (canPay ? '<div class="wkb-big"><b class="num">' + dai(p.avail) + '</b><small>DAI</small></div><div class="wkb-cap">奖金钱包里现在能分的钱 · 有多少分多少</div>'
         : '<div class="wkb-big wkb-soon"><b>' + (d.on && d.pre ? dayCn(d.rules.from) + "开始" : "准备中") + '</b></div><div class="wkb-cap">' + (d.on && d.pre ? "从这一周起，前 " + d.rules.top + " 名开始分奖金钱包里的钱" : "奖金钱包开放后，这里显示钱包里能分的钱") + "</div>") +
-      (p && p.a ? '<a class="wkb-wal" href="#/scan/' + esc(p.a) + '">🏦 查看奖金钱包 ›</a>' : "") +
+      (p && p.a ? addrBox(p.a) : "") +
       '<div class="wkb-week">本周：' + dayCn(d.cyc) + " – " + dayCn(d.to) + " · 周日 24 点截止，周一结算" + (d.endAt > Date.now() ? "（还剩 " + left(d.endAt) + "）" : "") + "</div>" +
       (canPay && p.owed > 0 ? '<div class="wkb-owed">钱包里另有 ' + dai(p.owed) + " DAI 是前几周已经分出去、等领奖的，不算进本周</div>" : "") + "</section>";
     html += '<section class="card"><div class="card-head"><h2>📋 本周榜单</h2><span class="muted">前 ' + d.rules.top + " 名分钱</span></div>" +
@@ -48,6 +58,7 @@
       }).join("") + "</ul></section>";
     }
     A.app.innerHTML = html;
+    try { bindCopy(A.app); } catch (e) { /* 复制按钮挂不上不影响看榜 */ }
     try { if (A.credFill) A.credFill(A.app); } catch (e) { /* 信誉标志挂不上不影响看榜 */ }
   }
   A.pages.weekly = function (id) {

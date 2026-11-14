@@ -89,6 +89,15 @@
   // ---------- 荣耀榜里的「本周 OTC 手续费周榜」小卡：前三名直接看，第 4–10 名折叠；规则和发放记录在 #/weekly ----------
   function wkEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function wkNum(v) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  var wkBindCopy = function (root) { /* 「复制」按钮：钱包 App 不让复制就换老办法，再不行提示长按 */
+    Array.prototype.forEach.call(root.querySelectorAll(".wkb-cp"), function (b) {
+      b.onclick = function () {
+        var t = b.getAttribute("data-cp") || "", done = function () { b.textContent = "已复制"; };
+        var old = function () { try { var x = document.createElement("textarea"); x.value = t; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0;opacity:0"; document.body.appendChild(x); x.select(); var ok = document.execCommand("copy"); x.remove(); b.textContent = ok ? "已复制" : "请长按地址复制"; } catch (e) { b.textContent = "请长按地址复制"; } };
+        try { navigator.clipboard.writeText(t).then(done, old); } catch (e) { old(); }
+      };
+    });
+  };
   function weekCard(w) {
     var box = document.getElementById("hn-wk");
     if (!box || !w || !w.rules) return;
@@ -101,9 +110,11 @@
     var rows = top.map(li);
     box.innerHTML = '<section class="card wkb-mini"><div class="card-head"><h2>🏆 本周 OTC 手续费周榜</h2><span class="muted">试运行' + (w.demo ? " · 示例数据" : "") + "</span></div>" +
       '<p class="wkb-minip">' + (canPay ? "奖金钱包现在能分 <b>" + wkNum(p.avail) + " DAI</b>。" : "") + "每周按吃单手续费排名，前 " + w.rules.top + " 名按占比分奖金钱包里的钱，<b>有多少分多少</b>，不承诺金额，发 AiLGNS。" + (canPay ? "" : w.on && w.pre ? "从 " + Number(String(w.rules.from).split("-")[1]) + " 月 " + Number(String(w.rules.from).split("-")[2]) + " 日这一周开始计奖，下面是本周的排名参考。" : "奖金钱包准备中。") + "</p>" +
+      (p && p.a ? '<div class="wkb-addr"><small>奖池托管地址（链上公开，点地址能看每一笔进出）</small><a href="#/scan/' + wkEsc(p.a) + '">' + wkEsc(p.a) + '</a><button type="button" class="wkb-cp" data-cp="' + wkEsc(p.a) + '">复制</button></div>' : "") +
       (rows.length ? '<ol class="wkb-list">' + rows.slice(0, 3).join("") + "</ol>" + (rows.length > 3 ? '<details class="wkb-fold"><summary>展开第 4–' + rows.length + ' 名</summary><ol class="wkb-list">' + rows.slice(3).join("") + "</ol></details>" : "")
         : '<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>') +
       '<a class="wkb-cta" href="#/weekly">📖 规则和发放记录 ›</a></section>';
+    try { wkBindCopy(box); } catch (e) { /* 复制按钮挂不上不影响看榜 */ }
   }
 
   // ---------- 荣耀榜页面 ----------
