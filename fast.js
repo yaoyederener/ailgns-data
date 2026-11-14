@@ -72,9 +72,9 @@
         : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
       (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
-      '<p class="fx-h">' + (data.multi ? "① 选数字（可以多选，1 到 10 个）" : "① 选一个数字") + '</p><div class="fx-grid">' + grid + "</div>" +
-      (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字：每个数字各压一样多的票，开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：每个压 1 张要花 10 张，只拿回 1.9。" : "") + "</p>" : "") +
-      '<p class="fx-h">' + (picks.length > 1 ? "② 每个数字压几张票" : "② 压几张票") + '</p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
+      '<p class="fx-h">' + (data.multi ? "① 选数字（可以多选 0-9）" : "① 选一个数字") + '</p><div class="fx-grid">' + grid + "</div>" +
+      (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字，押 1 倍 = " + picks.length + " 张票。开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 1.9。" : "") + "</p>" : "") +
+      '<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
       '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +
       (v2 ? '<p class="note">猜中：每张票发 1.9 DAI（本金 1 + 净赚 0.9），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
         : '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');
@@ -106,7 +106,7 @@
     var b = el("fx-bet"); if (!b) return;
     var have = left(), secs = data ? data.ends - Date.now() / 1000 : 0;
     b.disabled = busy;
-    b.textContent = busy ? "处理中…" : !acct ? "连接钱包再下注" : have <= 0 ? "没有票，先去买票" : !picks.length ? "先选一个数字" : picks.length === 1 ? "压 " + qty + " 张票，猜 " + picks[0] : "每个数字压 " + qty + " 张，猜 " + dsText() + "（共 " + qty * picks.length + " 张）";
+    b.textContent = busy ? "处理中…" : !acct ? "连接钱包再下注" : have <= 0 ? "没有票，先去买票" : !picks.length ? "先选数字" : "押 " + qty + " 倍，猜 " + dsText() + "（共 " + qty * picks.length + " 张票）";
     b.className = "fx-bet" + (!busy && (!acct || (have > 0 && picks.length)) ? " ready" : "");
     if (el("fx-n")) el("fx-n").textContent = qty;
     if (!busy && acct && have > 0 && picks.length && secs < 20 && secs > -5) say("本期快结束了，现在压多半会算到下一期。");
@@ -135,13 +135,13 @@
     var n = Math.min(qty, maxPer()), tot = n * k, d = dsText(); /* n = 每个数字几张，tot = 一共几张 */
     var win = data.v2 ? "猜中每张票发 1.9 DAI" : "猜中平分奖池";
     if (!window.confirm(k === 1
-      ? "确定压 " + n + " 张票，猜 " + d + " 吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + win + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回"
-      : "确定每个数字压 " + n + " 张，猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字：" + win + "，其余数字的票就用掉了" + (k >= 10 ? "\n⚠️ 10 个数字全选一定亏" : "") + "\n③ 发出去以后不能撤回")) return;
+      ? "确定押 " + n + " 倍，猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + win + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回"
+      : "确定押 " + n + " 倍（每个数字 " + n + " 张），猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字：" + win + "，其余数字的票就用掉了" + (k >= 10 ? "\n⚠️ 10 个数字全选一定亏" : "") + "\n③ 发出去以后不能撤回")) return;
     var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + ds.join("") + ":" + n) }; /* 多个数字写成「0123:1」，一个数字还是老写法「7:3」 */
     busy = true; betLabel(); say("请在钱包里点「确认」（显示转账 0 DAI 是正常的）");
     W.switchTo(eth, "anubis").then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [tx] }); })
       .then(function (h) { say("已发出，等链上记账，大约十几秒…"); return W.waitOn("anubis", h); })
-      .then(function () { try { var p0 = pend(); if (p0) { p0.target -= tot; localStorage.setItem("fx:pend", JSON.stringify(p0)); } } catch (e9) { /* 记不了就等账本 */ } busy = false; picks = []; say("✅ 压好了：" + (k === 1 ? n + " 张票猜 " + d : "每个数字 " + n + " 张，猜 " + d + "，共 " + tot + " 张") + "。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
+      .then(function () { try { var p0 = pend(); if (p0) { p0.target -= tot; localStorage.setItem("fx:pend", JSON.stringify(p0)); } } catch (e9) { /* 记不了就等账本 */ } busy = false; picks = []; say("✅ 押好了：" + n + " 倍，猜 " + d + "，共 " + tot + " 张票。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
       .catch(function (e) { busy = false; betLabel(); say(/reject|denied|取消|cancel/i.test((e && e.message) || "") ? "你在钱包里点了取消，没有下注。" : "没发出去：" + ((e && e.message) || "请稍后再试"), true); });
   }
 
@@ -158,7 +158,7 @@
       '<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p>';
     return '<h2>规则一共七条</h2><ol class="bn-rules">' +
       "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
-      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（1 到 10 个），每个数字压一样多的票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
+      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
       "<li><b>猜中发多少</b><span>每张票发 1.9 DAI：拿回本金 1 DAI，再赚 0.9 DAI。压 5 张猜中就是 9.5 DAI。不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
       "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
