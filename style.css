@@ -4319,3 +4319,7 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .orh-s{flex:1 0 100%;font-style:normal;font-size:12.5px;color:#7a7198}
 .orh-s b{color:#3d2a8c}
 .orh-none{margin:0 0 8px}
+
+/* 收件箱：站长「回复客户」按钮和发出后的留底 */
+.ib-repc{border-color:#7c3aed;background:#7c3aed;color:#fff}
+.ib-rmine{margin:4px 0 0;padding:8px 10px;border-radius:10px;background:#f5f3ff;color:#4c1d95;font-size:13px;white-space:pre-wrap;word-break:break-word}

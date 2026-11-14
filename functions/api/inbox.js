@@ -4,7 +4,7 @@
 //   POST { a, ts, sig, action: "seen" } → 全部标为已读（页面一打开就自动调）
 //   POST { action: "tx", tx }  → 客户刚在本站发的交易：读链核对后给发起人写一条通知（不用签名，文字全由链上回执生成）
 import { recoverAddress } from "../../lib/evmsig.js";
-import { inboxText, AUTH_TTL, pushInbox } from "../../lib/inbox.js";
+import { inboxText, AUTH_TTL, pushInbox, OWNER } from "../../lib/inbox.js";
 import { ensureWeek } from "../../lib/cred.js";
 import { rpc } from "../../lib/oracle.js";
 import { txNote } from "../../lib/txnote.js";
@@ -72,5 +72,23 @@ export async function onRequestPost(ctx) {
   const a = auth(b.a, b.ts, b.sig);
   if (!a) return json({ error: "登录已过期，请重新用钱包签名" }, 401);
   if (b.action === "seen") { await kv.put("ib:seen:" + a, String(Date.now())); return json(await view(kv, a)); }
+  // 💬 站长在收件箱里直接回复客户（2026-11-14 站长定）：只有站长钱包签名登录的收件箱能用；回给「那张工单是谁提的」那个钱包，不能随便填地址
+  //    客户那边：收件箱多一条「📣 站长通知」，全站底部弹悬浮气泡（和站长私信同一个）；工单也记上这条回复、标成已处理
+  if (b.action === "reply") {
+    if (a !== OWNER) return json({ error: "只有站长的收件箱能回复客户" }, 403);
+    const tid = String(b.tid || ""), msg = String(b.msg || "").trim().slice(0, 1000);
+    if (!/^\d{1,9}$/.test(tid)) return json({ error: "没找到是哪张工单" }, 400);
+    if (msg.length < 2) return json({ error: "内容太短" }, 400);
+    const t = await kv.get("tk:" + tid, "json");
+    if (!t || !/^0x[0-9a-f]{40}$/.test(String(t.a || ""))) return json({ error: "没有这张工单，或者工单上没有客户的钱包地址" }, 404);
+    const said = String(t.txt || "").replace(/^【回复站内信】/, "").split("\n\n—— 回复的是：")[0].trim().slice(0, 120);
+    await pushInbox(kv, t.a, "ticket", "📣 站长通知\n" + msg + (said ? "\n\n—— 回复你的留言：" + said : ""), "#/inbox");
+    t.note = msg; t.st = "done"; t.up = Date.now();
+    await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+    const log = (await kv.get("ib:adminlog", "json")) || [];
+    log.unshift({ t: Date.now(), to: [t.a], msg: ("【回复工单 #" + t.id + "】" + msg).slice(0, 300), link: "#/inbox" });
+    await kv.put("ib:adminlog", JSON.stringify(log.slice(0, 50)));
+    return json({ ok: true, to: t.a, id: t.id });
+  }
   return json({ error: "不认识的操作" }, 400);
 }

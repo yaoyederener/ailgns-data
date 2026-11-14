@@ -145,8 +145,30 @@
     if (box.querySelector(".ib-rbox")) return; // 正在写回复：不刷新列表，免得字被清掉
     shown = j.list;
     box.innerHTML = j.list.length ? j.list.map(function (x) {
-      return '<div class="ib-it' + (x.t > openSeen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
+      return '<div class="ib-it' + (x.t > openSeen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small>' + repBtn(x) + '</div></div>';
     }).join("") : '<p class="muted ib-empty">还没有消息。以后你的成交、借贷、工单回复、预言家中奖、链上留言都会出现在这里。</p>';
+  }
+  /* 回复按钮：客户看到的是「回复站长」；站长自己的收件箱里，客户来信 / 工单那几条变成「回复客户」（直接回到那位客户的收件箱），其余通知不放按钮（站长 2026-11-14） */
+  var OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
+  function tidOf(x) { var m = String((x && x.link) || "").match(/^#\/feedback\/admin\/(\d+)$/); return m ? m[1] : ""; }
+  function repBtn(x) {
+    if (auth && auth.a === OWNER) { var tid = tidOf(x); return tid ? '<button type="button" class="ib-rep ib-repc" data-rep="' + esc(x.id) + '" data-tid="' + tid + '">💬 回复客户</button>' : ""; }
+    return '<button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button>';
+  }
+  function replyCustomer(b, main) {
+    var tid = b.getAttribute("data-tid");
+    b.hidden = true;
+    main.insertAdjacentHTML("beforeend", '<div class="ib-rbox"><textarea rows="3" maxlength="1000" placeholder="写给这位客户（工单 #' + tid + '）。发出后他的收件箱多一条「站长通知」，网站底部会弹出提醒"></textarea><div class="ib-rrow"><button type="button" class="link ib-rx">取消</button><button type="button" class="nm-go ib-rs">发送给客户</button></div><p class="muted ib-rst"></p></div>');
+    var box = main.querySelector(".ib-rbox"), ta = box.querySelector("textarea"), st = box.querySelector(".ib-rst"); ta.focus();
+    box.querySelector(".ib-rx").onclick = function () { box.remove(); b.hidden = false; };
+    box.querySelector(".ib-rs").onclick = function () {
+      var v = ta.value.trim(), s = this; if (v.length < 2) { st.textContent = "多写几个字吧"; return; }
+      s.disabled = true; st.textContent = "发送中…";
+      fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "reply", tid: tid, msg: v }) }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.error) { s.disabled = false; st.textContent = "❌ " + j.error; return; }
+        box.innerHTML = '<p class="ib-rok">✅ 已发给客户 ' + esc(A.short(j.to)) + '（工单 #' + esc(j.id) + ' 已标成已处理）。他打开网站，底部会弹出「站长给你发来一条私信」；他再回复，还会出现在你这里。</p><p class="ib-rmine">你写的：' + esc(v) + "</p>";
+      }, function () { s.disabled = false; st.textContent = "❌ 网络不好，再点一次"; });
+    };
   }
   function markSeen() {
     if (!auth || marking) return; marking = true;
@@ -157,6 +179,7 @@
     var b = e.target.closest && e.target.closest("[data-rep]"); if (!b || !auth) return;
     var main = b.parentNode; if (main.querySelector(".ib-rbox")) return;
     var it = shown.filter(function (x) { return x.id === b.getAttribute("data-rep"); })[0] || {};
+    if (b.getAttribute("data-tid") && auth.a === OWNER) return replyCustomer(b, main);
     b.hidden = true;
     main.insertAdjacentHTML("beforeend", '<div class="ib-rbox"><textarea rows="3" maxlength="1000" placeholder="想对站长说什么？问题、建议都可以，站长会亲自看"></textarea><div class="ib-rrow"><button type="button" class="link ib-rx">取消</button><button type="button" class="nm-go ib-rs">发送给站长</button></div><p class="muted ib-rst"></p></div>');
     var box = main.querySelector(".ib-rbox"), ta = box.querySelector("textarea"), st = box.querySelector(".ib-rst"); ta.focus();
