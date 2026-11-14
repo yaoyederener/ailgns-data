@@ -4334,3 +4334,42 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 /* 预测页奖池卡：已中奖待发的钱单独说明，不算进本期奖池 */
 .or-powed{margin:6px 0 2px;font-size:12.5px;color:#7a7198;text-align:center}
 .or-powed b{color:#5a35d6}
+
+/* 🏆 OTC 手续费周榜 #/weekly（2026-11-15，前缀 wkb-） */
+.wkb-demo { background: #fff7e6; border: 1px solid #f6dcb0; color: #92400e; border-radius: 14px; padding: 10px 14px; font-size: 14px; margin: 0 0 12px; }
+.wkb-hero { background: linear-gradient(160deg, #ffffff 0%, #f1eafd 100%); border: 1px solid #e0d3fa; text-align: center; }
+.wkb-tag { font-size: 14px; font-weight: 700; color: #6d4bd8; }
+.wkb-big { margin-top: 10px; font-size: 44px; font-weight: 800; color: var(--text); line-height: 1.1; }
+.wkb-big small { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: 6px; }
+.wkb-big.wkb-soon { font-size: 30px; color: #6d4bd8; }
+.wkb-cap { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.wkb-wal { display: inline-block; margin-top: 12px; padding: 8px 16px; border-radius: 999px; background: #ede7fb; color: #5b3fc4; font-weight: 700; font-size: 14px; text-decoration: none; }
+.wkb-week { margin-top: 12px; font-size: 13px; color: var(--muted); }
+.wkb-owed { margin-top: 8px; font-size: 13px; color: #92400e; background: #fff7e6; border-radius: 10px; padding: 6px 10px; }
+.wkb-list { list-style: none; margin: 0; padding: 0; }
+.wkb-list li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.wkb-list li:last-child { border-bottom: 0; }
+.wkb-no { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--panel-2); color: var(--muted); font-style: normal; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.wkb-no.top { background: #ede7fb; color: #5b3fc4; }
+.wkb-who { flex: 1 1 auto; min-width: 0; }
+.wkb-who b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wkb-who small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.wkb-list em { flex: 0 0 auto; font-style: normal; font-weight: 800; font-size: 16px; color: #5b3fc4; text-align: right; }
+.wkb-list em small { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+.wkb-tip { font-size: 13px; margin: 10px 0 0; }
+.wkb-cta { display: block; margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #ede7fb; color: #5b3fc4; font-weight: 700; text-align: center; text-decoration: none; }
+.wkb-cta.wkb-cta2 { background: #fff1e6; color: #c2410c; }
+.wkb-rules { list-style: none; margin: 0; padding: 0; }
+.wkb-rules li { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 14.5px; line-height: 1.6; }
+.wkb-rules li:last-child { border-bottom: 0; }
+.wkb-rules li > b { flex: 0 0 56px; color: #5b3fc4; }
+.wkb-rules li > span { flex: 1 1 auto; min-width: 0; }
+.wkb-pays { list-style: none; margin: 0; padding: 0; }
+.wkb-pays li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.wkb-pays li:last-child { border-bottom: 0; }
+.wkb-pays li > div { min-width: 0; }
+.wkb-pays b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wkb-pays small { display: block; font-size: 12.5px; color: var(--muted); }
+.wkb-st { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: #92400e; text-align: right; }
+.wkb-st.paid, .wkb-st.paid a { color: #15803d; text-decoration: none; }
+.wkb-st.forfeit { color: var(--muted); }
