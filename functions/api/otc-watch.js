@@ -216,7 +216,7 @@ async function rpc(m, method, params) {
   const RPCS = m.rpcs;
   for (let k = 0; k < RPCS.length * 2; k++) {
     try {
-      const r = await fetch(RPCS[k % RPCS.length], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+      const r = await fetch(RPCS[k % RPCS.length], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(10000) }); /* 节点 10 秒不回就换下一个，别把整轮拖死 */
       const j = await r.json();
       if (j.error) throw new Error(j.error.message);
       return j.result;
@@ -384,6 +384,7 @@ const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximu
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
+  const T0 = Date.now(); /* 这一轮从什么时候开始跑的 */
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&from=区块：只看消息内容，不发送、不记进度（测试用）
   // ppdry=1：预览现在有哪些低于市价的挂单、推送文字长什么样（不发送）
   if (url.searchParams.get("ppdry") === "1") return Response.json(await Promise.all(MARKETS.map((m) => pushDeals(m, ctx.env, kv, false).then((r) => ({ market: m.key, ...r }), (e) => ({ market: m.key, err: String(e.message || e) })))));
@@ -414,9 +415,14 @@ export async function onRequestGet(ctx) {
       let from = dry ? parseInt(url.searchParams.get("from") || "0", 10) - 1 : parseInt((await kv.get(m.kv + "block")) || "0", 10);
       if (!from) from = m.deploy ? m.deploy - 1 : latest - 100; // 第一次运行：新合约从部署区块开始；否则只看最近一会儿，不补发老消息
       from += 1;
+      const chainLatest = latest;
+      // 一轮最多补这么多区块（站长 2026-11-14 反馈群播报、通知都不发了）：以前落后多少就一口气补多少，进度又是最后才存，
+      // 一旦落后几个小时，一轮 120 秒跑不完 → 进度存不上 → 永远追不上。现在一轮只补一段，存了进度下一轮接着补。
+      const maxB = m.chain === "Polygon" ? 20000 : 6000;
+      const upto = dry ? chainLatest : Math.min(chainLatest, from + maxB - 1);
       const span = m.chain === "Polygon" ? 2000 : 5000, logs = [];
-      for (let b = from; b <= latest; b += span) {
-        const to = Math.min(latest, b + span - 1);
+      for (let b = from; b <= upto; b += span) {
+        const to = Math.min(upto, b + span - 1);
         logs.push(...(await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[filledTopic(m), closedTopic(m)]] }])));
       }
       const cache = {};
@@ -459,8 +465,8 @@ export async function onRequestGet(ctx) {
           msgs.push([o.maker, (expired ? `⏰ 你的${side} #${id} 到期未成交，已自动退回 ` : `↩️ 你的${side} #${id} 已撤单，退回 `) + `${fmt(refunded)} ${giveSym} 到你的钱包` + mine(o.maker)]);
         }
       }
-      done.push([m, logs, cache, from, latest]);
-      status[m.key] = { from, latest, events: logs.length };
+      done.push([m, logs, cache, from, upto]);
+      status[m.key] = { from, latest: upto, events: logs.length, behind: chainLatest - upto }; /* behind > 0 = 还在补以前落下的 */
     } catch (e) { status[m.key] = { err: String(e.message || e).slice(0, 160) }; } // 一条链的节点出问题，不影响别的市场，下次接着读
   }
   // 群播报：新成交先存进 otcw:hr，整点后发上一段的汇总，发完清空
@@ -521,9 +527,10 @@ export async function onRequestGet(ctx) {
       if (fans[m.key].err) await kv.put("otcw:fans", JSON.stringify({ ok: false, market: m.key, err: fans[m.key].err, at: Date.now() }));
     }
   }
-  let sent = 0, failed = 0;
+  let sent = 0, failed = 0, skipped = 0;
   await pushMany(kv, msgs, "otc"); // 🔔 先写站内信（不依赖 DeBox）
   for (const [addr, text] of msgs) {
+    if (Date.now() - T0 > 55000) { skipped++; continue; } /* 这一轮已经跑了 55 秒：剩下的 DeBox 私信不发了（站内信上面已经写了），先保证进度存得上 */
     const users = (await kv.get("dbx:a:" + addr, "json")) || [];
     for (const u of users) {
       try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; }
@@ -552,5 +559,5 @@ export async function onRequestGet(ctx) {
   const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
-  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
+  return Response.json({ status, ms: Date.now() - T0, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }
