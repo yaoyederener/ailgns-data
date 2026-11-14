@@ -633,6 +633,8 @@
         st.textContent = "🔒 这是一笔 0 元转账（发给自己），预测写在交易里，只花约 0.001 DAI 的 Gas，本站不收费。请在钱包确认";
         var txt = "ailgns-oracle-guess:" + day + ":" + raw.join(","), hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
         return (eth ? Promise.resolve() : connect()).then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
+          .then(function () { return W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(function (b) { return BigInt(b); }, function () { return -1n; }); }) /* 读不到就不拦 */
+          .then(function (bal) { if (bal >= 0n && bal < 2000000000000000n) throw new Error("这个钱包里没有 DAI 付 Gas。提交预测要发一笔 0 元交易，Gas 约 0.001 DAI（Anubis 链的 Gas 就是 DAI）。先往这个钱包转一点 DAI（0.1 就够用很久），再回来点提交。"); })
           .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
           .then(function (hash) { st.textContent = "已上链，等待确认…"; return (A.wallet && A.wallet.waitOn ? A.wallet.waitOn("anubis", hash) : Promise.resolve()).then(function () { return hash; }); })
           .then(function (hash) { st.textContent = "链上已确认，正在登记…"; return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "chain", tx: hash }) }).then(function (x) { return x.json(); }); });

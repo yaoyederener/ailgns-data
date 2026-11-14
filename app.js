@@ -770,7 +770,7 @@
   // 把钱包 / 合约 / 网络 / 程序抛出来的英文错误，翻成客户看得懂的中文 + 原因 + 怎么办（站长 2026-11-07 定）；程序自身错误顺手上报，我们能看到
   var ERRS = [
     [/NOTHING_FILLED/, "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。"],
-    [/user reject|user denied|rejected the request|cancel|取消|拒绝|4001/i, "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次，在钱包里点「确认」。"],
+    [/user reject|user denied|rejected the request|rejected by user|\bcancell?ed\b|\bcancel\b|(用户|用戶|你|您|已)(取消|拒绝|拒絕)|^(取消|拒绝|拒絕)|(^|[^0-9a-fx])4001([^0-9a-f]|$)/i, "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」，或者钱包自己拦下了（比如没有 DAI 付 Gas）。想继续就再点一次，在钱包里点「确认」；还不行，把下面「钱包原话」截图发给客服。"],
     [/insufficient funds for gas|insufficient funds|gas required exceeds|out of gas/i, "钱包里的 DAI 不够付这笔交易的 Gas（Anubis 链的 Gas 就是 DAI）。留 0.5 DAI 以上再试。"],
     [/insufficient allowance|transfer amount exceeds allowance|ERC20: insufficient/i, "授权额度不够：请先点「授权」把币授权给托管合约（只需一次），再重新提交。"],
     [/transfer amount exceeds balance|exceeds balance|BALANCE/i, "余额不够：钱包里的币比你要用的少。先充值或改小数量。"],
@@ -788,14 +788,14 @@
   ];
   function friendly(t) {
     t = String(t || "");
-    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) { report(t); lastRaw = t; } return ERRS[i][1]; }
+    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) { report(t); lastRaw = t; } if (i === 1) lastWal = t; return ERRS[i][1]; }
     var s = t.replace(/:?\s*0x[0-9a-f]{40,}/gi, "").trim();
     if (!s) return "操作没完成，请刷新页面再试一次；还不行就提交工单。";
     if (/^[\x00-\x7f]+$/.test(s)) { report(s); return "操作没成功（原因：" + s.slice(0, 120) + "）。请刷新重试；还不行请提交工单并附截图，我们会按轻重缓急处理。"; } // 纯英文：翻不了的也要给出路
     return s;
   }
   // 程序错误自动上报（只记页面、错误文字、浏览器，不记钱包地址），站长在工单后台能看到
-  var reported = {}, lastRaw = "";
+  var reported = {}, lastRaw = "", lastWal = "";
   /* 不算程序错、不上报的：① 客户网络断了或请求被掐断（苹果手机叫 Load failed，安卓叫 Failed to fetch，还有各种 aborted）；② 无头浏览器（爬虫、检测机器人）里的报错；③ 浏览器自己的排版提示（ResizeObserver loop） */
   var NET_RE = /Load failed|Failed to fetch|NetworkError|network error|aborted|ResizeObserver loop/i;
   /* 别人家的脚本（比如 Cloudflare 自带的访问统计）抛的错，不是我们的程序 */
@@ -821,8 +821,14 @@
     d.id = "err-tip";
     d.className = "err-tip";
     d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><div class="err-acts"></div>';
-    lastRaw = "";
+    lastRaw = ""; lastWal = "";
     d.querySelector("span").textContent = friendly(t);
+    if (lastWal) { /* 钱包拒绝类：大白话在上，钱包原话折叠（2026-11-14：客户说没点拒绝，查不到真实原因） */
+      var wd = document.createElement("details"); wd.className = "err-det";
+      wd.innerHTML = '<summary>钱包原话（截图发客服时带上）</summary><small class="err-raw"></small>';
+      wd.querySelector("small").textContent = String(lastWal).slice(0, 200);
+      d.querySelector("span").insertAdjacentElement("afterend", wd);
+    }
     var acts = d.querySelector(".err-acts"), raw = lastRaw ? String(lastRaw).replace(/[<>]/g, "").slice(0, 160) : "";
     if (raw) { // 程序错误：大白话在上；技术信息折叠；一键报给客服（自动带上页面和错误）；刷新按钮（多数是浏览器还在用旧版本）
       d.querySelector("span").insertAdjacentHTML("afterend", '<details class="err-det"><summary>技术信息（给客服看的，你不用管）</summary><small class="err-raw">' + raw + "</small></details>");
