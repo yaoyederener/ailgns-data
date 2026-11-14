@@ -20,6 +20,23 @@
   function setDec(d) { RD = d && d.dec === 4 ? 4 : 3; RS = RD === 4 ? 10000 : 1000; DS = d && d.drawing && d.drawing.dec === 4 ? 10000 : 1000; }
   function scOf(x) { return (x && x.sc) || 1000; }
   function fq(v, x) { var s = typeof x === "number" ? x : scOf(x); return (v / s).toFixed(s === 10000 ? 4 : 3); }
+  /* 「所有人的预测」里的搜名字、展开全部：以前写在标签的 oninput / onclick 里，被网站安全策略拦掉，按了没反应（2026-11-14 发现）。改成在这里统一监听 */
+  document.addEventListener("input", function (e) {
+    try {
+      var t = e.target; if (!t || !t.classList || !t.classList.contains("or-q")) return;
+      var q = t.value.trim().toLowerCase(), o = t.nextElementSibling; if (!o) return;
+      o.classList.toggle("q", !!q);
+      o.querySelectorAll("li").forEach(function (l) { l.hidden = !!q && String(l.getAttribute("data-n") || "").indexOf(q) < 0; });
+    } catch (x) { /* 搜不了不影响别的 */ }
+  });
+  document.addEventListener("click", function (e) {
+    try {
+      var b = e.target && e.target.closest ? e.target.closest(".or-more") : null; if (!b) return;
+      var o = b.previousElementSibling; if (!o) return;
+      o.classList.toggle("exp");
+      b.textContent = o.classList.contains("exp") ? "收起，只看前 10 条" : "展开全部 " + (b.getAttribute("data-n") || "") + " 条";
+    } catch (x) { /* 展不开不影响别的 */ }
+  });
   function decNote() { return '<p class="or-chg">' + (RD === 4 ? "🎚️ 这一轮猜 <b>4 位小数</b>，例如 851.6979（猜的人多了，3 位太容易中，改 4 位奖池才能滚大）。" : "这一轮猜 <b>3 位小数</b>，例如 851.697。") + "</p>"; }
   function decText() {
     try {
@@ -413,8 +430,8 @@
     var myName = (data && data.me && data.me.name ? String(data.me.name) : "").toLowerCase(), cur = px || Math.round(livePxV * DS);
     list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, tx: g.tx || "", me: myName && g.name.toLowerCase() === myName, d: cur ? Math.abs(Math.round(Number(p) * DS) - cur) : 0 }); }); });
     if (cur) rows.sort(function (a, b) { return a.d - b.d; });
-    return '<details class="or-all"' + (px ? "" : ' open data-live="1"') + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "，离当前价最近的在最上面，实时变") + '</summary><input class="or-q" placeholder="🔍 搜名字" oninput="var q=this.value.trim().toLowerCase(),o=this.nextElementSibling;o.classList.toggle(\'q\',!!q);o.querySelectorAll(\'li\').forEach(function(l){l.hidden=q&&l.getAttribute(\'data-n\').indexOf(q)<0})"><ol>' +
-      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '" data-p="' + r.p + '"' + (r.me ? ' data-me="1" class="me"' : "") + '><b>' + esc(r.name) + '</b>：<b class="or-px">' + r.p + " DAI</b>" + (cur ? ' <small class="muted or-d">差 ' + fq(r.d, DS) + "</small>" : "") + (r.tx ? ' <a class="or-pf-btn" href="#/scan/' + r.tx + '" title="在本站账本里验证这条预测的链上交易">🔗 链上证据</a>' : dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol>" + (rows.length > 10 ? '<button type="button" class="ghost or-more" onclick="var o=this.previousElementSibling;o.classList.toggle(\'exp\');this.textContent=o.classList.contains(\'exp\')?\'收起，只看前 10 条\':\'展开全部 ' + rows.length + ' 条\'">展开全部 ' + rows.length + ' 条</button>' : "") + "</details>";
+    return '<details class="or-all"' + (px ? "" : ' open data-live="1"') + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "，离当前价最近的在最上面，实时变") + '</summary><input class="or-q" placeholder="🔍 搜名字"><ol>' +
+      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '" data-p="' + r.p + '"' + (r.me ? ' data-me="1" class="me"' : "") + '><b>' + esc(r.name) + '</b>：<b class="or-px">' + r.p + " DAI</b>" + (cur ? ' <small class="muted or-d">差 ' + fq(r.d, DS) + "</small>" : "") + (r.tx ? ' <a class="or-pf-btn" href="#/scan/' + r.tx + '" title="在本站账本里验证这条预测的链上交易">🔗 链上证据</a>' : dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol>" + (rows.length > 10 ? '<button type="button" class="ghost or-more" data-n="' + rows.length + '">展开全部 ' + rows.length + ' 条</button>' : "") + "</details>";
   }
   // 开放期间：价格每次变动就把列表按离当前价远近重排（最接近的滚到最上面），并刷新「差」
   function allResort() {
