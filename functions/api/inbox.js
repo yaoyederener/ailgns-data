@@ -4,6 +4,7 @@
 //   POST { a, ts, sig, action: "seen" } → 全部标为已读（页面一打开就自动调）
 //   POST { action: "tx", tx }  → 客户刚在本站发的交易：读链核对后给发起人写一条通知（不用签名，文字全由链上回执生成）
 import { recoverAddress } from "../../lib/evmsig.js";
+import { noteGeo } from "../../lib/geo.js";
 import { inboxText, AUTH_TTL, pushInbox, OWNER } from "../../lib/inbox.js";
 import { ensureWeek } from "../../lib/cred.js";
 import { rpc } from "../../lib/oracle.js";
@@ -26,7 +27,7 @@ export async function onRequestGet(ctx) {
   const u = new URL(ctx.request.url);
   // 只要未读数（2026-11-11）：不用签名，只回一个数字
   const n = String(u.searchParams.get("n") || "").toLowerCase();
-  if (n) { if (!/^0x[0-9a-f]{40}$/.test(n)) return json({ error: "地址不对" }, 400); const v = await view(kv, n); return json({ unread: v.unread, dm: v.list.filter((x) => x.t > v.seen && String(x.txt).startsWith("📣 站长通知")).length }); }
+  if (n) { if (!/^0x[0-9a-f]{40}$/.test(n)) return json({ error: "地址不对" }, 400); ctx.waitUntil(noteGeo(kv, n, ctx.request)); /* 📍 顺手记一下大致地区（lib/geo.js） */ const v = await view(kv, n); return json({ unread: v.unread, dm: v.list.filter((x) => x.t > v.seen && String(x.txt).startsWith("📣 站长通知")).length }); }
   const a = auth(u.searchParams.get("a"), u.searchParams.get("ts"), u.searchParams.get("sig"));
   if (!a) return json({ error: "登录已过期，请重新用钱包签名" }, 401);
   return json(await view(kv, a));
