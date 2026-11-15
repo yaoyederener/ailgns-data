@@ -259,7 +259,7 @@
   }
   // 已经在这条链上就不再切换（有些钱包 App 切到「当前同一条链」时不回应，按钮就一直灰着没反应）；钱包 20 秒不回应就提示客户手动切链
   function switchTo(eth, chain) {
-    var params = CHAINS[chain || "anubis"].params, name = chain === "polygon" ? "Polygon" : "Anubis";
+    var params = CHAINS[chain || "anubis"].params, name = chain === "polygon" ? "Polygon" : "Anubis", added = false;
     function timeout(p) {
       return Promise.race([p, new Promise(function (_, fail) { setTimeout(function () { fail(new Error("钱包没有响应：请在钱包 App 里手动切换到 " + name + " 链，然后刷新页面再试")); }, 20000); })]);
     }
@@ -267,6 +267,7 @@
       if (id && parseInt(id, 16) === parseInt(params.chainId, 16)) return;
       return timeout(eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
         if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
+          added = true;
           return eth.request({ method: "wallet_addEthereumChain", params: [params] }).catch(function (e2) {
             /* 个别钱包不认我们填的「区块浏览器网址」，报 Invalid custom network parameters：换成官方浏览器网址再加一次 */
             if (!/invalid|custom network/i.test((e2 && e2.message) || "")) throw e2;
@@ -276,8 +277,22 @@
           });
         }
         throw e;
-      }));
+      })).then(function () { return added && (chain || "anubis") === "anubis" ? watchDai(eth) : null; });
     });
+  }
+  // 钱包里网络自带的 DAI 只能付 Gas、转不出去（Anubis 链的规矩）；能转账的是 DAI 合约这个代币。
+  // 所以客户第一次通过本站加好网络后，顺手请钱包把它加进代币列表（钱包多弹一次确认）。
+  // 客户拒绝、钱包不支持、15 秒没回应都当没事，绝不挡住后面的操作；每个浏览器只问一次。
+  function watchDai(eth) {
+    try {
+      if (localStorage.getItem("dai:watch")) return null;
+      localStorage.setItem("dai:watch", "1");
+    } catch (e) { return null; }
+    var ask = Promise.resolve().then(function () { return eth.request({ method: "eth_chainId" }); }).then(function (id) {
+      if (parseInt(id, 16) !== parseInt(CHAINS.anubis.params.chainId, 16)) return null;
+      return eth.request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", symbol: "DAI", decimals: 18 } } });
+    }).catch(function () { return null; });
+    return Promise.race([ask, new Promise(function (ok) { setTimeout(ok, 15000); })]);
   }
   function switchChain(eth) { return switchTo(eth, "anubis"); }
   function waitOn(chain, hash) {
