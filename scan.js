@@ -22,6 +22,7 @@
    "0xd53a00bb90bb606f10d888419a14eca779f17285", "0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", "0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322",
    "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", "0x06cc2a46d7ad17496c2de9c61362808e06b44437"].forEach(function (x) { TEAM[x] = 1; KNOWN[x] = "🔧 运营维护"; });
   KNOWN["0xdcc5354175d60ffc8364e71e792fcd66366f00fe"] = "OTC 自动撮合合约";
+  KNOWN["0xf09b0cd8bd6ed6fa528284f53fc8e9df753b62de"] = "🏆 OTC 商户奖金池"; // 站长 2026-11-15：手续费周榜的奖金钱包，账本里统一叫这个名字
   KNOWN["0x6ec474047a6c12d0cab53855a990c1c8b3996c20"] = "OTC 批量扫单合约";
   KNOWN["0xb6a7a3be9a17ad241665ab9bddbd9a573d488818"] = "LGNS OTC";
   KNOWN["0x4e730be6d46be71223ded5a32dc45799f6d4bc15"] = "AiLGNS OTC";
