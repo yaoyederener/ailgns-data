@@ -167,7 +167,7 @@
   }
   // 每次咨询（问题 + 回答）转发到站长指定的 DeBox（后台 /api/chat-log），人工能看到客户在问什么
   var SID = (function () { try { var k = "cb:sid", v = localStorage.getItem(k); if (!v) { v = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem(k, v); } return v; } catch (e) { return "anon"; } })();
-  // 客户连过钱包：把他的地址和「正在进行中」一起交给机器人和人工，回答「我的钱呢」这类问题不用他自己去查
+  // 客户连过钱包：把他的地址和「在本站的事」一起交给机器人和人工，回答「我的钱呢」这类问题不用他自己去查
   var walletA = null, ctxCache = { at: 0, v: [] };
   function wallet() { if (walletA || !window.AIL || !window.AIL.wallets || !window.AIL.wallets.silent) return Promise.resolve(walletA); return window.AIL.wallets.silent().then(function (a) { walletA = a ? String(a).toLowerCase() : null; return walletA; }).catch(function () { return null; }); }
   function withCtx() {
