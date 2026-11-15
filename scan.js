@@ -821,10 +821,12 @@
     if (S.pays) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
       var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子", daily: "🎯 每日前三" }, box = document.getElementById("sc-pays"); if (!box) return;
       var l = (j.pays || []).slice().sort(function (x, y) { return x.day < y.day ? 1 : x.day > y.day ? -1 : 0; });
-      box.innerHTML = l.length ? l.map(function (x) {
+      // 站长 2026-11-15：只露最新 3 条，其余折叠
+      var payRow = function (x) {
         return '<div class="sc-pay"><div><small class="muted">' + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + "</small><b>" + esc(x.name) + '</b></div><div class="sc-payr"><b>' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : Number(x.amt).toFixed(2) + " DAI") + "</b><small class=\"muted\">≈ " + Number(x.amt || 0).toFixed(2) + " DAI</small>" +
           (x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' : "") + "</div></div>";
-      }).join("") : '<p class="muted">最近 14 天还没有发奖</p>';
+      };
+      box.innerHTML = l.length ? l.slice(0, 3).map(payRow).join("") + (l.length > 3 ? '<details class="sc-paymore"><summary>展开更早的 ' + (l.length - 3) + " 条</summary>" + l.slice(3).map(payRow).join("") + "</details>" : "") : '<p class="muted">最近 14 天还没有发奖</p>';
     }).catch(function () { var b = document.getElementById("sc-pays"); if (b) b.innerHTML = '<p class="muted">发放记录暂时读不到，稍后刷新</p>'; });
     var cpb = out.querySelector(".sc-copy"); if (cpb) cpb.onclick = function () {
       var done = function () { cpb.textContent = "已复制"; };
