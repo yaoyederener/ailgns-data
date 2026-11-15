@@ -819,6 +819,21 @@
       '<p class="muted">预言家页面大字显示的奖池，就是下面这个钱包的实际余额（AiLGNS 按现价折算），链上任何人可查、谁也改不了。</p></section>';
     if (a === C.pool) S.pays = '<section class="card sc-pays"><div class="card-head"><h2>💸 发放记录</h2><span class="muted">奖金从这个钱包发出 · 链上可查</span></div><div id="sc-pays">' + wait + '</div></section>';
     out.innerHTML = ["head", "pledge", "bal", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
+    // 📍 这个钱包最近从哪里连过网站：只有浏览器里存着站长口令（登录过工单后台）才去查、才显示；客户看不到这张卡（/api/geo 没口令一律拒绝）
+    try {
+      var gk = localStorage.getItem("fbKey");
+      if (gk) fetch("/api/geo?key=" + encodeURIComponent(gk) + "&a=" + a).then(function (r) { return r.json(); }).then(function (g) {
+        if (!g || g.error || !out.isConnected || !out.firstElementChild) return;
+        var CN = { CN: "中国大陆", HK: "香港", TW: "台湾", MO: "澳门", US: "美国", CA: "加拿大", JP: "日本", KR: "韩国", SG: "新加坡", MY: "马来西亚", TH: "泰国", VN: "越南", AU: "澳大利亚", GB: "英国", DE: "德国", FR: "法国", AE: "阿联酋", KH: "柬埔寨", PH: "菲律宾", ID: "印尼" };
+        var bjt = function (t) { var d = new Date(t + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
+        var l = g.list || [], el = document.createElement("section");
+        el.className = "card sc-geo";
+        el.innerHTML = '<div class="card-head"><h2>📍 连接地区</h2><span class="muted">只有站长看得到 · 留 30 天</span></div>' +
+          (l.length ? l.map(function (x) { return '<div class="sc-pay"><div><b>' + esc((CN[x.c] || x.c) + (x.r ? " · " + x.r : "") + (x.city ? " · " + x.city : "")) + '</b></div><div class="sc-payr"><small class="muted">' + (x.t0 && x.t - x.t0 > 3600e3 ? bjt(x.t0) + " 起，最近 " : "") + bjt(x.t) + "（北京时间）</small></div></div>"; }).join("") : '<p class="muted">最近 30 天，没有人带着这个地址打开过本站（或者是在这个功能上线之前）。</p>') +
+          '<p class="muted" style="font-size:12.5px">只到城市，不存 IP。只能说明有人带着这个地址从那里打开过网站，不能证明就是钱包主人；对方开 VPN 时位置不准。只当参考。</p>';
+        out.insertBefore(el, out.firstElementChild.nextSibling);
+      }).catch(function () {});
+    } catch (e) {}
     if (S.pays) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
       var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子", daily: "🎯 每日前三" }, box = document.getElementById("sc-pays"); if (!box) return;
       var l = (j.pays || []).slice().sort(function (x, y) { return x.day < y.day ? 1 : x.day > y.day ? -1 : 0; });
