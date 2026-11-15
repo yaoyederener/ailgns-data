@@ -18,6 +18,9 @@ export async function onRequestPost(ctx) {
   if (!ctx.env.ANTHROPIC_API_KEY) return new Response("ai not bound", { status: 501 });
   let body;
   try { body = await ctx.request.json(); } catch (e) { return new Response("bad json", { status: 400 }); }
+  // 🧪 DeepSeek 测试入口（2026-11-15）：只有带后台口令的请求才能指定 engine=deepseek，客户的请求一律照旧走 Claude；测试的问答不记进咨询记录
+  const test = body.engine === "deepseek" && keyOk(ctx.env, body.key);
+  if (test) { const t0 = Date.now(), rt = await answer(ctx.env, body.messages, { a: body.a, ctxLines: body.ctx, engine: "deepseek", think: !!body.think }); return Response.json({ answer: rt.answer || "", human: !!rt.human, engine: rt.engine || "", err: rt.claudeErr || rt.error || "", tries: rt.tries, ms: Date.now() - t0, hasKey: !!ctx.env.DEEPSEEK_API_KEY }); }
   const r = await answer(ctx.env, body.messages, { a: body.a, ctxLines: body.ctx });
   if (r.error === "no question") return new Response("no question", { status: 400 });
   const colo = (ctx.request.cf && ctx.request.cf.colo) || "";
