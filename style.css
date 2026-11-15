@@ -3400,6 +3400,11 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 .ptn-atxd{margin-top:4px}.ptn-atxd summary{cursor:pointer;font-size:13px;color:#7c3aed;padding:4px 0}
 .ptn-atx a b{color:#6d28d9}.ptn-atx a small{color:#7c3aed;margin-left:auto}
 .ptn-tr{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;padding:10px 12px;border-radius:12px;background:#f5f3ff;border:1.5px solid #c4b5fd}.ptn-tr b{color:#6d28d9;font-size:16px}
+.ptn-ndv { padding: 14px 10px 6px; text-align: center; font-size: 17px; color: #3d2f66; }
+.ptn-ndv b { font-size: 34px; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
+.ptn-ndl { float: right; font-size: 13px; font-weight: 400; }
+.ptn-ndc { margin-top: 10px; background: #f7f3ff; border-color: #c9b8f5; }
+.ptn-ndc .ptn-cpt { color: #6927db; } .ptn-ndc .ptn-cpa { border-color: #c9b8f5; }
 .ptn-cp{padding:14px;border-radius:14px;background:#fff7ed;border:2px solid #fb923c;margin-bottom:8px;text-align:center}
 .ptn-cpt{font-weight:800;color:#c2410c;font-size:16px;margin-bottom:8px}.ptn-cpa{font-size:15px;font-weight:700;word-break:break-all;background:#fff;border:1px dashed #fdba74;border-radius:10px;padding:8px;color:#1f2937}
 .ptn-cpb{margin-top:10px;width:100%;font-size:17px;padding:12px}.ptn-tr a{margin-left:auto;font-size:13px}
