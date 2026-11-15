@@ -4394,3 +4394,8 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-tn { display: block; font-size: 15px; opacity: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wkb-pool .wkb-fold, .wkb-pool .wkb-cta { max-width: 480px; margin-left: auto; margin-right: auto; text-align: left; }
 .wkb-pool .wkb-cta, .wkb-pool .wkb-fold > summary { text-align: center; }
+/* 站长 2026-11-15：闪兑挪到币种第一排，四个一排（手机也是一排，字小一点、链名和「AiLGNS ⇄ LGNS」换到第二行） */
+#mkt-top .mkt-tabs.mkt4{grid-template-columns:repeat(4,1fr)}
+#mkt-top .mkt-tabs a.mkt-swap{flex-direction:row;justify-content:center;align-items:baseline;gap:5px}
+#mkt-top .mkt-tabs a.mkt-swap small{display:inline;font-size:13px;font-weight:700;color:inherit;white-space:nowrap}
+@media (max-width:640px){#mkt-top .mkt-tabs.mkt4{gap:4px}#mkt-top .mkt-tabs.mkt4 a{padding:6px 2px;justify-content:center}#mkt-top .mkt-tabs.mkt4 a b{font-size:13.5px}#mkt-top .mkt-tabs.mkt4 a.dup,#mkt-top .mkt-tabs.mkt4 a.mkt-swap{flex-direction:column;align-items:center;gap:0}#mkt-top .mkt-tabs.mkt4 a.mkt-swap small,#mkt-top .mkt-tabs.mkt4 a.dup small{font-size:10px;font-weight:600}}
