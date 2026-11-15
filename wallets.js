@@ -122,7 +122,8 @@
       var ws = list(), id = saved();
       var w = ws.filter(function (x) { return x.id === id; })[0] || (ws.length === 1 ? ws[0] : null);
       if (!w) return null;
-      return w.provider.request({ method: "eth_accounts" }).then(function (a) {
+      // 个别钱包的 request 不回 Promise（回 undefined），直接 .then 就报「reading 'then'」（2026-11-13/14 错误日志，#/otc、#/farm）：包一层，问不到就当没连上
+      return Promise.resolve().then(function () { return w.provider.request({ method: "eth_accounts" }); }).then(function (a) {
         if (!a || !ADDR_OK.test(String(a[0]))) return null;
         use(w);
         return String(a[0]).toLowerCase();

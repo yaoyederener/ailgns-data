@@ -138,7 +138,8 @@ return null;}
 function setSig(s){try{if(s)localStorage.setItem(SIG_KEY,JSON.stringify(s));else localStorage.removeItem(SIG_KEY);}catch(e){}}
 function left(s){if(s<=0)return"已成熟";var h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return h?h+" 小时 "+m+" 分":m?m+" 分 "+x+" 秒":x+" 秒";}
 function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
-function openPay(o){var m=o.m,R=o.R,first=!o.paid;m.hidden=false;m.innerHTML='<div class="modal-box"><div class="card-head"><h2><i class="fm-coin"></i> 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>'+
+function openPay(o){var m=o.m,R=o.R,first=!o.paid;if(!R){if(!m)return;m.hidden=false;m.innerHTML='<div class="modal-box"><p class="muted">正在读取充值档位…</p><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>';var cl=m.querySelector("[data-close]");if(cl)cl.onclick=function(){m.hidden=true;};fetch("/api/farm?rules=2").then(function(r){return r.json();}).then(function(j){var r2=j&&(j.R||j.rules||j);if(!r2||r2.king==null)throw new Error("no rules");if(!m.hidden){o.R=r2;openPay(o);}}).catch(function(){if(!m.hidden)m.innerHTML='<div class="modal-box"><p class="nm-bad">充值档位没读出来，多半是网络慢。请关掉再点一次。</p><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>';var c2=m.querySelector("[data-close]");if(c2)c2.onclick=function(){m.hidden=true;};});return;}
+m.hidden=false;m.innerHTML='<div class="modal-box"><div class="card-head"><h2><i class="fm-coin"></i> 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>'+
 (first?'<p class="fm-first">🔥 首充翻倍！第一次充值任意一档，金币 ×2</p>':"")+'<div class="fm-packs">'+
 R.packs.map(function(p,i){var bonus=Math.round((p.coins/(p.lgns*100)-1)*100),get=p.coins*(first?2:1);return'<button type="button" data-pack="'+i+'">'+(i===2?'<i class="fm-hot">最划算</i>':"")+"<b>"+A.fmt(get)+" 金币</b><small>"+p.lgns+" LGNS"+(bonus?" · 多送 "+bonus+"%":"")+(first?" · 翻倍":"")+"</small></button>";}).join("")+"</div>"+'<ul class="fm-perk"><li>👑 充值后解锁：🎃 黄金南瓜、🐓 金鸡，每日签到 '+R.daily+" → <b>"+R.dailyVip+"</b> 金币</li><li>💯 累计充值 "+R.king+" LGNS：名字前挂 👑 农场主</li><li>💰 上充值榜：充值的 LGNS 进入运营资金</li></ul>"+'<p class="note" id="fm-pst">只收 Anubis 链 LGNS，还要一点 DAI 付 Gas。金币加给付款的钱包，换不回币。</p></div>';m.querySelector("[data-close]").onclick=function(){m.hidden=true;};m.onclick=function(e){if(e.target===m)m.hidden=true;};function lock(v){m.querySelectorAll("[data-pack]").forEach(function(b){b.disabled=v;});}
 function pay(p){var st=m.querySelector("#fm-pst"),eth,account,data;function say(t,bad){st.className="note"+(bad?" down":"");st.textContent=t;}
@@ -223,5 +224,5 @@ $("dt-grid").onclick=function(e){var el=e.target.closest?e.target.closest(".dt-r
 if(myBet(c)){toast("这一局你已经进房间了",true);return;}
 sel=Number(el.getAttribute("data-i"));draw();};$("dt-pay").onclick=function(){try{recharge();}catch(e){toast("充值暂时打不开，稍后再试",true);}};draw();pull();if(sig)post("me").then(draw,function(){draw();});tm=setInterval(tick,250);}
 A.pages.br=page;})();}catch(e){console.error('[bundle] br.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]="h0160c10459";
-/*v:h0160c10459*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]="h96d0d7e0c4";
+/*v:h96d0d7e0c4*/
