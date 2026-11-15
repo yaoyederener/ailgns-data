@@ -1,10 +1,12 @@
 // 💱 AiLGNS 现价（交易对储备量）：预言家页每几秒要一次。以前每个访客自己打公共 RPC，人多就把节点打挂；
 // 现在服务器读一次、边缘缓存 5 秒，几千人同时在线也只有每个边缘每 5 秒一次读链（扩容第一档，2026-11-08）
 import { RPCS } from "../../lib/teamlib.js";
+import { watchdog } from "../../lib/alert.js";
 const PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0";
 export async function onRequestGet(ctx) {
   const cache = caches.default, ck = new Request("https://ailgns.dev/api/px");
   const hit = await cache.match(ck); if (hit) return hit;
+  try { ctx.waitUntil(watchdog(ctx.env).catch(() => {})); } catch (e) { /* 🐕 机器人断线看门狗：出错不影响报价 */ }
   let r = null, err = "";
   for (let k = 0; k < RPCS.length * 2 && !r; k++) {
     try {

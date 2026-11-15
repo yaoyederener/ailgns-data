@@ -3,8 +3,8 @@
 // 这页只读 /api/fast，下注时才连钱包发一笔 0 DAI 转账；算账和发奖都不在这里。
 (function () {
   var A = window.AIL, W = A.wallet, DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
-  var SHOW_RES = /\.pages\.dev$|^localhost$|^127\.0\.0\.1$/.test(location.hostname); /* 「资金池余额」那一行站长还没点头：先只在预览站显示，正式站不显示 */
-  var data = null, acct = "", eth = null, pick = -1, qty = 1, busy = false, tick = 0, poll = 0, lastR = 0;
+  var SHOW_RES = true; /* 「资金池余额」那一行：站长 2026-11-14 说「显示资金池金额」，正式站也显示（本期没人下注时「本期奖池」是 0，容易被当成没钱） */
+  var data = null, acct = "", eth = null, picks = [], qty = 1, busy = false, tick = 0, poll = 0, lastR = 0;
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function two(n) { return (n < 10 ? "0" : "") + n; }
@@ -22,31 +22,59 @@
     }).catch(function () { if (!data) { var b = el("fx-main"); if (b) b.innerHTML = '<p class="muted">数据没读出来，稍等几秒会自动再试。</p>'; } });
   }
 
-  function left() { return data && data.me ? data.me.left : 0; }
+  /* 🎟 刚买的票秒到账（站长 2026-11-14）：买票窗口付款成功后记在 localStorage 的 fx:pend = { a, target, n, t }，target = 账本追上后我应该有几张。
+     账本还没追上（差 20 个区块）时，差的那几张先算进可押的票；这时下注在链上排在出票之后，两边账本都认。账本追上或过 3 分钟就作废。 */
+  function pend() { try { var p = JSON.parse(localStorage.getItem("fx:pend") || "null"); return p && acct && p.a === String(acct).toLowerCase() && Date.now() - p.t < 180000 ? p : null; } catch (e) { return null; } }
+  function extra() {
+    var me = data && data.me, p = me && data.v2 ? pend() : null; if (!p) return 0;
+    var x = p.target - me.left;
+    if (x <= 0) { try { localStorage.removeItem("fx:pend"); } catch (e) { /* 删不掉也只是多留 3 分钟 */ } return 0; }
+    return x;
+  }
+  function left() { return data && data.me ? data.me.left + extra() : 0; }
+  /* 这一期我最多还能押几张：老票不限；新票每个钱包每期最多 cap2 张（站长 2026-11-14 定 100），已经押过的要扣掉 */
+  function maxQ() {
+    var me = data && data.me; if (!me) return 0;
+    if (!data.v2 || !data.cap2) return me.left;
+    var used = (me.bets || []).reduce(function (t, x) { return t + (x.st === "wait" && x.r === data.r ? (x.n2 || 0) : 0); }, 0);
+    return (me.left1 || 0) + Math.min((me.left2 || 0) + extra(), Math.max(0, data.cap2 - used));
+  }
+  /* 多选数字（站长 2026-11-14）：选了 k 个数字，每个数字压一样多，所以每个数字最多 = 这一期还能押的 ÷ k */
+  function maxPer() { return Math.floor(maxQ() / Math.max(1, picks.length)); }
+  function dsText() { return picks.slice().sort().join("、"); }
   function paint() {
     var box = el("fx-main"); if (!box || !data) return;
     if (!data.open) { box.innerHTML = '<p class="fx-closed">⏳ 还没开放。开放时会在这里直接能玩，不用做任何准备。</p>'; ["fx-draws", "fx-mine", "fx-done"].forEach(function (i) { if (el(i)) el(i).hidden = true; }); return; }
     var me = data.me, have = left(), v2 = !!data.v2; /* v2 = 新规则已生效（接口说了算） */
     var oldOn = v2 && (data.left1 > 0 || data.tk > 0 || data.carry > 0), myOld = v2 && me && me.left1 > 0; /* 还有没有老票在用 */
-    if (qty > have) qty = Math.max(1, have);
+    var oldMine = myOld || !!(v2 && me && (me.bets || []).some(function (x) { return x.st === "wait" && x.r === data.r && x.n > (x.n2 || 0); })); /* 我手里有老票 / 这一期押了老票：才给我看老奖池那一行 */
+    if (!data.multi && picks.length > 1) picks = picks.slice(0, 1);
+    if (qty > maxPer()) qty = Math.max(1, maxPer());
     if (ruleV2 !== v2) { ruleV2 = v2; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
     var grid = "";
-    for (var d = 0; d < 10; d++) grid += '<button type="button" class="fx-d' + (d === pick ? " on" : "") + '" data-d="' + d + '"><b>' + d + "</b><i>" + (data.by[d] ? data.by[d] + " 票" : "还没人压") + "</i></button>";
+    for (var d = 0; d < 10; d++) grid += '<button type="button" class="fx-d' + (picks.indexOf(d) >= 0 ? " on" : "") + '" data-d="' + d + '"><b>' + d + "</b><i>" + (data.by[d] ? data.by[d] + " 票" : "还没人压") + "</i></button>";
     box.innerHTML =
       (data.trial ? '<p class="fx-trial">🧪 预览演示：还没正式开始，现在下注<b>不发奖</b>，只用来看页面。</p>' : "") +
       '<div class="fx-hero"><p class="fx-t">本期 <b>' + at(data.r) + '</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>' +
-      (v2 ? '<p class="fx-pot">猜中每张票发 <b>1.9 DAI</b></p><p class="fx-pot2">压 1 张票（1 DAI），猜中拿回本金 1 再赚 0.9 · 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
-          (oldOn ? '<p class="fx-res">老票（规则调整前买的）还按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
-        : '<p class="fx-pot">本期奖池 <b>' + money(data.pot) + " DAI</b></p>" +
-          '<p class="fx-pot2">' + (data.carry > 0 ? "其中 " + money(data.carry) + " DAI 是前面没人猜中滚过来的 · " : "") + "已压 " + data.tk + " 票</p>") +
-      (data.res && SHOW_RES ? '<p class="fx-res">💰 资金池里现在有 <b>' + money(data.res.dai) + " DAI</b>" + (data.res.ail > 0 ? " + " + data.res.ail.toFixed(4) + " AiLGNS" : "") + '（<a href="#/scan/' + data.pool + '">链上实际余额</a>）' + (v2 ? "，用来给猜中的人发奖" : "") + "。已卖出、还没下注的票有 <b>" + Number(data.left || 0).toLocaleString("en-US") + "</b> 张" + (v2 ? "。" : "：谁下注，谁的票才进当期奖池。") + "</p>" : "") + "</div>" +
+      (v2 ? '<p class="fx-pot">猜中每张票发 <b>1.9 DAI</b></p><p class="fx-pot2">押 1 张猜中发 1.9 DAI，押 10 张猜中发 <b>19 DAI</b>（1 张票 = 1 DAI）· 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
+          (oldOn && oldMine ? '<p class="fx-res">你的老票（规则调整前买的）按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
+        : data.res && SHOW_RES
+          ? '<p class="fx-pot">资金池 <b>' + money(data.res.dai) + " DAI</b></p>" +
+            '<p class="fx-pot2">本期已压 ' + data.tk + " 票 · 本期可分 <b>" + money(data.pot) + " DAI</b>" + (data.carry > 0 ? "（含前面滚过来的 " + money(data.carry) + "）" : "") + "</p>" +
+            '<p class="fx-res">资金池是<a href="#/scan/' + data.pool + '">链上实际余额</a>' + (data.res.ail > 0 ? "（另有 " + data.res.ail.toFixed(4) + " AiLGNS）" : "") + "。猜中的人按票数分「本期可分」那部分，不是分整个资金池。已卖出、还没下注的票有 <b>" + Number(data.left || 0).toLocaleString("en-US") + "</b> 张。</p>"
+          : '<p class="fx-pot">本期奖池 <b>' + money(data.pot) + " DAI</b></p>" +
+            '<p class="fx-pot2">' + (data.carry > 0 ? "其中 " + money(data.carry) + " DAI 是前面没人猜中滚过来的 · " : "") + "已压 " + data.tk + " 票</p>") +
+      (v2 && data.res && SHOW_RES ? '<div class="fx-pool"><span class="fx-pool-l">💰 奖池</span><b class="fx-pool-n">' + money(data.res.dai + (data.transit || 0)) + ' DAI</b>' +
+        '<a class="fx-pool-v" href="#/scan/' + data.pool + '">🔗 链上验证 ›</a>' +
+        '' + (data.transit > 0 ? '<p class="fx-pool-t">其中 ' + money(data.transit) + ' DAI 是刚卖出的票款，正在转进奖池钱包（一般十几分钟内到），链上查到的会暂时少这么多。</p>' : "") + '<div class="fx-tags"><i>✅ 全额兑付</i><i>⚡ 中奖秒发 · 约 1 分钟到账</i></div></div>' : "") + "</div>" +
       '<div class="fx-me">' + (!acct ? '还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>'
-        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "")
-        : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。用批量注册一次买 2 个及以上域名就有票，什么名字都行，付 5 DAI 就是 5 张。"
+        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "") + (v2 ? ' <a class="fx-more" href="#/names/batch">＋ 买更多票</a>' : "")
+        : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
-      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names" id="fx-buy">去买票（批量注册域名，一次 2 个起）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
-      '<p class="fx-h">① 选一个数字</p><div class="fx-grid">' + grid + "</div>" +
-      '<p class="fx-h">② 压几张票</p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
+      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
+      '<p class="fx-h">' + (data.multi ? "① 选数字（可以多选 0-9）" : "① 选一个数字") + '</p><div class="fx-grid">' + grid + "</div>" +
+      (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字，押 1 倍 = " + picks.length + " 张票。开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 1.9。" : "") + "</p>" : "") +
+      '<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
       '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +
       (v2 ? '<p class="note">猜中：每张票发 1.9 DAI（本金 1 + 净赚 0.9），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
         : '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');
@@ -78,10 +106,10 @@
     var b = el("fx-bet"); if (!b) return;
     var have = left(), secs = data ? data.ends - Date.now() / 1000 : 0;
     b.disabled = busy;
-    b.textContent = busy ? "处理中…" : !acct ? "连接钱包再下注" : have <= 0 ? "没有票，先去买票" : pick < 0 ? "先选一个数字" : "压 " + qty + " 张票，猜 " + pick;
-    b.className = "fx-bet" + (!busy && (!acct || (have > 0 && pick >= 0)) ? " ready" : "");
+    b.textContent = busy ? "处理中…" : !acct ? "连接钱包再下注" : have <= 0 ? "没有票，先去买票" : !picks.length ? "先选数字" : "押 " + qty + " 倍，猜 " + dsText() + "（共 " + qty * picks.length + " 张票）";
+    b.className = "fx-bet" + (!busy && (!acct || (have > 0 && picks.length)) ? " ready" : "");
     if (el("fx-n")) el("fx-n").textContent = qty;
-    if (!busy && acct && have > 0 && pick >= 0 && secs < 20 && secs > -5) say("本期快结束了，现在压多半会算到下一期。");
+    if (!busy && acct && have > 0 && picks.length && secs < 20 && secs > -5) say("本期快结束了，现在压多半会算到下一期。");
   }
   function clock() {
     var c = el("fx-clock"); if (!c || !data || !data.open) return;
@@ -97,17 +125,23 @@
   function hexOf(txt) { return Array.prototype.map.call(new TextEncoder().encode(txt), function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
   function bet() {
     if (busy) return;
-    if (!acct || !eth) { busy = true; betLabel(); say("请在钱包里点「连接」"); return connect().then(function () { busy = false; say(""); paint(); }, function (e) { busy = false; betLabel(); say((e && e.message) || "钱包没连上", true); }); }
+    if (!acct || !eth) { busy = true; betLabel(); say("请在钱包里点「连接」"); return connect().then(function () { busy = false; say(""); paint(); if (picks.length && left() > 0) bet(); /* 连上了、有票、数字也选好了：直接接着下注，不用再点一次 */ }, function (e) { busy = false; betLabel(); say((e && e.message) || "钱包没连上", true); }); }
     var have = left();
     if (have <= 0) { location.hash = "#/names"; return; }
-    if (pick < 0) return say("先在上面点一个数字。", true);
-    var n = Math.min(qty, have), d = pick;
-    if (!window.confirm("确定压 " + n + " 张票，猜 " + d + " 吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 猜中平分奖池；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回")) return;
-    var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + d + ":" + n) };
+    if (!picks.length) return say("先在上面点一个数字。", true);
+    if (data.v2 && maxQ() <= 0) return say("这一期你已经押满 " + data.cap2 + " 张了，每个钱包每期最多押 " + data.cap2 + " 张。等下一期再押。", true);
+    var k = picks.length, ds = picks.slice().sort();
+    if (maxPer() < 1) return say("票不够：选了 " + k + " 个数字，每个至少 1 张要 " + k + " 张票，你这一期最多还能押 " + maxQ() + " 张。少选几个数字，或者先去买票。", true);
+    var n = Math.min(qty, maxPer()), tot = n * k, d = dsText(); /* n = 每个数字几张，tot = 一共几张 */
+    var win = data.v2 ? "猜中每张票发 1.9 DAI" : "猜中平分奖池";
+    if (!window.confirm(k === 1
+      ? "确定押 " + n + " 倍，猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + win + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回"
+      : "确定押 " + n + " 倍（每个数字 " + n + " 张），猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字：" + win + "，其余数字的票就用掉了" + (k >= 10 ? "\n⚠️ 10 个数字全选一定亏" : "") + "\n③ 发出去以后不能撤回")) return;
+    var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + ds.join("") + ":" + n) }; /* 多个数字写成「0123:1」，一个数字还是老写法「7:3」 */
     busy = true; betLabel(); say("请在钱包里点「确认」（显示转账 0 DAI 是正常的）");
     W.switchTo(eth, "anubis").then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [tx] }); })
       .then(function (h) { say("已发出，等链上记账，大约十几秒…"); return W.waitOn("anubis", h); })
-      .then(function () { busy = false; pick = -1; say("✅ 压好了：" + n + " 张票猜 " + d + "。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
+      .then(function () { try { var p0 = pend(); if (p0) { p0.target -= tot; localStorage.setItem("fx:pend", JSON.stringify(p0)); } } catch (e9) { /* 记不了就等账本 */ } busy = false; picks = []; say("✅ 押好了：" + n + " 倍，猜 " + d + "，共 " + tot + " 张票。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
       .catch(function (e) { busy = false; betLabel(); say(/reject|denied|取消|cancel/i.test((e && e.message) || "") ? "你在钱包里点了取消，没有下注。" : "没发出去：" + ((e && e.message) || "请稍后再试"), true); });
   }
 
@@ -119,16 +153,16 @@
       "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
       "<li><b>奖池怎么分</b><span>每张票带 0.9 DAI 进本期奖池，另外 0.1 DAI 是平台服务费。猜中的人按票数平分奖池。</span></li>" +
-      "<li><b>奖金怎么发</b><span>只发 AiLGNS。分到的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后几分钟内自动转到你下注的钱包，不用自己领。</span></li>" +
+      "<li><b>奖金怎么发</b><span>只发 AiLGNS。分到的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
       "<li><b>没人猜中</b><span>整个奖池滚到下一期。</span></li></ol>" +
       '<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p>';
     return '<h2>规则一共七条</h2><ol class="bn-rules">' +
       "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
-      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。</span></li>" +
+      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
       "<li><b>猜中发多少</b><span>每张票发 1.9 DAI：拿回本金 1 DAI，再赚 0.9 DAI。压 5 张猜中就是 9.5 DAI。不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
-      "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后几分钟内自动转到你下注的钱包，不用自己领。</span></li>" +
-      "<li><b>没猜中</b><span>压的票就用掉了，不退。没猜中的票钱留在极速池，先用来给猜中的人发奖，剩下的是平台的服务收入。</span></li>" +
+      "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
+      "<li><b>没猜中</b><span>压的票就用掉了，不退。票钱是平台的服务收入；猜中的奖金从极速池里发，极速池由团队注入。</span></li>" +
       "<li><b>老票</b><span>规则调整前用纯数字域名换的票还能用，按老规则：同一期的老票进老奖池，猜中的按票数分，没人中滚到下一期。老票和新票都有时，先用老票。</span></li></ol>" +
       '<p class="bn-warn">⚠️ 十个数字只开一个：猜中 1 张变 1.9，猜不中票就没了，平均下来是输的。这不是赚钱的办法，请只用闲钱玩。</p>';
   }
@@ -146,16 +180,18 @@
       "<details><summary>快结束的时候压，算哪一期？</summary><p>看这笔交易被链上记下来的时间。如果记下来时本期已经结束，就算下一期。最后 20 秒建议等下一期再压。</p></details>" +
       "<details><summary>压的票比我有的多会怎样？</summary><p>按你剩下的票数算。一张都不剩的那笔作废，只白花了 Gas。</p></details></section></div>";
     try { var sv = JSON.parse(localStorage.getItem("fx:last") || "null"); if (sv && sv.open && Date.now() / 1000 - sv.now < 600) { data = sv; data.me = null; paint(); } } catch (e) {}
-    stT = ""; pick = -1;
+    stT = ""; picks = [];
     el("fx-wrap").addEventListener("click", function (ev) {
       var t = ev.target; if (!t || !t.closest || !el("fx-main")) return;
       var d = t.closest(".fx-d");
-      if (d) { pick = Number(d.getAttribute("data-d")); say(""); paint(); return; }
+      if (d) { var dv = Number(d.getAttribute("data-d")), at = picks.indexOf(dv);
+        if (data && data.multi) { if (at >= 0) picks.splice(at, 1); else picks.push(dv); } else picks = at >= 0 ? [] : [dv]; /* 能多选时点一下选上、再点一下取消 */
+        say(""); paint(); return; }
       if (t.closest("#fx-buy")) { try { sessionStorage.setItem("nm:batch", "1"); } catch (e) { /* 存不了就只是打开域名页，客户自己点批量注册 */ } return; } /* 去买票：到域名页后自动打开批量注册 */
       if (t.closest("#fx-conn")) { say("请在钱包里点「连接」"); connect().then(function () { say(""); }, function (e) { say((e && e.message) || "钱包没连上", true); }); return; }
       if (t.closest("#fx-minus")) { qty = Math.max(1, qty - 1); betLabel(); return; }
-      if (t.closest("#fx-plus")) { qty = Math.min(Math.max(1, left()), qty + 1); betLabel(); return; }
-      if (t.closest("#fx-all")) { qty = Math.max(1, left()); betLabel(); return; }
+      if (t.closest("#fx-plus")) { qty = Math.min(Math.max(1, maxPer()), qty + 1); betLabel(); return; }
+      if (t.closest("#fx-all")) { qty = Math.max(1, maxPer()); betLabel(); return; }
       if (t.closest("#fx-bet")) bet();
     });
     var go = function () { load(); };

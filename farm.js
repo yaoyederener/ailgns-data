@@ -82,8 +82,10 @@
     m.querySelectorAll("[data-pack]").forEach(function (b) { b.onclick = function () { pay(R.packs[+b.getAttribute("data-pack")]); }; });
   }
 
+  var onAcc = null;
+  try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
-    var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "";
+    var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
     A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span></div><div class="fm-top"><h2>开心农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
@@ -116,15 +118,23 @@
         return j;
       });
     }
+    onAcc = function (a) { var x = String((a && a[0]) || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(x) && A.isCurrent(rid)) { walletNow = x; if (sig) stat(); } }; /* 客户在钱包里换了号：顶上马上提醒 */
     function run(a, extra) { return post(a, extra).then(draw, function (e) { toast(e.message, true); if (!sig) draw(); }); }
 
-    function login() {
+    /* sw = true：换钱包。农场认的是「签名进场的那个钱包」，记 6 天；以前换了钱包农场还是原来那个号，也没地方换（客户 2026-11-14 反馈） */
+    function login(sw) {
       var eth, addr;
       A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) {
         addr = String(a[0] || "").toLowerCase();
+        walletNow = addr;
+        if (sw === true && sig && addr === sig.addr) throw new Error("钱包里现在还是这个号 " + A.short(addr) + "。先在钱包 App 里切到你要用的那个账户，再回来点「换钱包」。");
         var day = today();
         return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(signText(addr, day)), addr] }).then(function (s) { sig = { addr: addr, day: day, sig: s }; setSig(sig); });
       }).then(function () { return post("me"); }).then(draw, function (e) { toast((e && e.message) || "钱包没连上", true); });
+    }
+    /* 悄悄问一下钱包现在是哪个号（不弹窗）：和农场的号不一样就在顶上提醒，一点就换 */
+    function checkWallet() {
+      try { if (A.wallets.silent) A.wallets.silent().then(function (a) { if (a && a !== walletNow) { walletNow = a; if (A.isCurrent(rid)) stat(); } }).catch(function () {}); } catch (e) { /* 问不到就算了，不影响农场 */ }
     }
 
     /* 金币变多变少、升级时的小动画：只是好看；出错或手机关了动态效果就跳过，不影响农场 */
@@ -164,8 +174,11 @@
       seenCoins = me.coins; seenLv = lv;
       el.innerHTML = '<div class="fm-hud"><span class="fm-pill fm-gold" id="fm-coins"><i class="fm-coin"></i><b class="num">' + A.fmt(me.coins) + '</b> 金币</span><span class="fm-pill fm-lv">⭐ <b>' + lv + "</b> 级</span>" + (me.paid >= R.king ? '<span class="fm-king">👑 农场主</span>' : "") +
         (cop ? '<span class="fm-dog">👮 ' + (cop > 48 ? Math.round(cop / 24) + " 天" : cop + " 小时") + "</span>" : "") + (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<button type="button" class="fm-pay' + (me.paid ? "" : " first") + '" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
-        '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i><em>经验 ' + me.xp + " / " + hi + '</em></div><small class="fm-sub"><span class="fm-who">' + A.nameTag(sig.addr) + "</span> · 升级解锁更贵的种子" + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>";
+        '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i><em>经验 ' + me.xp + " / " + hi + '</em></div><small class="fm-sub"><span class="fm-who">' + A.nameTag(sig.addr) + '</span> <button type="button" class="fmw-sw" id="fmw-sw">换钱包</button> · 升级解锁更贵的种子' + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>" +
+        (walletNow && walletNow !== sig.addr ? '<div class="fmw-bar">👛 钱包现在是 <b>' + A.short(walletNow) + "</b>，这里还是 <b>" + A.short(sig.addr) + '</b> 的农场。<button type="button" id="fmw-go">进 ' + A.short(walletNow) + " 的农场</button></div>" : "");
       document.getElementById("fm-pay").onclick = payPicker;
+      document.getElementById("fmw-sw").onclick = function () { login(true); };
+      var wg = document.getElementById("fmw-go"); if (wg) wg.onclick = function () { login(true); };
       A.fillNames(el);
       if (d0 || up) fx(d0, up);
     }
@@ -196,7 +209,7 @@
         (me.hens.filter(function (h) { return !h.g; }).length < H.max ? '<button type="button" class="ghost" id="fm-hen">买鸡（' + H.price + " 金币）</button>" : "") + "</div></section>" +
         '<section class="card fm-shop"><div class="card-head"><h2>🏪 道具商店</h2></div><div class="fm-items">' +
         '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
-        (R.cop ? '<button type="button" id="fm-cop"><span class="fm-ic">👮</span><b>警察</b><small>' + R.cop.price + " 金币 · " + R.cop.days + " 天</small><em>真正看家：来偷的一定被抓，一颗也偷不走，还罚 " + R.cop.fine + " 金币给你。别人看不到你家有警察</em></button>" : "") +
+        (R.cop ? '<button type="button" id="fm-cop"><span class="fm-ic">👮</span><b>警察</b><small>' + R.cop.price + " 金币 · " + R.cop.days + " 天</small><em>看家最牢：来偷的被抓就一颗也偷不走，还罚 " + R.cop.fine + " 金币给你" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次拦不住" : "") + "。别人看不到你家有警察</em></button>" : "") +
         '<button type="button" id="fm-ghen"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🐓</span><b>金鸡</b><small>' + R.goldHen.price + " 金币 · 最多 " + R.goldHen.max + " 只</small><em>" + (me.paid ? "金蛋每个 " + R.goldHen.egg + " 金币，是普通蛋的 3 倍多" : "👑 充值玩家专属：金蛋每个 " + R.goldHen.egg + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pump"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🎃</span><b>黄金南瓜</b><small>种子 ' + R.crops.pumpkin.seed + " · 24 小时</small><em>" + (me.paid ? "一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币，到空地里种" : "👑 充值玩家专属：一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pay2"><span class="fm-ic"><i class="fm-coin"></i></span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
@@ -281,7 +294,7 @@
       var want = tab;
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
-        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：一定被抓，空手而归，罚 " + R.cop.fine + " 金币。" : "") + "</p>" : "");
+        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
         var all = out.querySelector("#fm-all");
         if (all) all.onclick = function () {
           var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled && !b.hasAttribute("data-cop"); }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, cops = 0, i = 0, batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // 这一轮的编号，服务器按它算保底
@@ -325,7 +338,7 @@
     fetch("/api/farm?list=1").then(function (r) { return r.json(); }).then(function (d) { burned = d.burned || 0; stat(); }).catch(function () {});
     fetch("/api/farm?rules=2", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (r) {
       R = r;
-      if (sig) return post("me").then(draw, function (e) { toast(e.message, true); draw(); });
+      if (sig) { checkWallet(); return post("me").then(draw, function (e) { toast(e.message, true); draw(); }); }
       draw();
     }, function () { out.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>'; });
   }

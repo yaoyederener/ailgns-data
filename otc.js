@@ -293,9 +293,17 @@
     var eth = W.get(); if (!eth || !eth.request) return Promise.resolve(false);
     var chainId = "0x" + (CHAIN_IDS[M.chain] || 6714).toString(16);
     return eth.request({ method: "wallet_getCapabilities", params: [account] }).then(function (cap) {
-      var c = cap && (cap[chainId] || cap[String(CHAIN_IDS[M.chain])]); if (!c || !(c.atomicBatch && c.atomicBatch.supported) && !c.atomic) return false;
+      var c = cap && (cap[chainId] || cap[String(CHAIN_IDS[M.chain])]); /* 钱包「能不能一次确认发多笔」：新写法是 atomic: { status: "supported" | "ready" | "unsupported" }。以前只看有没有 atomic 这一项，写着 unsupported 的也当成支持，钱包就报「不支持原子操作」（2026-11-15 一键做市客户截图） */
+      var okB = !!c && !!((c.atomicBatch && c.atomicBatch.supported) || c.atomic === true || (c.atomic && (c.atomic.status === "supported" || c.atomic.status === "ready" || c.atomic.supported === true)));
+      if (!okB) return false;
       say("钱包支持一次确认发 " + calls.length + " 笔，请在钱包确认一次");
-      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) {
+      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) { return { id: id }; }, function (e) {
+        /* 钱包当场拒收这种发法（还没发出任何交易）：不是客户自己点的取消，就退回「一张一张确认」，别让客户卡死 */
+        if (e && (e.code === 4001 || /user reject|user denied|rejected the request|cancel/i.test(String((e && e.message) || e)))) throw e;
+        return { no: 1 };
+      }).then(function (r) {
+        if (r.no) { say("钱包不能一次发多笔，改成一张一张确认"); return false; }
+        var id = r.id;
         var bid = typeof id === "string" ? id : (id && id.id);
         say("已提交，等待链上确认…");
         return new Promise(function (ok, no) {
@@ -419,13 +427,13 @@
     return "";
   }
   function marketTabs() {
-    var swapOn = location.hash.indexOf("#/otc/swap") === 0; /* 闪兑页：币种按钮都不亮，「更多币种」展开、闪兑亮 */
+    var swapOn = location.hash.indexOf("#/otc/swap") === 0; /* 闪兑页：币种按钮都不亮，闪兑亮。站长 2026-11-15：「把闪兑放到 ailgns-lgns-awake nft 一栏，并改成闪兑ailgns-lgns双向箭头」→ 闪兑从「更多币种」里挪到第一排第 4 个 */
     var BADGE = { ailgns: "🔥 热", lgns: "🔥 热", nft: "抢" }; // 成交量最大的两个挂「热」，NFT 卡牌挂「抢」
     var tab = function (k) { var m = MARKETS[k]; var dup = MKEYS.filter(function (x) { return MARKETS[x].sym === m.sym; }).length > 1; /* 站长 2026-11-08：同名币（LGNS 有 Anubis / Polygon 两条链）按钮下面显示链名 */ return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '" class="' + (k === MK && !swapOn ? "on" : "") + (dup ? " dup" : "") + '">' + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
-    var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0 || swapOn;
-    return '<nav class="mkt-tabs" aria-label="选择交易币种">' + main.map(tab).join("") + "</nav>" +
-      (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "、⚡ 闪兑）</summary>" +
-        '<nav class="mkt-tabs mkt-tabs-more">' + rest.map(tab).join("") + '<a href="#/otc/swap" class="' + (swapOn ? "on" : "") + '"><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav></details>' : "");
+    var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0 && !swapOn;
+    return '<nav class="mkt-tabs mkt4" aria-label="选择交易币种">' + main.map(tab).join("") + '<a href="#/otc/swap" class="mkt-swap' + (swapOn ? " on" : "") + '"><i class="mkt-hot">新</i><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav>' +
+      (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "）</summary>" +
+        '<nav class="mkt-tabs mkt-tabs-more">' + rest.map(tab).join("") + "</nav></details>" : "");
   }
 
   // 按 DAI 金额从最优价开始吃，吃到 target（DAI，BigInt）为止；返回每张单吃多少 + 合计
@@ -1232,6 +1240,14 @@
         function msay(t, bad) { mst.className = "note" + (bad ? " down" : ""); mst.textContent = t; if (bad) errTip(t, mst); }
         var token = m.sell ? AILGNS : DAI, name = m.sell ? SYM : "DAI", dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT; // 扫单面板里没有有效期控件（剩余部分挂单用默认 30 天）
         var need = m.p.steps.reduce(function (t, x) { return t + x.pay; }, 0n) + m.restGive, done = 0;
+        { /* 和下面「发布挂单」同一条线：买价 ≥ 最低卖价 2 倍 / 卖价 ≤ 最高买价一半（没有买单时按参考价）→ 不让走。
+             有没有剩余都拦：单价就是「最贵 / 最便宜吃到哪」的线，线划得离谱，数量一大就会一路吃到很亏的单；剩下的还会按这个价挂出去 */
+          var pv = num(toWei(price.value)), r2 = oref && pv ? pv / oref.p : null, far = r2 ? (m.sell ? r2 <= 0.5 : r2 >= 2) : false;
+          if (far && (m.sell ? (otcBid ? pv <= otcBid * 0.5 : true) : true)) {
+            msay("你填的单价 " + A.fmt(pv, PD) + " 和现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）差了一倍以上。按这个价会一路" + (m.sell ? "卖给出价很低的买单" : "吃到要价很高的卖单") + "，剩下的还会按这个价挂出去、被别人马上" + (m.sell ? "低价买走" : "高价卖给你") + "，链上成交撤不回来。【这个价不能用】请把单价改到市价附近再点。", true);
+            return;
+          }
+        }
         btn.disabled = true; sweeping = true;
         ready().then(function () {
           walletCard();
@@ -1277,11 +1293,15 @@
         }
         // 站长 2026-11-11：单价和市价差了一倍以上（卖价不到市价一半 / 买价超过市价两倍），大字红框提醒，多半是少写或多写了一个零；发布前还要再确认一次
         var far = r2 ? (side === "sell" ? r2 <= 0.5 : r2 >= 2) : false;
-        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" : "";
+        /* 站长 2026-11-15「改」：这种价直接不让挂（以前只弹确认）。起因：客户把 0.076 挂成 0.76 的买单，同一秒被外人的抢单机器人按 10 倍价卖给他，钱追不回来。
+           只拦一定吃亏的方向：买价 ≥ 现有最低卖价的 2 倍（直接吃那张卖单就行，没理由出两倍）；卖价 ≤ 现有最高买价的一半。盘口没有对手单时按上面的参考价（最低卖价 / DEX）算。
+           卖价只是比最低卖价低一半、但没低过买单一半的（可能是盘口卖单本身挂得离谱），不拦，还是弹确认。 */
+        var block = far && (side === "buy" ? true : (otcBid ? num(p) <= otcBid * 0.5 : true));
+        var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" + (block ? "【这个价不能挂】链上成交撤不回来，请把单价改到市价附近再发布。" : "") : "";
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
           (far ? '<div class="otc-far">' + farMsg + "</div>" : (r && verdict ? '<br><span class="down">' + verdict + "</span>" : ""));
-        return { q: q, total: total, far: far, farMsg: farMsg };
+        return { q: q, total: total, far: far, farMsg: farMsg, block: block };
       }
       qty.oninput = function () { lastEd = "qty"; syncFrom("qty"); calc(); if (pickSync) pickSync(); };
       tot.oninput = function () { lastEd = "tot"; syncFrom("tot"); calc(); if (pickSync) pickSync(); };
@@ -1356,6 +1376,7 @@
         var sell = side === "sell", give = sell ? v.q : v.total, want = sell ? v.total : v.q, token = sell ? AILGNS : DAI;
         var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
+        if (v.block) { say(v.farMsg.replace("⛔ ", ""), true); return; } // 一定吃亏的离谱价：直接不让挂（站长 2026-11-15）
         if (v.far && !confirm(v.farMsg.replace("⛔ ", "") + "\n\n确定要按这个价格挂单吗？")) return; // 偏离市价一倍以上：再确认一次（站长 2026-11-11）
         btn.disabled = true;
         ready().then(function () {

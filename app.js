@@ -520,7 +520,7 @@
 
   // ---------- 路由 ----------
   // 每个页面在浏览器标签和分享时显示的标题
-  var PAGE_TITLES = { funds: "📊 官方资金池", mj: "🀄 血流成河麻将（试玩）", fast: "⚡ 极速预言家（试运行）", bonus: "🎁 创世域名每日分红 · 上线倒计时", aiswap: "🔁 aiswap 兑换池", todo: "📝 待办（内部）", genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市商 · 认证称号", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
+  var PAGE_TITLES = { funds: "📊 官方资金池", weekly: "🏆 OTC 手续费周榜（试运行）", mj: "🀄 血流成河麻将（试玩）", fast: "⚡ 极速预言家（试运行）", bonus: "🎁 创世域名每日分红 · 上线倒计时", aiswap: "🔁 aiswap 兑换池", todo: "📝 待办（内部）", genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市商 · 认证称号", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
     team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 账本", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场", br: "🐺 大逃杀（试运行）"
   };
@@ -553,7 +553,7 @@
   var LAZY = (function () {
     var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"],
       games: ["pixel", "play", "farm", "br", "g2048", "snake", "tetris", "flappy", "mines", "brick", "merge", "pet"],
-      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds"] };
+      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly"] };
     Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
     m.oracle = ["kchart", "oracle"]; m.trade = ["kchart", "trade"]; // K 线组件两页共用，单独一个小包
     return m;
@@ -753,7 +753,7 @@
 
   document.addEventListener("submit", function (e) {
     var f = e.target.closest("form.search");
-    if (!f || f.hasAttribute("data-custom")) return;
+    if (!f || f.hasAttribute("data-custom") || !f.a) return; /* 没有 name="a" 输入框的（比如查上级页）有自己的处理 */
     e.preventDefault();
     var a = f.a.value.trim();
     if (!isAddr(a)) { f.a.focus(); f.a.style.borderColor = "var(--down)"; return; }
@@ -770,7 +770,7 @@
   // 把钱包 / 合约 / 网络 / 程序抛出来的英文错误，翻成客户看得懂的中文 + 原因 + 怎么办（站长 2026-11-07 定）；程序自身错误顺手上报，我们能看到
   var ERRS = [
     [/NOTHING_FILLED/, "你要吃的单刚刚被别人抢先成交或撤单了，这一笔一张都没吃到，已自动作废：你的币没有被扣。请刷新挂单列表，看最新价格再点一次。"],
-    [/user reject|user denied|rejected the request|cancel|取消|拒绝|4001/i, "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次，在钱包里点「确认」。"],
+    [/user reject|user denied|rejected the request|rejected by user|\bcancell?ed\b|\bcancel\b|(用户|用戶|你|您|已)(取消|拒绝|拒絕)|^(取消|拒绝|拒絕)|^\s*(rejected|denied)\.?\s*$|(^|[^0-9a-fx])4001([^0-9a-f]|$)/i, "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」，或者钱包自己拦下了（比如没有 DAI 付 Gas）。想继续就再点一次，在钱包里点「确认」；还不行，把下面「钱包原话」截图发给客服。"],
     [/insufficient funds for gas|insufficient funds|gas required exceeds|out of gas/i, "钱包里的 DAI 不够付这笔交易的 Gas（Anubis 链的 Gas 就是 DAI）。留 0.5 DAI 以上再试。"],
     [/insufficient allowance|transfer amount exceeds allowance|ERC20: insufficient/i, "授权额度不够：请先点「授权」把币授权给托管合约（只需一次），再重新提交。"],
     [/transfer amount exceeds balance|exceeds balance|BALANCE/i, "余额不够：钱包里的币比你要用的少。先充值或改小数量。"],
@@ -784,18 +784,19 @@
     [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT|aborted|failed to connect to [\w.-]+\//i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
     [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
     [/No wallet|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
+    [/(Write|Read) permission denied|clipboard/i, "这个钱包 App 不让网页自动复制。请长按那段文字，手动选「复制」。"],
     [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们）。十有八九是浏览器还在用旧版本：点下面「刷新页面重试」就好；刷新了还不行，点「报给客服」，错误信息会自动带上，你只要写一句点的是哪一步。"],
   ];
   function friendly(t) {
     t = String(t || "");
-    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) { report(t); lastRaw = t; } return ERRS[i][1]; }
+    for (var i = 0; i < ERRS.length; i++) if (ERRS[i][0].test(t)) { if (i === ERRS.length - 1) { report(t); lastRaw = t; } if (i === 1) lastWal = t; return ERRS[i][1]; }
     var s = t.replace(/:?\s*0x[0-9a-f]{40,}/gi, "").trim();
     if (!s) return "操作没完成，请刷新页面再试一次；还不行就提交工单。";
     if (/^[\x00-\x7f]+$/.test(s)) { report(s); return "操作没成功（原因：" + s.slice(0, 120) + "）。请刷新重试；还不行请提交工单并附截图，我们会按轻重缓急处理。"; } // 纯英文：翻不了的也要给出路
     return s;
   }
   // 程序错误自动上报（只记页面、错误文字、浏览器，不记钱包地址），站长在工单后台能看到
-  var reported = {}, lastRaw = "";
+  var reported = {}, lastRaw = "", lastWal = "";
   /* 不算程序错、不上报的：① 客户网络断了或请求被掐断（苹果手机叫 Load failed，安卓叫 Failed to fetch，还有各种 aborted）；② 无头浏览器（爬虫、检测机器人）里的报错；③ 浏览器自己的排版提示（ResizeObserver loop） */
   var NET_RE = /Load failed|Failed to fetch|NetworkError|network error|aborted|ResizeObserver loop/i;
   /* 别人家的脚本（比如 Cloudflare 自带的访问统计）抛的错，不是我们的程序 */
@@ -811,7 +812,7 @@
   }
   /* 没有文件名的报错（Script error. @:0）是钱包 App、浏览器插件往页面里塞的脚本抛的，看不到内容也修不了，不记 */
   window.addEventListener("error", function (e) { if (e && e.message && e.filename && !foreign(e.filename)) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
-  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) report(m); });
+  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) { var at = ""; try { at = (String((r && r.stack) || "").match(/[\w.-]+\.js[^\s)]*/) || [""])[0].slice(0, 80); } catch (x) {} report(m + (at ? " @" + at : "")); } });
   function errTip(t, el) {
     // 站长 2026-11-12：没装钱包时 A.wallets.choose() 已经弹了「到钱包 App 里操作」的选择框，这里再弹红色报错会把它盖住，客户以为出错了。有那个框就不报错
     try { if (/没有检测到钱包|No wallet/i.test(String(t && (t.message || t.reason || t))) && document.querySelector(".wlist")) return; } catch (e) { /* 忽略 */ }
@@ -821,8 +822,14 @@
     d.id = "err-tip";
     d.className = "err-tip";
     d.innerHTML = '<b>⚠️ 没成功，原因：</b><span></span><div class="err-acts"></div>';
-    lastRaw = "";
+    lastRaw = ""; lastWal = "";
     d.querySelector("span").textContent = friendly(t);
+    if (lastWal) { /* 钱包拒绝类：大白话在上，钱包原话折叠（2026-11-14：客户说没点拒绝，查不到真实原因） */
+      var wd = document.createElement("details"); wd.className = "err-det";
+      wd.innerHTML = '<summary>钱包原话（截图发客服时带上）</summary><small class="err-raw"></small>';
+      wd.querySelector("small").textContent = String(lastWal).slice(0, 200);
+      d.querySelector("span").insertAdjacentElement("afterend", wd);
+    }
     var acts = d.querySelector(".err-acts"), raw = lastRaw ? String(lastRaw).replace(/[<>]/g, "").slice(0, 160) : "";
     if (raw) { // 程序错误：大白话在上；技术信息折叠；一键报给客服（自动带上页面和错误）；刷新按钮（多数是浏览器还在用旧版本）
       d.querySelector("span").insertAdjacentHTML("afterend", '<details class="err-det"><summary>技术信息（给客服看的，你不用管）</summary><small class="err-raw">' + raw + "</small></details>");

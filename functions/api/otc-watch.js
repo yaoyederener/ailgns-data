@@ -15,6 +15,7 @@ import { addVol } from "../../lib/rank.js";
 import { addHonor } from "../../lib/honor.js";
 import { nmTop } from "../../lib/nmtop.js";
 import { oracleNotify } from "../../lib/ornotify.js";
+import { alertOwner, lagAlert } from "../../lib/alert.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -160,6 +161,58 @@ async function recordTrades(m, kv, logs, cache) {
     await kv.put(key, "1");
   }
 }
+// 🧹 一键扫单的成交补记到客户本人名下（客户 2026-11-14：扫单买卖好几次，不显示交易记录、也没送会员）
+// 原因：扫单是客户 → 扫单合约 → OTC，链上「吃单的人」是扫单合约，上面三套记账（排行榜 / 会员 / 成交记录）都记到了合约头上。
+// 这里单独扫一遍「吃单的人 = 扫单合约」的成交，按发起这笔交易的钱包（tx.from）记给客户：以前的一段段补，新的每轮跟上。
+// 会员门槛：一次扫单的几笔合起来满 50 DAI 就算（扫单是客户的一次操作，不按拆出来的小笔算）。每笔交易只记一次（otcs:<交易哈希>）。
+const SWEEP_MK = { ailgns: 18213000, lgns: 18213000, glgns: 19118000 }; /* 每个市场从哪个区块开始补：扫单合约最早的成交在 18213818；gLGNS 到 19118000 为止一笔扫单都没有（2026-11-14 链上数过），不用从头空扫 */
+async function sweepCredit(m, kv, upto, cache, budget = 8000) {
+  if (!SWEEP_MK[m.key]) return null;
+  const sk = m.kv + "sw:scan", t0 = Date.now(), chain = m.chain.toLowerCase();
+  let b = Math.max(parseInt((await kv.get(sk)) || "0", 10), SWEEP_MK[m.key] - 1) + 1, n = 0;
+  while (b <= upto && Date.now() - t0 < budget) {
+    const to = Math.min(upto, b + 4999);
+    const logs = await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [FILLED, null, "0x" + SWEEP_ROUTER.slice(2).padStart(64, "0")] }]);
+    const byTx = {};
+    for (const l of logs) (byTx[l.transactionHash] = byTx[l.transactionHash] || []).push(l);
+    let cut = false;
+    for (const h of Object.keys(byTx)) {
+      if (Date.now() - t0 > budget) { cut = true; break; } /* 时间到：这一段没记完，进度不往前挪，下一轮接着记（记过的交易有 otcs 标记，不会重复） */
+      const key = "otcs:" + h;
+      if (await kv.get(key)) continue;
+      const t = await rpc(m, "eth_getTransactionByHash", [h]), real = t && t.from ? String(t.from).toLowerCase() : "";
+      if (!real || real === SWEEP_ROUTER || real === MATCHER) { await kv.put(key, "1"); continue; }
+      const bn = parseInt(byTx[h][0].blockNumber, 16), ts = await blockTime(m, bn), recs = [];
+      let vol = 0, id0 = 0;
+      for (const l of byTx[h]) {
+        const id = parseInt(l.topics[1], 16), o = cache[id] || (cache[id] = await order(m, id)), d = words(l.data);
+        const gd = o.sell ? m.dec : 18, wd = o.sell ? 18 : m.dec, amount = num(d[0], gd), paid = num(d[1], wd);
+        const qty = o.sell ? amount : paid, dai = o.sell ? paid : amount;
+        vol += fillDai(m, o, d); id0 = id0 || id;
+        recs.push({ m: m.key, id, t: ts, tx: h, sym: m.sym, qty, dai, price: qty ? dai / qty : 0, maker: o.maker, taker: real, makerSide: o.sell ? "卖" : "买", sweep: 1 });
+      }
+      const r = (await kv.get("otct:" + real, "json")) || { id: id0, tx: h, block: bn, chain };
+      r.vol = (r.vol || 0) + vol; r.n = (r.n || 0) + recs.length;
+      await kv.put("otct:" + real, JSON.stringify(r));
+      await addVol(kv, { [real]: [vol, recs.length] });
+      if (vol >= VIP_MIN_FILL) {
+        const q = (await kv.get("otcq:" + real, "json")) || { id: id0, tx: h, block: bn, chain };
+        q.vol = (q.vol || 0) + vol; q.n = (q.n || 0) + 1;
+        await kv.put("otcq:" + real, JSON.stringify(q));
+        await addHonor(kv, { [real]: [vol, 1] }, upto - bn < 3000); /* 刚发生的算进当月榜，补记以前的只进总榜 */
+      }
+      const list = (await kv.get("tr:" + real, "json")) || [];
+      for (const rec of recs) if (!list.some((x) => x.tx === rec.tx && x.id === rec.id && x.m === rec.m)) list.push(rec);
+      list.sort((x, y) => (y.t || 0) - (x.t || 0));
+      await kv.put("tr:" + real, JSON.stringify(list.slice(0, TR_MAX)));
+      await kv.put(key, "1"); n++;
+    }
+    if (cut) break;
+    await kv.put(sk, String(to));
+    b = to + 1;
+  }
+  return { to: b - 1, n, behind: upto - (b - 1) };
+}
 // 指导价素材：新成交的单价 ÷ 现在的 DEX 市价，按挂单方向记进 gp:<市场>（最近 30 笔）
 async function recordGuide(m, kv, logs, cache) {
   if (m.nft || !m.pair) return;
@@ -216,7 +269,7 @@ async function rpc(m, method, params) {
   const RPCS = m.rpcs;
   for (let k = 0; k < RPCS.length * 2; k++) {
     try {
-      const r = await fetch(RPCS[k % RPCS.length], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
+      const r = await fetch(RPCS[k % RPCS.length], { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: AbortSignal.timeout(10000) }); /* 节点 10 秒不回就换下一个，别把整轮拖死 */
       const j = await r.json();
       if (j.error) throw new Error(j.error.message);
       return j.result;
@@ -384,6 +437,15 @@ const dai2 = (v) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximu
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
+  const T0 = Date.now(); /* 这一轮从什么时候开始跑的 */
+  /* 每一步计时 + 超时：哪一步卡住，返回的 stage 里会写「xx_err: 超时」，这一步放弃、后面照常跑（2026-11-14：整轮不回，查不出卡在哪） */
+  const stage = {};
+  const timed = async (name, ms, fn) => {
+    const t = Date.now(); let timer;
+    try { return await Promise.race([Promise.resolve().then(fn), new Promise((_, no) => { timer = setTimeout(() => no(new Error("超时 " + ms + "ms")), ms); })]); }
+    catch (e) { stage[name + "_err"] = String((e && e.message) || e).slice(0, 120); return null; }
+    finally { clearTimeout(timer); stage[name] = Date.now() - t; }
+  };
   const url = new URL(ctx.request.url), dry = url.searchParams.get("dry") === "1"; // dry=1&from=区块：只看消息内容，不发送、不记进度（测试用）
   // ppdry=1：预览现在有哪些低于市价的挂单、推送文字长什么样（不发送）
   if (url.searchParams.get("ppdry") === "1") return Response.json(await Promise.all(MARKETS.map((m) => pushDeals(m, ctx.env, kv, false).then((r) => ({ market: m.key, ...r }), (e) => ({ market: m.key, err: String(e.message || e) })))));
@@ -409,15 +471,27 @@ export async function onRequestGet(ctx) {
   const markets = dry ? MARKETS.filter((m) => m.key === (url.searchParams.get("m") || "ailgns")) : MARKETS;
   const msgs = [], fills = [], status = {}, done = []; // msgs：[地址, 文字]；done：[市场, 日志, 订单缓存, 起点, 最新区块]
   for (const m of markets) {
+    if (!dry && Date.now() - T0 > 40000) { status[m.key] = { skipped: "这一轮时间不够，下一轮再读" }; continue; }
+    const tM = Date.now();
     try {
       const latest = parseInt(await rpc(m, "eth_blockNumber", []), 16);
       let from = dry ? parseInt(url.searchParams.get("from") || "0", 10) - 1 : parseInt((await kv.get(m.kv + "block")) || "0", 10);
       if (!from) from = m.deploy ? m.deploy - 1 : latest - 100; // 第一次运行：新合约从部署区块开始；否则只看最近一会儿，不补发老消息
       from += 1;
+      const chainLatest = latest;
+      // 一轮最多补这么多区块（站长 2026-11-14 反馈群播报、通知都不发了）：以前落后多少就一口气补多少，进度又是最后才存，
+      // 一旦落后几个小时，一轮 120 秒跑不完 → 进度存不上 → 永远追不上。现在一轮只补一段，存了进度下一轮接着补。
+      const maxB = m.chain === "Polygon" ? 20000 : 6000;
+      let upto = dry ? chainLatest : Math.min(chainLatest, from + maxB - 1);
       const span = m.chain === "Polygon" ? 2000 : 5000, logs = [];
-      for (let b = from; b <= latest; b += span) {
-        const to = Math.min(latest, b + span - 1);
+      for (let b = from; b <= upto; b += span) {
+        const to = Math.min(upto, b + span - 1);
         logs.push(...(await rpc(m, "eth_getLogs", [{ address: m.otc, fromBlock: "0x" + b.toString(16), toBlock: "0x" + to.toString(16), topics: [[filledTopic(m), closedTopic(m)]] }])));
+      }
+      /* 一轮一个市场最多处理 30 条：成交扎堆的时候，记账那一步 20 秒记不完。多出来的留给下一轮（按整块切，不会把同一个区块切两半） */
+      if (!dry && logs.length > 30) {
+        const cutB = parseInt(logs[29].blockNumber, 16), keep = logs.filter((l) => parseInt(l.blockNumber, 16) <= cutB);
+        logs.length = 0; logs.push(...keep); upto = cutB;
       }
       const cache = {};
       for (const l of logs) {
@@ -459,8 +533,8 @@ export async function onRequestGet(ctx) {
           msgs.push([o.maker, (expired ? `⏰ 你的${side} #${id} 到期未成交，已自动退回 ` : `↩️ 你的${side} #${id} 已撤单，退回 `) + `${fmt(refunded)} ${giveSym} 到你的钱包` + mine(o.maker)]);
         }
       }
-      done.push([m, logs, cache, from, latest]);
-      status[m.key] = { from, latest, events: logs.length };
+      done.push([m, logs, cache, from, upto]);
+      status[m.key] = { from, latest: upto, events: logs.length, behind: chainLatest - upto, ms: Date.now() - tM }; /* behind > 0 = 还在补以前落下的 */
     } catch (e) { status[m.key] = { err: String(e.message || e).slice(0, 160) }; } // 一条链的节点出问题，不影响别的市场，下次接着读
   }
   // 群播报：新成交先存进 otcw:hr，整点后发上一段的汇总，发完清空
@@ -498,7 +572,7 @@ export async function onRequestGet(ctx) {
   if (dry) return Response.json({ status, due, quiet, group: await build(true), messages: msgs.map((m) => ({ to: m[0], text: m[1] })) });
   const groupSent = {};
   if ((due || first) && !quiet && HOURLY_ON) {
-    const text = await build(false);
+    const text = await timed("bctext", 15000, () => build(false));
     if (text) for (const g of gids) {
       try { await sendDebox(ctx.env, g, text, "group"); groupSent[g] = true; }
       catch (e) { groupSent[g] = String(e.message || e).slice(0, 160); }
@@ -521,23 +595,39 @@ export async function onRequestGet(ctx) {
       if (fans[m.key].err) await kv.put("otcw:fans", JSON.stringify({ ok: false, market: m.key, err: fans[m.key].err, at: Date.now() }));
     }
   }
-  let sent = 0, failed = 0;
-  await pushMany(kv, msgs, "otc"); // 🔔 先写站内信（不依赖 DeBox）
+  let sent = 0, failed = 0, skipped = 0;
+  const sweep = {};
+  await timed("inbox", 20000, () => pushMany(kv, msgs, "otc")); // 🔔 先写站内信（不依赖 DeBox）
+  // 先记账、存进度，再发 DeBox 私信：后面哪一步卡了，这一轮读到的东西也不会白读
+  for (const [m, logs, cache, from, latest] of done) {
+    await timed("rec:" + m.key, 30000, async () => {
+      await Promise.all([
+        markTraders(m, kv, logs, cache, true).catch(() => {}),
+        recordTrades(m, kv, logs, cache).catch(() => {}).then(() => recordGuide(m, kv, logs, cache).catch(() => {})),
+      ]);
+    });
+    await kv.put(m.kv + "block", String(latest));
+    if (SWEEP_MK[m.key] && Date.now() - T0 < 80000) sweep[m.key] = await timed("sweep:" + m.key, 45000, () => sweepCredit(m, kv, latest, cache, Math.max(3000, Math.min(35000, 85000 - (Date.now() - T0))))); /* 🧹 扫单成交记到客户本人名下 */
+    if (Date.now() - T0 < 60000) await timed("fill:" + m.key, 12000, async () => { /* 补历史数据：不急，时间不够就下轮 */
+      await backfillTrades(m, kv, from - 1, cache).catch(() => {});
+      if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
+      await backfillVip(m, kv, from - 1, cache).catch(() => {});
+    });
+  }
+  const tDm = Date.now();
+  const dmTo = {}, dmAddrs = [...new Set(msgs.map((x) => x[0]))];
+  await timed("dmwho", 10000, async () => { for (let i = 0; i < dmAddrs.length; i += 10) await Promise.all(dmAddrs.slice(i, i + 10).map(async (a) => { dmTo[a] = (await kv.get("dbx:a:" + a, "json").catch(() => null)) || []; })); });
+  let dmStop = false;
   for (const [addr, text] of msgs) {
-    const users = (await kv.get("dbx:a:" + addr, "json")) || [];
+    const users = dmTo[addr] || [];
+    if (!users.length) continue;
+    if (dmStop || Date.now() - T0 > 70000) { skipped++; continue; } /* 这一轮已经跑了 70 秒：剩下的 DeBox 私信不发了（站内信上面已经写了） */
     for (const u of users) {
-      try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; }
+      try { await sendDebox(ctx.env, u, text); sent++; } catch (e) { failed++; if (!stage.dm_err) stage.dm_err = String((e && e.message) || e).slice(0, 160); if (/ 429 /.test(String((e && e.message) || e))) dmStop = true; }
+      await new Promise((ok) => setTimeout(ok, 350)); /* 两条私信之间歇一下，DeBox 有发送频率上限 */
     }
   }
-  for (const [m, logs, cache, from, latest] of done) {
-    await markTraders(m, kv, logs, cache, true).catch(() => {});
-    await recordTrades(m, kv, logs, cache).catch(() => {});
-    await recordGuide(m, kv, logs, cache).catch(() => {});
-    await backfillTrades(m, kv, from - 1, cache).catch(() => {});
-    if (m.backfill) await backfillTraders(m, kv, from - 1, cache).catch(() => {});
-    await backfillVip(m, kv, from - 1, cache).catch(() => {});
-    await kv.put(m.kv + "block", String(latest));
-  }
+  stage.dm = Date.now() - tDm;
   // 🤖 客服机器人自我介绍：每 8 小时在群里说一句「有问题 @我」，引导群友直接问（站长 2026-11-05 定）
   let greet = 0;
   try {
@@ -548,9 +638,13 @@ export async function onRequestGet(ctx) {
       for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
     }
   } catch (e) {}
-  const oracle = await oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 🔮 预言家：开奖结果 + 每天提醒
-  const pixel = await rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) })); // 像素墙：顺便检查一下有没有被同时写覆盖
+  const oracle = await timed("oracle", 20000, () => oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 🔮 预言家：开奖结果 + 每天提醒
+  const pixel = await timed("pixel", 10000, () => rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
-  return Response.json({ status, messages: msgs.length, sent, failed, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
+  await timed("alert", 8000, async () => { /* 🚨 站长提醒：心跳（看门狗靠它判断机器人断没断）+ 成交通知落后 */
+    await kv.put("hb:watch", String(Date.now()));
+    const la = lagAlert(status); if (la) await alertOwner(ctx.env, kv, la[0], la[1], la[2], la[3]);
+  });
+  return Response.json({ status, ms: Date.now() - T0, stage, sweep, messages: msgs.length, sent, failed, skipped, groupSent, fans, oracle, pixel, backfilledTo: await kv.get("otct2:scan"), vipScan: Object.fromEntries(await Promise.all(MARKETS.map(async (m) => [m.key, await kv.get(m.kv + "otcq:scan")]))) });
 }

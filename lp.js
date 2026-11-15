@@ -144,6 +144,14 @@
     sides.forEach(function (sd) { for (var i = 0; i < p.n; i++) { var off = (p.sp + i * p.step) / 100, px = sd === "buy" ? p.mid * (1 - off) : p.mid * (1 + off); rows.push({ side: sd, px: px, dai: per, coin: per / px }); } });
     return rows;
   }
+  /* 🛡️ 错价拦截（站长 2026-11-15「加」）：参考价 = OTC 盘口中间价，没有就用 DEX 现价。铺出来的任何一张买单 ≥ 参考价 2 倍、或卖单 ≤ 参考价一半，整批不让挂。
+     返回提示文字；没问题或没有参考价可比时返回 ""。 */
+  function farText(p) {
+    var ref = (side && side.mid) || mkt; if (!ref || !p.mid) return "";
+    var bad = ladder(p).filter(function (r) { return r.side === "buy" ? r.px >= ref * 2 : r.px <= ref * 0.5; })[0];
+    if (!bad) return "";
+    return "中间价 " + f(p.mid, PD) + " 和现在的市价（约 " + f(ref, PD) + "）差了一倍以上，是不是" + (bad.side === "buy" ? "多写" : "少写") + "了一位？这样铺出去的" + (bad.side === "buy" ? "买单会被别人马上高价卖给你" : "卖单会被别人马上低价买走") + "，链上成交撤不回来。【这个价不能挂】请到「高级设置」把中间价改回市价附近。";
+  }
   function preview() {
     var p = params(), el = document.getElementById("lp-prev"), sum = document.getElementById("lp-sum"); if (!el) return;
     if (!p.mid || !p.amt || !p.sp) { el.innerHTML = ""; if (sum) sum.textContent = !p.amt ? "先填金额" : "正在读盘口价格…"; return; }
@@ -151,7 +159,8 @@
       var rs = ladder(p), lo = Math.min.apply(null, rs.map(function (r) { return r.px; })), hi = Math.max.apply(null, rs.map(function (r) { return r.px; }));
       var what = p.which === "buy" ? "买单（压 DAI，等人卖给你）" : p.which === "sell" ? "卖单（压 " + SYM + "，等人来买）" : "买单 + 卖单";
       sum.innerHTML = "将铺 <b>" + rs.length + " 张" + what + "</b>，每张约 <b>" + f(rs[0].dai, 0) + " DAI</b>，价格 <b>" + f(lo, PD) + " ～ " + f(hi, PD) + "</b>（盘口中间价 " + f(p.mid, PD) + "）· 有效 " + (K().DURATIONS.filter(function (d) { return d[0] === p.dur; })[0] || ["", "30 天"])[1] +
-        (rs[0].dai < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大金额</b>' : "");
+        (rs[0].dai < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大金额</b>' : "") +
+        (farText(p) ? '<br><b class="nm-bad">⛔ ' + esc(farText(p)) + "</b>" : "");
     }
     var rows = ladder(p), per = rows[0].dai, buyDai = rows.filter(function (r) { return r.side === "buy"; }).reduce(function (s, r) { return s + r.dai; }, 0), sellCoin = rows.filter(function (r) { return r.side === "sell"; }).reduce(function (s, r) { return s + r.coin; }, 0);
     el.innerHTML = '<table class="lp-ladder"><thead><tr><th>方向</th><th>价格</th><th>金额</th><th>数量</th></tr></thead><tbody>' + rows.map(function (r) { return '<tr class="' + r.side + '"><td>' + (r.side === "buy" ? "买" : "卖") + '</td><td>' + f(r.px, PD) + '</td><td>' + f(r.dai, 0) + ' DAI</td><td>' + f(r.coin, 4) + ' ' + SYM + "</td></tr>"; }).join("") + "</tbody></table>" +
@@ -171,12 +180,21 @@
   function needApprove(token, amount) { return amount > 0n ? K().allowance(token, account, OTC).then(function (al) { return al >= amount ? 0 : 1; }, function () { return 1; }) : Promise.resolve(0); }
   // 钱包支持 EIP-5792 就一次确认发一串；不支持就一张一张确认
   function sendCalls(calls, say) {
-    var eth = window.ethereum; if (!eth || !eth.request) return Promise.resolve(false);
+    var eth = null; try { eth = A.wallet.get(); } catch (e) { eth = null; } /* 用客户连上的那个钱包问，不用 window.ethereum（手机上可能是另一个钱包，或者根本没有） */
+    if (!eth || !eth.request) return Promise.resolve(false);
     var chainId = "0x" + (6714).toString(16);
     return eth.request({ method: "wallet_getCapabilities", params: [account] }).then(function (cap) {
-      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); if (!c || !(c.atomicBatch && c.atomicBatch.supported) && !c.atomic) return false;
+      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); /* 钱包「能不能一次确认发多笔」：新写法是 atomic: { status: "supported" | "ready" | "unsupported" }。以前只看有没有 atomic 这一项，写着 unsupported 的也当成支持，钱包就报「不支持原子操作」（2026-11-15 一键做市客户截图） */
+      var okB = !!c && !!((c.atomicBatch && c.atomicBatch.supported) || c.atomic === true || (c.atomic && (c.atomic.status === "supported" || c.atomic.status === "ready" || c.atomic.supported === true)));
+      if (!okB) return false;
       say("钱包支持一次确认发 " + calls.length + " 笔，请在钱包确认一次");
-      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) {
+      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) { return { id: id }; }, function (e) {
+        /* 钱包当场拒收这种发法（还没发出任何交易）：不是客户自己点的取消，就退回「一张一张确认」，别让客户卡死 */
+        if (e && (e.code === 4001 || /user reject|user denied|rejected the request|cancel/i.test(String((e && e.message) || e)))) throw e;
+        return { no: 1 };
+      }).then(function (r) {
+        if (r.no) { say("钱包不能一次发多笔，改成一张一张确认"); return false; }
+        var id = r.id;
         var bid = typeof id === "string" ? id : (id && id.id);
         say("已提交，等待链上确认…");
         return new Promise(function (ok, no) { var n = 0; (function poll() { eth.request({ method: "wallet_getCallsStatus", params: [bid] }).then(function (st) { var s = st && (st.status || st.state); if (s === 200 || s === "CONFIRMED" || s === "success") return ok(true); if (s >= 400 || s === "FAILED" || s === "failure") return no(new Error("钱包批量发送失败")); if (++n > 60) return no(new Error("等待确认超时，请到「查我的订单」看是否已挂上")); setTimeout(poll, 2000); }, no); })(); });
@@ -185,11 +203,12 @@
   }
   function place() {
     var p = params(), go = document.getElementById("lp-go"), st = document.getElementById("lp-st"), say = function (t) { st.textContent = t; };
-    var ce = document.getElementById("lp-cnt"), appr = 0, total = 0, step = 0;
+    var ce = document.getElementById("lp-cnt"), appr = 0, total = 0, step = 0, at = "连接钱包"; /* at：做到哪一步了，报错说不清原因时告诉客户卡在哪 */
     function cnt(h) { if (!ce) return; ce.hidden = false; ce.innerHTML = h; }
     if (!p.mid || !p.amt || !p.sp) return A.errTip("先填中间价、总资金、价差", go);
     var rows = ladder(p);
     if (rows[0].dai < 50) return A.errTip("每张最少 50 DAI，请加大资金或减少档数", go);
+    var ft = farText(p); if (ft) return A.errTip(ft, go);
     var buyDai = 0n, sellCoin = 0n, calls = [];
     rows.forEach(function (r) {
       if (r.side === "buy") { var d = toWei(r.dai.toFixed(6), 18), c = toWei((r.dai / r.px).toFixed(6), TD); buyDai += d; calls.push({ to: OTC, data: SEL.create + u256(0) + u256(d) + u256(c) + u256(p.dur), tag: "买单 " + f(r.px, PD) }); }
@@ -197,26 +216,33 @@
     });
     go.disabled = true;
     K().ready().then(function () {
-      account = K().account(); after();
+      account = K().account(); after(); at = "读钱包余额";
       return Promise.all([K().balance(DAI, account), K().balance(TOKEN, account)]);
     }).then(function (b) {
       if (b[0] < buyDai) throw new Error("DAI 不够：买单要压 " + f(Number(buyDai) / 1e18, 0) + " DAI，你有 " + f(Number(b[0]) / 1e18));
       if (b[1] < sellCoin) throw new Error(SYM + " 不够：卖单要压 " + f(Number(sellCoin) / Math.pow(10, TD), 4) + " " + SYM + "，你有 " + f(Number(b[1]) / Math.pow(10, TD), 4));
+      at = "查授权额度";
       return Promise.all([needApprove(DAI, buyDai), needApprove(TOKEN, sellCoin)]);
-    }).then(function (na) {
+    }).then(function (na) { at = "授权";
       // 站长 2026-11-10：大字告诉客户钱包要点几次确认（授权几次 + 挂单几张），过程中显示到第几次
       appr = na[0] + na[1]; total = appr + calls.length; step = 0;
       cnt("👉 钱包会弹 <b>" + total + "</b> 次确认" + (appr ? "（授权 " + appr + " 次 + 挂单 " + calls.length + " 张）" : "（挂单 " + calls.length + " 张）") + "，每次点「确认」就行");
       return buyDai > 0n ? ensureAllowance(DAI, buyDai, say, "DAI", function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：授权 DAI，请在钱包点确认"); }) : null;
     }).then(function () { return sellCoin > 0n ? ensureAllowance(TOKEN, sellCoin, say, SYM, function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：授权 " + SYM + "，请在钱包点确认"); }) : null; })
-      .then(function () { return sendCalls(calls, function (t) { say(t); if (/一次确认/.test(t)) { total = step + 1; cnt("钱包支持批量：剩下 " + calls.length + " 张单只要再点 <b>1</b> 次确认（第 " + (step + 1) + " / " + total + " 次）"); } }); })
+      .then(function () { at = "问钱包能不能一次发 " + calls.length + " 笔"; return sendCalls(calls, function (t) { at = "钱包一次确认发 " + calls.length + " 笔"; say(t); if (/一次确认/.test(t)) { total = step + 1; cnt("钱包支持批量：剩下 " + calls.length + " 张单只要再点 <b>1</b> 次确认（第 " + (step + 1) + " / " + total + " 次）"); } }); })
       .then(function (batched) {
         if (batched) return;
+        total = appr + calls.length; /* 没走成「一次确认」：要点的次数改回 授权 + 每张一次 */
         say("钱包不支持批量，一张一张确认（共 " + calls.length + " 张）");
-        return calls.reduce(function (pr, c, i) { return pr.then(function () { cnt("第 <b>" + (++step) + " / " + total + "</b> 次：挂第 " + (i + 1) + " 张（" + c.tag + "），请在钱包点确认"); return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
+        return calls.reduce(function (pr, c, i) { return pr.then(function () { at = "挂第 " + (i + 1) + " 张（" + c.tag + "）"; cnt("第 <b>" + (++step) + " / " + total + "</b> 次：挂第 " + (i + 1) + " 张（" + c.tag + "），请在钱包点确认"); return K().send(OTC, c.data, say, "第 " + (i + 1) + "/" + calls.length + " 张：" + c.tag); }); }, Promise.resolve());
       })
       .then(function () { cnt("✅ " + total + " 次确认全部完成"); go.disabled = false; say("✅ " + calls.length + " 张单都挂上了。挂满日均 1 万 DAI 自动获得「👑 官方认证做市商」称号，页面「我的做市」可查。"); if (A.just) A.just.set("otc", MK); setTimeout(load, 2000); })
-      .catch(function (e) { go.disabled = false; say(""); if (ce) ce.hidden = true; A.errTip(K().niceError(e), go); });
+      .catch(function (e) {
+        go.disabled = false; say(""); if (ce) ce.hidden = true;
+        var t = K().niceError(e);
+        if (/^操作没完成/.test(t)) t = "钱包没说原因就停了，卡在「" + at + "」这一步。已经挂上的单在「查我的订单」里能看到，不会重复扣；请截这张图发给客服，或换一个钱包 App 再试。";
+        A.errTip(t, go);
+      });
   }
   A.pages.lp = page;
 })();

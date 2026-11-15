@@ -86,12 +86,58 @@
     clearInterval(ticker.t); ticker.t = setInterval(show, 5000);
   }
 
+  // ---------- 荣耀榜里的「本周 OTC 手续费周榜」小卡：前三名直接看，第 4–10 名折叠；规则和发放记录在 #/weekly ----------
+  function wkEsc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function wkNum(v) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  var wkBindCopy = function (root) { /* 「复制」按钮：钱包 App 不让复制就换老办法，再不行提示长按 */
+    Array.prototype.forEach.call(root.querySelectorAll(".wkb-cp"), function (b) {
+      b.onclick = function () {
+        var t = b.getAttribute("data-cp") || "", done = function () { b.textContent = "已复制"; };
+        var old = function () { try { var x = document.createElement("textarea"); x.value = t; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0;opacity:0"; document.body.appendChild(x); x.select(); var ok = document.execCommand("copy"); x.remove(); b.textContent = ok ? "已复制" : "请长按地址复制"; } catch (e) { b.textContent = "请长按地址复制"; } };
+        try { navigator.clipboard.writeText(t).then(done, old); } catch (e) { old(); }
+      };
+    });
+  };
+  /* 站长 2026-11-15：「直接放在荣耀榜那一页，跟预言家一样，别人一眼看到奖池，以及奖金是多少」→ 放在页面最上面，大数字是奖池钱包里现在能分的钱，前三名一人一格 */
+  function weekCard(w) {
+    var box = document.getElementById("hn-wk");
+    if (!box || !w || !w.rules) return;
+    var p = w.pool, known = w.on && p && p.avail != null, canPay = known && !w.pre, top = w.top || [];
+    var pc = function (x) { var v = (x.share || 0) * 100; return (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + "%"; };
+    var big = known ? (p.avail >= 1000 ? Math.floor(p.avail).toLocaleString("en-US") : wkNum(p.avail)) : "—";
+    var endTxt = w.endAt > Date.now() ? "，还剩 " + left(w.endAt - Date.now()) : "";
+    var tile = function (x, i) {
+      return '<div class="or-pz ' + ["p3", "p1", "p2"][i] + '"><small><u class="or-rk">第 ' + (i + 1) + " 名 · 占 " + pc(x) + '</u><span class="wkb-tn">' + wkEsc(x.name) + "</span></small>" +
+        (canPay && x.amt > 0 ? "<b><i>" + wkNum(x.amt) + "</i><em>DAI</em></b>" : "<b><i>" + pc(x).replace("%", "") + "</i><em>%</em></b>") +
+        '<s class="or-pzd">付手续费 ' + wkNum(x.fee) + " DAI</s></div>";
+    };
+    var li = function (x, i) {
+      return '<li><i class="wkb-no">' + (i + 1) + '</i><div class="wkb-who"><b>' + wkEsc(x.name) + "</b><small>付手续费 " + wkNum(x.fee) + " DAI · 占 " + pc(x) + "</small></div>" +
+        (canPay ? '<em class="num">' + (x.amt > 0 ? "≈ " + wkNum(x.amt) : "—") + "<small>DAI</small></em>" : "") + "</li>";
+    };
+    box.innerHTML = '<section class="card or-pool wkb-pool"><div class="or-pc">' +
+      '<div class="or-pcl"><span>🏆 OTC 周榜奖池' + (w.demo ? "（示例数据）" : "") + "</span></div>" +
+      '<div class="or-pbig"><em><i>' + big + "</i><span>DAI</span></em></div>" +
+      '<div class="wkb-sub">前 ' + w.rules.top + " 名按吃单手续费占比分 · <b>有多少分多少</b> · 发 AiLGNS<br>" +
+      (w.pre ? "从 " + Number(String(w.rules.from).split("-")[1]) + " 月 " + Number(String(w.rules.from).split("-")[2]) + " 日这一周开始计奖，下面是本周的排名参考" : "周日 24 点截止，周一结算" + endTxt) + "</div>" +
+      (known && p.owed > 0 ? '<div class="or-powed">钱包里另有 <b>' + wkNum(p.owed) + " DAI</b> 是前几周已经分出去、等领奖的，不算进本周</div>" : "") +
+      (p && p.a ? '<a class="or-pwal" href="#/scan/' + wkEsc(p.a) + '">🏦 查看奖池钱包 ›</a>' +
+        '<div class="wkb-addr"><small>奖池托管地址（链上公开，点地址能看每一笔进出）</small><a href="#/scan/' + wkEsc(p.a) + '">' + wkEsc(p.a) + '</a><button type="button" class="wkb-cp" data-cp="' + wkEsc(p.a) + '">复制</button></div>' : "") +
+      (top.length ? '<div class="or-prz or-prz3 wkb-prz">' + top.slice(0, 3).map(tile).join("") + "</div>" +
+        (top.length > 3 ? '<details class="wkb-fold"><summary>展开第 4–' + top.length + ' 名</summary><ol class="wkb-list">' + top.slice(3).map(function (x, i) { return li(x, i + 3); }).join("") + "</ol></details>" : "")
+        : '<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>') +
+      '<a class="wkb-cta" href="#/weekly">📖 规则和发放记录 ›</a></div></section>';
+    try { wkBindCopy(box); } catch (e) { /* 复制按钮挂不上不影响看榜 */ }
+  }
+
   // ---------- 荣耀榜页面 ----------
   var board = "total";
   function page(rid) {
-    A.app.innerHTML = '<div id="hn-milbox" data-nb="1"></div><section class="card hn-hero"><h2>🏆 AiLGNS 荣耀榜</h2><p class="muted">感谢每一位为 AiLGNS 生态做出贡献的交易者 · 按 OTC 累计成交排名（链上真实成交）</p>' +
+    A.app.innerHTML = '<div id="hn-wk" data-nb="1"></div><div id="hn-milbox" data-nb="1"></div><section class="card hn-hero"><h2>🏆 AiLGNS 荣耀榜</h2><p class="muted">感谢每一位为 AiLGNS 生态做出贡献的交易者 · 按 OTC 累计成交排名（链上真实成交）</p>' +
       '<div class="seg hn-seg" id="hn-seg"><button type="button" data-b="total">🏛 总榜</button><button type="button" data-b="month">🔥 本月榜</button></div><p class="hn-cd" id="hn-cd"></p><div id="hn-me"></div></section>' +
       '<div id="hn-out" data-nb="1"><section class="card"><p class="muted">读取中…</p></section></div>';
+    /* 🏆 本周 OTC 手续费周榜（站长 2026-11-15：放在荣耀榜这里，折叠）：读不到就不显示，不影响荣耀榜 */
+    try { fetch("/api/weekly").then(function (r) { return r.json(); }).then(function (w) { if (A.isCurrent(rid)) weekCard(w); }).catch(function () {}); } catch (e) { /* 忽略 */ }
     var me = null, seg = document.getElementById("hn-seg");
     var paint = function () { seg.querySelectorAll("button").forEach(function (b) { b.className = b.getAttribute("data-b") === board ? "on" : ""; }); };
     paint();
@@ -117,8 +163,10 @@
         var rest = top.slice(3).map(function (x, i) {
           var r = i + 4;
           return '<li class="hn-r' + x.tier + '"><span class="hn-n">' + r + '</span><span class="hn-a">' + A.nameTag(x.a) + "</span>" + tierChip(x.tier) + "<b>" + dai(x.vol) + "</b></li>";
-        }).join("");
-        html = '<section class="card"><div class="hn-podium">' + podium + "</div>" + (rest ? '<ol class="hn-list">' + rest + "</ol>" : "") + "</section>";
+        });
+        /* 站长 2026-11-15：名单太长，第 11 名以后折叠，点一下再展开 */
+        html = '<section class="card"><div class="hn-podium">' + podium + "</div>" + (rest.length ? '<ol class="hn-list">' + rest.slice(0, 7).join("") + "</ol>" : "") +
+          (rest.length > 7 ? '<details class="hn-fold"><summary>展开第 11–' + top.length + ' 名</summary><ol class="hn-list">' + rest.slice(7).join("") + "</ol></details>" : "") + "</section>";
       }
       // 名人堂
       var hof = d.hof || [], mil = d.mil || [];

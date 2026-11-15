@@ -104,14 +104,26 @@
   }
   // 授权并返回付款参数：最多多付 2%，防止付款时币价小幅变动导致失败
   // 差价余额：这个地址转给分账合约的 LGNS 里，不在注册交易里的算「补差价」；每次用 LGNS 注册成功，按时间顺序用掉最早的一笔补差价。剩下没用掉的就是余额
+  /* 读一段链上记录，读不到再试两次（2026-11-14：客户网络不好，补过的差价没认出来，再注册提示 LGNS 不够） */
+  function logsTry(q, n) {
+    return W.rpcOn("anubis", "eth_getLogs", [q]).then(function (r) { if (!r) throw new Error("空"); return r; }).catch(function (e) {
+      if ((n || 0) >= 2) throw e;
+      return new Promise(function (ok) { setTimeout(ok, 500); }).then(function () { return logsTry(q, (n || 0) + 1); });
+    });
+  }
+  /* 这台手机上记一笔「补过差价、还没注册成」：链上记录实在读不到时拿它抵扣，注册成功就清掉 */
+  function tuKey() { return "nm:tu:" + String(account || "").toLowerCase(); }
+  function tuSave(v) { try { localStorage.setItem(tuKey(), String(v)); } catch (e) { /* 存不上不要紧，链上有记录 */ } }
+  function tuClear() { try { localStorage.removeItem(tuKey()); } catch (e) { /* 同上 */ } }
+  function tuLocal() { try { var v = localStorage.getItem(tuKey()); return v && /^\d+$/.test(v) ? BigInt(v) : 0n; } catch (e) { return 0n; } }
   function topUpCredit() {
     var L = TOK.LGNS.a, me = "0x" + A.pad(account), to = "0x" + A.pad(PAYEE), regs = {};
     Object.keys(CONTRACTS).forEach(function (t) { regs[CONTRACTS[t]] = 1; });
     return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
       var latest = parseInt(h, 16), ranges = [];
       for (var b = START.ailgns; b <= latest; b += 5000) ranges.push([b, Math.min(latest, b + 4999)]);
-      return A.pool(ranges, 4, function (r) {
-        return W.rpcOn("anubis", "eth_getLogs", [{ address: L, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [T_XFER, me, to] }]);
+      return A.pool(ranges, 6, function (r) {
+        return logsTry({ address: L, fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16), topics: [T_XFER, me, to] });
       });
     }).then(function (chunks) {
       var xs = [].concat.apply([], chunks.map(function (c) { if (!c) throw new Error("读链上记录失败"); return c; }));
@@ -136,8 +148,8 @@
       return W.rpcOn("anubis", "eth_blockNumber", []).then(function (h) {
         var latest = parseInt(h, 16), jobs = [];
         owners.forEach(function (o) { for (var b = START.ailgns; b <= latest; b += 5000) jobs.push([o, b, Math.min(latest, b + 4999)]); });
-        return A.pool(jobs, 4, function (j) {
-          return W.rpcOn("anubis", "eth_getLogs", [{ address: L, fromBlock: "0x" + j[1].toString(16), toBlock: "0x" + j[2].toString(16), topics: [T_XFER, "0x" + A.pad(j[0]), me] }]);
+        return A.pool(jobs, 6, function (j) {
+          return logsTry({ address: L, fromBlock: "0x" + j[1].toString(16), toBlock: "0x" + j[2].toString(16), topics: [T_XFER, "0x" + A.pad(j[0]), me] });
         });
       }).then(function (chunks) {
         var back = 0n;
@@ -169,7 +181,7 @@
       if (k !== "LGNS") return q;
       // LGNS：先把卖出税差价转给收款的分账合约，再注册（先补后注册，注册没完成的差价联系客服退回）
       // 之前补过差价、但注册没完成的（比如钱包里点了取消），这次直接抵扣，不再重复收
-      return Promise.all([topUp(q), topUpCredit().catch(function () { return 0n; })]).then(function (z) {
+      return Promise.all([topUp(q), topUpCredit().catch(function () { return tuLocal(); })]).then(function (z) {
         var e = z[0], cr = z[1];
         if (cr > 0n) { say("✅ 你之前补过的 " + fmt(cr, 9) + " LGNS 差价还没用上，这次直接抵扣"); e = cr * 100n >= e * 90n ? 0n : e - cr; }
         return W.rpcOn("anubis", "eth_call", [{ to: t.a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(function (b) {
@@ -177,7 +189,7 @@
           if (BigInt(b) < q + e) throw new Error("LGNS 不够：一共要约 " + fmt(q + e, 9) + " LGNS（含 DEX 卖出税补差），你的钱包只有 " + fmt(BigInt(b), 9) + "（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）");
           if (!e) { if (cr > 0n) { topUpAt = Date.now(); topUpAmt = fmt(cr, 9); } return; }
           return tx(t.a, "0xa9059cbb" + A.pad(PAYEE) + u256(e), say, "💸 第 1 笔：补 DEX 卖出税差价 " + fmt(e, 9) + " LGNS（LGNS 在 DEX 卖出要扣税，这部分补给平台；作为运营费用）。请在钱包确认").then(function () {
-            topUpAt = Date.now(); topUpAmt = fmt(e, 9);
+            topUpAt = Date.now(); topUpAmt = fmt(e, 9); tuSave(e);
             say("✅ 第 1 笔完成：差价 " + topUpAmt + " LGNS 已补好（网站记住了，不会重复扣）。马上弹第 2 笔付注册费，千万别关页面");
           });
         }).then(function () { return q; });
@@ -299,9 +311,17 @@
     if (!eth || !eth.request) return Promise.resolve(false);
     var chainId = "0x" + (6714).toString(16);
     return eth.request({ method: "wallet_getCapabilities", params: [account] }).then(function (cap) {
-      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); if (!c || !(c.atomicBatch && c.atomicBatch.supported) && !c.atomic) return false;
+      var c = cap && (cap[chainId] || cap["6714"] || cap[6714]); /* 钱包「能不能一次确认发多笔」：新写法是 atomic: { status: "supported" | "ready" | "unsupported" }。以前只看有没有 atomic 这一项，写着 unsupported 的也当成支持，钱包就报「不支持原子操作」（2026-11-15 一键做市客户截图） */
+      var okB = !!c && !!((c.atomicBatch && c.atomicBatch.supported) || c.atomic === true || (c.atomic && (c.atomic.status === "supported" || c.atomic.status === "ready" || c.atomic.supported === true)));
+      if (!okB) return false;
       say("钱包支持一次确认发 " + calls.length + " 笔，请在钱包确认一次");
-      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) {
+      return eth.request({ method: "wallet_sendCalls", params: [{ version: "1.0", chainId: chainId, from: account, calls: calls.map(function (x) { return { to: x.to, data: x.data, value: "0x0" }; }) }] }).then(function (id) { return { id: id }; }, function (e) {
+        /* 钱包当场拒收这种发法（还没发出任何交易）：不是客户自己点的取消，就退回「一张一张确认」，别让客户卡死 */
+        if (e && (e.code === 4001 || /user reject|user denied|rejected the request|cancel/i.test(String((e && e.message) || e)))) throw e;
+        return { no: 1 };
+      }).then(function (r) {
+        if (r.no) { say("钱包不能一次发多笔，改成一张一张确认"); return false; }
+        var id = r.id;
         var bid = typeof id === "string" ? id : (id && id.id);
         say("已提交，等待链上确认…");
         return new Promise(function (ok, no) { var n = 0; (function poll() { eth.request({ method: "wallet_getCallsStatus", params: [bid] }).then(function (st) { var s = st && (st.status || st.state); if (s === 200 || s === "CONFIRMED" || s === "success") return ok(true); if (s >= 400 || s === "FAILED" || s === "failure") return no(new Error("打包交易失败")); if (++n > 120) return no(new Error("等待超时")); setTimeout(poll, 2000); }, no); })(); });
@@ -334,13 +354,14 @@
     say("⏳ 正在连接钱包…");
     return connect().then(function () { say("⏳ 正在查余额和价格，马上弹出钱包…"); return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
       var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
-      return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认");
+      return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认").then(function (h) { if (k === "LGNS") tuClear(); return h; });
     });
   }
 
   function page(rid, arg) {
     // 路由只保留 0x 地址参数，名字自己从网址里取
-    var q = decodeURIComponent((location.hash.split("/")[2] || "").split("?")[0]).toLowerCase(), m = q.match(/\.(ailgns|lgns)$/); // ?pri=1 是预言家页跳过来设主名字的标记
+    var wantBatch = /^#\/names\/batch$/.test(location.hash); /* ailgns.dev/#/names/batch = 直接打开批量注册（极速预言家「去买票」、客服给客户的网址都用它；不靠浏览器记标记，新标签页打开也行） */
+    var q = wantBatch ? "" : decodeURIComponent((location.hash.split("/")[2] || "").split("?")[0]).toLowerCase(), m = q.match(/\.(ailgns|lgns)$/); // ?pri=1 是预言家页跳过来设主名字的标记
     if (q === "otc" || q === "mine") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
     TLD = m ? m[1] : "ailgns";
     NAMES = CONTRACTS[TLD]; window.__nmTLD = TLD;
@@ -366,7 +387,9 @@
       '<div class="nm-rk"><input id="nm-oa" placeholder="填钱包地址 0x…，查挂单和成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-ob">查询</button></div><div id="nm-olo"></div><div id="nm-ol"></div></section>';
     document.getElementById("nm-t").value = TLD;
     var nbb = document.getElementById("nm-batch"); if (nbb) nbb.onclick = function () { if (A.namesBatch) A.namesBatch.open(); };
-    try { if (sessionStorage.getItem("nm:batch")) { sessionStorage.removeItem("nm:batch"); setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open(); } catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
+    try { var ssB = false; try { ssB = !!sessionStorage.getItem("nm:batch"); if (ssB) sessionStorage.removeItem("nm:batch"); } catch (e0) { /* 读不了标记就只看网址 */ }
+      if (wantBatch) { try { history.replaceState(null, "", "#/names"); } catch (e1) { /* 改不了网址不影响打开 */ } }
+      if (wantBatch || ssB) { setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open({ tickets: true }); } /* 从「去买票」/ #/names/batch 进来：极简买票窗口；域名页的「📦 批量注册」按钮还是完整版 */ catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
     var tl = document.querySelector(".nm-tld"); if (tl) tl.textContent = "." + TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
@@ -989,7 +1012,7 @@
     });
   }
   function myOpen(a, box) {
-    if (!box || !/^0x[0-9a-f]{40}$/.test(a || "")) return;
+    if (!box || !/^0x[0-9a-f]{40}$/.test(a || "")) return Promise.resolve(0);
     box.innerHTML = '<p class="muted">读取挂单中…</p>';
     return listings(true).then(function (all) {
       var list = all.filter(function (x) { return x.maker === a; }), me = account && a === account, now2 = Date.now() / 1000;
@@ -1101,6 +1124,7 @@
         var full = x.label + "." + x.t, here = x.owner === a, pri = x.primary === x.label, st;
         var onMk = x.owner && x.owner === OTC[x.t];
         if (onMk) return '<div class="nm-pr"><a href="#/names/' + encodeURIComponent(full) + '">' + esc(full) + "</a> <span>🛒 正在域名市场出售（托管在市场合约）</span></div>";
+        if (String(x.owner || "").toLowerCase() === "0x000000000000000000000000000000000000dead") return '<div class="nm-pr"><a href="#/names/' + encodeURIComponent(full) + '">' + esc(full) + "</a> <span>🔥 已销毁（转进黑洞地址，永久消失）</span></div>"; /* 烧掉的名字：不提「转走了」「未设主名字」，免得看不懂（站长 2026-11-14 截图） */
         if (!x.owner) st = "⚪ 已过期或已释放";
         else if (!here) st = "📦 现在在 <code>" + sh(x.owner) + "</code>" + (x.to !== a ? "（注册时就是给这个地址的）" : "（注册后转走了）");
         else st = "✅ 在这个钱包";

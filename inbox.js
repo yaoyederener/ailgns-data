@@ -42,12 +42,15 @@
     el.setAttribute("data-k", k);
     el.innerHTML = '<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来' + (n > 1 ? " " + n + " 条" : "一条") + "私信</b><small>" + (txt ? esc(txt.slice(0, 40)) + (txt.length > 40 ? "…" : "") : "点开用钱包签个名就能看（免费）") + '</small></span><span class="fb-pill-go">查看 ›</span>';
   }
+  /* 气泡记在本机：一打开网站先按上次查到的显示，后台再核对一遍（已读了就马上收起） */
+  function pillSave(n, txt) { try { var a = getAcct(); if (a) localStorage.setItem("ib:pill", JSON.stringify({ a: a, n: n || 0, txt: txt || "", t: Date.now() })); } catch (e) { /* 存不上不要紧 */ } }
+  function pillCached() { try { var c = JSON.parse(localStorage.getItem("ib:pill") || "null"); if (c && c.n > 0 && c.a === getAcct() && Date.now() - c.t < 7 * 86400e3) pill(c.n, c.txt || ""); } catch (e) { /* 读不到就等网络 */ } }
   // 没签名：只问未读数（不含内容）
   function count() {
     var a = getAcct(); if (!a || auth || document.hidden) return Promise.resolve(null);
     return fetch("/api/inbox?n=" + a).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || j.error) return null;
-      badge(j.unread); pill(j.dm, "");
+      badge(j.unread); pill(j.dm, ""); pillSave(j.dm, "");
       var c = document.getElementById("ib-cnt"); if (c) c.textContent = j.unread ? "🔴 钱包 " + A.short(a) + " 有 " + j.unread + " 条未读通知，签名后就能看" : "";
       return j;
     }).catch(function () { return null; });
@@ -59,7 +62,8 @@
       if (j.error) { if (/过期/.test(j.error)) logout(false); return null; }
       badge(j.unread);
       var dms = j.list.filter(function (x) { return x.t > j.seen && String(x.txt).indexOf(DM) === 0; });
-      pill(dms.length, dms.length ? String(dms[0].txt).split("\n").slice(1).join(" ") : "");
+      var dmTxt = dms.length ? String(dms[0].txt).split("\n").slice(1).join(" ") : "";
+      pill(dms.length, dmTxt); pillSave(dms.length, dmTxt);
       var top = j.list.length ? j.list[0].t : 0;
       var hasPush = false; try { hasPush = localStorage.getItem("ib:push:" + auth.a) === "1"; } catch (e) {}
       if (!hasPush && lastMax && top > lastMax && "Notification" in window && Notification.permission === "granted") {
@@ -140,13 +144,35 @@
     if (openSeen === null) openSeen = j.seen;
     var fresh = j.list.filter(function (x) { return x.t > openSeen; }).length;
     var un = document.getElementById("ib-un"); if (un) un.textContent = fresh ? fresh + " 条新消息" : "";
-    pill(0);
+    pill(0); pillSave(0, ""); /* 点开收件箱就算看过：本机记的气泡也清掉，下次打开不再闪一下 */
     if (j.unread && !document.hidden) { badge(0); markSeen(); }
     if (box.querySelector(".ib-rbox")) return; // 正在写回复：不刷新列表，免得字被清掉
     shown = j.list;
     box.innerHTML = j.list.length ? j.list.map(function (x) {
-      return '<div class="ib-it' + (x.t > openSeen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small><button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button></div></div>';
+      return '<div class="ib-it' + (x.t > openSeen ? " new" : "") + '"><span class="ib-ico"><i class="gd-xin">信</i></span><div class="ib-main"><div class="ib-txt">' + rich(x.txt) + '</div><small>' + bj(x.t) + '</small>' + repBtn(x) + '</div></div>';
     }).join("") : '<p class="muted ib-empty">还没有消息。以后你的成交、借贷、工单回复、预言家中奖、链上留言都会出现在这里。</p>';
+  }
+  /* 回复按钮：客户看到的是「回复站长」；站长自己的收件箱里，客户来信 / 工单那几条变成「回复客户」（直接回到那位客户的收件箱），其余通知不放按钮（站长 2026-11-14） */
+  var OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";
+  function tidOf(x) { var m = String((x && x.link) || "").match(/^#\/feedback\/admin\/(\d+)$/); return m ? m[1] : ""; }
+  function repBtn(x) {
+    if (auth && auth.a === OWNER) { var tid = tidOf(x); return tid ? '<button type="button" class="ib-rep ib-repc" data-rep="' + esc(x.id) + '" data-tid="' + tid + '">💬 回复客户</button>' : ""; }
+    return '<button type="button" class="ib-rep" data-rep="' + esc(x.id) + '">💬 回复站长</button>';
+  }
+  function replyCustomer(b, main) {
+    var tid = b.getAttribute("data-tid");
+    b.hidden = true;
+    main.insertAdjacentHTML("beforeend", '<div class="ib-rbox"><textarea rows="3" maxlength="1000" placeholder="写给这位客户（工单 #' + tid + '）。发出后他的收件箱多一条「站长通知」，网站底部会弹出提醒"></textarea><div class="ib-rrow"><button type="button" class="link ib-rx">取消</button><button type="button" class="nm-go ib-rs">发送给客户</button></div><p class="muted ib-rst"></p></div>');
+    var box = main.querySelector(".ib-rbox"), ta = box.querySelector("textarea"), st = box.querySelector(".ib-rst"); ta.focus();
+    box.querySelector(".ib-rx").onclick = function () { box.remove(); b.hidden = false; };
+    box.querySelector(".ib-rs").onclick = function () {
+      var v = ta.value.trim(), s = this; if (v.length < 2) { st.textContent = "多写几个字吧"; return; }
+      s.disabled = true; st.textContent = "发送中…";
+      fetch("/api/inbox", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: auth.a, ts: auth.ts, sig: auth.sig, action: "reply", tid: tid, msg: v }) }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.error) { s.disabled = false; st.textContent = "❌ " + j.error; return; }
+        box.innerHTML = '<p class="ib-rok">✅ 已发给客户 ' + esc(A.short(j.to)) + '（工单 #' + esc(j.id) + ' 已标成已处理）。他打开网站，底部会弹出「站长给你发来一条私信」；他再回复，还会出现在你这里。</p><p class="ib-rmine">你写的：' + esc(v) + "</p>";
+      }, function () { s.disabled = false; st.textContent = "❌ 网络不好，再点一次"; });
+    };
   }
   function markSeen() {
     if (!auth || marking) return; marking = true;
@@ -157,6 +183,7 @@
     var b = e.target.closest && e.target.closest("[data-rep]"); if (!b || !auth) return;
     var main = b.parentNode; if (main.querySelector(".ib-rbox")) return;
     var it = shown.filter(function (x) { return x.id === b.getAttribute("data-rep"); })[0] || {};
+    if (b.getAttribute("data-tid") && auth.a === OWNER) return replyCustomer(b, main);
     b.hidden = true;
     main.insertAdjacentHTML("beforeend", '<div class="ib-rbox"><textarea rows="3" maxlength="1000" placeholder="想对站长说什么？问题、建议都可以，站长会亲自看"></textarea><div class="ib-rrow"><button type="button" class="link ib-rx">取消</button><button type="button" class="nm-go ib-rs">发送给站长</button></div><p class="muted ib-rst"></p></div>');
     var box = main.querySelector(".ib-rbox"), ta = box.querySelector("textarea"), st = box.querySelector(".ib-rst"); ta.focus();
@@ -218,11 +245,16 @@
     txGo(h, 0);
   }
   // 开站就拉一次，之后按节奏；没签名的先悄悄问一下钱包地址（不弹窗），只为了让铃铛亮未读数
+  if (!PAUSED) { try { pillCached(); } catch (e) { /* 忽略 */ } }
   if (!PAUSED) setTimeout(function () {
     try { txq().forEach(function (x) { txGo(x.h, 0); }); } catch (e) {}
     if (auth || getAcct()) { pull(onInbox() ? paint : null); schedule(); return; }
     try { if (W.silent) W.silent().then(function (a) { if (a) setAcct(a); }).catch(function () {}); } catch (e) {}
-  }, 1500);
+  }, 150);
+  var lastWake = 0;
+  function wake() { try { if (PAUSED || document.hidden || Date.now() - lastWake < 5000 || (!auth && !getAcct())) return; lastWake = Date.now(); pull(onInbox() ? paint : null); } catch (e) { /* 查不了就等下一轮 */ } }
+  document.addEventListener("visibilitychange", wake);
+  window.addEventListener("focus", wake);
   window.addEventListener("hashchange", function () { if (!onInbox()) openSeen = null; else pill(0); schedule(); });
   A.inbox = { login: function (b) { return login(b); }, authed: function () { return !!auth; }, tx: tx, acct: setAcct };
 })();

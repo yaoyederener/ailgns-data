@@ -240,9 +240,22 @@
     if (!p) throw new Error("请先连接钱包");
     return p;
   }
+  /* 把钱包 / 节点抛出来的错误读成一句话：有的钱包不按标准给 message，给的是一串字、或者藏在 error / data / msg 里。
+     以前这些一律显示成「操作没完成，请刷新页面再试一次」，客户和我们都不知道真实原因（2026-11-14 LGNS 一键做市的反馈） */
+  function errWords(e) {
+    if (!e) return "";
+    if (typeof e === "string") return e;
+    var m = e.message || e.reason || e.msg || e.details || e.shortMessage || "";
+    if (!m && e.error) m = typeof e.error === "string" ? e.error : (e.error.message || e.error.reason || "");
+    if (!m && e.data) m = typeof e.data === "string" ? e.data : (e.data.message || e.data.reason || "");
+    if (!m && e.cause) m = typeof e.cause === "string" ? e.cause : (e.cause.message || "");
+    if (!m) { try { m = JSON.stringify(e); } catch (x) { m = ""; } if (m === "{}" || m === "null") m = e.code !== undefined ? "wallet error code " + e.code : ""; }
+    return String(m || "").slice(0, 300);
+  }
   function walletError(e) {
-    if (e && (e.code === 4001 || /reject|denied|cancel/i.test(e.message || ""))) return "你在钱包里点了「拒绝 / 取消」，这笔操作没有发出去。想继续就再点一次。";
-    return (e && (e.message || e.reason)) || "操作没完成，请刷新页面再试一次；还不行就提交工单。";
+    var m = errWords(e);
+    if (e && (e.code === 4001 || /user reject|user denied|rejected the request|\bcancell?ed\b|\bcancel\b/i.test(m))) return "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」。想继续就再点一次，在钱包里点「确认」。（钱包原话：" + (m || "code 4001").slice(0, 80) + "）";
+    return m || "操作没完成，请刷新页面再试一次；还不行就提交工单。";
   }
   // 已经在这条链上就不再切换（有些钱包 App 切到「当前同一条链」时不回应，按钮就一直灰着没反应）；钱包 20 秒不回应就提示客户手动切链
   function switchTo(eth, chain) {
