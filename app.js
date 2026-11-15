@@ -491,7 +491,10 @@
         app.innerHTML = html;
 
         var list = refs ? refs.list : [];
-        if (!list.length) { document.getElementById("lines").innerHTML = '<div class="empty">链上没有读到直推地址</div>'; return; }
+        // 直推名单是一条条慢慢读回来的；客户中途点去别的页（比如团队结构图），#lines 已经不在了，不能再往里写（2026-11-14 错误日志：#/tree 上报 Cannot set properties of null）
+        var linesEl = function () { return document.getElementById("lines"); };
+        if (!linesEl()) return;
+        if (!list.length) { linesEl().innerHTML = '<div class="empty">链上没有读到直推地址</div>'; return; }
         var status = document.getElementById("lines-status");
         var rows = [];
         function draw() {
@@ -501,7 +504,7 @@
             s += "<tr><td>" + (i < 3 ? '<b style="color:var(--gold)">' + ["一区", "二区", "三区"][i] + "</b>" : i + 1) + '</td><td class="l">' + addrLink(x.a, "team") + '</td><td class="l">' + lv(x.level) + "</td><td>" + wan(x.self) + "</td><td>" + fmt(x.team) +
               "</td><td><b>" + wan(toDai(x.teamPower)) + "</b></td><td>" + fmt(x.direct) + "</td></tr>";
           });
-          document.getElementById("lines").innerHTML = s + "</tbody></table></div>";
+          var ln = linesEl(); if (ln) ln.innerHTML = s + "</tbody></table></div>";
         }
         var done = 0, last = 0;
         pool(list, 6, function (a) {
@@ -777,13 +780,14 @@
     [/nonce too low|replacement transaction underpriced|already known/i, "钱包里有一笔还没确认的交易挡住了。等它确认（一般几秒），或者在钱包里取消那笔再试。"],
     [/execution reverted|revert/i, "合约拒绝了这笔交易：多半是单子刚被别人成交/撤单、金额不够最低要求、或授权不够。刷新页面看最新状态再试。"],
     [/Invalid custom network|custom network param/i, "钱包没能自动添加 Anubis 链。请在钱包的「自定义网络」里手动添加：链 ID 填 6714，RPC 填 https://rpc.anubispace.org，币种符号填 DAI；加好后切到 Anubis 链，再刷新本页。"],
-    [/already pending|request is pending/i, "钱包里还有一个弹窗没处理完。请打开钱包 App，把那个弹窗点掉（确认或拒绝都行），再回来点一次。"],
+    [/already pending|request is pending|already in progress/i, "钱包里还有一个弹窗没处理完。请打开钱包 App，把那个弹窗点掉（确认或拒绝都行），再回来点一次。"],
     [/Failed to connect to MetaMask|Java bridge|invoking postMessage/i, "钱包 App 没接住这次请求。请先打开钱包解锁，再回来点一次；还不行就把本页关掉重新打开。"],
+    [/gas\\?"? is missing|missing gas/i, "这个钱包 App 没有自动算好 Gas，交易没发出去，没有扣钱。请再点一次；还不行，换一个钱包 App（OKX / Bitget / TokenPocket）打开本站。"],
     [/gas ?limit is too low/i, "钱包给这笔交易的 Gas 上限填得太低，没发出去。请再点一次；还不行，在钱包确认页把 Gas 上限调高一些，或换一个钱包 App 打开本站。"],
     [/Transaction status unknown/i, "钱包说这笔交易的结果暂时查不到。先别重复点：过一两分钟到「账本」里看这笔成没成，没成再重新操作。"],
     [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT|aborted|failed to connect to [\w.-]+\//i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
     [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
-    [/No wallet|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
+    [/No wallet|No EVM wallet|wallet is (currently )?(not |un)?available|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
     [/(Write|Read) permission denied|clipboard/i, "这个钱包 App 不让网页自动复制。请长按那段文字，手动选「复制」。"],
     [/TypeError|ReferenceError|is not defined|Cannot read|undefined is not|null is not|is not a function|Unexpected token/, "页面程序出了点小问题（已自动上报给我们）。十有八九是浏览器还在用旧版本：点下面「刷新页面重试」就好；刷新了还不行，点「报给客服」，错误信息会自动带上，你只要写一句点的是哪一步。"],
   ];
@@ -798,7 +802,7 @@
   // 程序错误自动上报（只记页面、错误文字、浏览器，不记钱包地址），站长在工单后台能看到
   var reported = {}, lastRaw = "", lastWal = "";
   /* 不算程序错、不上报的：① 客户网络断了或请求被掐断（苹果手机叫 Load failed，安卓叫 Failed to fetch，还有各种 aborted）；② 无头浏览器（爬虫、检测机器人）里的报错；③ 浏览器自己的排版提示（ResizeObserver loop） */
-  var NET_RE = /Load failed|Failed to fetch|NetworkError|network error|aborted|ResizeObserver loop/i;
+  var NET_RE = /Load failed|Failed to fetch|NetworkError|network error|aborted|ResizeObserver loop|Unexpected end of script|Unexpected EOF|Unexpected end of input/i; // 最后三个：包下载到一半断了，loadBundle 会自己删掉重下，不算程序错
   /* 别人家的脚本（比如 Cloudflare 自带的访问统计）抛的错，不是我们的程序 */
   function foreign(f) { f = String(f || ""); return /^https?:/.test(f) && f.indexOf(location.origin) !== 0; }
   function report(msg) {
