@@ -69,7 +69,21 @@
   function ask(eth, a) {
     var t = safeText(a);
     if (t) safeShow(t);
-    return Promise.resolve().then(function () { return eth.request(a); }).then(function (r) { if (t) safeShow(""); if (a && a.method === "eth_requestAccounts" && !(r && ADDR_OK.test(String(r[0])))) throw new Error("钱包没有给出地址。请先在钱包里解锁、选好账户，再回来点一次。"); try { noteInbox(a, r); } catch (e) {} return r; }, function (e) { if (t) safeShow(""); throw e; });
+    // 个别安卓钱包发交易时不自己估 Gas，直接回「"gas" is missing」（2026-11-15 错误日志，预言家上链预测）：
+    // 只在钱包这么报错、而且我们确实没填 gas 时，先估一下（多留三成）带上 gas 再发一次；估不出来就按原来的错误报
+    var send = function () {
+      return Promise.resolve().then(function () { return eth.request(a); }).catch(function (e) {
+        var tx = a && a.method === "eth_sendTransaction" && a.params && a.params[0], m = "";
+        try { m = String((e && e.message) || "") + " " + (typeof e === "string" ? e : JSON.stringify(e)); } catch (e2) {}
+        if (!tx || tx.gas || !/gas\\?"? is missing|missing gas/i.test(m)) throw e;
+        return Promise.resolve().then(function () { return eth.request({ method: "eth_estimateGas", params: [tx] }); }).then(function (g) {
+          var n = parseInt(g, 16); if (!(n > 0)) throw e;
+          var tx2 = {}; Object.keys(tx).forEach(function (k) { tx2[k] = tx[k]; }); tx2.gas = "0x" + Math.ceil(n * 1.3).toString(16);
+          return eth.request({ method: "eth_sendTransaction", params: [tx2] });
+        }, function () { throw e; });
+      });
+    };
+    return send().then(function (r) { if (t) safeShow(""); if (a && a.method === "eth_requestAccounts" && !(r && ADDR_OK.test(String(r[0])))) throw new Error("钱包没有给出地址。请先在钱包里解锁、选好账户，再回来点一次。"); try { noteInbox(a, r); } catch (e) {} return r; }, function (e) { if (t) safeShow(""); throw e; });
   }
   // 🔔 钱包一返回交易哈希就告诉收件箱（每笔操作即时通知，2026-11-11）；拿到地址也顺手记一下，铃铛好亮未读数。出错不影响交易本身
   function noteInbox(a, r) {
