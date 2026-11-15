@@ -32,6 +32,19 @@
   // o = { m: 弹窗元素, R: 农场规则（/api/farm?rules=2）, paid: 以前充过没有, addr: 签名进场的钱包, done: 到账后回调(j) }
   function openPay(o) {
     var m = o.m, R = o.R, first = !o.paid;
+    // 规则还没读回来就点了「充值」（网慢时会这样，2026-11-14 错误日志：reading 'king'）：先读规则再开弹窗，读不到就给人话提示
+    if (!R) {
+      if (!m) return;
+      m.hidden = false;
+      m.innerHTML = '<div class="modal-box"><p class="muted">正在读取充值档位…</p><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>';
+      var cl = m.querySelector("[data-close]"); if (cl) cl.onclick = function () { m.hidden = true; };
+      fetch("/api/farm?rules=2").then(function (r) { return r.json(); }).then(function (j) {
+        var r2 = j && (j.R || j.rules || j);
+        if (!r2 || r2.king == null) throw new Error("no rules");
+        if (!m.hidden) { o.R = r2; openPay(o); }
+      }).catch(function () { if (!m.hidden) m.innerHTML = '<div class="modal-box"><p class="nm-bad">充值档位没读出来，多半是网络慢。请关掉再点一次。</p><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>'; var c2 = m.querySelector("[data-close]"); if (c2) c2.onclick = function () { m.hidden = true; }; });
+      return;
+    }
     m.hidden = false;
     m.innerHTML = '<div class="modal-box"><div class="card-head"><h2><i class="fm-coin"></i> 充值金币</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
       (first ? '<p class="fm-first">🔥 首充翻倍！第一次充值任意一档，金币 ×2</p>' : "") + '<div class="fm-packs">' +

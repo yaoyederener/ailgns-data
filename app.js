@@ -786,6 +786,7 @@
     [/gas ?limit is too low/i, "钱包给这笔交易的 Gas 上限填得太低，没发出去。请再点一次；还不行，在钱包确认页把 Gas 上限调高一些，或换一个钱包 App 打开本站。"],
     [/Transaction status unknown/i, "钱包说这笔交易的结果暂时查不到。先别重复点：过一两分钟到「账本」里看这笔成没成，没成再重新操作。"],
     [/Failed to fetch|NetworkError|network error|load failed|timeout|timed out|ETIMEDOUT|aborted|failed to connect to [\w.-]+\//i, "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。"],
+    [/is not valid JSON|Unexpected token '?<|JSON Parse error/i, "服务器这会儿没回正常的数据（多半是网络抖了一下或线路在切换），没有扣钱。过几秒再点一次；一直这样就换个网络，或打开 App「永久入口」换一个网址。"],
     [/chain|network mismatch|wrong network|unsupported chain|4902/i, "钱包不在 Anubis 链上。请在钱包里切换到 Anubis 链（页面会自动帮你加），然后刷新再试。"],
     [/No wallet|No EVM wallet|wallet is (currently )?(not |un)?available|没有检测到钱包|not installed|provider/i, "没有检测到钱包。手机请在 OKX / Bitget / TokenPocket 等钱包 App 的内置浏览器里打开本站。"],
     [/(Write|Read) permission denied|clipboard/i, "这个钱包 App 不让网页自动复制。请长按那段文字，手动选「复制」。"],
