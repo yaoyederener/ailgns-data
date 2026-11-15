@@ -169,7 +169,7 @@
   function render() {
     ruleV2 = false;
     A.app.innerHTML = '<div id="fx-wrap">' +
-      '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
+      '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>猜价格去预言家 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
       '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">数字下面是开奖时间。</p></section>' +
       '<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>' +
@@ -194,11 +194,13 @@
       if (t.closest("#fx-all")) { qty = Math.max(1, maxPer()); betLabel(); return; }
       if (t.closest("#fx-bet")) bet();
     });
-    var go = function () { load(); };
+    // AiLGNS 现价行情条（站长 2026-11-15）：只是行情参考，开奖还是按区块哈希，和价格无关；读服务器 5 秒缓存，读不到就不显示数字
+    var px = function () { try { fetch("/api/px").then(function (x) { return x.ok ? x.json() : null; }).then(function (j) { var e = el("fx-px"); if (!e || !j || !j.r) return; var w = j.r.slice(2), ail = BigInt("0x" + w.slice(0, 64)), d = BigInt("0x" + w.slice(64, 128)); if (ail > 0n) e.textContent = (Number((d * 1000000n) / ail) / 1e6).toFixed(4); }).catch(function () {}); } catch (e) {} };
+    var go = function () { load(); px(); };
     try { if (!acct && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a) acct = String(a).toLowerCase(); go(); }, go); else go(); } catch (e) { go(); }
     clearInterval(tick); clearInterval(poll);
     tick = setInterval(function () { if (!el("fx-main")) { clearInterval(tick); return; } try { clock(); } catch (e) {} }, 1000);
-    poll = setInterval(function () { if (!el("fx-main")) { clearInterval(poll); return; } if (!document.hidden && !busy) load(); }, 10000);
+    poll = setInterval(function () { if (!el("fx-main")) { clearInterval(poll); return; } if (!document.hidden && !busy) load(); if (!document.hidden) px(); }, 10000);
   }
   A.pages.fast = function () { try { render(); } catch (e) { A.app.innerHTML = '<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>'; } };
 })();
