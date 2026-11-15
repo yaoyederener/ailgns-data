@@ -563,6 +563,7 @@
       go.disabled = false;
       go.innerHTML = q ? "<b>👉 开始闪兑</b><small>换出 " + amt2(q.p1.tok, from()) + " · 预计到手 " + amt2(q.out, to()) + " · 钱包确认 2 次</small>" : "<b>👉 开始闪兑</b><small>先在上面填要换多少</small>";
       var p = !q && !amtWei() && pend();
+      go.classList.toggle("ready", !!(q || p)); // 能点了才上色；没填数量时是浅紫的提示样子
       if (p) go.innerHTML = "<b>👉 继续换成 " + SWAP_NAME[p.to] + "</b><small>上次第 1 步换来的 " + show(BigInt(p.dai), 2) + " DAI 还没换完 · 钱包确认 1 次</small>";
     }
     /* 没填数量时先给个参考价：按两边最优的那张单算 */
