@@ -3979,6 +3979,9 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .fx .fx-bet.ready { background: var(--grad-dot); color: #fff; box-shadow: 0 4px 14px rgba(105, 39, 219, .25); }
 .fx-st { min-height: 22px; margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: #3d2f66; }
 .fx-st.bad { color: #b42318; }
+.fx-px { display: flex; align-items: baseline; gap: 6px; margin: 10px 0 4px; padding: 10px 12px; border-radius: 12px; background: #f7f3ff; color: #3d2f66; font-size: 14px; text-decoration: none; white-space: nowrap; }
+.fx-px b { font-size: 20px; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
+.fx-px i { margin-left: auto; font-style: normal; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .fx-balls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .fx-ball { padding: 8px 0 6px; border-radius: 12px; background: #f7f3ff; text-align: center; }
 .fx-ball b { display: block; font-size: 26px; line-height: 1.15; font-weight: 800; color: #6927db; }
