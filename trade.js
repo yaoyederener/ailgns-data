@@ -13,9 +13,13 @@
   var fitH = 0, fitRO = null; // 手机：盘口跟着下单卡的高度走
   function startLive() {
     var el = document.getElementById("tr-k"); if (!el || !A.kchart) return;
-    if (MK !== "ailgns") { el.innerHTML = '<p class="muted" style="padding:32px 12px;text-align:center">' + SYM + " 的 K 线还在接入中，先看盘口和最近成交。</p>"; return; } // K 线数据（/api/candles）目前只算 AiLGNS 池子
+    if (MK !== "ailgns" && MK !== "lgns") { el.innerHTML = '<p class="muted" style="padding:32px 12px;text-align:center">' + SYM + " 的 K 线还在接入中，先看盘口和最近成交。</p>"; return; }
     if (liveCtl) liveCtl.stop();
-    liveCtl = A.kchart(el, { i: "5m", alive: function () { return A.isCurrent(rid); } });
+    // LGNS（站长 2026-11-15）：画官方 DEX 的 LGNS/DAI 池子价，4 位小数；AiLGNS 照旧
+    liveCtl = A.kchart(el, MK === "lgns" ? { i: "5m", m: "lgns", d: 4, alive: function () { return A.isCurrent(rid); } } : { i: "5m", alive: function () { return A.isCurrent(rid); } });
+    var kn = document.getElementById("tr-kn");
+    if (MK === "lgns" && !kn) el.insertAdjacentHTML("afterend", '<p class="note" id="tr-kn" style="margin:6px 12px 0">这条线是官方 DEX 里 LGNS 的池子价。LGNS 在 DEX 卖出要扣税，所以场外（本站盘口）的成交价会比它低，下单请看盘口。</p>');
+    else if (MK !== "lgns" && kn) kn.remove();
   }
 
   var book = { asks: [], bids: [], all: [], mkt: 0 }, fills = [], side = "buy", type = "limit", account = null, rid = 0, timer = 0, kcache = null;

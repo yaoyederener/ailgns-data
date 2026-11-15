@@ -14,6 +14,7 @@
   A.kchart = function (host, opt) {
     opt = opt || {};
     var iv = opt.i || "15m", data = [], cur = 0, orc = 0, orcAt = 0, timer = null, dead = false, done = false;
+    var MQ = opt.m ? "&m=" + opt.m : "", PD = opt.d || 2, CK = "kc:" + (opt.m ? opt.m + ":" : ""); // 哪个币的 K 线（不填 = AiLGNS）、价格几位小数、手机里缓存用的名字
     var cw = 9, cwDraw = 9, off = 0, hover = -1, drag = null, pinch = 0;
     host.classList.add("kc");
     host.innerHTML = '<div class="kc-top"><div class="kc-ivs">' + IVS.map(function (x) { return '<button type="button" data-i="' + x[0] + '"' + (x[0] === iv ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + '</div><div class="kc-legend" id="kc-leg"></div></div><div class="kc-price" id="kc-price"></div><div class="kc-wrap"><canvas class="kc-cv"></canvas></div><div class="kc-foot muted">' + (opt.foot || "AiLGNS/DAI 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25 · 虚线 OTC 预言机价") + '<span id="kc-load"></span></div>';
@@ -21,19 +22,19 @@
     host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.onclick = function () { try { sessionStorage.setItem("kc:pick", b.getAttribute("data-i")); } catch (e) {} set(b.getAttribute("data-i")); }; });
 
     // 秒开：上次看过的数据存在本机，先画出来，再用接口数据无感替换
-    function cacheGet() { try { var j = JSON.parse(localStorage.getItem("kc:" + iv) || "null"); return j && j.c && j.c.length ? j : null; } catch (e) { return null; } }
-    function cacheSet(d) { try { localStorage.setItem("kc:" + iv, JSON.stringify({ c: d.c.slice(-300), cur: d.cur, done: d.done })); } catch (e) {} }
+    function cacheGet() { try { var j = JSON.parse(localStorage.getItem(CK + iv) || "null"); return j && j.c && j.c.length ? j : null; } catch (e) { return null; } }
+    function cacheSet(d) { try { localStorage.setItem(CK + iv, JSON.stringify({ c: d.c.slice(-300), cur: d.cur, done: d.done })); } catch (e) {} }
     function load() {
       if (opt.alive && !opt.alive()) { dead = true; clearInterval(timer); return; }
       if (dead) return;
       var want = iv;
-      fetch("/api/candles?i=" + iv + "&n=500").then(function (r) { return r.json(); }).then(function (d) {
+      fetch("/api/candles?i=" + iv + "&n=500" + MQ).then(function (r) { return r.json(); }).then(function (d) {
         if (dead || want !== iv || !d || !d.c) return;
         data = d.c; cur = d.cur || cur; done = !!d.done; cacheSet(d);
         var l = host.querySelector("#kc-load"); if (l) l.textContent = done ? "" : " · 历史数据补读中…";
         draw();
       }).catch(function () {});
-      if (Date.now() - orcAt > 60000) { orcAt = Date.now(); fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (d) { orc = d.funds && d.funds.otc ? d.funds.otc.px || 0 : 0; }).catch(function () {}); }
+      if (!opt.m && Date.now() - orcAt > 60000) { orcAt = Date.now(); fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (d) { orc = d.funds && d.funds.otc ? d.funds.otc.px || 0 : 0; }).catch(function () {}); }
     }
     function set(i) { iv = i; off = 0; hover = -1; host.querySelectorAll(".kc-ivs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-i") === i); }); var c = cacheGet(); data = c ? c.c : []; if (c) cur = c.cur || cur; draw(); load(); }
     function size() { var r = wrap.getBoundingClientRect(), dpr = window.devicePixelRatio || 1; var lim = host.parentElement ? host.parentElement.clientWidth : 0; if (lim && r.width > lim) r = { width: lim, height: r.height }; /* 别被自己撑大 */ cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); cv.style.width = r.width + "px"; cv.style.height = r.height + "px"; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return r; }
@@ -52,7 +53,7 @@
       var y = function (p) { return pH - (p - lo) / (hi - lo) * pH; }, x = function (k) { return k * cwE + cwE / 2; }; cwDraw = cwE;
       // 网格 + 右轴
       ctx.font = "11px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
-      for (var g = 0; g <= 5; g++) { var yy = Math.round(pH * g / 5) + 0.5, pv = hi - (hi - lo) * g / 5; ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(plotW, yy); ctx.stroke(); ctx.fillStyle = AX; ctx.fillText(fmt(pv, 2), plotW + 6, yy); }
+      for (var g = 0; g <= 5; g++) { var yy = Math.round(pH * g / 5) + 0.5, pv = hi - (hi - lo) * g / 5; ctx.strokeStyle = GRID; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(plotW, yy); ctx.stroke(); ctx.fillStyle = AX; ctx.fillText(fmt(pv, PD), plotW + 6, yy); }
       // 成交量
       vis.forEach(function (c, k) { var up = c[4] >= c[1], h = vmax ? c[5] / vmax * vH : 0; ctx.fillStyle = up ? "rgba(14,203,129,.45)" : "rgba(246,70,93,.45)"; ctx.fillRect(x(k) - cwE * 0.35, vTop + vH - h, cwE * 0.7, h); });
       ctx.fillStyle = AX; ctx.fillText("量 " + vol(vmax), plotW + 6, vTop + 6);
@@ -70,17 +71,17 @@
       // MA
       [[7, MA7], [25, MA25]].forEach(function (m) { ctx.strokeStyle = m[1]; ctx.lineWidth = 1.2; ctx.beginPath(); var pen = false; vis.forEach(function (c, k) { var v = ma(data, m[0], start + k); if (v === null) return; if (!pen) { ctx.moveTo(x(k), y(v)); pen = true; } else ctx.lineTo(x(k), y(v)); }); ctx.stroke(); });
       // OTC 预言机虚线
-      if (orc && orc > lo && orc < hi) { ctx.setLineDash([4, 4]); ctx.strokeStyle = ORC; ctx.beginPath(); ctx.moveTo(0, y(orc)); ctx.lineTo(plotW, y(orc)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = ORC; ctx.textAlign = "left"; ctx.fillText("预言机 " + fmt(orc, 2), 6, y(orc) - 8); }
+      if (orc && orc > lo && orc < hi) { ctx.setLineDash([4, 4]); ctx.strokeStyle = ORC; ctx.beginPath(); ctx.moveTo(0, y(orc)); ctx.lineTo(plotW, y(orc)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = ORC; ctx.textAlign = "left"; ctx.fillText("预言机 " + fmt(orc, PD), 6, y(orc) - 8); }
       // 最新价
       var last = data[data.length - 1], lp = last[4], lup = lp >= last[1];
-      if (lp > lo && lp < hi) { ctx.setLineDash([3, 3]); ctx.strokeStyle = lup ? UP : DN; ctx.beginPath(); ctx.moveTo(0, y(lp)); ctx.lineTo(plotW, y(lp)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = lup ? UP : DN; ctx.fillRect(plotW, y(lp) - 9, AXW, 18); ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.fillText(fmt(lp, 2), plotW + 6, y(lp)); }
+      if (lp > lo && lp < hi) { ctx.setLineDash([3, 3]); ctx.strokeStyle = lup ? UP : DN; ctx.beginPath(); ctx.moveTo(0, y(lp)); ctx.lineTo(plotW, y(lp)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = lup ? UP : DN; ctx.fillRect(plotW, y(lp) - 9, AXW, 18); ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.fillText(fmt(lp, PD), plotW + 6, y(lp)); }
       // 十字光标
       var hi_ = hover >= 0 && hover < vis.length ? vis[hover] : null, c0 = hi_ || last;
       if (hi_) { var hx = Math.round(x(hover)) + 0.5; ctx.setLineDash([3, 3]); ctx.strokeStyle = "#a89cd4"; ctx.beginPath(); ctx.moveTo(hx, 0); ctx.lineTo(hx, vTop + vH); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = "#4b3d8f"; var tw = 80; ctx.fillRect(Math.min(Math.max(0, hx - tw / 2), plotW - tw), H - AXH, tw, AXH); ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(bjFull(c0[0]), Math.min(Math.max(tw / 2, hx), plotW - tw / 2), H - AXH / 2); }
       var chg = c0[1] ? (c0[4] - c0[1]) / c0[1] * 100 : 0, colC = c0[4] >= c0[1] ? UP : DN;
       var first = vis[0], pc = first[1] ? (lp - first[1]) / first[1] * 100 : 0, pEl = host.querySelector("#kc-price");
-      if (pEl) pEl.innerHTML = '<b style="color:' + (pc >= 0 ? UP : DN) + '">' + fmt(lp, 2) + ' <small>DAI</small></b><span style="color:' + (pc >= 0 ? UP : DN) + '">' + (pc >= 0 ? "▲ +" : "▼ ") + pc.toFixed(2) + "%</span><small class=\"muted\">本窗口 " + vis.length + " 根 · " + (IVS.filter(function (x) { return x[0] === iv; })[0] || ["", iv])[1] + "线</small>";
-      leg.innerHTML = '<span class="kc-t">' + bjFull(c0[0]) + "</span><span>开 <b style=\"color:" + colC + '">' + fmt(c0[1], 2) + "</b></span><span>高 <b style=\"color:" + colC + '">' + fmt(c0[2], 2) + "</b></span><span>低 <b style=\"color:" + colC + '">' + fmt(c0[3], 2) + "</b></span><span>收 <b style=\"color:" + colC + '">' + fmt(c0[4], 2) + "</b></span><span>涨跌 <b style=\"color:" + colC + '">' + (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%</b></span><span>量 <b>" + vol(c0[5]) + " DAI</b></span>";
+      if (pEl) pEl.innerHTML = '<b style="color:' + (pc >= 0 ? UP : DN) + '">' + fmt(lp, PD) + ' <small>DAI</small></b><span style="color:' + (pc >= 0 ? UP : DN) + '">' + (pc >= 0 ? "▲ +" : "▼ ") + pc.toFixed(2) + "%</span><small class=\"muted\">本窗口 " + vis.length + " 根 · " + (IVS.filter(function (x) { return x[0] === iv; })[0] || ["", iv])[1] + "线</small>";
+      leg.innerHTML = '<span class="kc-t">' + bjFull(c0[0]) + "</span><span>开 <b style=\"color:" + colC + '">' + fmt(c0[1], PD) + "</b></span><span>高 <b style=\"color:" + colC + '">' + fmt(c0[2], PD) + "</b></span><span>低 <b style=\"color:" + colC + '">' + fmt(c0[3], PD) + "</b></span><span>收 <b style=\"color:" + colC + '">' + fmt(c0[4], PD) + "</b></span><span>涨跌 <b style=\"color:" + colC + '">' + (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%</b></span><span>量 <b>" + vol(c0[5]) + " DAI</b></span>";
     }
     // 交互：拖动平移、滚轮缩放、悬停十字、触屏
     function px2idx(clientX) { var r = cv.getBoundingClientRect(); return Math.floor((clientX - r.left) / cwDraw); }
@@ -97,10 +98,10 @@
     function autoPick() {
       var pick = null; try { pick = sessionStorage.getItem("kc:pick"); } catch (e) {}
       if (pick && IVS.some(function (x) { return x[0] === pick; })) { if (pick !== iv) set(pick); return; }
-      var au = null; try { au = JSON.parse(localStorage.getItem("kc:auto") || "null"); } catch (e) {}
+      var au = null; try { au = JSON.parse(localStorage.getItem(CK + "auto") || "null"); } catch (e) {}
       if (au && au.i && Date.now() - au.at < 600e3) { if (au.i !== iv) set(au.i); return; }
       var n = Math.max(30, Math.min(90, Math.floor((wrap.getBoundingClientRect().width - 64) / cw)));
-      Promise.all(IVS.map(function (x) { return fetch("/api/candles?i=" + x[0] + "&n=" + n).then(function (r) { return r.json(); }).then(function (d) { return d && d.c ? d : null; }).catch(function () { return null; }); })).then(function (all) {
+      Promise.all(IVS.map(function (x) { return fetch("/api/candles?i=" + x[0] + "&n=" + n + MQ).then(function (r) { return r.json(); }).then(function (d) { return d && d.c ? d : null; }).catch(function () { return null; }); })).then(function (all) {
         if (dead) return;
         var best = null;
         all.forEach(function (d, k) {
@@ -108,11 +109,11 @@
           var c = d.c, f = c[0][1], l = c[c.length - 1][4], pct = f ? (l - f) / f * 100 : 0, up = 0;
           for (var j = 1; j < c.length; j++) if (c[j][4] >= c[j - 1][4]) up++;
           var cons = up / (c.length - 1), score = pct * (0.4 + cons);
-          try { localStorage.setItem("kc:" + IVS[k][0], JSON.stringify({ c: c, cur: d.cur, done: d.done })); } catch (e) {}
+          try { localStorage.setItem(CK + IVS[k][0], JSON.stringify({ c: c, cur: d.cur, done: d.done })); } catch (e) {}
           if (!best || score > best.score) best = { i: IVS[k][0], score: score, pct: pct };
         });
         if (!best) return;
-        try { localStorage.setItem("kc:auto", JSON.stringify({ i: best.i, at: Date.now() })); } catch (e) {}
+        try { localStorage.setItem(CK + "auto", JSON.stringify({ i: best.i, at: Date.now() })); } catch (e) {}
         if (best.i !== iv) set(best.i);
       });
     }
