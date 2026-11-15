@@ -603,14 +603,25 @@
     function drawPend() {
       if (!alive()) return;
       var p = pend();
-      if (!p || working) { pendEl.innerHTML = ""; return; }
+      if (working) { pendEl.innerHTML = ""; return; }
+      if (!p) {
+        // 没有「停在第 2 步」的记录（记录只存在当时那个浏览器里，换个钱包 App 打开就没了），但钱包里有 DAI：
+        // 客户多半是第 1 步换完、第 2 步没做，以为币没到（2026-11-15 客户反馈）。给个直接用 DAI 买的入口；点「不用」这次不再提示。
+        var skip = false; try { skip = sessionStorage.getItem("swp:daih") === "1"; } catch (e) {}
+        if (skip || !account || !(bal.dai >= 5n * 10n ** 18n)) { pendEl.innerHTML = ""; return; }
+        pendEl.innerHTML = '<div class="swp-pend swp-daih"><b>💡 你钱包里有 ' + show(bal.dai, 2) + " DAI</b><p>闪兑分两步：先卖成 DAI，再用 DAI 买入。如果上次只做完第 1 步，换来的 DAI 就是这笔，币没有丢。点下面会把钱包里的 DAI <b>全部</b>（只留一点付 Gas）买成币；会先告诉你花多少、能买到多少，你点确认才买。只想买一部分，请去 OTC 页自己挑单。</p>" +
+          '<div class="row"><button type="button" data-d2="ailgns">用 DAI 买 AiLGNS</button><button type="button" data-d2="lgns">用 DAI 买 LGNS</button><button type="button" class="ghost" id="swp-dno">不用</button></div></div>';
+        pendEl.querySelectorAll("[data-d2]").forEach(function (b) { b.onclick = function () { var to2 = b.getAttribute("data-d2"); resume({ a: account, from: to2 === "ailgns" ? "lgns" : "ailgns", to: to2, dai: bal.dai.toString(), paid: "0", t: Date.now() }); }; });
+        document.getElementById("swp-dno").onclick = function () { try { sessionStorage.setItem("swp:daih", "1"); } catch (e) {} drawPend(); };
+        return;
+      }
       pendEl.innerHTML = '<div class="swp-pend"><b>⏸ 上次闪兑停在第 2 步</b><p>第 1 步换来的 <b>' + show(BigInt(p.dai), 2) + " DAI</b> 在你钱包里，还没换成 " + SWAP_NAME[p.to] + '。</p><div class="row"><button type="button" id="swp-cont">继续换成 ' + SWAP_NAME[p.to] + '</button><button type="button" class="ghost" id="swp-drop">不换了，留着 DAI</button></div></div>';
       document.getElementById("swp-cont").onclick = function () { resume(p); };
       document.getElementById("swp-drop").onclick = function () { setPend(null); drawPend(); goText(); };
     }
     function loadBal() {
       if (!account) return Promise.resolve();
-      return Promise.all([swapBal("ailgns"), swapBal("lgns")]).then(function (x) { bal.ailgns = x[0]; bal.lgns = x[1]; if (!working) draw(); });
+      return Promise.all([swapBal("ailgns"), swapBal("lgns"), swapCall(ANUBIS_DAI, SEL.balanceOf + u256(account)).then(BigInt).catch(function () { return 0n; })]).then(function (x) { bal.ailgns = x[0]; bal.lgns = x[1]; bal.dai = x[2]; if (!working) { draw(); drawPend(); } });
     }
     function refresh(fresh) {
       swapBooks(fresh).then(function (b) { if (!alive() || working) return; bk = b; draw(); }, function () { if (alive() && !bk.ailgns) out.innerHTML = '<p class="swp-warn">挂单没读到，请检查网络后刷新本页。</p>'; });
