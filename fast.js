@@ -169,7 +169,7 @@
   function render() {
     ruleV2 = false;
     A.app.innerHTML = '<div id="fx-wrap">' +
-      '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>猜价格去预言家 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
+      '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>去猜价格 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
       '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">数字下面是开奖时间。</p></section>' +
       '<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>' +
