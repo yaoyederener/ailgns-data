@@ -264,7 +264,7 @@
       return Promise.race([p, new Promise(function (_, fail) { setTimeout(function () { fail(new Error("钱包没有响应：请在钱包 App 里手动切换到 " + name + " 链，然后刷新页面再试")); }, 20000); })]);
     }
     return timeout(eth.request({ method: "eth_chainId" })).catch(function () { return null; }).then(function (id) {
-      if (id && parseInt(id, 16) === parseInt(params.chainId, 16)) return;
+      if (id && parseInt(id, 16) === parseInt(params.chainId, 16)) return (chain || "anubis") === "anubis" ? watchDai(eth, false) : null;
       return timeout(eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: params.chainId }] }).catch(function (e) {
         if (e && (e.code === 4902 || /unrecognized|not added|unknown chain/i.test(e.message || ""))) {
           added = true;
@@ -277,22 +277,33 @@
           });
         }
         throw e;
-      })).then(function () { return added && (chain || "anubis") === "anubis" ? watchDai(eth) : null; });
+      })).then(function () { return (chain || "anubis") === "anubis" ? watchDai(eth, added) : null; });
     });
   }
   // 钱包里网络自带的 DAI 只能付 Gas、转不出去（Anubis 链的规矩）；能转账的是 DAI 合约这个代币。
-  // 所以客户第一次通过本站加好网络后，顺手请钱包把它加进代币列表（钱包多弹一次确认）。
-  // 客户拒绝、钱包不支持、15 秒没回应都当没事，绝不挡住后面的操作；每个浏览器只问一次。
-  function watchDai(eth) {
+  // 所以客户通过本站加好网络后，顺手请钱包把它加进代币列表（钱包多弹一次确认）。
+  // 加网络成功先记「要问」（dai:want）；真正问的时候钱包必须已经在 Anubis 链上（OKX 加完网络不会马上切过去，
+  // 2026-11-15 站长实测没弹）：先等几秒，还没切过去就留到下一次操作再问。钱包答了（同意 / 拒绝 / 不支持 / 15 秒不回应）才记「问过」。
+  // 任何情况都不挡后面的操作。
+  function watchDai(eth, added) {
     try {
-      if (localStorage.getItem("dai:watch")) return null;
-      localStorage.setItem("dai:watch", "1");
+      if (added) localStorage.setItem("dai:want", "1");
+      // dai:watch 是第一版留下的记号：那一版加完网络就记了「问过」但多半没真问出来，这里当成「要问」
+      if (!(localStorage.getItem("dai:want") || localStorage.getItem("dai:watch")) || localStorage.getItem("dai:watch2")) return null;
     } catch (e) { return null; }
-    var ask = Promise.resolve().then(function () { return eth.request({ method: "eth_chainId" }); }).then(function (id) {
-      if (parseInt(id, 16) !== parseInt(CHAINS.anubis.params.chainId, 16)) return null;
-      return eth.request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", symbol: "DAI", decimals: 18 } } });
+    var want = parseInt(CHAINS.anubis.params.chainId, 16), done = function () { try { localStorage.setItem("dai:watch2", "1"); } catch (e) {} };
+    var onChain = function (n) {
+      return eth.request({ method: "eth_chainId" }).then(function (id) {
+        if (parseInt(id, 16) === want) return true;
+        if (n <= 0) return false;
+        return new Promise(function (ok) { setTimeout(ok, 700); }).then(function () { return onChain(n - 1); });
+      });
+    };
+    var ask = Promise.resolve().then(function () { return onChain(added ? 6 : 0); }).then(function (yes) {
+      if (!yes) return null;
+      return eth.request({ method: "wallet_watchAsset", params: { type: "ERC20", options: { address: "0x83fd06F0846d9D90B3016bF670Efe2E0B11cDe14", symbol: "DAI", decimals: 18 } } }).then(done, done);
     }).catch(function () { return null; });
-    return Promise.race([ask, new Promise(function (ok) { setTimeout(ok, 15000); })]);
+    return Promise.race([ask, new Promise(function (ok) { setTimeout(function () { ok("slow"); }, 15000); })]).then(function (r) { if (r === "slow") done(); });
   }
   function switchChain(eth) { return switchTo(eth, "anubis"); }
   function waitOn(chain, hash) {
