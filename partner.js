@@ -160,12 +160,29 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       '<div class="ptn-rr top"><span><b>现在待分配</b><small>谷歌社交账号钱包里的 AiLGNS + DAI</small></span><span class="m">≈ ' + fm(j.split.total, 0) + " DAI<small>折 " + (j.price ? fm(j.split.total / j.price, 4) : "—") + " AiLGNS</small></span></div>" +
       (j.split.parts || []).map(function (y) { return '<div class="ptn-rr"><span><b>' + esc(y.n) + " " + y.p + '%</b><small><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + '</a></small></span><span class="m">≈ ' + fm(y.amt, 0) + " DAI<small>" + fm(y.ail || 0, 4) + " AiLGNS</small></span></div>"; }).join("") +
       '</div><p class="muted ptn-dn">待分配里有 AiLGNS ' + fm(b.ail, 4) + " + DAI " + fm(b.dai + b.pdai, 0) + "（Anubis " + fm(b.dai, 0) + " + Polygon " + fm(b.pdai, 0) + "），按现价 " + fm(j.price, 0) + " 折算，LGNS 不算在内。" + (j.split.basis === "transit" ? "中转地址里有币，上面每人应分的数按中转地址余额算。" : "") + "分的时候只分 AiLGNS。</p>";
+    // 🏆 奖池需转多少钱（只给站长口令看）：数字由 lib/partner.js poolNeed 算
+    var nd = j.need, needH = "";
+    if (j.canWrite && nd) {
+      var ailEq = nd.price ? nd.left / nd.price : 0;
+      needH = '<h3 class="ad-h">🏆 奖池需转多少钱 <a class="ptn-ndl" href="#/scan/' + nd.a + '">看奖池钱包 ›</a></h3><div class="ptn-need">' +
+        (nd.bot ? '<div class="ptn-ndv">' + (nd.left > 0 ? "还需转 <b>" + fm(nd.left, 2) + "</b> DAI" : "✅ 现在不用转") + "</div>" +
+          (nd.left > 0 ? '<p class="muted ptn-dn">转 DAI 或 AiLGNS 都行；全用 AiLGNS 的话约 ' + fm(ailEq, 4) + " 枚（现价 " + fm(nd.price, 0) + "）。</p>" : (nd.over > 0 ? '<p class="muted ptn-dn">已经比规则多转了 ' + fm(nd.over, 2) + " DAI。</p>" : "")) +
+          '<div class="ptn-rr"><span><b>按规则应进奖池</b><small>11-15 02:35 机器人停止自动转之后累计：DAI、AiLGNS 付的域名费 × 70%</small></span><span class="m">' + fm(nd.dueDai, 2) + " DAI<small>+ " + fm(nd.dueAil, 4) + " AiLGNS</small></span></div>" +
+          '<div class="ptn-rr"><span><b>这之后已转进奖池</b><small>只算从谷歌社交账号钱包转过去的</small></span><span class="m">' + fm(nd.inDai, 2) + " DAI<small>+ " + fm(nd.inAil, 4) + " AiLGNS</small></span></div>"
+          + (nd.othDai > 0 || nd.othAil > 0 ? '<div class="ptn-rr"><span><b>其它自家钱包转进奖池的</b><small>比如极速资金池转来的；没有抵扣上面的数，要不要抵你自己定</small></span><span class="m">' + fm(nd.othDai, 2) + " DAI<small>+ " + fm(nd.othAil, 4) + " AiLGNS</small></span></div>" : "")
+          + (nd.ins && nd.ins.length ? '<details class="ptn-ndd"><summary>最近转进奖池的几笔</summary>' + nd.ins.map(function (x) { return '<div class="ptn-rr"><span><b>' + esc(x.n || "") + "</b><small>" + (x.mine ? "已抵扣" : "没抵扣") + ' · <a href="#/scan/' + x.tx + '">看这笔 ›</a></small></span><span class="m">' + fm(x.v, x.tok === "dai" ? 2 : 4) + " " + (x.tok === "dai" ? "DAI" : "AiLGNS") + "</span></div>"; }).join("") + "</details>" : "")
+          : '<p class="nm-bad">机器人账本这会儿读不到，「还需转」先不显示，过 5 分钟再看。</p>') +
+        (nd.lag > 6000 ? '<p class="muted ptn-dn">⏳ 已转进奖池的记录还在补扫（差 ' + fm(nd.lag, 0) + " 个区块），数字可能偏大，等几分钟。</p>" : "") +
+        '<div class="ptn-cp ptn-ndc"><div class="ptn-cpt">奖池钱包地址（Anubis 链）</div><div class="ptn-cpa mono" id="ptn-nda">' + esc(nd.a) + '</div><button type="button" class="nm-go ptn-cpb" id="ptn-ndb">📋 点击复制奖池地址</button></div>' +
+        '<p class="muted ptn-dn">只算每日预言家奖池，极速资金池不在这里。LGNS 付的域名费不计入。转完约 5 分钟后这里自动扣掉。</p></div>';
+    }
     var h = '<section class="card ptn-top"><div class="card-head"><h2>🤝 合伙人面板</h2><span class="muted">' + tm(j.at) + " 更新 · 每 5 分钟</span></div>" +
       // 风险与建议移到「网站优化」页（#/ops），这里不再重复
       /* 站长 2026-11-13：股东面板放最上面，其次分配比例；其余按「钱 → 客户 → 游戏 → 计划 → 地址」往下排，站长的后台入口放最后 */
       biz +
       ratio +
       allocHtml(j) +
+      needH +
       '<h3 class="ad-h">💰 其它余额（现在钱包里有的，不是收入）</h3><div class="ad-tiles">' +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
       (j.bal.fast ? tile("⚡ 极速资金池（暂停进账，留给极速预言家）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
@@ -197,6 +214,11 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       body.key = key();
       return fetch("/api/partner", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (r) { if (r.error) throw new Error(r.error); if (st) st.textContent = " ✅ 已保存"; load(rid); }, function (e) { if (st) st.textContent = " ❌ " + (e.message || e); });
     }
+    var ndb = document.getElementById("ptn-ndb");
+    if (ndb) ndb.onclick = function () {
+      var v = document.getElementById("ptn-nda").textContent, ok = function () { ndb.textContent = "✅ 已复制，去钱包粘贴"; setTimeout(function () { ndb.textContent = "📋 点击复制奖池地址"; }, 2500); };
+      try { navigator.clipboard.writeText(v).then(ok, function () { prompt("长按复制：", v); }); } catch (e) { prompt("长按复制：", v); }
+    };
     var cpb = document.getElementById("ptn-cpb");
     if (cpb) cpb.onclick = function () {
       var v = document.getElementById("ptn-cpa").textContent, ok = function () { cpb.textContent = "✅ 已复制，去钱包粘贴"; setTimeout(function () { cpb.textContent = "📋 点击复制中转地址"; }, 2500); };
