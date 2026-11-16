@@ -236,7 +236,7 @@
       (tr ? '<p class="fb-tri muted">🤖 ' + esc(tr.topic || "") + (tr.why ? " · " + esc(tr.why) : "") + "</p>" : "") +
       '<p class="fb-txt">' + esc(t.txt || "（只有截图）") + "</p>" + (ims ? '<div class="fb-ims">' + ims + "</div>" : "") + (t.bot ? '<p class="fb-reply fb-bot">🤖 机器人已初步答复：' + esc(t.bot) + "</p>" : "") +
       '<textarea rows="' + (one ? 4 : 2) + '" placeholder="回复客户（客户在反馈页面能看到；绑定了 DeBox 的还会收到私信）">' + esc(t.note || "") + "</textarea>" +
-      '<div class="fb-rim"><label class="fb-rimpick">🖼️ 附图给客户<input type="file" accept="image/*" multiple hidden data-rfile></label><span class="muted">最多 4 张，截个「查订单」的界面发给客户最管用</span><div class="fb-ims fb-rimth" data-rth></div>' +
+      '<div class="fb-rim"><label class="fb-rimpick">🖼️ 附图给客户<input type="file" accept="image/*" multiple hidden data-rfile></label><span class="muted">最多 4 张。截完图直接在回复框里粘贴（Ctrl / ⌘ + V）就行，也可以把图拖进来</span><div class="fb-ims fb-rimth" data-rth></div>' +
       (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { return '<a href="' + imgUrl(t.id, "r" + i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, "r" + i) + '" title="上次回复附的图"></a>'; }).join("") + "</div>" : "") + "</div>" +
       '<div class="fb-act"><button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button>' + (t.st === "skip" ? '<button type="button" class="ghost" data-set="new">恢复为待处理</button>' : '<button type="button" class="ghost" data-set="skip">标为无效</button>') + "</div></div>";
   }
@@ -246,11 +246,24 @@
     box.querySelectorAll("[data-rfile]").forEach(function (f) {
       var cd = f.closest(".fb-tk"), th = cd.querySelector("[data-rth]"); cd._rimgs = cd._rimgs || [];
       function draw() { th.innerHTML = cd._rimgs.map(function (u, i) { return '<div class="fb-t"><img src="' + u + '"><button type="button" data-rrm="' + i + '">✕</button></div>'; }).join(""); th.querySelectorAll("[data-rrm]").forEach(function (x) { x.onclick = function () { cd._rimgs.splice(Number(x.getAttribute("data-rrm")), 1); draw(); }; }); }
-      f.onchange = function () {
-        var room = 4 - cd._rimgs.length, fs = Array.prototype.slice.call(f.files || []).slice(0, Math.max(0, room)); f.value = "";
+      function add(list) {
+        var room = 4 - cd._rimgs.length, fs = list.slice(0, Math.max(0, room));
         if (!fs.length) return A.errTip("最多 4 张", f);
         Promise.all(fs.map(shrink)).then(function (r) { cd._rimgs = cd._rimgs.concat(r); draw(); }, function () { A.errTip("这张图片读不出来，请换一张", f); });
-      };
+      }
+      f.onchange = function () { var fs = Array.prototype.slice.call(f.files || []); f.value = ""; add(fs); };
+      // 站长 2026-11-16：电脑上截完图直接在这张工单的回复框里粘贴（Ctrl / ⌘ + V）就附上，不用先存到桌面再选文件；把图拖进这张卡也行
+      function imgsOf(dt) {
+        var out = [];
+        try {
+          Array.prototype.forEach.call((dt && dt.items) || [], function (it) { if (it.kind === "file" && /^image\//.test(it.type)) { var x = it.getAsFile(); if (x) out.push(x); } });
+          if (!out.length) Array.prototype.forEach.call((dt && dt.files) || [], function (x) { if (/^image\//.test(x.type)) out.push(x); });
+        } catch (e) {}
+        return out;
+      }
+      cd.addEventListener("paste", function (e) { var fs = imgsOf(e.clipboardData); if (fs.length) { e.preventDefault(); add(fs); } }); // 粘贴的是文字就照常进输入框
+      cd.addEventListener("dragover", function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], "Files") >= 0) e.preventDefault(); });
+      cd.addEventListener("drop", function (e) { var fs = imgsOf(e.dataTransfer); if (fs.length) { e.preventDefault(); add(fs); } });
     });
     box.querySelectorAll("[data-set]").forEach(function (b) {
       b.onclick = function () {
