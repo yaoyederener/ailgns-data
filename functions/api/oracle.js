@@ -128,7 +128,7 @@ export async function onRequestGet(ctx) {
       { // 🔥 我有没有等着销毁创世名才能领的奖（给预言家页 / 销毁页提示用）；中奖后已停赛，所以放在 el.ok 外面
         const mineAll = ((await kv.get("or:pay", "json")) || []).filter((x) => x.a === a), wait = mineAll.filter((x) => payState(x) === "wait");
         const sayDue = mineAll.filter((x) => needSay(x) && ["wait", "say", "review", "ready"].includes(payState(x))); // 📣 我还没到手的奖：要去 DeBox 宣告的
-        if (sayDue.length) out.me.sayDue = sayDue.map((x) => ({ id: x.id, kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, st: payState(x), need: needCount(x), bn: burnedCount(x), url: x.say && sayUrlOk(x.say.url) ? x.say.url : "", ok: !!x.ok }));
+        if (sayDue.length) out.me.sayDue = sayDue.map((x) => ({ id: x.id, kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, st: payState(x), need: needCount(x), bn: burnedCount(x), url: x.say && sayUrlOk(x.say.url) ? x.say.url : "", shots: (x.say && x.say.n) || 0, video: !!(x.say && x.say.v), ok: !!x.ok }));
         if (wait.length) out.me.burnDue = wait.map((x) => ({ kind: x.kind, day: x.day, amt: x.amt, ail: x.ail || 0, due: payDue(x), need: needCount(x), bn: burnedCount(x), price: NAME_PRICE }));
         out.me.burnDays = BURN_DAYS;
       }
@@ -193,7 +193,7 @@ export async function onRequestPost(ctx) {
   if (b.action === "says") { // 📣 工单后台：还没发的奖（等烧名字 / 等宣告 / 等认证 / 已通过等机器人发）。口令走请求正文，不进网址
     if (!admOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
     const { pays } = await burnCheck(kv, new URL(ctx.request.url).origin, (await kv.get("or:pay", "json")) || [], Date.now());
-    return json({ list: pays.filter((x) => !x.tx && !x.forfeit && needSay(x)).map((x) => ({ id: x.id, day: x.day, kind: x.kind, name: x.name, a: x.a, amt: x.amt, ail: x.ail || 0, st: payState(x), need: needCount(x), bn: burnedCount(x), due: needBurn(x) ? payDue(x) : 0, say: x.say && sayUrlOk(x.say.url) ? x.say.url : "", sayAt: (x.say && x.say.at) || 0, ok: x.ok ? x.ok.at : 0 })) });
+    return json({ list: pays.filter((x) => !x.tx && !x.forfeit && needSay(x)).map((x) => ({ id: x.id, day: x.day, kind: x.kind, name: x.name, a: x.a, amt: x.amt, ail: x.ail || 0, st: payState(x), need: needCount(x), bn: burnedCount(x), due: needBurn(x) ? payDue(x) : 0, say: x.say && sayUrlOk(x.say.url) ? x.say.url : "", shots: (x.say && x.say.n) || 0, video: !!(x.say && x.say.v), has: !!(x.say && (x.say.url || x.say.n > 0 || x.say.v)), sayAt: (x.say && x.say.at) || 0, ok: x.ok ? x.ok.at : 0 })) });
   }
   if (b.action === "approve") { // 📣 团队认证：通过 / 撤回（工单口令）
     if (!admOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);

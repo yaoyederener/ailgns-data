@@ -4289,9 +4289,16 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .or-say ol { margin: 6px 0 10px; padding-left: 22px; } .or-say li { margin: 4px 0; }
 .or-say-g { display: block; margin: 0 0 8px; font-weight: 600; }
 .or-say .or-in input { font-size: 15px; min-width: 0; }
+.or-say .or-say-up { display: block; width: 100%; box-sizing: border-box; min-height: 52px; padding: 13px 12px; border-radius: 14px; font-size: 17px; font-weight: 800; text-align: center; cursor: pointer; }
+.or-say-st { min-height: 0; margin: 8px 0 0; font-size: 14.5px; font-weight: 700; color: #047857; } .or-say-st:empty { display: none; } .or-say-st.bad { color: #b42318; }
 .fb-say { border: 2px solid #c4b5fd; background: #f6f2ff; border-radius: 14px; padding: 12px 14px; margin: 10px 0; font-size: 14.5px; line-height: 1.6; }
 .fb-say > b { display: block; font-size: 16px; color: #4c1d95; } .fb-say > small { display: block; color: #6b5a9a; margin-bottom: 6px; }
 .fb-say-r { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-top: 1px solid #ddd0ff; } .fb-say-r button { align-self: flex-start; }
+.fb-say-pv { display: flex; flex-wrap: wrap; gap: 6px; }
+.fb-pvo { position: fixed; inset: 0; z-index: 300; background: rgba(40, 28, 80, .55); display: flex; align-items: center; justify-content: center; padding: 12px; }
+.fb-pvb { background: #fff; border-radius: 16px; padding: 12px; max-width: min(96vw, 760px); max-height: 94vh; display: flex; flex-direction: column; gap: 8px; }
+.fb-pvh { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14.5px; color: #3d2f66; }
+.fb-pvb img, .fb-pvb video { max-width: 100%; max-height: 78vh; border-radius: 10px; object-fit: contain; background: #f3ecff; }
 
 /* 🔥 大奖一键销毁已有名字：要烧的名单（默认折叠） */
 .gs-jpl { margin: 8px 0; font-size: 13px; } .gs-jpl summary { cursor: pointer; color: #6d28d9; }

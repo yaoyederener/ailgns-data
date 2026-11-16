@@ -344,16 +344,37 @@
       post({ action: "says" }).then(function (j) {
         var L = (j && j.list) || [];
         if (!L.length) { sb.innerHTML = ""; return; }
-        sb.innerHTML = '<div class="fb-say"><b>🏆 预言家中奖待认证（' + L.length + ' 笔）</b><small>中奖人到 DeBox 宣告 → 你点开帖子看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
-          var burnOk = x.bn >= x.need, stT = x.ok ? (burnOk ? "✅ 已通过，机器人马上发" : "✅ 已通过，等他烧够名字（" + x.bn + "/" + x.need + "）") : x.say ? (burnOk ? "🔎 等你认证" : "🔎 帖子已交，名字还没烧够（" + x.bn + "/" + x.need + "）") : burnOk ? "📣 名字烧够了，等他去 DeBox 宣告" : "⏳ 等他烧名字（" + x.bn + "/" + x.need + "）和宣告";
+        sb.innerHTML = '<div class="fb-say"><b>🏆 预言家中奖待认证（' + L.length + ' 笔）</b><small>中奖人在群里说一声并上传截图 / 视频 → 你点开看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
+          var burnOk = x.bn >= x.need, stT = x.ok ? (burnOk ? "✅ 已通过，机器人马上发" : "✅ 已通过，等他烧够名字（" + x.bn + "/" + x.need + "）") : x.has ? (burnOk ? "🔎 等你认证" : "🔎 凭证已交，名字还没烧够（" + x.bn + "/" + x.need + "）") : burnOk ? "📣 名字烧够了，等他上传截图 / 视频" : "⏳ 等他烧名字（" + x.bn + "/" + x.need + "）和上传凭证";
           return '<div class="fb-say-r"><span><b>' + esc(x.name) + "</b> · " + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + " · <b>" + Number(x.amt).toLocaleString("en-US") + " DAI</b></span><span>" + stT + "</span>" +
+            (x.shots || x.video ? '<span class="fb-say-pv">' + (x.shots ? Array.apply(null, Array(x.shots)).map(function (_, n) { return '<button type="button" class="ghost" data-pv="' + i + '" data-n="' + n + '">🖼 看截图 ' + (n + 1) + "</button>"; }).join("") : "") + (x.video ? '<button type="button" class="ghost" data-pv="' + i + '" data-v="1">▶ 看视频</button>' : "") + "</span>" : "") +
             (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">👉 打开他的 DeBox 宣告帖 ↗</a>' : "") +
-            (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.say ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : burnOk ? '<small>他还没在网站交帖子链接。你已经在社区亲眼看到他宣告了，也可以直接通过：</small><button type="button" class="ghost" data-i="' + i + '" data-ok="1">🖐 我已看到他的宣告，手动通过，发奖</button>' : "") + "</div>";
+            (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.has ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : burnOk ? '<small>他还没在网站上传截图 / 视频。你已经在群里亲眼看到他说了，也可以直接通过：</small><button type="button" class="ghost" data-i="' + i + '" data-ok="1">🖐 我已看到他的宣告，手动通过，发奖</button>' : "") + "</div>";
         }).join("") + "</div>";
+        // 🖼 / ▶ 看凭证：口令走请求正文，拿回来的图 / 视频放进一个盖在页面上的浮层里（后台每 20 秒刷新，浮层不受影响）
+        sb.querySelectorAll("button[data-pv]").forEach(function (bt) {
+          bt.onclick = function () {
+            var x = L[Number(bt.getAttribute("data-pv"))], isV = bt.getAttribute("data-v") === "1", old = bt.textContent;
+            bt.disabled = true; bt.textContent = "读取中…";
+            var done = function () { bt.disabled = false; bt.textContent = old; };
+            fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(isV ? { action: "view", key: key(), id: x.id, video: 1 } : { action: "view", key: key(), id: x.id, n: Number(bt.getAttribute("data-n")) }) })
+              .then(function (r) { if (isV && r.ok && !/json/.test(r.headers.get("content-type") || "")) return r.blob().then(function (b) { return { url: URL.createObjectURL(b) }; }); return r.json(); })
+              .then(function (j) {
+                done();
+                if (!j || j.error) return alert((j && j.error) || "没读出来，请再点一次");
+                var o = document.getElementById("fb-pvo"); if (o) o.remove();
+                o = document.createElement("div"); o.id = "fb-pvo"; o.className = "fb-pvo";
+                o.innerHTML = '<div class="fb-pvb"><div class="fb-pvh"><b>' + esc(x.name) + " · " + esc(x.day) + " · " + Number(x.amt).toLocaleString("en-US") + ' DAI</b><button type="button" class="ghost" id="fb-pvx">关闭</button></div>' + (isV ? '<video controls playsinline autoplay src="' + j.url + '"></video>' : '<img alt="领奖凭证截图" src="' + j.img + '">') + "</div>";
+                document.body.appendChild(o);
+                var close = function () { if (isV) { try { URL.revokeObjectURL(j.url); } catch (e) {} } o.remove(); };
+                document.getElementById("fb-pvx").onclick = close; o.onclick = function (e) { if (e.target === o) close(); };
+              }, function () { done(); alert("没读出来，网络不好，请再点一次"); });
+          };
+        });
         sb.querySelectorAll("button[data-i]").forEach(function (bt) {
           bt.onclick = function () {
             var x = L[Number(bt.getAttribute("data-i"))], ok = bt.getAttribute("data-ok") === "1";
-            if (ok && !confirm((x.say ? "确认通过？" : "他还没在网站交 DeBox 帖子链接。\n确认你已经在社区亲眼看到他的中奖宣告？") + "\n" + x.name + " · " + x.amt + " DAI\n通过后机器人会自动把奖金发给他，发出去收不回。")) return;
+            if (ok && !confirm((x.has ? "确认通过？" : "他还没在网站上传截图 / 视频。\n确认你已经在群里亲眼看到他说自己中奖了？") + "\n" + x.name + " · " + x.amt + " DAI\n通过后机器人会自动把奖金发给他，发出去收不回。")) return;
             bt.disabled = true;
             post({ action: "approve", id: x.id, ok: ok }).then(function (r) { if (r.error) alert(r.error); says(); }, function () { bt.disabled = false; });
           };
