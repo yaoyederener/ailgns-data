@@ -4151,8 +4151,6 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .swp-steps small { display: block; color: var(--muted); font-size: 12px; }
 .swp-warn { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 13.5px; line-height: 1.5; }
 .swp-pend { margin: 0 0 14px; padding: 12px 14px; border-radius: 14px; background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; font-size: 14px; }
-.swp-pend.swp-daih { background: var(--soft); border-color: var(--soft-line); color: var(--purple-ink); }
-.swp-daih .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; } .swp-daih .row button { flex: 1 1 auto; white-space: nowrap; }
 .swp-pend p { margin: 4px 0 10px; }
 .swp-pend .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .swp-pend .row button { flex: 1; min-width: 130px; padding: 10px 12px; }
