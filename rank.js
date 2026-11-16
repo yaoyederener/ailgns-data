@@ -121,8 +121,7 @@
       '<div class="wkb-sub">前 ' + w.rules.top + " 名按吃单手续费占比分 · <b>有多少分多少</b> · 发 AiLGNS<br>" +
       (w.pre ? "从 " + Number(String(w.rules.from).split("-")[1]) + " 月 " + Number(String(w.rules.from).split("-")[2]) + " 日这一周开始计奖，下面是本周的排名参考" : "周日 24 点截止，周一结算" + endTxt) + "</div>" +
       (known && p.owed > 0 ? '<div class="or-powed">钱包里另有 <b>' + wkNum(p.owed) + " DAI</b> 是前几周已经分出去、等领奖的，不算进本周</div>" : "") +
-      (p && p.a ? '<a class="or-pwal" href="#/scan/' + wkEsc(p.a) + '">🏦 查看奖池钱包 ›</a>' +
-        '<div class="wkb-addr"><small>奖池托管地址（链上公开，点地址能看每一笔进出）</small><a href="#/scan/' + wkEsc(p.a) + '">' + wkEsc(p.a) + '</a><button type="button" class="wkb-cp" data-cp="' + wkEsc(p.a) + '">复制</button></div>' : "") +
+      (p && p.a ? '<a class="or-pwal" href="#/scan/' + wkEsc(p.a) + '">🏦 查看奖池钱包 ›</a>' : "") + /* 站长 2026-11-16：下面那一长串托管地址去掉，点「查看奖池钱包」进账本就能看到、能复制 */
       (top.length ? '<div class="or-prz or-prz3 wkb-prz">' + top.slice(0, 3).map(tile).join("") + "</div>" +
         (top.length > 3 ? '<details class="wkb-fold"><summary>展开第 4–' + top.length + ' 名</summary><ol class="wkb-list">' + top.slice(3).map(function (x, i) { return li(x, i + 3); }).join("") + "</ol></details>" : "")
         : '<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>') +
