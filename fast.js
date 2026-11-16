@@ -4,7 +4,7 @@
 (function () {
   var A = window.AIL, W = A.wallet, DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var SHOW_RES = true; /* 「资金池余额」那一行：站长 2026-11-14 说「显示资金池金额」，正式站也显示（本期没人下注时「本期奖池」是 0，容易被当成没钱） */
-  var data = null, acct = "", eth = null, picks = [], qty = 1, busy = false, tick = 0, poll = 0, lastR = 0;
+  var data = null, acct = "", eth = null, picks = [], qty = 1, busy = false, tick = 0, poll = 0, lastR = 0, mineOpen = false;
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function two(n) { return (n < 10 ? "0" : "") + n; }
@@ -92,8 +92,8 @@
         var res = x.st === "wait" ? '<span class="fx-tag wait">等开奖</span>' : x.st === "win" ? '<span class="fx-tag win">中了 ' + money(x.pay) + " DAI" + (x.ail ? "，已发 " + x.ail + " AiLGNS" : data.trial ? "" : "，几分钟内到账") + "</span>" : '<span class="fx-tag lose">没中，开的是 ' + x.open + "</span>";
         return '<div class="fx-row"><span><b>' + at(x.r) + "</b> 期　压 <b>" + x.d + "</b>　" + x.n + " 票</span>" + res + "</div>";
       };
-      mb.querySelector(".fx-list").innerHTML = bets.length ? bets.slice(0, 5).map(betRow).join("") + (bets.length > 5 ? '<details class="fx-more"' + (mineOpen ? " open" : "") + "><summary>展开更早的 " + (bets.length - 5) + " 条</summary>" + bets.slice(5).map(betRow).join("") + "</details>" : "") : '<p class="muted">还没有下注记录。</p>';
-      var md = mb.querySelector(".fx-more"); if (md) md.ontoggle = function () { mineOpen = md.open; };
+      mb.querySelector(".fx-list").innerHTML = bets.length ? bets.slice(0, 5).map(betRow).join("") + (bets.length > 5 ? '<details class="fx-older"' + (mineOpen ? " open" : "") + "><summary>展开更早的 " + (bets.length - 5) + " 条</summary>" + bets.slice(5).map(betRow).join("") + "</details>" : "") : '<p class="muted">还没有下注记录。</p>';
+      var md = mb.querySelector(".fx-older"); if (md) md.ontoggle = function () { mineOpen = md.open; };
     }
     // 最近有人下注的几期
     var dn = el("fx-done");
