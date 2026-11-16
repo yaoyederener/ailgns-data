@@ -1,4 +1,4 @@
-window.AIL_NIGHT="dist/night.css?v=h989ced7e80";
+window.AIL_NIGHT="dist/night.css?v=h4103289619";
 window.AIL_BUNDLES={"names":"dist/names.js?v=h181052e7a6","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=h921cc579d8","trade":"dist/trade.js?v=h2287e64e23","lend":"dist/lend.js?v=h6ec5a27ebd","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=hd25e42a0f9","feedback":"dist/feedback.js?v=h299240527f","games":"dist/games.js?v=hb49fd4f0a3","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=h5e575140f1"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
@@ -801,11 +801,9 @@ w.map(function(s){return'<p class="swp-warn">⚠️ '+s+"</p>";}).join("");goTex
 function pend(){try{var p=JSON.parse(localStorage.getItem(SWAP_PEND)||"null");return p&&p.dai&&SWAP_NAME[p.to]&&SWAP_NAME[p.from]&&Date.now()-p.t<7*86400e3?p:null;}catch(e){return null;}}
 function setPend(p){try{if(p)localStorage.setItem(SWAP_PEND,JSON.stringify(p));else localStorage.removeItem(SWAP_PEND);}catch(e){}}
 function drawPend(){if(!alive())return;var p=pend();if(working){pendEl.innerHTML="";return;}
-if(!p){var skip=false;try{skip=sessionStorage.getItem("swp:daih")==="1";}catch(e){}
-if(skip||!account||!(bal.dai>=5n*10n**18n)){pendEl.innerHTML="";return;}
-pendEl.innerHTML='<div class="swp-pend swp-daih"><b>💡 你钱包里有 '+show(bal.dai,2)+" DAI</b><p>闪兑分两步：先卖成 DAI，再用 DAI 买入。如果上次只做完第 1 步，换来的 DAI 就是这笔，币没有丢。点下面会把钱包里的 DAI <b>全部</b>（只留一点付 Gas）买成币；会先告诉你花多少、能买到多少，你点确认才买。只想买一部分，请去 OTC 页自己挑单。</p>"+'<div class="row"><button type="button" data-d2="ailgns">用 DAI 买 AiLGNS</button><button type="button" data-d2="lgns">用 DAI 买 LGNS</button><button type="button" class="ghost" id="swp-dno">不用</button></div></div>';pendEl.querySelectorAll("[data-d2]").forEach(function(b){b.onclick=function(){var to2=b.getAttribute("data-d2");resume({a:account,from:to2==="ailgns"?"lgns":"ailgns",to:to2,dai:bal.dai.toString(),paid:"0",t:Date.now()});};});document.getElementById("swp-dno").onclick=function(){try{sessionStorage.setItem("swp:daih","1");}catch(e){}drawPend();};return;}
+if(!p){pendEl.innerHTML="";return;}
 pendEl.innerHTML='<div class="swp-pend"><b>⏸ 上次闪兑停在第 2 步</b><p>第 1 步换来的 <b>'+show(BigInt(p.dai),2)+" DAI</b> 在你钱包里，还没换成 "+SWAP_NAME[p.to]+'。</p><div class="row"><button type="button" id="swp-cont">继续换成 '+SWAP_NAME[p.to]+'</button><button type="button" class="ghost" id="swp-drop">不换了，留着 DAI</button></div></div>';document.getElementById("swp-cont").onclick=function(){resume(p);};document.getElementById("swp-drop").onclick=function(){setPend(null);drawPend();goText();};}
-function loadBal(){if(!account)return Promise.resolve();return Promise.all([swapBal("ailgns"),swapBal("lgns"),swapCall(ANUBIS_DAI,SEL.balanceOf+u256(account)).then(BigInt).catch(function(){return 0n;})]).then(function(x){bal.ailgns=x[0];bal.lgns=x[1];bal.dai=x[2];if(!working){draw();drawPend();}});}
+function loadBal(){if(!account)return Promise.resolve();return Promise.all([swapBal("ailgns"),swapBal("lgns")]).then(function(x){bal.ailgns=x[0];bal.lgns=x[1];if(!working)draw();});}
 function refresh(fresh){swapBooks(fresh).then(function(b){if(!alive()||working)return;bk=b;draw();},function(){if(alive()&&!bk.ailgns)out.innerHTML='<p class="swp-warn">挂单没读到，请检查网络后刷新本页。</p>';});}
 function leg1(f,amt){var tried=0;function attempt(p){return swapFire(f,false,p,undefined,function(m){say("第 1 步："+m);},"第 1 步",chk).catch(function(e){if(tried||!SWAP_RETRY.test(String((e&&e.message)||e)))throw e;tried=1;return swapBook(f,true).then(function(b){chk();bk[f]=b;var p2=sweepPlanTok(swapLive(f,b).buys,amt);if(!p2.steps.length)throw new Error(SWAP_NAME[f]+" 的买单刚被别人吃完了，没有扣你的币");if(swapNet(p2.steps)*100n<swapNet(p.steps)*99n&&!confirm("买单刚被别人吃了一些：现在卖出能得 "+show(swapNet(p2.steps),2)+" DAI（原来 "+show(swapNet(p.steps),2)+"）。继续吗？"))throw new Error("已取消，没有扣你的币");return attempt(p2);});});}
 return attempt(q.p1);}
@@ -1002,5 +1000,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hfcf9c157f9";
-/*v:hfcf9c157f9*/
+;window.AIL_CORE="h2173efa468";
+/*v:h2173efa468*/
