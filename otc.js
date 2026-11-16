@@ -959,6 +959,7 @@
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
       otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buys.length ? priceOf(buys[0]) : 0;
       markFar(sells, buys, mkt || 0);
+      sells = sells.filter(notFar); buys = buys.filter(notFar); // 站长 2026-11-16：离谱价的单干脆不在盘口显示（挂单人自己在「我的挂单」里照样能看到、能撤）
       var oref = otcRef(mkt), orefN = oref ? oref.n : "市价";
 
       function row(o, i) {
