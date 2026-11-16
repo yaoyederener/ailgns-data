@@ -52,7 +52,7 @@
       '<div id="or-top"></div>' +
       '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button><button type="button" class="ghost or-dmcs" id="or-dmcs">💬 在线客服</button></div></section>' +
       '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 创世域名或 OTC 满 5 万就能玩</span></div>' +
-      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 8 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？怎么算中奖？</b><div class="or-hwq"><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。下午 3 点前提交，晚上 9–10 点揭晓。</p><p>🥇 <b>每晚前三名</b>：谁猜的价格<b>和揭晓价差得最少</b>，谁就是前三，<b>每人 20 DAI，天天发</b>。</p><p>🔮 <b>神算子</b>：每一位都猜对，平分<b>整个大奖池</b>；没人猜中就继续滚大。</p><p>📢 为了发奖<b>公平、公正、有效</b>，规则会随时调整，以本页为准。</p></div><details class="or-hwd"><summary>👉 点开看详细规则和例子（前三名怎么算、怎么领奖）</summary><div class="or-hwg"><div><p class="or-hwt">① 猜什么</p><p>✍️ 猜<b>今晚揭晓那一刻</b> AiLGNS 的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。</p><p>⏰ 每天<b>下午 3 点</b>前提交，之后封卷不能再改；<b>晚上 9–10 点</b>之间随机一刻揭晓。</p><p>🆓 免费，钱包签个名就行，不扣钱。</p><p class="or-hwt">② 🔮 神算子大奖</p><p>价格<b>每一位都猜对</b>（小数点后 <span class="or-decn">3</span> 位一位不差，<b class="or-decrng">000–999 共 1000 种</b>可能）→ 平分<b>整个大奖池</b>。</p><p>没人完全猜中，大奖池就继续滚大，留到下一晚。</p><p class="or-hwt">③ 谁能玩</p><p>主名字是<b>创世 .ailgns 域名</b>，或者在本站 OTC <b>累计成交满 5 万 DAI</b>。一个钱包每轮最多猜 5 次。</p></div><div class="or-hw3"><p class="or-hwt">④ 🥇 每晚前三名怎么算（天天发）</p><p>揭晓价出来后，把<b>每个人猜的价格和揭晓价相减，看差了多少</b>。差得最少的是第 1 名，再往后是第 2、第 3 名。猜高了、猜低了都一样，<b>只看差多少</b>。</p><div class="or-hwex"><b>举个例子</b>：今晚揭晓价是 <b>830.9625</b><span>王阿姨猜 830.9630 → 差 0.0005　🥇 第 1 名</span><span>李叔猜 830.9600 → 差 0.0025　🥈 第 2 名</span><span>张姐猜 831.0000 → 差 0.0375　🥉 第 3 名</span><span>赵哥猜 829.5000 → 差 1.4625　没进前三</span></div><p>🎁 前三名<b>每人 20 DAI</b>（发 AiLGNS），<b>不用等有人猜中大奖，每天都发</b>。</p><p>⚖️ 差得一样多：<b>谁先提交算谁的</b>。</p><p>👤 一个钱包、一个名字每晚只占一个名额：你猜了好几个价格，只拿最接近的那一个来比。</p><p>⏳ 中过一次，<b>休息 7 天</b>再参加每日前三（这 7 天照样能猜，猜中大奖照拿），名额让给下一位，让更多人有机会。</p><p>💰 奖池钱包里不够 60 DAI 的那天，三个人平分钱包里实际有的钱。</p></div><div class="or-hwf"><p class="or-hwt">⑤ 中了怎么领</p><p>中奖后 <b>3 天内</b>做完两步，机器人自动把奖发到你的钱包：<b>第 1 步</b>销毁 1 枚创世 .ailgns 域名（神算子大奖是销毁价值不低于奖金 30% 的域名）；<b>第 2 步</b>到 DeBox 的 AiLGNS 社区发帖说自己中奖了，把帖子链接交到本页最上面。3 天内没做完算放弃，钱留在奖池。</p><p class="or-hwt">⑥ 📢 规则会调整</p><p>为了让奖金发得<b>最公平、公正、有效</b>，规则会根据实际情况<b>随时调整</b>，不另行逐个通知，一律<b>以本页面当时显示的为准</b>。</p></div></div></details><small>看不懂的地方，点左下角「客服」直接问。</small></div></div>' +
+      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 8 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><b>🎯 怎么玩？怎么算中奖？</b><div class="or-hwq"><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。下午 3 点前提交，晚上 9–10 点揭晓。</p><p>🥇 <b>每晚前三名</b>：谁猜的价格<b>和揭晓价差得最少</b>，谁就是前三，<b>每人 20 DAI，天天发</b>。</p><p>🔮 <b>神算子</b>：每一位都猜对，平分<b>整个大奖池</b>；没人猜中就继续滚大。</p><p>📢 为了发奖<b>公平、公正、有效</b>，规则会随时调整，以本页为准。</p></div><details class="or-hwd"><summary>👉 点开看详细规则和例子（前三名怎么算、怎么领奖）</summary><div class="or-hwg"><div><p class="or-hwt">① 猜什么</p><p>✍️ 猜<b>今晚揭晓那一刻</b> AiLGNS 的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。</p><p>⏰ 每天<b>下午 3 点</b>前提交，之后封卷不能再改；<b>晚上 9–10 点</b>之间随机一刻揭晓。</p><p>🆓 免费，钱包签个名就行，不扣钱。</p><p class="or-hwt">② 🔮 神算子大奖</p><p>价格<b>每一位都猜对</b>（小数点后 <span class="or-decn">3</span> 位一位不差，<b class="or-decrng">000–999 共 1000 种</b>可能）→ 平分<b>整个大奖池</b>。</p><p>没人完全猜中，大奖池就继续滚大，留到下一晚。</p><p class="or-hwt">③ 谁能玩</p><p>主名字是<b>创世 .ailgns 域名</b>，或者在本站 OTC <b>累计成交满 5 万 DAI</b>。一个钱包每轮最多猜 5 次。</p></div><div class="or-hw3"><p class="or-hwt">④ 🥇 每晚前三名怎么算（天天发）</p><p>揭晓价出来后，把<b>每个人猜的价格和揭晓价相减，看差了多少</b>。差得最少的是第 1 名，再往后是第 2、第 3 名。猜高了、猜低了都一样，<b>只看差多少</b>。</p><div class="or-hwex"><b>举个例子</b>：今晚揭晓价是 <b>830.9625</b><span>王阿姨猜 830.9630 → 差 0.0005　🥇 第 1 名</span><span>李叔猜 830.9600 → 差 0.0025　🥈 第 2 名</span><span>张姐猜 831.0000 → 差 0.0375　🥉 第 3 名</span><span>赵哥猜 829.5000 → 差 1.4625　没进前三</span></div><p>🎁 前三名<b>每人 20 DAI</b>（发 AiLGNS），<b>不用等有人猜中大奖，每天都发</b>。</p><p>⚖️ 差得一样多：<b>谁先提交算谁的</b>。</p><p>👤 一个钱包、一个名字每晚只占一个名额：你猜了好几个价格，只拿最接近的那一个来比。</p><p>⏳ 中过一次，<b>休息 7 天</b>再参加每日前三（这 7 天照样能猜，猜中大奖照拿），名额让给下一位，让更多人有机会。</p><p>💰 奖池钱包里不够 60 DAI 的那天，三个人平分钱包里实际有的钱。</p></div><div class="or-hwf"><p class="or-hwt">⑤ 中了怎么领</p><p>中奖后 <b>3 天内</b>做完两步，机器人自动把奖发到你的钱包：<b>第 1 步</b>销毁 1 枚创世 .ailgns 域名（神算子大奖是销毁价值不低于奖金 30% 的域名）；<b>第 2 步</b>到 DeBox 的 AiLGNS 群里说一声自己中奖了，<b>截个图或录一小段视频</b>，在本页最上面点「上传截图 / 视频」交上来（不用签名）。3 天内没做完算放弃，钱留在奖池。</p><p class="or-hwt">⑥ 📢 规则会调整</p><p>为了让奖金发得<b>最公平、公正、有效</b>，规则会根据实际情况<b>随时调整</b>，不另行逐个通知，一律<b>以本页面当时显示的为准</b>。</p></div></div></details><small>看不懂的地方，点左下角「客服」直接问。</small></div></div>' +
       '<div id="or-chart" class="or-kc"></div>' +
       '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 真实成交 K 线，最近 7 天，每 5 秒刷新</p></section>' +
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
@@ -307,17 +307,39 @@
   // 📣 先宣告再发奖（站长 2026-11-14 定）：中奖人烧完名字，还要到 DeBox 社区发帖宣告，把帖子链接交上来，团队认证后机器人才发奖
   var DEBOX_GROUP = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
   function sayText(id, url, a) { return "AiLGNS 每日预言家 · 领奖宣告\n奖项编号：" + id + "\n我在 DeBox 社区的宣告帖：" + url + "\n地址：" + a; } // 和 lib/oracle.js 的 sayText 一字不差
+  // 截图先压小：最长边 1400、JPEG 0.75（手机截图几 MB → 200KB 左右），和工单截图同一个办法
+  function sayShrink(file) {
+    return new Promise(function (ok, bad) {
+      var r = new FileReader();
+      r.onload = function () {
+        var im = new Image();
+        im.onload = function () {
+          var k = Math.min(1, 1400 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+          ok(c.toDataURL("image/jpeg", 0.75));
+        };
+        im.onerror = function () { bad(new Error("这张图片打不开，请换一张")); }; im.src = r.result;
+      };
+      r.onerror = function () { bad(new Error("这张图片读不出来，请换一张")); };
+      r.readAsDataURL(file);
+    });
+  }
   function sayBox(me) {
     var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
     var L = (me && me.sayDue) || [];
     return L.map(function (x, i) {
       var burnOk = (x.bn || 0) >= (x.need || 1), big = (x.need || 1) > 1;
       var s1 = burnOk ? "✅ 名字已烧够" + (big ? "（" + x.need + " 个）" : "") : "⏳ 先销毁名字" + (big ? "：已烧 " + (x.bn || 0) + " / " + x.need + " 个" : "：1 枚创世 .ailgns 名") + ' <a href="#/genesis">去销毁 →</a>';
-      var s2 = x.ok && !x.url ? "✅ 团队已在社区看到你的宣告" : x.url ? '✅ 宣告帖已提交 <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "⏳ 到 DeBox 社区发一条帖子，说自己中奖了（写上你的名字、哪一期、中了多少），再把帖子链接贴到下面";
-      var s3 = x.ok ? "✅ 团队已认证" + (burnOk ? "，机器人几分钟内发奖" : "，名字烧够后机器人自动发奖") : x.url ? "⏳ 等团队核对帖子（一般当天）" : "⏳ 团队核对后，机器人自动把 AiLGNS 发到这个钱包";
+      var has = x.url || x.shots || x.video, what = (x.shots ? x.shots + " 张截图" : "") + (x.shots && x.video ? " + " : "") + (x.video ? "视频" : "") || (x.url ? "帖子链接" : "");
+      var s2 = x.ok && !has ? "✅ 团队已在群里看到你" : has ? "✅ 凭证已交（" + what + "）" + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "") : "⏳ 到 DeBox 群里说一声自己中奖了（写上你的名字、哪一期、中了多少），<b>截个图或录一小段视频</b>，在下面上传";
+      var s3 = x.ok ? "✅ 团队已认证" + (burnOk ? "，机器人几分钟内发奖" : "，名字烧够后机器人自动发奖") : has ? "⏳ 等团队看一眼凭证（一般当天）" : "⏳ 团队看过后，机器人自动把 AiLGNS 发到这个钱包";
       return '<div class="or-say"><b>🏆 你中了 ' + dayCn(x.day) + " 的" + (KN[x.kind] || "奖") + "：" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS（≈ " + dai(x.amt) + "）" : dai(x.amt)) + "</b>" +
-        "<small>领奖三步，做完才发奖。为什么要宣告：让社区看得见中奖的是真人，防作弊。</small><ol><li>" + s1 + "</li><li>" + s2 + "</li><li>" + s3 + "</li></ol>" +
-        (x.ok ? "" : '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 社区 ↗</a><div class="or-in"><input class="or-say-u" data-i="' + i + '" inputmode="url" placeholder="贴 DeBox 帖子链接（https://…）" autocomplete="off" value="' + esc(x.url || "") + '"><button type="button" class="nm-go or-say-go" data-i="' + i + '">' + (x.url ? "换一个链接" : "✍️ 签名提交") + '</button></div><p class="muted">提交时钱包会弹一次签名，证明是中奖钱包本人交的，不花钱、不转账。</p>') + "</div>";
+        "<small>领奖三步，做完才发奖。为什么要在群里说一声：让大家看得见中奖的是真人，防作弊。</small><ol><li>" + s1 + "</li><li>" + s2 + "</li><li>" + s3 + "</li></ol>" +
+        (x.ok ? "" : '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
+          '<label class="nm-go or-say-up"><input type="file" class="or-say-f" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
+          '<p class="or-say-st" data-i="' + i + '"></p>' +
+          '<p class="muted">点上面的按钮，从相册选就行：截图最多 3 张；视频 20 秒以内（最大 20MB）。不用签名、不花钱。</p>') + "</div>";
     }).join("");
   }
   function meBox(d) {
@@ -546,8 +568,8 @@
       var big = (x.need || 1) > 1, burnt = big ? "🔥 已烧 " + x.need + " 个名字" : (x.burn ? "🔥 已烧创世 #" + x.burn : "");
       var tail = x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' + (burnt ? "<small>" + burnt + "</small>" : "")
         : x.st === "forfeit" ? '<small class="or-pay-no">❌ 3 天内没销毁' + (big ? "够名字" : "创世名") + '，放弃，奖金留在奖池</small>'
-        : x.st === "say" ? "<small>📣 " + (burnt ? burnt + "，" : "") + "等中奖人到 DeBox 社区宣告中奖</small>"
-        : x.st === "review" ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">🔎 已宣告，团队认证中 · 看帖子 ↗</a>'
+        : x.st === "say" ? "<small>📣 " + (burnt ? burnt + "，" : "") + "等中奖人到群里说一声并上传截图 / 视频</small>"
+        : x.st === "review" ? (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">🔎 已宣告，团队认证中 · 看帖子 ↗</a>' : "<small>🔎 截图 / 视频已交，团队认证中</small>")
         : x.st === "wait" ? '<a href="#/genesis">⏳ ' + (big ? "等中奖人注册并销毁名字 " + (x.bn || 0) + "/" + x.need + " 个" : "等中奖人销毁 1 枚创世名") + "（" + (x.due ? "截止 " + bjShort(x.due) : "3 天内") + "）→</a>"
         : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">' + (burnt ? burnt + "，等机器人转账" : "奖池转出记录") + " →</a>";
       return '<div class="or-pay"><span class="or-pk">' + (KN[x.kind] || x.kind) + '</span><span class="or-pn"><b>' + esc(x.name) + '</b></span><span class="or-pa">' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + '</small></span><span class="or-pt">' + tail + "</span></div>";
@@ -567,7 +589,7 @@
       "<li><b>💰 贡献王（已取消）</b>：原定 2026-11-15 发最后一期，现已取消，本周不再结算；奖池里的钱全部留给大奖。11-15 这一期有人猜中大奖的话，天眼通 10%、地灵通 5% 照老规则发，其余归神算子。</li>" +
       "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
       "<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +
-      "<li><b>📣 领奖要到社区宣告</b>（2026-11-13 那一期起，所有奖项）：名字烧够以后，中奖的人还要<b>到 DeBox 的 AiLGNS 社区发帖宣告自己中奖</b>，把帖子链接交到本页（用中奖钱包签名，不花钱）。团队核对后机器人才发奖。目的：让社区看得见中奖的是真人，防作弊、防质疑。不宣告就一直不发，奖金留在奖池钱包里。</li>" +
+      "<li><b>📣 领奖要到社区宣告</b>（2026-11-13 那一期起，所有奖项）：名字烧够以后，中奖的人还要<b>到 DeBox 的 AiLGNS 群里说一声自己中奖了</b>，截个图或录一小段视频，在本页最上面上传（不用签名、不花钱）。团队看过后机器人才发奖。目的：让社区看得见中奖的是真人，防作弊、防质疑。不宣告就一直不发，奖金留在奖池钱包里。</li>" +
       "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
       "<li><b>大奖每个名字、每个钱包只能中一次</b>：拿到神算子（以及老规则下的天眼通、地灵通）后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。<b>每日前三不拉黑</b>，只休息 7 天。</li>" +
       "<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
@@ -637,17 +659,25 @@
     return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return account; });
   }
   function bind(rid) {
-    document.querySelectorAll(".or-say-go").forEach(function (bt) {
-      bt.onclick = function () {
-        var x = ((data && data.me && data.me.sayDue) || [])[Number(bt.getAttribute("data-i"))], inp = document.querySelector('.or-say-u[data-i="' + bt.getAttribute("data-i") + '"]');
-        var url = inp ? inp.value.trim() : "";
-        if (!x) return;
-        if (!/^https:\/\/([a-z0-9-]+\.)*debox\.[a-z]{2,10}\/\S+$/i.test(url)) return A.errTip("请贴你在 DeBox 发的那条帖子的链接（https:// 开头的 DeBox 网址）", bt);
-        bt.disabled = true;
-        (eth ? Promise.resolve() : connect()).then(function () { return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(sayText(x.id, url, account)), account] }); })
-          .then(function (sig) { return fetch("/api/oracle", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "say", a: account, id: x.id, url: url, sig: sig }) }).then(function (r) { return r.json(); }); })
-          .then(function (j) { if (j.error) throw new Error(j.error); load(rid); })
-          .catch(function (e) { bt.disabled = false; A.errTip(e.message || String(e), bt); });
+    // 📷 领奖凭证：选截图（最多 3 张，先压小）或一段视频（最多 20MB）→ 直接上传，不用签名（站长 2026-11-16：要方便）
+    document.querySelectorAll(".or-say-f").forEach(function (fi) {
+      fi.onchange = function () {
+        var idx = fi.getAttribute("data-i"), x = ((data && data.me && data.me.sayDue) || [])[Number(idx)], stEl = document.querySelector('.or-say-st[data-i="' + idx + '"]');
+        var files = [].slice.call(fi.files || []), imgs = files.filter(function (f) { return /^image\//.test(f.type); }).slice(0, 3), vid = files.filter(function (f) { return /^video\//.test(f.type); })[0];
+        var say = function (t, bad) { if (stEl) { stEl.textContent = t; stEl.className = "or-say-st" + (bad ? " bad" : ""); } };
+        fi.value = "";
+        if (!x || !account) return say("请先连接中奖的那个钱包，再上传", true);
+        if (!imgs.length && !vid) return say("没选到图片或视频，请再选一次", true);
+        if (vid && vid.size > 20 * 1024 * 1024) return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true);
+        var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
+        var step = Promise.resolve();
+        if (imgs.length) step = step.then(function () { say("正在处理截图…"); return Promise.all(imgs.map(sayShrink)); })
+          .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: account, id: x.id, imgs: us }) }).then(jsonOf); })
+          .then(function (j) { if (j.error) throw new Error(j.error); });
+        if (vid) step = step.then(function () { return imgs.length ? new Promise(function (ok) { setTimeout(ok, 9000); say("截图已交，马上接着上传视频，请别关页面…"); }) : null; })
+          .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + account, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf); })
+          .then(function (j) { if (j.error) throw new Error(j.error); });
+        step.then(function () { say("✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); }, function (e) { say("没交上：" + ((e && e.message) || "网络不好，请再试一次"), true); });
       };
     });
     var c = document.getElementById("or-conn");

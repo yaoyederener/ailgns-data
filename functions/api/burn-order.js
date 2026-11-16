@@ -54,7 +54,7 @@ export async function onRequestPost(ctx) {
     if (b.state === "done" && o.state === "pending") {
       o.state = "done"; o.doneAt = Date.now();
       const ids = ((await kv.get(PEND, "json")) || []).filter((x) => x !== o.id); await kv.put(PEND, JSON.stringify(ids));
-      const txt = "🤖 机器人代烧完成：已把 " + o.done + " 个名字转进黑洞。" + (o.note ? "（" + o.note + "）" : "") + "\n接下来两件事：① 回销毁页点「取消授权」（收回机器人的操作权）② 到 DeBox 的 AiLGNS 社区发帖宣告中奖，把帖子链接交到预言家页，团队核对后发奖。";
+      const txt = "🤖 机器人代烧完成：已把 " + o.done + " 个名字转进黑洞。" + (o.note ? "（" + o.note + "）" : "") + "\n接下来两件事：① 回销毁页点「取消授权」（收回机器人的操作权）② 到 DeBox 的 AiLGNS 群里说一声自己中奖了，截个图或录一小段视频，到预言家页上传，团队看过后发奖。";
       try { await pushInbox(kv, o.a, "sys", txt, "#/genesis"); } catch (e) {}
     }
     await kv.put("bo:" + o.id, JSON.stringify(o), { expirationTtl: TTL });
