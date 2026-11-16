@@ -182,11 +182,13 @@
       if (!me) { el.innerHTML = ""; return; }
       var lv = me.lv, lo = (lv - 1) * (lv - 1) * 10, hi = lv * lv * 10, pct = Math.max(0, Math.min(100, (me.xp - lo) / (hi - lo) * 100));
       var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0, cop = me.cop > t ? Math.ceil((me.cop - t) / 3600) : 0;
+      // 站长 2026-11-16：以前超过 48 小时只写「3 天」（四舍五入），续买后看不出是 3 天整还是 3 天 10 小时；狗和警察一个写小时一个写天也让人糊涂。现在统一写「几天几小时」
+      var dh = function (h) { return h >= 24 ? Math.floor(h / 24) + " 天" + (h % 24 ? " " + (h % 24) + " 小时" : "") : h + " 小时"; };
       if (seenWho !== sig.addr) { seenCoins = null; seenLv = null; seenWho = sig.addr; }
       var d0 = seenCoins == null ? 0 : me.coins - seenCoins, up = seenLv != null && lv > seenLv;
       seenCoins = me.coins; seenLv = lv;
       el.innerHTML = '<div class="fm-hud"><span class="fm-pill fm-gold" id="fm-coins"><i class="fm-coin"></i><b class="num">' + A.fmt(me.coins) + '</b> 金币</span><span class="fm-pill fm-lv">⭐ <b>' + lv + "</b> 级</span>" + (me.paid >= R.king ? '<span class="fm-king">👑 农场主</span>' : "") +
-        (cop ? '<span class="fm-dog">👮 ' + (cop > 48 ? Math.round(cop / 24) + " 天" : cop + " 小时") + "</span>" : "") + (dog ? '<span class="fm-dog">🐕 ' + (dog > 48 ? Math.round(dog / 24) + " 天" : dog + " 小时") + "</span>" : "") + '<button type="button" class="fm-pay' + (me.paid ? "" : " first") + '" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
+        (cop ? '<span class="fm-dog">👮 ' + dh(cop) + "</span>" : "") + (dog ? '<span class="fm-dog">🐕 ' + dh(dog) + "</span>" : "") + '<button type="button" class="fm-pay' + (me.paid ? "" : " first") + '" id="fm-pay"><i class="fm-coin"></i> 充值' + (me.paid ? "" : " · 首充翻倍") + "</button></div>" +
         '<div class="fm-xp"><i style="width:' + pct.toFixed(0) + '%"></i><em>经验 ' + me.xp + " / " + hi + '</em></div><small class="fm-sub"><span class="fm-who">' + A.nameTag(sig.addr) + '</span> <button type="button" class="fmw-sw" id="fmw-sw">换钱包</button> · 升级解锁更贵的种子' + (burned ? " · 🔥 全站农场已销毁 <b>" + A.fmt(burned, 0) + "</b> LGNS" : "") + "</small>" +
         (walletNow && walletNow !== sig.addr ? '<div class="fmw-bar">👛 钱包现在是 <b>' + A.short(walletNow) + "</b>，这里还是 <b>" + A.short(sig.addr) + '</b> 的农场。<button type="button" id="fmw-go">进 ' + A.short(walletNow) + " 的农场</button></div>" : "");
       document.getElementById("fm-pay").onclick = payPicker;
