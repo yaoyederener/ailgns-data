@@ -21,7 +21,7 @@
   ["0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3", "0xeee877c1b6285b82890bdcd027d2715f658ecf23", "0xcc274e07847a6a86917b6ccd4e67706170d4036f",
    "0xd53a00bb90bb606f10d888419a14eca779f17285", "0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", "0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322",
    "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", "0x06cc2a46d7ad17496c2de9c61362808e06b44437"].forEach(function (x) { TEAM[x] = 1; KNOWN[x] = "🔧 运营维护"; });
-  KNOWN["0x06cc2a46d7ad17496c2de9c61362808e06b44437"] = "🤖 官方托底机器人"; // 站长 2026-11-17
+  KNOWN["0x06cc2a46d7ad17496c2de9c61362808e06b44437"] = "🤖 官方做市机器人"; // 站长 2026-11-17
   KNOWN["0xdcc5354175d60ffc8364e71e792fcd66366f00fe"] = "OTC 自动撮合合约";
   KNOWN["0xf09b0cd8bd6ed6fa528284f53fc8e9df753b62de"] = "🏆 OTC 商户奖金池"; // 站长 2026-11-15：手续费周榜的奖金钱包，账本里统一叫这个名字
   KNOWN["0x6ec474047a6c12d0cab53855a990c1c8b3996c20"] = "OTC 批量扫单合约";
@@ -953,10 +953,10 @@
   new MutationObserver(function () { if (!timer) timer = setTimeout(swapAll, 300); }).observe(document.body, { childList: true, subtree: true, characterData: true });
 
   // 给 OTC 等页面用：地址先显示短地址，查到主名字后换成名字
-  /* 站长 2026-11-17：做市钱包 0x06cc 全站统一显示成「🤖 官方托底机器人」（盘口、成交、账本都走这里）。
-     名字是站长定的（我提醒过：这张买单量小、跟着 DEX 价走、会自动停机，不是保价；站长仍要用「托底」）。客服口径：有官方的买单在收，价格跟随 DEX，不承诺保价 */
+  /* 站长 2026-11-17：做市钱包 0x06cc 全站统一显示成「🤖 官方做市机器人」（盘口、成交、账本都走这里）。
+     名字站长 2026-11-17 最后定为「官方做市机器人」（先说「托底」，后改回）：这张买单量小、跟着 DEX 价走、会自动停机，不是保价。客服口径：有官方的买单在收，价格跟随 DEX，不承诺保价 */
   var BOT = "0x06cc2a46d7ad17496c2de9c61362808e06b44437";
-  A.BOT = BOT; A.BOT_NAME = "🤖 官方托底机器人";
+  A.BOT = BOT; A.BOT_NAME = "🤖 官方做市机器人";
   A.nameTag = function (a) {
     if (String(a).toLowerCase() === BOT) return '<span class="bot-tag" data-cred="1" title="团队的做市机器人：买单价跟着官方 DEX 的实际到手价自动调整">' + A.BOT_NAME + "</span>";
     return '<span data-a="' + a + '">' + A.short(a) + "</span>";
