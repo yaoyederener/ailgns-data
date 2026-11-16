@@ -1200,22 +1200,23 @@
       function guide() {
         var el = document.getElementById("otc-guide");
         /* 站长 2026-11-16：指导价回来了，换了算法——不再按 DEX 算，按盘口算「挂出去排第一」的价：
-           卖单 = 现在最低卖价再低一格；买单 = 现在最高买价再高一格（一格 = 单价最小的那一位）。不会越过对面的价（越过就该直接吃单了）。
+           卖单 = 现在最低卖价；买单 = 现在最高买价（同价，排在最前面一档）。当天先做的是「再好一格」，站长同意改成同价：
+           每人都比前一个好一分钱，老挂单的人会被一格一格插队、价也会被一路压下去；同价则先挂的先成交，大家均衡。
            这一侧没有单时按行情价。默认填进单价，客户自己改过就不覆盖（只在单价是空的、或还是上次自动填的那个数时才换）；点一下卡片随时填回去。
            不拦人：客户想挂别的价照样能挂（离谱价另有拦截）。下面旧的按 DEX 算的指导价代码不再走到 */
         if (el) {
           var tick = Math.pow(10, -PD), g1 = 0, why = "";
           if (side === "sell") {
-            if (otcAsk) { g1 = otcAsk - tick; if (g1 <= 0 || (otcBid && g1 <= otcBid)) g1 = otcAsk; why = g1 < otcAsk ? "比现在最低的卖单（" + A.fmt(otcAsk, PD) + "）低一点，挂出去排第一" : "和现在最低的卖单同价，排在最前面一档"; }
+            if (otcAsk) { g1 = otcAsk; why = "和现在最低的卖单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = "现在没有别的卖单，按行情价挂，你就排第一"; }
           } else {
-            if (otcBid) { g1 = otcBid + tick; if (otcAsk && g1 >= otcAsk) g1 = otcBid; why = g1 > otcBid ? "比现在最高的买单（" + A.fmt(otcBid, PD) + "）高一点，挂出去排第一" : "和现在最高的买单同价，排在最前面一档"; }
+            if (otcBid) { g1 = otcBid; why = "和现在最高的买单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk - tick : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
           }
           if (!(g1 > 0) || g1 === Infinity) { el.hidden = true; return; }
           var gs = g1.toFixed(PD);
           el.hidden = false; el.style.cursor = "pointer";
-          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g1, PD) + '</b><small>DAI / 枚 · 点这里填入</small></div><p>' + why + "。成交最快；想挂别的价可以自己改。</p>";
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g1, PD) + '</b><small>DAI / 枚 · 点这里填入</small></div><p>' + why + "。想挂别的价可以自己改。</p>";
           el.onclick = function () { price.value = gs; price.setAttribute("data-g", gs); syncFrom("price"); calc(); pick(); };
           if (!price.value || price.value === price.getAttribute("data-g")) { price.value = gs; price.setAttribute("data-g", gs); syncFrom("price"); }
           return;

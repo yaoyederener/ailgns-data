@@ -872,11 +872,11 @@ var c=document.getElementById("otc-connect");if(c)c.onclick=function(){connect()
 function qtyWei(){return tWei(qty.value);}
 function syncFrom(src){var p=toWei(price.value);if(!p)return;if(src==="tot"||(src==="price"&&lastEd==="tot")){var d=toWei(tot.value);qty.value=d?floorStr(d*TUNIT/p,TD===18?6:4,TD):"";}
 else{var q=tWei(qty.value);tot.value=q?floorStr(q*p/TUNIT,2,18):"";}}
-var auto=true;function guide(){var el=document.getElementById("otc-guide");if(el){var tick=Math.pow(10,-PD),g1=0,why="";if(side==="sell"){if(otcAsk){g1=otcAsk-tick;if(g1<=0||(otcBid&&g1<=otcBid))g1=otcAsk;why=g1<otcAsk?"比现在最低的卖单（"+A.fmt(otcAsk,PD)+"）低一点，挂出去排第一":"和现在最低的卖单同价，排在最前面一档";}
-else if(mkt||otcBid){g1=Math.max(mkt||0,otcBid?otcBid+tick:0);why="现在没有别的卖单，按行情价挂，你就排第一";}}else{if(otcBid){g1=otcBid+tick;if(otcAsk&&g1>=otcAsk)g1=otcBid;why=g1>otcBid?"比现在最高的买单（"+A.fmt(otcBid,PD)+"）高一点，挂出去排第一":"和现在最高的买单同价，排在最前面一档";}
+var auto=true;function guide(){var el=document.getElementById("otc-guide");if(el){var tick=Math.pow(10,-PD),g1=0,why="";if(side==="sell"){if(otcAsk){g1=otcAsk;why="和现在最低的卖单同价，排在最前面一档；同价的先挂先成交";}
+else if(mkt||otcBid){g1=Math.max(mkt||0,otcBid?otcBid+tick:0);why="现在没有别的卖单，按行情价挂，你就排第一";}}else{if(otcBid){g1=otcBid;why="和现在最高的买单同价，排在最前面一档；同价的先挂先成交";}
 else if(mkt||otcAsk){g1=Math.min(mkt||Infinity,otcAsk?otcAsk-tick:Infinity);why="现在没有别的买单，按行情价挂，你就排第一";}}
 if(!(g1>0)||g1===Infinity){el.hidden=true;return;}
-var gs=g1.toFixed(PD);el.hidden=false;el.style.cursor="pointer";el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g1,PD)+'</b><small>DAI / 枚 · 点这里填入</small></div><p>'+why+"。成交最快；想挂别的价可以自己改。</p>";el.onclick=function(){price.value=gs;price.setAttribute("data-g",gs);syncFrom("price");calc();pick();};if(!price.value||price.value===price.getAttribute("data-g")){price.value=gs;price.setAttribute("data-g",gs);syncFrom("price");}
+var gs=g1.toFixed(PD);el.hidden=false;el.style.cursor="pointer";el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g1,PD)+'</b><small>DAI / 枚 · 点这里填入</small></div><p>'+why+"。想挂别的价可以自己改。</p>";el.onclick=function(){price.value=gs;price.setAttribute("data-g",gs);syncFrom("price");calc();pick();};if(!price.value||price.value===price.getAttribute("data-g")){price.value=gs;price.setAttribute("data-g",gs);syncFrom("price");}
 return;}
 if(!mkt){el.hidden=true;return;}
 var g=mkt*(RANGE[side][0]+RANGE[side][1])/2,lo=mkt*RANGE[side][0],hi=mkt*RANGE[side][1],dexSell=mkt*DEX_SELL,dexBuy=mkt*DEX_BUY;if(M.flat){g=mkt;el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g,PD)+'</b><small>DAI / 枚 · 当前 DEX 市价</small></div>'+"<p>"+SYM+" 在 DEX 买卖都不扣税，场外价贴着市价挂就行；想快点成交，卖单可以比市价低一点、买单比市价高一点。成交手续费 1% 由吃单方承担。</p>";if(auto||!price.value){price.value=g.toFixed(PD);auto=true;}
@@ -1014,5 +1014,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="he769ba5489";
-/*v:he769ba5489*/
+;window.AIL_CORE="he2e1331322";
+/*v:he2e1331322*/
