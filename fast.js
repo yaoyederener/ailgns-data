@@ -87,10 +87,13 @@
     if (mb) {
       var bets = (me && me.bets) || [];
       mb.hidden = !acct;
-      mb.querySelector(".fx-list").innerHTML = bets.length ? bets.map(function (x) {
+      // 站长 2026-11-16：只露最新 5 条，其余折叠。页面每 10 秒重画一次，所以把「展开没展开」记在 mineOpen 里，免得客户刚点开又自己合上
+      var betRow = function (x) {
         var res = x.st === "wait" ? '<span class="fx-tag wait">等开奖</span>' : x.st === "win" ? '<span class="fx-tag win">中了 ' + money(x.pay) + " DAI" + (x.ail ? "，已发 " + x.ail + " AiLGNS" : data.trial ? "" : "，几分钟内到账") + "</span>" : '<span class="fx-tag lose">没中，开的是 ' + x.open + "</span>";
         return '<div class="fx-row"><span><b>' + at(x.r) + "</b> 期　压 <b>" + x.d + "</b>　" + x.n + " 票</span>" + res + "</div>";
-      }).join("") : '<p class="muted">还没有下注记录。</p>';
+      };
+      mb.querySelector(".fx-list").innerHTML = bets.length ? bets.slice(0, 5).map(betRow).join("") + (bets.length > 5 ? '<details class="fx-more"' + (mineOpen ? " open" : "") + "><summary>展开更早的 " + (bets.length - 5) + " 条</summary>" + bets.slice(5).map(betRow).join("") + "</details>" : "") : '<p class="muted">还没有下注记录。</p>';
+      var md = mb.querySelector(".fx-more"); if (md) md.ontoggle = function () { mineOpen = md.open; };
     }
     // 最近有人下注的几期
     var dn = el("fx-done");
