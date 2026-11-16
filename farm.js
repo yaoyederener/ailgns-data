@@ -323,7 +323,15 @@
             all.textContent = "🧺 偷完了";
             var end = function (j) { // 先让服务器结这一轮的账：亏了就补回（保底），再报结果
               var d = (me ? me.coins : 0) - c0, back = (j && j.back) || 0; stat();
-              toast("一键偷菜：偷到 " + ok + " 家" + (bad ? "，被咬 / 被抓 " + bad + " 家" : "") + (no ? "，偷不到 " + no + " 家" : "") + (back ? "，保底补回 " + back : "") + "，金币 " + (d >= 0 ? "+" : "") + A.fmt(d) + (cops ? "。记住了 " + cops + " 家有警察，1 天内自动绕开" : ""));
+              // 站长 2026-11-16：结果提示以前 2.6 秒就消失，没看完。改成弹窗，点「知道了」才关；弹窗开不了（已经离开农场页）才退回原来的小提示
+              var line = "一键偷菜：偷到 " + ok + " 家" + (bad ? "，被咬 / 被抓 " + bad + " 家" : "") + (no ? "，偷不到 " + no + " 家" : "") + (back ? "，保底补回 " + back : "") + "，金币 " + (d >= 0 ? "+" : "") + A.fmt(d) + (cops ? "。记住了 " + cops + " 家有警察，1 天内自动绕开" : "");
+              var sm = document.getElementById("fm-modal");
+              if (!sm || !A.isCurrent(rid)) return toast(line);
+              sm.hidden = false;
+              sm.innerHTML = '<div class="modal-box fm-sum"><h2>🧺 一键偷菜结果</h2><div class="fm-sumn ' + (d >= 0 ? "up" : "dn") + '"><small>金币</small><b>' + (d >= 0 ? "+" : "") + A.fmt(d) + "</b></div><ul>" +
+                "<li>✅ 偷到 <b>" + ok + "</b> 家</li>" + (bad ? "<li>🐕 被咬 / 👮 被抓 <b>" + bad + "</b> 家</li>" : "") + (no ? "<li>偷不到 <b>" + no + "</b> 家</li>" : "") + (back ? "<li>🛟 保底补回 <b>" + back + "</b> 金币</li>" : "") + (cops ? "<li>👮 记住了 <b>" + cops + "</b> 家有警察，1 天内自动绕开</li>" : "") +
+                '</ul><button type="button" class="fm-sumok" id="fm-sumok">知道了</button></div>';
+              document.getElementById("fm-sumok").onclick = function () { sm.hidden = true; sm.innerHTML = ""; };
             };
             post("steal_end", { batch: batch }, true).then(end, function () { end(null); });
           }
