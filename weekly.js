@@ -32,7 +32,8 @@
     html += '<section class="card wkb-hero"><div class="wkb-tag">🏆 OTC 手续费周榜 · 试运行</div>' +
       (canPay ? '<div class="wkb-big"><b class="num">' + dai(p.avail) + '</b><small>DAI</small></div><div class="wkb-cap">奖金钱包里现在能分的钱 · 有多少分多少</div>'
         : '<div class="wkb-big wkb-soon"><b>' + (d.on && d.pre ? dayCn(d.rules.from) + "开始" : "准备中") + '</b></div><div class="wkb-cap">' + (d.on && d.pre ? "从这一周起，前 " + d.rules.top + " 名开始分奖金钱包里的钱" : "奖金钱包开放后，这里显示钱包里能分的钱") + "</div>") +
-      /* 站长 2026-11-16：一长串托管地址不显示了（「查看奖池钱包」进账本就能看到、能复制） */
+      /* 站长 2026-11-16：一长串托管地址不显示了，换成和荣耀榜一样的「查看奖池钱包」按钮（进账本能看每一笔进出、能复制地址） */
+      (p && p.a ? '<a class="or-pwal" href="#/scan/' + esc(p.a) + '">🏦 查看奖池钱包 ›</a>' : "") +
       '<div class="wkb-week">本周：' + dayCn(d.cyc) + " – " + dayCn(d.to) + " · 周日 24 点截止，周一结算" + (d.endAt > Date.now() ? "（还剩 " + left(d.endAt) + "）" : "") + "</div>" +
       (canPay && p.owed > 0 ? '<div class="wkb-owed">钱包里另有 ' + dai(p.owed) + " DAI 是前几周已经分出去、等领奖的，不算进本周</div>" : "") + "</section>";
     html += '<section class="card"><div class="card-head"><h2>📋 本周榜单</h2><span class="muted">前 ' + d.rules.top + " 名分钱</span></div>" +
