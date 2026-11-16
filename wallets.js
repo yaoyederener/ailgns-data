@@ -75,12 +75,27 @@
       return Promise.resolve().then(function () { return eth.request(a); }).catch(function (e) {
         var tx = a && a.method === "eth_sendTransaction" && a.params && a.params[0], m = "";
         try { m = String((e && e.message) || "") + " " + (typeof e === "string" ? e : JSON.stringify(e)); } catch (e2) {}
-        if (!tx || tx.gas || !/gas\\?"? is missing|missing gas/i.test(m)) throw e;
-        return Promise.resolve().then(function () { return eth.request({ method: "eth_estimateGas", params: [tx] }); }).then(function (g) {
-          var n = parseInt(g, 16); if (!(n > 0)) throw e;
-          var tx2 = {}; Object.keys(tx).forEach(function (k) { tx2[k] = tx[k]; }); tx2.gas = "0x" + Math.ceil(n * 1.3).toString(16);
-          return eth.request({ method: "eth_sendTransaction", params: [tx2] });
-        }, function () { throw e; });
+        if (!tx) throw e;
+        var copy = function () { var o = {}; Object.keys(tx).forEach(function (k) { o[k] = tx[k]; }); return o; };
+        if (!tx.gas && /gas\\?"? is missing|missing gas/i.test(m)) {
+          return Promise.resolve().then(function () { return eth.request({ method: "eth_estimateGas", params: [tx] }); }).then(function (g) {
+            var n = parseInt(g, 16); if (!(n > 0)) throw e;
+            var tx2 = copy(); tx2.gas = "0x" + Math.ceil(n * 1.3).toString(16);
+            return eth.request({ method: "eth_sendTransaction", params: [tx2] });
+          }, function () { throw e; });
+        }
+        // 2026-11-16 错误日志（苹果、安卓共 8 次，卡牌市场和盘口）：钱包把 Gas 小费填成 0，链要求至少 12 Gwei，
+        // 交易被拒「transaction gas price below minimum: gas tip cap 0, minimum needed 12000000000」。
+        // 只在钱包这么报错、而且我们没指定过 Gas 价时，把小费填够再发一次（链的基础费是 0，多出的上限用不到，不会多花钱）
+        if (!tx.gasPrice && !tx.maxPriorityFeePerGas && /gas price below minimum|gas tip cap|tip cap .* minimum|max priority fee per gas (too low|below)/i.test(m)) {
+          var need = 0; try { var mm = m.match(/minimum needed (\d+)/i); if (mm) need = Number(mm[1]); } catch (e3) {}
+          return Promise.resolve().then(function () { return eth.request({ method: "eth_maxPriorityFeePerGas", params: [] }); }).catch(function () { return "0x0"; }).then(function (h) {
+            var tip = Math.max(need, parseInt(h, 16) || 0, 12e9);
+            var tx2 = copy(); tx2.maxPriorityFeePerGas = "0x" + Math.ceil(tip).toString(16); tx2.maxFeePerGas = "0x" + Math.ceil(tip * 2).toString(16);
+            return eth.request({ method: "eth_sendTransaction", params: [tx2] });
+          });
+        }
+        throw e;
       });
     };
     return send().then(function (r) { if (t) safeShow(""); if (a && a.method === "eth_requestAccounts" && !(r && ADDR_OK.test(String(r[0])))) throw new Error("钱包没有给出地址。请先在钱包里解锁、选好账户，再回来点一次。"); try { noteInbox(a, r); } catch (e) {} return r; }, function (e) { if (t) safeShow(""); throw e; });

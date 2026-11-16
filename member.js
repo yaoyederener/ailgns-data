@@ -257,7 +257,12 @@
     if (e && (e.code === 4001 || /user reject|user denied|rejected the request|\bcancell?ed\b|\bcancel\b/i.test(m))) return "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」。想继续就再点一次，在钱包里点「确认」。（钱包原话：" + (m || "code 4001").slice(0, 80) + "）";
     // 2026-11-16（链暂停出块约 9 分钟后，客户发布挂单 / 一键撤单看到一串英文 replacement transaction underpriced）：
     // 意思是钱包里前一笔还在排队，新的这笔和它抢同一个位置、被节点拒了。给人话，别让客户对着英文重复点
-    if (/replacement transaction underpriced|transaction underpriced|nonce too low|already known/i.test(m)) return "钱包里还有一笔交易在排队没确认，新的这笔发不出去，没有扣钱。请先别重复点：等前一笔确认了再操作（平时几秒；链拥堵或暂停出块时会久一些）。着急的话，在钱包的交易记录里把排队的那一笔点「加速」或「取消」，再回来操作。";
+    // 2026-11-16 错误日志又补几句钱包 / 节点的英文
+    if (/gas price below minimum|gas tip cap|max priority fee per gas (too low|below)/i.test(m)) return "钱包给这笔交易出的 Gas 费太低，被链拒绝了，没有扣钱。请再点一次；还不行，在钱包确认页把 Gas 费选「快」，或手动把小费（Priority Fee）填到 12 Gwei 以上。";
+    if (/^\s*transaction failed\.?\s*$/i.test(m)) return "钱包说这笔交易没成功，没给更多说明。先别重复点：到「账本」看这笔成没成，没成再操作一次。";
+    if (/no bridge available/i.test(m)) return "钱包 App 没接住这次请求。请先打开钱包解锁，再回来点一次；还不行就把本页关掉重新打开。";
+    if (/network request failed/i.test(m)) return "网络没连上（可能是网络不稳或网址被拦）。换个网络试试，或打开 App「永久入口」换一个网址。";
+    if (/replacement transaction underpriced|transaction underpriced|nonce too low|already known|in-flight transaction limit/i.test(m)) return "钱包里还有一笔交易在排队没确认，新的这笔发不出去，没有扣钱。请先别重复点：等前一笔确认了再操作（平时几秒；链拥堵或暂停出块时会久一些）。着急的话，在钱包的交易记录里把排队的那一笔点「加速」或「取消」，再回来操作。";
     return m || "操作没完成，请刷新页面再试一次；还不行就提交工单。";
   }
   // 已经在这条链上就不再切换（有些钱包 App 切到「当前同一条链」时不回应，按钮就一直灰着没反应）；钱包 20 秒不回应就提示客户手动切链
