@@ -255,6 +255,9 @@
   function walletError(e) {
     var m = errWords(e);
     if (e && (e.code === 4001 || /user reject|user denied|rejected the request|\bcancell?ed\b|\bcancel\b/i.test(m))) return "钱包没有把这笔操作发出去：一般是在钱包里点了「拒绝 / 取消」。想继续就再点一次，在钱包里点「确认」。（钱包原话：" + (m || "code 4001").slice(0, 80) + "）";
+    // 2026-11-16（链暂停出块约 9 分钟后，客户发布挂单 / 一键撤单看到一串英文 replacement transaction underpriced）：
+    // 意思是钱包里前一笔还在排队，新的这笔和它抢同一个位置、被节点拒了。给人话，别让客户对着英文重复点
+    if (/replacement transaction underpriced|transaction underpriced|nonce too low|already known/i.test(m)) return "钱包里还有一笔交易在排队没确认，新的这笔发不出去，没有扣钱。请先别重复点：等前一笔确认了再操作（平时几秒；链拥堵或暂停出块时会久一些）。着急的话，在钱包的交易记录里把排队的那一笔点「加速」或「取消」，再回来操作。";
     return m || "操作没完成，请刷新页面再试一次；还不行就提交工单。";
   }
   // 已经在这条链上就不再切换（有些钱包 App 切到「当前同一条链」时不回应，按钮就一直灰着没反应）；钱包 20 秒不回应就提示客户手动切链
