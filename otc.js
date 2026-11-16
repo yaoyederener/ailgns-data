@@ -997,6 +997,11 @@
         (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
       if (RETIRED[MK]) html += '<section class="card otc-retired"><h2>⚠️ ' + RETIRED[MK] + ' 市场已下架</h2><p>用的人不多，这个市场不再接受新挂单和扫单。<b>还有挂单的客户请连接钱包，在下面「我的挂单」点「撤单」</b>，币马上退回钱包；到期的单也会自动退回。想继续交易请去 <a href="#/otc">AiLGNS</a> 或 <a href="#/otc/lgns">LGNS（Anubis 链）</a> 市场。</p></section>';
+      { /* 站长 2026-11-17：盘口上方挂一条醒目的提示，让所有客户知道本站有官方做市机器人在收。只在它真的有买单挂着时显示，写的是它现在的实际出价；
+           不写「保价 / 托底」：这张单量不大、价格跟着官方 DEX 走 */
+        var botBuy = A.BOT ? buys.filter(function (o) { return o.maker === A.BOT; })[0] : null;
+        if (botBuy) html += '<div class="bot-bar"><span class="bot-bar-i">🤖</span><div><b>官方做市机器人正在收 ' + SYM + '</b><small>现在出价 <b>' + A.fmt(priceOf(botBuy), PD) + ' DAI</b> · 价格跟着官方 DEX 实时调整 · 想卖的直接点下面带 🤖 的那一行「卖出」</small></div></div>';
+      }
       html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += '<div id="otc-guide-slot"></div>'; // 站长 2026-11-08：客户进来先看币种和挂单簿，担保交易引导卡 + 查我的订单 放在挂单簿下面
       fetch("/api/saved" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
