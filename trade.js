@@ -54,6 +54,15 @@
       var bids = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
       var mkt = 0;
       if (j.reserves) { var w = j.reserves.slice(2).match(/.{64}/g); var r0 = Number(BigInt("0x" + w[0])), r1 = Number(BigInt("0x" + w[1])); mkt = M.pairDai === 1 ? (r1 / 1e18) / (r0 / Math.pow(10, TD)) : (r0 / 1e18) / (r1 / Math.pow(10, TD)); }
+      { /* 离谱价的单不显示、不撮合（站长 2026-11-16，和 otc.js 的 markFar 同一条线）：买单出价 ≤ 参考价一半、卖单要价 ≥ 参考价两倍。
+           参考价：买单比「DEX 市价、最低卖价」里低的；卖单比「DEX 市价、最高买价」里高的。挂单人自己在「我的挂单」里照样能看到、能撤 */
+        var a0 = asks.length ? priceOf(asks[0]) : 0, b0 = bids.length ? priceOf(bids[0]) : 0;
+        var lo = Math.min(mkt || Infinity, a0 || Infinity), hi = Math.max(mkt || 0, b0 || 0);
+        if (lo === Infinity) lo = b0;
+        if (!hi) hi = a0;
+        if (lo) bids = bids.filter(function (o) { return priceOf(o) > lo * 0.5; });
+        if (hi) asks = asks.filter(function (o) { return priceOf(o) < hi * 2; });
+      }
       book = { asks: asks, bids: bids, all: all, mkt: mkt };
     });
   }
