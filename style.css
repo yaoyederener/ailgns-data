@@ -2462,7 +2462,15 @@ tr.nm-pinrow td { background: #fff8e6; }
 /* 站长 2026-11-16：「怎么玩」按现行规则重写，重点讲每晚前三名怎么算（大白话 + 例子） */
 .or-px2 .or-how .or-hwt { margin: 8px 0 2px; font-weight: 800; font-size: 14.5px; color: #4a2bb8; }
 .or-px2 .or-how > div > .or-hwt:first-child { margin-top: 2px; }
-.or-px2 .or-how .or-hwf { grid-column: 1 / -1; border-left: 0; padding-left: 0; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d9ccff; }
+.or-px2 .or-how .or-hwq, .or-px2 .or-how .or-hwd { grid-column: 1 / -1; }
+.or-hwd { margin-top: 6px; }
+.or-hwd > summary { padding: 9px 12px; border-radius: 10px; background: #fff; border: 1px solid #d5b9f5; color: #5920ad; font-weight: 800; font-size: 14px; text-align: center; cursor: pointer; list-style: none; }
+.or-hwd > summary::-webkit-details-marker { display: none; }
+.or-hwd[open] > summary { margin-bottom: 8px; }
+.or-hwg { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+.or-hwg > div + div { border-left: 1px dashed #d9ccff; padding-left: 20px; }
+.or-hwg .or-hwf { grid-column: 1 / -1; border-left: 0; padding-left: 0; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d9ccff; }
+@media (max-width: 700px) { .or-hwg { grid-template-columns: 1fr; } .or-hwg > div + div { border-left: 0; padding-left: 0; } }
 .or-hwex { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: #fff; border: 1px solid #e3d8ff; font-size: 13px; line-height: 1.7; }
 .or-hwex span { display: block; font-variant-numeric: tabular-nums; }
 .or-px2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 24px; }
