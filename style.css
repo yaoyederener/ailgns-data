@@ -4453,3 +4453,8 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 #mkt-top .mkt-tabs a.mkt-swap{flex-direction:row;justify-content:center;align-items:baseline;gap:5px}
 #mkt-top .mkt-tabs a.mkt-swap small{display:inline;font-size:13px;font-weight:700;color:inherit;white-space:nowrap}
 @media (max-width:640px){#mkt-top .mkt-tabs.mkt4{gap:4px}#mkt-top .mkt-tabs.mkt4 a{padding:6px 2px;justify-content:center}#mkt-top .mkt-tabs.mkt4 a b{font-size:13.5px}#mkt-top .mkt-tabs.mkt4 a.dup,#mkt-top .mkt-tabs.mkt4 a.mkt-swap{flex-direction:column;align-items:center;gap:0}#mkt-top .mkt-tabs.mkt4 a.mkt-swap small,#mkt-top .mkt-tabs.mkt4 a.dup small{font-size:10px;font-weight:600}}
+
+/* 站长 2026-11-17：官方做市机器人的挂单在盘口高亮（浅紫底 + 左边一道紫线 + 名字做成紫色胶囊） */
+.bot-tag{display:inline-block;padding:2px 9px;border-radius:999px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;font-size:12.5px;white-space:nowrap;font-family:inherit}
+tr.bk-bot{box-shadow:inset 4px 0 0 #7c3aed}
+tr.bk-bot td{background-color:rgba(124,58,237,.07)}
