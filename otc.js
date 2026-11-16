@@ -495,13 +495,27 @@
   function swapBooks(fresh) { return Promise.all([swapBook("ailgns", fresh), swapBook("lgns", fresh)]).then(function (r) { return { ailgns: r[0], lgns: r[1] }; }); }
   function swapBal(k) { return swapCall(MARKETS[k].token, SEL.balanceOf + u256(account)).then(BigInt); }
   /* 某个市场现在能吃的单（自己的单不能吃，批量合约一次最多 40 张）；顺手把当前市场切过去，后面的 sweepPlan / isDust 都按这个市场的小数位算 */
+  /* 离谱价的单不让吃（站长 2026-11-16）：有人挂 0.07 的买单（市价 859），客户点「卖出」就等于白送。
+     以前只拦「挂单的人自己吃亏」的方向，这种「等别人点错」的单拦不到，所以改成保护吃单的人：
+     买单出价 ≤ 参考价一半、卖单要价 ≥ 参考价两倍 → 标 _far：弹窗不让成交，一键扫单 / 闪兑 / 限价撮合都跳过。
+     参考价取对吃单人最宽松的那个（买单比 DEX 市价和最低卖价里低的；卖单比 DEX 市价和最高买价里高的），正常的单不会被误伤。
+     sells 要按价从低到高、buys 从高到低排好再传进来；mkt 没有就传 0 */
+  function markFar(sells, buys, mkt) {
+    var ask = sells.length ? priceOf(sells[0]) : 0, bid = buys.length ? priceOf(buys[0]) : 0;
+    var lo = Math.min(mkt || Infinity, ask || Infinity), hi = Math.max(mkt || 0, bid || 0);
+    if (lo === Infinity) lo = bid;
+    if (!hi) hi = ask;
+    buys.forEach(function (o) { o._far = !!lo && priceOf(o) <= lo * 0.5; o._ref = lo; });
+    sells.forEach(function (o) { o._far = !!hi && priceOf(o) >= hi * 2; o._ref = hi; });
+  }
+  function notFar(o) { return !o._far; }
   function swapLive(k, b) {
     useMarket(k);
     var now = Date.now() / 1000, live = ((b && b.orders) || []).filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o) && o.maker !== account; });
-    return {
-      sells: live.filter(function (o) { return o.sellAilgns; }).sort(function (x, y) { return priceOf(x) - priceOf(y); }).slice(0, 40),
-      buys: live.filter(function (o) { return !o.sellAilgns; }).sort(function (x, y) { return priceOf(y) - priceOf(x); }).slice(0, 40)
-    };
+    var sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (x, y) { return priceOf(x) - priceOf(y); });
+    var buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (x, y) { return priceOf(y) - priceOf(x); });
+    markFar(sells, buys, 0); // 闪兑也不吃离谱价的单
+    return { sells: sells.filter(notFar).slice(0, 40), buys: buys.filter(notFar).slice(0, 40) };
   }
   function swapNet(steps) { return steps.reduce(function (t, s) { return t + s.amount - s.amount / 100n; }, 0n); }
   /* 报价：amt 个 from 币 → 卖成 DAI（扣 1%）→ 买成 to 币（扣 1%）。只在闪兑页上调用，算完切回默认市场 */
@@ -944,6 +958,7 @@
       var buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
       otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buys.length ? priceOf(buys[0]) : 0;
+      markFar(sells, buys, mkt || 0);
       var oref = otcRef(mkt), orefN = oref ? oref.n : "市价";
 
       function row(o, i) {
@@ -952,6 +967,7 @@
         // 操作按钮放在最前面：买入绿色、卖出红色，自己的单显示撤单
         var act = o.maker === account
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
+          : o._far ? '<button class="ghost act-btn" data-fill="' + o.id + '">⚠️ 离谱价</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
         return '<tr' + (i >= bookShow ? ' class="bk-x"' : "") + ' style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比' + orefN + '" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
@@ -1212,7 +1228,7 @@
         var q = qtyWei(), pw = toWei(price.value), pr = Number(price.value), sell = side === "sell";
         mp = null;
         if (!q || !pw || !(pr > 0)) { mbox.innerHTML = ""; return; }
-        var cross = live0.filter(function (o) { return sell ? !o.sellAilgns && priceOf(o) >= pr : o.sellAilgns && priceOf(o) <= pr; })
+        var cross = live0.filter(function (o) { return !o._far && (sell ? !o.sellAilgns && priceOf(o) >= pr : o.sellAilgns && priceOf(o) <= pr); })
           .sort(function (a, b) { return sell ? priceOf(b) - priceOf(a) : priceOf(a) - priceOf(b); });
         var total = q * pw / TUNIT, p = cross.length ? (sell ? sweepPlanTok(cross, q) : buyPlan(cross, q)) : null;
         if (!p || !p.steps.length) { mbox.innerHTML = ""; return; }
@@ -1492,7 +1508,7 @@
       if (!box) return;
       var side = sweepSide, r = document.getElementById("sw-r"), pv = document.getElementById("sw-pv"), out = document.getElementById("sw-out"), ladder = document.getElementById("sw-ladder"), go = document.getElementById("sw-go"), st = document.getElementById("sw-st");
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
-      function list() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account; }); } // 自己的单不能吃
+      function list() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account && !o._far; }); } // 自己的单不能吃；离谱价的单跳过
       function total(l) { return l.reduce(function (t, o) { return t + daiLeft(o, o.giveLeft); }, 0n); }
       // 进度条 = 占全部挂单的比例（万分比，最细 0.01%）。连上钱包后，余额最多能扫到哪里就只能拖到哪里（右边那段灰掉）
       var bal = { buy: null, sell: null };
@@ -1685,6 +1701,14 @@
         '<label class="full">' + (o.sellAilgns ? "付款金额（DAI）" : "卖出数量（" + SYM + "）") + '<div class="row"><input id="f-qty" inputmode="decimal" placeholder="0"><button class="ghost" id="f-max" style="padding:0 14px">最大</button></div></label>' +
         '<div class="quote" id="f-quote">输入数量后显示</div><div class="note" id="f-bal" style="margin:0"></div><button id="f-go" style="padding:12px 22px;width:100%">确认' + (o.sellAilgns ? "买入" : "卖出") + '</button><p class="note" id="f-st"></p></div>';
       var qty = document.getElementById("f-qty"), quote = document.getElementById("f-quote"), st = document.getElementById("f-st");
+      if (o._far) { // 离谱价：大红字说明 + 不让成交
+        var fw = document.createElement("div"), fd = o._ref ? Math.abs((p / o._ref - 1) * 100) : 0;
+        fw.className = "otc-far";
+        fw.textContent = "⛔ 这张" + (o.sellAilgns ? "卖单要价 " : "买单出价 ") + A.fmt(p, PD + 2) + " DAI，比现在的行情（约 " + A.fmt(o._ref, PD) + " DAI）" + (o.sellAilgns ? "高 " : "低 ") + (fd >= 99.99 && !o.sellAilgns ? "99.99" : fd.toFixed(fd < 1000 ? 2 : 0)) + "%。" +
+          (o.sellAilgns ? "按这个价买，等于多花好几倍的钱" : "按这个价卖，等于把币白送给对方") + "，链上成交追不回来。为了保护你，这张单不能" + (o.sellAilgns ? "买" : "卖") + "。请关闭后选价格正常的单。";
+        quote.parentNode.insertBefore(fw, quote);
+        var fg = document.getElementById("f-go"); fg.disabled = true; fg.textContent = "价格离谱，已拦住";
+      }
       var payToken = o.sellAilgns ? DAI : AILGNS, payName = o.sellAilgns ? "DAI" : SYM, payDec = o.sellAilgns ? 18 : TD;
       var bal = null; // 钱包里能付的币（BigInt）
       function showBal(b) { var el = document.getElementById("f-bal"); if (el) el.textContent = "你的余额：" + show(b, o.sellAilgns ? 2 : 4, payDec) + " " + payName; }
@@ -1746,6 +1770,7 @@
       m.onclick = function (e) { if (e.target === m) m.hidden = true; };
       document.getElementById("f-go").onclick = function () {
         var btn = this, v = plan();
+        if (o._far) { say("这张单价格离谱，已拦住，不能成交", true); return; }
         if (!v) { say("请输入数量", true); return; }
         var token = o.sellAilgns ? DAI : AILGNS, name = payName;
         btn.disabled = true;
