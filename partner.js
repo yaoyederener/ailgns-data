@@ -161,6 +161,19 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       (j.split.parts || []).map(function (y) { return '<div class="ptn-rr"><span><b>' + esc(y.n) + " " + y.p + '%</b><small><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + '</a></small></span><span class="m">≈ ' + fm(y.amt, 0) + " DAI<small>" + fm(y.ail || 0, 4) + " AiLGNS</small></span></div>"; }).join("") +
       '</div><p class="muted ptn-dn">待分配里有 AiLGNS ' + fm(b.ail, 4) + " + DAI " + fm(b.dai + b.pdai, 0) + "（Anubis " + fm(b.dai, 0) + " + Polygon " + fm(b.pdai, 0) + "），按现价 " + fm(j.price, 0) + " 折算，LGNS 不算在内。" + (j.split.basis === "transit" ? "中转地址里有币，上面每人应分的数按中转地址余额算。" : "") + "分的时候只分 AiLGNS。</p>";
     // 🏆 奖池需转多少钱（只给站长口令看）：数字由 lib/partner.js poolNeed 算
+    // 💰 资金一览（站长 2026-11-17）：三个奖池各要不要补、补多少，做市机器人钱包今天赚 / 亏多少。数字由 lib/partner.js fundsView 算，只给站长口令看
+    var fundsH = "";
+    if (j.canWrite && j.funds && j.funds.length) {
+      fundsH = '<h3 class="ad-h">💰 资金一览 · 哪个池子要补钱</h3><div class="ptn-fd">' + j.funds.map(function (f) {
+        var bad = f.need > 0 || /⚠️/.test(f.st || "");
+        var big = f.bal == null ? "读不到" : fm(f.bal, 2);
+        var chip = f.need > 0 ? '<span class="ptn-fdc bad">要补 ' + fm(f.need, 0) + " DAI</span>" : f.need === 0 ? '<span class="ptn-fdc ok">✅ 不用补</span>' : "";
+        var day = f.k === "mm" && f.delta != null ? '<div class="ptn-fdd">今天 <b class="' + (f.delta >= 0 ? "up" : "down") + '">' + (f.delta >= 0 ? "+" : "") + fm(f.delta, 2) + " DAI</b>" + (f.pc != null ? " · 昨天（" + esc(f.pd || "") + "）收在 " + fm(f.pc, 2) : "") + "</div>" : "";
+        return '<div class="ptn-fdr' + (bad ? " bad" : "") + '"><div class="ptn-fdh"><b>' + esc(f.n) + "</b>" + chip + '</div><div class="ptn-fdb"><b>' + big + "</b><small>" + esc(f.unit || "DAI") + "</small></div>" + day +
+          '<p class="ptn-fds">' + esc(f.st || "") + '</p><p class="muted ptn-fdt">' + esc(f.tip || "") + "</p>" +
+          '<div class="ptn-fda"><a class="mono" href="#/scan/' + f.a + '">' + f.a.slice(0, 8) + "…" + f.a.slice(-6) + ' ›</a><button type="button" class="ghost" data-fdcp="' + f.a + '">📋 复制地址</button></div></div>';
+      }).join("") + '</div><p class="muted ptn-dn">每 5 分钟更新。只是提醒，不会自动动任何钱；往哪个池子补，点「复制地址」到钱包里转 DAI（Anubis 链）。</p>';
+    }
     var nd = j.need, needH = "";
     if (j.canWrite && nd) {
       var ailEq = nd.price ? nd.left / nd.price : 0;
@@ -182,7 +195,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       biz +
       ratio +
       allocHtml(j) +
-      needH +
+      fundsH + needH +
       '<h3 class="ad-h">💰 其它余额（现在钱包里有的，不是收入）</h3><div class="ad-tiles">' +
       tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
       (j.bal.fast ? tile("⚡ 极速资金池（暂停进账，留给极速预言家）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
@@ -214,6 +227,12 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       body.key = key();
       return fetch("/api/partner", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (r) { if (r.error) throw new Error(r.error); if (st) st.textContent = " ✅ 已保存"; load(rid); }, function (e) { if (st) st.textContent = " ❌ " + (e.message || e); });
     }
+    document.querySelectorAll("[data-fdcp]").forEach(function (b) {
+      b.onclick = function () {
+        var v = b.getAttribute("data-fdcp"), ok = function () { b.textContent = "✅ 已复制"; setTimeout(function () { b.textContent = "📋 复制地址"; }, 2500); };
+        try { navigator.clipboard.writeText(v).then(ok, function () { prompt("长按复制：", v); }); } catch (e) { prompt("长按复制：", v); }
+      };
+    });
     var ndb = document.getElementById("ptn-ndb");
     if (ndb) ndb.onclick = function () {
       var v = document.getElementById("ptn-nda").textContent, ok = function () { ndb.textContent = "✅ 已复制，去钱包粘贴"; setTimeout(function () { ndb.textContent = "📋 点击复制奖池地址"; }, 2500); };

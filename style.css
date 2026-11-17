@@ -4473,3 +4473,17 @@ tr.bk-bot td{background-color:rgba(245,185,66,.09)}
 .fb-vn{margin-top:8px;font-size:13.5px;color:#4b5563;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .fb-vn .ghost{padding:2px 10px;font-size:12.5px}
 .fb-vbtn{display:inline-flex;align-items:center;padding:8px 14px;margin:4px 6px 4px 0;border-radius:10px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;text-decoration:none}
+
+/* 站长 2026-11-17：合伙人面板「💰 资金一览」 */
+.ptn-fd{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));margin:6px 0 4px}
+.ptn-fdr{padding:12px 12px 10px;border-radius:14px;background:#faf8ff;border:1px solid #e6dcff}
+.ptn-fdr.bad{background:#fff6ec;border-color:#f5b942}
+.ptn-fdh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;color:#3d2f66}
+.ptn-fdc{flex:none;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
+.ptn-fdc.ok{background:#e8fbf2;color:#0a7a52}.ptn-fdc.bad{background:#fde68a;color:#92400e}
+.ptn-fdb{margin:6px 0 2px}.ptn-fdb b{font-size:22px;color:#191839;font-variant-numeric:tabular-nums}.ptn-fdb small{margin-left:6px;color:#8a7fb0;font-size:12px}
+.ptn-fdd{font-size:13px;color:#4b4370;margin:2px 0}.ptn-fdd .up{color:#0a7a52}.ptn-fdd .down{color:#c0392b}
+.ptn-fds{margin:6px 0 2px;font-size:13.5px;color:#3d2f66;line-height:1.5}
+.ptn-fdt{margin:0 0 6px;font-size:12px;line-height:1.5}
+.ptn-fda{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px}
+.ptn-fda .ghost{padding:4px 10px;font-size:12.5px}
