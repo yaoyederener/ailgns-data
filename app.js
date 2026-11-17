@@ -918,9 +918,19 @@
           sessionStorage.setItem("fresh:to", latest);
           var sp2 = new URLSearchParams(location.search); sp2.set("v", String(Date.now())); location.replace(location.pathname + "?" + sp2.toString() + location.hash);
         };
-        // 「更多」菜单开着的时候不刷新（站长 2026-11-11：点开菜单闪退，就是这里发现新版本把页面换掉了）：等客户点了菜单里的功能、换页面时再换新版
-        if (document.documentElement.classList.contains("dw-lock")) { freshLater = go; return; }
-        go();
+        /* 2026-11-17 工单 #266（Bitget 钱包 · 荣耀手机）：「第一次点菜单没事，再点就闪退，不能来回切换」，连续 3 天。
+           这几天一天发版十几次：客户每隔一分钟切一次页面，这里就发现一次新版本，把整页换掉重开——在钱包内置浏览器里看起来就是「闪退」。
+           11-11 已经出过一次同样的事（菜单开着时被换掉）。所以改成：只有「刚打开网站」那一次才自动换新版，而且 10 分钟内最多换一次（记在 localStorage，
+           钱包浏览器把 sessionStorage 清掉也不会连环刷新）；客户已经在用、正在切页面的时候绝不自动刷新，只在底部出一条小提示，点了才更新 */
+        var lastAt = 0; try { lastAt = Number(localStorage.getItem("fresh:at")) || 0; } catch (e2) {}
+        if (now && Date.now() - lastAt > 600e3 && !document.documentElement.classList.contains("dw-lock")) { try { localStorage.setItem("fresh:at", String(Date.now())); } catch (e3) {} go(); return; }
+        freshLater = null;
+        if (document.getElementById("fresh-tip")) return;
+        var tip = document.createElement("button");
+        tip.id = "fresh-tip"; tip.type = "button"; tip.textContent = "🔄 网站有新版本，点这里更新";
+        tip.style.cssText = "position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:9999;padding:9px 16px;border-radius:999px;border:1px solid #c4b5fd;background:#fff;color:#5b21b6;font-size:13.5px;font-weight:700;box-shadow:0 6px 20px rgba(91,33,182,.22);white-space:nowrap";
+        tip.onclick = function () { try { localStorage.setItem("fresh:at", String(Date.now())); } catch (e4) {} go(); };
+        document.body.appendChild(tip);
       }).catch(function () {});
     } catch (e) { /* 忽略 */ }
   }
