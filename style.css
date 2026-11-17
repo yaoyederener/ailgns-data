@@ -4508,3 +4508,9 @@ a.fx-ball:hover { background: #efe7ff; text-decoration: none; }
 .ask-tip em { display: block; margin-top: 8px; font-style: normal; font-size: 13.5px; color: #6b5a99; }
 .ask-tip em u { text-decoration: none; font-weight: 700; color: #6d3fd6; }
 .err-tip.ask-tip button { background: #7c4ddb; }
+/* 2026-11-17：钱包不弹输入框时，页面内的输入框（A.askText） */
+.ask-in { z-index: 10001; }
+.ask-in .ask-in-t { font-size: 16px; line-height: 1.5; white-space: pre-line; }
+.ask-in .ask-in-v { width: 100%; box-sizing: border-box; padding: 12px; font-size: 16px; border: 1.5px solid #c9b8f5; border-radius: 10px; background: #fff; }
+.ask-in .ask-in-b { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ask-in .ask-in-b button { padding: 12px; font-size: 16px; }

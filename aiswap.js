@@ -112,7 +112,11 @@
   }
   // 「其它代币」：粘合约地址，读 symbol / decimals 加进列表
   function customTok(sel, done) {
-    var a = prompt("粘贴代币合约地址（0x 开头 42 位）"); if (!a) { sel.value = sel.getAttribute("data-prev") || ""; return; }
+    var q = "粘贴代币合约地址（0x 开头 42 位）";
+    (A.askText ? A.askText(q, "") : Promise.resolve(prompt(q))).then(function (a) { customTok2(sel, done, a); }); /* Bitget 等钱包不弹输入框：改走页面内输入框 */
+  }
+  function customTok2(sel, done, a) {
+    if (!a) { sel.value = sel.getAttribute("data-prev") || ""; return; }
     a = low(a.trim()); if (!A.isAddr(a)) { A.errTip("地址格式不对", sel); sel.value = sel.getAttribute("data-prev") || ""; return; }
     if (a === low(cfg.dai)) { A.errTip("AiLGNS 和 DAI 的买卖请去 OTC 担保交易，aiswap 只做新币 / AiLGNS", sel); sel.value = sel.getAttribute("data-prev") || ""; return; }
     Promise.all([A.call(a, SEL.symbol), A.call(a, SEL.decimals)]).then(function (r) {

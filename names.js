@@ -642,10 +642,13 @@
         if (!mine) { stepTo(1); if (r.owner && !/^0x0+$/.test(r.owner)) priHint(document.getElementById("nm-next"), v, r.owner); return; }
         guide(document.getElementById("nm-next"), v, r);
         document.getElementById("nm-set").onclick = function () {
-          var a = (prompt("让 " + v + "." + TLD + " 指向哪个地址？", account) || "").trim().toLowerCase();
-          if (!a) return;
-          if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
-          tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
+          var q = "让 " + v + "." + TLD + " 指向哪个地址？";
+          (A.askText ? A.askText(q, account) : Promise.resolve(prompt(q, account))).then(function (a) { /* Bitget 等钱包不弹输入框：改走页面内输入框 */
+            a = (a || "").trim().toLowerCase();
+            if (!a) return;
+            if (!/^0x[0-9a-f]{40}$/.test(a)) { A.errTip("地址格式不对", st); return; }
+            tx(NAMES, SEL.setAddr + r.id + A.pad(a), say, "🔒 修改指向地址。请在钱包确认").then(function () { say("✅ 已修改"); show(v); }, function (e) { say(""); A.errTip(e.message || String(e), st); });
+          });
         };
         var sell = document.getElementById("nm-sell");
         if (sell) sell.onclick = function () { sellForm(v, r, st); };

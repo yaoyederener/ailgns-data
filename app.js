@@ -901,7 +901,33 @@
     } catch (e) { /* 提示画不出来也不能影响页面 */ }
     return false;
   }
-  window.AIL = { sure: sure, sure2: sure2, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
+  /* 2026-11-17 站长「也改掉」：输入框弹窗（prompt）在 Bitget 这类钱包里也弹不出来，一瞬间返回空。
+     askText 返回 Promise：系统框能弹就用系统框（正常浏览器不变）；弹不出来就在页面里出一个输入框。取消 / 换页 = null */
+  function askText(msg, def) {
+    return new Promise(function (done) {
+      var t0 = Date.now(), r = null;
+      try { r = window.prompt(msg, def || ""); } catch (e) { t0 = Date.now(); }
+      if (r != null || Date.now() - t0 >= 80) return done(r);
+      try {
+        var old = document.getElementById("ask-in"); if (old) old.remove();
+        var m = document.createElement("div"); m.className = "modal ask-in"; m.id = "ask-in";
+        m.innerHTML = '<div class="modal-box"><b class="ask-in-t"></b><input type="text" class="ask-in-v" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><div class="ask-in-b"><button type="button" class="ghost ask-in-no">取消</button><button type="button" class="ask-in-ok">确定</button></div></div>';
+        var inp = m.querySelector("input"), fin = false;
+        var end = function (v) { if (fin) return; fin = true; window.removeEventListener("hashchange", bye); if (m.parentNode) m.remove(); done(v); };
+        var bye = function () { end(null); };
+        m.querySelector(".ask-in-t").textContent = String(msg);
+        inp.value = def || "";
+        m.querySelector(".ask-in-no").onclick = bye;
+        m.querySelector(".ask-in-ok").onclick = function () { end(inp.value); };
+        inp.onkeydown = function (e) { if (e.key === "Enter") end(inp.value); };
+        m.onclick = function (e) { if (e.target === m) bye(); };
+        window.addEventListener("hashchange", bye);
+        document.body.appendChild(m);
+        try { inp.focus(); inp.select(); } catch (e) { /* 忽略 */ }
+      } catch (e) { done(null); }
+    });
+  }
+  window.AIL = { sure: sure, sure2: sure2, askText: askText, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
