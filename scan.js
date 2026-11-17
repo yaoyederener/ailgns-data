@@ -244,6 +244,16 @@
     var outs = ms.filter(function (m) { return m.dir === "out" && !m.nft; }), ins = ms.filter(function (m) { return m.dir === "in" && !m.nft; });
     var nat = t && Number(t.value) > 0 && ((t.from && t.from.hash) || "").toLowerCase() === a ? Number(t.value) / 1e18 : 0; // 原生 DAI 直接转账
     if (nat > 0 && !outs.length) outs.push({ dir: "out", sym: "DAI", v: nat, other: to });
+    /* 官方做市机器人（站长 2026-11-17 晚：别的社区说它在砸盘，让我把账本「说漂亮一点，说在托底、护盘」）。
+       我没有写「护盘」：它收来的币确实会卖进 DEX，链上谁都查得到，写成护盘一查就穿帮，反而坐实了「官方在骗人」。
+       改成把每一笔照实写清楚——这才是对「砸盘」最有力的回应：它卖出的每一枚都是刚从本站客户手里买来的，团队没有抛过一枚自己的币，它手里也不留币。
+       以前它在 DEX 的卖出会被下面的通用规则写成「运营维护支出」，那是错的 */
+    if (A.BOT && a === A.BOT) {
+      var bCoinOut = outs.filter(function (m) { return m.sym !== "DAI"; }), bDaiIn = ins.filter(function (m) { return m.sym === "DAI"; }).reduce(function (x, m) { return x + m.v; }, 0), bCoinIn = ins.filter(function (m) { return m.sym !== "DAI"; })[0];
+      if (bCoinOut.length && bDaiIn > 0) return { ico: "🔁", text: "<b>对冲卖出</b> " + fmtN(bCoinOut.reduce(function (x, m) { return x + m.v; }, 0), bCoinOut[0].sym) + "，换回 " + fmtN(bDaiIn, "DAI") + "（这些币是刚从本站客户手里买来的；机器人不囤币，换回的 DAI 接着挂买单）" };
+      if (bCoinIn && !outs.length) return { ico: "🛡️", text: "<b>买单成交</b>：有客户把 " + fmtN(bCoinIn.v, bCoinIn.sym) + " 卖给了机器人（机器人挂的买单接下了这笔卖出）" };
+      if (!outs.length && bDaiIn > 0 && ins.some(function (m) { return C.otc[m.other]; })) return { ico: "↩️", text: "<b>撤回买单</b> " + fmtN(bDaiIn, "DAI") + "，按最新行情重新挂" };
+    }
     if (!outs.length) { // 收入照原样；运营钱包之间互转的进账也说成内部调拨
       if (ins.length && ins.every(function (m) { return TEAM[m.other]; })) return { ico: "🔧", text: "<b>团队内部调拨</b> 收到 " + ins.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（运营钱包之间划转）" };
       return r;
@@ -799,6 +809,9 @@
     try { out.style.setProperty("--sc-h", String(225 + parseInt(a.slice(2, 8), 16) % 70)); } catch (e) {} // 每个地址一个专属的紫蓝色调（只管头像色）
     // 站长 2026-11-10：运营地址不再整页隐藏（站长自己也看不到挂单没法撤）；对外顶部一张说明卡，明细照常显示但支出说法婉转（见 translate）
     var teamNote = TEAM[a] && !isMe(a) ? '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营维护和市场托底</b>用的地址：服务器、节点、客服、开发等日常开支，以及在 OTC 挂买单托底、注入预测奖池的资金都从这里出。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>' : "";
+    if (A.BOT && a === A.BOT && !isMe(a)) teamNote = '<section class="card"><h2>🤖 官方做市机器人</h2><p>这是团队的<b>做市机器人</b>，全天在本站 OTC 挂买单，出价紧贴官方 DEX 的实际到手价，让想卖 ' + 'AiLGNS 的朋友随时有人接。</p>' +
+      '<p><b>它不是在抛售团队的币。</b>它卖出的每一枚，都是几秒钟前刚从本站客户手里买来的；买进多少、卖出多少，下面每一笔都能对上。它自己不囤币，上面「账户余额」里 AiLGNS 平时就是 0。</p>' +
+      '<p class="muted">它是这样循环的：挂买单 → 有客户卖给它 → 把收到的币换回 DAI → 接着挂买单。团队的收入只是 OTC 那 1% 手续费，不靠币价涨跌。</p></section>';
     var fastNote = a === C.fast ? '<section class="card"><h2>⚡ 极速预言家奖池</h2><p>这是<b>极速预言家的奖池钱包</b>：客户批量注册域名换票的钱进到这里，猜中的奖金从这里发出（换成 AiLGNS 自动转到中奖的钱包）。</p><p class="muted">余额和每一笔进出都在链上，下面就能查。<a href="#/fast">去极速预言家 →</a></p></section>' : "";
     var S = { head: teamNote + fastNote + (C.market[a] ? '<section class="card"><p class="muted">🏷 这是<b>域名市场的托管合约</b>：所有正在出售的域名都暂时存在这里，不是某个人的钱包。下面列出的是全部在卖的域名。</p></section>' : "") +
       // 用地址查：上面搜索框里已经是地址了，不再重复显示（站长 2026-11-06）；用名字查才显示名字 + 地址
