@@ -5,7 +5,7 @@
 //   POST JSON  { action: "view", key, id, n }  /  { action: "view", key, id, video: 1 }   后台看图 / 看视频（口令走正文，不进网址）
 // 存 KV：or:proof:<奖项编号>:i0..i2（图片 dataURL）、or:proof:<奖项编号>:v（视频原文件），留 60 天。
 // 不要求钱包签名（站长要方便）：凭证只是给团队看的，奖只会发到中奖钱包，别人乱传也领不走钱；通过不通过由团队看了算。
-import { needSay, payState } from "../../lib/oracle.js";
+import { needSay, payState, autoOk } from "../../lib/oracle.js";
 import { pushInbox, OWNER } from "../../lib/inbox.js";
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const TTL = 60 * 86400, MAX_IMG = 3, IMG_MAX = 1200000, VID_MAX = 20 * 1024 * 1024;
@@ -19,7 +19,7 @@ async function mine(kv, id, a) { // 找到这笔奖，并确认还收凭证
   if (!x) return { err: json({ error: "没找到这笔奖。请确认连的是中奖的那个钱包，再刷新页面试一次" }, 404) };
   const st = payState(x);
   if (!needSay(x) || st === "paid" || st === "forfeit") return { err: json({ error: "这笔奖不用再交了" }, 400) };
-  if (x.ok) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
+  if (x.ok && !x.ok.auto) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
   return { pay, x };
 }
 async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱刷（前端传完截图会等 9 秒再传视频）
@@ -28,7 +28,14 @@ async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱
   await kv.put(k, String(Date.now()), { expirationTtl: 60 });
   return null;
 }
-function tell(ctx, kv, x, what) {
+const IMG_MIN = 4000, VID_MIN = 100 * 1024; // 🤖 简单审核：截图不能是空白小图、视频不能只有一丁点；不够格的留给站长手动看
+function tell(ctx, kv, x, what, good) {
+  if (good && autoOk(x) && !x.ok) { // 小奖：凭证像样就自动通过，站长只收一条「已自动通过」的通知，想撤回还可以到后台撤
+    x.ok = { at: Date.now(), auto: 1 };
+    ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🤖 小奖已自动通过（" + what + "）\n" + x.name + " · " + x.day + " · " + (KIND_CN[x.kind] || x.kind) + " · " + x.amt + " DAI\n" + (payState(x) === "ready" ? "机器人几分钟内发奖。" : "他名字烧够后机器人自动发。") + "不用你点；想看凭证或撤回，到工单后台最上面。", "#/feedback/admin").catch(() => {}));
+    ctx.waitUntil(pushInbox(kv, x.a, "oracle", "✅ 你的领奖凭证已通过（" + x.day + " · " + (KIND_CN[x.kind] || x.kind) + "）。" + (payState(x) === "ready" ? "机器人几分钟内把 AiLGNS 发到这个钱包。" : "名字烧够以后，机器人自动把 AiLGNS 发到这个钱包。") + "\n⚠️ 领奖全程自助，不需要任何客服帮忙；有人私聊你「指导领奖」都是骗子。", "#/oracle").catch(() => {}));
+    return;
+  }
   ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🏆 中奖人交了领奖凭证（" + what + "），等你认证\n" + x.name + " · " + x.day + " · " + (KIND_CN[x.kind] || x.kind) + " · " + x.amt + " DAI\n到工单后台最上面点开看一眼，再点「通过」，机器人才会发奖。", "#/feedback/admin").catch(() => {}));
 }
 
@@ -50,8 +57,8 @@ export async function onRequestPost(ctx) {
     if (buf.byteLength > VID_MAX) return json({ error: "视频太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图" }, 400);
     await kv.put("or:proof:" + id + ":v", buf, { expirationTtl: TTL, metadata: { type, size: buf.byteLength } });
     m.x.say = Object.assign({}, m.x.say || {}, { v: 1, vt: type, at: Date.now() });
+    tell(ctx, kv, m.x, "视频", buf.byteLength >= VID_MIN);
     await kv.put("or:pay", JSON.stringify(m.pay));
-    tell(ctx, kv, m.x, "视频");
     return json({ ok: true, st: payState(m.x) });
   }
   let b = {};
@@ -67,8 +74,8 @@ export async function onRequestPost(ctx) {
     const rl = await limit(kv, ctx); if (rl) return rl;
     for (let i = 0; i < imgs.length; i++) await kv.put("or:proof:" + id + ":i" + i, imgs[i], { expirationTtl: TTL });
     m.x.say = Object.assign({}, m.x.say || {}, { n: imgs.length, at: Date.now() });
+    tell(ctx, kv, m.x, imgs.length + " 张截图", imgs.some((s) => s.length >= IMG_MIN));
     await kv.put("or:pay", JSON.stringify(m.pay));
-    tell(ctx, kv, m.x, imgs.length + " 张截图");
     return json({ ok: true, st: payState(m.x) });
   }
   // —— 后台看凭证 ——
