@@ -95,7 +95,12 @@
     say(stT, stBad); betLabel(); clock();
     // 最近开奖
     var dr = el("fx-draws");
-    if (dr) { dr.hidden = false; dr.querySelector(".fx-balls").innerHTML = data.draws.map(function (x) { return '<span class="fx-ball' + (x.d == null ? " wait" : "") + '"><b>' + (x.d == null ? "…" : x.d) + "</b><i>" + at(x.r) + "</i></span>"; }).join(""); }
+    if (dr) { dr.hidden = false; dr.querySelector(".fx-balls").innerHTML = data.draws.map(function (x) {
+      /* 站长 2026-11-17：显示开奖区块哈希换算成数字的末 6 位，最后一位（开奖数字）高亮；点格子去链上浏览器看那个区块。接口没给尾数的老记录照旧只显示数字 */
+      var tail = x.d != null && /^\d{6}$/.test(String(x.h || "")) && String(x.h).slice(-1) === String(x.d) ? String(x.h) : "";
+      var inner = "<b>" + (x.d == null ? "…" : (tail ? '<small class="fx-tl">…' + tail.slice(0, 5) + "</small>" : "") + x.d) + "</b><i>" + at(x.r) + "</i>";
+      return tail && Number(x.b) > 0 ? '<a class="fx-ball" href="https://anubisscan.io/block/' + Number(x.b) + '" target="_blank" rel="noopener">' + inner + "</a>" : '<span class="fx-ball' + (x.d == null ? " wait" : "") + '">' + inner + "</span>";
+    }).join(""); }
     // 我的下注
     var mb = el("fx-mine");
     if (mb) {
@@ -195,7 +200,7 @@
     ruleV2 = false;
     A.app.innerHTML = '<div id="fx-wrap">' +
       '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>去猜价格 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
-      '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">数字下面是开奖时间。</p></section>' +
+      '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">紫色大字是开奖数字：它是开奖区块的哈希换算成数字后的<b>最后一位</b>，前面灰色的是它前面 5 位。区块哈希谁也没法提前知道。下面是开奖时间，点格子可以到链上浏览器核对那个区块。</p></section>' +
       '<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-rules">' + rulesH(false) + "</section>" +
