@@ -957,7 +957,10 @@
       var sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (a, b) { return priceOf(a) - priceOf(b); });
       var buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
       var mine = account ? orders.filter(function (o) { return o.maker === account; }).reverse().slice(0, 30) : [];
-      otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buys.length ? priceOf(buys[0]) : 0;
+      /* 站长 2026-11-17：官方做市机器人的买单现在贴着 DEX 到手价挂，会比本站的卖单还高。「最高买价」这个参考（买单指导价、挂错价判断）不算它，
+         不然客户照着指导价挂买单，会挂得比现成的卖单还贵 */
+      var buysC = A.BOT ? buys.filter(function (o) { return o.maker !== A.BOT; }) : buys;
+      otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buysC.length ? priceOf(buysC[0]) : 0;
       markFar(sells, buys, mkt || 0);
       sells = sells.filter(notFar); buys = buys.filter(notFar); // 站长 2026-11-16：离谱价的单干脆不在盘口显示（挂单人自己在「我的挂单」里照样能看到、能撤）
       var oref = otcRef(mkt), orefN = oref ? oref.n : "市价";
@@ -1215,7 +1218,7 @@
             if (otcAsk) { g1 = otcAsk; why = "和现在最低的卖单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = "现在没有别的卖单，按行情价挂，你就排第一"; }
           } else {
-            if (otcBid) { g1 = otcBid; why = "和现在最高的买单同价，排在最前面一档；同价的先挂先成交"; }
+            if (otcBid) { g1 = otcBid; why = "和其他客户最高的买单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk - tick : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
           }
           if (!(g1 > 0) || g1 === Infinity) { el.hidden = true; return; }
