@@ -871,7 +871,14 @@
   window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
   var BAN_RE = /毛泽东|刘少奇|李先念|杨尚昆|江泽民|胡锦涛|习近平|maozedong|liushaoqi|lixiannian|yangshangkun|jiangzemin|hujintao|xijinping/i;
   window.addEventListener("error", function (ev) { if (ev.error && !foreign(ev.filename)) oops(ev.error); });
-  window.AIL = { errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
+  /* 工单 #283（2026-11-17）：Bitget 等钱包自带的浏览器不弹系统确认框，confirm() 一瞬间就返回「取消」，客户点「撤单」像没反应。
+     人不可能在 0.08 秒内点掉一个确认框：这么快就返回 false 说明框根本没弹出来，按「确定」算（后面钱包自己还会弹一次确认）。正常浏览器照旧弹框，行为不变 */
+  function sure(msg) {
+    var t0 = Date.now(), r;
+    try { r = window.confirm(msg); } catch (e) { return true; }
+    return !!r || Date.now() - t0 < 80;
+  }
+  window.AIL = { sure: sure, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）

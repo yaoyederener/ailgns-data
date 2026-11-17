@@ -558,7 +558,7 @@
       b.onclick = function () {
         var K = A.otcKit, id = b.getAttribute("data-cancel"), k = b.getAttribute("data-k");
         if (!K || !K.useMarket) return;
-        if (!confirm("确定撤单 #" + id + "？撤了币马上退回你的钱包。")) return;
+        if (!(A.sure || confirm)("确定撤单 #" + id + "？撤了币马上退回你的钱包。")) return;
         b.disabled = true; b.textContent = "撤单中…";
         K.useMarket(k);
         K.ready().then(function () { return K.send(K.OTC(), "0x40e58ee5" + K.u256(id), function (t) { b.textContent = t.slice(0, 12); }, "撤单 #" + id); })
@@ -583,7 +583,7 @@
       if (!n) return;
       // 站长 2026-11-12：点之前先说清楚钱包会弹几次、要多久（以前客户以为点一次就完，钱包连着弹以为出错了）
       var secs = n * 3, how = secs < 60 ? secs + " 秒" : Math.ceil(secs / 60) + " 分钟";
-      if (!confirm("要撤掉全部 " + n + " 张 OTC 挂单吗？\n\n① 钱包会连着弹出 " + n + " 次，每次点「确认」就行\n② 不用等，连着点完，大约 " + how + "\n③ 币全部退回你的钱包，不收费" + (ks.length > 1 ? "\n④ 你的单分在 " + ks.length + " 个市场，会一个市场一个市场撤" : "") + "\n\n（少数钱包支持一次确认，那就只弹 1 次）")) return;
+      if (!(A.sure || confirm)("要撤掉全部 " + n + " 张 OTC 挂单吗？\n\n① 钱包会连着弹出 " + n + " 次，每次点「确认」就行\n② 不用等，连着点完，大约 " + how + "\n③ 币全部退回你的钱包，不收费" + (ks.length > 1 ? "\n④ 你的单分在 " + ks.length + " 个市场，会一个市场一个市场撤" : "") + "\n\n（少数钱包支持一次确认，那就只弹 1 次）")) return;
       btn.disabled = true; say("正在连接钱包…");
       var i = 0, base = 0;
       function prog(d) { pb.hidden = false; pb.firstChild.style.width = Math.round((base + d) / n * 100) + "%"; }

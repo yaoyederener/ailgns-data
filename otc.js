@@ -1482,7 +1482,7 @@
       if (ca) ca.onclick = function () {
         var ids = orders.filter(function (o) { return o.open && account && o.maker.toLowerCase() === account.toLowerCase(); }).map(function (o) { return o.id; });
         if (!ids.length) return;
-        if (!confirm("确定撤销你在 " + SYM + " 市场的全部 " + ids.length + " 张挂单？币会全部退回钱包。")) return;
+        if (!(A.sure || confirm)("确定撤销你在 " + SYM + " 市场的全部 " + ids.length + " 张挂单？币会全部退回钱包。")) return;
         var st = document.getElementById("mine-all-st"); st.hidden = false;
         function here(t, bad) { st.className = "note cx-all" + (bad ? " down" : ""); st.textContent = t; }
         ca.disabled = true; sweeping = true;
