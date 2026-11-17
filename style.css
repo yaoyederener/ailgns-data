@@ -4421,6 +4421,14 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-pays { list-style: none; margin: 0; padding: 0; }
 .wkb-pays li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .wkb-pays li:last-child { border-bottom: 0; }
+/* 📣 周榜领奖：上传群里声明的截图 / 视频（站长 2026-11-18） */
+.wkb-pays li { flex-wrap: wrap; }
+.wkb-up { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 2px; }
+.wkb-up a { font-size: 13px; color: var(--brand, #6d4fd6); text-decoration: none; }
+.wkb-upb { display: inline-block; padding: 8px 14px; border-radius: 10px; background: #ede9fb; color: #4c36b3; font-size: 14px; font-weight: 700; cursor: pointer; }
+.wkb-upst { flex: 1 0 100%; margin: 0; font-size: 13px; color: #15803d; }
+.wkb-upst:empty { display: none; }
+.wkb-upst.bad { color: #b91c1c; }
 .wkb-pays li > div { min-width: 0; }
 .wkb-pays b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wkb-pays small { display: block; font-size: 12.5px; color: var(--muted); }
