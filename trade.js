@@ -140,7 +140,7 @@
     var px = last ? last.px : (bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : book.mkt), chg = last && first24 && first24.px ? (last.px / first24.px - 1) * 100 : 0, up = chg >= 0;
     el.innerHTML = '<div class="tr2-px"><b class="' + (up ? "up" : "dn") + '">' + (px ? f2(px) : "—") + '</b><small>≈ DEX ' + (book.mkt ? f2(book.mkt) : "—") + ' · <span class="' + (up ? "up" : "dn") + '">' + (up ? "+" : "") + chg.toFixed(2) + "%</span></small></div>" +
       '<div class="tr2-24"><div><small>24h 高</small><b>' + (hi ? f2(hi) : "—") + '</b></div><div><small>24h 低</small><b>' + (lo < Infinity ? f2(lo) : "—") + '</b></div><div><small>24h 量(DAI)</small><b>' + f(vol, 0) + "</b></div></div>";
-    var mid = document.getElementById("tr-mid"); if (mid) mid.textContent = "买 " + book.bids.length + " 张 · 卖 " + book.asks.length + " 张" + (bestAsk() && bestBid() ? " · 价差 " + f2(bestAsk() - bestBid()) : "");
+    var mid = document.getElementById("tr-mid"); if (mid) mid.textContent = "买 " + book.bids.length + " 张 · 卖 " + book.asks.length + " 张" + (bestAsk() && bestBid() && bestAsk() > bestBid() ? " · 价差 " + f2(bestAsk() - bestBid()) : "") /* 官方做市机器人的买单会高过卖单，价差为负时不显示 */;
   }
   // 下单卡高度变了（切限价/市价、提示换行、显示余额）就让盘口重新对齐；不靠浏览器回调，改完立刻算
   function fitBook() { try { if (matchMedia("(min-width: 901px)").matches) return; var fm = document.querySelector(".tr2-form"); if (fm && Math.abs(fm.offsetHeight - fitH) > 1 && document.querySelector("#tr-bk .tr2-row")) renderBook(); } catch (e) {} }
