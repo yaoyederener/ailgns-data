@@ -98,6 +98,8 @@
         '<p class="fb-hint">📱 弹出菜单后，请点 <b>「照片图库」</b>（安卓点 <b>「相册 / 图库」</b>），选好截图后点右上角「添加 / 完成」</p>' +
         '<button type="button" class="ghost fb-pimg" id="fb-pimg">📋 粘贴刚才的截图</button>' +
         '<small>电脑上截图后，直接按 <b>Ctrl+V</b>（苹果 ⌘+V）就能贴进来，也可以把图片拖到这里</small><div class="fb-th" id="fb-th"></div></div>' +
+      '<label class="fb-l"><b>🎬 录屏 / 视频（可选）</b><small>闪退、卡住、点了没反应这类问题，录一段屏最说得清：1 个，最多 20MB，建议 30 秒以内</small></label>' +
+      '<div class="fb-zone fb-vz"><input type="file" id="fb-v" accept="video/*" hidden><button type="button" class="fb-pick" id="fb-vpick">🎬 点这里选视频</button><div class="fb-vn" id="fb-vn"></div></div>' +
       '<label class="fb-l"><b>③ 遇到了什么问题</b><small>什么时间、在哪个页面、做了什么、提示了什么</small></label>' +
       '<textarea id="fb-x" rows="5" maxlength="2000" placeholder="例如：今天下午 3 点在借贷页面借款，钱包扣了 1 个 AiLGNS，但我的借贷里查不到订单"></textarea>' +
       '<button type="button" class="nm-go fb-go" id="fb-go">✅ 提交反馈</button><p class="fb-st" id="fb-st"></p>' +
@@ -138,19 +140,42 @@
         if (fs.length) { e.preventDefault(); addFiles(fs); }
       });
     }
+    // 视频：只收 1 个，先记在页面上，工单建好以后单独传（站长 2026-11-17）
+    var vid = null, vIn = document.getElementById("fb-v"), vPick = document.getElementById("fb-vpick"), vN = document.getElementById("fb-vn");
+    function vShow() {
+      if (!vN) return;
+      vN.innerHTML = vid ? '已选：<b>' + esc(vid.name || "视频") + '</b>（' + Math.max(1, Math.round(vid.size / 1048576)) + ' MB） <button type="button" class="ghost" id="fb-vrm">✕ 不传了</button>' : "";
+      var rm = document.getElementById("fb-vrm"); if (rm) rm.onclick = function () { vid = null; vShow(); };
+      if (vPick) vPick.textContent = vid ? "🔁 换一个视频" : "🎬 点这里选视频";
+    }
+    if (vPick && vIn) {
+      vPick.onclick = function () { vIn.click(); };
+      vIn.onchange = function () {
+        var f = vIn.files && vIn.files[0]; vIn.value = "";
+        if (!f) return;
+        if (!/^video\//.test(f.type || "")) return say("这个文件不是视频，请选手机里的录屏 / 视频");
+        if (f.size > 20 * 1024 * 1024) return say("视频太大了（" + Math.round(f.size / 1048576) + " MB，最多 20 MB）。请录短一点（30 秒以内），或者改传截图");
+        vid = f; vShow(); say("");
+      };
+    }
     var go = document.getElementById("fb-go");
     go.onclick = function () {
       var a = inp.value.trim().toLowerCase(), x = document.getElementById("fb-x").value.trim();
       if (!isAddr(a)) { inp.focus(); return say("请填正确的钱包地址（0x 开头，42 位）"); }
-      if (x.length < 2 && !imgs.length) return say("请写一下遇到的问题，或者贴一张截图");
+      if (x.length < 2 && !imgs.length && !vid) return say("请写一下遇到的问题，或者贴一张截图 / 选一个视频");
       go.disabled = true; say("提交中…");
-      fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: a, txt: x, imgs: imgs }) })
+      var okMsg = function (id, extra) { return "✅ 提交成功！工单号 #" + id + (extra || "") + "。回复会比较慢，请耐心等：技术人员正忙着优化每一个客户的问题。进度在下面「我的反馈进度」里看"; };
+      fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: a, txt: x || (vid ? "（见视频）" : ""), imgs: imgs, v: vid ? 1 : 0 }) })
         .then(function (r) { return r.json(); }).then(function (j) {
-          go.disabled = false;
-          if (j.error) return say(j.error);
+          if (j.error) { go.disabled = false; return say(j.error); }
           imgs = []; thumbs(); document.getElementById("fb-x").value = "";
-          say("✅ 提交成功！工单号 #" + j.id + "。回复会比较慢，请耐心等：技术人员正忙着优化每一个客户的问题。进度在下面「我的反馈进度」里看", true);
-          mine(a);
+          var v = vid; vid = null; vShow();
+          if (!v) { go.disabled = false; say(okMsg(j.id), true); mine(a); return; }
+          say("工单 #" + j.id + " 已提交，正在上传视频（" + Math.max(1, Math.round(v.size / 1048576)) + " MB），网慢要等一会儿，请别关页面…");
+          return fetch("/api/feedback?video=1&id=" + j.id + "&a=" + a, { method: "POST", headers: { "content-type": v.type || "video/mp4" }, body: v })
+            .then(function (r) { return r.json(); })
+            .then(function (k) { go.disabled = false; if (k.error) say("工单 #" + j.id + " 已提交，但视频没传上去：" + k.error + "。文字和截图我们已经收到"); else say(okMsg(j.id, "，视频也传好了"), true); mine(a); },
+              function () { go.disabled = false; say("工单 #" + j.id + " 已提交，但视频没传上去（网络断了）。文字和截图我们已经收到，视频可以到群里发给客服"); mine(a); });
         }, function () { go.disabled = false; say("网络不好，请再点一次"); });
     };
   }
@@ -229,6 +254,7 @@
   function imgUrl(id, i) { return "/api/feedback?img=" + id + ":" + i + "&key=" + encodeURIComponent(key()); }
   function card(t, one) {
     var ims = ""; for (var i = 0; i < t.n; i++) ims += '<a href="' + imgUrl(t.id, i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, i) + '"></a>';
+    if (t.v) ims += '<a class="fb-vbtn" href="/api/feedback?vid=' + t.id + "&key=" + encodeURIComponent(key()) + '" target="_blank" rel="noopener">▶ 看客户的视频' + (t.vs ? "（" + Math.max(1, Math.round(t.vs / 1048576)) + " MB）" : "") + "</a>"; // 站长 2026-11-17：客户随工单传的录屏，新开一页播放
     var s = ST[t.st] || ST["new"], tr = t.tri, lv = tr ? LV[tr.lv] : null;
     return '<div class="fb-tk lv' + (tr ? tr.lv : 2) + (t.vip ? " fb-vip" : "") + '" data-id="' + t.id + '"><div class="fb-tkh"><b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> ' + (t.vip ? '<span class="fb-tag" style="background:#b45309">⭐ ' + esc(t.vip) + ' · 站长亲审</span> ' : "") + '<span class="fb-tag" style="background:' + s[1] + '">' + s[0] + "</span>" + (lv ? '<span class="fb-tag" style="background:' + lv[1] + '">' + lv[0] + (tr.dup > 1 ? " · " + tr.dup + " 人同问" : "") + "</span>" : '<span class="fb-tag" style="background:#9ca3af">分诊中</span>') +
       (one ? "" : ' <a href="#/feedback/admin/' + t.id + '">打开处理 →</a>') + "</div>" +

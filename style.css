@@ -4467,3 +4467,9 @@ tr.bk-bot td{background-color:rgba(245,185,66,.09)}
 .bot-bar b{font-size:15.5px;color:#4c1d95}
 .bot-bar small{display:block;font-size:13px;color:#5b4b8a}
 .bot-bar small b{font-size:14px;color:#6d28d9}
+
+/* 站长 2026-11-17：工单可以传 1 个视频 */
+.fb-vz{padding:10px 12px}
+.fb-vn{margin-top:8px;font-size:13.5px;color:#4b5563;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.fb-vn .ghost{padding:2px 10px;font-size:12.5px}
+.fb-vbtn{display:inline-flex;align-items:center;padding:8px 14px;margin:4px 6px 4px 0;border-radius:10px;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;text-decoration:none}

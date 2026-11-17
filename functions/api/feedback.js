@@ -1,4 +1,6 @@
 // 📮 客户问题反馈（工单）：客户在 #/feedback 提交「钱包地址 + 文字 + 截图」，站长在 #/feedback/admin 挨个处理
+// POST 二进制 ?video=1&id=…&a=…  正文就是视频文件          → 给刚提交的工单附 1 个视频（站长 2026-11-17：客户录屏最能说明问题；最多 20MB，留 60 天）
+// GET  ?vid=<工单号>&key=…                                  → 站长后台看这个视频
 // POST { a, txt, imgs: [dataURL…] }                 → 新工单（截图前端已压缩成 JPEG；最多 4 张）；DeBox 私信通知客服
 // GET  ?mine=0x…                                    → 这个地址的工单进度（客户看：编号、时间、状态、回复，不含截图）
 // GET  ?key=FEEDBACK_KEY&list=1[&st=new|doing|done]   → 工单列表（站长）
@@ -85,6 +87,12 @@ export async function onRequestGet(ctx) {
     return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, lv, top: top ? { id: top.id, lv: top.tri ? top.tri.lv : 2, topic: top.tri ? top.tri.topic : "", dup: top.tri ? top.tri.dup : 0 } : null, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
   }
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
+  const vid = u.searchParams.get("vid");
+  if (vid) {
+    const r = await kv.getWithMetadata("tk:vid:" + (Number(vid) || 0), "arrayBuffer");
+    if (!r || !r.value) return new Response("视频没找到（可能已过期，视频只留 60 天）", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+    return new Response(r.value, { headers: { "content-type": (r.metadata && r.metadata.type) || "video/mp4", "cache-control": "private, max-age=3600" } });
+  }
   const img = u.searchParams.get("img");
   if (img) {
     const d = await kv.get("tk:img:" + img.replace(":", ":"));
@@ -105,9 +113,33 @@ export async function onRequestGet(ctx) {
   return json({ list: ts, cnt });
 }
 
+const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i, VID_MAX = 20 * 1024 * 1024;
+async function putVideo(ctx, kv, u) {
+  const a = String(u.searchParams.get("a") || "").trim().toLowerCase(), id = Number(u.searchParams.get("id")) || 0;
+  const type = String(ctx.request.headers.get("content-type") || "").split(";")[0].trim();
+  const big = "视频太大了（最多 20MB）。请录短一点（30 秒以内），或者改传截图";
+  if (!isAddr(a) || !id) return json({ error: "缺少工单号或钱包地址" }, 400);
+  if (!VID_OK.test(type)) return json({ error: "这个文件不是常见的视频格式，请用手机直接录的视频 / 录屏，或者改传截图" }, 400);
+  if (Number(ctx.request.headers.get("content-length") || 0) > VID_MAX) return json({ error: big }, 400);
+  const t = await kv.get("tk:" + id, "json");
+  // 只能给「自己刚提交的那张工单」补视频：地址要对得上，而且在提交后 30 分钟内，一张工单只收 1 个
+  if (!t || t.a !== a) return json({ error: "没有这个工单" }, 404);
+  if (Date.now() - t.t > 30 * 60e3) return json({ error: "这张工单提交太久了，视频请重新提一张工单一起传" }, 400);
+  if (t.v) return json({ error: "这张工单已经有视频了" }, 400);
+  const buf = await ctx.request.arrayBuffer();
+  if (!buf.byteLength) return json({ error: "视频是空的，请重新选一次" }, 400);
+  if (buf.byteLength > VID_MAX) return json({ error: big }, 400);
+  await kv.put("tk:vid:" + id, buf, { expirationTtl: 60 * 86400, metadata: { type, size: buf.byteLength } });
+  t.v = 1; t.vs = buf.byteLength;
+  await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+  return json({ ok: true });
+}
+
 export async function onRequestPost(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
+  const pu = new URL(ctx.request.url);
+  if (pu.searchParams.get("video")) return putVideo(ctx, kv, pu);
   let b = {};
   try { b = await ctx.request.json(); } catch (e) { return json({ error: "格式不对（截图太大的话请少传几张）" }, 400); }
   if (b.action === "set") {
@@ -137,7 +169,7 @@ export async function onRequestPost(ctx) {
   const a = String(b.a || "").trim().toLowerCase(), txt = String(b.txt || "").trim();
   const imgs = Array.isArray(b.imgs) ? b.imgs.filter((x) => typeof x === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(x)) : [];
   if (!isAddr(a)) return json({ error: "请填正确的钱包地址（0x 开头，42 位）" }, 400);
-  if (txt.length < 2 && !imgs.length) return json({ error: "请写一下遇到的问题，或者贴一张截图" }, 400);
+  if (txt.length < 2 && !imgs.length && !b.v) return json({ error: "请写一下遇到的问题，或者贴一张截图 / 传一个视频" }, 400); // b.v：客户选了视频，工单建好后马上单独上传
   if (txt.length > 2000) return json({ error: "文字太长了，2000 字以内" }, 400);
   if (imgs.length > 4) return json({ error: "截图最多 4 张" }, 400);
   if (imgs.some((x) => x.length > 1.5e6)) return json({ error: "有一张截图太大了，请换一张" }, 400);
