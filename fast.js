@@ -33,8 +33,8 @@
   }
   function left() { return data && data.me ? data.me.left + extra() : 0; }
   // 站长 2026-11-17：赔率更正成「全包返 95%」后，页面上的数字不能再写死 1.9——跟着接口给的 payx 走（没开闸还是 1.9，开闸后 9.5）
-  function W() { return (data && data.payx) || 1.9; }
-  function wf(k) { return String(+(W() * (k || 1)).toFixed(2)); }
+  function PAYX() { return (data && data.payx) || 1.9; }
+  function wf(k) { return String(+(PAYX() * (k || 1)).toFixed(2)); }
   /* 这一期我最多还能押几张：老票不限；新票每个钱包每期最多 cap2 张（站长 2026-11-14 定 100），已经押过的要扣掉 */
   function maxQ() {
     var me = data && data.me; if (!me) return 0;
@@ -63,7 +63,7 @@
     var oldMine = myOld || !!(v2 && me && (me.bets || []).some(function (x) { return x.st === "wait" && x.r === data.r && x.n > (x.n2 || 0) + (x.n3 || 0); })); /* 我手里有老票 / 这一期押了老票：才给我看老奖池那一行 */
     if (!data.multi && picks.length > 1) picks = picks.slice(0, 1);
     if (qty > maxPer()) qty = Math.max(1, maxPer());
-    var rk = v2 + ":" + !!data.v4 + ":" + W(); if (ruleV2 !== rk) { ruleV2 = rk; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
+    var rk = v2 + ":" + !!data.v4 + ":" + PAYX(); if (ruleV2 !== rk) { ruleV2 = rk; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
     var grid = "";
     for (var d = 0; d < 10; d++) grid += '<button type="button" class="fx-d' + (picks.indexOf(d) >= 0 ? " on" : "") + '" data-d="' + d + '"><b>' + d + "</b><i>" + (data.by[d] ? data.by[d] + " 票" : "还没人压") + "</i></button>";
     box.innerHTML =
@@ -90,7 +90,7 @@
       (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字，押 1 倍 = " + picks.length + " 张票。开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 " + wf() + "。" : "") + "</p>" : "") +
       '<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
       '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +
-      (v2 ? '<p class="note">猜中：每张票发 ' + wf() + ' DAI（本金 1 + 净赚 ' + String(+(W() - 1).toFixed(2)) + '），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
+      (v2 ? '<p class="note">猜中：每张票发 ' + wf() + ' DAI（本金 1 + 净赚 ' + String(+(PAYX() - 1).toFixed(2)) + '），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
         : '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');
     say(stT, stBad); betLabel(); clock();
     // 最近开奖
@@ -184,7 +184,7 @@
       "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
       "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
-      "<li><b>猜中发多少</b><span>每张票发 " + wf() + " DAI：拿回本金 1 DAI，再赚 " + String(+(W() - 1).toFixed(2)) + " DAI。压 5 张猜中就是 " + wf(5) + " DAI。" + (W() > 5 ? "十个数字全包要 10 张票，一定中 1 张，拿回 " + wf() + " DAI，也就是 95%。" : "") + "不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
+      "<li><b>猜中发多少</b><span>每张票发 " + wf() + " DAI：拿回本金 1 DAI，再赚 " + String(+(PAYX() - 1).toFixed(2)) + " DAI。压 5 张猜中就是 " + wf(5) + " DAI。" + (PAYX() > 5 ? "十个数字全包要 10 张票，一定中 1 张，拿回 " + wf() + " DAI，也就是 95%。" : "") + "不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
       "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
       "<li><b>没猜中</b><span>压的票就用掉了，不退。票钱是平台的服务收入；猜中的奖金从极速池里发，极速池由团队注入。</span></li>" +
       (data && data.v4 ? "<li><b>11 月 18 日前买的票</b><span>还能用，不作废，按买的时候的规则：猜中每张发 " + data.payOld + " DAI，每期最多押 " + data.capOld + " 张。只有 11 月 18 日赔率更正之后新买的票才是每张 " + wf() + " DAI（每期最多 " + data.cap2 + " 张）。两种票都有时，先用新买的票。</span></li>" : "") +
