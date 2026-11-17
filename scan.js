@@ -52,7 +52,10 @@
     return new TextDecoder().decode(new Uint8Array((h.match(/../g) || []).map(function (x) { return parseInt(x, 16); })));
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function amt(v, d) { var x = Number(v || 0) / Math.pow(10, Number(d || 18)); if (x < 1e-6) x = 0; return x === 0 ? "0" : x >= 1000 ? x.toLocaleString("en-US", { maximumFractionDigits: 2 }) : x >= 1 ? x.toFixed(4).replace(/\.?0+$/, "") : x.toPrecision(4); }
+  // 站长 2026-11-17「明细怎么都是 0」：一笔只有 0.000000008 LGNS 的零头成交，以前流向里写成「0」、说明里写成「8e-9」，看着像出了错。
+  // 现在极小的数照实写成普通小数（最多 12 位），不再抹成 0，也不用科学计数法
+  function small(x) { if (!(x > 0)) return "0"; var s = x.toFixed(12).replace(/0+$/, "").replace(/\.$/, ""); return s === "0" ? "不到 0.000000000001" : s; }
+  function amt(v, d) { var x = Number(v || 0) / Math.pow(10, Number(d || 18)); if (x > 0 && x < 1e-4) return small(x); return x === 0 ? "0" : x >= 1000 ? x.toLocaleString("en-US", { maximumFractionDigits: 2 }) : x >= 1 ? x.toFixed(4).replace(/\.?0+$/, "") : x.toPrecision(4); }
   function ago(t) {
     var s = (Date.now() - new Date(t).getTime()) / 1000;
     return s < 60 ? Math.max(1, Math.round(s)) + " 秒前" : s < 3600 ? Math.round(s / 60) + " 分钟前" : s < 86400 ? Math.round(s / 3600) + " 小时前" : Math.round(s / 86400) + " 天前";
@@ -215,7 +218,7 @@
     }).filter(function (m) { return m.dir; });
   }
   var sumOf = function (ms, dir, sym) { return ms.filter(function (m) { return m.dir === dir && (!sym || m.sym === sym) && !m.nft; }).reduce(function (t, m) { return t + m.v; }, 0); };
-  var fmtN = function (v, sym) { return "<b>" + (v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4)) + " " + esc(sym) + "</b>"; };
+  var fmtN = function (v, sym) { return "<b>" + (v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : v > 0 && v < 1e-4 ? small(v) : +v.toPrecision(4)) + " " + esc(sym) + "</b>"; };
   var firstIn = function (ms, sym) { return ms.filter(function (m) { return m.dir === "in" && (!sym || m.sym === sym); })[0]; };
   var firstOut = function (ms, sym) { return ms.filter(function (m) { return m.dir === "out" && (!sym || m.sym === sym); })[0]; };
   // 站长 2026-11-12：客户看价 824.99、账本写「单价 833」以为被多收了。吃单方的 1% 手续费是从收到的币里扣的，
@@ -311,7 +314,7 @@
     if (C.otc[to]) {
       var mk = C.otc[to];
       if (sel === "0x6fe4a448" || sel === "0xd6febde8") { // 吃单 / 买
-        if (coinIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxFee(daiOut, coinIn.card ? 0 : coinIn.v, true) };
+        if (coinIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b> " + fmtN(coinIn.v, coinIn.sym) + "，花了 " + fmtN(daiOut, "DAI") + pxFee(daiOut, coinIn.card ? 0 : coinIn.v, true) + (daiOut < 0.01 ? "<br><small class=\"muted\">金额极小：这是把一张挂单最后剩下的一点零头买走了（前面的成交除不尽留下的），不是出错，谁的钱都没有少。</small>" : "") };
         if (coinOut && daiIn) return { ico: "💰", text: "在 OTC <b>卖出</b> " + fmtN(coinOut.v, coinOut.sym) + "，收到 " + fmtN(daiIn, "DAI") + pxFee(daiIn, coinOut.card ? 0 : coinOut.v, false) };
         if (nftIn && daiOut) return { ico: "🛒", text: "在 OTC <b>买入</b>卡牌，花了 " + fmtN(daiOut, "DAI") };
       }
@@ -538,7 +541,7 @@
   var MK = { ailgns: { sym: "AiLGNS", dec: 18, chain: "Anubis" }, lgns: { sym: "LGNS", dec: 9, chain: "Anubis" }, glgns: { sym: "gLGNS", dec: 18, chain: "Anubis" }, plgns: { sym: "LGNS", dec: 9, chain: "Polygon" } };
   var LOANS = { ailgns: { c: "0x242ab392571d325d814a48892ac16115a6d285dc", sym: "AiLGNS", dec: 18 }, lgns: { c: "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b", sym: "LGNS", dec: 9 }, glgns: { c: "0x00e674bb1559557966a6c2244c36d12a63218a5f", sym: "gLGNS", dec: 18 } };
   var big = function (x, dec) { var b = BigInt(x); return dec >= 6 ? Number(b / BigInt(10) ** BigInt(dec - 6)) / 1e6 : Number(b) / Math.pow(10, dec); };
-  var fmtA = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : +v.toPrecision(4); };
+  var fmtA = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? +v.toFixed(4) : v > 0 && v < 1e-4 ? small(v) : +v.toPrecision(4); };
   var leftT = function (sec) { if (sec <= 0) return "已到期"; var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟"; };
   var wordsOf = function (r) { return (r || "0x").slice(2).match(/.{64}/g) || []; };
   function posRow(ico, html, href, cta, just, x) {
