@@ -672,14 +672,14 @@
         if (!imgs.length && !vid) return say("没选到图片或视频，请再选一次", true);
         if (vid && vid.size > 20 * 1024 * 1024) return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true);
         var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
-        var step = Promise.resolve();
+        var step = Promise.resolve(), lastSt = "";
         if (imgs.length) step = step.then(function () { say("正在处理截图…"); return Promise.all(imgs.map(sayShrink)); })
           .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: account, id: x.id, imgs: us }) }).then(jsonOf); })
-          .then(function (j) { if (j.error) throw new Error(j.error); });
+          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
         if (vid) step = step.then(function () { return imgs.length ? new Promise(function (ok) { setTimeout(ok, 9000); say("截图已交，马上接着上传视频，请别关页面…"); }) : null; })
           .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + account, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf); })
-          .then(function (j) { if (j.error) throw new Error(j.error); });
-        step.then(function () { say("✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); }, function (e) { say("没交上：" + ((e && e.message) || "网络不好，请再试一次"), true); });
+          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
+        step.then(function () { say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。名字烧够以后机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); }, function (e) { say("没交上：" + ((e && e.message) || "网络不好，请再试一次"), true); });
       };
     });
     var c = document.getElementById("or-conn");
