@@ -695,10 +695,22 @@
       if (raw.length > left) return A.errTip("你本轮只剩 " + left + " 次预测机会，但我们读到了 " + raw.length + " 个价格：" + raw.join("、") + "。\n一次只填 1 个价格，小数点用英文点，例如 831.462（还没扣次数）", go);
       var day = data.round;
       // 站长 2026-11-07：预测直接写上链（给自己发一笔 0 元转账，文字放交易里，只花约 0.001 DAI 的 Gas），链上永久留存、谁都能查；本站不收任何费用
+      /* 2026-11-17 客户「11岁潮平安」反复「转账失败（交易被链上拒绝）」：他的钱包被钱包 App 升级成了「智能账户」（EIP-7702，地址上挂了一段合约代码）。
+         给自己发一笔带文字的交易，会被那段代码当成调用、直接拒绝，白花 Gas 还提交不上。所以上链之前先看地址上有没有代码，有就自动改用签名提交（一样算数、不花 Gas） */
+      var viaSig = false;
+      var smart = function () { return W.rpcOn("anubis", "eth_getCode", [account, "latest"]).then(function (c) { return !!c && c !== "0x" && c.length > 2; }, function () { return false; }); };
       var chainGo = function () {
         st.textContent = "🔒 这是一笔 0 元转账（发给自己），预测写在交易里，只花约 0.001 DAI 的 Gas，本站不收费。请在钱包确认";
         var txt = "ailgns-oracle-guess:" + day + ":" + raw.join(","), hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
-        return (eth ? Promise.resolve() : connect()).then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
+        return (eth ? Promise.resolve() : connect()).then(smart).then(function (isSmart) {
+          if (!isSmart) return chainSend(hex);
+          viaSig = true;
+          st.textContent = "你的钱包是「智能账户」，没法把预测写到链上，已自动改用签名方式提交（一样算数、不花 Gas）…";
+          return sigGo();
+        });
+      };
+      var chainSend = function (hex) {
+        return Promise.resolve().then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
           .then(function () { return W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(function (b) { return BigInt(b); }, function () { return -1n; }); }) /* 读不到就不拦 */
           .then(function (bal) { if (bal >= 0n && bal < 2000000000000000n) throw new Error("这个钱包里没有 DAI 付 Gas。提交预测要发一笔 0 元交易，Gas 约 0.001 DAI（Anubis 链的 Gas 就是 DAI）。先往这个钱包转一点 DAI（0.1 就够用很久），再回来点提交。"); })
           .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
@@ -721,7 +733,7 @@
         (bySig ? sigGo() : chainGo()).then(function (j) {
           go.disabled = false;
           if (j.error) throw new Error(j.error);
-          st.textContent = "✅ 已提交" + (bySig ? "（签名方式，不上链）" : "并写入链上") + "！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
+          st.textContent = "✅ 已提交" + (bySig || viaSig ? "（签名方式，不上链）" : "并写入链上") + "！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
           load(rid);
         }).catch(function (e) {
           var m = (e && e.message) || String(e);
@@ -740,7 +752,8 @@
       var ps = (data.me && data.me.ps || []).join(","), day = data.round; if (!ps) return;
       oc.disabled = true; st.textContent = "🔒 这是一笔 0 元转账（发给自己），文字放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认";
       var txt = "ailgns-oracle-guess:" + day + ":" + ps, hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
-      (eth ? Promise.resolve() : connect()).then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
+      (eth ? Promise.resolve() : connect()).then(function () { return W.rpcOn("anubis", "eth_getCode", [account, "latest"]).then(function (c) { if (c && c.length > 2) throw new Error("你的钱包是「智能账户」，没法给自己发带文字的交易，所以写不了链上存证。不影响：你用签名提交的预测已经登记，一样算数、一样参加开奖"); }, function (e) { if (/智能账户/.test(e && e.message || "")) throw e; }); })
+        .then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
         .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
         .then(function (hash) { st.textContent = "已提交，等待链上确认…"; return (A.wallet && A.wallet.waitOn ? A.wallet.waitOn("anubis", hash) : Promise.resolve()).then(function () { return hash; }); })
         .then(function (hash) { return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "chain", tx: hash }) }).then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); return hash; }); })
