@@ -1281,7 +1281,7 @@
           "（均价 " + A.fmt(p.avg, PD) + (better > 0.005 ? '，<span class="up">比你填的价' + (sell ? "高 " : "低 ") + better.toFixed(2) + "%</span>" : "") + "，已扣 1% 手续费）</p>" +
           (restGive ? "<p>剩下 <b>" + (sell ? tShow(restGive) + " " + SYM : show(restGive, 2) + " DAI") + "</b> 按你的价自动挂单，等别人来成交。</p>" : "<p>全部都能马上成交，不用挂单等。</p>") +
           '<button type="button" id="otc-mgo">⚡ 一键成交 ' + p.steps.length + " 张" + (restGive ? " + 剩余挂单" : "") + '</button><p class="note" id="otc-mst"></p></div>';
-        document.getElementById("otc-mgo").onclick = matchGo;
+        var mgo = document.getElementById("otc-mgo"); if (mgo) mgo.onclick = matchGo; // 算好时客户可能已经离开这页了，按钮不在就算了
       }
       function buyPlan(list, want) { // 买入：按想买的币数从最便宜的卖单吃起，最多吃到 want 个
         var steps = [], dai = 0n, tok = 0n;

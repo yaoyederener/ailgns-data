@@ -1186,7 +1186,7 @@
     if (account) ownedList(account).then(function (list) {
       var m = document.getElementById("nm-sp-mine"); if (!m || !list.length) return;
       list.sort(function (x, y) { return (x.no || 1e9) - (y.no || 1e9); });
-      document.getElementById("nm-sp-dl").innerHTML = list.map(function (x) { return '<option value="' + esc(x.label + "." + x.t) + '">'; }).join("");
+      var dl = document.getElementById("nm-sp-dl"); if (dl) dl.innerHTML = list.map(function (x) { return '<option value="' + esc(x.label + "." + x.t) + '">'; }).join("");
       m.innerHTML = '<small class="muted">你的域名：</small>' + list.map(function (x) { return '<button type="button" data-n="' + esc(x.label + "." + x.t) + '">' + esc(x.label) + "." + x.t + (x.no ? " 🌟#" + x.no : "") + "</button>"; }).join("");
       m.onclick = function (e) { var b = e.target.closest("button[data-n]"); if (!b) return; ni.value = b.getAttribute("data-n"); m.querySelectorAll("button").forEach(function (y) { y.className = y === b ? "on" : ""; }); pi.focus(); };
     }, function () {});
