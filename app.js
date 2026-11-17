@@ -820,7 +820,7 @@
   }
   /* 没有文件名的报错（Script error. @:0）是钱包 App、浏览器插件往页面里塞的脚本抛的，看不到内容也修不了，不记 */
   window.addEventListener("error", function (e) { if (e && e.message && e.filename && !foreign(e.filename)) report(String(e.message) + " @" + String(e.filename || "").split("/").pop() + ":" + e.lineno); });
-  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|is not a function/.test(m)) { var at = ""; try { at = (String((r && r.stack) || "").match(/[\w.-]+\.js[^\s)]*/) || [""])[0].slice(0, 80); } catch (x) {} report(m + (at ? " @" + at : "")); } });
+  window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; var m = r && (r.message || r.reason || String(r)); if (m && /TypeError|ReferenceError|is not defined|Cannot read|Cannot set|is not a function/.test(m) && !/^webkit is not defined/.test(m)) { var at = ""; try { var sk = String((r && r.stack) || ""); at = (sk.match(/[\w.-]+\.js[^\s)]*/) || [""])[0].slice(0, 80) || sk.split("\n").slice(1, 3).join(" ").replace(/\s+/g, " ").slice(0, 120); } catch (x) {} report(m + (at ? " @" + at : "")); } });
   function errTip(t, el) {
     // 站长 2026-11-12：没装钱包时 A.wallets.choose() 已经弹了「到钱包 App 里操作」的选择框，这里再弹红色报错会把它盖住，客户以为出错了。有那个框就不报错
     try { if (/没有检测到钱包|No wallet/i.test(String(t && (t.message || t.reason || t))) && document.querySelector(".wlist")) return; } catch (e) { /* 忽略 */ }
