@@ -318,6 +318,8 @@
       if (type === "limit") {
         var px = Number(document.getElementById("tr-p").value) || 0, dai = toWei((num(coin, TD) * px).toFixed(6), 18), dur = Number(document.getElementById("tr-dur").value);
         if (!px) throw new Error("先填价格");
+        // 站长 2026-11-17：AiLGNS 的买单出价必须高于卖家去官方 DEX 卖的到手价（和 OTC 页同一条规矩）
+        if (side !== "sell" && MK === "ailgns" && book.mkt && M.dexSell && px <= book.mkt * M.dexSell) throw new Error("买单出价不能低于 " + f2(book.mkt * M.dexSell) + " DAI（卖家去官方 DEX 卖的到手价）。出价比这低，卖家卖给你就吃亏，本站不让挂。请把价格调高一点");
         var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
         return K().balance(token, account).then(function (b) {
           if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));

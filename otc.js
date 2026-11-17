@@ -950,6 +950,14 @@
     /* 参考价（站长 2026-11-13）：不再拿 DEX 市价当基准，按本站 OTC 现在的最低卖价，让挂单的人互相比价；没有卖单用最高买价，盘口全空才退回 DEX 市价。
        只管页面上的对比和提示；「比去 DEX 吃亏」的提醒、奖池折算价、预言家揭晓价都不走这里 */
     var otcAsk, otcBid;
+    /* 站长 2026-11-17「强行对价格保护」：AiLGNS 市场的买单出价必须高于「卖家把币拿去官方 DEX 卖、实际到手的价」（池子价 × 到手率），高一分钱也行。
+       出价比这低，卖家卖给你还不如去 DEX，这种买单本站不让挂。只管新挂的单（页面上拦），已经挂着的旧单不动；LGNS 市场卖出税不固定，先不管。
+       站长 11-10 定过「市场自由定价」、11-16 我劝过一次，这次是他明确要求改的 */
+    function bidFloor(mkt) { return MK === "ailgns" && mkt ? mkt * DEX_SELL : 0; }
+    function bidFloorMsg(fl) {
+      var ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
+      return "买单出价不能低于 " + A.fmt(fl, PD) + " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 " + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
+    }
     function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
       var now = Date.now() / 1000;
@@ -1218,7 +1226,9 @@
             if (otcAsk) { g1 = otcAsk; why = "和现在最低的卖单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = "现在没有别的卖单，按行情价挂，你就排第一"; }
           } else {
-            if (otcBid) { g1 = otcBid; why = "和其他客户最高的买单同价，排在最前面一档；同价的先挂先成交"; }
+            var gfl = bidFloor(mkt), gmin = gfl ? (Math.floor(gfl / tick) + 1) * tick : 0;
+            if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
+            else if (otcBid) { g1 = otcBid; why = "和其他客户最高的买单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk - tick : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
           }
           if (!(g1 > 0) || g1 === Infinity) { el.hidden = true; return; }
@@ -1291,6 +1301,8 @@
         { /* 和下面「发布挂单」同一条线：买价 ≥ 最低卖价 2 倍 / 卖价 ≤ 最高买价一半（没有买单时按参考价）→ 不让走。
              有没有剩余都拦：单价就是「最贵 / 最便宜吃到哪」的线，线划得离谱，数量一大就会一路吃到很亏的单；剩下的还会按这个价挂出去 */
           var pv = num(toWei(price.value)), r2 = oref && pv ? pv / oref.p : null, far = r2 ? (m.sell ? r2 <= 0.5 : r2 >= 2) : false;
+          var bfl2 = !m.sell ? bidFloor(mkt) : 0;
+          if (bfl2 && pv <= bfl2 && m.restGive > 0n) { msay(bidFloorMsg(bfl2), true); return; } // 吃完剩下的要按这个价挂买单：同样不能低于 DEX 到手价
           if (far && (m.sell ? (otcBid ? pv <= otcBid * 0.5 : true) : true)) {
             msay("你填的单价 " + A.fmt(pv, PD) + " 和现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）差了一倍以上。按这个价会一路" + (m.sell ? "卖给出价很低的买单" : "吃到要价很高的卖单") + "，剩下的还会按这个价挂出去、被别人马上" + (m.sell ? "低价买走" : "高价卖给你") + "，链上成交撤不回来。【这个价不能用】请把单价改到市价附近再点。", true);
             return;
@@ -1346,6 +1358,8 @@
            卖价只是比最低卖价低一半、但没低过买单一半的（可能是盘口卖单本身挂得离谱），不拦，还是弹确认。 */
         var block = far && (side === "buy" ? true : (otcBid ? num(p) <= otcBid * 0.5 : true));
         var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" + (block ? "【这个价不能挂】链上成交撤不回来，请把单价改到市价附近再发布。" : "") : "";
+        var bfl = side === "buy" ? bidFloor(mkt) : 0;
+        if (bfl && num(p) <= bfl) { far = true; block = true; farMsg = "⛔ " + bidFloorMsg(bfl); } // 买单出价不高于 DEX 到手价：不让挂
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
           (far ? '<div class="otc-far">' + farMsg + "</div>" : (r && verdict ? '<br><span class="down">' + verdict + "</span>" : ""));
