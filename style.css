@@ -4487,3 +4487,6 @@ tr.bk-bot td{background-color:rgba(245,185,66,.09)}
 .ptn-fdt{margin:0 0 6px;font-size:12px;line-height:1.5}
 .ptn-fda{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px}
 .ptn-fda .ghost{padding:4px 10px;font-size:12.5px}
+
+/* 站长 2026-11-17：农场动态里的「⚔️ 偷回去」 */
+.fm-rv{margin-left:6px;padding:3px 10px;border-radius:999px;border:1px solid #f5b942;background:#fff7e0;color:#92400e;font-size:12.5px;font-weight:700;white-space:nowrap}
