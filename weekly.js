@@ -19,7 +19,46 @@
       };
     });
   };
-  var ST = { wait: "⏳ 等烧创世名", ready: "🕐 机器人待发", sending: "🕐 发放中", paid: "✅ 已到账", forfeit: "已放弃" };
+  var DEBOX_GROUP = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
+  /* 📣 站长 2026-11-18：周榜领奖也要到群里发声明、上传截图 / 视频。压图和上传的办法同预言家页（oracle.js sayShrink），接口是同一个 /api/oracle-proof */
+  function shrink(file) {
+    return new Promise(function (ok, bad) {
+      var r = new FileReader();
+      r.onload = function () {
+        var im = new Image();
+        im.onload = function () {
+          var k = Math.min(1, 1400 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+          ok(c.toDataURL("image/jpeg", 0.75));
+        };
+        im.onerror = function () { bad(new Error("这张图片打不开，请换一张")); }; im.src = r.result;
+      };
+      r.onerror = function () { bad(new Error("这张图片读不出来，请换一张")); };
+      r.readAsDataURL(file);
+    });
+  }
+  function bindUp(root, reload) {
+    Array.prototype.forEach.call(root.querySelectorAll(".wkb-upf"), function (fi) {
+      fi.onchange = function () {
+        var id = fi.getAttribute("data-id"), a = fi.getAttribute("data-a"), stEl = fi.parentNode.parentNode.querySelector(".wkb-upst");
+        var say = function (t, bad) { if (stEl) { stEl.textContent = t; stEl.className = "wkb-upst" + (bad ? " bad" : ""); } };
+        var fs = Array.prototype.slice.call(fi.files || []), imgs = fs.filter(function (f) { return /^image\//.test(f.type); }).slice(0, 3), vid = fs.filter(function (f) { return /^video\//.test(f.type); })[0];
+        fi.value = "";
+        if (!imgs.length && !vid) return say("没选到图片或视频，请再选一次", true);
+        if (vid && vid.size > 20 * 1024 * 1024) return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true);
+        var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
+        var step = Promise.resolve(), last = "";
+        if (imgs.length) step = step.then(function () { say("正在处理截图…"); return Promise.all(imgs.map(shrink)); })
+          .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: a, id: id, imgs: us }) }).then(jsonOf); })
+          .then(function (j) { if (j.error) throw new Error(j.error); last = j.st; });
+        else step = step.then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(id) + "&a=" + a, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf); })
+          .then(function (j) { if (j.error) throw new Error(j.error); last = j.st; });
+        step.then(function () { say(last === "wait" ? "✅ 交上去了，已通过。创世名烧掉以后机器人自动发奖" : "✅ 交上去了，已自动通过，机器人几分钟内发奖"); setTimeout(reload, 1500); }, function (e) { say("没交上：" + ((e && e.message) || "网络不好，请再试一次"), true); });
+      };
+    });
+  }
+  var ST = { say: "📣 等上传声明截图", wait: "⏳ 等烧创世名", ready: "🕐 机器人待发", sending: "🕐 发放中", paid: "✅ 已到账", forfeit: "已放弃" };
 
   function row(x, i, showAmt) {
     return '<li><i class="wkb-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><div class="wkb-who"><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>付手续费 " + dai(x.fee) + " DAI · 占 " + pct(x.share) + "</small></div>" +
@@ -44,7 +83,8 @@
       "<li><b>排什么</b><span>每周一到周日（北京时间），你在本站 OTC <b>吃单付的手续费</b>加起来，从高到低排。挂单被别人吃不付手续费，不算。</span></li>" +
       "<li><b>谁能分</b><span>前 " + d.rules.top + " 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>" +
       "<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 " + d.rules.top + " 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>" +
-      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，先到「🔥 创世域名销毁」页销毁 1 枚创世名，机器人核对后自动发到你的钱包，不用申请。</span></li>" +
+      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内做两件事：<b>①</b> 到「🔥 创世域名销毁」页销毁 1 枚创世名；<b>②</b> 到 DeBox 的 AiLGNS 群里发一句文字声明（写上名字、哪一周、第几名、分到多少），截个图或录一小段视频，回到本页「💸 发放记录」里点「📷 上传截图 / 视频」。两件都做完自动通过，机器人发到你的钱包，不用找任何人。</span></li>" +
+      '<li><b>防骗</b><span>领奖全程在本页自助完成，<b>不需要任何客服帮忙</b>。有人私聊你「指导领奖」、要助记词、让你先转账的，都是骗子。</span></li>' +
       "<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>" +
       "<li><b>没领的</b><span>" + d.rules.burnDays + " 天没烧算放弃，这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
       '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';
@@ -54,15 +94,19 @@
     }
     if (d.pays && d.pays.length) {
       html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x) {
-        var s = ST[x.st] || x.st, more = x.st === "wait" ? " · 还剩 " + left(x.due) : "";
-        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>";
+        var s = x.st === "wait" && x.ok ? "⏳ 凭证已通过，等烧创世名" : ST[x.st] || x.st, more = x.st === "wait" ? " · 还剩 " + left(x.due) : "";
+        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span>" +
+          ((x.st === "say" || x.st === "wait") && !x.ok ? '<div class="wkb-up">' + (x.st === "say" ? '<a href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 先去 DeBox 群里发声明 ↗</a>' : "") + '<label class="wkb-upb"><input type="file" class="wkb-upf" data-id="' + esc(x.id) + '" data-a="' + esc(x.a) + '" accept="image/*,video/*" multiple hidden>📷 上传截图 / 视频</label><p class="wkb-upst"></p></div>' : "") + "</li>";
       }).join("") + "</ul></section>";
     }
     A.app.innerHTML = html;
     try { bindCopy(A.app); } catch (e) { /* 复制按钮挂不上不影响看榜 */ }
+    try { bindUp(A.app, function () { if (refresh) refresh(); }); } catch (e) { /* 上传按钮挂不上不影响看榜 */ }
     try { if (A.credFill) A.credFill(A.app); } catch (e) { /* 信誉标志挂不上不影响看榜 */ }
   }
+  var refresh = null; /* 传完凭证后重新取一次数据重画（不刷新整个页面） */
   A.pages.weekly = function (id) {
+    refresh = function () { A.getJSON("/api/weekly?t=" + Date.now()).then(function (d) { if (d && d.rules && A.isCurrent(id)) { try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) { /* 存不下就算了 */ } draw(d, "done"); } }).catch(function () { /* 取不到就保持原样 */ }); };
     var st = null;
     try { st = JSON.parse(localStorage.getItem(CACHE)); } catch (e) { st = null; }
     if (!st || !st.rules) st = null;

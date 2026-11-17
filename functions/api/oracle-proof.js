@@ -6,6 +6,7 @@
 // 存 KV：or:proof:<奖项编号>:i0..i2（图片 dataURL）、or:proof:<奖项编号>:v（视频原文件），留 60 天。
 // 不要求钱包签名（站长要方便）：凭证只是给团队看的，奖只会发到中奖钱包，别人乱传也领不走钱；通过不通过由团队看了算。
 import { needSay, payState, autoOk } from "../../lib/oracle.js";
+import { wkState, wkNeedSay } from "../../lib/weekly.js";
 import { pushInbox, OWNER } from "../../lib/inbox.js";
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const TTL = 60 * 86400, MAX_IMG = 3, IMG_MAX = 1200000, VID_MAX = 20 * 1024 * 1024;
@@ -15,12 +16,18 @@ const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 
 async function mine(kv, id, a) { // 找到这笔奖，并确认还收凭证
-  const pay = (await kv.get("or:pay", "json")) || [], x = pay.find((p) => String(p.id) === String(id) && p.a === a);
+  const wk = /^wk:/.test(String(id)), key = wk ? "wk:pay" : "or:pay"; // 周榜的奖（编号 wk: 开头）存在另一张表里，上传口共用
+  const pay = (await kv.get(key, "json")) || [], x = pay.find((p) => String(p.id) === String(id) && p.a === a);
   if (!x) return { err: json({ error: "没找到这笔奖。请确认连的是中奖的那个钱包，再刷新页面试一次" }, 404) };
+  if (wk) {
+    const ws = wkState(x);
+    if (!wkNeedSay(x) || ws === "paid" || ws === "forfeit" || ws === "sending" || ws === "ready") return { err: json({ error: ws === "ready" || ws === "sending" ? "凭证已经通过了，等机器人发奖就行" : "这笔奖不用再交了" }, 400) };
+    return { pay, x, key, wk };
+  }
   const st = payState(x);
   if (!needSay(x) || st === "paid" || st === "forfeit") return { err: json({ error: "这笔奖不用再交了" }, 400) };
   if (x.ok && !x.ok.auto) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
-  return { pay, x };
+  return { pay, x, key };
 }
 async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱刷（前端传完截图会等 9 秒再传视频）
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x", k = "or:proof:rl:" + ip;
@@ -29,6 +36,14 @@ async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱
   return null;
 }
 const IMG_MIN = 4000, VID_MIN = 100 * 1024; // 🤖 简单审核：截图不能是空白小图、视频不能只有一丁点；不够格的留给站长手动看
+const WK_BAD = "这张截图太小或者是空白的，请重新截一张清楚的再传（要能看到你在群里发的声明）";
+function tellWk(ctx, kv, x, what) { // 周榜：凭证像样就自动通过，站长只收一条通知
+  x.ok = { at: Date.now(), auto: 1 };
+  const next = wkState(x) === "ready" ? "机器人几分钟内买成 AiLGNS 发到这个钱包。" : "创世名烧掉以后，机器人自动发到这个钱包。";
+  ctx.waitUntil(kv.delete("wk:cache").catch(() => {}));
+  ctx.waitUntil(pushInbox(kv, OWNER, "sys", "🤖 周榜奖金凭证已自动通过（" + what + "）\n" + x.name + " · " + x.cyc + " 那一周 · " + x.amt + " DAI\n" + next + "不用你点。", "#/weekly").catch(() => {}));
+  ctx.waitUntil(pushInbox(kv, x.a, "sys", "✅ 你的周榜领奖凭证已通过（" + x.cyc + " 那一周 · " + x.amt + " DAI）。" + next + "\n⚠️ 领奖全程自助，不需要任何客服帮忙；有人私聊你「指导领奖」都是骗子。", "#/weekly").catch(() => {}));
+}
 function tell(ctx, kv, x, what, good) {
   if (good && autoOk(x) && !x.ok) { // 小奖：凭证像样就自动通过，站长只收一条「已自动通过」的通知，想撤回还可以到后台撤
     x.ok = { at: Date.now(), auto: 1 };
@@ -55,11 +70,12 @@ export async function onRequestPost(ctx) {
     const buf = await ctx.request.arrayBuffer();
     if (!buf.byteLength) return json({ error: "视频是空的，请重新选一次" }, 400);
     if (buf.byteLength > VID_MAX) return json({ error: "视频太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图" }, 400);
+    if (m.wk && buf.byteLength < VID_MIN) return json({ error: "这段视频太短了，请重新录一段（要能看到你在群里发的声明），或者改传截图" }, 400);
     await kv.put("or:proof:" + id + ":v", buf, { expirationTtl: TTL, metadata: { type, size: buf.byteLength } });
     m.x.say = Object.assign({}, m.x.say || {}, { v: 1, vt: type, at: Date.now() });
-    tell(ctx, kv, m.x, "视频", buf.byteLength >= VID_MIN);
-    await kv.put("or:pay", JSON.stringify(m.pay));
-    return json({ ok: true, st: payState(m.x) });
+    if (m.wk) tellWk(ctx, kv, m.x, "视频"); else tell(ctx, kv, m.x, "视频", buf.byteLength >= VID_MIN);
+    await kv.put(m.key, JSON.stringify(m.pay));
+    return json({ ok: true, st: m.wk ? wkState(m.x) : payState(m.x) });
   }
   let b = {};
   try { b = await ctx.request.json(); } catch (e) { return json({ error: "格式不对" }, 400); }
@@ -72,11 +88,12 @@ export async function onRequestPost(ctx) {
     if (imgs.some((s) => s.length > IMG_MAX)) return json({ error: "有一张截图太大了，请换一张" }, 400);
     const m = await mine(kv, id, a); if (m.err) return m.err;
     const rl = await limit(kv, ctx); if (rl) return rl;
+    if (m.wk && !imgs.some((s) => s.length >= IMG_MIN)) return json({ error: WK_BAD }, 400);
     for (let i = 0; i < imgs.length; i++) await kv.put("or:proof:" + id + ":i" + i, imgs[i], { expirationTtl: TTL });
     m.x.say = Object.assign({}, m.x.say || {}, { n: imgs.length, at: Date.now() });
-    tell(ctx, kv, m.x, imgs.length + " 张截图", imgs.some((s) => s.length >= IMG_MIN));
-    await kv.put("or:pay", JSON.stringify(m.pay));
-    return json({ ok: true, st: payState(m.x) });
+    if (m.wk) tellWk(ctx, kv, m.x, imgs.length + " 张截图"); else tell(ctx, kv, m.x, imgs.length + " 张截图", imgs.some((s) => s.length >= IMG_MIN));
+    await kv.put(m.key, JSON.stringify(m.pay));
+    return json({ ok: true, st: m.wk ? wkState(m.x) : payState(m.x) });
   }
   // —— 后台看凭证 ——
   if (b.action === "view") {

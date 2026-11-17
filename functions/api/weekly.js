@@ -12,14 +12,14 @@ import { alertOwner } from "../../lib/alert.js";
 
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const rules = () => ({ top: WK_TOP, burnDays: WK_BURN_DAYS, gas: WK_GAS, from: WK_FROM });
-const pub = (x) => ({ id: x.id, cyc: x.cyc, a: x.a, name: x.name, fee: x.fee, amt: x.amt, ail: x.ail || 0, st: wkState(x), tx: x.tx || "", due: payDue(x) });
+const pub = (x) => ({ id: x.id, cyc: x.cyc, a: x.a, name: x.name, fee: x.fee, amt: x.amt, ail: x.ail || 0, st: wkState(x), ok: !!x.ok, tx: x.tx || "", due: payDue(x) });
 
 function demo(now) { // 预览站用的示例数据
   const cyc = weekStart(bjDay(now)), names = ["示例甲", "示例乙", "示例丙", "示例丁", "示例戊", "示例己", "示例庚", "示例辛", "示例壬", "示例癸"];
   const top = split(names.map((n, i) => ({ a: "0x" + String(i + 1).padStart(40, "0"), name: n + ".ailgns", fee: Math.round((320 - i * 29) * 100) / 100 })), 998);
   return { demo: true, on: true, pre: false, rules: rules(), cyc, to: weekEnd(cyc), endAt: endAt(cyc), n: 87, pool: { a: "0x" + "0".repeat(40), bal: 1000, owed: 0, avail: 998 }, top,
     last: { cyc: addDays(cyc, -7), to: addDays(cyc, -1), avail: 500, top: split(top.slice(0, 10).map((x) => ({ a: x.a, name: x.name, fee: x.fee })), 500) },
-    pays: top.slice(0, 3).map((x, i) => ({ id: "wk:demo:" + i, cyc: addDays(cyc, -7), a: x.a, name: x.name, fee: x.fee, amt: [120.5, 96.2, 71.3][i], ail: i ? 0 : 0.144612, st: ["paid", "wait", "forfeit"][i], tx: i ? "" : "0x" + "ab".repeat(32), due: now + 2 * 86400e3 })), at: now };
+    pays: top.slice(0, 3).map((x, i) => ({ id: "wk:demo:" + i, cyc: addDays(cyc, -7), a: x.a, name: x.name, fee: x.fee, amt: [120.5, 96.2, 71.3][i], ail: i ? 0 : 0.144612, st: ["paid", "say", "wait"][i], tx: i ? "" : "0x" + "ab".repeat(32), due: now + 2 * 86400e3 })), at: now };
 }
 
 async function view(ctx, kv, now) {
@@ -41,7 +41,7 @@ export async function onRequestGet(ctx) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     let done = null;
     try { done = await settleWeek(kv, now); } catch (e) { return json({ error: "结算没成：" + String((e && e.message) || e).slice(0, 120), pay: [] }); }
-    if (done) for (const w of done.top) if (w.amt > 0) { try { await pushInbox(kv, w.a, "sys", "🏆 OTC 手续费周榜\n你是 " + done.cyc + " 这一周的第 " + (done.top.indexOf(w) + 1) + " 名，分到 " + w.amt + " DAI。\n" + WK_BURN_DAYS + " 天内先销毁 1 枚创世名，机器人核对后用这笔 DAI 在本站 OTC 买成 AiLGNS，自动转到你的钱包；过期算放弃。", "#/weekly"); } catch (e) { /* 通知失败不影响结算 */ } }
+    if (done) for (const w of done.top) if (w.amt > 0) { try { await pushInbox(kv, w.a, "sys", "🏆 OTC 手续费周榜\n你是 " + done.cyc + " 这一周的第 " + (done.top.indexOf(w) + 1) + " 名，分到 " + w.amt + " DAI。\n" + WK_BURN_DAYS + " 天内做两件事：① 销毁 1 枚创世名；② 到 DeBox 的 AiLGNS 群里发一句文字声明（写上名字、哪一周、第几名、分到多少），截图或录一小段视频，到周榜页「发放记录」里点「📷 上传截图 / 视频」。两件都做完自动通过，机器人用这笔 DAI 在本站 OTC 买成 AiLGNS 转到你的钱包；过期算放弃。\n⚠️ 领奖全程自助，不需要任何客服帮忙；有人私聊你「指导领奖」都是骗子。", "#/weekly"); } catch (e) { /* 通知失败不影响结算 */ } }
     let pays = (await kv.get("wk:pay", "json")) || [];
     try { pays = (await burnCheck(kv, u.origin, pays, now, "wk:pay")).pays; } catch (e) { return json({ error: "烧名字核对没成", pay: [] }); }
     const stuck = pays.filter((x) => wkState(x) === "sending" && now - x.lock > WK_STUCK);
