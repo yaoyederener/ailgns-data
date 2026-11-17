@@ -119,6 +119,8 @@
     function logText(l) {
       var m = esc(l.m);
       try { if (/^0x[0-9a-f]{40}$/.test(l.a || "")) m = m.replace(l.a.slice(0, 6) + "…" + l.a.slice(-4), '<b class="fm-lw">' + A.nameTag(l.a) + "</b>"); } catch (e) { /* 换不了就显示原文 */ }
+      // 被偷成了的那一条：2 天内可以点「偷回去」，那一次不会被狗和警察拦（站长 2026-11-17）
+      try { if (l.rv && l.a && me && me.rv && me.rv[l.a] > Math.floor(Date.now() / 1000) + skew) m += ' <button type="button" class="fm-rv" data-rv="' + l.a + '">⚔️ 偷回去</button>'; } catch (e) { /* 不显示按钮也不影响 */ }
       return m;
     }
     function post(a, extra, quiet) { // quiet：一键偷菜时不每家弹一次提示，最后汇总
@@ -294,6 +296,7 @@
         out.querySelectorAll(".fm-plot.ripe").forEach(function (b) { b.onclick = function () { run("harvest"); }; });
         on("fm-buyplot", function () { if (confirm("花 " + R.plots[me.plots.length - 6] + " 金币开垦一块新地？")) run("buyPlot"); });
         on("fm-eggs", function () { run("eggs"); });
+        out.querySelectorAll(".fm-rv").forEach(function (b) { b.onclick = function () { b.disabled = true; run("steal", { to: b.getAttribute("data-rv") }); }; }); // ⚔️ 偷回去：复仇那一次不会被拦
         on("fm-feed", function () { run("feed"); });
         on("fm-hen", function () { run("buyHen"); });
         on("fm-dog", function () { if (confirm("花 " + R.dog.price + " 金币请看门狗看 " + R.dog.days + " 天？")) run("dog"); });
@@ -309,7 +312,7 @@
       var want = tab;
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
-        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
+        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">🎁 <b>每天第一次偷必得手</b>，对方有狗有警察也拦不住。被人偷了？回农场首页「农场动态」点「⚔️ 偷回去」，那一次同样不会被拦。</p><p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
         var all = out.querySelector("#fm-all");
         if (all) all.onclick = function () {
           var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled && !b.hasAttribute("data-cop"); }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, cops = 0, i = 0, batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // 这一轮的编号，服务器按它算保底
