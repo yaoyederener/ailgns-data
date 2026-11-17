@@ -891,7 +891,8 @@ return;}
 var gr=GUIDE&&GUIDE[MK]&&GUIDE[MK][side];if(gr){g=mkt*gr;var gn=GUIDE[MK].n[side],goff=(gr-1)*100;el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g,PD)+'</b><small>DAI / 枚 · 比 DEX 市价'+(goff>=0?"高 ":"低 ")+Math.abs(goff).toFixed(1)+'%</small></div>';if(auto||!price.value){price.value=g.toFixed(PD);auto=true;}
 return;}
 var off=(1-g/mkt)*100,sellGain=(side==="sell"?g:g*TAKER)-dexSell,buyGain=dexBuy-(side==="sell"?g/TAKER:g);el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g,PD)+'</b><small>DAI / 枚 · 比市价'+(off>=0?"低 ":"高 ")+Math.abs(off).toFixed(1)+'%</small></div>';if(auto||!price.value){price.value=g.toFixed(PD);auto=true;}}
-var now0=Date.now()/1000,live0=orders.filter(function(o){return o.open&&o.expiry>now0&&o.giveLeft>0n&&!isDust(o)&&o.maker!==account;});var mbox=document.getElementById("otc-match"),mp=null;function match(){var q=qtyWei(),pw=toWei(price.value),pr=Number(price.value),sell=side==="sell";mp=null;if(!q||!pw||!(pr>0)){mbox.innerHTML="";return;}
+var now0=Date.now()/1000,live0=orders.filter(function(o){return o.open&&o.expiry>now0&&o.giveLeft>0n&&!isDust(o)&&o.maker!==account;});var mbox=document.getElementById("otc-match"),mp=null;function match(){var q=qtyWei(),pw=toWei(price.value),pr=Number(price.value),sell=side==="sell";mp=null;if(sell){mbox.innerHTML="";return;}
+if(!q||!pw||!(pr>0)){mbox.innerHTML="";return;}
 var cross=live0.filter(function(o){return!o._far&&(sell?!o.sellAilgns&&priceOf(o)>=pr:o.sellAilgns&&priceOf(o)<=pr);}).sort(function(a,b){return sell?priceOf(b)-priceOf(a):priceOf(a)-priceOf(b);});var total=q*pw/TUNIT,p=cross.length?(sell?sweepPlanTok(cross,q):buyPlan(cross,q)):null;if(!p||!p.steps.length){mbox.innerHTML="";return;}
 var restGive=sell?q-p.tok:(q-p.tok)*pw/TUNIT,restWant=sell?restGive*pw/TUNIT:q-p.tok;var restDai=sell?restWant:restGive;if(restDai<MIN_DAI){restGive=0n;restWant=0n;}
 mp={p:p,sell:sell,restGive:restGive,restWant:restWant};var fee=sell?p.dai/100n:p.tok/100n,better=sell?(p.avg/pr-1)*100:(1-p.avg/pr)*100;mbox.innerHTML='<div class="otc-match"><b class="om-t">⚡ 有更划算的单，现在就能成交</b>'+"<p>市场上有 <b>"+p.steps.length+" 张"+(sell?"买单出价 ≥":"卖单要价 ≤")+"</b> 你填的价，可以立刻"+(sell?"卖出 <b>"+tShow(p.tok)+" "+SYM+"</b>，到手 <b>"+show(p.dai-fee,2)+" DAI</b>":"买到 <b>"+tShow(p.tok-fee)+" "+SYM+"</b>，付 <b>"+show(p.dai,2)+" DAI</b>")+"（均价 "+A.fmt(p.avg,PD)+(better>0.005?'，<span class="up">比你填的价'+(sell?"高 ":"低 ")+better.toFixed(2)+"%</span>":"")+"，已扣 1% 手续费）</p>"+
@@ -1023,5 +1024,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h711b1d84cd";
-/*v:h711b1d84cd*/
+;window.AIL_CORE="h944d364f86";
+/*v:h944d364f86*/

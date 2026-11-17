@@ -1266,6 +1266,7 @@
       function match() {
         var q = qtyWei(), pw = toWei(price.value), pr = Number(price.value), sell = side === "sell";
         mp = null;
+        if (sell) { mbox.innerHTML = ""; return; } /* 站长 2026-11-17：「这个提示去掉，我们希望客户挂低价卖单」→ 挂卖单时不再提示「有更划算的单，现在就能成交」，直接按客户填的价挂；买单的提示没动 */
         if (!q || !pw || !(pr > 0)) { mbox.innerHTML = ""; return; }
         var cross = live0.filter(function (o) { return !o._far && (sell ? !o.sellAilgns && priceOf(o) >= pr : o.sellAilgns && priceOf(o) <= pr); })
           .sort(function (a, b) { return sell ? priceOf(b) - priceOf(a) : priceOf(a) - priceOf(b); });
