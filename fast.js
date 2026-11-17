@@ -32,6 +32,9 @@
     return x;
   }
   function left() { return data && data.me ? data.me.left + extra() : 0; }
+  // 站长 2026-11-17：赔率更正成「全包返 95%」后，页面上的数字不能再写死 1.9——跟着接口给的 payx 走（没开闸还是 1.9，开闸后 9.5）
+  function W() { return (data && data.payx) || 1.9; }
+  function wf(k) { return String(+(W() * (k || 1)).toFixed(2)); }
   /* 这一期我最多还能押几张：老票不限；新票每个钱包每期最多 cap2 张（站长 2026-11-14 定 100），已经押过的要扣掉 */
   function maxQ() {
     var me = data && data.me; if (!me) return 0;
@@ -56,7 +59,7 @@
     box.innerHTML =
       (data.trial ? '<p class="fx-trial">🧪 预览演示：还没正式开始，现在下注<b>不发奖</b>，只用来看页面。</p>' : "") +
       '<div class="fx-hero"><p class="fx-t">本期 <b>' + at(data.r) + '</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>' +
-      (v2 ? '<p class="fx-pot">猜中每张票发 <b>1.9 DAI</b></p><p class="fx-pot2">押 1 张猜中发 1.9 DAI，押 10 张猜中发 <b>19 DAI</b>（1 张票 = 1 DAI）· 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
+      (v2 ? '<p class="fx-pot">猜中每张票发 <b>' + wf() + ' DAI</b></p><p class="fx-pot2">押 1 张猜中发 ' + wf() + ' DAI，押 10 张猜中发 <b>' + wf(10) + ' DAI</b>（1 张票 = 1 DAI）· 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
           (oldOn && oldMine ? '<p class="fx-res">你的老票（规则调整前买的）按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
         : data.res && SHOW_RES
           ? '<p class="fx-pot">资金池 <b>' + money(data.res.dai) + " DAI</b></p>" +
@@ -76,7 +79,7 @@
       (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字，押 1 倍 = " + picks.length + " 张票。开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 1.9。" : "") + "</p>" : "") +
       '<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
       '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +
-      (v2 ? '<p class="note">猜中：每张票发 1.9 DAI（本金 1 + 净赚 0.9），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
+      (v2 ? '<p class="note">猜中：每张票发 ' + wf() + ' DAI（本金 1 + 净赚 ' + String(+(W() - 1).toFixed(2)) + '），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
         : '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');
     say(stT, stBad); betLabel(); clock();
     // 最近开奖
@@ -136,7 +139,7 @@
     var k = picks.length, ds = picks.slice().sort();
     if (maxPer() < 1) return say("票不够：选了 " + k + " 个数字，每个至少 1 张要 " + k + " 张票，你这一期最多还能押 " + maxQ() + " 张。少选几个数字，或者先去买票。", true);
     var n = Math.min(qty, maxPer()), tot = n * k, d = dsText(); /* n = 每个数字几张，tot = 一共几张 */
-    var win = data.v2 ? "猜中每张票发 1.9 DAI" : "猜中平分奖池";
+    var win = data.v2 ? "猜中每张票发 " + wf() + " DAI" : "猜中平分奖池";
     if (!window.confirm(k === 1
       ? "确定押 " + n + " 倍，猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + win + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回"
       : "确定押 " + n + " 倍（每个数字 " + n + " 张），猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字：" + win + "，其余数字的票就用掉了" + (k >= 10 ? "\n⚠️ 10 个数字全选一定亏" : "") + "\n③ 发出去以后不能撤回")) return;
@@ -149,7 +152,7 @@
   }
 
   var ruleV2 = false;
-  function subT(v2) { return v2 ? "10 分钟开一期，猜一个 0 到 9 的数字。猜中每张票发 1.9 DAI。" : "10 分钟开一期，猜一个 0 到 9 的数字。猜中的人平分本期奖池。"; }
+  function subT(v2) { return v2 ? "10 分钟开一期，猜一个 0 到 9 的数字。猜中每张票发 " + wf() + " DAI。" : "10 分钟开一期，猜一个 0 到 9 的数字。猜中的人平分本期奖池。"; }
   function rulesH(v2) { // 规则说明：新规则生效前后各一套（和 lib/fast.js、monita/fast_oracle.py 的算法一致，改规则三处一起改）
     if (!v2) return '<h2>规则一共六条</h2><ol class="bn-rules">' +
       "<li><b>票从哪来</b><span>注册一个纯数字的 .ailgns 域名，付多少 DAI 就得多少张票，5 DAI 就是 5 张。票记在付款的钱包上，续费不算。要自己点注册才有票，交给机器人代点的暂时不算。</span></li>" +
@@ -163,11 +166,11 @@
       "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
       "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
       "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
-      "<li><b>猜中发多少</b><span>每张票发 1.9 DAI：拿回本金 1 DAI，再赚 0.9 DAI。压 5 张猜中就是 9.5 DAI。不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
+      "<li><b>猜中发多少</b><span>每张票发 " + wf() + " DAI：拿回本金 1 DAI，再赚 " + String(+(W() - 1).toFixed(2)) + " DAI。压 5 张猜中就是 " + wf(5) + " DAI。" + (W() > 5 ? "十个数字全包要 10 张票，一定中 1 张，拿回 " + wf() + " DAI，也就是 95%。" : "") + "不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
       "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
       "<li><b>没猜中</b><span>压的票就用掉了，不退。票钱是平台的服务收入；猜中的奖金从极速池里发，极速池由团队注入。</span></li>" +
       "<li><b>老票</b><span>规则调整前用纯数字域名换的票还能用，按老规则：同一期的老票进老奖池，猜中的按票数分，没人中滚到下一期。老票和新票都有时，先用老票。</span></li></ol>" +
-      '<p class="bn-warn">⚠️ 十个数字只开一个：猜中 1 张变 1.9，猜不中票就没了，平均下来是输的。这不是赚钱的办法，请只用闲钱玩。</p>';
+      '<p class="bn-warn">⚠️ 十个数字只开一个：猜中 1 张变 ' + wf() + '，猜不中票就没了，平均下来是输的。这不是赚钱的办法，请只用闲钱玩。</p>';
   }
   function render() {
     ruleV2 = false;
