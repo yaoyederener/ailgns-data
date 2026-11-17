@@ -328,7 +328,9 @@
   function sayBox(me) {
     var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
     var L = (me && me.sayDue) || [];
-    return L.map(function (x, i) {
+    // 站长 2026-11-17 深夜：很多骗子冒充客服「指导领奖」。领奖卡最上面先放一块醒目的防骗提醒：全程自助，没有人工环节
+    var SCAM = "<div class=\"scam-warn\"><b>🚨 警惕骗子：领奖全程在这个网页上自助完成，不需要任何「客服」帮忙</b><ul><li>官方<b>不会私聊你</b>，更不会「指导你领奖」。你在群里说完中奖，马上来私聊你的，就是骗子。</li><li><b>绝不要</b>把助记词、私钥告诉任何人；不要屏幕共享、不要装对方发来的软件。</li><li>领奖<b>不用先转账</b>，没有手续费、保证金、税、「解冻费」。让你先打钱的，就是骗子。</li><li>只认 <b>ailgns.dev</b> 这个网址。别人发来的链接、二维码、「领奖页面」一律不要点、不要授权。</li></ul><small>奖金由机器人自动发到中奖的钱包，没有任何人工环节需要你配合。</small></div>";
+    return (L.length ? SCAM : "") + L.map(function (x, i) {
       var burnOk = (x.bn || 0) >= (x.need || 1), big = (x.need || 1) > 1;
       var s1 = burnOk ? "✅ 名字已烧够" + (big ? "（" + x.need + " 个）" : "") : "⏳ 先销毁名字" + (big ? "：已烧 " + (x.bn || 0) + " / " + x.need + " 个" : "：1 枚创世 .ailgns 名") + ' <a href="#/genesis">去销毁 →</a>';
       var has = x.url || x.shots || x.video, what = (x.shots ? x.shots + " 张截图" : "") + (x.shots && x.video ? " + " : "") + (x.video ? "视频" : "") || (x.url ? "帖子链接" : "");

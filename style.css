@@ -4490,3 +4490,10 @@ tr.bk-bot td{background-color:rgba(245,185,66,.09)}
 
 /* 站长 2026-11-17：农场动态里的「⚔️ 偷回去」 */
 .fm-rv{margin-left:6px;padding:3px 10px;border-radius:999px;border:1px solid #f5b942;background:#fff7e0;color:#92400e;font-size:12.5px;font-weight:700;white-space:nowrap}
+
+/* 站长 2026-11-17：领奖处的防骗提醒（红框，醒目） */
+.scam-warn{margin:0 0 12px;padding:12px 14px;border-radius:14px;background:#fff1f0;border:2px solid #f87171;color:#7f1d1d;font-size:13.5px;line-height:1.6;text-align:left}
+.scam-warn>b{display:block;font-size:15px;color:#b91c1c;margin-bottom:4px}
+.scam-warn ul{margin:4px 0 6px;padding-left:18px}
+.scam-warn li{margin:2px 0}
+.scam-warn small{display:block;color:#9f1239}
