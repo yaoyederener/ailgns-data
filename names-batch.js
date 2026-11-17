@@ -50,14 +50,15 @@
   // ---------- 界面 ----------
   var box = null;
   // 随机挑 n 个「现在就能注册」的数字域名（5～10 位）：已经被注册的、不合规的直接不要，不够再补，最多补 4 轮
-  function pickFree(n, done) {
-    var got = [], h = H(), round = 0;
+  function pickFree(n, done, onProg) {
+    var got = [], seen = {}, h = H(), round = 0, maxRound = 4 + Math.ceil(n / 30); // 站长 2026-11-17：买票不设上限，要挑的名字多了就多挑几轮（一轮最多查 90 个）
     (function more() {
       var ns = genNums({ count: Math.min(90, Math.ceil((n - got.length) * 1.5) + 3), kind: "rand", len: 0, no4: true });
       check(ns, function (err) {
         if (err) return done(err, got);
-        ns.forEach(function (x) { if (got.length < n && avail[x] === 1 && h.valid(x) && got.indexOf(x) < 0) got.push(x); });
-        if (got.length < n && ++round < 4) return more();
+        ns.forEach(function (x) { if (got.length < n && avail[x] === 1 && h.valid(x) && !seen[x]) { seen[x] = 1; got.push(x); } });
+        if (onProg) onProg(got.length);
+        if (got.length < n && ++round < maxRound) return more();
         done(null, got);
       });
     })();
@@ -98,29 +99,30 @@
     var p = document.getElementById("nb-pane"); if (!p) return;
     if (mode === "tk") {
       // 🎟 极简买票：只有一件事——选买多少票。1 张票 = 1 DAI；买票 = 注册域名（5 DAI 一个 = 5 张票），域名系统随机挑、归客户
-      var TK = [10, 20, 50, 100], cur = 10;
+      var TK = [10, 20, 50, 100], cur = 10, TK_MAX = 10000;
       p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">花多少 DAI 买票？<b>1 DAI = 1 张票</b>。买票就是注册域名（5 DAI 一个 = 5 张票），域名归你。</p>' +
         '<div class="nb-qc">' + TK.map(function (k) { return '<button type="button" data-n="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + k + " DAI<small>" + k + " 张票</small></button>"; }).join("") + "</div>" +
-        '<div class="nb-tkc"><span>或者自己填</span><input id="nb-tkn" type="number" min="10" max="250" step="5" inputmode="numeric" placeholder="比如 35"><span>DAI</span><button type="button" class="nm-go" id="nb-tkgo">确定</button></div>' +
-        '<p class="muted nb-tkh" id="nb-tkh">一个域名 5 DAI，所以按 5 DAI 一档；最少 10 DAI，一次最多 250 DAI，想多买可以再买一次。</p></div>';
+        '<div class="nb-tkc"><span>或者自己填</span><input id="nb-tkn" type="number" min="10" step="5" inputmode="numeric" placeholder="比如 35"><span>DAI</span><button type="button" class="nm-go" id="nb-tkgo">确定</button></div>' +
+        '<p class="muted nb-tkh" id="nb-tkh">一个域名 5 DAI，所以按 5 DAI 一档；最少 10 DAI，想买多少买多少。超过 250 DAI（50 个域名）请用下面的「🤖 交给机器人代点」。</p></div>';
       var roll = function () {
         if (busy) return;
         p.querySelectorAll(".nb-qc button").forEach(function (b) { b.classList.toggle("on", Number(b.getAttribute("data-n")) === cur); b.disabled = true; });
         cands = []; picked = {}; drawCand(); say("正在随机挑能注册的域名…");
-        pickFree(cur / 5, function (err, got) {
+        var want = cur / 5;
+        pickFree(want, function (err, got) {
           if (!document.getElementById("nb-pane")) return;
           p.querySelectorAll(".nb-qc button").forEach(function (b) { b.disabled = false; });
           cands = got.slice(); picked = {}; got.forEach(function (x) { picked[x] = 1; });
           say(err ? err : got.length < cur / 5 ? "这次只挑到 " + got.length + " 个，点「换一批」再试" : "", !!err); drawCand();
-        });
+        }, want > 60 ? function (k) { if (document.getElementById("nb-pane")) say("正在随机挑能注册的域名…已挑好 " + k + " / " + want + " 个"); } : null);
       };
       var tkn = document.getElementById("nb-tkn"), tkh = document.getElementById("nb-tkh");
       p.querySelectorAll(".nb-qc button").forEach(function (b) { b.onclick = function () { cur = Number(b.getAttribute("data-n")); tkn.value = ""; roll(); }; });
       var custom = function () {
         var v = Math.floor(Number(tkn.value));
         if (!(v > 0)) { tkh.textContent = "填一个数字，比如 35。"; return; }
-        var k = Math.min(250, Math.max(10, Math.ceil(v / 5) * 5)); // 一个域名 5 张：往上凑到 5 的倍数；最少 2 个域名；最多 50 个域名
-        tkh.textContent = k === v ? "好，花 " + k + " DAI 买 " + k + " 张票。" : v > 250 ? "一次最多 250 DAI，先按 250 DAI 挑；想多买可以再买一次。" : v < 10 ? "最少 10 DAI（2 个域名），按 10 DAI 挑。" : "一个域名 5 DAI，" + v + " DAI 凑成 " + k + " DAI。";
+        var k = Math.min(TK_MAX, Math.max(10, Math.ceil(v / 5) * 5)); // 一个域名 5 张：往上凑到 5 的倍数；最少 2 个域名。站长 2026-11-17：不设购买上限（单张委托技术上最多 2000 个域名 = 1 万 DAI，再多就再买一次）
+        tkh.textContent = k === v ? "好，花 " + k + " DAI 买 " + k + " 张票。" + (k > 250 ? "名字比较多，挑名字要等一会儿；付款请用「🤖 交给机器人代点」。" : "") : v > TK_MAX ? "一次最多 " + TK_MAX + " DAI（一张委托装不下更多名字），先按 " + TK_MAX + " DAI 挑；还想买，买完再来一次。" : v < 10 ? "最少 10 DAI（2 个域名），按 10 DAI 挑。" : "一个域名 5 DAI，" + v + " DAI 凑成 " + k + " DAI。";
         tkn.value = k; cur = k; roll();
       };
       document.getElementById("nb-tkgo").onclick = custom;
@@ -195,7 +197,7 @@
   function drawCand() {
     var el = document.getElementById("nb-cand"); if (!el) return;
     if (simple) { // 极简买票：只列出挑好的名字（都是能注册的），不给勾选
-      el.innerHTML = cands.length ? '<p class="nb-tkl">随机挑好 <b>' + cands.length + "</b> 个能注册的域名：" + cands.map(function (n) { return "<i>" + esc(n) + "</i>"; }).join("") + ' <button type="button" class="link" id="nb-re">🎲 换一批</button></p>' : "";
+      el.innerHTML = cands.length ? '<p class="nb-tkl">随机挑好 <b>' + cands.length + "</b> 个能注册的域名：" + cands.slice(0, 30).map(function (n) { return "<i>" + esc(n) + "</i>"; }).join("") + (cands.length > 30 ? " <small>…等 " + cands.length + " 个</small>" : "") + ' <button type="button" class="link" id="nb-re">🎲 换一批</button></p>' : "";
       var re = document.getElementById("nb-re"); if (re) re.onclick = function () { if (box && box.__roll) box.__roll(); };
       botStatus(); sum(); return;
     }
@@ -218,9 +220,10 @@
     var n = list().length, t = total();
     el.innerHTML = n ? "选了 <b>" + n + "</b> 个 · 1 年 · 共 <b>" + t + " DAI</b>" + (n >= 2 ? " · 送 <b>" + t + "</b> 张极速票" : " · <em>只选 1 个没有极速票，至少 2 个</em>") : "还没选";
     if (simple) el.innerHTML = n ? "共 <b>" + t + " DAI</b> = <b>" + t + "</b> 张票" : "";
-    go.disabled = !n || busy; go.innerHTML = n ? (simple ? "付 " + t + " DAI 买 " + t + " 张票" : "自己点：注册这 " + n + " 个（" + t + " DAI）") + "<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : simple ? "付款" : "注册选中的";
+    var tooMany = n > 50; // 自己点要每个名字在钱包里确认一次，超过 50 个只能交给机器人
+    go.disabled = !n || busy || tooMany; go.innerHTML = tooMany ? "自己点付款<small>超过 50 个域名，钱包要确认 " + (n + 1) + " 次，太多了；请用下面的机器人代点</small>" : n ? (simple ? "付 " + t + " DAI 买 " + t + " 张票" : "自己点：注册这 " + n + " 个（" + t + " DAI）") + "<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : simple ? "付款" : "注册选中的";
     go.onclick = run;
-    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.innerHTML = n ? "🤖 交给机器人代点<small>钱包只确认 2 次（授权 1 次 + 签名 1 次），一般一分钟左右替你注册完</small>" : "🤖 交给机器人代点"; bt.onclick = robot; }
+    var bt = document.getElementById("nb-bot"); if (bt) { bt.disabled = !n || busy; bt.innerHTML = n ? "🤖 交给机器人代点<small>钱包只确认 2 次（授权 1 次 + 签名 1 次），" + (n > 20 ? "机器人一分钟大约注册 10 个，" + n + " 个大约要 " + Math.ceil(n / 10) + " 分钟；注册好一批，票就先到一批" : "一般一分钟左右替你注册完") + "</small>" : "🤖 交给机器人代点"; bt.onclick = robot; }
   }
   // ---------- 🤖 机器人代点：客户授权 DAI 给机器人钱包 + 签名委托，机器人用客户的钱替客户注册（名字直接归客户） ----------
   var REG = "0x21425f852a1e0fb798fb9ebeb288def27bc0f2d1"; // 代注册机器人钱包（只放 Gas）
@@ -230,7 +233,7 @@
     var h = H(), el = document.getElementById("nb-botst"); if (!el || !h.account()) return;
     fetch("/api/reg-order?a=" + h.account()).then(function (r) { return r.json(); }).then(function (j) {
       var l = (j && j.list) || [], p = l.filter(function (o) { return o.state === "pending"; });
-      el.innerHTML = p.length ? "🤖 机器人正在处理你的 <b>" + p.reduce(function (s, o) { return s + o.names.length; }, 0) + "</b> 个名字，一般一分钟左右完成，结果发<a href=\"#/inbox\">站内信</a>" : "";
+      el.innerHTML = p.length ? "🤖 机器人正在处理你的委托：还剩 <b>" + p.reduce(function (s, o) { return s + (o.todo ? o.todo.length : o.names.length); }, 0) + "</b> 个名字没注册，全部完成后发<a href=\"#/inbox\">站内信</a>" : "";
     }).catch(function () {});
   }
   // 下单后盯着这张委托：每 5 秒看一次，机器人注册完就提示；买成 2 个及以上 → 记一笔「刚买的票」，极速页马上能押（和自己点付款一样）
@@ -240,7 +243,7 @@
       if (!box || box !== myBox || Date.now() - t0 > 600000) return; /* 窗口关了 / 等了 10 分钟：不盯了，结果看站内信 */
       fetch("/api/reg-order?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
         var o = ((j && j.list) || []).filter(function (x) { return x.id === id; })[0];
-        if (!o || o.state !== "done") { if (o) say("🤖 机器人正在替你注册 " + o.names.length + " 个名字…已等 " + Math.round((Date.now() - t0) / 1000) + " 秒（一般一分钟左右）"); return setTimeout(tick, 5000); }
+        if (!o || o.state !== "done") { if (o) say("🤖 机器人正在替你注册 " + o.names.length + " 个名字…" + ((o.done || []).length ? "已注册好 " + o.done.length + " 个，" : "") + "已等 " + Math.round((Date.now() - t0) / 1000) + " 秒" + (o.names.length > 20 ? "（一分钟大约 10 个；可以关掉这个窗口，注册好的票会自动到账）" : "（一般一分钟左右）")); return setTimeout(tick, 5000); }
         var done = o.done || [], fail = o.fail || [], tk = done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false;
         if (tk && base !== null) {
           try {
