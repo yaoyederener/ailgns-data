@@ -638,7 +638,10 @@ export async function onRequestGet(ctx) {
       for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); greet++; } catch (e) {} }
     }
   } catch (e) {}
-  const oracle = await timed("oracle", 20000, () => oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 🔮 预言家：开奖结果 + 每天提醒
+  // 2026-11-17：开奖播报要给很多人发消息，20 秒不一定够。到点了不再干等，但让它在后台接着发完（waitUntil），不随这次巡检结束被掐断
+  const oraP = oracleNotify(ctx.env, kv, gids).catch((e) => ({ err: String(e.message || e).slice(0, 160) }));
+  try { ctx.waitUntil(oraP); } catch (e) { /* 没有 waitUntil 的环境照旧 */ }
+  const oracle = await timed("oracle", 20000, () => oraP); // 🔮 预言家：开奖结果 + 每天提醒
   const pixel = await timed("pixel", 10000, () => rebuildIfNeeded(kv).catch((e) => ({ err: String(e.message || e).slice(0, 160) }))); // 像素墙：顺便检查一下有没有被同时写覆盖
   // 💧 做市返佣：每次巡检采一次 AiLGNS 盘口（缺哪边 + 每人挂着多少），定档和「只算缺的一边」都靠它
   if (!dry) { const ts0 = Math.floor(Date.now() / 1000); ctx.waitUntil(Promise.all([book(MARKETS[0], ts0), book(MARKETS[1], ts0).catch(() => [])]).then(([os, ol]) => sampleLiquidity(kv, os, { lgns: ol })).catch(() => {})); } // AiLGNS + LGNS 两个盘口
