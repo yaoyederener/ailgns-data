@@ -102,7 +102,7 @@
         '<button type="button" class="nm-go gs-off gs-on gs-jpgo">⚡ 一键注册并销毁 ' + n(K) + ' 个名字（约 ' + n(K * price) + ' DAI）</button><p class="muted gs-jpst"></p></div>';
       var go = box.querySelector(".gs-jpgo"), st = box.querySelector(".gs-jpst"), say = function (t) { st.textContent = t || ""; };
       go.onclick = function () {
-        if (!confirm("确认注册并销毁 " + K + " 个 .ailgns 名字（约 " + (K * price) + " DAI）吗？\n\n这些名字注册后会立刻转进黑洞地址，永久拿不回。")) return;
+        if (!(A.sure2 || confirm)("确认注册并销毁 " + K + " 个 .ailgns 名字（约 " + (K * price) + " DAI）吗？\n\n这些名字注册后会立刻转进黑洞地址，永久拿不回。")) return;
         go.disabled = true;
         var labels = [], chars = "abcdefghijklmnopqrstuvwxyz0123456789";
         for (var i = 0; i < K; i++) { var s = "jp"; for (var k = 0; k < 8; k++) s += chars[Math.floor(Math.random() * chars.length)]; labels.push(s); }

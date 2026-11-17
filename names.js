@@ -453,7 +453,7 @@
               d.innerHTML = "<b>✅ 这个钱包的 ." + t + " 主名字：" + esc(p) + "." + t + '</b> <button type="button" class="ghost nm-unpri">取消主名字</button><small>取消后你的地址在本站重新显示成 0x…，<b>不能玩预言家、不能发站内信</b>。想换成另一个名字不用先取消，直接进那个名字的页面点「设为我的主名字」就行。不花钱，只付一点 Gas。</small><p class="muted nm-st" hidden></p>';
               d.querySelector(".nm-unpri").onclick = function () {
                 var b = this, st = d.querySelector(".nm-st");
-                if (!confirm("确定取消主名字 " + p + "." + t + "？取消后不能玩预言家、不能发站内信，随时可以再设回来。")) return;
+                if (!(A.sure || confirm)("确定取消主名字 " + p + "." + t + "？取消后不能玩预言家、不能发站内信，随时可以再设回来。")) return;
                 b.disabled = true; st.hidden = false;
                 tx(CONTRACTS[t], SEL.setPrimary + "0".repeat(64), function (m) { st.textContent = m; }, "🔒 取消主名字（不花钱，只付一点 Gas）。请在钱包确认").then(function () {
                   if (A.nameCache) A.nameCache[a] = "";
@@ -531,7 +531,7 @@
           return W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[t], data: SEL.ownerOf + id }, "latest"]);
         }).then(function (ow) {
           if (addrOf(ow) !== account) throw new Error("这个名字不在你当前连接的钱包里（主人是 " + A.short(addrOf(ow)) + "），请切换到主人钱包");
-          if (!confirm("确认把 " + full + " 转给\n" + to + " 吗？\n\n转出后名字归对方，不能撤回。")) throw new Error("已取消");
+          if (!(A.sure2 || confirm)("确认把 " + full + " 转给\n" + to + " 吗？\n\n转出后名字归对方，不能撤回。")) throw new Error("已取消");
           return tx(CONTRACTS[t], "0x23b872dd" + A.pad(account) + A.pad(to) + id, say, "🎁 转赠 " + full + " 给 " + to.slice(0, 6) + "…" + to.slice(-4) + "。请在钱包确认");
         }).then(function () {
           say("✅ 已转给 " + A.short(to) + "，名字已经到对方钱包");
@@ -818,7 +818,7 @@
           to = document.getElementById("nm-to").value.trim().toLowerCase();
           if (!/^0x[0-9a-f]{40}$/.test(to)) { A.errTip("对方地址格式不对：要以 0x 开头，一共 42 位", b); return; }
           if (to === account) to = "";
-          else if (!confirm("确认帮这个地址注册吗？\n\n" + v + "." + TLD + "\n→ " + to + "\n\n地址填错了收不回来")) return;
+          else if (!(A.sure2 || confirm)("确认帮这个地址注册吗？\n\n" + v + "." + TLD + "\n→ " + to + "\n\n地址填错了收不回来")) return;
         }
         b.disabled = true; b.textContent = "⏳ 注册中，请稍等…";
         var say = progSay(st);

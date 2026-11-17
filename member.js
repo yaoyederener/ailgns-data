@@ -664,7 +664,7 @@
       var btn = this, to = (document.getElementById("xfer-to").value || "").trim().toLowerCase(), from = m.addr;
       if (!A.isAddr(to)) { say("新地址格式不对", true); return; }
       if (to === from) { say("不能转赠给自己", true); return; }
-      if (!confirm("确认把 " + A.short(from) + " 的会员永久转赠给 " + A.short(to) + " 吗？转赠后本地址不再是会员，不可撤销。")) return;
+      if (!(A.sure2 || confirm)("确认把 " + A.short(from) + " 的会员永久转赠给 " + A.short(to) + " 吗？转赠后本地址不再是会员，不可撤销。")) return;
       btn.disabled = true;
       var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), text = transferText(from, to, day), eth;
       say("🔒 只读地址，不动你的币。请在钱包确认连接");

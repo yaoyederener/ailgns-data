@@ -317,7 +317,7 @@
       '<p class="muted"><a href="javascript:void(0)" id="as-dreset">清除本机进度（只清记录，不影响链上）</a></p></section>';
     bindConn("as-dc");
     A.app.querySelectorAll("[data-dep]").forEach(function (b) { b.onclick = function () { depStep(b.getAttribute("data-dep"), b); }; });
-    var rs = g("as-dreset"); if (rs) rs.onclick = function () { if (confirm("清除本机记录？链上合约不受影响。")) { dep = {}; saveDep(); renderDeploy(); } };
+    var rs = g("as-dreset"); if (rs) rs.onclick = function () { if ((A.sure || confirm)("清除本机记录？链上合约不受影响。")) { dep = {}; saveDep(); renderDeploy(); } };
     K().silentAccount().then(function () { account = K().account(); if (account) after(); });
   }
   function deployRaw(file, args, say) {

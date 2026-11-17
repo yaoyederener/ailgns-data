@@ -163,7 +163,7 @@
       win = nNew > 0 ? "这 " + tot + " 张里有 " + nNew + " 张新票（猜中每张 " + wf() + " DAI）和 " + nOld + " 张 11 月 18 日前买的票（猜中每张 " + data.payOld + " DAI）" + (k > 1 ? "，新票先用在小的数字上" : "")
         : "这 " + nOld + " 张都是 11 月 18 日前买的票：猜中每张发 " + data.payOld + " DAI（新买的票才是 " + wf() + "）";
     }
-    if (!window.confirm(k === 1
+    if (!(A.sure2 || confirm)(k === 1
       ? "确定押 " + n + " 倍，猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + win + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回"
       : "确定押 " + n + " 倍（每个数字 " + n + " 张），猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字：" + win + "，其余数字的票就用掉了" + (k >= 10 ? "\n⚠️ 10 个数字全选一定亏" : "") + "\n③ 发出去以后不能撤回")) return;
     var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + ds.join("") + ":" + n) }; /* 多个数字写成「0123:1」，一个数字还是老写法「7:3」 */

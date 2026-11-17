@@ -878,7 +878,30 @@
     try { r = window.confirm(msg); } catch (e) { return true; }
     return !!r || Date.now() - t0 < 80;
   }
-  window.AIL = { sure: sure, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
+  /* 2026-11-17 站长「一起改」：带重要信息的确认（价格变了、转出不能撤回、押注规则）不能在钱包不弹框时直接放行。
+     钱包不弹框 → 把原话显示在页面底部，返回 false；60 秒内客户再点一次同一个按钮 → 放行。正常浏览器照旧弹系统框 */
+  var sureSeen = {};
+  function sure2(msg) {
+    var t0 = Date.now(), r = false;
+    try { r = window.confirm(msg); } catch (e) { t0 = Date.now(); }
+    if (r) return true;
+    if (Date.now() - t0 >= 80) return false; /* 客户自己点了「取消」 */
+    var key = String(msg).replace(/[\d.,]+/g, "#"); /* 数字抹掉：价格又跳了一点也算同一句话 */
+    if (sureSeen[key] && Date.now() - sureSeen[key] < 60000) { delete sureSeen[key]; var o = document.getElementById("ask-tip"); if (o) o.remove(); return true; }
+    sureSeen[key] = Date.now();
+    try {
+      var old = document.getElementById("ask-tip"); if (old) old.remove();
+      var d = document.createElement("div"); d.id = "ask-tip"; d.className = "err-tip ask-tip";
+      d.innerHTML = '<b>👉 请先看清楚</b><span></span><em>你的钱包不弹确认框。没问题的话，<u>再点一次刚才的按钮</u>就继续；不想继续就不用管。</em><div class="err-acts"><button type="button">知道了</button></div>';
+      d.querySelector("span").textContent = String(msg);
+      d.querySelector("button").onclick = function () { d.remove(); };
+      document.body.appendChild(d);
+      setTimeout(function () { if (d.parentNode) d.remove(); }, 60000);
+      window.addEventListener("hashchange", function () { if (d.parentNode) d.remove(); }, { once: true });
+    } catch (e) { /* 提示画不出来也不能影响页面 */ }
+    return false;
+  }
+  window.AIL = { sure: sure, sure2: sure2, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）

@@ -642,7 +642,7 @@
             chk(); bk[f] = b;
             var p2 = sweepPlanTok(swapLive(f, b).buys, amt);
             if (!p2.steps.length) throw new Error(SWAP_NAME[f] + " 的买单刚被别人吃完了，没有扣你的币");
-            if (swapNet(p2.steps) * 100n < swapNet(p.steps) * 99n && !confirm("买单刚被别人吃了一些：现在卖出能得 " + show(swapNet(p2.steps), 2) + " DAI（原来 " + show(swapNet(p.steps), 2) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
+            if (swapNet(p2.steps) * 100n < swapNet(p.steps) * 99n && !(A.sure2 || confirm)("买单刚被别人吃了一些：现在卖出能得 " + show(swapNet(p2.steps), 2) + " DAI（原来 " + show(swapNet(p.steps), 2) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
             return attempt(p2);
           });
         });
@@ -661,8 +661,8 @@
           p = sweepPlan(s, budget);
           var outNow = swapNet(p.steps);
           if (!p.steps.length || outNow <= 0n) throw new Error(SWAP_NAME[t] + " 现在没有卖单，暂时买不了");
-          if (ask && !tried && !confirm("用 " + show(budget, 2) + " DAI 买入约 " + amt2(outNow, t) + "。继续吗？")) throw new Error("已取消，DAI 还在你钱包里");
-          if (!ask && expect > 0n && outNow * 100n < expect * 97n && !confirm(SWAP_NAME[t] + " 的卖单刚变了：现在用 " + show(budget, 2) + " DAI 能买到约 " + amt2(outNow, t) + "（原来预计 " + fmt(expect, t) + "）。继续吗？\n点「取消」就停在这里，DAI 留在你钱包。")) throw new Error("已停下，DAI 还在你钱包里。");
+          if (ask && !tried && !(A.sure2 || confirm)("用 " + show(budget, 2) + " DAI 买入约 " + amt2(outNow, t) + "。继续吗？")) throw new Error("已取消，DAI 还在你钱包里");
+          if (!ask && expect > 0n && outNow * 100n < expect * 97n && !(A.sure2 || confirm)(SWAP_NAME[t] + " 的卖单刚变了：现在用 " + show(budget, 2) + " DAI 能买到约 " + amt2(outNow, t) + "（原来预计 " + fmt(expect, t) + "）。继续吗？\n点「取消」就停在这里，DAI 留在你钱包。")) throw new Error("已停下，DAI 还在你钱包里。");
           return swapFire(t, true, p, budget, function (m) { say("第 2 步：" + m); }, "第 2 步", chk);
         }).catch(function (e) {
           if (tried || !SWAP_RETRY.test(String((e && e.message) || e))) throw e;
@@ -721,7 +721,7 @@
         if (!q) throw new Error("现在的挂单不够，这笔换不了（原因写在上面）");
         if (x[1] < q.p1.tok) throw new Error("余额不足：要换出 " + amt2(q.p1.tok, f) + "，钱包里有 " + fmt(x[1], f) + "。把数量改小一点");
         if (x[2] < 2n * 10n ** 17n) throw new Error("钱包里的 DAI 不够付 Gas：Anubis 链 Gas 用 DAI 付，请先转一点 DAI（约 0.3）进来");
-        if (q0 && q.out * 100n < q0.out * 99n && !confirm("挂单刚变了：现在预计到手 " + amt2(q.out, t) + "（刚才是 " + fmt(q0.out, t) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
+        if (q0 && q.out * 100n < q0.out * 99n && !(A.sure2 || confirm)("挂单刚变了：现在预计到手 " + amt2(q.out, t) + "（刚才是 " + fmt(q0.out, t) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
         go.innerHTML = "<b>⏳ 第 1 步 / 共 2 步</b><small>卖出 " + amt2(q.p1.tok, f) + " 换成 DAI · 请看钱包</small>";
         return leg1(f, amt);
       }).then(function (r) {
@@ -1440,7 +1440,7 @@
         var dur = Number((document.getElementById("otc-dur") || {}).value) || DUR_DEFAULT;
         if (!dur) { say("有效期要在 10 分钟到 30 天之间", true); return; }
         if (v.block) { say(v.farMsg.replace("⛔ ", ""), true); return; } // 一定吃亏的离谱价：直接不让挂（站长 2026-11-15）
-        if (v.far && !confirm(v.farMsg.replace("⛔ ", "") + "\n\n确定要按这个价格挂单吗？")) return; // 偏离市价一倍以上：再确认一次（站长 2026-11-11）
+        if (v.far && !(A.sure2 || confirm)(v.farMsg.replace("⛔ ", "") + "\n\n确定要按这个价格挂单吗？")) return; // 偏离市价一倍以上：再确认一次（站长 2026-11-11）
         btn.disabled = true;
         ready().then(function () {
           walletCard();
@@ -1669,7 +1669,7 @@
             var same = p.steps.length === p0.steps.length && p.steps.every(function (x, i) { return x.o.id === p0.steps[i].o.id && x.amount === p0.steps[i].amount; });
             if (same) return;
             var worse = buy ? p.dai * 100n > p0.dai * 101n : p.dai * 100n < p0.dai * 99n;
-            if (worse && !confirm("有单刚被别人吃了，换成现在的单后" + (buy ? "要付 " : "能收到 ") + show(p.dai, 2) + " DAI（原来 " + show(p0.dai, 2) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
+            if (worse && !(A.sure2 || confirm)("有单刚被别人吃了，换成现在的单后" + (buy ? "要付 " : "能收到 ") + show(p.dai, 2) + " DAI（原来 " + show(p0.dai, 2) + "）。继续吗？")) throw new Error("已取消，没有扣你的币");
             say(msg || "有单刚被别人吃了，已自动换成现在最便宜的单");
             draw();
           });

@@ -294,14 +294,14 @@
         on("fm-harvest", function () { run("harvest"); });
         // 站长 2026-11-12：熟了的菜地一闪一闪，客户会去点它 → 点熟菜地也等于点「一键收获」
         out.querySelectorAll(".fm-plot.ripe").forEach(function (b) { b.onclick = function () { run("harvest"); }; });
-        on("fm-buyplot", function () { if (confirm("花 " + R.plots[me.plots.length - 6] + " 金币开垦一块新地？")) run("buyPlot"); });
+        on("fm-buyplot", function () { if ((A.sure || confirm)("花 " + R.plots[me.plots.length - 6] + " 金币开垦一块新地？")) run("buyPlot"); });
         on("fm-eggs", function () { run("eggs"); });
         out.querySelectorAll(".fm-rv").forEach(function (b) { b.onclick = function () { b.disabled = true; run("steal", { to: b.getAttribute("data-rv") }); }; }); // ⚔️ 偷回去：复仇那一次不会被拦
         on("fm-feed", function () { run("feed"); });
         on("fm-hen", function () { run("buyHen"); });
-        on("fm-dog", function () { if (confirm("花 " + R.dog.price + " 金币请看门狗看 " + R.dog.days + " 天？")) run("dog"); });
-        on("fm-cop", function () { if (confirm("花 " + R.cop.price + " 金币请警察看 " + R.cop.days + " 天？")) run("cop"); });
-        on("fm-ghen", function () { if (!me.paid) return payPicker(); if (confirm("花 " + R.goldHen.price + " 金币买一只金鸡？")) run("goldHen"); });
+        on("fm-dog", function () { if ((A.sure || confirm)("花 " + R.dog.price + " 金币请看门狗看 " + R.dog.days + " 天？")) run("dog"); });
+        on("fm-cop", function () { if ((A.sure || confirm)("花 " + R.cop.price + " 金币请警察看 " + R.cop.days + " 天？")) run("cop"); });
+        on("fm-ghen", function () { if (!me.paid) return payPicker(); if ((A.sure || confirm)("花 " + R.goldHen.price + " 金币买一只金鸡？")) run("goldHen"); });
         on("fm-pump", function () { if (!me.paid) return payPicker(); var i = me.plots.indexOf(null); if (i < 0) return toast("没有空地了，先收菜或开垦新地", true); seedPicker(i); });
         on("fm-pay2", payPicker);
         out.querySelectorAll("[data-boost]").forEach(function (b) { b.onclick = function () { run("boost", { plot: +b.getAttribute("data-boost") }); }; });
