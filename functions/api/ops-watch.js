@@ -7,7 +7,7 @@ import { build as buildAdminStats } from "../../lib/adminstats.js";
 import { build as buildPartner } from "../../lib/partner.js";
 import { TODO } from "../../lib/todo.js";
 import { pushInbox } from "../../lib/inbox.js";
-import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert } from "../../lib/alert.js";
+import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert, mmAlert } from "../../lib/alert.js";
 
 // 📝 站长待办实时推送（站长 2026-11-10：「带优化功能实时滚动推送给我，按当前运营状况推最紧急的」）
 //    清单（lib/todo.js）一有更新就推一次；另外每天北京时间 8 点推一次当日最紧急 5 条。只推到站长自己的收件箱（+ 开了通知的手机 / 电脑），不发客户
@@ -77,7 +77,28 @@ async function ownerWatch(ctx, kv) {
     const [ail, dai, px] = await Promise.all([call("eth_call", [{ to: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", data: "0x70a08231" + OWNER.slice(2).padStart(64, "0") }, "latest"]), call("eth_getBalance", [OWNER, "latest"]), prices()]);
     await fire(walletAlert(Number(ail) / 1e18, Number(dai) / 1e18, px["AiLGNS（Anubis）"] || 0, new Date(Date.now() + 8 * 3600e3).getUTCHours()));
   } catch (e) { /* 同上 */ }
+  try { await fire(mmAlert(await mmInfo(kv, get))); } catch (e) { /* 同上 */ }
   return out;
+}
+// 官方做市机器人现在有没有买单挂着；没有的话已经连续多久了（开始的时刻记在 KV mm:idle，有单了就清掉）
+const MM_BOT = "0x06cc2a46d7ad17496c2de9c61362808e06b44437";
+async function mmInfo(kv, get) {
+  const call = (m, p) => fetch("https://rpc.anubispace.org", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: m, params: p }), signal: AbortSignal.timeout(10000) }).then((r) => r.json()).then((j) => j.result);
+  const bk = await get("/api/book?m=ailgns");
+  if (!bk || !bk.orders || bk.orders.length < 130) return null; // 盘口读不到：这一轮不判断
+  const w = bk.orders.slice(2).match(/.{64}/g) || [], n = parseInt(w[1], 16), now = Date.now();
+  let has = false;
+  for (let i = 0; i < n && !has; i++) {
+    const o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
+    has = "0x" + o[0].slice(24) === MM_BOT && parseInt(o[1], 16) === 0 && parseInt(o[2], 16) === 1 && parseInt(o[3], 16) * 1000 > now && BigInt("0x" + o[6]) > 0n;
+  }
+  const since = Number(await kv.get("mm:idle")) || 0;
+  if (has) { if (since) await kv.delete("mm:idle"); return { mins: 0 }; }
+  if (!since) { await kv.put("mm:idle", String(now), { expirationTtl: 7 * 86400 }); return { mins: 0 }; }
+  const head = Number(await call("eth_blockNumber", []));
+  const [b1, b0, dai] = await Promise.all([call("eth_getBlockByNumber", ["0x" + head.toString(16), false]), call("eth_getBlockByNumber", ["0x" + (head - 20).toString(16), false]), call("eth_getBalance", [MM_BOT, "latest"])]);
+  const t1 = Number(b1.timestamp), per = (t1 - Number(b0.timestamp)) / 20;
+  return { mins: (now - since) / 60000, slow: per > 4 || now / 1000 - t1 > 60, per, dai: Number(dai) / 1e18 };
 }
 
 const OPS_GROUP = "uqw6tsqb"; // 运营费用公告群（不要和行情群 oes8etcm、fvg4wksw 混用）
