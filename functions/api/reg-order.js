@@ -6,6 +6,9 @@
 // GET  ?a=0x…                                      → 这个地址最近的委托（前端显示进度）
 // GET  ?key=BACKUP_KEY                             → 待处理委托（机器人用）
 // POST { action:"result", key, id, done, fail }    → 机器人回报；写站内信
+// POST { action:"progress", key, id, done, fail, failn } → 机器人做完一小批就报一次（站长 2026-11-17：买票不设上限，一张委托可以有上千个名字，
+//        机器人一轮只有几分钟，做不完的留在 o.todo 里下一轮接着做；全做完才算 done、才发站内信）。failn = 这一批没成功的名字（不带原因）
+const MAX_NAMES = 2000; // 一张委托最多多少个名字（= 1 万 DAI）。不是业务上限，是签名文字和存储的技术上限；想买更多再下一张
 // 签名文字模板必须和 names-batch.js 里的 botText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 import { pushInbox } from "../../lib/inbox.js";
@@ -25,7 +28,7 @@ export async function onRequestGet(ctx) {
   if (key) {
     if (!ctx.env.BACKUP_KEY || key !== ctx.env.BACKUP_KEY) return json({ error: "forbidden" }, 403);
     const ids = (await kv.get(PEND, "json")) || [], list = [];
-    for (const id of ids.slice(0, 20)) { const o = await kv.get("ro:" + id, "json"); if (o && o.state === "pending") list.push(o); }
+    for (const id of ids.slice(0, 20)) { const o = await kv.get("ro:" + id, "json"); if (o && o.state === "pending") list.push(Object.assign({}, o, { names: Array.isArray(o.todo) ? o.todo : o.names })); } // 机器人只拿还没做的
     return json({ list });
   }
   if (!isAddr(a)) return json({ error: "bad addr" }, 400);
@@ -37,20 +40,33 @@ export async function onRequestGet(ctx) {
 export async function onRequestPost(ctx) {
   const kv = ctx.env.TEAM_KV; if (!kv) return json({ error: "no kv" }, 503);
   let b = {}; try { b = await ctx.request.json(); } catch (e) {}
+  if (b.action === "progress") {
+    if (!ctx.env.BACKUP_KEY || b.key !== ctx.env.BACKUP_KEY) return json({ error: "forbidden" }, 403);
+    const o = await kv.get("ro:" + String(b.id || ""), "json"); if (!o) return json({ error: "no order" }, 404);
+    if (o.state !== "pending") return json({ ok: true, left: 0 });
+    const done = (Array.isArray(b.done) ? b.done : []).map(String), fail = (Array.isArray(b.fail) ? b.fail : []).map(String), failn = (Array.isArray(b.failn) ? b.failn : []).map(String);
+    const todo = Array.isArray(o.todo) ? o.todo : o.names.slice(), gone = new Set(done.concat(failn));
+    o.done = (o.done || []).concat(done.filter((n) => todo.includes(n) && !(o.done || []).includes(n)));
+    o.fail = (o.fail || []).concat(fail);
+    o.todo = todo.filter((n) => !gone.has(n));
+    if (o.todo.length) { await kv.put("ro:" + o.id, JSON.stringify(o), { expirationTtl: TTL }); return json({ ok: true, left: o.todo.length }); }
+    await kv.put("ro:" + o.id, JSON.stringify(o), { expirationTtl: TTL });
+    b.action = "result"; b.done = o.done; b.fail = o.fail; // 全做完了：走下面的收尾（改状态、出待办、发站内信）
+  }
   if (b.action === "result") {
     if (!ctx.env.BACKUP_KEY || b.key !== ctx.env.BACKUP_KEY) return json({ error: "forbidden" }, 403);
     const o = await kv.get("ro:" + String(b.id || ""), "json"); if (!o) return json({ error: "no order" }, 404);
     o.done = Array.isArray(b.done) ? b.done : []; o.fail = Array.isArray(b.fail) ? b.fail : []; o.state = "done"; o.doneAt = Date.now();
     await kv.put("ro:" + o.id, JSON.stringify(o), { expirationTtl: TTL });
     const ids = ((await kv.get(PEND, "json")) || []).filter((x) => x !== o.id); await kv.put(PEND, JSON.stringify(ids));
-    const txt = "🤖 代注册完成：成功 " + o.done.length + " 个" + (o.done.length ? "（" + o.done.map((n) => n + ".ailgns").join("、") + "）" : "") + (o.fail.length ? "；没成功 " + o.fail.length + " 个：" + o.fail.join("、") + "（没成功的不扣钱）" : "") + "。名字已在你钱包里。";
+    const txt = "🤖 代注册完成：成功 " + o.done.length + " 个" + (o.done.length ? "（" + o.done.slice(0, 20).map((n) => n + ".ailgns").join("、") + (o.done.length > 20 ? " 等 " + o.done.length + " 个" : "") + "）" : "") + (o.fail.length ? "；没成功 " + o.fail.length + " 个：" + o.fail.slice(0, 20).join("、") + "（没成功的不扣钱）" : "") + "。名字已在你钱包里。";
     try { await pushInbox(kv, o.a, "sys", txt, "#/names/" + o.a); } catch (e) {}
     return json({ ok: true });
   }
   const a = String(b.a || "").toLowerCase(), day = String(b.day || ""), sig = String(b.sig || "");
   if (!isAddr(a)) return json({ error: "地址不对" }, 400);
   const names = [...new Set((Array.isArray(b.names) ? b.names : []).map((s) => String(s || "").trim().toLowerCase()))];
-  if (!names.length || names.length > 50 || names.some((n) => !valid(n))) return json({ error: "名字不合规或超过 50 个" }, 400);
+  if (!names.length || names.length > MAX_NAMES || names.some((n) => !valid(n))) return json({ error: "名字不合规或超过 " + MAX_NAMES + " 个" }, 400);
   const today = bjDay(), yday = new Date(Date.parse(today + "T12:00:00+08:00") - 86400e3 + 8 * 3600e3).toISOString().slice(0, 10);
   if (day !== today && day !== yday) return json({ error: "日期不对，请重新签名" }, 400);
   const total = names.reduce((s, n) => s + yearPrice(n), 0);
