@@ -87,11 +87,15 @@ async function olderMine(m, k, a, fresh) {
   const key = new Request("https://ailgns.dev/__mine/" + k + "/" + a);
   if (!fresh) { const hit = await caches.default.match(key); if (hit) return hit.text(); }
   const count = Number(BigInt(await call(m, m.otc, m.count || COUNT))), end = Math.max(0, count - MAX), me = a.slice(2).padStart(64, "0"), older = [];
-  for (let s = 0; s < end; s += 250) {
-    const c = Math.min(250, end - s), r = await call(m, m.otc, (m.get || GET_ORDERS) + u256(s) + u256(c));
+  /* 2026-11-19：以前 250 张一段、一段读完再读下一段。LGNS 市场 1 万多张单要读 41 段，实测冷启动 95 秒——客户连上钱包后要等这么久才看到「我的挂单」和挂单簿里「我的」单。
+     改成 1000 张一段、所有段同时读（和读窗口那一次一样大），内容不变 */
+  const jobs = [];
+  for (let s = 0; s < end; s += 1000) jobs.push(call(m, m.otc, (m.get || GET_ORDERS) + u256(s) + u256(Math.min(1000, end - s))).then((r) => [s, r]));
+  for (const [s, r] of await Promise.all(jobs)) {
     const w = (r || "0x").slice(2).match(/.{64}/g) || [], n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0;
     for (let i = 0; i < n; i++) { const o = w.slice(2 + i * 7, 9 + i * 7); if (o.length === 7 && o[0] === me && o[2].endsWith("1")) older.push({ id: s + i, o }); }
   }
+  older.sort((a, b) => a.id - b.id);
   const body = JSON.stringify({ at: Date.now(), from: 0, older });
   await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=60" } }));
   return body;
