@@ -1,6 +1,6 @@
 // 开心农场接口（POST { a: "recharge", tx } 核对 LGNS 充值，不用签名：金币加给付款地址）：GET ?u=地址 看某人的农场（串门 / 偷菜前看）；GET ?list=1&me=地址 好友列表和金币榜；POST { a, addr, day, sig, ... } 种菜、收菜、养鸡、偷菜（规则见 lib/farm.js）
 import { CHAINS } from "../../lib/pixel.js";
-import { act, load, view, neighbors, recharge, FARM_PAY, PACKS, DOG_PRICE, DOG_TIME, DOG_BITE, COP_PRICE, COP_TIME, COP_FINE, COP_NAP, GOLD_HEN, BOOST, DAILY, DAILY_VIP, KING, TAG, CROPS, HEN_PRICE, MAX_HENS, FEED_COST, FEED_TIME, EGG_TIME, EGG_PRICE, MAX_EGGS, START_PLOTS, MAX_PLOTS, plotPrice, STEAL_SHARE, STEAL_DAY, BAODI_DAY } from "../../lib/farm.js";
+import { act, load, view, neighbors, recharge, grant, FARM_PAY, PACKS, DOG_PRICE, DOG_TIME, DOG_BITE, COP_PRICE, COP_TIME, COP_FINE, COP_NAP, GOLD_HEN, BOOST, DAILY, DAILY_VIP, KING, TAG, CROPS, HEN_PRICE, MAX_HENS, FEED_COST, FEED_TIME, EGG_TIME, EGG_PRICE, MAX_EGGS, START_PLOTS, MAX_PLOTS, plotPrice, STEAL_SHARE, STEAL_DAY, BAODI_DAY } from "../../lib/farm.js";
 
 const NO_STORE = { headers: { "cache-control": "no-store" } };
 
@@ -28,6 +28,11 @@ export async function onRequestPost(ctx) {
   if (!kv) return new Response("no kv", { status: 503 });
   let body;
   try { body = await ctx.request.json(); } catch (e) { return Response.json({ error: "数据格式不对" }, { status: 400 }); }
+  if (body.a === "grant") { /* 站长发奖励金币：只认站长口令，口令不对直接拒 */
+    const k = String(body.key || "");
+    if (!k || !ctx.env.FEEDBACK_KEY || k !== ctx.env.FEEDBACK_KEY) return Response.json({ error: "口令不对" }, { status: 403 });
+    try { return Response.json(await grant(kv, body.to, body.coins, body.why), NO_STORE); } catch (e) { return Response.json({ error: String((e && e.message) || e) }, { status: 400 }); }
+  }
   try {
     return Response.json(body.a === "recharge" ? await recharge(kv, body.tx) : await act(kv, body), NO_STORE);
   } catch (e) {
