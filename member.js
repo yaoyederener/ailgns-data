@@ -1587,7 +1587,7 @@
     for (var t = r[0]; t < (r[1] || Date.now() / 1000); t += 86400) dates.push(bjDate(t));
     return Promise.all(dates.map(dayFile)).then(function (files) {
       if (files.some(function (f) { return !f; })) return depositsBetween(from, to); // 有缺的就整段查链
-      var rows = [], covered = 0, gaps = [];
+      var rows = [], covered = 0, gaps = [], fails = [];
       files.forEach(function (f) {
         covered = Math.max(covered, f.to);
         f.rows.forEach(function (x) {
@@ -1600,10 +1600,12 @@
           rows.push({ addr: "0x" + x[0], kind: "LGNS", stake: true, dai: 0, lgns: x[1], val: x[2], power: 0, block: x[3], tx: null });
         });
         else gaps.push([Math.max(from, f.from), Math.min(to, f.to)]);
+        /* 站长 2026-11-19「显示出来」：中午点了销毁但没抢到名额的地址。失败的交易链上不留事件，浏览器里查不了，由每日文件给（[地址, 想销毁的 LGNS, 区块]）；文件还没扫到的日子就没有 */
+        (f.fails || []).forEach(function (x) { if (x[2] >= from && x[2] <= to) fails.push({ addr: "0x" + x[0], lgns: x[1], block: x[2] }); });
       });
       var jobs = gaps.map(function (g) { return depositsBetween(g[0], g[1], true); });
       if (covered < to) jobs.push(depositsBetween(covered + 1, to));
-      return Promise.all(jobs).then(function (more) { return rows.concat.apply(rows, more); });
+      return Promise.all(jobs).then(function (more) { var all = rows.concat.apply(rows, more); all.fails = fails; return all; });
     });
   }
 
@@ -1638,9 +1640,10 @@
         }).sort(function (a, b) { return b.t - a.t; });
         lastRows = rows;
         var n = team.__n || Object.keys(team).length - 1;
+        var missed = (deps.fails || []).filter(function (x) { return team[x.addr] && team[x.addr].line !== "self"; }).map(function (x) { return { addr: x.addr, lgns: x.lgns, line: team[x.addr].line, depth: team[x.addr].depth }; });
         draw(rows, deps.length, teamDone
           ? '团队 ' + A.fmt(n) + ' 个地址 · 名单更新于 ' + (at ? Math.max(1, Math.round((Date.now() - at) / 60000)) + " 分钟前" : "刚刚") + ' · <a href="#" id="g-refresh">重新读取团队</a>'
-          : '<span class="spin"></span>团队名单读取中，已读到 ' + A.fmt(n) + " 个地址，结果还在补充…");
+          : '<span class="spin"></span>团队名单读取中，已读到 ' + A.fmt(n) + " 个地址，结果还在补充…", missed);
       }
       var teamP = buildTeam(root, function (t) { team = t; render(); }, fresh).then(function (t) {
         team = t; teamDone = true; at = teamCache[root] ? teamCache[root].at : Date.now(); render();
@@ -1660,7 +1663,8 @@
         if (my === runId && A.isCurrent(id)) shell('<div class="card err">读取失败，请稍后再试。</div>');
       });
     }
-    function draw(rows, scanned, status) {
+    function draw(rows, scanned, status, missed) {
+      missed = missed || [];
       var team = rows.filter(function (r) { return r.line !== "self"; }), self = rows.filter(function (r) { return r.line === "self"; });
       var sum = function (l, k) { return l.reduce(function (t, r) { return t + r[k || "power"]; }, 0); };
       var uniq = function (l) { return Object.keys(l.reduce(function (o, r) { o[r.addr] = 1; return o; }, {})).length; };
@@ -1677,9 +1681,16 @@
         '<div class="kpi"><div class="k">团队销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">' +
           (stk.length ? "换算力 " + A.fmt(sum(paid, "lgns"), 0) + " 枚（计入新增入金）+ 质押合约里销毁 " + A.fmt(sum(stk, "lgns"), 0) + " 枚 · " + stk.length + " 笔（约值 " + A.fmt(sum(stk, "val"), 0) + " DAI，不计入新增入金）" : "按换来的算力 ÷ 2.5 计入新增入金") + '</div></div>' +
         '<div class="kpi"><div class="k">本人新增入金</div><div class="v num">' + A.fmt(A.toDai(sum(self)), 2) + '<small>DAI</small></div><div class="d">' + self.length + " 笔（不计入团队）</div></div></div>";
+      if (missed.length) {
+        var mLg = missed.reduce(function (t, x) { return t + x.lgns; }, 0);
+        html += '<details class="g-miss"><summary><b>⏳ 另有 ' + missed.length + ' 个地址点了「销毁 LGNS」但没抢到名额</b><span>想销毁 ' + A.fmt(mLg, 0) + ' LGNS · 交易失败，LGNS 还在钱包里，没有被销毁，不计入上面的数字 · 点开看是谁</span></summary>' +
+          '<p class="note">算力合约里的销毁每天中午 11:59 开放，全网只有 400 个名额，一两秒就抢完。下面是那几分钟里点了销毁、当天又没成功的团队地址。</p><div class="g-miss-list">' +
+          missed.slice(0, 300).map(function (x) { return '<div class="g-miss-row">' + A.addrLink(x.addr, "team") + '<small class="muted">直推线 ' + A.short(x.line) + " · 第 " + x.depth + " 层 · 想销毁 " + A.fmt(x.lgns, 0) + " LGNS</small></div>"; }).join("") +
+          (missed.length > 300 ? '<p class="note">只列出前 300 个。</p>' : "") + "</div></details>";
+      }
       html = '<p class="note g-status">' + status + "</p>" + html;
       if (!rows.length) {
-        shell(html + '<div class="empty">这段时间团队里没有新增投资（全网共 ' + A.fmt(scanned) + " 笔）</div>");
+        shell(html + '<div class="empty">这段时间团队里没有新增投资（全网共 ' + A.fmt(scanned) + " 笔）" + (missed.length ? "；上面是点了销毁但没抢到的地址" : "") + "</div>");
         bindRefresh();
         return;
       }
