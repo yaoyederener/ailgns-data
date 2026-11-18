@@ -673,8 +673,8 @@
     /* 站长 2026-11-11：账本页引导卡去掉，只留极简搜索框 */
     _scanOff: ["📒", "AiLGNS 账本", "输入域名或钱包地址，每一笔买卖、挂单、注册、借贷都写成人话", [["查我的钱包", "sel:#sc-q"], ["我的钱", "我的钱"], ["我做过的事", "我做过的事"]]]
   };
-  // 全站「查我的订单」条：OTC / 借贷 / 预言家 / 荣耀榜 页顶部都有（域名页 2026-11-08、盘口页 2026-11-12 站长要求去掉），输入框自动填当前钱包
-  var OQ = { otc: "otc", lp: "otc", flows: "otc", lend: "loan", oracle: "other", rank: "other", wallet: "other", team: "other" }, oqCtl = null;
+  // 全站「查我的订单」条：OTC / 借贷 / 预言家 / 荣耀榜 页顶部都有（域名页 2026-11-08、盘口页 2026-11-12、预言家页 2026-11-18 站长要求去掉），输入框自动填当前钱包
+  var OQ = { otc: "otc", lp: "otc", flows: "otc", lend: "loan", rank: "other", wallet: "other", team: "other" }, oqCtl = null;
   function orderBar(tab) {
     var host = document.getElementById("oq");
     if (!host) { host = document.createElement("div"); host.id = "oq"; host.className = "wrap"; var app = document.getElementById("app"); app.parentNode.insertBefore(host, app); }
