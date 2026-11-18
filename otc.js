@@ -212,7 +212,7 @@
     var age = 0; /* 这份盘口是后台多少毫秒前读的（x-age）：偏旧就马上再拿一次，见下面 pull() */
     var have = !fresh && lastBook[mk] ? lastBook[mk] : null;
     var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : have ? "&h=" + have.h : "")).then(function (r) { try { age = Number(r.headers.get("x-age")) || 0; } catch (e) { age = 0; } return r.json(); }).then(function (j) {
-      if (j && j.same && have) { have.b.age = age; return have.b; } /* 没变化：接着用手里这份 */
+      if (j && j.same && have) { have.b.age = age; if (j.reserves) { try { have.b.mkt = priceFromReserves(j.reserves); } catch (e) { /* 市价算不出就用上一份的 */ } } return have.b; } /* 挂单没变化：接着用手里这份，只换最新市价 */
       if (!j || j.error || !j.orders) throw new Error("book");
       try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
       var b = bookOf(j); b.age = age; if (j.h) lastBook[mk] = { h: j.h, b: b }; return b;

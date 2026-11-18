@@ -747,7 +747,7 @@ function oldSig(j){try{return(j.old||[]).map(function(x){return x.id+":"+x.o[6].
 function bookOf(j){return{orders:withOld(parseOrders(j.orders,j.from),j),mkt:j.reserves?priceFromReserves(j.reserves):null,raw:j.orders+oldSig(j)};}
 var lastBook={};function savedBook(){try{var j=JSON.parse(localStorage.getItem(BOOK_KEY+MK)||"null"),b=j&&j.orders?bookOf(j):null;if(b&&j.h&&!lastBook[MK])lastBook[MK]={h:j.h,b:b};return b;}catch(e){return null;}}
 function withMine(b,fresh){var mk=MK,a=account;if(!a||!b.orders.length)return Promise.resolve(b);var from=b.orders.reduce(function(m,o){return Math.min(m,o.id);},Infinity);if(!(from>0))return Promise.resolve(b);return fetch("/api/book?m="+mk+"&mine="+a+(fresh?"&fresh=1":"")).then(function(r){return r.json();}).then(function(j){b.mineFor=a;b.olderN=(j.older||[]).length;(j.older||[]).forEach(function(x){if(b.orders.some(function(o){return o.id===x.id;}))return;b.orders.unshift(oldOrder(x));});return b;}).catch(function(){return b;});}
-function loadBook(fresh,noMine){var mk=MK,tax=noMine?null:loadTax();var age=0;var have=!fresh&&lastBook[mk]?lastBook[mk]:null;var book=fetch("/api/book?m="+mk+(fresh?"&fresh=1":have?"&h="+have.h:"")).then(function(r){try{age=Number(r.headers.get("x-age"))||0;}catch(e){age=0;}return r.json();}).then(function(j){if(j&&j.same&&have){have.b.age=age;return have.b;}
+function loadBook(fresh,noMine){var mk=MK,tax=noMine?null:loadTax();var age=0;var have=!fresh&&lastBook[mk]?lastBook[mk]:null;var book=fetch("/api/book?m="+mk+(fresh?"&fresh=1":have?"&h="+have.h:"")).then(function(r){try{age=Number(r.headers.get("x-age"))||0;}catch(e){age=0;}return r.json();}).then(function(j){if(j&&j.same&&have){have.b.age=age;if(j.reserves){try{have.b.mkt=priceFromReserves(j.reserves);}catch(e){}}return have.b;}
 if(!j||j.error||!j.orders)throw new Error("book");try{localStorage.setItem(BOOK_KEY+mk,JSON.stringify(j));}catch(e){}
 var b=bookOf(j);b.age=age;if(j.h)lastBook[mk]={h:j.h,b:b};return b;}).catch(function(){return Promise.all([readOrders(),marketPrice().catch(function(){return null;})]).then(function(r){return{orders:r[0],mkt:r[1],raw:null};});}).then(function(b){return noMine?b:withMine(b,fresh);});return noMine?book:Promise.all([book,tax]).then(function(r){return r[0];});}
 function read(to,data){return W.rpcOn(M.chain,"eth_call",[{to:to,data:data},"latest"]);}
@@ -1037,5 +1037,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hcb24e2c175";
-/*v:hcb24e2c175*/
+;window.AIL_CORE="hf4cc3af05b";
+/*v:hf4cc3af05b*/
