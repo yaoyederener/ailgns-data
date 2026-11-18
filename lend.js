@@ -247,8 +247,8 @@
       '<div class="lnr-mid"><b class="lnr-v" id="ln-term-v">' + Math.round(TERM_DEFAULT / 86400) + ' 天</b><input type="range" id="ln-term-r" min="1" max="90" step="1" value="' + Math.round(TERM_DEFAULT / 86400) + '" aria-label="借款期限（天）">' +
       '<div class="lnr-ticks">' + [1, 30, 60, 90].map(function (d) { return '<button type="button" data-day="' + d + '">' + d + " 天</button>"; }).join("") + "</div></div>" +
       '<button type="button" class="lnr-b" data-step="1" aria-label="多一天">＋</button></div></div>' +
-      '<div class="dur"><span class="dur-t">挂单有效期 <small class="muted" id="ln-exp-hint">没人接单就自动退回抵押币</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
-      '<div class="dur-opts" id="otc-durs">' + k.DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === k.DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
+      /* 站长 2026-11-18：挂单有效期和 OTC 挂单一样——默认 30 天一行字，旁边一个「自定义」（OTC 的 durSlider 直接拿来用） */
+      '<div class="dur" id="otc-durbox"><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '"></div>' +
       '<p class="note" id="otc-sum">填好三个数字后显示明细</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布借款单（存入 ' + M.sym + '）</button><p class="note" id="otc-st"></p></section>';
   }
 
@@ -314,7 +314,7 @@
       document.getElementById("ln-p-l").firstChild.textContent = lend ? "出借金额（DAI）" : "借款金额（DAI）";
       document.getElementById("ln-r-l").firstChild.textContent = lend ? "到期收回（DAI，含利息）" : "到期还款（DAI，含利息）";
       document.getElementById("otc-create").textContent = lend ? "发布出借单（存入 DAI）" : "发布借款单（存入 " + M.sym + "）";
-      document.getElementById("ln-exp-hint").textContent = lend ? "没人来借就自动退回 DAI" : "没人接单就自动退回抵押币";
+      var eh = document.getElementById("ln-exp-hint"); if (eh) eh.textContent = lend ? "没人来借就自动退回 DAI" : "没人接单就自动退回抵押币";
       document.getElementById("ln-grid").classList.toggle("lend-first", lend); // 有 DAI 的先填 DAI
       autoSec = true; autoRepay = true; col.value = ""; pIn.value = ""; rIn.value = ""; guideEl.hidden = true;
       showPick(); calc();
@@ -366,11 +366,12 @@
       document.querySelectorAll("#otc-form .lnr-ticks button").forEach(function (b) { b.onclick = function () { setDay(b.getAttribute("data-day")); }; });
       rg.style.setProperty("--p", ((Number(rg.value) - 1) / 89 * 100).toFixed(1) + "%");
     })();
-    document.querySelectorAll("#otc-durs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("otc-dur").value = b.getAttribute("data-d"); }; });
+    if (k.durSlider) k.durSlider(document.getElementById("otc-durbox"), { value: k.DUR_DEFAULT, label: "挂单有效期", onChange: function (sec) { document.getElementById("otc-dur").value = sec ? String(sec) : ""; } });
     showPick();
     document.getElementById("otc-create").onclick = function () {
       var btn = this, v = calc(), dur = Number(document.getElementById("otc-dur").value);
       if (!v) { say("请把抵押数量、借款金额、到期还款填完整", true); return; }
+      if (!dur) { say("挂单有效期要在 10 分钟到 30 天之间", true); return; }
       btn.disabled = true;
       var job = side === "lend"
         ? k.ready().then(function () { return k.balance(ANUBIS_DAI, k.account()); }).then(function (bal) {
