@@ -49,6 +49,9 @@
   function loadBook(fresh) {
     return fetch("/api/book?m=" + MK + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
       var now = Date.now() / 1000, all = parseOrders(j.orders, Number(j.from || 0));
+      try { /* 工单 #282：窗口之前还有效的老单（后台放在 j.old）也算进盘口 */
+        (j.old || []).forEach(function (x) { var o = x && x.o; if (!o || o.length !== 7 || !(x.id < Number(j.from || 0))) return; all.push({ id: x.id, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]) }); });
+      } catch (e) { /* 老单读不出来不影响盘口 */ }
       var live = all.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && leftDai(o) >= MIN_DAI; });
       var asks = live.filter(function (o) { return o.sellAilgns; }).sort(function (a, b) { return priceOf(a) - priceOf(b); });
       var bids = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });

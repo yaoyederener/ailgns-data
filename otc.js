@@ -176,7 +176,16 @@
   }
   // ---------- 秒开：订单簿先用上次打开时存下的，再用后台缓存（/api/book，边缘缓存、毫秒级）刷新；后台出错才直接读链 ----------
   var BOOK_KEY = "otc:book:";
-  function bookOf(j) { return { orders: parseOrders(j.orders, j.from), mkt: j.reserves ? priceFromReserves(j.reserves) : null, raw: j.orders }; }
+  /* 工单 #282（2026-11-18）：后台把「窗口之前还有效的老单」放在 j.old 里一起给，合并进盘口——不然这些单买家看不到、扫单也吃不到 */
+  function oldOrder(x) { var o = x.o; return { id: x.id, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]), older: true }; }
+  function withOld(list, j) {
+    try {
+      var from = Number(j.from || 0), add = (j.old || []).filter(function (x) { return x && x.o && x.o.length === 7 && x.id < from; }).map(oldOrder);
+      return add.length ? add.concat(list) : list;
+    } catch (e) { return list; }
+  }
+  function oldSig(j) { try { return (j.old || []).map(function (x) { return x.id + ":" + x.o[6].replace(/^0+/, ""); }).join(","); } catch (e) { return ""; } } /* 老单有变化也要重画 */
+  function bookOf(j) { return { orders: withOld(parseOrders(j.orders, j.from), j), mkt: j.reserves ? priceFromReserves(j.reserves) : null, raw: j.orders + oldSig(j) }; }
   function savedBook() {
     try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"); return j && j.orders ? bookOf(j) : null; } catch (e) { return null; }
   }
@@ -190,8 +199,7 @@
       b.mineFor = a; b.olderN = (j.older || []).length;
       (j.older || []).forEach(function (x) {
         if (b.orders.some(function (o) { return o.id === x.id; })) return;
-        var o = x.o;
-        b.orders.unshift({ id: x.id, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]), older: true });
+        b.orders.unshift(oldOrder(x));
       });
       return b;
     }).catch(function () { return b; });
@@ -482,7 +490,7 @@
   function swapBook(k, fresh) {
     return fetch("/api/book?m=" + k + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || j.error || !j.orders) throw new Error("book");
-      return { orders: parseOrders(j.orders, j.from) };
+      return { orders: withOld(parseOrders(j.orders, j.from), j) };
     }).catch(function () {
       var otc = MARKETS[k].otc;
       return swapCall(otc, SEL.ordersCount).then(function (h) {
