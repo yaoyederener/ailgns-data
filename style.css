@@ -2585,8 +2585,8 @@ body.has-guide .otc-acts { display: none; }
 details.bk-fold > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; }
 details.bk-fold > summary::-webkit-details-marker { display: none; }
 details.bk-fold > summary h2 { margin: 0; }
-details.bk-fold > summary > .muted::after { content: " ▾"; }
-details.bk-fold[open] > summary > .muted::after { content: " ▴"; }
+details.bk-fold > summary > .muted::after { content: " · 点开查看 ▾"; }
+details.bk-fold[open] > summary > .muted::after { content: " · 点这里收起 ▴"; }
 details.bk-fold[open] > summary { margin-bottom: 10px; }
 .or-pdai { font-size: 22px; font-weight: 800; color: #6b4e00; margin: -2px 0 6px; }
 .or-pdai b { font-size: 26px; color: #b8860b; }
