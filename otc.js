@@ -917,7 +917,7 @@
     // 有上次存下的订单簿就先画出来（秒开），拿到最新的再换；用户已经在填表或开着吃单弹窗时不打断
     var snap = savedBook(), shown = null, fresh = freshNext;
     freshNext = false;
-    if (snap) { draw(id, snap.orders, snap.mkt); shown = snap.raw; }
+    if (snap) { draw(id, snap.orders, snap.mkt); shown = snap.raw; bookRaw = shown; }
     else app.innerHTML = placeTabs() + '<div class="loading">正在读取订单…</div>';
     var acct0 = account;
     Promise.all([loadBook(fresh), silentAccount()]).then(function (r) {
@@ -927,11 +927,13 @@
     }).then(function (r) {
       if (!A.isCurrent(id)) return;
       if (pendingJump) { pendingJump = false; setTimeout(function () { var g = app.querySelector("[data-gomine]"); if (g) g.click(); }, 80); }
-      var b = r[0]; bookRaw = b.raw;
+      var b = r[0];
       if (b.age > 2500) setTimeout(pull, 1200); /* 站长 2026-11-18：刚拿到的这份偏旧（后台此刻正在读新的）→ 1 秒多后再拿一次，新挂的单（做市机器人换单）不用等下一轮 */
-      if (shown !== null && b.raw === shown && account === acct0 && !b.olderN) return; // 没变化（合并了自己的老单就要重画，否则老单一直不显示）
-      if (shown !== null && busy()) return;
-      draw(id, b.orders, b.mkt);
+      if (shown !== null && b.raw === shown && account === acct0 && !b.olderN) { bookRaw = b.raw; return; } // 没变化（合并了自己的老单就要重画，否则老单一直不显示）
+      /* 2026-11-18 修：这里以前用 busy()，它把表单里预填的指导价当成「客户正在填表」→ 最新盘口不画，屏幕上一直是上次存下的旧盘口（做市机器人的新单看不到、旧单点了失败），
+         而且 bookRaw 已经记成新的，后面的自动刷新也以为「没变化」。改成 quiet()（只看弹窗 / 扫单中 / 光标在输入框 / 客户真改过输入框）；这次不能画就不记 bookRaw，下一轮自动刷新会补画 */
+      if (shown !== null && !quiet()) return;
+      bookRaw = b.raw; var y0 = shown !== null ? window.scrollY : -1; draw(id, b.orders, b.mkt); if (y0 >= 0) window.scrollTo(0, y0);
     }, function () {
       if (A.isCurrent(id) && shown === null) app.innerHTML = placeTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
     });
