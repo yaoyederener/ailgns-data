@@ -186,8 +186,10 @@
   }
   function oldSig(j) { try { return (j.old || []).map(function (x) { return x.id + ":" + x.o[6].replace(/^0+/, ""); }).join(","); } catch (e) { return ""; } } /* 老单有变化也要重画 */
   function bookOf(j) { return { orders: withOld(parseOrders(j.orders, j.from), j), mkt: j.reserves ? priceFromReserves(j.reserves) : null, raw: j.orders + oldSig(j) }; }
+  /* 站长 2026-11-18：盘口 5 秒一刷，但一份有 46 万字。手里这份的指纹（j.h）带给后台，没变化后台只回 {same:1}，页面接着用手里这份——刷得勤也不费流量 */
+  var lastBook = {};
   function savedBook() {
-    try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"); return j && j.orders ? bookOf(j) : null; } catch (e) { return null; }
+    try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"), b = j && j.orders ? bookOf(j) : null; if (b && j.h && !lastBook[MK]) lastBook[MK] = { h: j.h, b: b }; return b; } catch (e) { return null; }
   }
   // 市场超过 1000 张单后，自己更早挂的单不在窗口里（客户反馈「我的挂单」空的、撤不了）：连了钱包就再问后台要一次自己的老单，合并进来
   function withMine(b, fresh) {
@@ -208,10 +210,12 @@
   function loadBook(fresh, noMine) {
     var mk = MK, tax = noMine ? null : loadTax();
     var age = 0; /* 这份盘口是后台多少毫秒前读的（x-age）：偏旧就马上再拿一次，见下面 pull() */
-    var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { try { age = Number(r.headers.get("x-age")) || 0; } catch (e) { age = 0; } return r.json(); }).then(function (j) {
+    var have = !fresh && lastBook[mk] ? lastBook[mk] : null;
+    var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : have ? "&h=" + have.h : "")).then(function (r) { try { age = Number(r.headers.get("x-age")) || 0; } catch (e) { age = 0; } return r.json(); }).then(function (j) {
+      if (j && j.same && have) { have.b.age = age; return have.b; } /* 没变化：接着用手里这份 */
       if (!j || j.error || !j.orders) throw new Error("book");
       try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
-      var b = bookOf(j); b.age = age; return b;
+      var b = bookOf(j); b.age = age; if (j.h) lastBook[mk] = { h: j.h, b: b }; return b;
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
     }).then(function (b) { return noMine ? b : withMine(b, fresh); });

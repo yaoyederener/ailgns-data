@@ -69,13 +69,16 @@ async function oldOpen(m, k, from, maxAge) {
   } catch (e) { return prev ? prev.old.filter((x) => x.id < from) : []; } /* 这一轮没读成：先用上一轮的，绝不让盘口出错 */
 }
 
+function fnv(s) { let x = 0x811c9dc5; for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193); } return (x >>> 0).toString(16).padStart(8, "0") + s.length.toString(36); }
 async function refresh(m, key, k, fresh) {
   const [count, reserves] = await Promise.all([call(m, m.otc, m.count || COUNT), m.pair ? call(m, m.pair, RESERVES).catch(() => null) : null]);
   const n = Number(BigInt(count)), from = Math.max(0, n - MAX);
   const [orders, old] = await Promise.all([n ? call(m, m.otc, (m.get || GET_ORDERS) + u256(from) + u256(n - from)) : "0x", OLD_MK[k] && !m.get ? oldOpen(m, k, from, fresh ? OLD_FRESH : OLD_STALE).catch(() => []) : null]);
-  const at = Date.now(), body = JSON.stringify(old ? { at, from, orders, reserves, old } : { at, from, orders, reserves });
-  await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=3600", "x-at": String(at) } }));
-  return body;
+  /* h = 这份盘口内容的指纹（挂单 + 老单 + 池子）。页面下次带着 ?h= 来问，没变就只回 {same:1}（几十个字节），不用再发 46 万字 */
+  const h = fnv(from + "|" + orders + "|" + (reserves || "") + "|" + (old ? old.map((x) => x.id + ":" + x.o[6]).join(",") : ""));
+  const at = Date.now(), body = JSON.stringify(old ? { at, from, orders, reserves, old, h } : { at, from, orders, reserves, h });
+  await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=3600", "x-at": String(at), "x-h": h } }));
+  return { body, h };
 }
 
 // 老单补读：市场超过 1000 张单后，更早的单页面看不到（客户的单被挡在窗口外、撤不了）。?mine=0x… 把窗口之前属于这个地址、还开着的单找出来
@@ -106,19 +109,23 @@ export async function onRequestGet(ctx) {
     try { return out(await olderMine(m, k, mine, u.searchParams.get("fresh") === "1"), "mine"); } catch (e) { return Response.json({ older: [], error: String((e && e.message) || e) }); }
   }
   let old = null, oldAge = 0;
+  const want = String(u.searchParams.get("h") || ""), same = (age) => out('{"same":1}', "same", age); /* 页面手里那份的指纹；一样就不重发 */
   if (u.searchParams.get("fresh") !== "1") {
     const hit = await caches.default.match(key);
     if (hit) {
       const age = Date.now() - Number(hit.headers.get("x-at") || 0);
       if (age <= MAX_STALE) {
         if (age > STALE) ctx.waitUntil(refresh(m, key, k, false).catch(() => {}));
+        if (want && want === hit.headers.get("x-h")) return same(age);
         return out(await hit.text(), "hit", age);
       }
       old = hit; oldAge = age; /* 太旧：先不发，下面现读；读不成再用它 */
     }
   }
   try {
-    return out(await refresh(m, key, k, u.searchParams.get("fresh") === "1"), "miss", 0);
+    const r = await refresh(m, key, k, u.searchParams.get("fresh") === "1");
+    if (want && want === r.h && u.searchParams.get("fresh") !== "1") return same(0);
+    return out(r.body, "miss", 0);
   } catch (e) {
     if (old) return out(await old.text(), "stale", oldAge);
     return Response.json({ error: String((e && e.message) || e) }, { status: 502 });
