@@ -1,5 +1,7 @@
 // 📮 客户问题反馈（工单）：客户在 #/feedback 提交「钱包地址 + 文字 + 截图」，站长在 #/feedback/admin 挨个处理
 // POST 二进制 ?video=1&id=…&a=…  正文就是视频文件          → 给刚提交的工单附 1 个视频（站长 2026-11-17：客户录屏最能说明问题；最多 20MB，留 60 天）
+// POST 二进制 ?video=1&id=…&a=…&i=<第几段>&n=<共几段>&size=<总字节>      → 分段上传视频（站长 2026-11-19「怎么方便客户怎么来」：苹果手机拍 10 秒就 20MB；
+//      数据库单个值最多 25MB，所以每 8MB 存一段，总共最多 100MB，留 14 天）。老页面不带 i / n 的照旧走上面那条（一次传完，最多 20MB）
 // GET  ?vid=<工单号>&key=…                                  → 站长后台看这个视频
 // POST { a, txt, imgs: [dataURL…] }                 → 新工单（截图前端已压缩成 JPEG；最多 4 张）；DeBox 私信通知客服
 // GET  ?mine=0x…                                    → 这个地址的工单进度（客户看：编号、时间、状态、回复，不含截图）
@@ -89,8 +91,10 @@ export async function onRequestGet(ctx) {
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
   const vid = u.searchParams.get("vid");
   if (vid) {
+    const vt = await kv.get("tk:" + (Number(vid) || 0), "json");
+    if (vt && vt.vn) return videoParts(ctx, kv, vt.id, vt);
     const r = await kv.getWithMetadata("tk:vid:" + (Number(vid) || 0), "arrayBuffer");
-    if (!r || !r.value) return new Response("视频没找到（可能已过期，视频只留 60 天）", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
+    if (!r || !r.value) return new Response("视频没找到（可能已过期：视频只留 14 天，11-19 之前传的留 60 天）", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
     return new Response(r.value, { headers: { "content-type": (r.metadata && r.metadata.type) || "video/mp4", "cache-control": "private, max-age=3600" } });
   }
   const img = u.searchParams.get("img");
@@ -114,12 +118,64 @@ export async function onRequestGet(ctx) {
 }
 
 const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i, VID_MAX = 20 * 1024 * 1024;
+const VID_PART = 8 * 1024 * 1024, VID_TOTAL = 100 * 1024 * 1024, VID_TTL = 14 * 86400; /* 分段：每段 8MB、总共最多 100MB、留 14 天 */
+// 分段存的视频拿出来看：支持「只要其中一段」（Range），苹果的播放器必须有这个才肯播
+function videoParts(ctx, kv, id, t) {
+  const total = Number(t.vs) || 0, type = t.vt || "video/mp4";
+  let start = 0, end = total - 1, partial = false;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(ctx.request.headers.get("range") || "").trim());
+  if (m && (m[1] || m[2])) {
+    partial = true;
+    if (m[1] === "") start = Math.max(0, total - Number(m[2]));
+    else { start = Number(m[1]); if (m[2] !== "") end = Math.min(end, Number(m[2])); }
+    if (!(start <= end) || start >= total) return new Response(null, { status: 416, headers: { "content-range": "bytes */" + total } });
+  }
+  const first = Math.floor(start / VID_PART), last = Math.floor(end / VID_PART);
+  const { readable, writable } = new FixedLengthStream(end - start + 1);
+  ctx.waitUntil((async () => {
+    const w = writable.getWriter();
+    try {
+      for (let i = first; i <= last; i++) {
+        const buf = await kv.get("tk:vid:" + id + ":" + i, "arrayBuffer");
+        if (!buf) throw new Error("missing part " + i);
+        const off = i * VID_PART, a = Math.max(start, off) - off, b = Math.min(end, off + buf.byteLength - 1) - off + 1;
+        await w.write(new Uint8Array(buf, a, b - a));
+      }
+      await w.close();
+    } catch (e) { try { await w.abort(e); } catch (x) { /* 客户端已经断开 */ } }
+  })());
+  const h = { "content-type": type, "accept-ranges": "bytes", "cache-control": "private, max-age=3600" };
+  if (partial) h["content-range"] = "bytes " + start + "-" + end + "/" + total;
+  return new Response(readable, { status: partial ? 206 : 200, headers: h });
+}
 async function putVideo(ctx, kv, u) {
   const a = String(u.searchParams.get("a") || "").trim().toLowerCase(), id = Number(u.searchParams.get("id")) || 0;
   const type = String(ctx.request.headers.get("content-type") || "").split(";")[0].trim();
   const big = "视频太大了（最多 20MB）。请录短一点（30 秒以内），或者改传截图";
   if (!isAddr(a) || !id) return json({ error: "缺少工单号或钱包地址" }, 400);
   if (!VID_OK.test(type)) return json({ error: "这个文件不是常见的视频格式，请用手机直接录的视频 / 录屏，或者改传截图" }, 400);
+  const parts = u.searchParams.has("n");
+  if (parts) {
+    const i = Number(u.searchParams.get("i")), n = Number(u.searchParams.get("n")), size = Number(u.searchParams.get("size"));
+    const tooBig = "视频太大了（最多 100MB）。请录短一点，或者用手机自带的「录屏」（比用另一台手机拍小很多）";
+    if (!(size > 0) || !Number.isInteger(size)) return json({ error: "视频是空的，请重新选一次" }, 400);
+    if (size > VID_TOTAL) return json({ error: tooBig }, 400);
+    if (!Number.isInteger(n) || !Number.isInteger(i) || n !== Math.ceil(size / VID_PART) || i < 0 || i >= n) return json({ error: "视频分段不对，请刷新页面重新选一次视频" }, 400);
+    const want = i < n - 1 ? VID_PART : size - (n - 1) * VID_PART;
+    if (Number(ctx.request.headers.get("content-length") || 0) > VID_PART) return json({ error: "视频分段不对，请刷新页面重新选一次视频" }, 400);
+    const pt = await kv.get("tk:" + id, "json");
+    if (!pt || pt.a !== a) return json({ error: "没有这个工单" }, 404);
+    if (Date.now() - pt.t > 90 * 60e3) return json({ error: "这张工单提交太久了，视频请重新提一张工单一起传" }, 400); /* 大视频传得慢，给 90 分钟 */
+    if (pt.v) return json({ error: "这张工单已经有视频了" }, 400);
+    const pb = await ctx.request.arrayBuffer();
+    if (pb.byteLength !== want) return json({ error: "这一段没传完整（网络断了），请再传一次", retry: 1 }, 400);
+    await kv.put("tk:vid:" + id + ":" + i, pb, { expirationTtl: VID_TTL, metadata: { size: pb.byteLength } });
+    if (i < n - 1) return json({ ok: true, i, done: false });
+    /* 最后一段到了：工单上记下「有视频、共几段、多大、什么格式」。前面每一段都是存好了才回的「成功」，页面按顺序一段一段传 */
+    pt.v = 1; pt.vs = size; pt.vn = n; pt.vt = type;
+    await kv.put("tk:" + id, JSON.stringify(pt), { expirationTtl: 180 * 86400 });
+    return json({ ok: true, i, done: true });
+  }
   if (Number(ctx.request.headers.get("content-length") || 0) > VID_MAX) return json({ error: big }, 400);
   const t = await kv.get("tk:" + id, "json");
   // 只能给「自己刚提交的那张工单」补视频：地址要对得上，而且在提交后 30 分钟内，一张工单只收 1 个
@@ -129,7 +185,7 @@ async function putVideo(ctx, kv, u) {
   const buf = await ctx.request.arrayBuffer();
   if (!buf.byteLength) return json({ error: "视频是空的，请重新选一次" }, 400);
   if (buf.byteLength > VID_MAX) return json({ error: big }, 400);
-  await kv.put("tk:vid:" + id, buf, { expirationTtl: 60 * 86400, metadata: { type, size: buf.byteLength } });
+  await kv.put("tk:vid:" + id, buf, { expirationTtl: VID_TTL, metadata: { type, size: buf.byteLength } });
   t.v = 1; t.vs = buf.byteLength;
   await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
   return json({ ok: true });

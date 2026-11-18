@@ -4547,3 +4547,5 @@ details.g-miss[open] > summary span::after { content: " ▴"; }
 tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .bk-rank { font-size: 12px; font-family: inherit; }
 @media (max-width: 600px) { table.cards.book tr.bk-mine { box-shadow: inset 0 0 0 2px rgba(245, 185, 66, .55); border-radius: 16px; padding: 12px 12px 12px 14px; margin: 8px 0; background: #fffaf0; } table.cards.book tr.bk-mine td { background-color: transparent; } }
+/* 2026-11-19：工单视频传到一半断了的「接着传」按钮 */
+.fb-st .fb-vgo { display: block; width: 100%; margin-top: 8px; padding: 11px; font-size: 15px; }
