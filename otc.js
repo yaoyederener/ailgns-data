@@ -1001,13 +1001,17 @@
           ? '<button class="ghost act-btn" data-cancel="' + o.id + '">撤单</button>'
           : o._far ? '<button class="ghost act-btn" data-fill="' + o.id + '">⚠️ 离谱价</button>'
           : '<button class="act-btn ' + (o.sellAilgns ? "btn-buy" : "btn-sell") + '" data-fill="' + o.id + '">' + (o.sellAilgns ? "买入" : "卖出") + "</button>";
-        return '<tr class="' + (i >= bookShow ? "bk-x " : "") + (A.BOT && o.maker === A.BOT ? "bk-bot" : "") + '" style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
+        /* 工单 #294（2026-11-19，站长点头后做）：挂单簿默认只露最便宜的 5 张，客户自己的单排在后面就被折起来，以为单子丢了。
+           连着钱包时，自己的单不折叠（bk-mine），并写明排第几；位置不变，别的单照旧折叠 */
+        var own = !!account && o.maker === account;
+        return '<tr class="' + (i >= bookShow && !own ? "bk-x " : "") + (own ? "bk-mine " : "") + (A.BOT && o.maker === A.BOT ? "bk-bot" : "") + '" style="--w:' + (o._w || 0) + '%"><td class="act">' + act + '</td><td data-l="单价 DAI" class="price"><b>' + A.fmt(p, PD) + '</b></td><td data-l="剩余 ' + SYM + '">' + tShow(ail, TD === 18 ? 4 : 2) + '</td><td data-l="总额 DAI">' + A.fmt(tNum(ail) * p, 2) + "</td>" +
           '<td data-l="对比' + orefN + '" class="' + (diff === null ? "" : diff >= 0 ? "up" : "down") + '">' + (diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(2) + "%") + "</td>" +
-          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b>' : A.nameTag(o.maker)) + "</td></tr>";
+          '<td data-l="剩余时间">' + left(o.expiry - now) + '</td><td data-l="挂单人" class="l mono">' + (o.maker === account ? '<b style="color:var(--gold)">我的</b><small class="muted bk-rank"> · 排第 ' + (i + 1) + " 位</small>" : A.nameTag(o.maker)) + "</td></tr>";
       }
       function book(key, title, list, hint) {
         var bk = MK + key, ext = Math.max(0, Math.min(+openBook[bk] || 0, list.length - BOOK_SHOW)), more = list.length - BOOK_SHOW - ext;
         bookShow = BOOK_SHOW + ext;
+        if (account) more = list.filter(function (o, i) { return i >= bookShow && o.maker !== account; }).length; /* 自己的单本来就露着，不算在「还剩 N 张」里 */
         // 深度条：每一行背景按「到这一档为止累计多少 DAI」铺色，一眼看出哪边厚；配合扫光动画有「扫单」的感觉
         var daiOf = function (o) { return o.sellAilgns ? tNum(o.giveLeft) * priceOf(o) : num(o.giveLeft); }; // 这一档还剩多少 DAI 的量
         var cum = 0, tot = list.reduce(function (sum, o) { return sum + daiOf(o); }, 0) || 1;
@@ -1078,8 +1082,8 @@
         function set(ext, back) {
           var rows = sec.querySelectorAll("table.book tbody tr"), tot = rows.length;
           ext = Math.max(0, Math.min(ext, tot - BOOK_SHOW)); openBook[k] = ext;
-          for (var i = 0; i < tot; i++) rows[i].classList.toggle("bk-x", i >= BOOK_SHOW + ext);
-          var more = tot - BOOK_SHOW - ext;
+          for (var i = 0; i < tot; i++) rows[i].classList.toggle("bk-x", i >= BOOK_SHOW + ext && !rows[i].classList.contains("bk-mine"));
+          var more = sec.querySelectorAll("table.book tbody tr.bk-x").length;
           mb.style.display = more > 0 ? "" : "none"; if (more > 0) mb.textContent = moreTxt(more);
           lb.style.display = ext > 0 ? "" : "none";
           if (back) sec.scrollIntoView({ block: "start" }); // 收起后回到这个列表开头
