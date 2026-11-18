@@ -184,8 +184,8 @@
       var isOpen = openBook[key], more = list.length - BOOK_SHOW;
       var body = (list.length ? '<div class="tbl-wrap"><table class="cards book"><thead><tr>' + head + "</tr></thead><tbody>" + list.map(row).join("") + "</tbody></table></div>" +
           (more > 0 ? '<button type="button" class="ghost book-more" data-book="' + key + '">' + (isOpen ? "收起 ▴" : "展开其余 " + more + " 笔 ▾") + "</button>" : "") : '<div class="empty">暂无</div>');
-      // fold：整块默认收起（站长要求「借款中」折叠），点标题展开；展开状态记在 openBook，刷新列表不会又合上
-      if (fold) return '<details class="card bk-fold' + (isOpen ? " bk-open" : "") + '" id="book-' + key + '" data-fold="' + key + '"' + (openBook["fold:" + key] ? " open" : "") + '><summary><h2>' + title + ' <small class="muted book-n">' + list.length + ' 笔</small></h2><span class="muted">' + hint + ' · 点开查看</span></summary>' + body + "</details>";
+      // fold：整块可以收起。站长 2026-11-18：「借款中」默认展开（以前默认收起），点标题收起 / 再点展开；客户自己收起过就记在 openBook，刷新列表不会又弹开
+      if (fold) return '<details class="card bk-fold' + (isOpen ? " bk-open" : "") + '" id="book-' + key + '" data-fold="' + key + '"' + (openBook["fold:" + key] !== false ? " open" : "") + '><summary><h2>' + title + ' <small class="muted book-n">' + list.length + ' 笔</small></h2><span class="muted">' + hint + ' · 点开查看</span></summary>' + body + "</details>";
       return '<section class="card' + (isOpen ? " bk-open" : "") + '" id="book-' + key + '"><div class="card-head"><h2>' + title + ' <small class="muted book-n">' + list.length + ' 笔</small></h2><span class="muted">' + hint + "</span></div>" + body + "</section>";
     }
     var html = (M.legacy
