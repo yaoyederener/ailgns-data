@@ -19,11 +19,13 @@
   var FEE_BPS = 100n, BOOK_SHOW = 8;
   var TERMS = [[86400, "1 天"], [3 * 86400, "3 天"], [7 * 86400, "7 天"], [15 * 86400, "15 天"], [30 * 86400, "30 天"], [60 * 86400, "60 天"], [90 * 86400, "90 天"]];
   var TERM_DEFAULT = 30 * 86400;
-  var GUIDE_MONTHLY = 0.10; // 指导利息：月息 10%，不足一个月按一个月算（只是参考，利息由双方自己协商）
+  /* 站长 2026-11-18：指导利息改成「月息 5%，按天折算，最低 2%」（以前月息 10%、不足一个月按一个月算：借 7 天也收 10%，31 天直接跳成 2 个月）。
+     最低 2% 是因为出借人每笔要另付本金 1% 的手续费，纯按天算的话借 7 天只有 1.17%，扣完手续费等于白借。只是参考，利息由双方自己协商 */
+  var GUIDE_MONTHLY = 0.05, GUIDE_MIN = 0.02;
   // 指导抵押率：期限越长币价波动越大，抵押要越多（按 DEX 市价算，只是参考）：1–7 天 130%，8–30 天 150%，31–90 天 200%
   function guideOver(term) { return term <= 7 * 86400 ? 1.30 : term <= 30 * 86400 ? 1.50 : 2.00; }
-  function guideMonths(term) { return Math.max(1, Math.ceil(term / (30 * 86400))); }
-  function guideRepay(p, term) { return p + p * BigInt(Math.round(GUIDE_MONTHLY * guideMonths(term) * 1e6)) / 1000000n; }
+  function guideRate(term) { return Math.max(GUIDE_MIN, GUIDE_MONTHLY * term / (30 * 86400)); } /* 这笔借款整个期限的指导利率（不是年化） */
+  function guideRepay(p, term) { return p + p * BigInt(Math.round(guideRate(term) * 1e6)) / 1000000n; }
   var STATUS = ["挂单中", "借款中", "已还清", "已违约", "已撤单 / 已退回"];
   var REASONS = {
     REPAY_LT_PRINCIPAL: "到期还款金额不能少于本金", BAD_TERM: "借款期限要在 1 天到 90 天之间",
@@ -201,7 +203,7 @@
     html += '<div class="kpis kpis-2"><div class="kpi"><div class="k">借款合约</div><div class="v" style="font-size:16px"><a class="mono" target="_blank" rel="noopener" href="' + EXPLORER + "/address/" + LOAN + '">' + A.short(LOAN) + ' ↗</a></div><div class="d"><a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/AilgnsLoanEscrow.sol">开源源码 ↗</a> · <a target="_blank" rel="noopener" href="https://github.com/yaoyederener/ailgns-data/blob/main/contracts/VERIFY.md">编译参数与核对 ↗</a></div></div>' +
       '<div class="kpi"><div class="k">规则</div><div class="v" style="font-size:16px">金额不限 · 期限 1–90 天</div><div class="d">借多少、押多少、还多少由挂单人自己填（利息可以为 0）· 建议抵押率 1–7 天 130%、8–30 天 150%、31–90 天 200% · 没有管理员，部署后任何人改不了</div></div></div>';
     html += '<section class="card" id="ln-terms"><div class="card-head"><h2>借款约定</h2><span class="muted">接单即视为双方同意，全部由合约执行</span></div><ol class="addr-tips">' +
-      '<li><b>利息自行协商。</b>借多少、到期还多少由挂单人填写，接单方认可就成交；页面的指导价（月息 10%）只是参考。</li>' +
+      '<li><b>利息自行协商。</b>借多少、到期还多少由挂单人填写，接单方认可就成交；页面的指导价（月息 5%，按天折算，最低 2%）只是参考。</li>' +
       '<li><b>不足一个月按一个月计算。</b>指导价按月计息：借 1–30 天算 1 个月，31–60 天算 2 个月，61–90 天算 3 个月；提前还款不退利息。</li>' +
       '<li><b>逾期不还，抵押币自动划给出借人。</b>到还款截止时间未还清约定金额，合约把全部抵押的 ' + M.sym + ' 划给出借人，借款结束；没有宽限期，划转后不能再还。</li>' +
       '<li><b>按时还清，抵押币原路退回。</b>还款金额付给出借人，抵押币同一笔交易退回借款地址。</li>' +
@@ -255,7 +257,7 @@
   function bind(id, loans) {
     var k = K(), app = A.app, side = "borrow";
     var col = document.getElementById("ln-col"), pIn = document.getElementById("ln-p"), rIn = document.getElementById("ln-r"), sum = document.getElementById("otc-sum"), st = document.getElementById("otc-st"), pick = document.getElementById("ln-pick"), guideEl = document.getElementById("ln-guide");
-    // 指导价：有 AiLGNS 的先填抵押数量 → 算出能借多少（抵押 110%）和到期还多少（月息 10%）；有 DAI 的先填出借金额 → 算出要求对方押多少和到期收回多少
+    // 指导价：有 AiLGNS 的先填抵押数量 → 算出能借多少（抵押 110%）和到期还多少（月息 5% 按天折算，最低 2%）；有 DAI 的先填出借金额 → 算出要求对方押多少和到期收回多少
     // 自动填进去的值，用户手动改过就不再覆盖；点「用这个价」恢复
     var autoSec = true, autoRepay = true;
     function guide() {
@@ -275,7 +277,7 @@
       guideEl.hidden = false;
       guideEl.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + (lend ? (cl ? floorTok(cl) + " " + M.sym : "—") : dai(pr) + " DAI") + '</b><small>' +
         (lend ? "建议要求抵押 · 现值约为出借金额的 " + Math.round(guideOver(term) * 100) + "%（" + days(term) + "）" : "可借 · 抵押品现值的 " + Math.round(100 / guideOver(term)) + "%（" + days(term) + "期限建议抵押率 " + Math.round(guideOver(term) * 100) + "%）") +
-        " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（月息 " + (GUIDE_MONTHLY * 100) + "% × " + guideMonths(term) + " 个月，不足一个月按一个月算，利息 " + dai(g - pr) + '）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
+        " · " + days(term) + "到期还 <b>" + dai(g) + " DAI</b>（利息 " + dai(g - pr) + " = 本金的 " + (guideRate(term) * 100).toFixed(2).replace(/\.?0+$/, "") + "% · 按月息 " + (GUIDE_MONTHLY * 100) + "% 一天一天算，最低 " + (GUIDE_MIN * 100) + '%）</small><button type="button" class="ghost" id="ln-guse">用这个价</button></div>' +
         '<p class="muted">按 ' + M.sym + (M.liveTax ? " 扣掉 DEX 卖出手续费（链上实测约 " + Math.round(taxOf() * 100) + "%）后实际能卖到的价 " : " 当前市价 ") + (mkt ? A.fmt(mkt, M.dec === 9 ? 5 : 2) : "—") + ' DAI 算，只是参考：借多少、押多少、利息多少都由双方自己协商。抵押率建议 1–7 天 130%、8–30 天 150%、31–90 天 200%：合约不清算，币价跌破借款金额时借款人多半不还，抵押越足出借人越安全。</p>';
       document.getElementById("ln-guse").onclick = function () { autoSec = true; autoRepay = true; guide(); calc(); };
     }
