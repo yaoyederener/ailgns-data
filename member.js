@@ -489,7 +489,7 @@
         };
       });
       // 开通或升级成功：达到想要的等级就跳走，否则说明还差多少
-      function finish(addr, t, w) {
+      function finish(addr, t, w, dest) { /* dest：成功后跳去哪；不给就照旧去结构图 */
         activate(addr, t);
         subnav();
         if (memAuto) { memAuto = false; renderMember(id); return; } // 自动查出来的：留在会员中心显示会员卡，不跳团队结构图
@@ -499,7 +499,7 @@
           return;
         }
         say(TIERS[t.tier].name + " 已开通！");
-        setTimeout(function () { location.hash = "#/tree"; }, 800);
+        setTimeout(function () { location.hash = dest || "#/tree"; }, 800);
       }
       // 查询：是会员就直接恢复；不是会员就在输入框下面直接给付款按钮
       var q = document.getElementById("mem-q"), qOut = document.getElementById("q-out");
@@ -518,7 +518,7 @@
         lookup(a).then(function (t) {
           q.disabled = false;
           if (!document.body.contains(qOut)) return; // 工单 #70：结果回来前客户已切到别的页，容器没了，直接忽略（原来会报 q-pay 为 null）
-          if (t && t.tier) { qOut.innerHTML = '<p class="note up">这个地址已经是' + TIERS[t.tier].name + "，正在恢复…</p>"; return finish(a, t, t.tier); }
+          if (t && t.tier) { qOut.innerHTML = '<p class="note up">这个地址已经是' + TIERS[t.tier].name + "，正在恢复…</p>"; return finish(a, t, t.tier, "#/growth/" + a); } /* 站长 2026-11-19：输入地址点「查询」、查到是会员 → 直接跳到这个地址的「团队新增业绩」（以前跳结构图）；付款开通成功后的跳转没动 */
           checked = a;
           qOut.innerHTML = '<div class="q-pay"><p>这个地址<b>还不是会员</b>，可以直接付款开通：</p><button class="paybtn" id="q-pay"></button>' +
             '<p class="muted">想换等级或换币种，在下面选好再点付款。</p></div><div id="q-vol"></div>';
