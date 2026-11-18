@@ -242,7 +242,11 @@
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
       '<div class="qty-pick" id="ln-pick"></div><div class="guide" id="ln-guide" hidden></div>' +
       '<div class="dur"><span class="dur-t">借款期限 <small class="muted">从接单那一刻起算</small></span><input type="hidden" id="ln-term" value="' + TERM_DEFAULT + '">' +
-      '<div class="dur-opts" id="ln-terms">' + TERMS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === TERM_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
+      /* 站长 2026-11-18：借款期限改成拖动条（合约允许 1–90 天），默认 30 天；手机上拖不准就点两头的 − ＋，或者直接点下面的刻度 */
+      '<div class="lnr-row"><button type="button" class="lnr-b" data-step="-1" aria-label="少一天">−</button>' +
+      '<div class="lnr-mid"><b class="lnr-v" id="ln-term-v">' + Math.round(TERM_DEFAULT / 86400) + ' 天</b><input type="range" id="ln-term-r" min="1" max="90" step="1" value="' + Math.round(TERM_DEFAULT / 86400) + '" aria-label="借款期限（天）">' +
+      '<div class="lnr-ticks">' + [1, 30, 60, 90].map(function (d) { return '<button type="button" data-day="' + d + '">' + d + " 天</button>"; }).join("") + "</div></div>" +
+      '<button type="button" class="lnr-b" data-step="1" aria-label="多一天">＋</button></div></div>' +
       '<div class="dur"><span class="dur-t">挂单有效期 <small class="muted" id="ln-exp-hint">没人接单就自动退回抵押币</small></span><input type="hidden" id="otc-dur" value="' + k.DUR_DEFAULT + '">' +
       '<div class="dur-opts" id="otc-durs">' + k.DURATIONS.map(function (d) { return '<button type="button" data-d="' + d[0] + '"' + (d[0] === k.DUR_DEFAULT ? ' class="on"' : "") + ">" + d[1] + "</button>"; }).join("") + "</div></div>" +
       '<p class="note" id="otc-sum">填好三个数字后显示明细</p><div id="dbx-slot"></div><button id="otc-create" style="padding:12px 22px">发布借款单（存入 ' + M.sym + '）</button><p class="note" id="otc-st"></p></section>';
@@ -347,7 +351,20 @@
     col.oninput = function () { if (side === "lend") autoSec = false; guide(); calc(); };
     pIn.oninput = function () { if (side !== "lend") autoSec = false; guide(); calc(); };
     rIn.oninput = function () { autoRepay = false; calc(); };
-    document.querySelectorAll("#ln-terms button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#ln-terms button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("ln-term").value = b.getAttribute("data-d"); guide(); calc(); }; });
+    (function () { /* 借款期限拖动条：拖、点 − ＋、点刻度，都落到同一个隐藏值 ln-term（秒）上，其余算法不变 */
+      var rg = document.getElementById("ln-term-r"), lab = document.getElementById("ln-term-v"), hid = document.getElementById("ln-term");
+      if (!rg || !hid) return;
+      function setDay(d) {
+        d = Math.max(1, Math.min(90, Math.round(Number(d) || 30)));
+        rg.value = d; hid.value = d * 86400; if (lab) lab.textContent = d + " 天";
+        rg.style.setProperty("--p", ((d - 1) / 89 * 100).toFixed(1) + "%");
+        guide(); calc();
+      }
+      rg.oninput = function () { setDay(rg.value); };
+      document.querySelectorAll("#otc-form .lnr-b").forEach(function (b) { b.onclick = function () { setDay(Number(rg.value) + Number(b.getAttribute("data-step"))); }; });
+      document.querySelectorAll("#otc-form .lnr-ticks button").forEach(function (b) { b.onclick = function () { setDay(b.getAttribute("data-day")); }; });
+      rg.style.setProperty("--p", ((Number(rg.value) - 1) / 89 * 100).toFixed(1) + "%");
+    })();
     document.querySelectorAll("#otc-durs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll("#otc-durs button").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("otc-dur").value = b.getAttribute("data-d"); }; });
     showPick();
     document.getElementById("otc-create").onclick = function () {
