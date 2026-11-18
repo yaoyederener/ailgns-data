@@ -236,7 +236,7 @@
 
   function form(k) {
     return '<section class="card" id="otc-form"><div class="card-head"><h2 id="ln-title">押 ' + M.sym + ' 借 DAI</h2><span class="muted" id="ln-hint">抵押币先存进合约，没人接单前随时可撤</span></div>' +
-      '<div class="seg" id="otc-side"><button data-side="borrow" class="on">我有 ' + M.sym + '，想借 DAI</button><button data-side="lend">我有 DAI，想出借</button></div>' +
+      '<div class="seg" id="otc-side"><button data-side="borrow" class="on"><span class="lns-s">我有 ' + M.sym + '</span><span class="lns-b">想借 DAI</span></button><button data-side="lend"><span class="lns-s">我有 DAI</span><span class="lns-b">想出借</span></button></div>' +
       '<div class="form-grid" id="ln-grid"><label id="ln-col-l">抵押数量（' + M.sym + '）<input id="ln-col" inputmode="decimal" placeholder="例如 ' + M.eg[0] + '"></label>' +
       '<label id="ln-p-l">借款金额（DAI）<input id="ln-p" inputmode="decimal" placeholder="例如 ' + M.eg[1] + '"></label>' +
       '<label id="ln-r-l">到期还款（DAI，含利息）<input id="ln-r" inputmode="decimal" placeholder="例如 ' + M.eg[2] + '"></label></div>' +
@@ -355,7 +355,8 @@
       var rg = document.getElementById("ln-term-r"), lab = document.getElementById("ln-term-v"), hid = document.getElementById("ln-term");
       if (!rg || !hid) return;
       function setDay(d) {
-        d = Math.max(1, Math.min(90, Math.round(Number(d) || 30)));
+        d = Number(d); if (!isFinite(d)) d = 30;
+        d = Math.max(1, Math.min(90, Math.round(d)));
         rg.value = d; hid.value = d * 86400; if (lab) lab.textContent = d + " 天";
         rg.style.setProperty("--p", ((d - 1) / 89 * 100).toFixed(1) + "%");
         guide(); calc();

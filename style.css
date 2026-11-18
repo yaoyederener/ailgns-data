@@ -4517,7 +4517,8 @@ a.fx-ball:hover { background: #efe7ff; text-decoration: none; }
 /* 站长 2026-11-18：借贷页最上面「想借 / 想出借」选择框。以前被 OTC 买卖按钮的样式盖住，选中的那个变成白底白字看不见；改成浅紫底、选中紫色高亮 */
 #otc-side button[data-side="borrow"], #otc-side button[data-side="lend"] { color: #5b3fa8; border-color: #cdbdf7; background: #f7f3ff; white-space: normal; line-height: 1.3; transition: background .15s, box-shadow .15s, transform .1s; }
 #otc-side button[data-side="borrow"].on, #otc-side button[data-side="lend"].on { background: linear-gradient(110deg, #7c4ddb, #a365f2); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(124, 77, 219, .32); }
-#otc-side button[data-side="borrow"].on::before, #otc-side button[data-side="lend"].on::before { content: "✓ "; }
+#otc-side .lns-s { display: block; font-size: 13px; font-weight: 600; opacity: .85; }
+#otc-side .lns-b { display: block; font-size: 18px; font-weight: 800; margin-top: 2px; }
 #otc-side button[data-side="borrow"]:active, #otc-side button[data-side="lend"]:active { transform: scale(.98); }
 /* 站长 2026-11-18：借款期限拖动条 */
 .lnr-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 10px; align-items: center; padding: 12px; border: 1px solid #e3d9fb; border-radius: 14px; background: #faf7ff; }
