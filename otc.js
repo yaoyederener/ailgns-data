@@ -207,10 +207,11 @@
   // 站长 2026-11-12 要秒开：税和挂单一起读（以前先等税再读挂单，多等一轮）；noMine = 扫单确认时用，不等税、不查自己的老单（自己的单本来就不能吃）
   function loadBook(fresh, noMine) {
     var mk = MK, tax = noMine ? null : loadTax();
-    var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+    var age = 0; /* 这份盘口是后台多少毫秒前读的（x-age）：偏旧就马上再拿一次，见下面 pull() */
+    var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : "")).then(function (r) { try { age = Number(r.headers.get("x-age")) || 0; } catch (e) { age = 0; } return r.json(); }).then(function (j) {
       if (!j || j.error || !j.orders) throw new Error("book");
       try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
-      return bookOf(j);
+      var b = bookOf(j); b.age = age; return b;
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
     }).then(function (b) { return noMine ? b : withMine(b, fresh); });
@@ -923,6 +924,7 @@
       if (!A.isCurrent(id)) return;
       if (pendingJump) { pendingJump = false; setTimeout(function () { var g = app.querySelector("[data-gomine]"); if (g) g.click(); }, 80); }
       var b = r[0]; bookRaw = b.raw;
+      if (b.age > 2500) setTimeout(pull, 1200); /* 站长 2026-11-18：刚拿到的这份偏旧（后台此刻正在读新的）→ 1 秒多后再拿一次，新挂的单（做市机器人换单）不用等下一轮 */
       if (shown !== null && b.raw === shown && account === acct0 && !b.olderN) return; // 没变化（合并了自己的老单就要重画，否则老单一直不显示）
       if (shown !== null && busy()) return;
       draw(id, b.orders, b.mkt);
@@ -939,15 +941,19 @@
       var ae = document.activeElement; if (ae && app.contains(ae) && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) return false;
       return !app.querySelector("input[data-dirty], textarea[data-dirty], select[data-dirty]");
     }
-    clearInterval(bookTimer);
-    bookTimer = setInterval(function () {
+    /* 站长 2026-11-18：「不能及时上架、看到」→ 10 秒一次改成 5 秒一次；拿到的那份偏旧就 1 秒多后补拿一次（每轮最多补一次） */
+    function pull(again) {
       if (!A.isCurrent(id)) return clearInterval(bookTimer);
       if (document.hidden || !quiet()) return;
       loadBook(false).then(function (b) {
-        if (!A.isCurrent(id) || !quiet() || !b || !b.raw || b.raw === bookRaw) return;
+        if (!A.isCurrent(id) || !b) return;
+        if (again !== true && b.age > 2500) setTimeout(function () { pull(true); }, 1200);
+        if (!quiet() || !b.raw || b.raw === bookRaw) return;
         bookRaw = b.raw; var y = window.scrollY; draw(id, b.orders, b.mkt); window.scrollTo(0, y);
       }).catch(function () {});
-    }, 10000);
+    }
+    clearInterval(bookTimer);
+    bookTimer = setInterval(pull, 5000);
     function busy() {
       var m = document.getElementById("otc-modal");
       if (m && !m.hidden) return true;

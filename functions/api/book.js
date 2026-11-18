@@ -18,7 +18,10 @@ const MARKETS = {
 };
 const COUNT = "0x35daa731", GET_ORDERS = "0x8f72fc77", RESERVES = "0x0902f1ac";
 const MAX = 1000; // 和前端一样只读最近 1000 张
-const STALE = 8000; // 缓存超过这么久就在后台刷新
+/* 站长 2026-11-18：做市机器人的新买单「不能及时上架、看到」。以前：缓存 8 秒后才后台刷新，而且再旧的缓存也照发（这个机房几分钟没人来，第一个人看到的就是几分钟前的盘口）。
+   现在：超过 3 秒就后台刷新；超过 15 秒的旧缓存不再发，当场现读一份（读链失败才退回用旧的）。回应里带 x-age（这份数据多少毫秒前读的），页面据此决定要不要马上再拿一次 */
+const STALE = 3000; // 缓存超过这么久就在后台刷新
+const MAX_STALE = 15000; // 缓存超过这么久就不发了，现读
 const u256 = (v) => BigInt(v).toString(16).padStart(64, "0");
 
 async function call(m, to, data) {
@@ -90,7 +93,7 @@ async function olderMine(m, k, a, fresh) {
   return body;
 }
 
-const out = (body, state) => new Response(body, { headers: { "content-type": "application/json", "cache-control": "no-store", "x-book": state } });
+const out = (body, state, age) => new Response(body, { headers: { "content-type": "application/json", "cache-control": "no-store", "x-book": state, "x-age": String(Math.max(0, Math.round(age || 0))) } });
 
 export async function onRequestGet(ctx) {
   const u = new URL(ctx.request.url), k = u.searchParams.get("m") || "ailgns";
@@ -102,16 +105,22 @@ export async function onRequestGet(ctx) {
     if (!/^0x[0-9a-f]{40}$/.test(mine) || m.get) return Response.json({ older: [] });
     try { return out(await olderMine(m, k, mine, u.searchParams.get("fresh") === "1"), "mine"); } catch (e) { return Response.json({ older: [], error: String((e && e.message) || e) }); }
   }
+  let old = null, oldAge = 0;
   if (u.searchParams.get("fresh") !== "1") {
     const hit = await caches.default.match(key);
     if (hit) {
-      if (Date.now() - Number(hit.headers.get("x-at") || 0) > STALE) ctx.waitUntil(refresh(m, key, k, false).catch(() => {}));
-      return out(await hit.text(), "hit");
+      const age = Date.now() - Number(hit.headers.get("x-at") || 0);
+      if (age <= MAX_STALE) {
+        if (age > STALE) ctx.waitUntil(refresh(m, key, k, false).catch(() => {}));
+        return out(await hit.text(), "hit", age);
+      }
+      old = hit; oldAge = age; /* 太旧：先不发，下面现读；读不成再用它 */
     }
   }
   try {
-    return out(await refresh(m, key, k, u.searchParams.get("fresh") === "1"), "miss");
+    return out(await refresh(m, key, k, u.searchParams.get("fresh") === "1"), "miss", 0);
   } catch (e) {
+    if (old) return out(await old.text(), "stale", oldAge);
     return Response.json({ error: String((e && e.message) || e) }, { status: 502 });
   }
 }
