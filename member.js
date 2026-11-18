@@ -1380,6 +1380,11 @@
   var POWER = "0x9E68F61E2615cc1D2C4a2D0026bFc1EBFdf68C1b";
   var DAI_QUEUED = "0x41fd86243836b698405554ae311d223dec7e355200f05fd658fb3adffe567668"; // 用 DAI 买算力：topics[1]=地址，data=[DAI, 算力]
   var LGNS_BURN = "0x16b309670cfc6e855d1def7ee55e395827e8a8694f4c701ffe0adbc7b75121cc"; // 销毁 LGNS 换算力：topics[1]=地址，data=[LGNS(9 位小数), 算力]
+  /* 2026-11-18（客户反馈「销毁 LGNS 统计得太少」）：链上销毁 LGNS 有两条路。上面 LGNS_BURN 是算力合约里每天中午放的一批（每笔固定 500 LGNS 换 1000 算力，一天 400 笔 = 20 万枚）；
+     另一条在质押合约 STAKE 里（用户按市价销毁，一天约 100 笔、七八十万枚），以前完全没读。事件：topics[2]=地址，data=[按市价折的 DAI, LGNS(9 位小数), DAI×2.5]。
+     链上核过 3 笔：这一种销毁之后，官方算力合约里那个人的已登记算力没有增加（DAI 买入和中午那批都会增加）→ 数量统计进来、逐笔列出，但不计入「新增入金」 */
+  var STAKE = "0x0664f1369209677fecb279f5ec3df1e53a22212e";
+  var LGNS_BURN2 = "0x13b44a18f3f1ffeb7b3e65ecd3210084fae31ad0ed6a2a9ce02f67427deb06f5";
   var COMMUNITY = "0xc9f9a8a2dBf8188AD6610e0239105CAbE67c4993";
   var ANUBIS_RPCS = location.hostname === "ailgnsotc.cc" ? ["https://ailgnsotc.cc/rpc", "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", "https://ailgnsotc.cc/rpc"]; // 香港中转节点（2026-11-10）
 
@@ -1524,20 +1529,23 @@
     }
     return tsOf(lo).then(function (t) { if (t >= ts) lo = Math.max(1, lo - 200000); return search(); });
   }
-  function depositsBetween(from, to) {
+  function depositsBetween(from, to, only2) { /* only2 = 只补读质押合约那种销毁（每日文件还是旧格式时用） */
     var ranges = [];
+    if (to < from) return Promise.resolve([]);
     for (var b = from; b <= to; b += 5000) ranges.push([b, Math.min(to, b + 4999)]);
     var groups = [];
     for (var i = 0; i < ranges.length; i += 25) groups.push(ranges.slice(i, i + 25)); // 25 段打包成一次请求
     return A.pool(groups, 3, function (g) {
       return batchRpc(g.map(function (r) {
-        return ["eth_getLogs", [{ address: POWER, topics: [[DAI_QUEUED, LGNS_BURN]], fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16) }]];
+        return ["eth_getLogs", [{ address: only2 ? STAKE : [POWER, STAKE], topics: [only2 ? [LGNS_BURN2] : [DAI_QUEUED, LGNS_BURN, LGNS_BURN2]], fromBlock: "0x" + r[0].toString(16), toBlock: "0x" + r[1].toString(16) }]];
       })).then(function (res) {
         if (res.some(function (x) { return x == null; })) throw new Error("部分记录没读到");
         return [].concat.apply([], res);
       });
     }).then(function (chunks) {
       return [].concat.apply([], chunks.map(function (c) { return c || []; })).map(function (l) {
+        if (l.topics[0] === LGNS_BURN2) return { addr: "0x" + l.topics[2].slice(26), kind: "LGNS", stake: true, dai: 0, lgns: Number(BigInt("0x" + l.data.slice(66, 130))) / 1e9,
+          val: Number(BigInt("0x" + l.data.slice(2, 66))) / 1e18, power: 0, block: parseInt(l.blockNumber, 16), tx: l.transactionHash };
         var d = l.data.slice(2), lgns = l.topics[0] === LGNS_BURN, amt = Number(BigInt("0x" + d.slice(0, 64)));
         return { addr: "0x" + l.topics[1].slice(26), kind: lgns ? "LGNS" : "DAI", dai: lgns ? 0 : amt / 1e18, lgns: lgns ? amt / 1e9 : 0,
           power: Number(BigInt("0x" + d.slice(64, 128))) / 1e18, block: parseInt(l.blockNumber, 16), tx: l.transactionHash };
@@ -1579,7 +1587,7 @@
     for (var t = r[0]; t < (r[1] || Date.now() / 1000); t += 86400) dates.push(bjDate(t));
     return Promise.all(dates.map(dayFile)).then(function (files) {
       if (files.some(function (f) { return !f; })) return depositsBetween(from, to); // 有缺的就整段查链
-      var rows = [], covered = 0;
+      var rows = [], covered = 0, gaps = [];
       files.forEach(function (f) {
         covered = Math.max(covered, f.to);
         f.rows.forEach(function (x) {
@@ -1587,9 +1595,15 @@
           var burn = x[1] === 1;
           rows.push({ addr: "0x" + x[0], kind: burn ? "LGNS" : "DAI", dai: burn ? 0 : x[2], lgns: burn ? x[2] : 0, power: x[3], block: x[4], tx: null });
         });
+        if (f.v >= 2) (f.rows2 || []).forEach(function (x) { /* [地址, LGNS, 按市价折的 DAI, 区块] */
+          if (x[3] < from || x[3] > to) return;
+          rows.push({ addr: "0x" + x[0], kind: "LGNS", stake: true, dai: 0, lgns: x[1], val: x[2], power: 0, block: x[3], tx: null });
+        });
+        else gaps.push([Math.max(from, f.from), Math.min(to, f.to)]);
       });
-      if (covered >= to) return rows;
-      return depositsBetween(covered + 1, to).then(function (more) { return rows.concat(more); });
+      var jobs = gaps.map(function (g) { return depositsBetween(g[0], g[1], true); });
+      if (covered < to) jobs.push(depositsBetween(covered + 1, to));
+      return Promise.all(jobs).then(function (more) { return rows.concat.apply(rows, more); });
     });
   }
 
@@ -1620,7 +1634,7 @@
         var t0 = r[0], t1 = r[1] || latest.t, span = Math.max(1, to - from);
         var rows = deps.filter(function (d) { return team[d.addr]; }).map(function (d) {
           var k = team[d.addr];
-          return { addr: d.addr, kind: d.kind, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, block: d.block, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
+          return { addr: d.addr, kind: d.kind, stake: !!d.stake, val: d.val || 0, dai: d.dai, lgns: d.lgns, power: d.power, tx: d.tx, block: d.block, line: k.line, depth: k.depth, t: t0 + (d.block - from) / span * (t1 - t0) };
         }).sort(function (a, b) { return b.t - a.t; });
         lastRows = rows;
         var n = team.__n || Object.keys(team).length - 1;
@@ -1650,6 +1664,7 @@
       var team = rows.filter(function (r) { return r.line !== "self"; }), self = rows.filter(function (r) { return r.line === "self"; });
       var sum = function (l, k) { return l.reduce(function (t, r) { return t + r[k || "power"]; }, 0); };
       var uniq = function (l) { return Object.keys(l.reduce(function (o, r) { o[r.addr] = 1; return o; }, {})).length; };
+      var paid = team.filter(function (r) { return !r.stake; }), stk = team.filter(function (r) { return r.stake; }); /* stk = 质押合约里销毁 LGNS 的：只统计数量，不算入金 */
       var lines = {};
       team.forEach(function (r) {
         var L = lines[r.line] || (lines[r.line] = { line: r.line, power: 0, dai: 0, lgns: 0, n: 0, who: {} });
@@ -1657,9 +1672,10 @@
       });
       var lineList = Object.keys(lines).map(function (k) { return lines[k]; }).sort(function (a, b) { return b.power - a.power; });
       var fmtT = function (t) { return new Date(t * 1000).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }); };
-      var html = '<div class="kpis" style="margin-top:4px"><div class="kpi hero"><div class="k">团队新增入金</div><div class="v num">' + A.fmt(A.toDai(sum(team)), 2) + '<small>DAI</small></div><div class="d">' + team.length + " 笔 · " + uniq(team) + " 个地址</div></div>" +
+      var html = '<div class="kpis" style="margin-top:4px"><div class="kpi hero"><div class="k">团队新增入金</div><div class="v num">' + A.fmt(A.toDai(sum(team)), 2) + '<small>DAI</small></div><div class="d">' + paid.length + " 笔 · " + uniq(paid) + " 个地址</div></div>" +
         '<div class="kpi"><div class="k">其中 DAI 投入</div><div class="v num">' + A.fmt(sum(team, "dai"), 2) + '<small>DAI</small></div><div class="d">真实 DAI，P 等级按这个算</div></div>' +
-        '<div class="kpi"><div class="k">其中销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">按换来的算力 ÷ 2.5 计入新增入金</div></div>' +
+        '<div class="kpi"><div class="k">团队销毁 LGNS</div><div class="v num">' + A.fmt(sum(team, "lgns"), 2) + '<small>LGNS</small></div><div class="d">' +
+          (stk.length ? "换算力 " + A.fmt(sum(paid, "lgns"), 0) + " 枚（计入新增入金）+ 质押合约里销毁 " + A.fmt(sum(stk, "lgns"), 0) + " 枚 · " + stk.length + " 笔（约值 " + A.fmt(sum(stk, "val"), 0) + " DAI，不计入新增入金）" : "按换来的算力 ÷ 2.5 计入新增入金") + '</div></div>' +
         '<div class="kpi"><div class="k">本人新增入金</div><div class="v num">' + A.fmt(A.toDai(sum(self)), 2) + '<small>DAI</small></div><div class="d">' + self.length + " 笔（不计入团队）</div></div></div>";
       html = '<p class="note g-status">' + status + "</p>" + html;
       if (!rows.length) {
@@ -1669,7 +1685,7 @@
       }
       // 💰 谁在入金（高级 VIP）：这段时间伞下入金的地址去重列出来，点一下复制，不用导出
       var byAddr = {};
-      team.forEach(function (r) { var x = byAddr[r.addr] || (byAddr[r.addr] = { addr: r.addr, power: 0, n: 0, line: r.line, depth: r.depth, t: r.t }); x.power += r.power; x.n++; if (r.t > x.t) x.t = r.t; });
+      paid.forEach(function (r) { var x = byAddr[r.addr] || (byAddr[r.addr] = { addr: r.addr, power: 0, n: 0, line: r.line, depth: r.depth, t: r.t }); x.power += r.power; x.n++; if (r.t > x.t) x.t = r.t; });
       var radar = Object.keys(byAddr).map(function (k) { return byAddr[k]; }).sort(function (a, b) { return b.power - a.power; });
       var plabel = (PERIODS.filter(function (p) { return p[0] === period; })[0] || ["", "这段时间"])[1];
       html += '<section class="radar"><div class="card-head"><h3 class="g-h" style="margin:0">💰 谁在入金 <span class="vip vip-pro" style="font-size:12px;vertical-align:2px">' + vipEmblem("pro", 14) + '高级 VIP</span></h3><span class="muted">' + plabel + "伞下入金 " + radar.length + " 个地址 · 点「复制」直接拿地址，不用导出</span></div>" +
@@ -1686,20 +1702,20 @@
         }).join("") + "</tbody></table></div>";
       html += '<div class="card-head" style="margin-top:18px"><h3 class="g-h" style="margin:0">具体地址</h3><button class="ghost" id="g-csv" style="padding:6px 14px">导出表格</button></div><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">时间</th><th class="l">地址</th><th class="l">方式</th><th>投入</th><th>新增入金 DAI</th><th class="l">所属直推线</th><th>第几层</th></tr></thead><tbody>' +
         rows.slice(0, 500).map(function (r) {
-          return '<tr><td data-l="时间" class="l">' + fmtT(r.t) + '</td><td data-l="地址" class="l">' + A.addrLink(r.addr, "team") + '</td><td data-l="方式" class="l">' + (r.kind === "LGNS" ? "销毁 LGNS" : "DAI 买入") +
-            '</td><td data-l="投入">' + (r.kind === "LGNS" ? A.fmt(r.lgns, 2) + " LGNS" : A.fmt(r.dai, 2) + " DAI") + '</td><td data-l="新增入金 DAI"><b>' + A.fmt(A.toDai(r.power), 2) + "</b>" +
+          return '<tr><td data-l="时间" class="l">' + fmtT(r.t) + '</td><td data-l="地址" class="l">' + A.addrLink(r.addr, "team") + '</td><td data-l="方式" class="l">' + (r.stake ? "销毁 LGNS（质押合约）" : r.kind === "LGNS" ? "销毁 LGNS" : "DAI 买入") +
+            '</td><td data-l="投入">' + (r.kind === "LGNS" ? A.fmt(r.lgns, 2) + " LGNS" : A.fmt(r.dai, 2) + " DAI") + '</td><td data-l="新增入金 DAI">' + (r.stake ? '<span class="muted">不计 · 约值 ' + A.fmt(r.val, 0) + " DAI</span>" : "<b>" + A.fmt(A.toDai(r.power), 2) + "</b>") +
             '</td><td data-l="所属直推线" class="l">' + (r.line === "self" ? "本人" : A.addrLink(r.line, "team")) + '</td><td data-l="第几层">' + (r.line === "self" ? "—" : r.depth) + "</td></tr>";
         }).join("") + "</tbody></table></div>" +
         (rows.length > 500 ? '<p class="note">只显示最近 500 笔，导出表格可以拿到全部 ' + rows.length + " 笔。</p>" : "") +
-        '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。新增入金 = 新增算力 ÷ 2.5，折算成真实投入的 DAI。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
+        '<p class="note">这里是链上逐笔记录：团队里每一笔用 DAI 买算力、销毁 LGNS 换算力，都能对应到具体地址和交易。新增入金 = 新增算力 ÷ 2.5，折算成真实投入的 DAI。销毁 LGNS 有两种：在算力合约里换算力的（计入新增入金）；在质押合约里按市价销毁的（数量照样统计、逐笔列出，但链上看官方登记的算力没有增加，所以不计入新增入金）。官方的「增长算力」是奖励公式算出来的数，和这里的原始投入不是同一个口径；P 等级的三区业绩只算 DAI 投入。时间按区块估算，误差在一分钟以内。</p>';
       shell(html);
       bindRefresh();
       document.getElementById("g-csv").onclick = proOnly(function () {
         // 导出只要两列：地址、新增入金 DAI（站长要求，别的都不加）
-        var csv = "地址,新增入金DAI\n" + lastRows.map(function (r) { return r.addr + "," + (Math.round(A.toDai(r.power) * 100) / 100); }).join("\n");
+        var csv = "地址,新增入金DAI\n" + lastRows.filter(function (r) { return !r.stake; }).map(function (r) { return r.addr + "," + (Math.round(A.toDai(r.power) * 100) / 100); }).join("\n");
         // 钱包内置浏览器大多不支持下载文件：手机上改成把表格内容显示出来、一键复制（粘到微信 / Excel 都能用）
         if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || !("download" in document.createElement("a"))) {
-          var tsv = lastRows.map(function (r) { return r.addr + "  " + (Math.round(A.toDai(r.power) * 100) / 100) + " DAI"; }).join("\n");
+          var tsv = lastRows.filter(function (r) { return !r.stake; }).map(function (r) { return r.addr + "  " + (Math.round(A.toDai(r.power) * 100) / 100) + " DAI"; }).join("\n");
           var box = document.getElementById("g-csv-box");
           if (!box) { box = document.createElement("div"); box.id = "g-csv-box"; document.getElementById("g-csv").parentNode.insertAdjacentElement("afterend", box); }
           box.innerHTML = '<div class="csv-box"><div class="card-head"><b>地址 + 金额（' + lastRows.length + ' 行）</b><button class="ghost" id="g-csv-copy" style="padding:6px 14px">复制全部</button></div><textarea readonly rows="6"></textarea><p class="muted">手机浏览器不能直接下载文件：点「复制全部」，每行一个地址和金额，直接粘到微信或备忘录。</p></div>';
