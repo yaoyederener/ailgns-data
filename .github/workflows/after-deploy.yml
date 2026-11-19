@@ -22,7 +22,7 @@ jobs:
       BEFORE: ${{ github.event.before }}
       FEEDBACK_KEY: ${{ secrets.FEEDBACK_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 定好查哪个站
         run: |
@@ -33,9 +33,9 @@ jobs:
           { echo "BASE=$BASE"; echo "MODE=$MODE"; echo "NAME=$NAME"; echo "WANT=$WANT"; echo "DRILL=$DRILL"; } >> "$GITHUB_ENV"
           echo "$NAME $BASE 要等的版本 $WANT 演练=$DRILL"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
 
       - name: 装无头浏览器
         run: |
