@@ -469,7 +469,7 @@
     if (!keys.length) return '<p class="mkl-none">没有找到这个币种。想上新币可以点右下角「客服」留言。</p>';
     return keys.map(function (k) {
       var m = MARKETS[k], x = d[k], on = k === MK && !swapOn;
-      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + (MK_ICON[k] ? '<img src="' + MK_ICON[k] + '" alt="" loading="lazy"' + (m.nft ? ' class="fit"' : "") + ">" : "") + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
+      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + (MK_ICON[k] ? '<img src="' + MK_ICON[k] + '" alt=""' + (m.nft ? ' class="fit"' : "") + ">" : "") + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
         '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : '<small>暂无成交</small>') + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) + (x.more ? "+" : "") : "<small>—</small>") + "</span></a>";
     }).join("");
   }
