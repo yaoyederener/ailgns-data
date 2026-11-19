@@ -4549,3 +4549,8 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 @media (max-width: 600px) { table.cards.book tr.bk-mine { box-shadow: inset 0 0 0 2px rgba(245, 185, 66, .55); border-radius: 16px; padding: 12px 12px 12px 14px; margin: 8px 0; background: #fffaf0; } table.cards.book tr.bk-mine td { background-color: transparent; } }
 /* 2026-11-19：工单视频传到一半断了的「接着传」按钮 */
 .fb-st .fb-vgo { display: block; width: 100%; margin-top: 8px; padding: 11px; font-size: 15px; }
+/* 站长 2026-11-18 农场韭菜：熟了等别人来割的地块（不是「收」，不闪黄光） */
+.fm-plot.cutme { cursor: pointer; font: inherit; }
+.fm-plot.cutme .fm-ic { font-size: 40px; }
+.fm-plot.cutme small { background: #0d9488; color: #fff; }
+.fm-tip.cut { background: linear-gradient(180deg, #34d399, #059669); }

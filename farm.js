@@ -205,6 +205,9 @@
       var plots = me.plots.map(function (p, i) {
         if (!p) return '<button type="button" class="fm-plot empty" data-plant="' + i + '"><span class="fm-ic fm-plus">＋</span><b>空地</b><small>点击播种</small></button>';
         var c = C[p.c], s = p.t + c.grow - t, pr = Math.min(1, (t - p.t) / c.grow);
+        /* 站长 2026-11-18 韭菜：熟了自己不能收，等别人来割；熟了 R.chiveSelf（24 小时）还没人割，才按普通成熟显示、自己收一半 */
+        var selfAt = p.t + c.grow + (R.chiveSelf || 86400);
+        if (c.cut && s <= 0 && t < selfAt) return '<button type="button" class="fm-plot cutme" data-cutme="' + selfAt + '"><em class="fm-tip cut">割</em><span class="fm-ic">' + c.icon + "</span><b>" + c.name + "</b><small>等别人来割</small></button>";
         if (s <= 0) ripe++;
         return '<div class="fm-plot' + (s <= 0 ? " ripe" : " grow") + '">' + (s <= 0 ? '<em class="fm-tip">收</em><i class="fm-spark">✨</i>' : "") + '<span class="fm-ic' + (s > 0 && pr >= 0.67 ? " young" : "") + '">' + (s <= 0 || pr >= 0.67 ? c.icon : pr < 0.34 ? "🌱" : "🌿") + "</span><b>" + c.name + (p.stolen ? '<em class="fm-st">被偷 ' + p.stolen + "</em>" : "") + "</b>" +
           '<small data-ripe="' + (p.t + c.grow) + '">' + left(s) + "</small>" + (s > 0 ? '<i class="fm-bar"><i style="width:' + (pr * 100).toFixed(0) + '%"></i></i><button type="button" class="fm-boost" data-boost="' + i + '">⚡ ' + boostCost(s, R.boost) + "</button>" : "") + "</div>";
@@ -243,7 +246,7 @@
         Object.keys(C).map(function (k) {
           var c = C[k], lock = me.lv < c.lv || (c.vip && !me.paid);
           return '<button type="button" data-seed="' + k + '"' + (lock || me.coins < c.seed ? " disabled" : "") + '><span class="fm-ic">' + c.icon + "</span><b>" + c.name + "</b><small>" +
-            (lock ? (c.vip && !me.paid ? "👑 充值解锁" : "🔒 " + c.lv + " 级解锁") : c.seed + " 金币 · " + left(c.grow).replace(" 0 秒", "").replace(" 0 分", "") + " · 卖 " + c.yield * c.price) + "</small></button>";
+            (lock ? (c.vip && !me.paid ? "👑 充值解锁" : "🔒 " + c.lv + " 级解锁") : c.seed + " 金币 · " + left(c.grow).replace(" 0 秒", "").replace(" 0 分", "") + (c.cut ? " · 别人来割你得 " : " · 卖 ") + c.yield * c.price) + "</small></button>";
         }).join("") + "</div></div>";
       m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
       m.onclick = function (e) { if (e.target === m) m.hidden = true; };
@@ -294,6 +297,7 @@
         on("fm-harvest", function () { run("harvest"); });
         // 站长 2026-11-12：熟了的菜地一闪一闪，客户会去点它 → 点熟菜地也等于点「一键收获」
         out.querySelectorAll(".fm-plot.ripe").forEach(function (b) { b.onclick = function () { run("harvest"); }; });
+        out.querySelectorAll("[data-cutme]").forEach(function (b) { b.onclick = function () { var c = R.crops.chive, s = +b.getAttribute("data-cutme") - now(); toast("🌿 韭菜自己不能收，等别人来割：割了你拿 " + c.yield * c.price + " 金币。" + (s > 0 ? "再过 " + left(s) + " 还没人割，你可以自己收一半" : "现在可以自己收一半了，刷新一下")); }; });
         on("fm-buyplot", function () { if ((A.sure || confirm)("花 " + R.plots[me.plots.length - 6] + " 金币开垦一块新地？")) run("buyPlot"); });
         on("fm-eggs", function () { run("eggs"); });
         out.querySelectorAll(".fm-rv").forEach(function (b) { b.onclick = function () { b.disabled = true; run("steal", { to: b.getAttribute("data-rv") }); }; }); // ⚔️ 偷回去：复仇那一次不会被拦
@@ -312,7 +316,7 @@
       var want = tab;
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
-        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">🎁 <b>每天第一次偷必得手</b>，对方有狗有警察也拦不住。被人偷了？回农场首页「农场动态」点「⚔️ 偷回去」，那一次同样不会被拦。</p><p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
+        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">🌿 <b>别人家熟了的韭菜可以帮忙割</b>：对方拿全额，你另得四成，狗和警察不拦，点「偷」就一起割了。</p><p class="note">🎁 <b>每天第一次偷必得手</b>，对方有狗有警察也拦不住。被人偷了？回农场首页「农场动态」点「⚔️ 偷回去」，那一次同样不会被拦。</p><p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
         var all = out.querySelector("#fm-all");
         if (all) all.onclick = function () {
           var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled && !b.hasAttribute("data-cop"); }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, cops = 0, i = 0, batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // 这一轮的编号，服务器按它算保底
