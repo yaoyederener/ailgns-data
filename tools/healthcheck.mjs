@@ -1,7 +1,7 @@
 // 上线后体检（.github/workflows/after-deploy.yml 调用）：无头浏览器按手机宽度把主要页面走一遍，
 // 抓三样：程序报错（代码写错才会有的那种）、核心页面白屏、本站脚本/样式加载失败。
 // 网络慢、接口 5xx、钱包没装这些不算程序错，只记成提醒，不会触发退回。
-// 用法：BASE=https://ailgns.dev WANT_CORE=h1234abcd node tools/healthcheck.mjs   退出码 0=通过 1=不通过
+// 用法：BASE=https://ailgns.dev WANT_CORE=h1234abcd node tools/healthcheck.mjs   退出码 0=通过 3=不通过 其它=体检自己坏了（流程看到「其它」不会退回网站）
 import { chromium } from "playwright";
 import fs from "node:fs";
 
@@ -19,6 +19,8 @@ const errs = [], warns = [], blank = [], badLoad = [];
 let route = "(打开首页)";
 const note = (m) => { m = String(m || "").slice(0, 300); if (!m) return; (PROGRAM.test(m) && !NOISE.test(m) ? errs : warns).push("#/" + route + " " + m); };
 
+process.on("uncaughtException", (e) => { console.log("体检脚本自己出错：" + (e && e.stack || e)); process.exit(2); });
+process.on("unhandledRejection", (e) => { console.log("体检脚本自己出错：" + (e && e.stack || e)); process.exit(2); });
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "zh-CN" });
 const page = await ctx.newPage();
@@ -71,4 +73,4 @@ const enc = (s) => s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "
 console.log("::" + (fail ? "error" : "notice") + " title=体检 " + TAG + "::" + enc(text.slice(0, 3500)));
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, "### 体检 " + TAG + "\n\n```\n" + text + "\n```\n");
 if (process.env.HC_OUT) fs.writeFileSync(process.env.HC_OUT, JSON.stringify({ fail, core, text: text.slice(0, 900) }));
-process.exit(fail ? 1 : 0);
+process.exit(fail ? 3 : 0);
