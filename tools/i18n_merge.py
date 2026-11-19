@@ -47,6 +47,11 @@ ONE = {"笔": "", "个": "", "枚": "", "张": "", "名": "", "位": "", "条": 
        "开": "Open", "高": "High", "低": "Low", "量": "Vol", "大": "Big", "小": "Small", "王": "Joker", "配": "Wild", "碰": "Pung",
        "杠": "Kong", "胡": "Win", "庄": "Dealer", "缺": "Missing", "过": "Pass", "筒": "Dots", "萬": "Characters", "番": "Fan",
        "进": "Enter", "割": "Cut", "线": "line", "骗": "scam", "升": "up"}
+# 更新日志这类「开头一个表情 + 空格 + 正文」的句子，页面会把表情拆出去单独放：正文也单独记一条
+for zh, en_ in list(out.items()):
+    m = re.match(r"^(\S+)\s+", zh)
+    if m and len(zh) > 30 and not re.search(r"[\u4e00-\u9fffA-Za-z0-9]", m.group(1)) and en_.startswith(m.group(1)):
+        out.setdefault(zh[m.end():], en_[len(m.group(1)):].strip())
 n1 = nd = 0
 for zh in list(out):
     cs = CJK.findall(zh)
