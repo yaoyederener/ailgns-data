@@ -4587,3 +4587,33 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .u2d-say.on { padding: 9px 12px; border-radius: 12px; background: #f3efff; }
 .u2d-say.bad { padding: 9px 12px; border-radius: 12px; background: #fef2f2; color: #b91c1c; }
 .u2d details summary { cursor: pointer; font-weight: 700; color: #4c1d95; }
+
+/* ☰ 更多 菜单重排（站长 2026-11-19：分组卡片嫌丑，要按最好的审美重做）
+   思路：一组一张白卡浮在很淡的底色上，去掉描边和渐变块；三级文字层次（组名 / 项目名 / 小字预览）；
+   小字预览只在名字之间换行；一共几项放进右上角小圆牌；当前所在页用淡紫底 + 左侧细条，不再用整块深紫。
+   小字预览保持 14px、颜色够深（站长 2026-11-12 说过小字看不清）。 */
+.dw-body { padding: 16px 14px 14px; gap: 12px; background: #f6f4fb; }
+.dw-group { margin: 0; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(46, 38, 84, .05), 0 8px 20px rgba(76, 29, 149, .05); overflow: hidden; }
+.dw-gh { display: grid; grid-template-columns: 1fr auto auto; align-items: center; column-gap: 10px; row-gap: 7px; padding: 16px 16px 15px; border: 0; border-radius: 0; background: none; box-shadow: none; white-space: normal; }
+.dw-gh b { font-size: 17px; font-weight: 700; letter-spacing: .3px; color: #241c4a; }
+.dw-gh small { display: none; }
+.dw-n { font-style: normal; min-width: 26px; height: 22px; padding: 0 8px; border-radius: 11px; background: #f1ecff; color: #6d4bd1; font-size: 12.5px; font-weight: 700; line-height: 22px; text-align: center; box-sizing: border-box; }
+.dw-gh .dw-up { margin: 0; width: 18px; height: 18px; color: #a99fd0; }
+.dw-gh .dw-sum { grid-column: 1 / -1; order: 0; flex-basis: auto; margin: 0; font-style: normal; font-size: 14px; line-height: 1.7; color: #5b5385; font-weight: 500; overflow-wrap: normal; }
+.dw-sum span { display: inline-block; white-space: nowrap; margin-right: 7px; }
+.dw-sum span:not(:last-child):not(.dw-etc)::after { content: "·"; margin-left: 7px; color: #c3badf; }
+.dw-sum span:nth-last-child(2):not(.dw-etc)::after { content: "·"; }
+.dw-sum .dw-etc { margin: 0; color: #a99fd0; letter-spacing: 1px; }
+.dw-sum span:has(+ .dw-etc)::after { content: none; }
+.dw-group.open .dw-gh { background: none; border: 0; box-shadow: none; padding-bottom: 13px; }
+.dw-group.open .dw-gh b { color: #5b21b6; }
+.dw-group.open .dw-n { background: #5b21b6; color: #fff; }
+.dw-items { gap: 2px; margin: 0 8px; padding: 6px 0 8px; border-top: 1px solid #f1edfb; }
+.dw-items a { position: relative; gap: 10px; padding: 13px 12px; border: 0; border-radius: 12px; color: #2e2654; font-size: 15.5px; font-weight: 500; }
+.dw-items a .dw-chev { width: 16px; height: 16px; opacity: 1; color: #cbc2e8; }
+.dw-items a:hover, .dw-items a:active { background: #f6f2ff; }
+.dw-items a.on { background: #f1ecff; border: 0; color: #5b21b6; font-weight: 700; box-shadow: none; }
+.dw-items a.on::before { content: ""; position: absolute; left: 0; top: 11px; bottom: 11px; width: 3px; border-radius: 3px; background: #7c3aed; }
+.dw-items a.on .dw-chev { color: #7c3aed; }
+.dw-more { gap: 10px; margin: 2px 0; padding: 12px; border: 0; border-radius: 12px; background: #faf8ff; color: #5b5385; font-size: 14.5px; font-weight: 500; opacity: 1; }
+.dw-more .dw-up { color: #a99fd0; }
