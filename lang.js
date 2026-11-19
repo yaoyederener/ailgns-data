@@ -27,7 +27,7 @@
   if (lang === "zh") return;
   try { root.setAttribute("lang", lang === "en" ? "en" : "zh-Hant"); root.classList.add("lang-" + lang); } catch (e) { /* 不要紧 */ }
 
-  var CJK = /[一-鿿]/, SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, CODE: 1, CANVAS: 1, NOSCRIPT: 1 };
+  var CJK = /[\u4e00-\u9fff]/, NEED = lang === "en" ? /[\u4e00-\u9fff，。：；（）、！？「」]/ : /[\u4e00-\u9fff]/, SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, CODE: 1, CANVAS: 1, NOSCRIPT: 1 };
   var NAME = /[^\s，。、：:；;（）()「」《》<>"'=\/|·,!！?？]+\.ailgns/gi; // 链上的名字：原样保留
   var ATTRS = ["placeholder", "title", "aria-label", "alt"];
   var conv = null; // 一段文字 → 换好的文字（没变化就返回原样）
@@ -65,17 +65,57 @@
 
   // ===== English：查词典。数字、地址、名字先抠出来换成 {0}{1}…，同一句话不同数字共用一条翻译 =====
   var VAR = /[^\s，。、：:；;（）()「」《》<>"'=\/|·,!！?？]+\.ailgns|0x[0-9a-fA-F]{4,}(?:[….]+[0-9a-fA-F]+)?|\d[\d,]*(?:\.\d+)?/gi;
-  var miss = null, quiet = false; // quiet：整句查词典时，句子里要是已经有一段被换成英文了，这个「半中半英」的句子不记进没翻译的名单
+  var miss = null;
   function makeEn(D) {
-    var dict = D.d || {};
+    var dict = D.d || {}, frag = D.f || {}, idx = {}, SHORT = {}, k, own = Object.prototype.hasOwnProperty;
     try { if (localStorage.getItem("ail:langdbg") === "1") { miss = {}; window.AIL_LANG_MISS = miss; } } catch (e) { /* 不记 */ }
-    return function (t) {
-      if (!CJK.test(t)) return t;
+    // D.d = 整句词典（查之前数字 / 地址 / 名字换成 {0}{1}…）。D.f = 代码里的每一小段原文 → 英文（tools/i18n_extract.py 抠出来的）：
+    // 整句查不到时，在这段字里找认识的小段，一段一段换，中间的数字 / 名字留着
+    for (k in frag) if (own.call(frag, k)) { (idx[k.charAt(0)] = idx[k.charAt(0)] || []).push(k); if ((k.match(/[一-鿿]/g) || []).length <= 2) SHORT[k] = 1; }
+    for (k in idx) idx[k].sort(function (a, b) { return b.length - a.length; });
+    var PUN = { "，": ", ", "。": ". ", "：": ": ", "；": "; ", "（": " (", "）": ") ", "、": ", ", "！": "! ", "？": "? ", "「": "“", "」": "”", "『": "“", "』": "”", "《": "“", "》": "”", "～": "–" };
+    var A_END = /[A-Za-z0-9%”)]$/, A_START = /^[A-Za-z0-9“($]/;
+    function cjk(c) { return c >= "一" && c <= "鿿"; }
+    function longAt(t, pos) { /* 这个位置是不是紧跟着一段认识的、三个字以上的原文 */
+      var l = idx[t.charAt(pos)], y;
+      if (l) for (y = 0; y < l.length; y++) if (!SHORT[l[y]] && t.substr(pos, l[y].length) === l[y]) return true;
+      return false;
+    }
+    function scan(t) {
+      var out = "", i = 0, n = t.length, any = false, last = true, c, list, x, hit, p;
+      while (i < n) {
+        c = t.charAt(i); list = idx[c]; hit = null;
+        if (list) for (x = 0; x < list.length; x++) {
+          k = list[x];
+          if (t.substr(i, k.length) !== k) continue;
+          /* 一两个字的小段：前后都不能紧挨着不认识的汉字才换（「张三」不能变成「orders三」），免得把人名、留言里的字拆了 */
+          if (SHORT[k] && ((!last && i > 0 && cjk(t.charAt(i - 1))) || (i + k.length < n && cjk(t.charAt(i + k.length)) && !longAt(t, i + k.length)))) continue;
+          hit = k; break;
+        }
+        if (hit !== null) {
+          p = frag[hit];
+          if (p) out += (A_END.test(out) && A_START.test(p) ? " " : "") + p;
+          i += hit.length; any = true; last = true;
+        } else {
+          p = own.call(PUN, c) ? PUN[c] : c;
+          out += (last && out && A_END.test(out) && /^[A-Za-z0-9]/.test(p) ? " " : "") + p;
+          i++; last = false;
+        }
+      }
+      if (!any && out === t) return t;
+      return out.replace(/[  ]{2,}/g, " ").replace(/ +([,.;:!?)”])/g, "$1").replace(/([(“]) +/g, "$1");
+    }
+    return function (t, exactOnly) {
+      if (!NEED.test(t)) return t;
       var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(t), core = m[2], vars = [];
       var key = core.replace(VAR, function (v) { vars.push(v); return "{" + (vars.length - 1) + "}"; });
-      var hit = Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : null;
-      if (hit === null) { if (miss && !quiet && key.length < 600) miss[key] = 1; return t; }
-      return m[1] + hit.replace(/\{(\d+)\}/g, function (a, n) { return vars[+n] !== undefined ? vars[+n] : a; }) + m[3];
+      var hit = own.call(dict, key) ? dict[key] : null;
+      if (hit !== null) return m[1] + hit.replace(/\{(\d+)\}/g, function (a, n) { return vars[+n] !== undefined ? vars[+n] : a; }) + m[3];
+      if (exactOnly) return t;
+      if (own.call(frag, core)) return m[1] + frag[core] + m[3];
+      var r = scan(core);
+      if (miss && key.length < 600 && CJK.test(r)) miss[key] = 1;
+      return r === core ? t : m[1] + r.replace(/^ +| +$/g, "") + m[3];
     };
   }
   // 英文：一句话被 <b> 之类的小标签、或「AiLGNS」的美化（brand.js）切成几段时，按整句查词典（查到才整句换；里面有带 id / 事件的东西就不碰）
@@ -93,7 +133,7 @@
         html += c === "br" ? "<br>" : "<" + c + ">" + n.textContent + "</" + c + ">";
       }
       if (!CJK.test(html)) return false;
-      quiet = !!el.__lgp; a = conv(html); quiet = false;
+      a = conv(html, true);
       if (a === html) return false;
       el.innerHTML = a; // 词典是我们自己写的，不含客户输入：数字 / 地址 / 名字是从页面原文里抠出来再放回去的，原文本来就在页面上
       return true;
@@ -102,16 +142,27 @@
 
   function text(t) {
     try {
-      var s = t.nodeValue; if (!s || !CJK.test(s) || !t.parentNode || skip(t.parentNode)) return;
+      var s = t.nodeValue; if (!s || !NEED.test(s) || !t.parentNode || skip(t.parentNode)) return;
       if (lang === "en" && t.parentNode.firstElementChild && whole(t.parentNode)) return;
-      var r = conv(s); if (r !== s) { t.nodeValue = r; if (lang === "en") t.parentNode.__lgp = 1; }
-    } catch (e) { quiet = false; /* 这一段不换 */ }
+      var r = conv(s);
+      if (r === s) return;
+      if (lang === "en") { /* 英文词和旁边的数字 / 词之间要有空格：「共<b>5</b>张」→ Total 5 orders */
+        try {
+          var BLK = /^(BR|DIV|P|LI|H\d|TD|TH|TR|UL|OL|SECTION|BUTTON|SVG|IMG|DETAILS|SUMMARY)$/, a = t.previousSibling, b = t.nextSibling;
+          var at = a ? (a.nodeType === 3 ? a.nodeValue : a.nodeType === 1 && !BLK.test(a.tagName) ? a.textContent : "") : "";
+          var bt = b ? (b.nodeType === 3 ? b.nodeValue : b.nodeType === 1 && !BLK.test(b.tagName) ? b.textContent : "") : "";
+          if (at && /[A-Za-z0-9%)]$/.test(at) && /^[A-Za-z0-9(]/.test(r)) r = " " + r;
+          if (bt && /^[A-Za-z0-9(]/.test(bt) && /[A-Za-z0-9,.:;!?)]$/.test(r)) r = r + " ";
+        } catch (e2) { /* 不补 */ }
+      }
+      t.nodeValue = r;
+    } catch (e) { /* 这一段不换 */ }
   }
   function attrs(el) {
     try {
       for (var i = 0; i < ATTRS.length; i++) {
         var v = el.getAttribute(ATTRS[i]);
-        if (v && CJK.test(v)) { var r = conv(v); if (r !== v) el.setAttribute(ATTRS[i], r); }
+        if (v && NEED.test(v)) { var r = conv(v); if (r !== v) el.setAttribute(ATTRS[i], r); }
       }
       /* 手机上表格变卡片时，小标签是样式表从 data-l 里读出来画的；样式表里还有按 data-l 的原文挑格子的规则，所以原文不动，译文另放 data-lt */
       var dl = el.getAttribute("data-l");
@@ -137,6 +188,13 @@
       var D = window.AIL_LANG_DATA; if (!D || D.t !== lang) return;
       conv = lang === "en" ? makeEn(D) : makeHant(D);
       window.AIL_LANG_T = function (s) { try { return conv(String(s)); } catch (e) { return s; } };
+      try { /* 画布上画的字（小游戏、图表）：画之前先换 */
+        var CP = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+        if (CP) ["fillText", "strokeText", "measureText"].forEach(function (fn) {
+          var o = CP[fn]; if (typeof o !== "function") return;
+          CP[fn] = function (str) { try { if (typeof str === "string" && NEED.test(str)) arguments[0] = conv(str); } catch (e3) { /* 原样画 */ } return o.apply(this, arguments); };
+        });
+      } catch (e4) { /* 画布不换不要紧 */ }
       run(document.body); title();
       new MutationObserver(function (ms) {
         for (var i = 0; i < ms.length; i++) {
