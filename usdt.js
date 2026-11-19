@@ -1,6 +1,6 @@
 // 💵 #/usdt「USDT 换成 Anubis 的 DAI」一键通道（站长 2026-11-19：客户 USDT 提到 Polygon 换 DAI 损耗太高，是刚需；试运行，放 ☰ 更多 → 交易）
-// 两步，都由客户自己的钱包签名，本站不经手、不收费、没有新合约：
-//   第 1 步  Polygon 上 USDT → DAI：/api/u2d 向聚合器（KyberSwap，不通就换 ParaSwap）要最划算的路线（实测损耗约 0.11%，老池子直接换 1 万要亏 4%）
+// 两步，都由客户自己的钱包签名，本站不经手客户的币、没有新合约。收费（站长 2026-11-19 定）：换币收 0.1% 服务费（聚合器自带的接入方分成，换币那一笔里直接分走；费率在 functions/api/u2d.js 的 FEE_BPS，页面从接口读）；过桥不收费：
+//   第 1 步  Polygon 上 USDT → DAI：/api/u2d 向聚合器（KyberSwap，不通就换 ParaSwap）要最划算的路线（USDT 和 DAI 的市价差约 0.11%，池子费用约 0.002%；老池子直接换 1 万要亏 4%）
 //   第 2 步  DAI 过 Anubis 官方跨链桥（app.anubisbridge.com，不收手续费：2026-11-19 核对官方桥订单记录，机器人跨过的 4 笔都是发多少到多少；最少 10 DAI），到账地址 = 客户自己这个钱包
 // 授权只授权这一笔的数量（用的是第三方合约，不给无限额度）。Gas 用 Polygon 的 POL。
 (function () {
@@ -84,16 +84,19 @@
   }
 
   // ---------- 第 1 步：报价 + 换币 ----------
-  function getQuote(amt) { return fetch("/api/u2d?amt=" + amt).then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error || !j.ok) throw new Error((j && j.error) || "现在拿不到报价，稍后再试"); return { amt: amt, out: BigInt(j.out), sum: j.sum, via: j.via, at: Date.now() }; }); }
+  function getQuote(amt) { return fetch("/api/u2d?amt=" + amt).then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error || !j.ok) throw new Error((j && j.error) || "现在拿不到报价，稍后再试"); return { amt: amt, out: BigInt(j.out), fee: BigInt(j.fee || 0), feeBps: Number(j.feeBps) || 0, sum: j.sum, via: j.via, at: Date.now() }; }); }
   function paintQuote(err) {
     var el = g("u2d-q"), top = g("u2d-top"); if (!el) return;
     if (err) { el.innerHTML = '<p class="u2d-warn">' + esc(err) + "</p>"; if (top) top.innerHTML = ""; return; }
     if (!q) { el.innerHTML = '<p class="muted">填上要换多少 USDT，这里马上告诉你能换到多少 DAI。</p>'; if (top) top.innerHTML = ""; return; }
-    var inU = n(q.amt, 6), out = n(q.out, 18), loss = (1 - out / inU) * 100, min = out * (1 - SLIP / 10000), fin = out - FEE;
-    el.innerHTML = '<p class="u2d-line">换到约 <b>' + f(out) + " DAI</b> · " + (loss > 0.005 ? "损耗 " + f(loss, 2) + "%" : "几乎没有损耗") + "</p>" +
+    // out 已经是扣完本站服务费之后的到手数（显示即所得）；gap = 除服务费以外的差额，主要是 USDT 和 DAI 两个币本身的市价差，不是手续费
+    var inU = n(q.amt, 6), out = n(q.out, 18), fee = n(q.fee, 18), pct = q.feeBps / 100, gap = (1 - (out + fee) / inU) * 100, min = out * (1 - SLIP / 10000), fin = out - FEE;
+    var feeTxt = q.feeBps ? "本站服务费 " + pct + "%（约 " + f(fee) + " DAI）已经扣在这个数里" : "本站不收费";
+    el.innerHTML = '<p class="u2d-line">换到约 <b>' + f(out) + " DAI</b></p>" +
+      '<p class="note">' + feeTxt + "。" + (gap > 0.005 ? "另外约 " + f(gap, 2) + "% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。" : "") + "</p>" +
       '<p class="note">最少到手 ' + f(min) + " DAI：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>" +
-      (loss > 1 ? '<p class="u2d-warn">⚠️ 现在这个数量的损耗超过 1%，偏高。可以把数量改小分几次换，或者过一会儿再看。</p>' : "");
-    if (top) top.innerHTML = out >= BMIN ? '<div class="u2d-sum"><small>' + f(inU) + " USDT 两步走完，到 Anubis 约</small><b>" + f(fin) + ' DAI</b><span>换币损耗 ' + f(Math.max(loss, 0), 2) + "%，" + (FEE ? "官方过桥费 " + FEE + " DAI，本站不收费" : "官方跨链桥不收费，本站也不收费") + "</span></div>" : '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
+      (gap > 1 ? '<p class="u2d-warn">⚠️ 现在这个数量换下来比平时差不少（市价差超过 1%）。可以把数量改小分几次换，或者过一会儿再看。</p>' : "");
+    if (top) top.innerHTML = out >= BMIN ? '<div class="u2d-sum"><small>' + f(inU) + " USDT 两步走完，到 Anubis 约</small><b>" + f(fin) + " DAI</b><span>" + (q.feeBps ? "已扣本站服务费 " + pct + "%" : "本站不收费") + "，" + (FEE ? "官方过桥费 " + FEE + " DAI" : "官方跨链桥不收费") + "</span></div>" : '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
   }
   function onAmt() {
     clearTimeout(qTimer); var seq = ++qSeq, amt = units((g("u2d-a1") || {}).value, 6);
@@ -178,7 +181,7 @@
     if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
     A.app.innerHTML =
       '<section class="card u2d"><div class="card-head"><h2>💵 USDT 换成 Anubis 的 DAI<span class="lp-tag">试运行</span></h2></div>' +
-      '<p class="u2d-lead">手里是 <b>Polygon 链的 USDT</b>？两步变成 <b>Anubis 链的 DAI</b>：先自动在全网找最划算的价换成 DAI，再过官方跨链桥。全程在你自己钱包里签名完成，本站不经手、不收费。</p>' +
+      '<p class="u2d-lead">手里是 <b>Polygon 链的 USDT</b>？两步变成 <b>Anubis 链的 DAI</b>：先自动在全网找最划算的价换成 DAI，再过官方跨链桥。全程在你自己钱包里签名完成，本站不经手你的币。换币时本站收 0.1% 服务费，过桥不收费，页面显示的到手数都是扣完之后的。</p>' +
       '<div id="u2d-top"></div><div id="u2d-bal"></div></section>' +
       '<section class="card u2d"><div class="card-head"><h2>第 1 步 · USDT 换成 DAI</h2><span class="muted">在 Polygon 链上</span></div>' +
       '<div class="u2d-row"><input id="u2d-a1" inputmode="decimal" autocomplete="off" placeholder="要换多少 USDT"><button type="button" class="ghost" id="u2d-max1">全部</button></div>' +
@@ -191,6 +194,7 @@
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
       '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。你直接去 QuickSwap 老池子换，1 万 USDT 要亏 4% 左右；走聚合器实测只亏约 0.1%。</p>' +
       '<p class="note">② 跨链用 <b>Anubis 官方跨链桥</b>（app.anubisbridge.com），和你自己去官方桥页面操作是同一个合约。</p>' +
+      '<p class="note">收费：换币那一笔里，换出来的 DAI 有 0.1% 作为本站服务费直接分走，其余全部到你自己钱包；过桥不收费。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>' +
       '<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>' +
       '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section>';
     var a1 = g("u2d-a1"), a2 = g("u2d-a2");
