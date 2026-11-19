@@ -237,7 +237,8 @@
   // ---------- 页面 ----------
   var hooked = false;
   function paintAll() { paintBal(); paintQuote(); onAmt2(); }
-  function tok(cls, ch, sym, chain) { return '<div class="u2d-tok"><i class="u2d-coin ' + cls + '">' + ch + "</i><span><b>" + sym + "</b><small>" + chain + " 链</small></span></div>"; }
+  // 币的图标用官方标志（站长 2026-11-19：换成官方的）：icons/tokens/usdt.png、dai.png。图片万一没加载出来，后面还垫着原来的色块和符号
+  function tok(cls, ch, sym, chain) { return '<div class="u2d-tok"><i class="u2d-coin ' + cls + '"><img src="/icons/tokens/' + (sym === "USDT" ? "usdt" : "dai") + '.png?v=1" alt="" width="30" height="30" loading="lazy">' + ch + "</i><span><b>" + sym + "</b><small>" + chain + " 链</small></span></div>"; }
   function chip(c, t) { return '<span class="u2d-chip"><i class="u2d-dot ' + c + '"></i>' + t + "</span>"; }
   // 换币那张卡（两个方向都在 Polygon 上）
   function swapCard(no) {
