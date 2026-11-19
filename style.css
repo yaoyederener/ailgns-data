@@ -4752,3 +4752,13 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 .mkt-cur img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
 .mkt-cur b { font-size: 15px; color: #2e2654; white-space: nowrap; }
 .mkt-cur small { font-size: 12px; color: #8a7fb0; white-space: nowrap; }
+
+/* 📈 后台「每天哪个产品用的人最多」：今天 / 昨天两栏，手机上叠成一栏 */
+.ad-pr { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin: 8px 0; }
+.ad-pr-c { padding: 12px; border-radius: 14px; background: #fff; border: 1px solid #e6e0f7; min-width: 0; }
+.ad-pr-c h4 { margin: 0 0 8px; font-size: 15px; color: #2e2654; } .ad-pr-c h4 small { font-weight: 400; color: #9a92ba; }
+.ad-pr-c ol { list-style: none; margin: 0; padding: 0; }
+.ad-pr-c li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 0; font-size: 13.5px; color: #2e2654; }
+.ad-pr-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-pr-b { height: 8px; border-radius: 4px; background: #f1edfb; overflow: hidden; } .ad-pr-b i { display: block; height: 100%; border-radius: 4px; background: #8b5cf6; }
+.ad-pr-c li b { font-variant-numeric: tabular-nums; white-space: nowrap; }

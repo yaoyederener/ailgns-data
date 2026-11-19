@@ -549,6 +549,23 @@
   // 访问统计（内部群日报用）：打开网站记一次访问，今天第一次打开再记一位访客；查一个地址记一次查询。只记次数，不记地址
   function track(e) { try { navigator.sendBeacon("/api/hit?e=" + e); } catch (x) { /* 统计失败不影响使用 */ } }
   var tracked = {};
+  // 📈 每天哪个产品用的人最多（站长 2026-11-19：后台要看，好决定先优化哪个）：一台设备一天打开某个产品只记 1 次（u_<产品>）。
+  // 只记次数，不记地址、不记是谁。OTC 按币种分开记（otc / otclgns / otcglgns / otcplgns / otcnft / otcswap）；只有站长自己看的内部页面不记
+  var PROD_SKIP = { ops: 1, partner: 1, orders: 1, todo: 1, funds: 1, arb: 1, notify: 1, med: 1 };
+  function prodHit(tab) {
+    if (PROD_SKIP[tab] || (tab === "feedback" && /admin/.test(location.hash))) return;
+    var sub = tab === "otc" ? (location.hash.replace(/^#\/?/, "").split("/")[1] || "") : "";
+    var k = (tab + (/^(lgns|glgns|plgns|nft|swap)$/.test(sub) ? sub : "")).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
+    if (!k || tracked["u" + k]) return;
+    tracked["u" + k] = 1;
+    var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), seen = null;
+    try { seen = JSON.parse(localStorage.getItem("st:pu") || "null"); } catch (e) { seen = null; }
+    if (!seen || seen.d !== day || !seen.k) seen = { d: day, k: {} };
+    if (seen.k[k]) return;
+    seen.k[k] = 1;
+    try { localStorage.setItem("st:pu", JSON.stringify(seen)); } catch (e) { /* 记不住就按这次打开算 */ }
+    track("u_" + k);
+  }
   // 桌面图标（PWA）里没有钱包，主站交易做不了：从图标打开时直接进 App 壳页（网址墙 + 钱包直达 + 联系方式）；地址里带 full=1 才留在主站看
   (function () { try { var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone; if (sa && !/[?&]full=1/.test(location.search + location.hash) && !sessionStorage.getItem("full")) location.replace("/app"); if (/[?&]full=1/.test(location.search + location.hash)) sessionStorage.setItem("full", "1"); } catch (e) {} })();
   var GAMES = { play: 1, farm: 1, br: 1, gd: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
@@ -637,6 +654,7 @@
     if (a && !isAddr(a)) a = "";
     if (a && ["wallet", "team", "growth", "tree", "upline"].indexOf(tab) >= 0 && !tracked[tab + a]) { tracked[tab + a] = 1; track("q_" + tab); }
     if (GAMES[tab] && !tracked["g" + tab]) { tracked["g" + tab] = 1; track("g_" + tab); } // 🎮 游戏打开计数（菜单按热度排、面板看哪个最火）
+    try { prodHit(tab); } catch (x) { /* 统计失败不影响使用 */ }
     document.querySelectorAll(".tabs a").forEach(function (el) {
       var on = (el.getAttribute("data-tabs") || el.getAttribute("data-tab")).split(" ").indexOf(tab) >= 0;
       el.classList.toggle("on", on);
