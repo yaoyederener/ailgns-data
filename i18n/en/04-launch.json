@@ -21,5 +21,6 @@
 "点一行进入这个币的盘口；成交多的排在前面。": "Tap a row to open that coin's order book; busier markets come first.",
 "没有找到这个币种。想上新币可以点右下角「客服」留言。": "No such coin. To request a new listing, tap “Help” at the bottom right and leave a message.",
 "Anubis 链 · 卡牌": "Anubis · cards",
-"全部币种": "All coins"
+"全部币种": "All coins",
+"点一行进入这个币的盘口；成交多的排在前面。成交额带「+」= 实际比这个数还多。": "Tap a row to open that coin's order book; busier markets come first. A “+” after the volume means the real figure is higher."
 }
