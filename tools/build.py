@@ -220,8 +220,19 @@ def main():
     print("night.css: %d 条规则、%d 处颜色" % (nst["rules"], nst["colors"]))
     # 🌐 繁体转换表 / 英文词典：各一个文件，切到那种语言才下载（lang.js 读 window.AIL_LANGS）；默认简体的人不下载
     langs = {}
+    # 英文词典分批写在 i18n/en/*.json（左边页面上的中文原句，右边英文），这里合成一个文件；同一句出现两次、译文不同就报错
+    import glob
+    en = {}
+    for fp in sorted(glob.glob("i18n/en/*.json")):
+        for k, v in json.loads(read(fp)).items():
+            if k in en and en[k] != v: sys.exit("英文词典里同一句有两种译法：%s（%s）" % (k[:40], fp))
+            if re.search(r"[\u4e00-\u9fff]", v): sys.exit("英文词典的译文里还有中文：%s（%s）" % (k[:40], fp))
+            if set(re.findall(r"\{\d+\}", v)) - set(re.findall(r"\{\d+\}", k)): sys.exit("英文词典的译文里多了原句没有的 {数字}：%s（%s）" % (k[:40], fp))
+            en[k] = v
+    print("英文词典: %d 句" % len(en))
+    lang_src = {"hant": read("lang-hant.js"), "en": "window.AIL_LANG_DATA=" + json.dumps({"t": "en", "d": en}, ensure_ascii=False, separators=(",", ":")) + ";"}
     for lg in ("hant", "en"):
-        ljs = minjs(read("lang-%s.js" % lg))
+        ljs = minjs(lang_src[lg])
         lv = hv(ljs)
         out["dist/lang-%s.js" % lg] = ljs + "\n/*v:%s*/" % lv
         langs[lg] = "dist/lang-%s.js?v=%s" % (lg, lv)

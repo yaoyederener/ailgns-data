@@ -113,6 +113,9 @@
         var v = el.getAttribute(ATTRS[i]);
         if (v && CJK.test(v)) { var r = conv(v); if (r !== v) el.setAttribute(ATTRS[i], r); }
       }
+      /* 手机上表格变卡片时，小标签是样式表从 data-l 里读出来画的；样式表里还有按 data-l 的原文挑格子的规则，所以原文不动，译文另放 data-lt */
+      var dl = el.getAttribute("data-l");
+      if (dl && CJK.test(dl)) { var r3 = conv(dl); if (r3 !== dl && el.getAttribute("data-lt") !== r3) el.setAttribute("data-lt", r3); }
       if (el.tagName === "INPUT" && /^(button|submit)$/i.test(el.type) && CJK.test(el.value)) { var r2 = conv(el.value); if (r2 !== el.value) el.value = r2; }
     } catch (e) { /* 不换 */ }
   }
@@ -144,7 +147,7 @@
             else for (var j = 0; j < m.addedNodes.length; j++) run(m.addedNodes[j]);
           } catch (e) { /* 跳过这一条 */ }
         }
-      }).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+      }).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS.concat(["data-l"]) });
       var te = document.querySelector("title");
       if (te) new MutationObserver(title).observe(te, { childList: true, characterData: true, subtree: true });
     } catch (e) { /* 翻译起不来：页面照常是简体 */ }
