@@ -4569,6 +4569,13 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .u2d { max-width: 480px; margin: 0 auto; display: grid; gap: 12px; }
 .u2d-hd { padding: 6px 4px 0; }
 .u2d-hd h2 { margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #1f1a3d; }
+/* 方向切换：充进来 / 提出去（站长 2026-11-19：这条路是双向的） */
+.u2d-dir { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 12px; border-radius: 16px; background: #ece7fa; }
+.u2d-dir button { display: block; margin: 0; padding: 9px 6px; border: 0; border-radius: 12px; background: none; box-shadow: none; color: #6b6394; font: inherit; text-align: center; cursor: pointer; }
+.u2d-dir button b { display: block; font-size: 15px; font-weight: 700; }
+.u2d-dir button small { display: block; margin-top: 1px; font-size: 11.5px; opacity: .85; }
+.u2d-dir button.on { background: #fff; color: #4c1d95; box-shadow: 0 1px 3px rgba(46, 38, 84, .12); }
+.u2d-dir button:disabled { opacity: .6; }
 .u2d-route { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .u2d-route > b { color: #a99fd0; font-size: 16px; }
 .u2d-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgba(46, 38, 84, .06), 0 0 0 1px #ece6fb; font-size: 13.5px; font-weight: 700; color: #2e2654; white-space: nowrap; }
@@ -4588,7 +4595,7 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .u2d-step span { font-size: 12.5px; color: #8b84ad; min-width: 0; }
 .u2d-box { padding: 14px 16px 16px; border-radius: 18px; background: #f7f5fc; border: 1px solid transparent; transition: border-color .15s, background .15s; }
 .u2d-box:focus-within { background: #fff; border-color: #c4b5fd; }
-.u2d-box.an { background: #fff9eb; }
+.u2d-box.end { background: #fff9eb; } /* 这一趟的终点那个框 */
 .u2d-bh { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: #7a7396; }
 .u2d-bh b { color: #4b4470; font-weight: 600; }
 .u2d-max { margin-left: 8px; padding: 3px 9px; border: 0; border-radius: 999px; background: #ebe4ff; color: #5b21b6; font-size: 12px; font-weight: 700; box-shadow: none; }
