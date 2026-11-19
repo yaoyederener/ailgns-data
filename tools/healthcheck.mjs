@@ -59,7 +59,8 @@ const lines = [
   (fail ? "❌ 不通过" : "✅ 通过") + " · " + TAG + " · 版本 " + (core || "?") + " · 走了 " + ROUTES.length + " 页",
   E.length ? "程序报错 " + E.length + " 条：\n- " + E.slice(0, 12).join("\n- ") : "程序报错：0",
   L.length ? "脚本/样式加载失败：\n- " + L.slice(0, 8).join("\n- ") : "脚本/样式加载失败：0",
-  B.length ? "白屏的页面：" + B.join("、") : "白屏的页面：0",
+  coreBlank.length ? "核心页面白屏：" + coreBlank.join("、") : "核心页面白屏：0",
+  B.length > coreBlank.length ? "3.5 秒内还没出内容的页面（多半是在加载，不算不通过）：" + B.filter((b) => !coreBlank.includes(b)).join("、") : "",
   wrongVer.length ? "提醒：" + wrongVer[0] : "",
   W.length ? "提醒（不算程序错，" + W.length + " 条）：\n- " + W.slice(0, 8).join("\n- ") : "",
 ].filter(Boolean);
