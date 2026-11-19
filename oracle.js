@@ -58,8 +58,26 @@
       '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
     livePx(rid); chart(rid); dmInit(rid);
     pxTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pxTimer); if (!document.hidden) livePx(rid); }, 8000); // 8 秒一次、后台标签不刷（扩容）
+    // 📈 实时排行的名单以前只在打开页面时取一次：页面一直开着的人看不到后来别人交的预测（群里 2026-11-19 反馈「离得近的反而不在榜上」）。
+    // 现在每 30 秒重取一次名单，只更新排行那一块，不重画整页（不打断正在填的价格）；后台标签不取
+    clearInterval(plTimer);
+    plTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(plTimer); if (!document.hidden) pullPlayers(rid); }, 30000);
     var go = function () { load(rid); };
     if (!account && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a) account = String(a).toLowerCase(); go(); }, go); else go();
+  }
+  var plTimer = null;
+  function pullPlayers(rid) {
+    if (!data) return;
+    fetch("/api/oracle", { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (d) {
+      if (!A.isCurrent(rid) || !data || !d || !Array.isArray(d.players)) return;
+      if (d.round !== data.round) return load(rid); /* 换轮了：整页重取 */
+      var rows = [];
+      d.players.forEach(function (g) { (g.ps || []).forEach(function (p) { rows.push({ name: g.name, p: p, m: Math.round(Number(p) * RS) }); }); });
+      if (!rows.length || !document.getElementById("or-live")) { if (rows.length && !liveRows.length) load(rid); return; } /* 原来一个人都没有、现在有了：整页重取才有排行这一块 */
+      data.players = d.players; liveRows = rows; liveKey = "";
+      var cnt = document.getElementById("or-lcnt"); if (cnt) cnt.textContent = d.players.length + " 人 · " + rows.length + " 个预测";
+      liveRank();
+    }).catch(function () { /* 这次没取到，30 秒后再来 */ });
   }
   function livePx(rid) {
     // 现价走服务器缓存接口（边缘 5 秒一份），读不到再自己读链（扩容第一档，2026-11-08）
@@ -506,8 +524,8 @@
     liveRows = []; liveKey = "";
     (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * RS) }); }); });
     if (!liveRows.length) return "";
-    return '<section class="card or-live"><div class="card-head"><h2>📈 ' + dayCn(d.round) + ' 实时排行</h2><span class="muted">' + (d.players || []).length + " 人 · " + liveRows.length + ' 个预测</span></div>' +
-      '<p class="muted">按离<b>当前链上价</b>最近排序，每 5 秒刷新；最终以当晚 9–10 点随机一刻的价格揭晓。</p><div id="or-live"></div></section>';
+    return '<section class="card or-live"><div class="card-head"><h2>📈 ' + dayCn(d.round) + ' 实时排行</h2><span class="muted" id="or-lcnt">' + (d.players || []).length + " 人 · " + liveRows.length + ' 个预测</span></div>' +
+      '<p class="muted">按离<b>当前链上价</b>最近排序，价格每 8 秒刷新、名单每 30 秒刷新（别人新交的预测最多 1 分钟内上榜）；最终以当晚 9–10 点随机一刻的价格揭晓。</p><div id="or-live"></div></section>';
   }
   // 奖池数字滚动增加：从上次看到的数（第一次从 0）滚到现在的数
   var cntSeen = {};
