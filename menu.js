@@ -120,9 +120,10 @@
     "users": '<path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0 -3 -3.85"/>',
     "wall": '<path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"/><path d="M4 8h16"/><path d="M20 12h-16"/><path d="M4 16h16"/><path d="M9 4v4"/><path d="M14 8v4"/><path d="M8 12v4"/><path d="M16 12v4"/><path d="M11 16v4"/>'
   };
-  // 菜单里的完整名字 → [格子里的短名, 图标, 颜色]。新加菜单项时在这里补一行；没补的会用名字前几个字 + 通用图标，不会报错
+  // 菜单里的完整名字 → [格子里的短名, 图标, 颜色, 高亮角标（可不填）]。新加菜单项时在这里补一行；没补的会用名字前几个字 + 通用图标，不会报错
+  // 高亮角标：填了就在图标上方显示一条红色小标签，代替「试」。跨链桥的「0手续费」是站长 2026-11-19 要的：让客户一眼知道我们不收费
   var GMETA = {
-    "USDT 跨链桥（试运行）": ["跨链桥", "building-bridge", "b"],
+    "USDT 跨链桥（试运行）": ["跨链桥", "building-bridge", "b", "0手续费"],
     "极速预言家（试运行）": ["极速预言", "bolt", "o"],
     "aiswap 兑换池（试运行）": ["aiswap", "arrows-exchange", "c"],
     "做市商（✅ 认证称号）": ["做市商", "droplet", "g"],
@@ -158,7 +159,7 @@
   function tile(it, cur) {
     var m = GMETA[it[1]] || [String(it[1]).replace(/^[^0-9A-Za-z\u4e00-\u9fff（(]+\s*/, "").replace(/（.*?）/g, "").slice(0, 6), "apps", "b"];
     var trial = /试运行|试玩/.test(it[1]);
-    return '<a class="dg-i' + (it[0] === cur ? " on" : "") + '" href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + ' title="' + String(it[1]).replace(/"/g, "&quot;") + '"><span class="dg-t dgc-' + m[2] + '">' + gsvg(m[1]) + (trial ? "<em>试</em>" : "") + "</span><b>" + m[0] + "</b></a>";
+    return '<a class="dg-i' + (it[0] === cur ? " on" : "") + '" href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + ' title="' + String(it[1]).replace(/"/g, "&quot;") + '"><span class="dg-t dgc-' + m[2] + '">' + gsvg(m[1]) + (m[3] ? '<em class="hot">' + m[3] + "</em>" : trial ? "<em>试</em>" : "") + "</span><b>" + m[0] + "</b></a>";
   }
   function drawGrid(cur) {
     return GROUPS.map(function (g) {
