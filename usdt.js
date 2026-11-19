@@ -3,7 +3,7 @@
 //   充进来 dir=in ：① Polygon 上 USDT 换成 DAI  → ② DAI 过桥到 Anubis
 //   提出去 dir=out：① Anubis 的 DAI 过桥到 Polygon → ② Polygon 上 DAI 换成 USDT
 // 每一步都由客户自己的钱包签名，本站不经手客户的币、没有新合约。
-// 换币：/api/u2d 向聚合器（KyberSwap，不通就换 ParaSwap）要最划算的路线，收 0.1% 服务费（聚合器自带的接入方分成，换币那一笔里直接分走；费率在 functions/api/u2d.js 的 FEE_BPS，页面从接口读）。
+// 换币：/api/u2d 向聚合器（KyberSwap，不通就换 ParaSwap）要最划算的路线。服务费现在不收（functions/api/u2d.js 的 FEE_BPS = 0，2026-11-19 站长定：钱包自带兑换同价不收费，我们收了反而贵）；报价区的文字跟着接口返回的费率变，页头和说明里的「不收服务费」是写死的，改回收费时要一起改。
 // 过桥：Anubis 官方跨链桥（app.anubisbridge.com），两个方向都是同一个函数 bridge(币编号, 目标链, 收款人, 数量)，不收手续费（2026-11-19 核对官方桥订单记录：两个方向都是发多少到多少）。
 //   Polygon → Anubis：要先授权 DAI 给桥；Anubis → Polygon：DAI 是 Anubis 的原生币，链上实测不用授权（模拟不带授权能过，真实交易也都没有授权这一步）。
 //   合约本身不拦 10 DAI 以下的数量，但官方页面规定最少 10 DAI，低于这个数可能没人处理，所以本页一律拦在 10 DAI。
@@ -115,12 +115,12 @@
     if (!okq) { el.innerHTML = '<p class="muted">填上要换多少 ' + p.sn + "，上面马上显示能换到多少 " + p.dn + "。想反过来，把 " + p.dn + " 换成 " + p.sn + "？点两个框中间的 ⇅。</p>"; if (top) top.innerHTML = ""; return; }
     // out 已经是扣完本站服务费之后的到手数（显示即所得）；gap = 除服务费以外的差额，主要是 USDT 和 DAI 两个币本身的市价差，不是手续费
     var inU = n(q.amt, p.sd), out = n(q.out, p.dd), fee = n(q.fee, p.dd), pct = q.feeBps / 100, gap = (1 - (out + fee) / inU) * 100, min = out * (1 - SLIP / 10000);
-    var feeTxt = q.feeBps ? "本站服务费 " + pct + "%（约 " + f(fee) + " " + p.dn + "）已经扣在这个数里" : "本站不收费";
-    el.innerHTML = '<p class="note">' + feeTxt + "。" + (gap > 0.005 ? "另外约 " + f(gap, 2) + "% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。" : gap < -0.005 ? "这一刻 " + p.sn + " 比 " + p.dn + " 略贵，市价差对你有利。" : "") + "</p>" +
+    var feeTxt = q.feeBps ? "本站服务费 " + pct + "%（约 " + f(fee) + " " + p.dn + "）已经扣在这个数里" : "本站不收服务费，这是全网比价后的到手数";
+    el.innerHTML = '<p class="note">' + feeTxt + "。" + (gap > 0.005 ? (q.feeBps ? "另外约 " : "和 1:1 差的约 ") + f(gap, 2) + "% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。" : gap < -0.005 ? "这一刻 " + p.sn + " 比 " + p.dn + " 略贵，市价差对你有利。" : "") + "</p>" +
       '<p class="note">最少到手 ' + f(min) + " " + p.dn + "：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>" +
       (gap > 1 ? '<p class="u2d-warn">⚠️ 现在这个数量换下来比平时差不少（市价差超过 1%）。可以把数量改小分几次换，或者过一会儿再看。</p>' : "");
     if (!top) return;
-    var paid = q.feeBps ? "已扣本站服务费 " + pct + "%" : "本站不收费", free = FEE ? "官方过桥费 " + FEE + " DAI" : "官方跨链桥不收费";
+    var paid = q.feeBps ? "已扣本站服务费 " + pct + "%" : "本站不收服务费", free = FEE ? "官方过桥费 " + FEE + " DAI" : "官方跨链桥不收费";
     if (sdir !== dir) top.innerHTML = '<div class="u2d-sum"><small>' + f(inU) + " " + p.sn + " 在 Polygon 链上换成约</small><b>" + f(out) + " " + p.dn + "</b><span>" + paid + "。只换币，不过桥</span></div>";
     else if (dir === "in") top.innerHTML = out >= BMIN ? '<div class="u2d-sum"><small>' + f(inU) + " USDT 两步走完，到 Anubis 约</small><b>" + f(out - FEE) + " DAI</b><span>" + paid + "，" + free + "</span></div>" : '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
     else top.innerHTML = '<div class="u2d-sum"><small>' + f(inU) + " DAI 两步走完，到 Polygon 约</small><b>" + f(out) + " USDT</b><span>" + paid + "，" + free + "</span></div>";
@@ -247,7 +247,7 @@
       '<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="u2d-b1">—</b><button type="button" class="u2d-max" id="u2d-max1">全部</button></span></div>' +
       '<div class="u2d-bm"><input id="u2d-a1" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + (isIn ? tok("usdt", "₮", "USDT", "Polygon") : tok("dai", "◈", "DAI", "Polygon")) + "</div></div>" +
       '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip" aria-label="反过来换" title="点一下，反过来换">⇅</button></div>' +
-      '<div class="u2d-box' + (last ? " end" : "") + '"><div class="u2d-bh"><span>你换到（已扣服务费）</span><span>余额 <b id="u2d-b2">—</b></span></div>' +
+      '<div class="u2d-box' + (last ? " end" : "") + '"><div class="u2d-bh"><span>你换到</span><span>余额 <b id="u2d-b2">—</b></span></div>' +
       '<div class="u2d-bm"><output id="u2d-out1" class="u2d-num zero">0</output>' + (isIn ? tok("dai", "◈", "DAI", "Polygon") : tok("usdt", "₮", "USDT", "Polygon")) + "</div></div>" +
       '<div id="u2d-q" class="u2d-info"></div><button type="button" class="u2d-go" id="u2d-go-s">换成 ' + p.dn + '</button><p class="u2d-say" id="u2d-say-s"></p>' +
       (dir === "out" && !isIn ? '<p class="note">Polygon 链上已经有 DAI？跳过第 1 步，直接做这一步。</p>' : "") + "</section>";
@@ -281,14 +281,14 @@
       '<header class="u2d-hd"><h2>USDT 跨链桥<span class="lp-tag">试运行</span></h2>' +
       '<div class="u2d-dir" role="tablist"><button type="button" id="u2d-dir-in" class="' + (isIn ? "on" : "") + '"><b>充进来</b><small>USDT → Anubis</small></button><button type="button" id="u2d-dir-out" class="' + (isIn ? "" : "on") + '"><b>提出去</b><small>Anubis → USDT</small></button></div>' +
       '<div class="u2d-route">' + (isIn ? chip("pg", "Polygon 链 · USDT") + "<b>→</b>" + chip("an", "Anubis 链 · DAI") : chip("an", "Anubis 链 · DAI") + "<b>→</b>" + chip("pg", "Polygon 链 · USDT")) + "</div>" +
-      '<p class="u2d-lead">' + (isIn ? "把 <b>Polygon 链上的 USDT</b>，变成 <b>Anubis 链上的 DAI</b>。" : "把 <b>Anubis 链上的 DAI</b>，变回 <b>Polygon 链上的 USDT</b>。") + "两步，都在你自己钱包里签名，本站不经手你的币。换币时本站收 0.1% 服务费，过桥不收费。</p></header>" +
+      '<p class="u2d-lead">' + (isIn ? "把 <b>Polygon 链上的 USDT</b>，变成 <b>Anubis 链上的 DAI</b>。" : "把 <b>Anubis 链上的 DAI</b>，变回 <b>Polygon 链上的 USDT</b>。") + "两步，都在你自己钱包里签名，本站不经手你的币，也不收服务费：换币按全网比出来的价，过桥官方不收费。</p></header>" +
       '<div id="u2d-top"></div><div id="u2d-bal"></div><div id="u2d-prog"></div>' +
       (isIn ? swapCard(1) + bridgeCard(2) : bridgeCard(1) + swapCard(2)) +
       '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
       '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。</p>' +
       '<p class="note">② 跨链用 <b>Anubis 官方跨链桥</b>（app.anubisbridge.com），两个方向都是它，和你自己去官方桥页面操作是同一个合约。</p>' +
-      '<p class="note">收费：换币那一笔里，换出来的币有 0.1% 作为本站服务费直接分走，其余全部到你自己钱包；过桥不收费。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>' +
+      '<p class="note">收费：本站不收服务费，换出来的币全部到你自己钱包；过桥官方也不收费。你只付链上的 Gas。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>' +
       '<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>' +
       '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section></div>';
     var a1 = g("u2d-a1"), a2 = g("u2d-a2"), p = P(), b = B();
