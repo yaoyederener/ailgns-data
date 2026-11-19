@@ -64,6 +64,7 @@
   $("ask").onsubmit = function (e) {
     e.preventDefault();
     var q = $("q").value.trim(), host = best || list[0].h;
+    if (/^(工单后台|站长后台)$/.test(q)) { location.href = "https://" + host + "/?full=1#/feedback/admin"; return; } // 桌面 App 没有地址栏，站长从这里进后台（要口令）
     location.href = "https://" + host + "/?full=1&chat=" + encodeURIComponent(q || "你好") + "#/otc";
   };
   if ("serviceWorker" in navigator) {

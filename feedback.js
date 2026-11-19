@@ -250,6 +250,33 @@
   // #/feedback/admin          工单列表（每 20 秒自动刷新，有新工单响一声、标红）
   // #/feedback/admin/<编号>   单张工单：看截图 → 写回复 → 「确认已处理」→ 自动跳下一张待处理
   function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
+  // 📲 这台设备接收站长提醒（2026-11-19）：iPhone 桌面 App 里没有钱包、OKX 钱包里弹不了通知，所以用后台口令给设备开。开过就不再显示这一行
+  function pushRow() {
+    var on = false; try { on = localStorage.getItem("fb:ownerpush") === "1"; } catch (e) { /* 读不到就当没开 */ }
+    return on ? "" : '<p class="note" id="fb-pushrow">📲 想让这台设备弹出站长提醒（大奖、机器人断线、奖池不够、上线后体检出事）？<button type="button" class="link" id="fb-push">点这里开启</button></p>';
+  }
+  function ownerPush(btn) {
+    var row = document.getElementById("fb-pushrow");
+    var fail = function (m) { btn.disabled = false; btn.textContent = "点这里开启"; if (A.errTip) A.errTip(m, btn); else if (row) row.appendChild(document.createTextNode(" " + m)); };
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return fail(/iPhone|iPad/.test(navigator.userAgent) ? "iPhone 要从桌面的 App 图标进来才能开：先把本站「添加到主屏幕」，打开后在入口页的问客服框里输入「工单后台」" : "这个浏览器不支持通知，换 Chrome / Edge / Safari 试试");
+    btn.disabled = true; btn.textContent = "开启中…";
+    Notification.requestPermission().then(function (perm) {
+      if (perm !== "granted") throw new Error("你没有允许通知。到手机「设置 → 通知」里允许 AiLGNS，再回来点一次");
+      return navigator.serviceWorker.register("/sw.js").then(function () { return navigator.serviceWorker.ready; });
+    }).then(function (reg) {
+      return fetch("/api/push").then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.pub) throw new Error("服务器没准备好，稍后再试");
+        var raw = atob(j.pub.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(j.pub.length / 4) * 4, "=")), k = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) k[i] = raw.charCodeAt(i);
+        return reg.pushManager.getSubscription().then(function (s) { return s || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: k }); });
+      });
+    }).then(function (sub) {
+      return fetch("/api/push", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: key(), sub: sub.toJSON() }) }).then(function (r) { return r.json(); });
+    }).then(function (j) {
+      if (j.error) throw new Error(j.error);
+      try { localStorage.setItem("fb:ownerpush", "1"); } catch (e) { /* 存不上只是下次还显示这一行 */ }
+      if (row) row.textContent = j.test && !j.test.ok ? "✅ 这台设备已登记，但测试通知没发出去（" + (j.test.status || j.test.err || "未知") + "），稍后再点一次试试" : "✅ 这台设备已开启站长提醒。刚发了一条测试通知，看看弹出来没有";
+    }).catch(function (e) { fail(String((e && e.message) || e)); });
+  }
   var adTimer = null, adSeen = null, nagTimer = null, titleTimer = null, baseTitle = document.title;
   // 右上角铃铛：固定在页面右上角，显示待处理数；有 0/1 级没处理就按级别节奏响一声 + 标题闪烁 + 浏览器通知（站长开着这一页就够了，不用开新页）
   var NAG = { 0: 60e3, 1: 300e3, 2: 1800e3, 3: 6 * 3600e3 };
@@ -401,12 +428,13 @@
     st = st || "new"; adminSt = st;
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' +
-      '<div id="fb-says"></div>' +
+      '<div id="fb-says"></div>' + pushRow() +
       '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
     document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
     document.querySelectorAll(".ad-nb").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); location.hash = b.getAttribute("href"); admin(rid, b.getAttribute("data-s")); }; });
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
     var nb = document.getElementById("fb-notify"); if (nb) nb.onclick = function () { Notification.requestPermission().then(function () { admin(rid, st); }); };
+    var pb = document.getElementById("fb-push"); if (pb) pb.onclick = function () { ownerPush(pb); };
     // 📣 预言家中奖待认证（站长 2026-11-14）：中奖人交了 DeBox 宣告帖 → 这里点「通过」→ 机器人才发奖
     function says() {
       var sb = document.getElementById("fb-says"); if (!sb) return;
