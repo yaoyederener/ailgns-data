@@ -494,7 +494,7 @@
       lookName(a);
     };
     document.getElementById("nm-myw").onclick = function () {
-      connect().then(function () { document.getElementById("nm-mya").value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
+      connect().then(function () { var mya = document.getElementById("nm-mya"); if (!mya) return; /* 连钱包时客户可能已离开域名页 */ mya.value = account; myNames(account); }, function (e) { A.errTip(e.message || String(e), document.getElementById("nm-myw")); });
     };
     if (/^#\/names\/mine/.test(location.hash)) setTimeout(function () { document.getElementById("nm-mycard").scrollIntoView({ behavior: "smooth", block: "start" }); }, 300);
     // 🎁 转赠：主人把名字转给别的地址（比如小号转大号）。不扣钱，只花一点 Gas；对方可以填 0x 地址或域名
