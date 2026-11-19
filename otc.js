@@ -450,7 +450,12 @@
     var tab = function (k) { var m = MARKETS[k]; var dup = MKEYS.filter(function (x) { return MARKETS[x].sym === m.sym; }).length > 1; /* 站长 2026-11-08：同名币（LGNS 有 Anubis / Polygon 两条链）按钮下面显示链名 */ return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '" class="' + (k === MK && !swapOn ? "on" : "") + (dup ? " dup" : "") + '">' + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
     var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0 && !swapOn;
     return '<nav class="mkt-tabs mkt4" aria-label="选择交易币种">' + main.map(tab).join("") + '<a href="#/otc/swap" class="mkt-swap' + (swapOn ? " on" : "") + '"><i class="mkt-hot">新</i><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav>' +
-      (rest.length ? '<details class="mkt-more" id="mkl"' + (restOn ? " open" : "") + '><summary>更多币种（共 ' + MKEYS.length + " 个 · " + rest.map(function (k) { return MARKETS[k].sym + (MARKETS[k].chain === "polygon" ? " · Polygon" : ""); }).join("、") + "）</summary>" + marketList(swapOn) + "</details>" : "");
+      // 站长 2026-11-19：点 gLGNS / Polygon LGNS 要和点 AiLGNS 一样「跳过去」。以前选了「更多」里的币，这张列表会一直摊开压在盘口上面，看着像没跳。
+      // 现在选完就收起，这一行变成一个高亮的小牌子写着「正在看：哪个币」，下面直接就是它的盘口；想换币再点这一行
+      (rest.length ? '<details class="mkt-more' + (restOn ? " on" : "") + '" id="mkl"><summary>' +
+        (restOn ? '<span class="mkt-cur">' + (MK_ICON[MK] ? '<img src="' + MK_ICON[MK] + '" alt="">' : "") + "<b>正在看：" + M.sym + "</b><small>" + M.chainName + " 链</small></span><span>换币种</span>"
+          : "更多币种（共 " + MKEYS.length + " 个 · " + rest.map(function (k) { return MARKETS[k].sym + (MARKETS[k].chain === "polygon" ? " · Polygon" : ""); }).join("、") + "）") +
+        "</summary>" + marketList(swapOn) + "</details>" : "");
   }
   // 📊 全部市场（站长 2026-11-19：点开「更多」做成交易所形式，以后币种会越来越多）：搜索 + 按链筛 + 每个币一行（最新成交价、24 小时成交额），点一行进它的盘口。
   // 行情来自 /api/markets（服务器缓存 1 分钟）；读不到就只显示名字，不影响切换。新上一个币：MARKETS 加一项、MKEYS 加名字、/api/markets 的 KEYS 加名字
