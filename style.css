@@ -4682,3 +4682,7 @@ input.u2d-num::placeholder { color: #c3badf; }
 .dg-t em.hot { top: -9px; right: auto; left: 50%; transform: translateX(-50%); min-width: 0; height: 17px; padding: 0 6px; border-radius: 9px; background: linear-gradient(90deg, #ff4d4f, #ff7a45); font-size: 10.5px; line-height: 17px; letter-spacing: .2px; white-space: nowrap; box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(255, 77, 79, .45); animation: dg-hot 2.4s ease-in-out infinite; }
 @keyframes dg-hot { 0%, 100% { box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(255, 77, 79, .45); } 50% { box-shadow: 0 0 0 1.5px #fff, 0 2px 12px rgba(255, 77, 79, .85); } }
 @media (prefers-reduced-motion: reduce) { .dg-t em.hot { animation: none; } }
+
+/* 跨链桥页头的「0手续费」高亮角标（2026-11-19 站长：把试运行换成它，吸引客户用） */
+.u2d-free { display: inline-block; margin-left: 10px; padding: 0 11px; height: 24px; border-radius: 12px; background: linear-gradient(90deg, #ff4d4f, #ff7a45); color: #fff; font-size: 13px; font-weight: 800; line-height: 24px; letter-spacing: .3px; vertical-align: 3px; white-space: nowrap; box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(255, 77, 79, .45); animation: dg-hot 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .u2d-free { animation: none; } }

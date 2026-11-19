@@ -278,10 +278,10 @@
     A.app.innerHTML =
       // 版式参照 Uniswap 的兑换卡：窄卡居中、上下两个大框（付出 / 到手）、中间一个箭头、右边写清是哪条链的哪个币（站长 2026-11-19）
       '<div class="u2d">' +
-      '<header class="u2d-hd"><h2>USDT 跨链桥<span class="lp-tag">试运行</span></h2>' +
+      '<header class="u2d-hd"><h2>USDT 跨链桥<span class="u2d-free">0手续费</span></h2>' +
       '<div class="u2d-dir" role="tablist"><button type="button" id="u2d-dir-in" class="' + (isIn ? "on" : "") + '"><b>充进来</b><small>USDT → Anubis</small></button><button type="button" id="u2d-dir-out" class="' + (isIn ? "" : "on") + '"><b>提出去</b><small>Anubis → USDT</small></button></div>' +
       '<div class="u2d-route">' + (isIn ? chip("pg", "Polygon 链 · USDT") + "<b>→</b>" + chip("an", "Anubis 链 · DAI") : chip("an", "Anubis 链 · DAI") + "<b>→</b>" + chip("pg", "Polygon 链 · USDT")) + "</div>" +
-      '<p class="u2d-lead">' + (isIn ? "把 <b>Polygon 链上的 USDT</b>，变成 <b>Anubis 链上的 DAI</b>。" : "把 <b>Anubis 链上的 DAI</b>，变回 <b>Polygon 链上的 USDT</b>。") + "两步，都在你自己钱包里签名，本站不经手你的币，也不收服务费：换币按全网比出来的价，过桥官方不收费。</p></header>" +
+      '<p class="u2d-lead">两步搞定，币一直在你自己钱包里。</p></header>' +
       '<div id="u2d-top"></div><div id="u2d-bal"></div><div id="u2d-prog"></div>' +
       (isIn ? swapCard(1) + bridgeCard(2) : bridgeCard(1) + swapCard(2)) +
       '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
