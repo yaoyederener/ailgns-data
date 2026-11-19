@@ -4611,6 +4611,8 @@ input.u2d-num::placeholder { color: #c3badf; }
 .u2d-tok small { display: block; font-size: 11px; color: #8b84ad; }
 .u2d-coin { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 16px; font-weight: 800; color: #fff; background: #26a17b; }
 .u2d-coin.dai { background: #f5ac37; }
+.u2d-coin { position: relative; overflow: hidden; }
+.u2d-coin img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .u2d-coin.an { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f5a300; }
 .u2d-mid { height: 6px; display: grid; place-items: center; position: relative; z-index: 1; }
 .u2d-mid i { width: 36px; height: 36px; margin: -15px 0; border-radius: 12px; background: #fff; border: 4px solid #fff; box-shadow: 0 0 0 1px #ece6fb; display: grid; place-items: center; font-style: normal; font-size: 16px; color: #5b21b6; box-sizing: border-box; }
