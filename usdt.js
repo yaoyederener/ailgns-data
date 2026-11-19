@@ -1,6 +1,6 @@
 // 💵 #/usdt「USDT 换成 Anubis 的 DAI」一键通道（站长 2026-11-19：客户 USDT 提到 Polygon 换 DAI 损耗太高，是刚需；试运行，放 ☰ 更多 → 交易）
 // 两步，都由客户自己的钱包签名，本站不经手、不收费、没有新合约：
-//   第 1 步  Polygon 上 USDT → DAI：/api/u2d 向 KyberSwap 聚合器要最划算的路线（实测损耗约 0.11%，老池子直接换 1 万要亏 4%）
+//   第 1 步  Polygon 上 USDT → DAI：/api/u2d 向聚合器（KyberSwap，不通就换 ParaSwap）要最划算的路线（实测损耗约 0.11%，老池子直接换 1 万要亏 4%）
 //   第 2 步  DAI 过 Anubis 官方跨链桥（app.anubisbridge.com，不收手续费：2026-11-19 核对官方桥订单记录，机器人跨过的 4 笔都是发多少到多少；最少 10 DAI），到账地址 = 客户自己这个钱包
 // 授权只授权这一笔的数量（用的是第三方合约，不给无限额度）。Gas 用 Polygon 的 POL。
 (function () {
@@ -10,6 +10,7 @@
   var BRIDGE = "0x8932fe7726c1ee743f662f485c3e5a5d1d595f71"; // Anubis 官方跨链桥（各链同一地址）
   var DAI_ID = "a5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568"; // 桥里 DAI 的编号
   var ANUBIS_ID = 6714, FEE = 0, BMIN = 10, SLIP = 50; // 官方桥不收费（站长 2026-11-19 指正，订单记录核对过：发多少到多少）；最少 10 DAI；价格保护 0.5%。哪天官方开始收费，改 FEE 这一个数，页面文字会跟着变
+  var ROUTERS = ["0x6131b5fae19ea4f9d964eac0408e4408b66337b5", "0x6a000f20005980200259b80c5102003040001068"]; // KyberSwap、ParaSwap（备用）的路由合约
   var SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", bridge: "0x8d3ccf9f" /* bridge(bytes32,uint32,bytes32,uint256) */ };
   var account = null, bal = null, q = null, busy = false, rid = 0, qTimer = null, qSeq = 0, watch = null;
 
@@ -83,7 +84,7 @@
   }
 
   // ---------- 第 1 步：报价 + 换币 ----------
-  function getQuote(amt) { return fetch("/api/u2d?amt=" + amt).then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error || !j.ok) throw new Error((j && j.error) || "现在拿不到报价，稍后再试"); return { amt: amt, out: BigInt(j.out), sum: j.sum, at: Date.now() }; }); }
+  function getQuote(amt) { return fetch("/api/u2d?amt=" + amt).then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error || !j.ok) throw new Error((j && j.error) || "现在拿不到报价，稍后再试"); return { amt: amt, out: BigInt(j.out), sum: j.sum, via: j.via, at: Date.now() }; }); }
   function paintQuote(err) {
     var el = g("u2d-q"), top = g("u2d-top"); if (!el) return;
     if (err) { el.innerHTML = '<p class="u2d-warn">' + esc(err) + "</p>"; if (top) top.innerHTML = ""; return; }
@@ -115,11 +116,11 @@
       return getQuote(amt.toString());
     }).then(function (x) {
       q = x; paintQuote();
-      return fetch("/api/u2d", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sum: x.sum, sender: account, slip: SLIP }) }).then(function (r) { return r.json(); });
+      return fetch("/api/u2d", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sum: x.sum, via: x.via, sender: account, slip: SLIP }) }).then(function (r) { return r.json(); });
     }).then(function (j) {
       if (!j || j.error || !j.ok) throw new Error((j && j.error) || "拿不到换币数据，稍后再试");
-      // 本机再核一遍：只认登记的那个路由合约，交易里必须写着你自己的地址
-      if (String(j.to).toLowerCase() !== "0x6131b5fae19ea4f9d964eac0408e4408b66337b5" || String(j.data).toLowerCase().indexOf(account.slice(2)) < 0) throw new Error("换币数据没通过安全检查，已拦下，你的币没有动");
+      // 本机再核一遍：只认登记的两个聚合器路由合约（KyberSwap、ParaSwap），交易里必须写着你自己的地址
+      if (ROUTERS.indexOf(String(j.to).toLowerCase()) < 0 || String(j.data).toLowerCase().indexOf(account.slice(2)) < 0) throw new Error("换币数据没通过安全检查，已拦下，你的币没有动");
       return allow(USDT, j.to, amt, 1, "USDT").then(function () { return send(j.to, j.data, 1, "USDT 换成 DAI"); });
     }).then(function () { return loadBal(); }).then(function () {
       got = bal && bal.pdai > before ? bal.pdai - before : 0n;
@@ -188,7 +189,7 @@
       '<p class="note">到账地址就是你现在这个钱包，在 Anubis 链上。官方桥' + (FEE ? "每笔收 " + FEE + " DAI" : "目前不收手续费") + "，最少跨 " + BMIN + ' DAI。已经有 Polygon 的 DAI？直接做这一步就行。</p></section>' +
       '<section class="card u2d"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
-      '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线）。你直接去 QuickSwap 老池子换，1 万 USDT 要亏 4% 左右；走聚合器实测只亏约 0.1%。</p>' +
+      '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。你直接去 QuickSwap 老池子换，1 万 USDT 要亏 4% 左右；走聚合器实测只亏约 0.1%。</p>' +
       '<p class="note">② 跨链用 <b>Anubis 官方跨链桥</b>（app.anubisbridge.com），和你自己去官方桥页面操作是同一个合约。</p>' +
       '<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>' +
       '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section>';
