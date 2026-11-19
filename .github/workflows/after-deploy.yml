@@ -59,17 +59,20 @@ jobs:
         if: steps.wait.outputs.ok == '1'
         run: |
           set +e
+          # 体检脚本的退出码：0 通过，3 不通过，其它数字 = 体检自己坏了（没装好、脚本丢了）。只有 3 才会退回，体检自己坏了绝不退回网站
           BASE=$BASE TAG=$NAME WANT_CORE=$WANT HC_OUT=$RUNNER_TEMP/hc.json node tools/healthcheck.mjs; RC=$?
-          if [ "$RC" != 0 ]; then
+          if [ "$RC" = 3 ]; then
             echo "第一遍不通过，隔 30 秒再走一遍，两遍都不过才算"
             sleep 30
             BASE=$BASE TAG="$NAME 第二遍" WANT_CORE=$WANT HC_OUT=$RUNNER_TEMP/hc.json node tools/healthcheck.mjs; RC=$?
           fi
           case "$MSG" in *"[看正式站]"*) [ "$MODE" = preview ] && { BASE=https://ailgns.dev TAG=正式站基线 node tools/healthcheck.mjs; true; };; esac
-          WHY=""
-          [ "$RC" != 0 ] && WHY="体检不通过（页面走查发现程序报错、白屏或脚本加载失败）"
-          if [ "$DRILL" = 1 ]; then RC=1; WHY="演练：假装体检不通过"; fi
-          echo "fail=$RC" >> "$GITHUB_OUTPUT"
+          WHY=""; FAIL=0; BROKEN=0
+          if [ "$RC" = 3 ]; then FAIL=1; WHY="体检不通过（页面走查发现程序报错、白屏或脚本加载失败）"
+          elif [ "$RC" != 0 ]; then BROKEN=1; echo "::warning title=体检自己出了故障::体检脚本没跑起来（退出码 $RC），这次判断不了好坏，不退回网站"; fi
+          if [ "$DRILL" = 1 ]; then FAIL=1; WHY="演练：假装体检不通过"; fi
+          echo "fail=$FAIL" >> "$GITHUB_OUTPUT"
+          echo "broken=$BROKEN" >> "$GITHUB_OUTPUT"
           echo "WHY=$WHY" >> "$GITHUB_ENV"
           exit 0
 
@@ -101,7 +104,8 @@ jobs:
           git config user.name "ailgns-autocheck"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git read-tree --reset -u "$BEFORE"
-          git checkout -q "$GITHUB_SHA" -- .github
+          # 体检流程和体检脚本自己不跟着退（退掉了下一次上线就没人体检了）
+          git checkout -q "$GITHUB_SHA" -- .github tools/healthcheck.mjs
           if git diff --cached --quiet; then echo "::warning title=没退回::和上一个版本没有差别，没什么可退的"; exit 0; fi
           git commit -q -m "自动退回：$WHY（退回到 ${BEFORE:0:7}，出问题的提交 ${GITHUB_SHA:0:7}）"
           git push -q origin HEAD:"$BR"
@@ -116,11 +120,13 @@ jobs:
           echo "::error title=已自动退回::$NAME 已退回到 ${BEFORE:0:7}（版本 $OLD）。原因：$WHY。站上确认换回旧版本：$([ "$BACK" = 1 ] && echo 是 || echo 还没看到)"
 
       - name: 提醒站长
-        if: always() && env.MODE == 'live' && (steps.wait.outputs.ok == '0' || steps.walk.outputs.fail == '1' || steps.watch.outputs.fail == '1')
+        if: always() && env.MODE == 'live' && (steps.wait.outputs.ok == '0' || steps.walk.outputs.fail == '1' || steps.walk.outputs.broken == '1' || steps.watch.outputs.fail == '1')
         env:
           ROLLED: ${{ steps.back.outputs.rolled }}
           CONFIRMED: ${{ steps.back.outputs.confirmed }}
           DEPLOYED: ${{ steps.wait.outputs.ok }}
+          BROKEN: ${{ steps.walk.outputs.broken }}
+          WATCHFAIL: ${{ steps.watch.outputs.fail }}
         run: |
           if [ -z "$FEEDBACK_KEY" ]; then echo "没配 FEEDBACK_KEY，发不了站内提醒（GitHub 会给账号邮箱发失败邮件）"; exit 0; fi
           python3 - <<'PY'
@@ -128,6 +134,8 @@ jobs:
           sha = os.environ.get("GITHUB_SHA", "")[:7]
           if os.environ.get("DEPLOYED") == "0":
               msg = "⚠️ 上线后体检：刚推的版本（提交 %s）等了 7 分钟没上线，多半是 Cloudflare 没部署成功。正式站还是旧版本，客户不受影响。" % sha
+          elif os.environ.get("BROKEN") == "1" and os.environ.get("WATCHFAIL") != "1":
+              msg = "⚠️ 上线后体检：体检脚本自己没跑起来（提交 %s），这次没法判断新版本好坏。网站没有被退回，客户报错那 10 分钟照常盯过。请让技术人员看一下体检流程。" % sha
           else:
               hc = ""
               try: hc = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "hc.json"))).get("text", "")
@@ -147,4 +155,5 @@ jobs:
         run: |
           if [ "${{ steps.wait.outputs.ok }}" = "0" ]; then echo "没上线"; exit 1; fi
           if [ "${{ steps.walk.outputs.fail }}" != "0" ] || [ "${{ steps.watch.outputs.fail }}" = "1" ]; then echo "不通过：$WHY"; exit 1; fi
+          if [ "${{ steps.walk.outputs.broken }}" = "1" ]; then echo "体检自己出了故障，没判断"; exit 1; fi
           echo "通过"
