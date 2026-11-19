@@ -86,9 +86,9 @@
       var items = g[2].filter(function (it) { return !kw || it[1].toLowerCase().indexOf(kw) >= 0; });
       if (!items.length) return "";
       var isOpen = kw || open[gi];
-      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><i class="dw-n">' + g[2].length + '</i><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>' +
-        /* 小字预览：每个名字包成一块，换行只在名字之间断，不会把「做市商」「收件箱」拆成两行（站长 2026-11-19 重排菜单）；一共几项写在右上角的小圆牌里 */
-        '<em class="dw-sum">' + g[2].slice(0, 4).map(function (it) { return "<span>" + txt(it[1]).replace(/（.*?）/g, "") + "</span>"; }).join("") + (g[2].length > 4 ? '<span class="dw-etc">…</span>' : "") + "</em></button>" +
+      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>' +
+        /* 预览：前 4 个名字各做成一个小标签，换行只在标签之间断，不会把「做市商」「收件箱」拆成两行；还有更多就加一个「+N」标签（站长 2026-11-19 重排菜单） */
+        '<em class="dw-sum">' + g[2].slice(0, 4).map(function (it) { return "<span>" + txt(it[1]).replace(/（.*?）/g, "") + "</span>"; }).join("") + (g[2].length > 4 ? '<span class="dw-etc">+' + (g[2].length - 4) + "</span>" : "") + "</em></button>" +
         '<div class="dw-items">' + (function () {
           function row(it) { return '<a href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + ico(it[2]) + "<span>" + txt(it[1]) + "</span>" + CHEV + "</a>"; }
           if (g !== GAME_GROUP || kw) return items.map(row).join("");

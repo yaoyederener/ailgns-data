@@ -4589,25 +4589,20 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .u2d details summary { cursor: pointer; font-weight: 700; color: #4c1d95; }
 
 /* ☰ 更多 菜单重排（站长 2026-11-19：分组卡片嫌丑，要按最好的审美重做）
-   思路：一组一张白卡浮在很淡的底色上，去掉描边和渐变块；三级文字层次（组名 / 项目名 / 小字预览）；
-   小字预览只在名字之间换行；一共几项放进右上角小圆牌；当前所在页用淡紫底 + 左侧细条，不再用整块深紫。
-   小字预览保持 14px、颜色够深（站长 2026-11-12 说过小字看不清）。 */
+   思路：一组一张白卡浮在很淡的底色上，去掉描边和渐变块；三级层次（组名 / 项目名 / 预览标签）；
+   预览做成小标签，换行只在标签之间断，还有更多用「+N」；当前所在页用淡紫底 + 左侧细条，不再用整块深紫。
+   预览字保持 13.5px 以上、颜色够深（站长 2026-11-12 说过小字看不清）。 */
 .dw-body { padding: 16px 14px 14px; gap: 12px; background: #f6f4fb; }
 .dw-group { margin: 0; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(46, 38, 84, .05), 0 8px 20px rgba(76, 29, 149, .05); overflow: hidden; }
-.dw-gh { display: grid; grid-template-columns: 1fr auto auto; align-items: center; column-gap: 10px; row-gap: 7px; padding: 16px 16px 15px; border: 0; border-radius: 0; background: none; box-shadow: none; white-space: normal; }
+.dw-gh { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; row-gap: 10px; padding: 16px 16px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; white-space: normal; }
 .dw-gh b { font-size: 17px; font-weight: 700; letter-spacing: .3px; color: #241c4a; }
 .dw-gh small { display: none; }
-.dw-n { font-style: normal; min-width: 26px; height: 22px; padding: 0 8px; border-radius: 11px; background: #f1ecff; color: #6d4bd1; font-size: 12.5px; font-weight: 700; line-height: 22px; text-align: center; box-sizing: border-box; }
 .dw-gh .dw-up { margin: 0; width: 18px; height: 18px; color: #a99fd0; }
-.dw-gh .dw-sum { grid-column: 1 / -1; order: 0; flex-basis: auto; margin: 0; font-style: normal; font-size: 14px; line-height: 1.7; color: #5b5385; font-weight: 500; overflow-wrap: normal; }
-.dw-sum span { display: inline-block; white-space: nowrap; margin-right: 7px; }
-.dw-sum span:not(:last-child):not(.dw-etc)::after { content: "·"; margin-left: 7px; color: #c3badf; }
-.dw-sum span:nth-last-child(2):not(.dw-etc)::after { content: "·"; }
-.dw-sum .dw-etc { margin: 0; color: #a99fd0; letter-spacing: 1px; }
-.dw-sum span:has(+ .dw-etc)::after { content: none; }
+.dw-gh .dw-sum { grid-column: 1 / -1; order: 0; flex-basis: auto; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; font-style: normal; font-size: 13.5px; line-height: 1.3; font-weight: 500; overflow-wrap: normal; }
+.dw-sum > span { white-space: nowrap; padding: 5px 10px; border-radius: 9px; background: #f5f2fd; color: #4f4680; }
+.dw-sum > .dw-etc { background: none; padding: 5px 2px; color: #9a8fc4; font-weight: 600; }
 .dw-group.open .dw-gh { background: none; border: 0; box-shadow: none; padding-bottom: 13px; }
 .dw-group.open .dw-gh b { color: #5b21b6; }
-.dw-group.open .dw-n { background: #5b21b6; color: #fff; }
 .dw-items { gap: 2px; margin: 0 8px; padding: 6px 0 8px; border-top: 1px solid #f1edfb; }
 .dw-items a { position: relative; gap: 10px; padding: 13px 12px; border: 0; border-radius: 12px; color: #2e2654; font-size: 15.5px; font-weight: 500; }
 .dw-items a .dw-chev { width: 16px; height: 16px; opacity: 1; color: #cbc2e8; }
