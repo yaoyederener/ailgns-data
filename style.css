@@ -4614,6 +4614,11 @@ input.u2d-num::placeholder { color: #c3badf; }
 .u2d-coin.an { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f5a300; }
 .u2d-mid { height: 6px; display: grid; place-items: center; position: relative; z-index: 1; }
 .u2d-mid i { width: 36px; height: 36px; margin: -15px 0; border-radius: 12px; background: #fff; border: 4px solid #fff; box-shadow: 0 0 0 1px #ece6fb; display: grid; place-items: center; font-style: normal; font-size: 16px; color: #5b21b6; box-sizing: border-box; }
+/* 换币卡片中间那个能点的 ⇅：点一下反过来换（USDT ⇄ DAI） */
+.u2d-flip { width: 38px; height: 38px; margin: -16px 0; padding: 0; border-radius: 12px; background: #fff; border: 4px solid #fff; box-shadow: 0 0 0 1px #d9ccfb; display: grid; place-items: center; font: inherit; font-size: 17px; font-weight: 700; color: #5b21b6; box-sizing: border-box; cursor: pointer; transition: transform .2s, background .15s; }
+.u2d-flip:hover { background: #f3efff; }
+.u2d-flip:active { transform: rotate(180deg); }
+.u2d-flip:disabled { opacity: .5; }
 .u2d-info { padding: 10px 6px 0; }
 .u2d-info .note, .u2d-info .muted { margin: 0 0 4px; font-size: 13px; line-height: 1.65; }
 .u2d-warn { margin: 6px 0; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 13.5px; line-height: 1.6; }
