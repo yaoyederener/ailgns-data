@@ -209,7 +209,7 @@
         return '<div class="fm-plot' + (s <= 0 ? " ripe" : " grow") + '">' + (s <= 0 ? '<em class="fm-tip">收</em><i class="fm-spark">✨</i>' : "") + '<span class="fm-ic' + (s > 0 && pr >= 0.67 ? " young" : "") + '">' + (s <= 0 || pr >= 0.67 ? c.icon : pr < 0.34 ? "🌱" : "🌿") + "</span><b>" + c.name + (p.stolen ? '<em class="fm-st">被偷 ' + p.stolen + "</em>" : "") + "</b>" +
           '<small data-ripe="' + (p.t + c.grow) + '">' + left(s) + "</small>" + (s > 0 ? '<i class="fm-bar"><i style="width:' + (pr * 100).toFixed(0) + '%"></i></i><button type="button" class="fm-boost" data-boost="' + i + '">⚡ ' + boostCost(s, R.boost) + "</button>" : "") + "</div>";
       }).join("");
-      var more = me.plots.length < 12 ? '<button type="button" class="fm-plot buy" id="fm-buyplot"><span class="fm-ic fm-plus">＋</span><b>开垦新地</b><small>' + R.plots[me.plots.length - 6] + " 金币</small></button>" : "";
+      var more = me.plots.length < 6 + R.plots.length ? '<button type="button" class="fm-plot buy" id="fm-buyplot"><span class="fm-ic fm-plus">＋</span><b>开垦新地</b><small>' + R.plots[me.plots.length - 6] + " 金币</small></button>" : "";
       var H = R.hen, eggs = 0;
       var hens = me.hens.map(function (h) {
         eggs += h.eggs;
