@@ -16,13 +16,21 @@ export async function onRequestPost(ctx) {
   if (Date.now() - Number(await kv.get("err:rl:" + ip) || 0) < 20000) return new Response("ok");
   await kv.put("err:rl:" + ip, String(Date.now()), { expirationTtl: 60 });
   const list = (await kv.get("err:list", "json")) || [];
-  const same = list.find((x) => x.m === m && x.p === String(b.p || "").slice(0, 60));
+  const ver = String(b.v || "").split("?v=")[1] || "";
+  const same = list.find((x) => x.m === m && x.p === String(b.p || "").slice(0, 60) && (x.v || "") === ver); // 同一句报错换了版本要另记一条，上线后体检才数得出「新版本报了几次」
   if (same) { same.n = (same.n || 1) + 1; same.t = Date.now(); } else list.unshift({ t: Date.now(), p: String(b.p || "").slice(0, 60), m, ua: String(b.ua || "").slice(0, 120), v: String(b.v || "").split("?v=")[1] || "", n: 1 });
   await kv.put("err:list", JSON.stringify(list.slice(0, 200)));
   return new Response("ok");
 }
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url), k = u.searchParams.get("key");
+  // 上线后体检用（.github/workflows/after-deploy.yml）：?count=版本号 → 这个版本上客户报了几次程序错误。只回数字，不带内容，所以不用口令
+  const cv = u.searchParams.get("count");
+  if (cv !== null) {
+    if (!/^h[0-9a-f]{6,16}$/.test(cv)) return Response.json({ error: "版本号不对" }, { status: 400 });
+    const hit = ((kv && (await kv.get("err:list", "json"))) || []).filter((x) => x.v === cv && x.t >= SWEPT && !noise(x.m, x.ua));
+    return Response.json({ n: hit.reduce((s, x) => s + (x.n || 1), 0), kinds: hit.length }, { headers: { "cache-control": "no-store" } });
+  }
   if (!kv || !k || !((ctx.env.FEEDBACK_KEY && k === ctx.env.FEEDBACK_KEY) || (ctx.env.BACKUP_KEY && k === ctx.env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
   return Response.json({ list: ((await kv.get("err:list", "json")) || []).filter((x) => x.t >= SWEPT && !noise(x.m, x.ua)) }, { headers: { "cache-control": "no-store" } });
 }
