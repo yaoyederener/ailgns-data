@@ -4762,3 +4762,10 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 .ad-pr-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ad-pr-b { height: 8px; border-radius: 4px; background: #f1edfb; overflow: hidden; } .ad-pr-b i { display: block; height: 100%; border-radius: 4px; background: #8b5cf6; }
 .ad-pr-c li b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* 跨链桥：步骤标记改成「第 1 步」小牌子（卡片位置固定，先做哪张看牌子）；Anubis 链上的 DAI 右下角带 Anubis 标志 */
+.u2d-step i.st { width: auto; padding: 0 9px; border-radius: 11px; font-size: 12px; white-space: nowrap; }
+.u2d-cw { position: relative; display: inline-flex; flex: none; }
+.u2d-coin.an { box-shadow: none; }
+.u2d-ch { position: absolute; right: -5px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%; background: #2fbf4a; box-shadow: 0 0 0 1.5px #fff; }
+.u2d-ch::after { content: ""; position: absolute; inset: 2.5px; background: #fff; -webkit-mask: url("/icons/tokens/anubis.png?v=1") center / contain no-repeat; mask: url("/icons/tokens/anubis.png?v=1") center / contain no-repeat; }
