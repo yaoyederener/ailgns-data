@@ -4691,3 +4691,18 @@ input.u2d-num::placeholder { color: #c3badf; }
 .lng-row { display: flex; gap: 6px; margin-top: 8px; padding: 4px; border-radius: 14px; background: #ece8f8; }
 .lng-row button { flex: 1; min-width: 0; padding: 8px 4px; border: 0; border-radius: 10px; background: transparent; color: #5b5385; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .lng-row button.on { background: #fff; color: #4a1fb8; box-shadow: 0 1px 4px rgba(74, 31, 184, .16); }
+
+/* 🌐 繁體 / English：样式表自己画出来的字（lang.js 换不到），在这里各补一份 */
+@media (max-width: 600px) { html[class*="lang-"] table.cards td[data-lt]::before, html[class*="lang-"] .ptn-d td[data-lt]::before, html[class*="lang-"] .ptn-t td[data-lt]::before { content: attr(data-lt); } }
+@media (max-width: 640px) { html[class*="lang-"] .as-pools td[data-lt]::before { content: attr(data-lt); } }
+html.lang-hant details.bk-fold > summary > .muted::after { content: " · 點開查看 ▾"; }
+html.lang-hant details.bk-fold[open] > summary > .muted::after { content: " · 點這裡收起 ▴"; }
+html.lang-hant .or-all li.me::before { content: "⭐ 你的預測 "; }
+html.lang-hant .or-all li.hot::after { content: " ← 此刻領先"; }
+html.lang-hant .gdn-table::after { content: "摜 蛋"; }
+html.lang-en details.bk-fold > summary > .muted::after { content: " · tap to open ▾"; }
+html.lang-en details.bk-fold[open] > summary > .muted::after { content: " · tap to close ▴"; }
+html.lang-en .ib-it.new .ib-main::before { content: "NEW"; }
+html.lang-en .or-all li.me::before { content: "⭐ Your guess "; }
+html.lang-en .or-all li.hot::after { content: " ← leading now"; }
+html.lang-en .gdn-table::after { content: "GUANDAN"; }
