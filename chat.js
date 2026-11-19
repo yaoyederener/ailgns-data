@@ -155,7 +155,7 @@
     var wait = add("bot", '<span class="cb-typing"><i></i><i></i><i></i></span>');
     var ctl = window.AbortController ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 30000); // 服务器最多重试 3 次，给够时间
-    withCtx().then(function (c) { return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history.slice(-8), a: walletA, ctx: c }), signal: ctl ? ctl.signal : undefined }); })
+    withCtx().then(function (c) { return fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history.slice(-8), a: walletA, ctx: c, lang: window.AIL_LANG === "en" ? "en" : "" }), signal: ctl ? ctl.signal : undefined }); })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; })
       .then(function (j) {

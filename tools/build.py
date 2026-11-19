@@ -230,7 +230,13 @@ def main():
             if set(re.findall(r"\{\d+\}", v)) - set(re.findall(r"\{\d+\}", k)): sys.exit("英文词典的译文里多了原句没有的 {数字}：%s（%s）" % (k[:40], fp))
             en[k] = v
     print("英文词典: %d 句" % len(en))
-    lang_src = {"hant": read("lang-hant.js"), "en": "window.AIL_LANG_DATA=" + json.dumps({"t": "en", "d": en}, ensure_ascii=False, separators=(",", ":")) + ";"}
+    # 代码里每一小段原文的英文（tools/i18n_extract.py 抠、分批翻、tools/i18n_merge.py 合）：整句词典查不到时一段一段换
+    enf = json.loads(read("i18n/en-frags.json")) if os.path.exists("i18n/en-frags.json") else {}
+    enf = {k: v for k, v in enf.items() if k not in en}
+    for k, v in en.items():   # 整句词典里不带数字、不带标签的句子，夹在别的字中间出现时也要认得
+        if "{" not in k and "<" not in k and len(k) >= 2: enf.setdefault(k, v.strip())
+    print("英文小段: %d 段" % len(enf))
+    lang_src = {"hant": read("lang-hant.js"), "en": "window.AIL_LANG_DATA=" + json.dumps({"t": "en", "d": en, "f": enf}, ensure_ascii=False, separators=(",", ":")) + ";"}
     for lg in ("hant", "en"):
         ljs = minjs(lang_src[lg])
         lv = hv(ljs)
