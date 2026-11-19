@@ -115,16 +115,18 @@
     "puzzle": '<path d="M4 7h3a1 1 0 0 0 1 -1v-1a2 2 0 0 1 4 0v1a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h1a2 2 0 0 1 0 4h-1a1 1 0 0 0 -1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-1a2 2 0 0 0 -4 0v1a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h1a2 2 0 0 0 0 -4h-1a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1"/>',
     "route": '<path d="M3 19a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M19 7a2 2 0 1 0 0 -4a2 2 0 0 0 0 4z"/><path d="M11 19h5.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h4.5"/>',
     "speakerphone": '<path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5"/><path d="M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8"/>',
+    "layout-grid": '<path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"/><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"/><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"/><path d="M14 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z"/>',
+    "chart-area-line": '<path d="M4 19l4 -6l4 2l4 -5l4 4l0 5l-16 0"/><path d="M4 12l3 -4l4 2l5 -6l4 4"/>',
     "users": '<path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0 -3 -3.85"/>',
     "wall": '<path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z"/><path d="M4 8h16"/><path d="M20 12h-16"/><path d="M4 16h16"/><path d="M9 4v4"/><path d="M14 8v4"/><path d="M8 12v4"/><path d="M16 12v4"/><path d="M11 16v4"/>'
   };
   // 菜单里的完整名字 → [格子里的短名, 图标, 颜色]。新加菜单项时在这里补一行；没补的会用名字前几个字 + 通用图标，不会报错
   var GMETA = {
-    "USDT 跨链桥（试运行）": ["USDT 跨链桥", "building-bridge", "b"],
+    "USDT 跨链桥（试运行）": ["跨链桥", "building-bridge", "b"],
     "极速预言家（试运行）": ["极速预言家", "bolt", "o"],
     "aiswap 兑换池（试运行）": ["aiswap", "arrows-exchange", "c"],
     "做市商（✅ 认证称号）": ["做市商", "droplet", "g"],
-    "交易所盘口（专业版）": ["交易所盘口", "chart-candle", "r"],
+    "交易所盘口（专业版）": ["盘口", "chart-area-line", "r"],
     "🎁 创世域名每日分红（上线倒计时）": ["每日分红", "gift", "r"],
     "🔥 创世域名销毁进行中": ["创世销毁", "flame", "o"],
     "🔔 收件箱": ["收件箱", "bell", "y"],
@@ -132,7 +134,7 @@
     "💬 链上留言（在账本里）": ["链上留言", "message-2", "g"],
     "🏛️ 链上广场（盖楼 · 时间胶囊 · 挂单帖）": ["链上广场", "building-community", "p"],
     "🏡 开心农场": ["开心农场", "plant-2", "g"],
-    "🀄 血流成河麻将（试玩）": ["麻将", "dice-5", "r"],
+    "🀄 血流成河麻将（试玩）": ["麻将", "layout-grid", "r"],
     "🐺 大逃杀（试运行）": ["大逃杀", "paw", "p"],
     "🃏 掼蛋（单机 · 联机）": ["掼蛋", "play-card", "b"],
     "销毁乐园": ["销毁乐园", "device-gamepad-2", "o"],
@@ -144,7 +146,7 @@
     "扫雷": ["扫雷", "bomb", "r"],
     "打砖块": ["打砖块", "wall", "o"],
     "DNA 合成": ["DNA 合成", "dna-2", "p"],
-    "HELIX 宠物": ["HELIX 宠物", "cat", "k"],
+    "HELIX 宠物": ["宠物", "cat", "k"],
     "📮 问题反馈": ["问题反馈", "message-report", "b"],
     "🆕 更新日志": ["更新日志", "news", "g"],
     "📲 下载 App": ["下载 App", "device-mobile", "p"],
@@ -165,7 +167,7 @@
       else {
         var top = items.filter(function (it) { return PIN[it[0]]; }), rest = items.filter(function (it) { return !PIN[it[0]]; });
         cells = top.map(function (it) { return tile(it, cur); }).join("") + (moreOpen ? rest.map(function (it) { return tile(it, cur); }).join("") : "") +
-          (rest.length ? '<button type="button" class="dg-i dg-more" data-more><span class="dg-t dgc-n">' + gsvg("dots") + "</span><b>" + (moreOpen ? "收起" : "其它 " + rest.length + " 个") + "</b></button>" : "");
+          (rest.length ? '<button type="button" class="dg-i dg-more" data-more><span class="dg-t dgc-n">' + gsvg("dots") + "</span><b>" + (moreOpen ? "收起" : "更多 " + rest.length) + "</b></button>" : "");
       }
       return '<section class="dg"><h3>' + g[0] + '</h3><div class="dg-g">' + cells + "</div></section>";
     }).join("");
