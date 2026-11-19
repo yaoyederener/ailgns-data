@@ -99,7 +99,7 @@
   try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
     var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
-    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span></div><div class="fm-top"><h2>开心农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
+    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2>开心农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
       '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 进入运营资金。</p>';
@@ -186,6 +186,10 @@
       var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0, cop = me.cop > t ? Math.ceil((me.cop - t) / 3600) : 0;
       // 站长 2026-11-16：以前超过 48 小时只写「3 天」（四舍五入），续买后看不出是 3 天整还是 3 天 10 小时；狗和警察一个写小时一个写天也让人糊涂。现在统一写「几天几小时」
       var dh = function (h) { return h >= 24 ? Math.floor(h / 24) + " 天" + (h % 24 ? " " + (h % 24) + " 小时" : "") : h + " 小时"; };
+      try { /* 站长 2026-11-18 装饰：买了的摆进顶上那幅画里，每样有固定位置 */
+        var dz = document.getElementById("fm-deco");
+        if (dz) dz.innerHTML = (me.decor || []).map(function (k) { return R.decor && R.decor[k] ? '<span class="fm-prop fm-deco d-' + k + '">' + R.decor[k].icon + "</span>" : ""; }).join("");
+      } catch (e) { /* 装饰画不出来不影响农场 */ }
       if (seenWho !== sig.addr) { seenCoins = null; seenLv = null; seenWho = sig.addr; }
       var d0 = seenCoins == null ? 0 : me.coins - seenCoins, up = seenLv != null && lv > seenLv;
       seenCoins = me.coins; seenLv = lv;
@@ -249,6 +253,11 @@
         '<button type="button" id="fm-pump"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🎃</span><b>黄金南瓜</b><small>种子 ' + R.crops.pumpkin.seed + " · 24 小时</small><em>" + (me.paid ? "一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币，到空地里种" : "👑 充值玩家专属：一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pay2"><span class="fm-ic"><i class="fm-coin"></i></span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
         "</div></section>" +
+        (R.decor ? '<section class="card fm-shop fm-decos"><div class="card-head"><h2>🎀 农场装饰</h2><span class="muted">只为好看 · 买了永久有</span></div><div class="fm-items">' +
+          Object.keys(R.decor).map(function (k) {
+            var d = R.decor[k], has = (me.decor || []).indexOf(k) >= 0;
+            return '<button type="button" data-decor="' + k + '"' + (has ? ' disabled class="has"' : "") + '><span class="fm-ic">' + d.icon + "</span><b>" + d.name + "</b><small>" + (has ? "✅ 已拥有" : A.fmt(d.price) + " 金币") + "</small></button>";
+          }).join("") + '</div><p class="note">装饰没有别的作用，就是好看：摆在你农场顶上那幅画里，好友列表和金币榜上你的名字后面也会显示。</p></section>' : "") +
         (me.log.length ? '<section class="card"><div class="card-head"><h2>📜 农场动态</h2></div><ul class="fm-log">' + me.log.slice(0, 10).map(function (l) {
           return "<li><small>" + new Date(l.t * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "</small> " + logText(l) + "</li>";
         }).join("") + "</ul></section>" : "");
@@ -279,7 +288,7 @@
       var can = top ? 0 : rows.filter(function (x) { return x.ripe && !cm[x.a]; }).length; // 站长 2026-11-12：一键偷菜，把现在能偷的人家一家一家偷过去
       return (can ? '<section class="card fm-allc"><button type="button" id="fm-all" class="fm-all">🧺 一键偷菜（' + can + ' 家能偷）</button>' + (skip ? '<p class="fm-skip">👮 有 ' + skip + ' 家的警察 1 天内抓过你，这一轮自动绕开</p>' : "") + '<p class="muted">一家一家偷过去，每家算 1 次；有的人家养了狗或请了警察，可能被咬、被抓。<b>一轮偷下来要是亏了，系统补回到不亏</b>（每天最多补 ' + ((R && R.baodi) || 100) + ' 金币）。被警察抓过的农场，1 天内一键偷菜自动绕开；想再试可以单独点那一家。</p></section>' : "") +
         '<section class="card"><ul class="fm-fr">' + rows.map(function (x, i) {
-        return "<li" + (top ? (i < 3 ? ' class="r' + (i + 1) + '"' : "") : x.ripe ? ' class="can"' : "") + ">" + (top ? '<span class="fm-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</span>" : "") + '<span class="fm-who">' + (x.king ? "👑 " : "") + A.nameTag(x.a) + "</span><small>⭐" + x.lv + " · 💰" + A.fmt(x.c) + "</small>" +
+        return "<li" + (top ? (i < 3 ? ' class="r' + (i + 1) + '"' : "") : x.ripe ? ' class="can"' : "") + ">" + (top ? '<span class="fm-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + "</span>" : "") + '<span class="fm-who">' + (x.king ? "👑 " : "") + A.nameTag(x.a) + (x.dc ? ' <i class="fm-dc">' + esc(x.dc) + "</i>" : "") + "</span><small>⭐" + x.lv + " · 💰" + A.fmt(x.c) + "</small>" +
           (top ? "" : x.ripe ? '<button type="button" data-steal="' + x.a + '"' + (cm[x.a] ? ' data-cop="1" class="cop">👮 抓过你' : ">🕵️ 偷") + "</button>" : '<span class="muted fm-wait">没熟</span>') + "</li>";
       }).join("") + "</ul></section>" + (top ? burnHtml(d) : "");
     }
@@ -321,6 +330,7 @@
         on("fm-milk", function () { run("milk"); });
         on("fm-feedcow", function () { run("feedCow"); });
         on("fm-cow", function () { if ((A.sure || confirm)("花 " + R.cow.price + " 金币买一头奶牛？")) run("buyCow"); });
+        out.querySelectorAll("[data-decor]").forEach(function (b) { b.onclick = function () { var k = b.getAttribute("data-decor"), d = R.decor[k]; if ((A.sure || confirm)("花 " + d.price + " 金币买「" + d.name + "」？只是好看，没有别的作用")) run("buyDecor", { k: k }); }; });
         on("fm-dog", function () { if ((A.sure || confirm)("花 " + R.dog.price + " 金币请看门狗看 " + R.dog.days + " 天？")) run("dog"); });
         on("fm-cop", function () { if ((A.sure || confirm)("花 " + R.cop.price + " 金币请警察看 " + R.cop.days + " 天？")) run("cop"); });
         on("fm-ghen", function () { if (!me.paid) return payPicker(); if ((A.sure || confirm)("花 " + R.goldHen.price + " 金币买一只金鸡？")) run("goldHen"); });

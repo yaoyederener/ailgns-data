@@ -4554,3 +4554,12 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .fm-plot.cutme .fm-ic { font-size: 40px; }
 .fm-plot.cutme small { background: #0d9488; color: #fff; }
 .fm-tip.cut { background: linear-gradient(180deg, #34d399, #059669); }
+/* 站长 2026-11-18 农场装饰：顶上那幅画里每样的固定位置；榜单名字后面的小图标 */
+.fm-deco.d-flower { left: 90px; bottom: 2px; font-size: 20px; }
+.fm-deco.d-fountain { left: 116px; bottom: 2px; font-size: 24px; }
+.fm-deco.d-statue { right: 150px; bottom: 2px; font-size: 22px; }
+.fm-deco.d-castle { right: 96px; bottom: 4px; font-size: 34px; }
+.fm-deco.d-rainbow { left: 66px; top: 34px; font-size: 28px; }
+.fm-decos .fm-items { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.fm-decos .fm-items button.has { opacity: 1; filter: none; background: #f0fdf4; border-color: #86efac; color: #166534; box-shadow: none; }
+.fm-dc { font-style: normal; font-size: 13px; letter-spacing: -1px; }
