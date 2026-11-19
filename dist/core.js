@@ -1,5 +1,5 @@
-window.AIL_NIGHT="dist/night.css?v=h6fda3a220a";
-window.AIL_BUNDLES={"names":"dist/names.js?v=hf09f4f10d7","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=hef4b5dc190","trade":"dist/trade.js?v=h9bfd11d99c","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=h6fc3fbed96","feedback":"dist/feedback.js?v=h8f5babbd19","games":"dist/games.js?v=hfbf00a596e","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=h03f8e2cdfa"};
+window.AIL_NIGHT="dist/night.css?v=h5fef2e9a67";
+window.AIL_BUNDLES={"names":"dist/names.js?v=hf09f4f10d7","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=hef4b5dc190","trade":"dist/trade.js?v=h9bfd11d99c","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=h6fc3fbed96","feedback":"dist/feedback.js?v=hfdccffba46","games":"dist/games.js?v=hfbf00a596e","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=h03f8e2cdfa"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function load(){if(link||!window.AIL_NIGHT)return;link=document.createElement("link");link.rel="stylesheet";link.id="ntm-css";link.href=window.AIL_NIGHT;document.head.appendChild(link);}
@@ -681,9 +681,11 @@ function isAddr(a){return/^0x[0-9a-f]{40}$/.test(a||"");}
 function getAcct(){if(auth)return auth.a;try{var a=localStorage.getItem("ib:acct")||"";return isAddr(a)?a:"";}catch(e){return"";}}
 function setAcct(a){a=String(a||"").toLowerCase();if(!isAddr(a))return;var old="";try{old=localStorage.getItem("ib:acct")||"";if(old!==a)localStorage.setItem("ib:acct",a);}catch(e){}
 if(old!==a&&!auth&&!PAUSED){schedule();count();}}
-function pill(n,txt){var el=document.getElementById("ib-pill");if(!n||onInbox()||PAUSED){if(el)el.remove();return;}
-var k=n+"|"+txt;if(el&&el.getAttribute("data-k")===k)return;if(!el){el=document.createElement("a");el.id="ib-pill";el.className="fb-pill ib-pill";el.href="#/inbox";document.body.appendChild(el);}
-el.setAttribute("data-k",k);el.innerHTML='<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来'+(n>1?" "+n+" 条":"一条")+"私信</b><small>"+(txt?esc(txt.slice(0,40))+(txt.length>40?"…":""):"点开用钱包签个名就能看（免费）")+'</small></span><span class="fb-pill-go">查看 ›</span>';}
+var pillOffK="";function pill(n,txt){var el=document.getElementById("ib-pill");if(!n||onInbox()||PAUSED){if(el)el.remove();if(!n&&pillOffK!==null){pillOffK="";try{localStorage.removeItem("ib:pillx");}catch(e){}}return;}
+var k=n+"|"+txt;if(el&&el.getAttribute("data-k")===k)return;var off=pillOffK;try{off=off||localStorage.getItem("ib:pillx")||"";}catch(e){}
+if(off&&off===String(n)){if(el)el.remove();return;}
+if(!el){el=document.createElement("a");el.id="ib-pill";el.className="fb-pill ib-pill";el.href="#/inbox";document.body.appendChild(el);}
+el.setAttribute("data-k",k);el.innerHTML='<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来'+(n>1?" "+n+" 条":"一条")+"私信</b><small>"+(txt?esc(txt.slice(0,40))+(txt.length>40?"…":""):"点开用钱包签个名就能看（免费）")+'</small></span><span class="fb-pill-go">查看 ›</span><span class="fb-pill-x" role="button" aria-label="关掉">✕</span>';var x=el.querySelector(".fb-pill-x");if(x)x.onclick=function(ev){ev.preventDefault();ev.stopPropagation();pillOffK=String(n);try{localStorage.setItem("ib:pillx",pillOffK);}catch(e){}el.remove();};}
 function pillSave(n,txt){try{var a=getAcct();if(a)localStorage.setItem("ib:pill",JSON.stringify({a:a,n:n||0,txt:txt||"",t:Date.now()}));}catch(e){}}
 function pillCached(){try{var c=JSON.parse(localStorage.getItem("ib:pill")||"null");if(c&&c.n>0&&c.a===getAcct()&&Date.now()-c.t<7*86400e3)pill(c.n,c.txt||"");}catch(e){}}
 function count(){var a=getAcct();if(!a||auth||document.hidden)return Promise.resolve(null);return fetch("/api/inbox?n="+a).then(function(r){return r.json();}).then(function(j){if(!j||j.error)return null;badge(j.unread);pill(j.dm,"");pillSave(j.dm,"");var c=document.getElementById("ib-cnt");if(c)c.textContent=j.unread?"🔴 钱包 "+A.short(a)+" 有 "+j.unread+" 条未读通知，签名后就能看":"";return j;}).catch(function(){return null;});}
@@ -1042,5 +1044,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hc80b3a818d";
-/*v:hc80b3a818d*/
+;window.AIL_CORE="h48da7eba14";
+/*v:h48da7eba14*/

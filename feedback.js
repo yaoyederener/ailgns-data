@@ -224,6 +224,7 @@
     }, function () {});
   }
   // 全站：连过钱包的客户有新客服回复时，右下角弹一个漂亮的提醒气泡（60 秒查一次，看过就消失）
+  var pillOff = false;
   function replyPill() {
     if (!A.wallets || !A.wallets.silent || /feedback/.test(location.hash)) return;
     A.wallets.silent().then(function (acc) {
@@ -231,10 +232,16 @@
       var seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + acc) || 0); } catch (e) {}
       return fetch("/api/feedback?mine=" + acc).then(function (r) { return r.json(); }).then(function (j) {
         var fresh = (j.list || []).filter(function (t) { return t.note && t.up > seen; });
-        if (!fresh.length || document.getElementById("fb-pill")) return;
+        if (!fresh.length || document.getElementById("fb-pill") || pillOff) return;
         var t = fresh[0], el = document.createElement("a"); el.id = "fb-pill"; el.className = "fb-pill"; el.href = "#/feedback/" + t.id;
-        el.innerHTML = '<span class="fb-pill-i">💬</span><span class="fb-pill-t"><b>客服回复了你的工单 #' + t.id + "</b><small>" + esc(String(t.note).slice(0, 40)) + (t.note.length > 40 ? "…" : "") + '</small></span><span class="fb-pill-go">查看 ›</span>';
+        el.innerHTML = '<span class="fb-pill-i">💬</span><span class="fb-pill-t"><b>客服回复了你的工单 #' + t.id + "</b><small>" + esc(String(t.note).slice(0, 40)) + (t.note.length > 40 ? "…" : "") + '</small></span><span class="fb-pill-go">查看 ›</span><span class="fb-pill-x" role="button" aria-label="关掉">✕</span>';
         document.body.appendChild(el);
+        // 站长 2026-11-19：气泡要能直接关掉。点 ✕ = 这些回复都算看过了，不再弹；有新回复才会再出来
+        var x = el.querySelector(".fb-pill-x");
+        if (x) x.onclick = function (ev) {
+          ev.preventDefault(); ev.stopPropagation(); pillOff = true; el.remove();
+          try { var mx = Math.max.apply(null, [0].concat((j.list || []).map(function (q) { return q.up || 0; }))); if (mx) { localStorage.setItem("fb:seen:" + acc, String(mx)); pillOff = false; } } catch (e) { /* 本机存不上：这次打开期间不再弹 */ }
+        };
       });
     }).catch(function () {});
   }

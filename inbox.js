@@ -34,13 +34,18 @@
     if (old !== a && !auth && !PAUSED) { schedule(); count(); }
   }
   // 📬 站长私信悬浮气泡：和工单回复同一个样式，点开收件箱就消失
+  var pillOffK = ""; // 站长 2026-11-19：气泡要能直接关掉；按未读私信条数记，条数变了（来了新的）才再弹
   function pill(n, txt) {
     var el = document.getElementById("ib-pill");
-    if (!n || onInbox() || PAUSED) { if (el) el.remove(); return; }
+    if (!n || onInbox() || PAUSED) { if (el) el.remove(); if (!n && pillOffK !== null) { pillOffK = ""; try { localStorage.removeItem("ib:pillx"); } catch (e) { /* 忽略 */ } } /* 私信都看过了：下回来新的照常弹 */ return; }
     var k = n + "|" + txt; if (el && el.getAttribute("data-k") === k) return;
+    var off = pillOffK; try { off = off || localStorage.getItem("ib:pillx") || ""; } catch (e) { /* 读不到就按这次打开期间记的 */ }
+    if (off && off === String(n)) { if (el) el.remove(); return; } /* 这几条已经点 ✕ 关过了 */
     if (!el) { el = document.createElement("a"); el.id = "ib-pill"; el.className = "fb-pill ib-pill"; el.href = "#/inbox"; document.body.appendChild(el); }
     el.setAttribute("data-k", k);
-    el.innerHTML = '<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来' + (n > 1 ? " " + n + " 条" : "一条") + "私信</b><small>" + (txt ? esc(txt.slice(0, 40)) + (txt.length > 40 ? "…" : "") : "点开用钱包签个名就能看（免费）") + '</small></span><span class="fb-pill-go">查看 ›</span>';
+    el.innerHTML = '<span class="fb-pill-i">📬</span><span class="fb-pill-t"><b>站长给你发来' + (n > 1 ? " " + n + " 条" : "一条") + "私信</b><small>" + (txt ? esc(txt.slice(0, 40)) + (txt.length > 40 ? "…" : "") : "点开用钱包签个名就能看（免费）") + '</small></span><span class="fb-pill-go">查看 ›</span><span class="fb-pill-x" role="button" aria-label="关掉">✕</span>';
+    var x = el.querySelector(".fb-pill-x");
+    if (x) x.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); pillOffK = String(n); try { localStorage.setItem("ib:pillx", pillOffK); } catch (e) { /* 存不上不要紧 */ } el.remove(); };
   }
   /* 气泡记在本机：一打开网站先按上次查到的显示，后台再核对一遍（已读了就马上收起） */
   function pillSave(n, txt) { try { var a = getAcct(); if (a) localStorage.setItem("ib:pill", JSON.stringify({ a: a, n: n || 0, txt: txt || "", t: Date.now() })); } catch (e) { /* 存不上不要紧 */ } }
