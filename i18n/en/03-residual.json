@@ -1,0 +1,7 @@
+{
+"按市价 {0}% 计：{1} DAI（卖出扣 {2}%）": "At {0}% of market price: {1} DAI (selling deducts {2}%)",
+"付款 {0} LGNS（Anubis），开通初级 VIP": "Pay {0} LGNS (Anubis) to open Basic VIP",
+"冰山单：这一档实际 {0} AiLGNS，点一下看全部": "Iceberg order: this level actually has {0} AiLGNS — tap to see all",
+"会员：粘贴交易哈希核对时，多付 {0}% 以内也能认。": "VIP: when you paste a transaction hash to verify, overpaying by up to {0}% is still accepted.",
+"结算后 {0} 天内，先到「🔥 创世域名销毁」页销毁 {1} 枚创世名，机器人核对后自动发到你的钱包，不用申请。": "Within {0} days after settlement, first burn {1} Genesis name on the “🔥 Genesis name burn” page; the bot checks it and pays your wallet automatically — no need to apply."
+}
