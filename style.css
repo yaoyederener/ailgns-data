@@ -4686,3 +4686,8 @@ input.u2d-num::placeholder { color: #c3badf; }
 /* 跨链桥页头的「0手续费」高亮角标（2026-11-19 站长：把试运行换成它，吸引客户用） */
 .u2d-free { display: inline-block; margin-left: 10px; padding: 0 11px; height: 24px; border-radius: 12px; background: linear-gradient(90deg, #ff4d4f, #ff7a45); color: #fff; font-size: 13px; font-weight: 800; line-height: 24px; letter-spacing: .3px; vertical-align: 3px; white-space: nowrap; box-shadow: 0 0 0 1.5px #fff, 0 2px 6px rgba(255, 77, 79, .45); animation: dg-hot 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .u2d-free { animation: none; } }
+
+/* 🌐 语言切换（☰ 更多 里，夜间模式下面）：简体 / 繁體 / English 三个并排的小按钮，当前的那个高亮 */
+.lng-row { display: flex; gap: 6px; margin-top: 8px; padding: 4px; border-radius: 14px; background: #ece8f8; }
+.lng-row button { flex: 1; min-width: 0; padding: 8px 4px; border: 0; border-radius: 10px; background: transparent; color: #5b5385; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.lng-row button.on { background: #fff; color: #4a1fb8; box-shadow: 0 1px 4px rgba(74, 31, 184, .16); }
