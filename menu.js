@@ -49,6 +49,10 @@
   }
   try { fetch("/api/games-top").then(function (r) { return r.json(); }).then(function (j) { if (j && j.counts) sortGames(j.counts); }).catch(function () {}); } catch (e) {}
   function svg(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + "</svg>"; }
+  // 站长 2026-11-19：菜单里的线条图标和名字前面的彩色表情都嫌丑，整个菜单改成纯文字。想换回带图标的，把 PLAIN 改成 false 就行（图标和表情都还在上面的清单里）
+  var PLAIN = true;
+  function ico(k) { return PLAIN ? "" : svg(k); }
+  function txt(s) { return PLAIN ? String(s).replace(/^[^0-9A-Za-z\u4e00-\u9fff（(]+\s*/, "") : s; } // 去掉名字最前面的表情，名字中间的（比如 ✅ 认证称号）不动
   var CHEV = '<svg class="dw-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 
   // 当前页面对应哪一项：完整路由先匹配（#/otc/lgns），再按第一段匹配（#/member/0x… → 会员中心）
@@ -82,12 +86,12 @@
       var items = g[2].filter(function (it) { return !kw || it[1].toLowerCase().indexOf(kw) >= 0; });
       if (!items.length) return "";
       var isOpen = kw || open[gi];
-      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><em class="dw-sum">' + g[2].slice(0, 4).map(function (it) { return it[1].replace(/（.*?）/g, ""); }).join(" · ") + (g[2].length > 4 ? " 等 " + g[2].length + " 项" : "") + '</em><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
+      return '<section class="dw-group' + (isOpen ? " open" : "") + '"><button type="button" class="dw-gh" data-g="' + gi + '"><b>' + g[0] + "</b><small>" + g[1] + '</small><em class="dw-sum">' + g[2].slice(0, 4).map(function (it) { return txt(it[1]).replace(/（.*?）/g, ""); }).join(" · ") + (g[2].length > 4 ? " 等 " + g[2].length + " 项" : "") + '</em><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' +
         '<div class="dw-items">' + (function () {
-          function row(it) { return '<a href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + svg(it[2]) + "<span>" + it[1] + "</span>" + CHEV + "</a>"; }
+          function row(it) { return '<a href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + (it[0] === cur ? ' class="on"' : "") + ">" + ico(it[2]) + "<span>" + txt(it[1]) + "</span>" + CHEV + "</a>"; }
           if (g !== GAME_GROUP || kw) return items.map(row).join("");
           var top = items.filter(function (it) { return PIN[it[0]]; }), rest = items.filter(function (it) { return !PIN[it[0]]; });
-          return top.map(row).join("") + (rest.length ? '<button type="button" class="dw-more' + (moreOpen ? " open" : "") + '" data-more>' + svg("grid") + "<span>其它小游戏（" + rest.length + ' 个）</span><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' + (moreOpen ? rest.map(row).join("") : "") : "");
+          return top.map(row).join("") + (rest.length ? '<button type="button" class="dw-more' + (moreOpen ? " open" : "") + '" data-more>' + ico("grid") + "<span>其它小游戏（" + rest.length + ' 个）</span><svg class="dw-up" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>' + (moreOpen ? rest.map(row).join("") : "") : "");
         })() + "</div></section>";
     }).join("") || '<p class="dw-none">没有找到相关功能</p>';
   }
