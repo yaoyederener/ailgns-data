@@ -39,5 +39,10 @@
 "已经有 Polygon 链的 DAI？不用换币，直接在这里跨。官方桥最少跨 {0} DAI。": "Already have DAI on Polygon? No swap needed — bridge right here. The official bridge needs at least {0} DAI.",
 "第 {0} 步": "Step {0}",
 "<b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；到账后再到上面「换币」那张卡，把 DAI 换成 USDT。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。": "<b>While you wait</b>: your coins are not lost — they are queued in the official bridge. You can close this page; the progress bar at the top will still be here when you come back. Once it arrives, use the Swap card above to turn the DAI into USDT. You can also see the transfer under History at app.anubisbridge.com.",
-"：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；到账后再到上面「换币」那张卡，把 DAI 换成 USDT。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。": ": your coins are not lost — they are queued in the official bridge. You can close this page; the progress bar at the top will still be here when you come back. Once it arrives, use the Swap card above to turn the DAI into USDT. You can also see the transfer under History at app.anubisbridge.com."
+"：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；到账后再到上面「换币」那张卡，把 DAI 换成 USDT。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。": ": your coins are not lost — they are queued in the official bridge. You can close this page; the progress bar at the top will still be here when you come back. Once it arrives, use the Swap card above to turn the DAI into USDT. You can also see the transfer under History at app.anubisbridge.com.",
+"🟡 USDT 跨链桥支持 BSC 链了：标题下面选「BSC」，BSC 上的 USDT 换成 DAI 再过桥到 Anubis，Gas 用 BNB 付。BSC 只能往里充，一次最多换 2 万 USDT；往外提和大额请选 Polygon。": "🟡 USDT Bridge now supports BSC: choose “BSC” under the title to swap USDT on BSC for DAI and bridge it to Anubis; gas is paid in BNB. BSC is deposit-only, up to 20,000 USDT per swap; to withdraw or move larger amounts, choose Polygon.",
+"USDT 跨链桥支持 BSC 链了：标题下面选「BSC」，BSC 上的 USDT 换成 DAI 再过桥到 Anubis，Gas 用 BNB 付。BSC 只能往里充，一次最多换 2 万 USDT；往外提和大额请选 Polygon。": "USDT Bridge now supports BSC: choose “BSC” under the title to swap USDT on BSC for DAI and bridge it to Anubis; gas is paid in BNB. BSC is deposit-only, up to 20,000 USDT per swap; to withdraw or move larger amounts, choose Polygon.",
+"你的币在哪条链": "Which chain are your coins on?",
+"几分钟": "a few minutes",
+"⏱ 这一步到账：<b>几分钟</b>": "⏱ This step arrives in <b>a few minutes</b>"
 }

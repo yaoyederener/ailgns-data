@@ -24,6 +24,10 @@
     polygon: {
       name: "Polygon", explorer: "https://polygonscan.com", gas: "POL", rpc: "https://polygon-bor-rpc.publicnode.com",
       params: { chainId: "0x89", chainName: "Polygon", nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 }, rpcUrls: ["https://polygon-bor-rpc.publicnode.com"], blockExplorerUrls: ["https://polygonscan.com"] }
+    },
+    bsc: { // 2026-11-20：USDT 跨链桥加 BSC（只用于 #/usdt：读余额、换币、过桥到 Anubis）
+      name: "BSC", explorer: "https://bscscan.com", gas: "BNB", rpc: "https://bsc-rpc.publicnode.com",
+      params: { chainId: "0x38", chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: ["https://bsc-rpc.publicnode.com"], blockExplorerUrls: ["https://bscscan.com"] }
     }
   };
 

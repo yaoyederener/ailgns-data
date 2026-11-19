@@ -4769,3 +4769,10 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 .u2d-coin.an { box-shadow: none; }
 .u2d-ch { position: absolute; right: -5px; bottom: -4px; width: 16px; height: 16px; border-radius: 50%; background: #2fbf4a; box-shadow: 0 0 0 1.5px #fff; }
 .u2d-ch::after { content: ""; position: absolute; inset: 2.5px; background: #fff; -webkit-mask: url("/icons/tokens/anubis.png?v=1") center / contain no-repeat; mask: url("/icons/tokens/anubis.png?v=1") center / contain no-repeat; }
+
+/* 跨链桥：选「你的币在哪条链」（Polygon / BSC）——标题下面一行小按钮 */
+.u2d-net { display: flex; align-items: center; gap: 6px; margin: 2px 0 10px; flex-wrap: wrap; }
+.u2d-net span { font-size: 13px; color: #6b6394; margin-right: 2px; }
+.u2d-net button { margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid #ddd5f3; background: #fff; box-shadow: none; color: #5b5385; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.u2d-net button.on { background: #5b21b6; border-color: #5b21b6; color: #fff; }
+.u2d-net button:disabled { opacity: .5; }
