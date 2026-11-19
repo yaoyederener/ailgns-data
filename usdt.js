@@ -59,9 +59,9 @@
     if (!account) { el.innerHTML = '<button type="button" class="u2d-conn" id="u2d-conn">连接钱包</button><p class="note">连上后，每个框右上角会显示你在那条链上的余额。</p>'; g("u2d-conn").onclick = function () { connect("polygon").then(function () { track(); return loadBal(); }).then(paintAll, function (e) { say("s", nice(e), true); }); }; return; }
     if (!bal) { el.innerHTML = '<p class="muted">正在读余额…</p>'; return; }
     var low = bal.pol < POL_MIN, pol = f(n(bal.pol, 18), low ? 3 : 2);
-    el.innerHTML = dir === "in"
-      ? (low ? '<p class="u2d-warn">⚠️ 这个钱包在 Polygon 上只有 ' + pol + ' 个 POL，付不了 Gas。请先从交易所提 1 个 POL 到这个钱包（选 Polygon 网络），再回来操作。</p>' : '<p class="note">Polygon 上的 Gas 用 POL 付，你有 ' + pol + " 个，够用（两步合起来不到 0.2 个）。</p>")
-      : (low ? '<p class="u2d-warn">⚠️ 先别急着跨：这个钱包在 Polygon 上只有 ' + pol + ' 个 POL。DAI 跨到 Polygon 以后，换成 USDT 那一步要用 POL 付 Gas。请先从交易所提 1 个 POL 到这个钱包（选 Polygon 网络）。</p>' : '<p class="note">过桥在 Anubis 上发起，Gas 用 DAI 付（很少）；换币在 Polygon 上，Gas 用 POL 付，你有 ' + pol + " 个，够用。</p>");
+    el.innerHTML = !low ? "" : dir === "in"
+      ? '<p class="u2d-warn">⚠️ 这个钱包在 Polygon 上只有 ' + pol + ' 个 POL，付不了 Gas。请先从交易所提 1 个 POL 到这个钱包（选 Polygon 网络），再回来操作。</p>'
+      : '<p class="u2d-warn">⚠️ 先别急着跨：这个钱包在 Polygon 上只有 ' + pol + ' 个 POL。DAI 跨到 Polygon 以后，换成 USDT 那一步要用 POL 付 Gas。请先从交易所提 1 个 POL 到这个钱包（选 Polygon 网络）。</p>';
   }
 
   // ---------- 钱包 ----------
@@ -281,8 +281,7 @@
       '<div class="u2d">' +
       '<header class="u2d-hd"><h2>USDT 跨链桥<span class="u2d-free">0手续费</span></h2>' +
       // 站长 2026-11-20：「充进来 / 提出去」两个大标签合并掉——方向就在「过桥」那张卡中间的 ⇅ 上切（和换币卡的 ⇅ 一个用法）。切了以后整趟的顺序跟着变（先做的那张卡排上面）
-      '<div class="u2d-route">' + chip("pg", "Polygon 链 · USDT") + "<b>⇄</b>" + chip("an", "Anubis 链 · DAI") + "</div>" +
-      '<p class="u2d-lead">换币、过桥两张卡，各点各的 ⇅ 换方向。币一直在你自己钱包里。</p></header>' +
+      '</header>' + // 站长 2026-11-20：两条链的小牌子、那句说明、「Gas 够用」的提示都嫌多余，删了；卡片里本来就写着哪条链。POL 不够付 Gas 的警告还留着
       '<div id="u2d-top"></div><div id="u2d-bal"></div><div id="u2d-prog"></div>' +
       // 站长 2026-11-20：「在一个对话框就在一个对话框，不要换来换去」——两张卡位置固定（换币在上、过桥在下），各自的 ⇅ 只换自己这张卡的方向，不带动另一张、不挪位置。
       // 两张卡的方向正好凑成一整趟时（都往里 / 都往外），卡片左上角写「第 1 步 / 第 2 步」告诉客户先做哪张
