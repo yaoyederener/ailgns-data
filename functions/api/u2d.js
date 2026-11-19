@@ -7,6 +7,7 @@
 // 收费（站长 2026-11-19 定）：换币收 0.1% 服务费，用两家聚合器自带的「接入方分成」——换币那一笔里直接把 0.1% 的换出币分到收款钱包，没有新合约、客户不用多签。
 // 返回的 out 都是扣完服务费之后客户到手的数（显示即所得），fee 是服务费本身（单位 = 换出来的那个币）。过桥不收费。
 //   GET  ?amt=付出的数量（整数，按付出那个币的小数位：USDT 6 位、DAI 18 位）&dir=in|out   → { ok, dir, out, fee, feeBps, gasUsd, via, sum }
+//   GET  ?order=过桥交易哈希&a=钱包地址   → { ok, found, status, sendTs, receivedTs }（官方桥这一笔到没到）
 //   POST { sum, via, dir, sender, slip }  slip = 价格保护，万分之几（10–100，默认 50 = 0.5%） → { ok, to, data, out, min, via }
 // 四道保险：① 路由合约地址必须是登记的那两个之一；② 交易数据里必须带着客户自己的地址和换出币的地址（钱只能回到客户自己）；③ 不许带原生币金额；④ 服务费比例必须正好是 FEE_BPS、收款地址必须是 FEE_TO，报价单里对不上就拒绝
 const USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"; // Polygon USDT（6 位）
@@ -67,8 +68,21 @@ async function pBuild(p, sender, slip, P) {
 }
 const short = (e) => String((e && e.message) || e).slice(0, 50);
 
+// 过桥进度：?order=过桥那笔交易的哈希&a=钱包地址 → 官方桥订单的状态 { found, status, sendTs, receivedTs }（页面进度条用；官方桥的接口浏览器直连不了，这里代问一句，只回这一笔的状态）
+async function orderOf(tx, a) {
+  const j = await get("https://app.anubisbridge.com/apiv1/orders?userAddress=" + a + "&page=1&pageSize=20", { headers: H }, 8000);
+  let L = j.list || j.data || j.items || j; if (L && !Array.isArray(L)) L = L.list || L.items || [];
+  const o = (Array.isArray(L) ? L : []).find((x) => low(x.fromTx) === tx);
+  return o ? { found: true, status: String(o.status || ""), sendTs: Number(o.sendTs) || 0, receivedTs: Number(o.receivedTs) || 0, failed: o.failedMsg ? String(o.failedMsg).slice(0, 80) : "" } : { found: false };
+}
+
 export async function onRequestGet(ctx) {
   const sp = new URL(ctx.request.url).searchParams, dir = dirOf(sp.get("dir")), P = PAIR[dir], amt = sp.get("amt") || "";
+  if (sp.get("order") !== null) {
+    const tx = low(sp.get("order")), a = low(sp.get("a"));
+    if (!/^0x[0-9a-f]{64}$/.test(tx) || !/^0x[0-9a-f]{40}$/.test(a)) return json({ error: "参数不对" }, 400);
+    try { return json(Object.assign({ ok: true }, await orderOf(tx, a))); } catch (e) { return json({ error: "官方桥的进度暂时查不到（" + short(e) + "）" }, 502); }
+  }
   if (!amtOk(amt, P)) return json({ error: "数量不对：最少 1 " + P.name + "，最多 100 万 " + P.name }, 400);
   let e1;
   try { return json(Object.assign({ ok: true, dir, feeBps: FEE_BPS }, await kQuote(amt, P))); } catch (e) { e1 = e; }

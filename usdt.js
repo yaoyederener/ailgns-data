@@ -25,6 +25,10 @@
   // 过桥这一步两个方向各自的：从哪条链到哪条链、余额记在哪
   function B() { return dir === "in" ? { from: "polygon", to: "anubis", fn: "Polygon", tn: "Anubis", fb: "pdai", tb: "adai" } : { from: "anubis", to: "polygon", fn: "Anubis", tn: "Polygon", fb: "adai", tb: "pdai" }; }
   var DEC = { usdt: 6, pdai: 18, adai: 18 };
+  // 官方桥过一次要多久（秒）。2026-11-19 从官方桥订单记录量的：Polygon → Anubis 29 笔全是约 2 分钟；Anubis → Polygon 72 笔全是约 130 分钟
+  // （官方桥设定：Anubis 发出的要等 7200 个区块确认，约 2 小时；别的链只等 64 个区块）。这是官方桥的规则，本站改不了也加急不了
+  var EXPECT = { in: 2 * 60, out: 130 * 60 };
+  function dur(sec) { sec = Math.max(0, Math.round(sec)); if (sec < 90) return sec < 45 ? "不到 1 分钟" : "约 1 分钟"; var m = Math.round(sec / 60); return m < 60 ? "约 " + m + " 分钟" : "约 " + Math.floor(m / 60) + " 小时" + (m % 60 ? " " + (m % 60) + " 分钟" : ""); }
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function g(id) { return document.getElementById(id); }
@@ -52,7 +56,7 @@
   function paintBal() {
     var el = g("u2d-bal"); if (!el) return;
     setBal();
-    if (!account) { el.innerHTML = '<button type="button" class="u2d-conn" id="u2d-conn">连接钱包</button><p class="note">连上后，每个框右上角会显示你在那条链上的余额。</p>'; g("u2d-conn").onclick = function () { connect("polygon").then(function () { return loadBal(); }).then(paintAll, function (e) { say("s", nice(e), true); }); }; return; }
+    if (!account) { el.innerHTML = '<button type="button" class="u2d-conn" id="u2d-conn">连接钱包</button><p class="note">连上后，每个框右上角会显示你在那条链上的余额。</p>'; g("u2d-conn").onclick = function () { connect("polygon").then(function () { track(); return loadBal(); }).then(paintAll, function (e) { say("s", nice(e), true); }); }; return; }
     if (!bal) { el.innerHTML = '<p class="muted">正在读余额…</p>'; return; }
     var low = bal.pol < POL_MIN, pol = f(n(bal.pol, 18), low ? 3 : 2);
     el.innerHTML = dir === "in"
@@ -171,7 +175,7 @@
     var d0 = dir, b = B(), amt = units((g("u2d-a2") || {}).value, 18);
     if (n(amt, 18) < BMIN) return say("b", "官方桥最少跨 " + BMIN + " DAI", true);
     lock(true); say("b", "正在连接钱包…");
-    var start = 0n;
+    var start = 0n, txHash = "";
     ready(b.from).then(function () { return loadBal(); }).then(function () {
       paintBal();
       if (!bal) throw new Error("没读到余额，刷新后再试");
@@ -185,26 +189,48 @@
     }).then(function () {
       if (dir !== d0) throw new Error("方向已经换了，请重新点一次");
       return send(b.from, BRIDGE, SEL.bridge + DAI_ID + u256(CHAIN_ID[b.to]) + aw(account) + u256(amt), "b", "DAI 跨到 " + b.tn);
-    }).then(function () { return loadBal(); }).then(function () {
+    }).then(function (rc) { txHash = rc && rc.transactionHash; return loadBal(); }).then(function () {
       var a2 = g("u2d-a2"); if (a2) a2.value = ""; paintAll();
-      say("b", "✅ 已交给官方跨链桥，正在跨。到账后 " + b.tn + " 链上的 DAI 会多 " + f(n(amt, 18) - FEE) + "，这一页会自动提示；也可以到官方桥 app.anubisbridge.com 的 History 里查。");
-      arrive(d0, start);
+      say("b", "✅ 已交给官方跨链桥，正在跨（官方桥到账" + dur(EXPECT[d0]) + "）。进度看页面上方的进度条，可以关掉这一页，回来还在。");
+      track({ a: account, dir: d0, amt: amt.toString(), start: start.toString(), t0: Date.now(), tx: txHash || "" });
     }).catch(function (e) { say("b", "没成功：" + nice(e), true); }).then(function () { lock(false); });
   }
-  // 过桥后每 15 秒看一眼目标链的 DAI 余额，最多看 15 分钟；到了就报喜
-  function arrive(d0, start) {
-    clearInterval(watch); var a = account, left = 60;
-    watch = setInterval(function () {
-      if (--left < 0 || a !== account || dir !== d0 || !g("u2d-say-b")) return clearInterval(watch);
-      (d0 === "in" ? W.rpcOn("anubis", "eth_getBalance", [a, "latest"]).then(BigInt) : rd("polygon", PDAI, SEL.balanceOf + aw(a))).then(function (now) {
-        if (now <= start) return;
-        clearInterval(watch); if (bal) bal[d0 === "in" ? "adai" : "pdai"] = now; paintBal();
-        if (d0 === "in") return say("b", "🎉 到账了：Anubis 链上多了 " + f(n(now - start, 18)) + " DAI。现在可以去买 AiLGNS 或注册域名了。");
-        say("b", "🎉 到账了：Polygon 链上多了 " + f(n(now - start, 18)) + " DAI。接着做第 2 步，换成 USDT。");
-        var a1 = g("u2d-a1"); if (a1 && !a1.value) { a1.value = plain(now, 18, 4); onAmt(); a1.scrollIntoView({ behavior: "smooth", block: "center" }); }
-      }, function () { /* 这一轮没查到，等下一轮 */ });
-    }, 15000);
+  // ---------- 到账进度条 ----------
+  // 过桥那一笔记在本机（按钱包地址），关掉页面再回来还能接着看；每 20 秒查一次：先问官方桥这一笔的状态，再看目标链余额有没有变多，哪个先说到了都算到
+  var PKEY = "u2d:pend:";
+  function pend() { try { var p = JSON.parse(localStorage.getItem(PKEY + account) || "null"); return p && p.a === account && Date.now() - p.t0 < 3 * 86400e3 ? p : null; } catch (e) { return null; } }
+  function pendSave(p) { try { if (p) localStorage.setItem(PKEY + p.a, JSON.stringify(p)); } catch (e) { /* 存不上只是关掉页面后看不到进度，不影响到账 */ } }
+  function pendClear() { try { localStorage.removeItem(PKEY + account); } catch (e) { /* 忽略 */ } var el = g("u2d-prog"); if (el) el.innerHTML = ""; clearInterval(watch); }
+  function paintProg(p) {
+    var el = g("u2d-prog"); if (!el) return; if (!p) { el.innerHTML = ""; return; }
+    var isIn = p.dir === "in", to = isIn ? "Anubis" : "Polygon", exp = EXPECT[p.dir], el2 = (Date.now() - p.t0) / 1000, amt = f(n(BigInt(p.amt), 18) - FEE);
+    var done = !!p.done, late = !done && el2 > exp * 1.3 + 300, pct = done ? 100 : Math.max(4, Math.min(96, el2 / exp * 100));
+    var head = done ? "🎉 到账了：" + amt + " DAI 已经在 " + to + " 链上" : "正在跨链：" + amt + " DAI → " + to + " 链";
+    var sub2 = done ? "这一趟用了" + dur((p.done - p.t0) / 1000) + "。" + (isIn ? "现在可以去买 AiLGNS 或注册域名了。" : "接着做第 2 步，把 DAI 换成 USDT。")
+      : late ? "已经过了" + dur(el2) + "，比平时（" + dur(exp) + "）慢。币不会丢，官方桥还在处理。"
+      : "已经过了" + dur(el2) + " · 预计还要" + dur(exp - el2);
+    el.innerHTML = '<div class="u2d-prog' + (done ? " done" : late ? " late" : "") + '"><div class="u2d-pt"><b>' + head + "</b><span>" + sub2 + '</span></div>' +
+      '<div class="u2d-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+      '<ol class="u2d-stg"><li class="ok">交易已上链</li><li class="' + (done ? "ok" : "now") + '">官方桥确认中</li><li class="' + (done ? "ok" : "") + '">到账</li></ol>' +
+      (done ? "" : '<p class="note">' + (isIn ? "这个方向官方桥一般 2 分钟左右到账。" : "这个方向官方桥要等 2 小时 10 分钟左右，是它的安全规则（下面有详细说明），不是卡住了。") + "可以关掉这一页去做别的，回来还能看到进度。" + (late ? "一直不到，就到官方桥 app.anubisbridge.com 的 History 里看这一笔，或者提工单把钱包地址和交易哈希发给我们。" : "") + "</p>") +
+      '<button type="button" class="u2d-px" id="u2d-px">' + (done ? "知道了" : "不看这条进度了") + "</button></div>";
+    var x = g("u2d-px"); if (x) x.onclick = pendClear;
   }
+  function arrived(p, nowBal) {
+    if (p.done) return; p.done = Date.now(); pendSave(p); clearInterval(watch); paintProg(p);
+    loadBal().then(function () { paintBal(); if (p.dir === "out" && dir === "out" && bal) { var a1 = g("u2d-a1"); if (a1 && !a1.value) { a1.value = plain(bal.pdai, 18, 4); onAmt(); } } }, function () { /* 余额下次再读 */ });
+  }
+  function checkProg() {
+    var p = pend(); if (!p || p.done) return clearInterval(watch);
+    paintProg(p);
+    var a = p.a, st = BigInt(p.start || 0);
+    (p.tx ? fetch("/api/u2d?order=" + p.tx + "&a=" + a).then(function (r) { return r.json(); }).catch(function () { return null; }) : Promise.resolve(null)).then(function (j) {
+      if (a !== account) return;
+      if (j && j.ok && j.found && (j.status === "completed" || j.receivedTs)) return arrived(p);
+      return (p.dir === "in" ? W.rpcOn("anubis", "eth_getBalance", [a, "latest"]).then(BigInt) : rd("polygon", PDAI, SEL.balanceOf + aw(a))).then(function (now) { if (a === account && now > st) arrived(p); });
+    }).catch(function () { /* 这一轮没查到，等下一轮 */ });
+  }
+  function track(p) { if (p) pendSave(p); clearInterval(watch); var cur = pend(); paintProg(cur); if (cur && !cur.done) { watch = setInterval(function () { if (!g("u2d-prog")) return clearInterval(watch); checkProg(); }, 20000); checkProg(); } }
 
   // ---------- 页面 ----------
   var hooked = false;
@@ -232,7 +258,16 @@
       '<div class="u2d-mid"><i>↓</i></div>' +
       '<div class="u2d-box' + (isIn ? " end" : "") + '"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="u2d-b3">—</b></span></div>' +
       '<div class="u2d-bm"><output id="u2d-out2" class="u2d-num zero">0</output>' + tok(isIn ? "dai an" : "dai", "◈", "DAI", b.tn) + "</div></div>" +
-      '<div id="u2d-b" class="u2d-info"></div><button type="button" class="u2d-go" id="u2d-go-b">跨到 ' + b.tn + '</button><p class="u2d-say" id="u2d-say-b"></p>' +
+      '<div id="u2d-b" class="u2d-info"></div>' +
+      (isIn ? '<p class="u2d-eta">⏱ 这一步到账：<b>2 分钟左右</b></p>'
+        : '<div class="u2d-eta slow"><p>⏳ 这一步到账要等 <b>2 小时 10 分钟左右</b>，比充进来慢很多。</p><details><summary>为什么这么慢？能加急吗？</summary>' +
+          '<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>' +
+          '<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以充进来只要 2 分钟。</p>' +
+          '<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>' +
+          '<p><b>不能加急</b>：这是官方桥写死的规则，谁也改不了，付再多钱也快不了。</p>' +
+          '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；到账后再做第 2 步换成 USDT。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
+          '<p><b>急用钱</b>：请提前 2 个多小时操作，别等到要用的时候才跨。</p></details></div>') +
+      '<button type="button" class="u2d-go" id="u2d-go-b">跨到 ' + b.tn + '</button><p class="u2d-say" id="u2d-say-b"></p>' +
       '<p class="note">' + (isIn ? "已经有 Polygon 链的 DAI？跳过第 1 步，直接做这一步。" : "") + "官方桥最少跨 " + BMIN + " DAI。</p></section>";
   }
   function render() {
@@ -244,7 +279,7 @@
       '<div class="u2d-dir" role="tablist"><button type="button" id="u2d-dir-in" class="' + (isIn ? "on" : "") + '"><b>充进来</b><small>USDT → Anubis</small></button><button type="button" id="u2d-dir-out" class="' + (isIn ? "" : "on") + '"><b>提出去</b><small>Anubis → USDT</small></button></div>' +
       '<div class="u2d-route">' + (isIn ? chip("pg", "Polygon 链 · USDT") + "<b>→</b>" + chip("an", "Anubis 链 · DAI") : chip("an", "Anubis 链 · DAI") + "<b>→</b>" + chip("pg", "Polygon 链 · USDT")) + "</div>" +
       '<p class="u2d-lead">' + (isIn ? "把 <b>Polygon 链上的 USDT</b>，变成 <b>Anubis 链上的 DAI</b>。" : "把 <b>Anubis 链上的 DAI</b>，变回 <b>Polygon 链上的 USDT</b>。") + "两步，都在你自己钱包里签名，本站不经手你的币。换币时本站收 0.1% 服务费，过桥不收费。</p></header>" +
-      '<div id="u2d-top"></div><div id="u2d-bal"></div>' +
+      '<div id="u2d-top"></div><div id="u2d-bal"></div><div id="u2d-prog"></div>' +
       (isIn ? swapCard(1) + bridgeCard(2) : bridgeCard(1) + swapCard(2)) +
       '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
@@ -263,15 +298,15 @@
     };
     g("u2d-go-s").onclick = swap; g("u2d-go-b").onclick = bridge;
     g("u2d-dir-in").onclick = function () { setDir("in"); }; g("u2d-dir-out").onclick = function () { setDir("out"); };
-    paintAll();
+    paintAll(); track();
   }
-  function setDir(d) { if (busy || d === dir) return; dir = d; q = null; qSeq++; clearTimeout(qTimer); clearInterval(watch); render(); }
+  function setDir(d) { if (busy || d === dir) return; dir = d; q = null; qSeq++; clearTimeout(qTimer); render(); }
   A.pages.usdt = function (id) {
     rid = id; q = null;
-    if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
+    if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); track(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
     render();
     // 钱包以前连过本站：不弹窗直接显示余额
     (account ? Promise.resolve() : A.wallets.silent().then(function (a) { if (a) account = String(a).toLowerCase(); }, function () { /* 没连过就等客户点 */ }))
-      .then(function () { paintBal(); return loadBal(); }).then(function () { if (A.isCurrent(id)) paintAll(); }, function () { if (A.isCurrent(id)) paintBal(); });
+      .then(function () { paintBal(); track(); return loadBal(); }).then(function () { if (A.isCurrent(id)) paintAll(); }, function () { if (A.isCurrent(id)) paintBal(); });
   };
 })();
