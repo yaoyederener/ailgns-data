@@ -1,7 +1,7 @@
 // 💵 #/usdt「USDT 换成 Anubis 的 DAI」一键通道（站长 2026-11-19：客户 USDT 提到 Polygon 换 DAI 损耗太高，是刚需；试运行，放 ☰ 更多 → 交易）
 // 两步，都由客户自己的钱包签名，本站不经手、不收费、没有新合约：
 //   第 1 步  Polygon 上 USDT → DAI：/api/u2d 向 KyberSwap 聚合器要最划算的路线（实测损耗约 0.11%，老池子直接换 1 万要亏 4%）
-//   第 2 步  DAI 过 Anubis 官方跨链桥（app.anubisbridge.com，每笔固定收 1 DAI，最少 10 DAI），到账地址 = 客户自己这个钱包
+//   第 2 步  DAI 过 Anubis 官方跨链桥（app.anubisbridge.com，不收手续费：2026-11-19 核对官方桥订单记录，机器人跨过的 4 笔都是发多少到多少；最少 10 DAI），到账地址 = 客户自己这个钱包
 // 授权只授权这一笔的数量（用的是第三方合约，不给无限额度）。Gas 用 Polygon 的 POL。
 (function () {
   "use strict";
@@ -9,7 +9,7 @@
   var USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", PDAI = "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063";
   var BRIDGE = "0x8932fe7726c1ee743f662f485c3e5a5d1d595f71"; // Anubis 官方跨链桥（各链同一地址）
   var DAI_ID = "a5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568"; // 桥里 DAI 的编号
-  var ANUBIS_ID = 6714, FEE = 1, BMIN = 10, SLIP = 50; // 过桥费 1 DAI、最少 10 DAI；价格保护 0.5%
+  var ANUBIS_ID = 6714, FEE = 0, BMIN = 10, SLIP = 50; // 官方桥不收费（站长 2026-11-19 指正，订单记录核对过：发多少到多少）；最少 10 DAI；价格保护 0.5%。哪天官方开始收费，改 FEE 这一个数，页面文字会跟着变
   var SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", bridge: "0x8d3ccf9f" /* bridge(bytes32,uint32,bytes32,uint256) */ };
   var account = null, bal = null, q = null, busy = false, rid = 0, qTimer = null, qSeq = 0, watch = null;
 
@@ -92,7 +92,7 @@
     el.innerHTML = '<p class="u2d-line">换到约 <b>' + f(out) + " DAI</b> · " + (loss > 0.005 ? "损耗 " + f(loss, 2) + "%" : "几乎没有损耗") + "</p>" +
       '<p class="note">最少到手 ' + f(min) + " DAI：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>" +
       (loss > 1 ? '<p class="u2d-warn">⚠️ 现在这个数量的损耗超过 1%，偏高。可以把数量改小分几次换，或者过一会儿再看。</p>' : "");
-    if (top) top.innerHTML = out >= BMIN ? '<div class="u2d-sum"><small>' + f(inU) + " USDT 两步走完，到 Anubis 约</small><b>" + f(fin) + ' DAI</b><span>换币损耗 ' + f(Math.max(loss, 0), 2) + "% + 官方过桥费 " + FEE + " DAI，本站不收费</span></div>" : '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
+    if (top) top.innerHTML = out >= BMIN ? '<div class="u2d-sum"><small>' + f(inU) + " USDT 两步走完，到 Anubis 约</small><b>" + f(fin) + ' DAI</b><span>换币损耗 ' + f(Math.max(loss, 0), 2) + "%，" + (FEE ? "官方过桥费 " + FEE + " DAI，本站不收费" : "官方跨链桥不收费，本站也不收费") + "</span></div>" : '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
   }
   function onAmt() {
     clearTimeout(qTimer); var seq = ++qSeq, amt = units((g("u2d-a1") || {}).value, 6);
@@ -133,7 +133,7 @@
   // ---------- 第 2 步：过桥 ----------
   function onAmt2() {
     var el = g("u2d-b"); if (!el) return; var v = units((g("u2d-a2") || {}).value, 18);
-    el.innerHTML = v === 0n ? '<p class="muted">填上要跨多少 DAI。</p>' : n(v, 18) < BMIN ? '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>" : '<p class="u2d-line">到 Anubis 约 <b>' + f(n(v, 18) - FEE) + " DAI</b> · 官方桥收 " + FEE + " DAI</p>";
+    el.innerHTML = v === 0n ? '<p class="muted">填上要跨多少 DAI。</p>' : n(v, 18) < BMIN ? '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>" : '<p class="u2d-line">到 Anubis 约 <b>' + f(n(v, 18) - FEE) + " DAI</b> · " + (FEE ? "官方桥收 " + FEE + " DAI" : "官方桥不收费，跨多少到多少") + "</p>";
   }
   function bridge() {
     if (busy) return;
@@ -185,7 +185,7 @@
       '<section class="card u2d"><div class="card-head"><h2>第 2 步 · DAI 跨到 Anubis</h2><span class="muted">官方跨链桥</span></div>' +
       '<div class="u2d-row"><input id="u2d-a2" inputmode="decimal" autocomplete="off" placeholder="要跨多少 DAI"><button type="button" class="ghost" id="u2d-max2">全部</button></div>' +
       '<div id="u2d-b"></div><button type="button" class="u2d-go" id="u2d-go2">跨到 Anubis</button><p class="u2d-say" id="u2d-say2"></p>' +
-      '<p class="note">到账地址就是你现在这个钱包，在 Anubis 链上。官方桥每笔固定收 ' + FEE + " DAI，最少跨 " + BMIN + ' DAI。已经有 Polygon 的 DAI？直接做这一步就行。</p></section>' +
+      '<p class="note">到账地址就是你现在这个钱包，在 Anubis 链上。官方桥' + (FEE ? "每笔收 " + FEE + " DAI" : "目前不收手续费") + "，最少跨 " + BMIN + ' DAI。已经有 Polygon 的 DAI？直接做这一步就行。</p></section>' +
       '<section class="card u2d"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
       '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线）。你直接去 QuickSwap 老池子换，1 万 USDT 要亏 4% 左右；走聚合器实测只亏约 0.1%。</p>' +
