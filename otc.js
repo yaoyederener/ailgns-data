@@ -467,14 +467,14 @@
     return keys.map(function (k) {
       var m = MARKETS[k], x = d[k], on = k === MK && !swapOn;
       return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
-        '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : '<small>暂无成交</small>') + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) : "<small>—</small>") + "</span></a>";
+        '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : '<small>暂无成交</small>') + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) + (x.more ? "+" : "") : "<small>—</small>") + "</span></a>";
     }).join("");
   }
   function marketList(swapOn) {
     var chip = function (f, n) { return '<button type="button" data-mklf="' + f + '"' + (mklF === f ? ' class="on"' : "") + ">" + n + "</button>"; };
     return '<div class="mkl"><input class="mkl-q" id="mkl-q" placeholder="🔍 搜币种，例如 gLGNS" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + mklEsc(mklQ) + '">' +
       '<div class="mkl-f">' + chip("all", "全部币种") + chip("anubis", "Anubis 链") + chip("polygon", "Polygon 链") + chip("nft", "卡牌") + "</div>" +
-      '<div class="mkl-h"><span>币种</span><span>最新成交价 DAI</span><span>24 小时成交 DAI</span></div><div id="mkl-rows">' + mklRows(swapOn) + '</div><p class="mkl-tip">点一行进入这个币的盘口；成交多的排在前面。</p></div>';
+      '<div class="mkl-h"><span>币种</span><span>最新成交价 DAI</span><span>24 小时成交 DAI</span></div><div id="mkl-rows">' + mklRows(swapOn) + '</div><p class="mkl-tip">点一行进入这个币的盘口；成交多的排在前面。成交额带「+」= 实际比这个数还多。</p></div>';
   }
   function mklLoad() {
     if (Date.now() - mklAt < 60000) return;
