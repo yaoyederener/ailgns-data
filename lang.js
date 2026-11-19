@@ -103,6 +103,9 @@
         }
       }
       if (!any && out === t) return t;
+      /* 大半句都不认识（只换掉了零星几个词）：半中半英比全中文更难看，整句不动 */
+      var left = (out.match(/[\u4e00-\u9fff]/g) || []).length;
+      if (left >= 8 && left * 10 > (t.match(/[\u4e00-\u9fff]/g) || []).length * 3) return t;
       return out.replace(/[  ]{2,}/g, " ").replace(/ +([,.;:!?)”])/g, "$1").replace(/([(“]) +/g, "$1");
     }
     return function (t, exactOnly) {

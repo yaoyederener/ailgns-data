@@ -234,7 +234,7 @@ def main():
     enf = json.loads(read("i18n/en-frags.json")) if os.path.exists("i18n/en-frags.json") else {}
     enf = {k: v for k, v in enf.items() if k not in en}
     for k, v in en.items():   # 整句词典里不带数字、不带标签的句子，夹在别的字中间出现时也要认得
-        if "{" not in k and "<" not in k and len(k) >= 2: enf.setdefault(k, v.strip())
+        if "{" not in k and "<" not in k: enf.setdefault(k, v.strip())
     print("英文小段: %d 段" % len(enf))
     lang_src = {"hant": read("lang-hant.js"), "en": "window.AIL_LANG_DATA=" + json.dumps({"t": "en", "d": en, "f": enf}, ensure_ascii=False, separators=(",", ":")) + ";"}
     for lg in ("hant", "en"):
