@@ -170,7 +170,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
         var chip = f.need > 0 ? '<span class="ptn-fdc bad">要补 ' + fm(f.need, 0) + " DAI</span>" : f.need === 0 ? '<span class="ptn-fdc ok">✅ 不用补</span>' : "";
         var day = f.k === "mm" && f.delta != null ? '<div class="ptn-fdd">今天 <b class="' + (f.delta >= 0 ? "up" : "down") + '">' + (f.delta >= 0 ? "+" : "") + fm(f.delta, 2) + " DAI</b>" + (f.pc != null ? " · 昨天（" + esc(f.pd || "") + "）收在 " + fm(f.pc, 2) : "") + "</div>" : "";
         return '<div class="ptn-fdr' + (bad ? " bad" : "") + '"><div class="ptn-fdh"><b>' + esc(f.n) + "</b>" + chip + '</div><div class="ptn-fdb"><b>' + big + "</b><small>" + esc(f.unit || "DAI") + "</small></div>" + day +
-          '<p class="ptn-fds">' + esc(f.st || "") + '</p><p class="muted ptn-fdt">' + esc(f.tip || "") + "</p>" +
+          '<p class="ptn-fds">' + esc(f.st || "") + "</p>" + (f.led ? '<p class="ptn-fdl">' + esc(f.led) + "</p>" : "") + '<p class="muted ptn-fdt">' + esc(f.tip || "") + "</p>" +
           '<div class="ptn-fda"><a class="mono" href="#/scan/' + f.a + '">' + f.a.slice(0, 8) + "…" + f.a.slice(-6) + ' ›</a><button type="button" class="ghost" data-fdcp="' + f.a + '">📋 复制地址</button></div></div>';
       }).join("") + '</div><p class="muted ptn-dn">每 5 分钟更新。只是提醒，不会自动动任何钱；往哪个池子补，点「复制地址」到钱包里转 DAI（Anubis 链）。</p>';
     }
