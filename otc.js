@@ -973,10 +973,12 @@
     /* 站长 2026-11-17「强行对价格保护」：AiLGNS 市场的买单出价必须高于「卖家把币拿去官方 DEX 卖、实际到手的价」（池子价 × 到手率），高一分钱也行。
        出价比这低，卖家卖给你还不如去 DEX，这种买单本站不让挂。只管新挂的单（页面上拦），已经挂着的旧单不动；LGNS 市场卖出税不固定，先不管。
        站长 11-10 定过「市场自由定价」、11-16 我劝过一次，这次是他明确要求改的 */
-    function bidFloor(mkt) { return MK === "ailgns" && mkt ? mkt * DEX_SELL : 0; }
+    /* 站长 2026-11-19：LGNS（Anubis）也加上这条。LGNS 在 DEX 卖出的手续费因人而异（5%～50% 以上），站长定按最高的 50% 算：
+       最低出价 = DEX 市价 × (1 − 50%) × (1 − 池子 0.3%) = 市价 × 0.4985，和页面上「比 DEX 多拿」用的是同一个数（dexSellCmp），不跟实测税走 */
+    function bidFloor(mkt) { return (MK === "ailgns" || MK === "lgns") && mkt ? mkt * dexSellCmp() : 0; }
     function bidFloorMsg(fl) {
       var ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
-      return "买单出价不能低于 " + A.fmt(fl, PD) + " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 " + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
+      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。这是卖家把币拿去 DEX 卖最少能到手的价（卖出手续费按 50%、再扣池子 0.3% 算）；出价比这低，卖家卖给你还不如去 DEX，本站不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
     }
     function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
