@@ -65,7 +65,7 @@
 
   // ===== English：查词典。数字、地址、名字先抠出来换成 {0}{1}…，同一句话不同数字共用一条翻译 =====
   var VAR = /[^\s，。、：:；;（）()「」《》<>"'=\/|·,!！?？]+\.ailgns|0x[0-9a-fA-F]{4,}(?:[….]+[0-9a-fA-F]+)?|\d[\d,]*(?:\.\d+)?/gi;
-  var miss = null;
+  var miss = null, quiet = false; // quiet：整句查词典时，句子里要是已经有一段被换成英文了，这个「半中半英」的句子不记进没翻译的名单
   function makeEn(D) {
     var dict = D.d || {};
     try { if (localStorage.getItem("ail:langdbg") === "1") { miss = {}; window.AIL_LANG_MISS = miss; } } catch (e) { /* 不记 */ }
@@ -74,7 +74,7 @@
       var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(t), core = m[2], vars = [];
       var key = core.replace(VAR, function (v) { vars.push(v); return "{" + (vars.length - 1) + "}"; });
       var hit = Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : null;
-      if (hit === null) { if (miss && key.length < 400) miss[key] = 1; return t; }
+      if (hit === null) { if (miss && !quiet && key.length < 600) miss[key] = 1; return t; }
       return m[1] + hit.replace(/\{(\d+)\}/g, function (a, n) { return vars[+n] !== undefined ? vars[+n] : a; }) + m[3];
     };
   }
@@ -93,7 +93,7 @@
         html += c === "br" ? "<br>" : "<" + c + ">" + n.textContent + "</" + c + ">";
       }
       if (!CJK.test(html)) return false;
-      a = conv(html);
+      quiet = !!el.__lgp; a = conv(html); quiet = false;
       if (a === html) return false;
       el.innerHTML = a; // 词典是我们自己写的，不含客户输入：数字 / 地址 / 名字是从页面原文里抠出来再放回去的，原文本来就在页面上
       return true;
@@ -104,8 +104,8 @@
     try {
       var s = t.nodeValue; if (!s || !CJK.test(s) || !t.parentNode || skip(t.parentNode)) return;
       if (lang === "en" && t.parentNode.firstElementChild && whole(t.parentNode)) return;
-      var r = conv(s); if (r !== s) t.nodeValue = r;
-    } catch (e) { /* 这一段不换 */ }
+      var r = conv(s); if (r !== s) { t.nodeValue = r; if (lang === "en") t.parentNode.__lgp = 1; }
+    } catch (e) { quiet = false; /* 这一段不换 */ }
   }
   function attrs(el) {
     try {
