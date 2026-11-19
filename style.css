@@ -4592,8 +4592,8 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
    思路：一组一张白卡浮在很淡的底色上，去掉描边和渐变块；三级层次（组名 / 项目名 / 预览标签）；
    预览做成小标签，换行只在标签之间断，还有更多用「+N」；当前所在页用淡紫底 + 左侧细条，不再用整块深紫。
    预览字保持 13.5px 以上、颜色够深（站长 2026-11-12 说过小字看不清）。 */
-.dw-body { padding: 16px 14px 14px; gap: 12px; background: #f6f4fb; }
-.dw-group { margin: 0; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(46, 38, 84, .05), 0 8px 20px rgba(76, 29, 149, .05); overflow: hidden; }
+.dw-body { padding: 16px 14px 14px; gap: 12px; background: #f6f4fb; grid-auto-rows: max-content; } /* 每组按内容撑开：不然展开的一组会被压扁、下面几项被切掉 */
+.dw-group { margin: 0; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(46, 38, 84, .05), 0 8px 20px rgba(76, 29, 149, .05); }
 .dw-gh { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; row-gap: 10px; padding: 16px 16px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; white-space: normal; }
 .dw-gh b { font-size: 17px; font-weight: 700; letter-spacing: .3px; color: #241c4a; }
 .dw-gh small { display: none; }
