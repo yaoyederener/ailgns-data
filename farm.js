@@ -220,13 +220,28 @@
         return '<div class="fm-hen' + (full ? "" : " hungry") + (h.g ? " gold" : "") + '"><span class="fm-ic">' + (full ? (h.g ? "🐓" : "🐔") : "😵") + "</span><b>" + (h.eggs ? (h.g ? "🟡" : "🥚").repeat(h.eggs) : "还没下蛋") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才下蛋") + "</small></div>";
       }).join("");
       var hungry = me.hens.filter(function (h) { return h.fed - t < 16 * 3600; }).length;
+      /* 站长 2026-11-18 奶牛：牛棚排在鸡舍下面，玩法和鸡一样（喂 → 产奶 → 挤奶卖钱） */
+      var K = R.cow, cowList = me.cows || [], milks = 0, barn = "";
+      if (K) {
+        var cows = cowList.map(function (h) {
+          milks += h.eggs;
+          var full = h.fed > t;
+          return '<div class="fm-hen cow' + (full ? "" : " hungry") + '"><span class="fm-ic">' + (full ? "🐄" : "😵") + "</span><b>" + (h.eggs ? "🥛".repeat(h.eggs) : "还没产奶") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才产奶") + "</small></div>";
+        }).join("");
+        var cowHungry = cowList.filter(function (h) { return h.fed - t < K.maxFed - K.feedTime; }).length;
+        barn = '<section class="card fm-coop fm-barn"><div class="card-head"><h2>🐄 牛棚</h2><span class="muted">每 ' + K.milkTime / 3600 + " 小时产 1 瓶奶，奶 " + K.milk + " 金币</span></div>" +
+          (cows ? '<div class="fm-grid">' + cows + "</div>" : '<p class="muted">还没有奶牛。买一头，喂饱了每 ' + K.milkTime / 3600 + " 小时产一瓶奶（最多攒 " + K.maxMilk + " 瓶，攒多了会被人偷）。</p>") +
+          '<div class="fm-acts"><button type="button" id="fm-milk"' + (milks ? "" : " disabled") + ">挤奶" + (milks ? "（" + milks + "）" : "") + "</button>" +
+          (cowList.length ? '<button type="button" class="ghost" id="fm-feedcow"' + (cowHungry ? "" : " disabled") + ">喂牛（" + K.feed + " 金币/头）</button>" : "") +
+          (cowList.length < K.max ? '<button type="button" class="ghost" id="fm-cow">买奶牛（' + K.price + " 金币）</button>" : "") + "</div></section>";
+      }
       return '<section class="card fm-field"><div class="card-head"><h2>🌾 菜地</h2><button type="button" id="fm-harvest"' + (ripe ? ' class="fm-ripe"' : " disabled") + ">" + (ripe ? "🧺 一键收获（" + ripe + "）" : "一键收获") + "</button></div>" +
         '<div class="fm-grid">' + plots + more + "</div></section>" +
         '<section class="card fm-coop"><div class="card-head"><h2>🐔 鸡舍</h2><span class="muted">每 2 小时下 1 个蛋，蛋 ' + H.egg + " 金币</span></div>" +
         (hens ? '<div class="fm-grid">' + hens + "</div>" : '<p class="muted">还没有鸡。买一只小母鸡，喂饱了每 2 小时下一个蛋（最多攒 4 个，攒多了会被人偷）。</p>') +
         '<div class="fm-acts"><button type="button" id="fm-eggs"' + (eggs ? "" : " disabled") + ">捡蛋" + (eggs ? "（" + eggs + "）" : "") + "</button>" +
         (me.hens.length ? '<button type="button" class="ghost" id="fm-feed"' + (hungry ? "" : " disabled") + ">喂鸡（" + H.feed + " 金币/只）</button>" : "") +
-        (me.hens.filter(function (h) { return !h.g; }).length < H.max ? '<button type="button" class="ghost" id="fm-hen">买鸡（' + H.price + " 金币）</button>" : "") + "</div></section>" +
+        (me.hens.filter(function (h) { return !h.g; }).length < H.max ? '<button type="button" class="ghost" id="fm-hen">买鸡（' + H.price + " 金币）</button>" : "") + "</div></section>" + barn +
         '<section class="card fm-shop"><div class="card-head"><h2>🏪 道具商店</h2></div><div class="fm-items">' +
         '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
         (R.cop ? '<button type="button" id="fm-cop"><span class="fm-ic">👮</span><b>警察</b><small>' + R.cop.price + " 金币 · " + R.cop.days + " 天</small><em>看家最牢：来偷的被抓就一颗也偷不走，还罚 " + R.cop.fine + " 金币给你" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次拦不住" : "") + "。别人看不到你家有警察</em></button>" : "") +
@@ -303,6 +318,9 @@
         out.querySelectorAll(".fm-rv").forEach(function (b) { b.onclick = function () { b.disabled = true; run("steal", { to: b.getAttribute("data-rv") }); }; }); // ⚔️ 偷回去：复仇那一次不会被拦
         on("fm-feed", function () { run("feed"); });
         on("fm-hen", function () { run("buyHen"); });
+        on("fm-milk", function () { run("milk"); });
+        on("fm-feedcow", function () { run("feedCow"); });
+        on("fm-cow", function () { if ((A.sure || confirm)("花 " + R.cow.price + " 金币买一头奶牛？")) run("buyCow"); });
         on("fm-dog", function () { if ((A.sure || confirm)("花 " + R.dog.price + " 金币请看门狗看 " + R.dog.days + " 天？")) run("dog"); });
         on("fm-cop", function () { if ((A.sure || confirm)("花 " + R.cop.price + " 金币请警察看 " + R.cop.days + " 天？")) run("cop"); });
         on("fm-ghen", function () { if (!me.paid) return payPicker(); if ((A.sure || confirm)("花 " + R.goldHen.price + " 金币买一只金鸡？")) run("goldHen"); });
