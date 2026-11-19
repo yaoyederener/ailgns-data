@@ -28,6 +28,9 @@
   var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
   var RETIRED = {}; // 下架的市场（前端不显示、不接新单，只留给有老挂单的客户撤单）。gLGNS 2026-11-10 下架过，2026-11-19 站长说客户还是要，放回来了
   var MK_NEW = { glgns: 1 }; // 市场列表里挂「新上架」的
+  // 市场列表里的币种图标（站长 2026-11-19：加上官方 logo）。AiLGNS / LGNS / gLGNS 取自官方区块浏览器 browser.anubispace.org 的代币图标，缩成 96 像素；
+  // 卡牌没有官方图标，用 AWAKE HELIX 的标志。图片读不出来时，底下的字母还在
+  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1" };
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -466,7 +469,7 @@
     if (!keys.length) return '<p class="mkl-none">没有找到这个币种。想上新币可以点右下角「客服」留言。</p>';
     return keys.map(function (k) {
       var m = MARKETS[k], x = d[k], on = k === MK && !swapOn;
-      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
+      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + (MK_ICON[k] ? '<img src="' + MK_ICON[k] + '" alt="" loading="lazy"' + (m.nft ? ' class="fit"' : "") + ">" : "") + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
         '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : '<small>暂无成交</small>') + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) + (x.more ? "+" : "") : "<small>—</small>") + "</span></a>";
     }).join("");
   }
