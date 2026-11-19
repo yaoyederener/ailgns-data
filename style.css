@@ -4588,27 +4588,26 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .u2d-say.bad { padding: 9px 12px; border-radius: 12px; background: #fef2f2; color: #b91c1c; }
 .u2d details summary { cursor: pointer; font-weight: 700; color: #4c1d95; }
 
-/* ☰ 更多 菜单重排（站长 2026-11-19：分组卡片嫌丑，要按最好的审美重做）
-   思路：一组一张白卡浮在很淡的底色上，去掉描边和渐变块；三级层次（组名 / 项目名 / 预览标签）；
-   预览做成小标签，换行只在标签之间断，还有更多用「+N」；当前所在页用淡紫底 + 左侧细条，不再用整块深紫。
-   预览字保持 13.5px 以上、颜色够深（站长 2026-11-12 说过小字看不清）。 */
-.dw-body { padding: 16px 14px 14px; gap: 12px; background: #f6f4fb; grid-auto-rows: max-content; } /* 每组按内容撑开：不然展开的一组会被压扁、下面几项被切掉 */
-.dw-group { margin: 0; background: #fff; border-radius: 18px; box-shadow: 0 1px 2px rgba(46, 38, 84, .05), 0 8px 20px rgba(76, 29, 149, .05); }
-.dw-gh { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; row-gap: 10px; padding: 16px 16px 16px; border: 0; border-radius: 0; background: none; box-shadow: none; white-space: normal; }
-.dw-gh b { font-size: 17px; font-weight: 700; letter-spacing: .3px; color: #241c4a; }
-.dw-gh small { display: none; }
-.dw-gh .dw-up { margin: 0; width: 18px; height: 18px; color: #a99fd0; }
-.dw-gh .dw-sum { grid-column: 1 / -1; order: 0; flex-basis: auto; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; font-style: normal; font-size: 13.5px; line-height: 1.3; font-weight: 500; overflow-wrap: normal; }
-.dw-sum > span { white-space: nowrap; padding: 5px 10px; border-radius: 9px; background: #f5f2fd; color: #4f4680; }
-.dw-sum > .dw-etc { background: none; padding: 5px 2px; color: #9a8fc4; font-weight: 600; }
-.dw-group.open .dw-gh { background: none; border: 0; box-shadow: none; padding-bottom: 13px; }
-.dw-group.open .dw-gh b { color: #5b21b6; }
-.dw-items { gap: 2px; margin: 0 8px; padding: 6px 0 8px; border-top: 1px solid #f1edfb; }
-.dw-items a { position: relative; gap: 10px; padding: 13px 12px; border: 0; border-radius: 12px; color: #2e2654; font-size: 15.5px; font-weight: 500; }
-.dw-items a .dw-chev { width: 16px; height: 16px; opacity: 1; color: #cbc2e8; }
-.dw-items a:hover, .dw-items a:active { background: #f6f2ff; }
-.dw-items a.on { background: #f1ecff; border: 0; color: #5b21b6; font-weight: 700; box-shadow: none; }
-.dw-items a.on::before { content: ""; position: absolute; left: 0; top: 11px; bottom: 11px; width: 3px; border-radius: 3px; background: #7c3aed; }
-.dw-items a.on .dw-chev { color: #7c3aed; }
-.dw-more { gap: 10px; margin: 2px 0; padding: 12px; border: 0; border-radius: 12px; background: #faf8ff; color: #5b5385; font-size: 14.5px; font-weight: 500; opacity: 1; }
-.dw-more .dw-up { color: #a99fd0; }
+/* ☰ 更多 宫格菜单（站长 2026-11-19：照支付宝的功能宫格做）：灰底白块、四列、彩色圆角图标 + 短名字，全部摊开不折叠。前缀 dg- */
+.dw-body { padding: 12px; gap: 10px; background: #f4f3f8; grid-auto-rows: max-content; }
+.dg { background: #fff; border-radius: 16px; padding: 14px 6px 10px; }
+.dg h3 { margin: 0 10px 14px; font-size: 16px; font-weight: 700; letter-spacing: .3px; color: #1f1a3d; }
+.dg-g { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 14px; }
+.dg-i { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; margin: 0; padding: 2px 2px 4px; background: none; border: 0; border-radius: 12px; box-shadow: none; color: #38325a; font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dg-i:hover { text-decoration: none; }
+.dg-i b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 500; line-height: 1.3; text-align: center; }
+.dg-t { position: relative; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; color: #fff; transition: transform .12s; }
+.dg-t svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.dg-i:active .dg-t { transform: scale(.93); }
+.dg-t em { position: absolute; top: -5px; right: -10px; min-width: 18px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px 8px 8px 2px; background: #ff7a45; color: #fff; font-style: normal; font-size: 10.5px; font-weight: 700; line-height: 16px; text-align: center; box-shadow: 0 0 0 1.5px #fff; }
+.dgc-b { background: linear-gradient(145deg, #4f9dff, #1677ff); }
+.dgc-o { background: linear-gradient(145deg, #ffa94d, #ff8414); }
+.dgc-g { background: linear-gradient(145deg, #34d399, #06a86b); }
+.dgc-r { background: linear-gradient(145deg, #ff7a7a, #f5483b); }
+.dgc-c { background: linear-gradient(145deg, #36cfc9, #0aa5b0); }
+.dgc-p { background: linear-gradient(145deg, #a78bfa, #7c4dff); }
+.dgc-y { background: linear-gradient(145deg, #ffcf4d, #f5a300); }
+.dgc-k { background: linear-gradient(145deg, #ff8fb8, #f0508d); }
+.dgc-n { background: #efedf6; color: #7a7396; }
+.dg-i.on b { color: #5b21b6; font-weight: 700; }
+.dg-i.on .dg-t { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #c4b5fd; }
