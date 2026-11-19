@@ -65,7 +65,7 @@
     e.preventDefault();
     var q = $("q").value.trim(), host = best || list[0].h;
     // 桌面 App 没有地址栏，站长从这里进后台（要口令）。必须留在 App 自己的网址上：跳去「最快的那个网址」等于离开 App，iPhone 上像闪退，而且通知只认 App 自己的网址（站长 2026-11-19 实测闪退）
-    if (/^(工单后台|站长后台)$/.test(q)) { location.href = "/?full=1#/feedback/admin"; return; }
+    if (/工单后台|站长后台/.test(q.replace(/\s+/g, ""))) { location.href = "/?full=1#/feedback/admin"; return; } // 前后多打了空格、标点也认
     location.href = "https://" + host + "/?full=1&chat=" + encodeURIComponent(q || "你好") + "#/otc";
   };
   if ("serviceWorker" in navigator) {
