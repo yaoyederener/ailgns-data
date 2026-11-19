@@ -24,5 +24,14 @@
 "全部币种": "All coins",
 "点一行进入这个币的盘口；成交多的排在前面。成交额带「+」= 实际比这个数还多。": "Tap a row to open that coin's order book; busier markets come first. A “+” after the volume means the real figure is higher.",
 "正在看：": "Viewing: ",
-"换币种": "Change coin"
+"换币种": "Change coin",
+"🔁 USDT 跨链桥页面简化：上面的「充进来 / 提出去」两个大按钮合并了，现在在「过桥」那张卡中间点 ⇅ 就能换方向，和换币卡一样。功能和费用都没变。": "🔁 USDT Bridge page simplified: the two big “Deposit / Withdraw” buttons at the top are merged — tap ⇅ in the middle of the Bridge card to change direction, just like the Swap card. Features and fees are unchanged.",
+"USDT 跨链桥页面简化：上面的「充进来 / 提出去」两个大按钮合并了，现在在「过桥」那张卡中间点 ⇅ 就能换方向，和换币卡一样。功能和费用都没变。": "USDT Bridge page simplified: the two big “Deposit / Withdraw” buttons at the top are merged — tap ⇅ in the middle of the Bridge card to change direction, just like the Swap card. Features and fees are unchanged.",
+"填上要跨多少 DAI。想反过来跨？点两个框中间的 ⇅。": "Enter how much DAI to move. Want the other direction? Tap the ⇅ between the two boxes.",
+"点一下，反过来跨": "Tap to bridge the other way",
+"反过来跨": "Bridge the other way",
+"，比跨到 Anubis 慢很多。": " to arrive — much slower than bridging to Anubis.",
+"⏳ 这一步到账要等 <b>{0} 小时 {1} 分钟左右</b>，比跨到 Anubis 慢很多。": "⏳ This step takes <b>about {0} h {1} min</b> to arrive — much slower than bridging to Anubis.",
+"<b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 {0} 个区块压住（大约 {1} 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 {2} 个区块，所以从 Polygon 跨到 Anubis 只要 {3} 分钟。": "<b>Why</b>: for safety the official bridge waits until {0} later blocks (about {1} hours) sit on top of your Anubis transaction, so it can never be rolled back, before releasing DAI on Polygon. Other chains only wait {2} blocks, which is why bridging from Polygon to Anubis takes just {3} minutes.",
+"：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 {0} 个区块压住（大约 {1} 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 {2} 个区块，所以从 Polygon 跨到 Anubis 只要 {3} 分钟。": ": for safety the official bridge waits until {0} later blocks (about {1} hours) sit on top of your Anubis transaction, so it can never be rolled back, before releasing DAI on Polygon. Other chains only wait {2} blocks, which is why bridging from Polygon to Anubis takes just {3} minutes."
 }
