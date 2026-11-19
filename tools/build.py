@@ -23,7 +23,7 @@ os.chdir(ROOT)
 
 # 分组：顺序 = 原 index 里的加载顺序（必须保持；A.start() 在 otc.js 末尾，menu.js 在它后面）
 GROUPS = {
-    "core":     ["night.js", "net.js", "brand.js", "app.js", "livek.js", "wallets.js", "treemap.js", "member.js", "chat.js", "nft.js",
+    "core":     ["night.js", "net.js", "lang.js", "brand.js", "app.js", "livek.js", "wallets.js", "treemap.js", "member.js", "chat.js", "nft.js",
                  "scan.js", "rank.js", "inbox.js", "otc.js", "menu.js"],
     "names":    ["names.js", "names-batch.js", "genesis.js"],
     "kchart":   ["kchart.js"],
@@ -218,7 +218,14 @@ def main():
     nv = hv(ncss)
     out["dist/night.css"] = ncss + "\n/*v:%s*/" % nv
     print("night.css: %d 条规则、%d 处颜色" % (nst["rules"], nst["colors"]))
-    core = "window.AIL_NIGHT=" + json.dumps("dist/night.css?v=" + nv) + ";\nwindow.AIL_BUNDLES=" + json.dumps(manifest, separators=(",", ":")) + ";\n" + \
+    # 🌐 繁体转换表 / 英文词典：各一个文件，切到那种语言才下载（lang.js 读 window.AIL_LANGS）；默认简体的人不下载
+    langs = {}
+    for lg in ("hant", "en"):
+        ljs = minjs(read("lang-%s.js" % lg))
+        lv = hv(ljs)
+        out["dist/lang-%s.js" % lg] = ljs + "\n/*v:%s*/" % lv
+        langs[lg] = "dist/lang-%s.js?v=%s" % (lg, lv)
+    core = "window.AIL_NIGHT=" + json.dumps("dist/night.css?v=" + nv) + ";\nwindow.AIL_LANGS=" + json.dumps(langs, separators=(",", ":")) + ";\nwindow.AIL_BUNDLES=" + json.dumps(manifest, separators=(",", ":")) + ";\n" + \
            minjs("\n;\n".join(wrap(f) for f in GROUPS["core"]))
     cv = hv(core)
     out["dist/core.js"] = core + '\n;window.AIL_CORE="%s";\n/*v:%s*/' % (cv, cv)
