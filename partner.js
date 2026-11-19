@@ -69,6 +69,19 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
   function vs(t, y, unit) { t = Number(t) || 0; y = Number(y) || 0; var d = y ? Math.round((t - y) / y * 100) : 0; return "昨天 " + fm(y, 0) + (unit || "") + (y ? (d > 0 ? ' <i class="up">↑' + d + "%</i>" : d < 0 ? ' <i class="down">↓' + (-d) + "%</i>" : " 持平") : ""); }
   function tile(label, val, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + label + "</small><b>" + val + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; }
 
+  // 📈 产品使用排行（站长 2026-11-19：「每日哪款产品用的人最多，我好优化」）。放在合伙人面板：站长平时看的后台就是这一页（旧的工单后台「数据」页会自动跳到这里）：一台设备一天打开过某个产品算 1 人，只记数量不记是谁
+  var PROD_N = { otc: "OTC · AiLGNS", otclgns: "OTC · LGNS", otcglgns: "OTC · gLGNS", otcplgns: "OTC · LGNS（Polygon）", otcnft: "OTC · AWAKE NFT", otcswap: "闪兑", names: "域名", oracle: "每日预言家", lend: "借贷", member: "会员", rank: "荣耀榜",
+    scan: "账本", inbox: "收件箱", usdt: "USDT 跨链桥", fast: "极速预言家", aiswap: "aiswap", lp: "做市商", trade: "交易所盘口", farm: "开心农场", mj: "麻将", gd: "掼蛋", br: "大逃杀", play: "销毁乐园（游戏厅）", pixel: "像素画", square: "链上广场",
+    genesis: "创世销毁", bonus: "创世每日分红", weekly: "手续费周榜", feedback: "问题反馈", updates: "更新日志", trades: "成交查询", wallet: "钱包快查", team: "团队查询", flows: "资金流向", growth: "团队新增业绩", tree: "团队树", upline: "查上级", custom: "私人定制", app: "下载 App", g2048: "2048", snake: "贪吃蛇", tetris: "方块", flappy: "飞鸟", mines: "扫雷", brick: "打砖块", merge: "合成", pet: "宠物" };
+  function prodHtml(rows) {
+    var col = function (r, title) {
+      var p = (r && r.prod) || {}, ks = Object.keys(p).filter(function (k) { return k.slice(0, 2) !== "zz"; }).sort(function (a, b) { return p[b] - p[a]; }), top = ks.length ? p[ks[0]] : 0;
+      return '<div class="ad-pr-c"><h4>' + title + (r && r.day ? " <small>" + r.day.slice(5) + "</small>" : "") + "</h4>" + (ks.length ? "<ol>" + ks.slice(0, 15).map(function (k, i) {
+        return '<li><span class="ad-pr-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + " " + esc(PROD_N[k] || k) + '</span><span class="ad-pr-b"><i style="width:' + Math.max(4, Math.round(p[k] / top * 100)) + '%"></i></span><b>' + p[k] + " 人</b></li>"; }).join("") + "</ol>" + (ks.length > 15 ? '<p class="muted">另有 ' + (ks.length - 15) + " 个产品人数更少，没列出</p>" : "")
+        : '<p class="muted">还没有数据</p>') + "</div>";
+    };
+    return '<h3 class="ad-h">📈 每天哪个产品用的人最多</h3><div class="ad-pr">' + col(rows[0], "今天") + col(rows[1], "昨天") + '</div><p class="muted">一台设备一天打开过某个产品算 1 人（同一个人换手机、换浏览器会算成 2 人）；只记数量，不记是谁。2026-11-19 上线后才开始记，之前的日子没有数据。今天的数每 2 分钟更新。</p>';
+  }
   function render(rid, j) {
     var d0 = j.rows[0] || {}, d1 = j.rows[1] || {}, d2 = j.rows[2] || {}, w7 = j.rows.slice(0, 7); // d2 = 前天（站长 2026-11-09：两天太少，看三天）
     var sum = function (k) { return w7.reduce(function (s, r) { return s + (r[k] || 0); }, 0); };
@@ -150,7 +163,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       }).join("") +
       '<details class="ptn-day sum"><summary><span>近 7 天' + (SUM.k && SUM.k < w7.length ? " <small>留存 " + SUM.k + " 天</small>" : "") + '</span><span class="m">' + (W.k ? fm(W.all, 0) + (W.est ? estTag : "") : "—") + "</span><span>" + fm(sum("fillDai"), 0) + "</span><span>" + fm(sum("v1"), 0) + "</span></summary>" +
       detail(SUM.k ? SUM : null, null, sum("fills"), sum("nmN"), row("来访", fm(sum("v"), 0) + " 次打开 · App 装机 " + sum("an") + " 台 · 在线最高 " + w7.reduce(function (m, r, i) { return Math.max(m, pkOf(r, i)); }, 0) + " 人")) + "</details></div>";
-    var biz = '<h3 class="ad-h">📊 股东面板（近 7 天）</h3>' + hero + cards + list +
+    var biz = '<h3 class="ad-h">📊 股东面板（近 7 天）</h3>' + hero + cards + list + prodHtml(j.rows || []) +
       '<p class="muted ptn-dn">👆 点某一天，看那天真实收到的三种币和明细。今天还没过完。' + (W.est ? "带「估」的日子没存到当天的价，是按后来的价估的。" : "") + "</p>" +
       (flWait ? '<p class="muted ptn-dn">⏳ 前几天的数正在从链上一笔一笔补，大约 ' + flWait + " 分钟补齐，没补到的日子先显示「—」。</p>" : "") +
       '<details class="ptn-how"><summary>这些数怎么算的</summary><p class="muted ptn-dn">留存 = 真留在谷歌社交账号钱包里的钱，从链上一笔一笔数出来，不是算出来的毛收入。为了一眼看懂，把收到的 DAI、AiLGNS、LGNS 按当天 OTC 最后一笔成交价折成 DAI 一个数（带 ≈ 的都是折算，是估值，不是真换成了 DAI）；真实收到的三种币各多少，点开那一天看。当天的价存下来以后不再变，过去的日子不会跟着币价动。OTC 手续费 = 每笔成交时托管合约转进钱包的手续费（买卖两边收的币不一样，所以有 DAI、AiLGNS、LGNS）。域名留存 = 域名的钱转进钱包的数，减掉转给预言家奖池 / 极速资金池的数（那是客户的奖金，不是我们的）。会员费 = 会员页开通 / 升级实际收到的币。其它 = 外面的钱包直接转进来的钱（游戏充值等）和像素墙收入。不算收入的：自己挂单的本金进出、自己换币、撤单退回、自己钱包之间互转。给客户的退款、分出去和提走的钱没有从这里减。来访人 = 第一次打开网站的人。</p></details>';

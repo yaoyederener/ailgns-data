@@ -388,19 +388,6 @@
     setTimeout(function () { inp.focus(); }, 50);
   }
   function fm(v, d) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: d == null ? 2 : d, maximumFractionDigits: d == null ? 2 : d }); }
-  // 📈 产品使用排行（站长 2026-11-19：「每日哪款产品用的人最多，我好优化」）：一台设备一天打开过某个产品算 1 人，只记数量不记是谁
-  var PROD_N = { otc: "OTC · AiLGNS", otclgns: "OTC · LGNS", otcglgns: "OTC · gLGNS", otcplgns: "OTC · LGNS（Polygon）", otcnft: "OTC · AWAKE NFT", otcswap: "闪兑", names: "域名", oracle: "每日预言家", lend: "借贷", member: "会员", rank: "荣耀榜",
-    scan: "账本", inbox: "收件箱", usdt: "USDT 跨链桥", fast: "极速预言家", aiswap: "aiswap", lp: "做市商", trade: "交易所盘口", farm: "开心农场", mj: "麻将", gd: "掼蛋", br: "大逃杀", play: "销毁乐园（游戏厅）", pixel: "像素画", square: "链上广场",
-    genesis: "创世销毁", bonus: "创世每日分红", weekly: "手续费周榜", feedback: "问题反馈", updates: "更新日志", trades: "成交查询", wallet: "钱包快查", team: "团队查询", flows: "资金流向", growth: "团队新增业绩", tree: "团队树", upline: "查上级", custom: "私人定制", app: "下载 App", g2048: "2048", snake: "贪吃蛇", tetris: "方块", flappy: "飞鸟", mines: "扫雷", brick: "打砖块", merge: "合成", pet: "宠物" };
-  function prodHtml(rows) {
-    var col = function (r, title) {
-      var p = (r && r.prod) || {}, ks = Object.keys(p).sort(function (a, b) { return p[b] - p[a]; }), top = ks.length ? p[ks[0]] : 0;
-      return '<div class="ad-pr-c"><h4>' + title + (r && r.day ? " <small>" + r.day.slice(5) + "</small>" : "") + "</h4>" + (ks.length ? "<ol>" + ks.slice(0, 15).map(function (k, i) {
-        return '<li><span class="ad-pr-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + " " + esc(PROD_N[k] || k) + '</span><span class="ad-pr-b"><i style="width:' + Math.max(4, Math.round(p[k] / top * 100)) + '%"></i></span><b>' + p[k] + " 人</b></li>"; }).join("") + "</ol>" + (ks.length > 15 ? '<p class="muted">另有 ' + (ks.length - 15) + " 个产品人数更少，没列出</p>" : "")
-        : '<p class="muted">还没有数据</p>') + "</div>";
-    };
-    return '<h3 class="ad-h">📈 每天哪个产品用的人最多</h3><div class="ad-pr">' + col(rows[0], "今天") + col(rows[1], "昨天") + '</div><p class="muted">一台设备一天打开过某个产品算 1 人（同一个人换手机、换浏览器会算成 2 人）；只记数量，不记是谁。2026-11-19 上线后才开始记，之前的日子没有数据。今天的数每 2 分钟更新。</p>';
-  }
   function statsHtml(j) {
     var t = j.totals, rows = j.rows, td = rows[0] || {}, y = rows[1] || {};
     var pend = '<p class="muted">数据更新于 ' + tm(j.at || j.walletsAt) + '，每 5 分钟自动更新一次' + (j.pending ? '；还有 ' + j.pending + ' 天历史在后台补算' : "") + '</p>';
@@ -421,7 +408,6 @@
       tile("近 " + KN + " 天已转奖池", fm(KP, 0) + " DAI", "域名的钱里转给预言家奖池 / 极速资金池的，不算留存", "money") +
       tile("总成交额", fm(t.fillDai, 0) + " DAI", t.fills + " 笔 · 挂单 " + t.orders + " 张") +
       tile("累计装机", t.installs + " 台", "最近 " + rows.length + " 天") + "</div>";
-    h += prodHtml(rows);
     h += '<h3 class="ad-h">🏦 钱托管在哪（链上实时，每 2 分钟刷新）</h3><div class="ad-wal">' + j.wallets.map(function (w) {
       var toks = Object.keys(w.tok).map(function (s) { return "<b>" + fm(w.tok[s], s === "LGNS" ? 0 : 2) + "</b> " + s; });
       if (w.gas) toks.unshift("<b>" + fm(w.gas) + "</b> DAI(Gas)");
