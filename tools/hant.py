@@ -74,6 +74,7 @@ def main():
             if k == v: cmap.pop(k, None)
             else: cmap[k] = v
     conv = lambda s: "".join(cmap.get(c, c) for c in s)
+    MANUAL = {k for k in FIX if len(k) == 1}
 
     # ② 看词定字：整句交给 ICU（它认得词），和逐字换的结果比，不一样的地方取最短的那个词记下来
     full = icu(runs)
@@ -83,7 +84,7 @@ def main():
         if len(t) != len(r): continue
         c = conv(r)
         for i in range(len(r)):
-            if t[i] != c[i]:
+            if t[i] != c[i] and r[i] not in MANUAL:   # 人工定了默认换法的字（里、余…）不听 ICU 的，只认 FIX 里列的词
                 todo.append((r, t, i))
     def windows(r, i):
         for a, b in ((i, i + 2), (i - 1, i + 1), (i - 1, i + 2), (i, i + 3), (i - 2, i + 1), (i - 2, i + 2), (i - 1, i + 3)):
