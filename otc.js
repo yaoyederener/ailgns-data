@@ -25,8 +25,9 @@
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "nft", "plgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余折进「更多币种」；2026-11-11 Polygon LGNS 应客户要求恢复
-  var RETIRED = { glgns: "gLGNS（Anubis 链）" }; // 站长 2026-11-10：用的人少，前端不再显示；页面只留给有老挂单的客户撤单（#/otc/glgns 直接打开）
+  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
+  var RETIRED = {}; // 下架的市场（前端不显示、不接新单，只留给有老挂单的客户撤单）。gLGNS 2026-11-10 下架过，2026-11-19 站长说客户还是要，放回来了
+  var MK_NEW = { glgns: 1 }; // 市场列表里挂「新上架」的
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -437,6 +438,7 @@
     parkGuides();
     var slot = document.getElementById("mkt-top"); if (!slot) return "";
     slot.innerHTML = marketTabs();
+    var ml = document.getElementById("mkl"); if (ml && ml.open) mklLoad();
     return "";
   }
   function marketTabs() {
@@ -445,9 +447,54 @@
     var tab = function (k) { var m = MARKETS[k]; var dup = MKEYS.filter(function (x) { return MARKETS[x].sym === m.sym; }).length > 1; /* 站长 2026-11-08：同名币（LGNS 有 Anubis / Polygon 两条链）按钮下面显示链名 */ return '<a href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '" class="' + (k === MK && !swapOn ? "on" : "") + (dup ? " dup" : "") + '">' + (BADGE[k] ? '<i class="mkt-hot">' + BADGE[k] + "</i>" : "") + "<b>" + m.sym + "</b><small>" + m.chainName + " 链</small></a>"; };
     var main = MKEYS.slice(0, MK_MAIN), rest = MKEYS.slice(MK_MAIN), restOn = rest.indexOf(MK) >= 0 && !swapOn;
     return '<nav class="mkt-tabs mkt4" aria-label="选择交易币种">' + main.map(tab).join("") + '<a href="#/otc/swap" class="mkt-swap' + (swapOn ? " on" : "") + '"><i class="mkt-hot">新</i><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav>' +
-      (rest.length ? '<details class="mkt-more"' + (restOn ? " open" : "") + '><summary>更多币种（' + rest.map(function (k) { return MARKETS[k].sym + " · " + MARKETS[k].chainName; }).join("、") + "）</summary>" +
-        '<nav class="mkt-tabs mkt-tabs-more">' + rest.map(tab).join("") + "</nav></details>" : "");
+      (rest.length ? '<details class="mkt-more" id="mkl"' + (restOn ? " open" : "") + '><summary>全部市场（' + MKEYS.length + " 个币种 · " + rest.map(function (k) { return MARKETS[k].sym + (MARKETS[k].chain === "polygon" ? " · Polygon" : ""); }).join("、") + " 等）</summary>" + marketList(swapOn) + "</details>" : "");
   }
+  // 📊 全部市场（站长 2026-11-19：点开「更多」做成交易所形式，以后币种会越来越多）：搜索 + 按链筛 + 每个币一行（最新成交价、24 小时成交额），点一行进它的盘口。
+  // 行情来自 /api/markets（服务器缓存 1 分钟）；读不到就只显示名字，不影响切换。新上一个币：MARKETS 加一项、MKEYS 加名字、/api/markets 的 KEYS 加名字
+  var mklData = null, mklAt = 0, mklF = "all", mklQ = "";
+  function mklEsc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function mklPx(v, pd) { return v >= 1000 ? Math.round(v).toLocaleString("en-US") : v >= 1 ? v.toFixed(2) : v.toFixed(Math.max(pd || 4, 4)); }
+  function mklVol(v) { return v >= 10000 ? (v / 10000).toFixed(1) + " 万" : Math.round(v).toLocaleString("en-US"); }
+  function mklRows(swapOn) {
+    var d = mklData || {}, q = mklQ.toLowerCase();
+    var keys = MKEYS.filter(function (k) {
+      var m = MARKETS[k];
+      if (mklF === "nft" ? !m.nft : mklF !== "all" && (m.nft || m.chain !== mklF)) return false;
+      return !q || (m.sym + " " + m.chainName + " " + k).toLowerCase().indexOf(q) >= 0;
+    });
+    keys.sort(function (a, b) { return ((d[b] && d[b].vol) || 0) - ((d[a] && d[a].vol) || 0) || MKEYS.indexOf(a) - MKEYS.indexOf(b); }); // 成交多的排前面
+    if (!keys.length) return '<p class="mkl-none">没有找到这个币种。想上新币可以点右下角「客服」留言。</p>';
+    return keys.map(function (k) {
+      var m = MARKETS[k], x = d[k], on = k === MK && !swapOn;
+      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
+        '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : '<small>暂无成交</small>') + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) : "<small>—</small>") + "</span></a>";
+    }).join("");
+  }
+  function marketList(swapOn) {
+    var chip = function (f, n) { return '<button type="button" data-mklf="' + f + '"' + (mklF === f ? ' class="on"' : "") + ">" + n + "</button>"; };
+    return '<div class="mkl"><input class="mkl-q" id="mkl-q" placeholder="🔍 搜币种，例如 gLGNS" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + mklEsc(mklQ) + '">' +
+      '<div class="mkl-f">' + chip("all", "全部币种") + chip("anubis", "Anubis 链") + chip("polygon", "Polygon 链") + chip("nft", "卡牌") + "</div>" +
+      '<div class="mkl-h"><span>币种</span><span>最新成交价 DAI</span><span>24 小时成交 DAI</span></div><div id="mkl-rows">' + mklRows(swapOn) + '</div><p class="mkl-tip">点一行进入这个币的盘口；成交多的排在前面。</p></div>';
+  }
+  function mklLoad() {
+    if (Date.now() - mklAt < 60000) return;
+    mklAt = Date.now();
+    fetch("/api/markets").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || !j.m) return;
+      mklData = j.m; var box = document.getElementById("mkl-rows"); if (box) box.innerHTML = mklRows(location.hash.indexOf("#/otc/swap") === 0);
+    }).catch(function () { mklAt = 0; });
+  }
+  // 列表在页面顶部那一条里，会被重画：点击、输入都挂在 document 上，只挂一次
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest("[data-mklf]");
+    if (b) { mklF = b.getAttribute("data-mklf"); var w = b.parentNode; [].forEach.call(w.children, function (c) { c.className = c === b ? "on" : ""; }); var box = document.getElementById("mkl-rows"); if (box) box.innerHTML = mklRows(location.hash.indexOf("#/otc/swap") === 0); return; }
+    var s = e.target && e.target.closest && e.target.closest("#mkl > summary");
+    if (s) mklLoad();
+  });
+  document.addEventListener("input", function (e) {
+    if (!e.target || e.target.id !== "mkl-q") return;
+    mklQ = e.target.value.trim(); var box = document.getElementById("mkl-rows"); if (box) box.innerHTML = mklRows(location.hash.indexOf("#/otc/swap") === 0);
+  });
 
   // 按 DAI 金额从最优价开始吃，吃到 target（DAI，BigInt）为止；返回每张单吃多少 + 合计
   // 买入（扫卖单）：amount = 拿走的币，pay = 付的 DAI；卖出（扫买单）：amount = 拿走的 DAI，pay = 付的币

@@ -150,9 +150,11 @@ async function recordTrades(m, kv, logs, cache) {
     await addRebate(kv, rec).catch(() => {}); // 💧 做市返佣记账（挂单方 70%）
     // AiLGNS/DAI 真实成交记录（全站一份，最近 300 笔）：预言家奖池用「24 小时真实成交最高价」做预言机
     // 2026-11-12 起 LGNS 也记一份（otc:fills:lgns），给 LGNS 盘口的「最近成交」用；预言家只读 ailgns 那份
-    if ((m.key === "ailgns" || m.key === "lgns") && rec.price > 0 && rec.dai >= 0.5) {
+    // 2026-11-19 起所有币种市场和卡牌都记（gLGNS、Polygon LGNS、AWAKE NFT）：OTC 页「全部市场」列表的最新成交价、24 小时成交额从这里来（/api/markets）；域名市场不记
+    const fpx = rec.nft ? rec.dai : rec.price;
+    if (["ailgns", "lgns", "glgns", "plgns", "nft"].indexOf(m.key) >= 0 && fpx > 0 && rec.dai >= 0.5) {
       const fk = "otc:fills:" + m.key, pr = m.key === "ailgns" ? 1000 : 1e6, fl = (await kv.get(fk, "json")) || [];
-      if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(rec.price * pr) / pr, dai: rec.dai, tx: rec.tx, id: rec.id, mk: rec.maker }); await kv.put(fk, JSON.stringify(fl.slice(0, 300))); }
+      if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(fpx * pr) / pr, dai: rec.dai, tx: rec.tx, id: rec.id, mk: rec.maker }); await kv.put(fk, JSON.stringify(fl.slice(0, 300))); }
     }
     for (const a of new Set([o.maker, taker])) {
       const list = (await kv.get("tr:" + a, "json")) || [];
