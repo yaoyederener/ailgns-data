@@ -1,5 +1,5 @@
-window.AIL_NIGHT="dist/night.css?v=h191b6f6e9a";
-window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h437424ed4c"};
+window.AIL_NIGHT="dist/night.css?v=h9bd6e18475";
+window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=he386a5dae9"};
 window.AIL_BUNDLES={"names":"dist/names.js?v=hf09f4f10d7","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=hb7126c58b3","trade":"dist/trade.js?v=h9bfd11d99c","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=h6fc3fbed96","feedback":"dist/feedback.js?v=he3004b442d","games":"dist/games.js?v=hfbf00a596e","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=h6b0efa44b2"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
@@ -824,7 +824,8 @@ function parkGuides(){var app=A.app;["guide","oq"].forEach(function(id){var el=d
 function moveGuides(){var slot=document.getElementById("otc-guide-slot");if(!slot)return;["oq"].forEach(function(id){var el=document.getElementById(id);if(el)slot.appendChild(el);});}
 function placeTabs(){parkGuides();var slot=document.getElementById("mkt-top");if(!slot)return"";slot.innerHTML=marketTabs();var ml=document.getElementById("mkl");if(ml&&ml.open)mklLoad();return"";}
 function marketTabs(){var swapOn=location.hash.indexOf("#/otc/swap")===0;var BADGE={ailgns:"🔥 热",lgns:"🔥 热",nft:"抢"};var tab=function(k){var m=MARKETS[k];var dup=MKEYS.filter(function(x){return MARKETS[x].sym===m.sym;}).length>1;return'<a href="#/otc'+(k==="ailgns"?"":"/"+k)+'" class="'+(k===MK&&!swapOn?"on":"")+(dup?" dup":"")+'">'+(BADGE[k]?'<i class="mkt-hot">'+BADGE[k]+"</i>":"")+"<b>"+m.sym+"</b><small>"+m.chainName+" 链</small></a>";};var main=MKEYS.slice(0,MK_MAIN),rest=MKEYS.slice(MK_MAIN),restOn=rest.indexOf(MK)>=0&&!swapOn;return'<nav class="mkt-tabs mkt4" aria-label="选择交易币种">'+main.map(tab).join("")+'<a href="#/otc/swap" class="mkt-swap'+(swapOn?" on":"")+'"><i class="mkt-hot">新</i><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav>'+
-(rest.length?'<details class="mkt-more" id="mkl"'+(restOn?" open":"")+'><summary>更多币种（共 '+MKEYS.length+" 个 · "+rest.map(function(k){return MARKETS[k].sym+(MARKETS[k].chain==="polygon"?" · Polygon":"");}).join("、")+"）</summary>"+marketList(swapOn)+"</details>":"");}
+(rest.length?'<details class="mkt-more'+(restOn?" on":"")+'" id="mkl"><summary>'+
+(restOn?'<span class="mkt-cur">'+(MK_ICON[MK]?'<img src="'+MK_ICON[MK]+'" alt="">':"")+"<b>正在看："+M.sym+"</b><small>"+M.chainName+" 链</small></span><span>换币种</span>":"更多币种（共 "+MKEYS.length+" 个 · "+rest.map(function(k){return MARKETS[k].sym+(MARKETS[k].chain==="polygon"?" · Polygon":"");}).join("、")+"）")+"</summary>"+marketList(swapOn)+"</details>":"");}
 var mklData=null,mklAt=0,mklF="all",mklQ="";function mklEsc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function mklPx(v,pd){return v>=1000?Math.round(v).toLocaleString("en-US"):v>=1?v.toFixed(2):v.toFixed(Math.max(pd||4,4));}
 function mklVol(v){return v>=10000?(v/10000).toFixed(1)+" 万":Math.round(v).toLocaleString("en-US");}
@@ -1098,5 +1099,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hebe636bc7b";
-/*v:hebe636bc7b*/
+;window.AIL_CORE="h65346f39e5";
+/*v:h65346f39e5*/
