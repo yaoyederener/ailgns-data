@@ -7,5 +7,6 @@
 "注册新域名": "Register",
 "查我的域名": "My names",
 "买别人的域名": "Buy a name",
-"卖我的域名": "Sell a name"
+"卖我的域名": "Sell a name",
+"最近排序，价格每 {0} 秒刷新、名单每 {1} 秒刷新（别人新交的预测最多 {2} 分钟内上榜）；最终以当晚 {3}–{4} 点随机一刻的价格揭晓。": ", price refreshed every {0} s and the list every {1} s (other people's new predictions show up within {2} minute); the final result is the price at a random moment between {3} and {4} pm that night."
 }

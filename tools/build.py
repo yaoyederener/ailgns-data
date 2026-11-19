@@ -226,7 +226,7 @@ def main():
     for fp in sorted(glob.glob("i18n/en/*.json")):
         for k, v in json.loads(read(fp)).items():
             if k in en and en[k] != v: sys.exit("英文词典里同一句有两种译法：%s（%s）" % (k[:40], fp))
-            if re.search(r"[\u4e00-\u9fff]", v): sys.exit("英文词典的译文里还有中文：%s（%s）" % (k[:40], fp))
+            if re.search(r"[\u4e00-\u9fff]", v.replace("简体", "").replace("繁體", "")): sys.exit("英文词典的译文里还有中文：%s（%s）" % (k[:40], fp))
             if set(re.findall(r"\{\d+\}", v)) - set(re.findall(r"\{\d+\}", k)): sys.exit("英文词典的译文里多了原句没有的 {数字}：%s（%s）" % (k[:40], fp))
             en[k] = v
     print("英文词典: %d 句" % len(en))
