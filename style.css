@@ -4594,7 +4594,7 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .u2d-max { margin-left: 8px; padding: 3px 9px; border: 0; border-radius: 999px; background: #ebe4ff; color: #5b21b6; font-size: 12px; font-weight: 700; box-shadow: none; }
 .u2d-bm { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .u2d-num { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: none; box-shadow: none; font: inherit; font-size: 32px; font-weight: 600; line-height: 1.25; color: #1f1a3d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.u2d-bm input.u2d-num { width: 100%; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: 0; font-size: 32px; font-weight: 600; line-height: 1.25; color: #1f1a3d; -webkit-appearance: none; appearance: none; } /* 压过全站 input 的默认样式：付出的数字要和到手的一样大 */
+.u2d-bm input.u2d-num { width: 100%; height: auto; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; outline: 0; font-size: 32px !important; font-weight: 600; line-height: 1.25; color: #1f1a3d; -webkit-appearance: none; appearance: none; } /* 压过全站 input 的默认样式（手机上全站有一条「输入框 16px !important」防 iPhone 自动放大；32px 比它大，不会触发放大）：付出的数字要和到手的一样大 */
 .u2d-bm input.u2d-num:focus { border: 0; box-shadow: none; outline: 0; }
 input.u2d-num::placeholder { color: #c3badf; }
 .u2d-num.zero { color: #c3badf; }
