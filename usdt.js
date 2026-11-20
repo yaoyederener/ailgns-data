@@ -274,7 +274,7 @@
     return '<section class="u2d-card"><div class="u2d-step">' + (no ? '<i class="st">第 ' + no + " 步</i>" : "") + "<b>过桥</b><span>DAI 从 " + b.fn + " 链跨到 " + b.tn + " 链</span></div>" +
       '<div class="u2d-box"><div class="u2d-bh"><span>你跨出</span><span>余额 <b id="u2d-b2b">—</b><button type="button" class="u2d-max" id="u2d-max2">全部</button></span></div>' +
       '<div class="u2d-bm"><input id="u2d-a2" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + tok(isIn ? "dai" : "dai an", "◈", "DAI", b.fn) + "</div></div>" +
-      (N().canOut ? '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip2" aria-label="反过来跨" title="点一下，反过来跨">⇅</button></div>' : '<div class="u2d-mid"><i>↓</i></div>') +
+      (N().canOut ? '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip2" aria-label="反过来跨" title="点一下，反过来跨">⇅</button></div>' : '<div class="u2d-mid"><i>↓</i><span class="u2d-one">往外提请选 Polygon</span></div>') +
       '<div class="u2d-box' + (isIn ? " end" : "") + '"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="u2d-b3">—</b></span></div>' +
       '<div class="u2d-bm"><output id="u2d-out2" class="u2d-num zero">0</output>' + tok(isIn ? "dai an" : "dai", "◈", "DAI", b.tn) + "</div></div>" +
       '<div id="u2d-b" class="u2d-info"></div>' +
@@ -287,7 +287,7 @@
           '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；到账后再到上面「换币」那张卡，把 DAI 换成 USDT。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
           '<p><b>急用钱</b>：请提前 2 个多小时操作，别等到要用的时候才跨。</p></details></div>') +
       '<button type="button" class="u2d-go" id="u2d-go-b">跨到 ' + b.tn + '</button><p class="u2d-say" id="u2d-say-b"></p>' +
-      '<p class="note">' + (isIn ? "已经有 " + N().name + " 链的 DAI？不用换币，直接在这里跨。" : "") + "官方桥最少跨 " + BMIN + " DAI。" + (N().canOut ? "" : "官方桥不支持把 DAI 跨回 " + N().name + "，要往外提请在上面选 Polygon。") + "</p></section>";
+      '<p class="note">' + (isIn ? "已经有 " + N().name + " 链的 DAI？不用换币，直接在这里跨。" : "") + "官方桥最少跨 " + BMIN + " DAI。" + "</p></section>";
   }
   function render() {
     var isIn = dir === "in";

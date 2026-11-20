@@ -44,5 +44,6 @@
 "USDT 跨链桥支持 BSC 链了：标题下面选「BSC」，BSC 上的 USDT 换成 DAI 再过桥到 Anubis，Gas 用 BNB 付。BSC 只能往里充，一次最多换 2 万 USDT；往外提和大额请选 Polygon。": "USDT Bridge now supports BSC: choose “BSC” under the title to swap USDT on BSC for DAI and bridge it to Anubis; gas is paid in BNB. BSC is deposit-only, up to 20,000 USDT per swap; to withdraw or move larger amounts, choose Polygon.",
 "你的币在哪条链": "Which chain are your coins on?",
 "几分钟": "a few minutes",
-"⏱ 这一步到账：<b>几分钟</b>": "⏱ This step arrives in <b>a few minutes</b>"
+"⏱ 这一步到账：<b>几分钟</b>": "⏱ This step arrives in <b>a few minutes</b>",
+"往外提请选 Polygon": "To withdraw, use Polygon"
 }
