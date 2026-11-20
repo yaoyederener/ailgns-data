@@ -1,0 +1,14 @@
+{
+"兑换比例": "Rate",
+"手续费": "Fee",
+"最少到手": "Minimum received",
+"预计到账": "Arrives in",
+"到账地址": "Sent to",
+"这些数是怎么算的？": "How are these numbers worked out?",
+"输入数量": "Enter an amount",
+"USDT 余额不足": "Not enough USDT",
+"DAI 余额不足": "Not enough DAI",
+"你这个钱包 · Anubis 链": "This wallet · Anubis",
+"你这个钱包 · Polygon 链": "This wallet · Polygon",
+"你这个钱包 · BSC 链": "This wallet · BSC"
+}

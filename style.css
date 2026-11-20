@@ -4783,13 +4783,27 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 /* 跨链桥合成一张卡（2026-11-20）：框右边的币是按钮，点开在框里选币；两步的那一趟在框下面有一行「第 1 步 → 第 2 步」 */
 button.u2d-tok { margin: 0; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; width: auto; min-height: 0; }
 button.u2d-tok:disabled { opacity: .6; }
-.u2d-car { font-style: normal; font-size: 11px; color: #8b84ad; margin-left: -2px; }
+.u2d-car { flex: none; width: 7px; height: 7px; margin: -4px 3px 0 1px; border-right: 2px solid #9a91c2; border-bottom: 2px solid #9a91c2; transform: rotate(45deg); border-radius: 1px; }
 .u2d-pk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd5f3; }
 .u2d-pk p { flex: 0 0 100%; margin: 0; font-size: 12.5px; color: #7a7396; }
-.u2d-way { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 10px 14px; list-style: none; border-radius: 14px; background: #f7f5fc; }
-.u2d-way li { flex: 1; min-width: 0; }
-.u2d-way li.ar { flex: none; color: #b8aee0; font-size: 15px; }
-.u2d-way b { display: block; font-size: 13.5px; color: #4b4470; }
-.u2d-way small { display: block; font-size: 12px; color: #8b84ad; }
-.u2d-way li.now b { color: #5b21b6; } .u2d-way li.now b::before { content: "● "; }
-.u2d-way li.ok b { color: #16a34a; } .u2d-way li.ok b::before { content: "✓ "; }
+.u2d-dt { margin-top: 12px; border: 1px solid #ece6fb; border-radius: 18px; background: #fff; overflow: hidden; }
+.u2d-way { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 16px; list-style: none; background: #faf8ff; }
+.u2d-way li { display: flex; align-items: center; gap: 8px; flex: none; }
+.u2d-way li.ar { flex: 1; height: 2px; border-radius: 1px; background: #e4dcfb; }
+.u2d-way i { width: 22px; height: 22px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid #c9bdf0; background: #fff; color: #7c6fb0; font-style: normal; font-size: 12px; font-weight: 700; line-height: 19px; text-align: center; }
+.u2d-way b { font-size: 14px; color: #6b6394; font-weight: 600; }
+.u2d-way li.now i { background: #5b21b6; border-color: #5b21b6; color: #fff; } .u2d-way li.now b { color: #4c1d95; }
+.u2d-way li.ok i { background: #16a34a; border-color: #16a34a; color: #fff; } .u2d-way li.ok b { color: #15803d; }
+#u2d-way:not(:empty) + #u2d-q:not(:empty) { border-top: 1px solid #f0ebfc; }
+.u2d-rows { margin: 0; padding: 8px 16px 4px; }
+.u2d-rows div { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 6px 0; font-size: 14px; line-height: 1.4; }
+.u2d-rows dt { color: #7a7396; flex: none; }
+.u2d-rows dd { margin: 0; color: #1f1a3d; font-weight: 600; text-align: right; min-width: 0; }
+.u2d-rows .free { display: inline-block; padding: 0 9px; border-radius: 999px; background: #dcfce7; color: #15803d; }
+.u2d-why { padding: 2px 16px 12px; }
+.u2d-why summary { font-size: 12.5px; color: #7c6fb0; cursor: pointer; }
+.u2d-why .note { margin: 8px 0 0; font-size: 12.5px; line-height: 1.65; }
+.u2d-dt .u2d-warn, .u2d-dt .muted { margin: 12px 16px; font-size: 13px; }
+.u2d-go.dim { background: #ebe6fa; background-image: none; color: #8b84ad; box-shadow: none; }
+button.u2d-tok { transition: box-shadow .15s; }
+button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #d9ccfb; }
