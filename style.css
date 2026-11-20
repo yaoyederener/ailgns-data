@@ -4807,3 +4807,6 @@ button.u2d-tok:disabled { opacity: .6; }
 .u2d-go.dim { background: #ebe6fa; background-image: none; color: #8b84ad; box-shadow: none; }
 button.u2d-tok { transition: box-shadow .15s; }
 button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #d9ccfb; }
+
+/* 领奖凭证上传：点了上传后先出的那句提示（不是报错，用中性色） */
+.or-say-st.tip { color: #6b5a8e; font-weight: 500; font-size: 13.5px; }
