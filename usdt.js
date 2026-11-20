@@ -240,6 +240,7 @@
     else if (k === "AU") job = doBridge(amt, "swap").then(function () { amtStr = ""; way = null; render(); say("s", "✅ 第 1 步已交给官方跨链桥，" + dur(EXPECT.out) + "后到 " + c.name + "。到了以后这一页会帮你填好第 2 步，点一下按钮把 DAI 换成 USDT。可以关掉这一页，回来还在。"); });
     else if (r[0] === "swap") job = doSwap(amt, false).then(function (got) {
       var ct = C(to), gotTxt = got > 0n ? "，到手 " + f(n(got, ct.d)) + " " + ct.sym : "";
+      if (second === "AU") pendClear(); // 两步都走完了：上面那条「到账了，接着换成 USDT」的进度收起来
       amtStr = ""; q = null; way = null; render();
       say("s", (second === "AU" ? "🎉 换好了" : "✅ 换好了") + gotTxt + "，就在你这个钱包里（" + c.name + " 链）。" + (second === "AU" ? "两步都走完了。" : ""));
     });
