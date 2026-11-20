@@ -463,7 +463,7 @@
     Array.prototype.forEach.call(m.querySelectorAll("button"), function (b) { b.className = b.getAttribute("data-mode") === mode ? "on" : ""; });
     st.hidden = mode === "fast"; fa.hidden = mode !== "fast";
     try {
-      if (mode === "fast") { if (!g("gbx-w")) A.gale.mount(fa, rid); }
+      if (mode === "fast") { if (!g("gbx-a")) A.gale.mount(fa, rid); }
       else if (A.gale) { A.gale.unmount(); fa.innerHTML = ""; }
     } catch (e) { mode = "std"; st.hidden = false; fa.hidden = true; }
   }
@@ -475,7 +475,7 @@
   }
   A.pages.usdt = function (id) {
     try { if (sessionStorage.getItem("u2d:mode") === "fast") { mode = "fast"; sessionStorage.removeItem("u2d:mode"); } } catch (e) { /* 忽略 */ }
-    if (mode === "fast" && g("gbx-w") && g("u2d-std")) { rid = id; return; } // 秒到通道开着时页面被要求重画（切回前台之类）：不动，免得把客户正在跨的那一笔的小窗毁掉
+    if (mode === "fast" && g("gbx-a") && g("u2d-std")) { rid = id; return; } // 秒到通道开着时页面被要求重画（切回前台之类）：不动，免得把客户正在跨的那一笔的小窗毁掉
     rid = id; q = null; pick = null; sync();
     if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); track(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
     render();
