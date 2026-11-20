@@ -340,7 +340,7 @@ function word(h){return("0".repeat(64)+String(h).replace(/^0x/,"")).slice(-64);}
 function say(t,bad){var el=g("gbx-st");if(!el)return;el.className="gbx-st"+(bad?" bad":"");el.textContent=t||"";}
 function show(v,dec){var s=v.toString().padStart(dec+1,"0"),i=s.slice(0,s.length-dec),f=s.slice(s.length-dec).slice(0,6).replace(/0+$/,"");return i+(f?"."+f:"");}
 function okGale(chainId,addr){var l=GALE[String(chainId)];return!!l&&l.indexOf(low(addr))>=0;}
-function provider(){return{request:function(a){return(eth?Promise.resolve(eth):A.wallets.choose().then(function(p){eth=p;return p;})).then(function(e){return A.wallets.ask(e,a);});}};}
+function provider(){return{request:function(a){if(!eth&&(!a||a.method!=="eth_requestAccounts"))return Promise.reject(new Error("Connect an EVM wallet"));return(eth?Promise.resolve(eth):A.wallets.choose().then(function(p){eth=p;return p;})).then(function(e){return A.wallets.ask(e,a);});}};}
 function ask(a){return provider().request(a);}
 function feeOf(tx){var c=String(tx.chainId),d=low(tx.data),val=0n,token=null,amt=0n;try{val=BigInt(tx.value||"0");}catch(e){val=0n;}
 if(d.slice(0,10)===DEPOSIT&&d.length>=10+128){token="0x"+d.slice(10+24,10+64);amt=BigInt("0x"+d.slice(10+64,10+128));}
@@ -365,5 +365,5 @@ try{eth=W.get()||null;}catch(e){eth=null;}
 el.innerHTML='<div class="gbx">'+'<div class="gbx-rows">'+'<div><span>多久到</span><b>约 20 秒</b></div>'+'<div><span>GaleBridge 收</span><b>约 0.3%～0.4% + 0.1</b></div>'+'<div><span>本站服务费</span><b>0.05%</b></div>'+'<div><span>单笔</span><b>10～50,000</b></div>'+"</div>"+'<p class="gbx-note"><b>这是第三方服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你。它收多少以下面小窗里的报价为准。本站服务费是单独一笔，所以钱包会多弹一次。</p>'+'<div class="gbx-w" id="gbx-w"></div>'+'<p class="gbx-st" id="gbx-st" role="status"></p>'+"</div>";mount(id);}
 A.gale={mount:draw,unmount:unmount};A.pages.gale=function(){try{sessionStorage.setItem("u2d:mode","fast");}catch(e){}
 location.replace("#/usdt");};})();}catch(e){console.error('[bundle] gale.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h082137a04f";
-/*v:h082137a04f*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="hea4abee772";
+/*v:hea4abee772*/
