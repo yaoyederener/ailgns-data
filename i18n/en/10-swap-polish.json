@@ -1,0 +1,13 @@
+{
+"参考比例": "Reference rate",
+"两步各 {0}%，已算在比例里": "{0}% per step, included in the rate",
+"说明": "Note",
+"换得多，比例会差一些": "Larger amounts get a slightly worse rate",
+"两步各 {0}%，已扣": "{0}% per step, already deducted",
+"钱包确认": "Wallet confirmations",
+"开始闪兑": "Swap",
+"暂时换不了": "Cannot swap right now",
+"AiLGNS 余额不足": "Not enough AiLGNS",
+"LGNS 余额不足": "Not enough LGNS",
+"余额不足": "balance is too low"
+}
