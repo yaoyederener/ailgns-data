@@ -4929,13 +4929,15 @@ html.lang-ko body { word-break: keep-all; }
 .u2d-fastgo { margin: 8px 0 0; font-weight: 700; }
 
 /* 跨链桥页：两个通道二选一（本站通道 0 手续费 / 秒到通道 第三方收费） */
-.u2d-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 10px; }
-.u2d-mode button { margin: 0; padding: 10px 10px 9px; border-radius: 16px; border: 1.5px solid #e4dcf7; background: #fff; box-shadow: none; text-align: left; font: inherit; color: #4b4470; cursor: pointer; display: grid; gap: 5px; align-content: start; }
+.u2d-mode { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 0 0 10px; }
+.u2d-mode button { margin: 0; padding: 10px 10px 9px; border-radius: 16px; border: 1.5px solid #e4dcf7; background: #fff; box-shadow: none; text-align: left; font: inherit; color: #4b4470; cursor: pointer; display: grid; gap: 5px; align-content: start; min-width: 0; white-space: normal; }
 .u2d-mode button.on { border-color: #6d3fd4; background: #f5f0ff; box-shadow: 0 4px 14px rgba(109, 63, 212, .14); }
 .u2d-mode b { font-size: 15.5px; font-weight: 800; color: #1f1a3d; }
 .u2d-mode em { justify-self: start; font-style: normal; padding: 0 9px; height: 21px; line-height: 21px; border-radius: 11px; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .u2d-mode em.free { background: linear-gradient(90deg, #ff4d4f, #ff7a45); color: #fff; }
 .u2d-mode em.paid { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; line-height: 19px; }
 .u2d-mode small { font-size: 11.5px; line-height: 1.45; color: #6b6690; }
-#u2d-std { display: grid; gap: 12px; }
+#u2d-std { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+#u2d-std > .u2d-net { margin: 0; }
+#u2d-fast { min-width: 0; }
 #u2d-std[hidden], #u2d-fast[hidden] { display: none; }
