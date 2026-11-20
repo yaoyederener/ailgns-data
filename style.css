@@ -4560,7 +4560,12 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .fm-deco.d-fountain { left: 152px; bottom: 2px; font-size: 24px; }
 .fm-deco.d-statue { right: 150px; bottom: 2px; font-size: 22px; }
 .fm-deco.d-castle { right: 96px; bottom: 4px; font-size: 34px; }
-.fm-deco.d-rainbow { left: 66px; top: 34px; font-size: 28px; }
+/* 工单 #328（2026-11-20）：10000 金币的彩虹原来只是一个 28px 的小表情，「太寒酸」。改成横跨天空的一道大彩虹（纯 CSS 画的七色拱桥，轻轻呼吸），标题正好在桥下 */
+.fm-sky { isolation: isolate; }
+.fm-deco.d-rainbow { left: 50%; top: 10px; width: 220px; height: 110px; margin-left: -110px; font-size: 0; filter: none; z-index: -1; border-radius: 220px 220px 0 0;
+  background: radial-gradient(110px 110px at 50% 100%, transparent 0 68px, #a78bfa 68px 74px, #60a5fa 74px 80px, #34d399 80px 86px, #fde047 86px 92px, #fb923c 92px 98px, #f87171 98px 104px, transparent 104px);
+  animation: fm-rainbow 5s ease-in-out infinite; }
+@keyframes fm-rainbow { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
 .fm-decos .fm-items { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 .fm-decos .fm-items button.has { opacity: 1; filter: none; background: #f0fdf4; border-color: #86efac; color: #166534; box-shadow: none; }
 .fm-dc { font-style: normal; font-size: 13px; letter-spacing: -1px; }
@@ -4835,3 +4840,6 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 /* 工单后台：点铃铛后，最紧急的那张工单闪一下（工单 #324） */
 .fb-tk.fb-flash { animation: fb-flash 1.8s ease; }
 @keyframes fb-flash { 0%, 60% { box-shadow: 0 0 0 4px rgba(124, 58, 237, .45); } 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); } }
+
+/* 一键偷菜结果：偷到的东西按品种列出来（工单 #330） */
+.fm-sumw span { display: inline-block; margin: 2px 4px 2px 0; padding: 1px 8px; border-radius: 999px; background: #f0fdf4; border: 1px solid #bbf7d0; white-space: nowrap; }

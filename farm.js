@@ -123,6 +123,15 @@
       try { if (l.rv && l.a && me && me.rv && me.rv[l.a] > Math.floor(Date.now() / 1000) + skew) m += ' <button type="button" class="fm-rv" data-rv="' + l.a + '">⚔️ 偷回去</button>'; } catch (e) { /* 不显示按钮也不影响 */ }
       return m;
     }
+    // 工单 #330：偷到了什么，写在被偷的那一家旁边。同一种合并成「🎃×3」，最多列 4 种，后面是这一趟得的金币
+    function stolenLabel(j) {
+      if (!j) return "";
+      var c = {}, ks; (j.what || []).forEach(function (ic) { c[ic] = (c[ic] || 0) + 1; });
+      if (j.cut && j.cut.n) c["🌿"] = (c["🌿"] || 0) + j.cut.n;
+      ks = Object.keys(c); if (!ks.length) return "";
+      var g1 = (j.got || 0) + ((j.cut && j.cut.got) || 0);
+      return ks.slice(0, 4).map(function (ic) { return ic + (c[ic] > 1 ? "×" + c[ic] : ""); }).join("") + (ks.length > 4 ? "…" : "") + (g1 ? " +" + A.fmt(g1) : "");
+    }
     function post(a, extra, quiet) { // quiet：一键偷菜时不每家弹一次提示，最后汇总
       var b = { a: a, addr: sig.addr, day: sig.day, sig: sig.sig };
       Object.keys(extra || {}).forEach(function (k) { b[k] = extra[k]; });
@@ -347,13 +356,22 @@
         out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">🌿 <b>别人家熟了的韭菜可以帮忙割</b>：对方拿全额，你另得四成，狗和警察不拦，点「偷」就一起割了。</p><p class="note">🎁 <b>每天第一次偷必得手</b>，对方有狗有警察也拦不住。被人偷了？回农场首页「农场动态」点「⚔️ 偷回去」，那一次同样不会被拦。</p><p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
         var all = out.querySelector("#fm-all");
         if (all) all.onclick = function () {
-          var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled && !b.hasAttribute("data-cop"); }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, cops = 0, i = 0, batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // 这一轮的编号，服务器按它算保底
+          var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled && !b.hasAttribute("data-cop"); }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, cops = 0, i = 0, tally = {}, cutN = 0, cutGot = 0, lostAll = 0, best = null, batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // 这一轮的编号，服务器按它算保底
           if (!bs.length) return toast("现在没有能偷的了", true);
           all.disabled = true;
           (function next() {
             if (i >= bs.length || !A.isCurrent(rid)) return done();
             var b = bs[i++]; b.disabled = true; all.textContent = "🧺 偷菜中… " + i + "/" + bs.length;
-            post("steal", { to: b.getAttribute("data-steal"), batch: batch }, true).then(function (j) { if (j && j.bit) { bad++; if (/警察/.test(j.msg || "")) { cops++; copMark(b.getAttribute("data-steal")); b.setAttribute("data-cop", "1"); b.textContent = "👮 被抓了"; } else b.textContent = "🐕 被咬了"; } else { ok++; b.textContent = "✅ 偷到了"; } next(); },
+            post("steal", { to: b.getAttribute("data-steal"), batch: batch }, true).then(function (j) { if (j && j.bit) { bad++; if (/警察/.test(j.msg || "")) { cops++; copMark(b.getAttribute("data-steal")); b.setAttribute("data-cop", "1"); b.textContent = "👮 被抓了"; } else b.textContent = "🐕 被咬了"; } else { ok++; b.textContent = "✅ " + (stolenLabel(j) || "偷到了"); }
+              // 工单 #330：记下这一家偷到了什么，最后的结果框按品种汇总，并说在谁家偷得最多
+              if (j) {
+                (j.what || []).forEach(function (ic) { tally[ic] = (tally[ic] || 0) + 1; });
+                if (j.cut) { cutN += j.cut.n || 0; cutGot += j.cut.got || 0; }
+                if (j.lost) lostAll += j.lost;
+                var g1 = (j.got || 0) + ((j.cut && j.cut.got) || 0), li = b.closest("li"), who = li && li.querySelector(".fm-who");
+                if (g1 > 0 && (!best || g1 > best.g)) best = { g: g1, who: who ? who.textContent.trim() : "" };
+              }
+              next(); },
               function (e) { no++; b.textContent = "偷不到"; if (/今天已经偷了|签名/.test(e.message)) { toast(e.message, true); return done(); } next(); });
           })();
           function done() {
@@ -366,7 +384,11 @@
               if (!sm || !A.isCurrent(rid)) return toast(line);
               sm.hidden = false;
               sm.innerHTML = '<div class="modal-box fm-sum"><h2>🧺 一键偷菜结果</h2><div class="fm-sumn ' + (d >= 0 ? "up" : "dn") + '"><small>金币</small><b>' + (d >= 0 ? "+" : "") + A.fmt(d) + "</b></div><ul>" +
-                "<li>✅ 偷到 <b>" + ok + "</b> 家</li>" + (bad ? "<li>🐕 被咬 / 👮 被抓 <b>" + bad + "</b> 家</li>" : "") + (no ? "<li>偷不到 <b>" + no + "</b> 家</li>" : "") + (back ? "<li>🛟 保底补回 <b>" + back + "</b> 金币</li>" : "") + (cops ? "<li>👮 记住了 <b>" + cops + "</b> 家有警察，1 天内自动绕开</li>" : "") +
+                "<li>✅ 偷到 <b>" + ok + "</b> 家</li>" +
+                (Object.keys(tally).length ? '<li class="fm-sumw">🧺 偷到的东西：' + Object.keys(tally).sort(function (x, y) { return tally[y] - tally[x]; }).map(function (ic) { return "<span>" + ic + " ×" + tally[ic] + "</span>"; }).join("") + "</li>" : "") +
+                (cutN ? "<li>🌿 割韭菜 <b>" + cutN + "</b> 块，得 <b>" + A.fmt(cutGot) + "</b> 金币</li>" : "") +
+                (best && ok > 1 ? "<li>🏆 最肥的一家：<b>" + esc(best.who) + "</b>，+" + A.fmt(best.g) + " 金币</li>" : "") +
+                (lostAll ? "<li>💸 被咬 / 被抓共赔 <b>" + A.fmt(lostAll) + "</b> 金币</li>" : "") + (bad ? "<li>🐕 被咬 / 👮 被抓 <b>" + bad + "</b> 家</li>" : "") + (no ? "<li>偷不到 <b>" + no + "</b> 家</li>" : "") + (back ? "<li>🛟 保底补回 <b>" + back + "</b> 金币</li>" : "") + (cops ? "<li>👮 记住了 <b>" + cops + "</b> 家有警察，1 天内自动绕开</li>" : "") +
                 '</ul><button type="button" class="fm-sumok" id="fm-sumok">知道了</button></div>';
               document.getElementById("fm-sumok").onclick = function () { sm.hidden = true; sm.innerHTML = ""; };
             };
@@ -374,7 +396,7 @@
           }
         };
         out.querySelectorAll("[data-steal]").forEach(function (b) {
-          b.onclick = function () { b.disabled = true; post("steal", { to: b.getAttribute("data-steal") }).then(function (j) { stat(); if (j && j.bit && /警察/.test(j.msg || "")) { copMark(b.getAttribute("data-steal")); b.setAttribute("data-cop", "1"); b.textContent = "👮 被抓了"; } else b.textContent = j && j.bit ? "🐕 被咬了" : "✅ 偷到了"; }, function (e) { toast(e.message, true); b.textContent = "偷不到"; }); };
+          b.onclick = function () { b.disabled = true; post("steal", { to: b.getAttribute("data-steal") }).then(function (j) { stat(); if (j && j.bit && /警察/.test(j.msg || "")) { copMark(b.getAttribute("data-steal")); b.setAttribute("data-cop", "1"); b.textContent = "👮 被抓了"; } else b.textContent = j && j.bit ? "🐕 被咬了" : "✅ " + (stolenLabel(j) || "偷到了"); }, function (e) { toast(e.message, true); b.textContent = "偷不到"; }); };
         });
         A.fillNames(out);
       }, function () { out.innerHTML = '<section class="card"><p class="muted">读取失败，请稍后再试</p></section>'; });
