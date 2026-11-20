@@ -90,7 +90,7 @@
   }
   function ready(chain) { return Promise.resolve().then(function () { return account ? W.switchTo(W.get(), chain) : connect(chain); }); }
   function say(k, t, bad) { var el = g("u2d-say"); if (el) { el.textContent = t || ""; el.className = "u2d-say" + (bad ? " bad" : t ? " on" : ""); } } // 合成一张卡以后只有一处提示；第一个参数留着是为了少改调用的地方
-  function lock(on) { busy = on; [].forEach.call(document.querySelectorAll("#u2d-go, #u2d-flip, #u2d-max1, .u2d-tb, .u2d-pk button, #u2d-net button"), function (b) { b.disabled = on; }); var a = g("u2d-a1"); if (a) a.readOnly = on; if (!on) paintBtn(); }
+  function lock(on) { busy = on; [].forEach.call(document.querySelectorAll("#u2d-go, #u2d-flip, #u2d-max1, #u2d-std .u2d-tb, #u2d-std .u2d-pk button, #u2d-net button"), function (b) { b.disabled = on; }); var a = g("u2d-a1"); if (a) a.readOnly = on; if (!on) paintBtn(); }
   function wait(chain, hash) {
     var tries = 0;
     return new Promise(function (ok, fail) {
@@ -448,8 +448,8 @@
       go();
     };
     if (g("u2d-flip")) g("u2d-flip").onclick = function () { if (busy) return; var t = from; from = to; to = t; pick = null; way = null; q = null; qSeq++; clearTimeout(qTimer); render(); };
-    [].forEach.call(document.querySelectorAll(".u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var s = b.getAttribute("data-side"); pick = pick === s ? null : s; render(); }; });
-    [].forEach.call(document.querySelectorAll(".u2d-pk button"), function (b) { b.onclick = function () { choose(b.getAttribute("data-side"), b.getAttribute("data-k")); }; });
+    [].forEach.call(document.querySelectorAll("#u2d-std .u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var s = b.getAttribute("data-side"); pick = pick === s ? null : s; render(); }; }); // 只管本站通道这张卡里的按钮：秒到通道那张卡（gale.js）用同一套样式，按钮它自己管
+    [].forEach.call(document.querySelectorAll("#u2d-std .u2d-pk button"), function (b) { b.onclick = function () { choose(b.getAttribute("data-side"), b.getAttribute("data-k")); }; });
     [].forEach.call(document.querySelectorAll("#u2d-net button"), function (bt) { bt.onclick = function () { setNet(bt.getAttribute("data-net")); }; });
     paintAll(); track(); loadHis();
     if (amtStr && has("swap") && !q) onAmt();
