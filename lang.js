@@ -66,6 +66,7 @@
 
   function skip(el) {
     for (var e = el; e && e.nodeType === 1; e = e.parentNode) {
+      if (e.classList && (e.classList.contains("cred") || e.classList.contains("bot-tag"))) return false; // 名字旁边的小徽章（认证商家 / 官方做市机器人…）是本站的字，不是链上的名字：虽然在 .mono 那一行里也要换
       if (SKIP[e.tagName] || e.isContentEditable || (e.classList && e.classList.contains("mono")) || e.hasAttribute("data-nolang")) return true;
     }
     return false;
