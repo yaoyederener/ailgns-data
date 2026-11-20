@@ -970,41 +970,53 @@
       if (/[?&]v=/.test(location.search)) { try { var sp = new URLSearchParams(location.search); sp.delete("v"); var rest = sp.toString(); history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch (x) { /* 忽略 */ } } // 只抹掉 v，别把 chat= / full= 一起抹了
       window.addEventListener("hashchange", route); route();
       setTimeout(prefetchAll, 5000);
-      freshCheck(true);
-      window.addEventListener("hashchange", function () { if (freshLater) { var g = freshLater; freshLater = null; g(); return; } freshCheck(); });
+      freshCheck("open"); freshWatch();
     }
   };
-  // 钱包内置浏览器经常把首页缓存很久，导致脚本还是旧版（新功能看不到、按钮没反应）：
-  // 打开后悄悄拉一次最新首页，脚本版本号和当前不一样就自动刷新一次（每次会话最多一次，免得循环）
-  // 打开网站、切换页面、点开菜单时都查一下有没有新版本（最多 1 分钟查一次）；有就带上随机参数重新打开，绕过钱包浏览器的旧缓存
-  // 同一个新版本只自动刷新一次，避免钱包死活给旧页面时一直刷新
-  var lastFresh = 0, freshLater = null;
-  function freshCheck(now) {
+  // 钱包内置浏览器经常把首页缓存很久，导致脚本还是旧版（新功能看不到、按钮没反应）：发现新版本就带上随机参数重新打开，绕过旧缓存。
+  // 🔄 2026-11-20 站长：底部那条「网站有新版本，点这里更新」去掉，要自动更新、不让客户点。
+  // 但 11-17 工单 #266 的教训不能丢：客户正在用（切页面、开着菜单）时把整页换掉，在钱包浏览器里看起来就是「闪退」。
+  // 所以只在客户「不在操作」的三个时刻悄悄换，其余时候什么都不做、也不提示：
+  //   open 刚打开网站那一下；back 离开网站 5 分钟以上刚回来那一下；idle 页面开着但 5 分钟没碰过。
+  // 而且这些时候也不换：菜单 / 弹窗开着、正停在输入框里、5 分钟内打过字、钱包正在等确认或 5 分钟内刚用过钱包（wallets.js 记在 AIL_WALLET，
+  // 免得客户切去钱包 App 签名、回来页面被刷掉）。10 分钟内最多自动换一次（记在 localStorage，钱包浏览器清掉 sessionStorage 也不会连环刷）；
+  // 同一个新版本每次会话只换一次。切页面、点开菜单不再查新版本（少一次请求，也不会再出小条）
+  var lastFresh = 0, freshLater = null, lastAct = Date.now(), lastType = 0, hidAt = 0, AWAY = 300e3;
+  function freshSafe(mode) {
+    var now = Date.now(), w = window.AIL_WALLET || {}, el = document.activeElement;
+    if (document.documentElement.classList.contains("dw-lock") || document.querySelector(".modal")) return false; // 菜单 / 弹窗开着
+    if (mode === "open") return true;
+    if ((w.n || 0) > 0 || now - (w.t || 0) < AWAY) return false; // 钱包正在等确认 / 刚用过钱包
+    if (now - lastType < AWAY || (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return false; // 刚打过字 / 正停在输入框里
+    if (mode === "idle" && (document.hidden || now - lastAct < AWAY)) return false; // 这会儿又动起来了
+    return true;
+  }
+  function freshWatch() {
+    ["pointerdown", "keydown", "touchstart", "wheel", "scroll"].forEach(function (ev) { window.addEventListener(ev, function () { lastAct = Date.now(); }, { passive: true, capture: true }); });
+    window.addEventListener("input", function () { lastType = lastAct = Date.now(); }, true);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) { hidAt = Date.now(); return; }
+      var away = hidAt ? Date.now() - hidAt : 0; hidAt = 0;
+      if (away >= AWAY) freshCheck("back");
+    });
+    setInterval(function () { if (!document.hidden && Date.now() - lastAct >= AWAY) freshCheck("idle"); }, 60e3);
+  }
+  function freshCheck(mode) {
     try {
-      if (!now && Date.now() - lastFresh < 60e3) return;
+      if (mode === true) mode = "open";
+      if (!mode) return; // 切页面、点开菜单：不查、不换、不提示
+      if (mode !== "open" && Date.now() - lastFresh < (mode === "idle" ? 600e3 : 60e3)) return; // 闲着的页面最多 10 分钟问一次，别白白打服务器
       lastFresh = Date.now();
       var mine = Array.prototype.map.call(document.querySelectorAll("script[src]:not([data-lazy])"), function (s) { return (s.getAttribute("src") || "").match(/[a-z]+\.js\?v=[a-z0-9]+/); }).filter(Boolean).map(String).sort().join(",");
       if (!mine) return;
       fetch("/?fresh=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : ""; }).then(function (html) {
         var latest = (html.match(/[a-z]+\.js\?v=[a-z0-9]+/g) || []).sort().join(",");
         if (!latest || latest === mine || sessionStorage.getItem("fresh:to") === latest) return;
-        var go = function () {
-          sessionStorage.setItem("fresh:to", latest);
-          var sp2 = new URLSearchParams(location.search); sp2.set("v", String(Date.now())); location.replace(location.pathname + "?" + sp2.toString() + location.hash);
-        };
-        /* 2026-11-17 工单 #266（Bitget 钱包 · 荣耀手机）：「第一次点菜单没事，再点就闪退，不能来回切换」，连续 3 天。
-           这几天一天发版十几次：客户每隔一分钟切一次页面，这里就发现一次新版本，把整页换掉重开——在钱包内置浏览器里看起来就是「闪退」。
-           11-11 已经出过一次同样的事（菜单开着时被换掉）。所以改成：只有「刚打开网站」那一次才自动换新版，而且 10 分钟内最多换一次（记在 localStorage，
-           钱包浏览器把 sessionStorage 清掉也不会连环刷新）；客户已经在用、正在切页面的时候绝不自动刷新，只在底部出一条小提示，点了才更新 */
         var lastAt = 0; try { lastAt = Number(localStorage.getItem("fresh:at")) || 0; } catch (e2) {}
-        if (now && Date.now() - lastAt > 600e3 && !document.documentElement.classList.contains("dw-lock")) { try { localStorage.setItem("fresh:at", String(Date.now())); } catch (e3) {} go(); return; }
-        freshLater = null;
-        if (document.getElementById("fresh-tip")) return;
-        var tip = document.createElement("button");
-        tip.id = "fresh-tip"; tip.type = "button"; tip.textContent = "🔄 网站有新版本，点这里更新";
-        tip.style.cssText = "position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:9999;padding:9px 16px;border-radius:999px;border:1px solid #c4b5fd;background:#fff;color:#5b21b6;font-size:13.5px;font-weight:700;box-shadow:0 6px 20px rgba(91,33,182,.22);white-space:nowrap";
-        tip.onclick = function () { try { localStorage.setItem("fresh:at", String(Date.now())); } catch (e4) {} go(); };
-        document.body.appendChild(tip);
+        if (Date.now() - lastAt <= 600e3 || !freshSafe(mode)) return; // 不是安全的时刻：这次不换，等下一个安全时刻
+        try { localStorage.setItem("fresh:at", String(Date.now())); } catch (e3) {}
+        sessionStorage.setItem("fresh:to", latest);
+        var sp2 = new URLSearchParams(location.search); sp2.set("v", String(Date.now())); location.replace(location.pathname + "?" + sp2.toString() + location.hash);
       }).catch(function () {});
     } catch (e) { /* 忽略 */ }
   }

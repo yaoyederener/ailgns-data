@@ -66,7 +66,18 @@
   // 弹钱包时顺便显示说明。不改钱包对象本身（OKX 钱包内部会回调自己的 request，改了会无限循环）
   /* 钱包锁着或没选账户时会回一个空名单，以前被当成地址「undefined」拿去读链直接报错（2026-11-13 错误日志）：不是正常地址就当没连上 */
   var ADDR_OK = /^0x[0-9a-f]{40}$/i;
+  // 钱包正在弹窗 / 刚用过钱包：记在 window.AIL_WALLET（n = 还没回话的请求数，t = 最近一次的时间）。
+  // app.js 的自动换新版靠它判断「客户是不是正在钱包里确认」——这种时候绝不能刷新页面。只记要客户动手的请求，查账户 / 查链号这种不记
+  var WS = window.AIL_WALLET = window.AIL_WALLET || { n: 0, t: 0 };
+  var WS_SKIP = /^(eth_accounts|eth_chainId|net_version|wallet_getCapabilities|wallet_getCallsStatus)$/;
   function ask(eth, a) {
+    if (a && WS_SKIP.test(a.method || "")) return ask0(eth, a);
+    WS.n++; WS.t = Date.now();
+    var fin = function () { WS.n = Math.max(0, WS.n - 1); WS.t = Date.now(); }, p;
+    try { p = ask0(eth, a); } catch (e) { fin(); throw e; }
+    return p.then(function (v) { fin(); return v; }, function (e) { fin(); throw e; });
+  }
+  function ask0(eth, a) {
     var t = safeText(a);
     if (t) safeShow(t);
     // 个别安卓钱包发交易时不自己估 Gas，直接回「"gas" is missing」（2026-11-15 错误日志，预言家上链预测）：
