@@ -16,6 +16,8 @@
   var DGALE = { "137": ["0xc615f91a31791f1bf4ac7f7fdc60525bf1804186", "0xa2c1ec79872d2c961cbd33ef750659e3b2439647"], "56": ["0xc615f91a31791f1bf4ac7f7fdc60525bf1804186", "0xa2c1ec79872d2c961cbd33ef750659e3b2439647"] }; // 它在目标链上付款的合约（新版、旧版）
   var SEL = { deposit: "0x5f377433", approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231", transfer: "0xa9059cbb" };
   var PAY = "0xae33cb06d7303f889d953bb09540983050163c1c4c98b330db432a911cfb63fd"; // 它付款时的事件（付款方, 币, 收款人；数量）
+  var DEP = "0x1cbdf89ba7d7cd8303790e1d0c0dcbc95b421c3d27f4958e058ec003073df946"; // 存入时的事件（客户, 币；数量, "目标链,收款人,目标币"）
+  var FALLBACK = { "DAI>DAI": 0.0041, "DAI>USDT": 0.0032, "USDT>USDT": 0.003, "USDT>DAI": 0.0034 }; // 2026-11-20 链上量的比例费（不含每笔固定的 0.1）；读不到最近成交时用它
   var SRC = { // 能付出的币（都在 Anubis 上）
     DAI: { k: "DAI", sym: "DAI", addr: "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", d: 18, native: true },
     USDT: { k: "USDT", sym: "USDT", addr: "0xdfb6a28bc6dc51fed17c27c880f2c66cdd040a3e", d: 6 }
@@ -27,7 +29,7 @@
     BD: { k: "BD", c: "56", key: "bsc", chain: "BSC", sym: "DAI", addr: "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3", d: 18, scan: "https://bscscan.com/tx/" }
   };
   var GAS_KEEP = 50000000000000000n; // 付出 DAI 时在 Anubis 上留 0.05 DAI 当 Gas
-  var src = "DAI", dst = "PD", amtStr = "", account = null, bal = {}, info = null, infoAt = 0, busy = false, pick = null, host = null, rid = 0, hooked = false, pend = null, timer = null;
+  var src = "DAI", dst = "PD", amtStr = "", account = null, bal = {}, info = null, infoAt = 0, live = {}, busy = false, pick = null, host = null, rid = 0, hooked = false, pend = null, timer = null;
 
   function g(id) { return document.getElementById(id); }
   function low(s) { return String(s || "").toLowerCase(); }
@@ -45,12 +47,70 @@
   function num2(x) { return (Math.floor(x * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function nice(e) { var m = (A.otcKit && A.otcKit.niceError) ? A.otcKit.niceError(e) : String((e && e.message) || e || ""); return /reject|denied|取消|拒绝|cancel/i.test(m) ? "你在钱包里取消了，这一步没有发出去。" : (m || "钱包没有响应，刷新后再试"); }
   function say(t, bad) { var el = g("gbx-say"); if (el) { el.textContent = t || ""; el.className = "u2d-say" + (bad ? " bad" : t ? " on" : ""); } }
-  function pair() { return info && info.ok && info.pairs ? info.pairs[src + ">" + dst] : null; }
+  // 这一对币现在的数：限额和每笔固定费来自 GaleBridge 公开的清单（/api/gale），对面的钱、比例费、有没有晚付的单来自链上（loadLive）
+  function pair() {
+    var d = DST[dst], lv = live[d.c];
+    if (!info || !info.ok || !info.lim || !info.lim[src] || !lv || !lv.ok) return null;
+    return { pct: lv.pct[src + ">" + dst], fix: info.fix[dst], min: info.lim[src][0], max: info.lim[src][1], liq: lv.liq[dst], late: lv.late[dst] || 0 };
+  }
 
   // ---------- 体检和费率 ----------
   function loadInfo(force) {
     if (!force && info && Date.now() - infoAt < 120000) return Promise.resolve(info);
     return fetch("/api/gale").then(function (r) { return r.json(); }).then(function (j) { info = j && typeof j === "object" ? j : { ok: false }; infoAt = Date.now(); return info; }, function () { info = { ok: false, why: "net" }; infoAt = Date.now(); return info; });
+  }
+  // 把 Anubis 上的存入和目标链上的付款配对：算每个「付出币 > 到账币」的比例费中位数，和「存了 3～25 分钟还没付」的单数（纯计算，方便单独测）
+  function analyse(deps, pays, fix, nowBlock, ks) {
+    var used = {}, samples = {}, late = {}, pct = {};
+    ks.forEach(function (k) { samples[k] = { DAI: [], USDT: [] }; late[k] = 0; });
+    pays.forEach(function (p) {
+      var best = -1, gap = 1;
+      deps.forEach(function (d, i) {
+        if (used[i] || d.k !== p.k || d.recv !== p.to || !(d.amt >= p.amt)) return;
+        var x = (d.amt - p.amt) / d.amt; if (x < 0.03 && x < gap) { gap = x; best = i; }
+      });
+      if (best < 0) return;
+      used[best] = 1;
+      var d = deps[best], r = (d.amt - p.amt - (fix[p.k] || 0)) / d.amt;
+      if (r > 0 && r < 0.02) samples[p.k][d.sym].push(r);
+    });
+    deps.forEach(function (d, i) { var age = nowBlock - d.b; if (!used[i] && age > 180 && age < 1500) late[d.k]++; }); // Anubis 约 1 秒一个块
+    ks.forEach(function (k) { ["DAI", "USDT"].forEach(function (sy) {
+      var a = samples[k][sy].sort(function (x, y) { return x - y; });
+      pct[sy + ">" + k] = a.length >= 3 ? a[Math.floor(a.length / 2)] : FALLBACK[sy + ">" + DST[k].sym];
+    }); });
+    return { pct: pct, late: late };
+  }
+  // 读链上的实时情况（只读这一条目标链）：它合约里的钱 + 最近约 1～2 小时的存入和付款。3 分钟内不重复读
+  function loadLive(c, force) {
+    var old = live[c]; if (!force && old && Date.now() - old.at < 180000) return Promise.resolve(old);
+    var key = c === "137" ? "polygon" : "bsc", ks = Object.keys(DST).filter(function (k) { return DST[k].c === c; });
+    var hx = function (n) { return "0x" + n.toString(16); };
+    var liqP = Promise.all(ks.map(function (k) { return rd(key, DST[k].addr, SEL.balanceOf + word(DGALE[c][0])); }));
+    var logP = Promise.all([
+      W.rpcOn("anubis", "eth_blockNumber", []).then(function (t) { var top = parseInt(t, 16); return Promise.all([[top - 9999, top - 5000], [top - 4999, top]].map(function (r) { return W.rpcOn("anubis", "eth_getLogs", [{ address: GALE, topics: [DEP], fromBlock: hx(r[0]), toBlock: hx(r[1]) }]); })).then(function (a) { return { top: top, logs: a[0].concat(a[1]) }; }); }),
+      W.rpcOn(key, "eth_blockNumber", []).then(function (t) { var top = parseInt(t, 16); return W.rpcOn(key, "eth_getLogs", [{ address: DGALE[c][0], topics: [PAY], fromBlock: hx(top - 5000), toBlock: hx(top) }]); })
+    ]).then(function (res) {
+      var deps = [], pays = [];
+      res[0].logs.forEach(function (l) {
+        var t = "0x" + l.topics[2].slice(26), sy = Object.keys(SRC).filter(function (x) { return SRC[x].addr === t; })[0]; if (!sy) return;
+        var d = l.data.slice(2), n = parseInt(d.slice(128, 192), 16), memo = "";
+        for (var i = 0; i < n && i < 200; i++) memo += String.fromCharCode(parseInt(d.slice(192 + i * 2, 194 + i * 2), 16));
+        var m = memo.split(","); if (m.length !== 3 || m[0] !== c) return;
+        var k = ks.filter(function (x) { return DST[x].addr === low(m[2]); })[0]; if (!k) return;
+        deps.push({ b: parseInt(l.blockNumber, 16), sym: sy, amt: Number(BigInt("0x" + d.slice(0, 64))) / Math.pow(10, SRC[sy].d), k: k, recv: low(m[1]) });
+      });
+      res[1].forEach(function (l) {
+        var t = "0x" + l.topics[2].slice(26), k = ks.filter(function (x) { return DST[x].addr === t; })[0]; if (!k) return;
+        pays.push({ k: k, to: "0x" + l.topics[3].slice(26), amt: Number(BigInt(l.data)) / Math.pow(10, DST[k].d) });
+      });
+      return analyse(deps, pays, (info && info.fix) || {}, res[0].top, ks);
+    }).catch(function () { return analyse([], [], {}, 0, ks); }); // 读不到最近成交：比例费用 2026-11-20 量的数，照样可以跨（对面的钱和模拟还会再查）
+    return Promise.all([liqP, logP]).then(function (r) {
+      var liq = {}; ks.forEach(function (k, i) { liq[k] = Number(r[0][i]) / Math.pow(10, DST[k].d); });
+      live[c] = { ok: true, at: Date.now(), liq: liq, pct: r[1].pct, late: r[1].late };
+      return live[c];
+    }, function () { live[c] = { ok: false, at: Date.now() - 150000 }; return live[c]; }); // 连它合约里有多少钱都读不到：先不让跨，30 秒后可以再读
   }
   // 这一笔的数：付出多少、两边各收多少、预计到手多少
   function calc() {
@@ -64,6 +124,9 @@
   function check(c) {
     if (!info) return { wait: true, short: "正在检查秒到通道…" };
     if (!info.ok) return { short: "秒到通道暂时用不了", long: "现在没法确认 GaleBridge 的状态，为了你的币安全，先不让发交易。请走「本站通道」，或者过几分钟再来。" };
+    var lv = live[DST[dst].c];
+    if (!lv) return { wait: true, short: "正在读 " + DST[dst].chain + " 链上的情况…" };
+    if (!lv.ok) return { short: "读不到 " + DST[dst].chain + " 链", long: "现在读不到 " + DST[dst].chain + " 链上 GaleBridge 的情况，没法确认它付不付得出，先不让发交易。过一会儿再点一次，或者换一个到账的币。", retry: true };
     if (!c) return { idle: true };
     var p = c.p; if (!p) return { short: "秒到通道暂时用不了", long: "这一对币现在查不到，换一个到账的币试试。" };
     if (c.a < p.min) return { short: "最少 " + p.min + " " + c.s.sym, long: "GaleBridge 一笔最少 " + p.min + " " + c.s.sym + "。" };
@@ -109,6 +172,7 @@
     [].forEach.call(host.querySelectorAll(".u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var sd = b.getAttribute("data-side"); pick = pick === sd ? null : sd; draw(); }; });
     [].forEach.call(host.querySelectorAll(".u2d-pk button"), function (b) { b.onclick = function () { if (busy) return; var k = b.getAttribute("data-k"); if (b.getAttribute("data-side") === "src") src = k; else dst = k; pick = null; draw(); }; });
     paint(); paintProg();
+    loadLive(DST[dst].c).then(paint);
   }
   function paint() {
     var c = calc(), st = check(c), out = g("gbx-out"), q = g("gbx-q"), go = g("gbx-go"), b1 = g("gbx-b1");
@@ -126,7 +190,7 @@
         "</dl>";
     }
     q.innerHTML = html; q.hidden = !html;
-    go.textContent = busy ? "处理中…" : st.wait ? st.short : !info.ok ? st.short : !account ? "连接钱包" : (!c ? "输入数量" : st.ok ? "开始秒到跨链" : st.short);
+    go.textContent = busy ? "处理中…" : st.wait || st.retry || !info.ok ? st.short : !account ? "连接钱包" : (!c ? "输入数量" : st.ok ? "开始秒到跨链" : st.short);
     go.className = "u2d-go" + (!busy && account && (!c || !st.ok) ? " off" : "");
   }
   function lock(on) { busy = on; if (host) [].forEach.call(host.querySelectorAll("#gbx-go, #gbx-max, .u2d-tb, .u2d-pk button"), function (b) { b.disabled = on; }); var a = g("gbx-a"); if (a) a.readOnly = on; paint(); }
@@ -173,12 +237,13 @@
   function onGo() {
     if (busy) return;
     if (!info || !info.ok) return void loadInfo(true).then(paint);
+    if (!live[DST[dst].c] || !live[DST[dst].c].ok) return void loadLive(DST[dst].c, true).then(paint);
     if (!account) return void connect().then(function () { return loadBal(); }).then(paint, function (e) { say(nice(e), true); });
     var c0 = calc(); if (!c0) { say(""); var a = g("gbx-a"); if (a) a.focus(); return; }
     if (!check(c0).ok) return;
     lock(true); say("正在检查秒到通道…");
     var c, data, startBlock = 0, hash = "";
-    ready().then(function () { return Promise.all([loadInfo(true), loadBal()]); }).then(function () {
+    ready().then(function () { return Promise.all([loadInfo(true), loadLive(DST[dst].c, true), loadBal()]); }).then(function () {
       c = calc(); var st = check(c);
       if (!c || !st.ok) throw new Error(st.long || st.short || "现在不能跨，请稍后再试。");
       data = depositData(c);
