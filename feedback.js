@@ -282,10 +282,28 @@
   var NAG = { 0: 60e3, 1: 300e3, 2: 1800e3, 3: 6 * 3600e3 };
   function bellEl() {
     var b = document.getElementById("fb-bell");
-    if (!b) { b = document.createElement("a"); b.id = "fb-bell"; b.className = "fb-bell"; b.href = "#/feedback/admin"; b.innerHTML = '<span class="fb-bi">🔔</span><i class="fb-bn" hidden></i>'; document.body.appendChild(b); }
+    if (!b) { b = document.createElement("a"); b.id = "fb-bell"; b.className = "fb-bell"; b.href = "#/feedback/admin"; b.innerHTML = '<span class="fb-bi">🔔</span><i class="fb-bn" hidden></i>'; document.body.appendChild(b); b.onclick = bellGo; }
     return b;
   }
+  // 工单 #324（2026-11-19）：「点了没反应这个铃铛」。铃铛原来只是一个指向 #/feedback/admin 的链接，人已经在后台这一页，点了网址不变，所以什么都不发生。
+  // 现在：在后台点铃铛 = 切到「待处理」→ 滚到最紧急的那一张并闪一下；一张待处理都没有就说一声
+  var lastP = null;
+  function bellGo(e) {
+    if (!/feedback\/admin/.test(location.hash)) return; // 不在后台：照常跳过去
+    e.preventDefault();
+    var find = function (tries) {
+      var id = lastP && lastP.top && lastP.top.id, el = (id && document.querySelector('.fb-tk[data-id="' + id + '"]')) || document.querySelector(".fb-tk[data-id]");
+      if (!el && tries > 0) return setTimeout(function () { find(tries - 1); }, 400);
+      if (!el) { el = document.getElementById("fb-seg"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("fb-flash"); setTimeout(function () { el.classList.remove("fb-flash"); }, 1800);
+    };
+    if (lastP && !lastP.n) { var b = document.getElementById("fb-bell"); if (b && A.errTip) A.errTip("现在没有待处理的工单", b); }
+    var seg = document.querySelector('#fb-seg button[data-s="new"]');
+    if (seg && seg.className.indexOf("on") < 0) { seg.click(); setTimeout(function () { find(8); }, 500); } else find(8);
+  }
   function bellPaint(p) {
+    lastP = p || null;
     var b = bellEl(), n = (p && p.n) || 0, lv = p && p.top ? p.top.lv : 3;
     b.querySelector(".fb-bn").hidden = !n; b.querySelector(".fb-bn").textContent = n; b.className = "fb-bell" + (n ? " has lv" + lv : "");
     b.title = n ? "待处理 " + n + " 张，最紧急：" + (p.top.topic || "") : "没有待处理工单";

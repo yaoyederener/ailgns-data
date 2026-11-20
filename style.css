@@ -4831,3 +4831,7 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 .u2d-hm summary { font-size: 13px; font-weight: 700; color: #6d5bb5; cursor: pointer; }
 .u2d-hm[open] summary { margin-bottom: 2px; }
 .u2d-hm .u2d-ho:first-of-type { border-top: 0; }
+
+/* 工单后台：点铃铛后，最紧急的那张工单闪一下（工单 #324） */
+.fb-tk.fb-flash { animation: fb-flash 1.8s ease; }
+@keyframes fb-flash { 0%, 60% { box-shadow: 0 0 0 4px rgba(124, 58, 237, .45); } 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); } }
