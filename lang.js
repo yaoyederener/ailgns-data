@@ -110,7 +110,16 @@
     // 韩文另有一条：数字后面紧跟量词（5 + 건 / 3 + 분）不空格，写成「5건」「3분」才像韩文
     var A_END = KO ? /[A-Za-z0-9%”)\uac00-\ud7a3]$/ : /[A-Za-z0-9%”)]$/, A_START = KO ? /^[A-Za-z0-9“($\uac00-\ud7a3]/ : /^[A-Za-z0-9“($]/;
     var KO_CNT = /^(?:개월|시간|단계|라운드|블록|회차|레벨|번째|퍼센트|개|장|건|명|번|회|분|초|일|주|년|배|위|층|칸|점|판|매|줄|원|차|호)(?![\uac00-\ud7a3])/;
-    function gap(out, p) { if (!A_END.test(out) || !A_START.test(p)) return ""; if (KO && /[0-9]$/.test(out) && KO_CNT.test(p)) return ""; return " "; }
+    function gap(out, p) {
+      if (!A_END.test(out) || !A_START.test(p)) return "";
+      if (/[0-9]$/.test(out) && /^[0-9]/.test(p)) return ""; /* 原文里数字紧挨着数字（「30」被切成 3 和「0 秒」）：不能补空格拆开 */
+      if (KO && /[0-9]$/.test(out) && KO_CNT.test(p)) return "";
+      return " ";
+    }
+    // 韩文收尾：① 原文「5 张」数字和量词之间有空格，韩文要连写「5장」；② 「第 3 名」→「3위」，「第 2 步」→「2단계」
+    var KO_C = "개월|시간|단계|라운드|블록|회차|레벨|번째|개|장|건|명|번|회|분|초|일|주|년|배|위|층|칸|점|판|매|줄|원|차|호", KO_P = "(?:의|씩|당|마다|까지|부터|이상|이하|미만|째)?(?![\\uac00-\\ud7a3])";
+    var KO_R1 = new RegExp("제 ?(\\d[\\d,]*) ?명(?![\\uac00-\\ud7a3])", "g"), KO_R2 = new RegExp("제 ?(\\d[\\d,]*) ?(단계|회차|라운드|위|회|번|판|층|주|일)(?![\\uac00-\\ud7a3])", "g"), KO_R3 = new RegExp("(\\d) (?=(?:" + KO_C + ")" + KO_P + ")", "g");
+    function koFix(x) { return x.replace(KO_R1, "$1위").replace(KO_R2, "$1$2").replace(KO_R3, "$1"); }
     function cjk(c) { return c >= "一" && c <= "鿿"; }
     function longAt(t, pos) { /* 这个位置是不是紧跟着一段认识的、三个字以上的原文 */
       var l = idx[t.charAt(pos)], y;
@@ -144,7 +153,7 @@
       if (left >= 8 && left * 10 > (t.match(/[\u4e00-\u9fff]/g) || []).length * 3) return t;
       return out.replace(/[  ]{2,}/g, " ").replace(/ +([,.;:!?)”])/g, "$1").replace(/([(“]) +/g, "$1");
     }
-    return function (t, exactOnly) {
+    var look = function (t, exactOnly) {
       if (!NEED.test(t)) return t;
       var m = /^(\s*)([\s\S]*?)(\s*)$/.exec(t), core = m[2], vars = [];
       var key = core.replace(VAR, function (v) { vars.push(v); return "{" + (vars.length - 1) + "}"; });
@@ -156,6 +165,7 @@
       if (miss && key.length < 600 && CJK.test(r)) miss[key] = 1;
       return r === core ? t : m[1] + r.replace(/^ +| +$/g, "") + m[3];
     };
+    return KO ? function (t, exactOnly) { var r = look(t, exactOnly); return r === t ? r : koFix(r); } : look;
   }
   // 英文：一句话被 <b> 之类的小标签、或「AiLGNS」的美化（brand.js）切成几段时，按整句查词典（查到才整句换；里面有带 id / 事件的东西就不碰）
   var INLINE = { B: 1, I: 1, EM: 1, STRONG: 1, SMALL: 1, U: 1, BR: 1, SPAN: 1 };
