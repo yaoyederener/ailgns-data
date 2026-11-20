@@ -55,6 +55,35 @@
   /* 多选数字（站长 2026-11-14）：选了 k 个数字，每个数字压一样多，所以每个数字最多 = 这一期还能押的 ÷ k */
   function maxPer() { return Math.floor(maxQ() / Math.max(1, picks.length)); }
   function dsText() { return picks.slice().sort().join("、"); }
+  // 走势图。数据没变就不重画（页面每几秒刷新一次，重画会把客户滚到一半的位置弄丢）
+  var trendSig = "";
+  function paintTrend() {
+    var sec = el("fx-trend"), box = el("fxt"); if (!sec || !box) return;
+    var L = (data && data.trend) || [];
+    if (L.length < 2) { sec.hidden = true; return; }
+    sec.hidden = false;
+    var sig = L.length + ":" + L[L.length - 1][0] + ":" + L[0][0];
+    if (sig === trendSig && box.firstChild) return;
+    var old = box.querySelector(".fxt-sc"), stay = old && old.scrollHeight - old.scrollTop - old.clientHeight > 40 ? old.scrollTop : -1; // 客户往上翻着看：位置不动；本来就在最下面：继续跟着最新的
+    trendSig = sig;
+    var miss = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], cnt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], maxm = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], pts = [], rows = "", c;
+    L.forEach(function (x, i) {
+      var d = Number(x[1]), cells = "";
+      for (c = 0; c < 10; c++) {
+        if (c === d) { miss[c] = 0; cnt[c]++; cells += '<span class="hit"><b>' + d + "</b></span>"; }
+        else { miss[c]++; if (miss[c] > maxm[c]) maxm[c] = miss[c]; cells += "<span>" + miss[c] + "</span>"; }
+      }
+      pts.push((d + 0.5) + "," + (i + 0.5));
+      rows += '<div class="fxt-r' + ((i + 1) % 5 === 0 ? " g5" : "") + '"><i>' + at(x[0]) + "</i>" + cells + "</div>";
+    });
+    var head = '<div class="fxt-r fxt-h"><i>开奖</i>' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return "<span>" + n + "</span>"; }).join("") + "</div>";
+    var foot = function (name, arr) { return '<div class="fxt-r fxt-f"><i>' + name + "</i>" + arr.map(function (n) { return "<span>" + n + "</span>"; }).join("") + "</div>"; };
+    box.innerHTML = '<div class="fxt-sc">' + head + '<div class="fxt-b">' + rows +
+      '<svg class="fxt-ln" viewBox="0 0 10 ' + L.length + '" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + pts.join(" ") + '"/></svg></div>' +
+      '<div class="fxt-ft">' + foot("出现次数", cnt) + foot("当前遗漏", miss) + foot("最大遗漏", maxm) + "</div></div>" +
+      '<p class="fxt-n">共 ' + L.length + " 期（" + at(L[0][0]) + " – " + at(L[L.length - 1][0]) + "）· 可以上下滑动</p>";
+    var sc = box.querySelector(".fxt-sc"); if (sc) sc.scrollTop = stay >= 0 ? stay : sc.scrollHeight;
+  }
   function paint() {
     var box = el("fx-main"); if (!box || !data) return;
     if (!data.open) { box.innerHTML = '<p class="fx-closed">⏳ 还没开放。开放时会在这里直接能玩，不用做任何准备。</p>'; ["fx-draws", "fx-mine", "fx-done"].forEach(function (i) { if (el(i)) el(i).hidden = true; }); return; }
@@ -94,6 +123,7 @@
         : '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');
     say(stT, stBad); betLabel(); clock();
     // 最近开奖
+    paintTrend();
     var dr = el("fx-draws");
     if (dr) { dr.hidden = false; dr.querySelector(".fx-balls").innerHTML = data.draws.map(function (x) {
       /* 站长 2026-11-17：显示开奖区块哈希换算成数字的末 6 位，最后一位（开奖数字）高亮；点格子去链上浏览器看那个区块。接口没给尾数的老记录照旧只显示数字 */
@@ -201,6 +231,8 @@
     A.app.innerHTML = '<div id="fx-wrap">' +
       '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>去猜价格 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
       '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">紫色大字是开奖数字：它是开奖区块的哈希换算成数字后的<b>最后一位</b>，前面灰色的是它前面 5 位。区块哈希谁也没法提前知道。下面是开奖时间，点格子可以到链上浏览器核对那个区块。</p></section>' +
+      // 📈 走势图（站长 2026-11-20：照彩票走势图的样子做）：一期一行、0–9 十列，开出来的数字是一个球，球和球连线；别的格子写「遗漏」= 这个数字已经连续几期没开
+      '<section class="card fx" id="fx-trend" hidden><h2>走势图</h2><div id="fxt"></div><p class="note">一行是一期，从上到下越来越新，最下面是刚开的。球是那一期开出的数字；格子里的小数字是「遗漏」：这个数字已经连续几期没开了。</p><p class="note">每一期的数字都来自区块哈希，期和期之间没有任何关系。走势图只是把开过的数字排出来，<b>不能用来预测下一期</b>。</p></section>' +
       '<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>' +
       '<section class="card fx" id="fx-rules">' + rulesH(false) + "</section>" +
