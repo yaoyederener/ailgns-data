@@ -310,7 +310,7 @@
   // ---------- 我的跨链记录（站长 2026-11-20：自己跨了一笔，页面上找不到记录，问「钱到哪了、什么时候到」）----------
   // 直接读官方桥上这个钱包的订单（/api/u2d?orders=），不靠浏览器里存的那一条：换手机、换浏览器、在官方桥页面跨的，都查得到。
   // 上面那条进度条（u2d-prog）是刚跨完这一笔的即时反馈，还管「到了以后接着换成 USDT」；这里是完整的记录
-  var his = null, hisAt = 0, hisFor = "", hisBusy = false, hisTimer = null;
+  var his = null, hisAt = 0, hisFor = "", hisBusy = false, hisTimer = null, hisOpen = false, HSHOW = 3;
   var HEXP = { out: 130 * 60, polygon: 120, bsc: 120 }, HNAME = { anubis: "Anubis", polygon: "Polygon", bsc: "BSC" }; // 官方桥大概多久到（秒）：从 Anubis 出去约 2 小时 10 分钟；进 Anubis 一两分钟
   function hm(ts) { var d = new Date(ts * 1000), p2 = function (x) { return (x < 10 ? "0" : "") + x; }; return (new Date().toDateString() === d.toDateString() ? "" : (d.getMonth() + 1) + "-" + d.getDate() + " ") + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
   function paintHis(msg) {
@@ -321,7 +321,7 @@
     if (msg) body = '<p class="u2d-warn">' + esc(msg) + "</p>";
     else if (!L) body = '<p class="muted">正在查…</p>';
     else if (!L.length) body = '<p class="muted">这个钱包最近没有跨链记录。</p>';
-    else body = L.map(function (o) {
+    else body = L.map(function (o, i) {
       var now = Date.now() / 1000, exp = o.from === "anubis" ? HEXP.out : (HEXP[o.from] || 120), done = o.st === "completed" || o.recvTs > 0, bad = !done && !!(o.fail || /fail|refund|cancel/i.test(o.st));
       var el2 = Math.max(0, now - o.sendTs), late = !done && !bad && el2 > exp * 1.3 + 300, pct = done ? 100 : Math.max(4, Math.min(96, el2 / exp * 100));
       var amt = o.amt ? f(n(BigInt(o.amt), o.dec)) + " " + esc(o.sym) : (esc(o.sym) || "跨链");
@@ -329,10 +329,13 @@
         : bad ? "⚠️ 官方桥显示这笔没成功" + (o.fail ? "：" + esc(o.fail) : "") + "。请到官方桥 app.anubisbridge.com 的 History 里看，或者提工单给我们"
         : late ? "⏳ 已经过了" + dur(el2) + "，比平时（" + dur(exp) + "）慢。币不会丢，官方桥还在处理"
         : "⏳ 正在跨 · 预计 " + hm(o.sendTs + exp) + " 到（还要" + dur(exp - el2) + "）";
-      return '<div class="u2d-ho' + (done ? " done" : bad ? " bad" : "") + '"><div class="u2d-ht"><b>' + amt + "</b><span>" + (HNAME[o.from] || "其它链") + " → " + (HNAME[o.to] || "其它链") + " · " + hm(o.sendTs) + ' 发出</span></div><p>' + t + "</p>" + (done || bad ? "" : '<div class="u2d-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>') + "</div>";
-    }).join("");
+      return { old: i >= HSHOW && (done || bad), h: '<div class="u2d-ho' + (done ? " done" : bad ? " bad" : "") + '"><div class="u2d-ht"><b>' + amt + "</b><span>" + (HNAME[o.from] || "其它链") + " → " + (HNAME[o.to] || "其它链") + " · " + hm(o.sendTs) + ' 发出</span></div><p>' + t + "</p>" + (done || bad ? "" : '<div class="u2d-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>') + "</div>" };
+    });
+    // 站长 2026-11-20：只显示前几笔，多的折叠。前 3 笔 + 所有还没到的直接显示；更早的收进「更早的 N 笔」，点开才看（点开后刷新也保持开着）
+    if (L && L.length && !msg) { var olds = body.filter(function (r) { return r.old; }); body = body.filter(function (r) { return !r.old; }).map(function (r) { return r.h; }).join("") + (olds.length ? '<details class="u2d-hm" id="u2d-hm"' + (hisOpen ? " open" : "") + "><summary>更早的 " + olds.length + " 笔</summary>" + olds.map(function (r) { return r.h; }).join("") + "</details>" : ""); }
     el.innerHTML = head + body;
     var b = g("u2d-hr"); if (b) b.onclick = function () { loadHis(true); };
+    var hmEl = g("u2d-hm"); if (hmEl) hmEl.ontoggle = function () { hisOpen = hmEl.open; };
   }
   function loadHis(force) {
     clearTimeout(hisTimer);

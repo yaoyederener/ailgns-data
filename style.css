@@ -4825,3 +4825,9 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 .u2d-ho p { margin: 4px 0 0; font-size: 13px; line-height: 1.55; color: #4b4470; }
 .u2d-ho.done p { color: #15803d; } .u2d-ho.bad p { color: #b42318; }
 .u2d-ho .u2d-bar { height: 8px; margin: 8px 0 0; }
+
+/* 跨链记录：更早的折叠起来 */
+.u2d-hm { border-top: 1px solid #f0ebfc; padding-top: 10px; }
+.u2d-hm summary { font-size: 13px; font-weight: 700; color: #6d5bb5; cursor: pointer; }
+.u2d-hm[open] summary { margin-bottom: 2px; }
+.u2d-hm .u2d-ho:first-of-type { border-top: 0; }
