@@ -91,7 +91,7 @@ async function compute() {
       }
       ks.forEach((k, i) => { liq[k] = Math.floor(Number(BigInt(res[1 + i])) / Math.pow(10, DST[k][2])); });
     }
-  } catch (e) { out.why = "chain"; return out; }
+  } catch (e) { out.why = "chain"; out.err = String((e && e.message) || e).slice(0, 160); return out; }
   const a = analyse(deps, pays, fix, nowBlock);
   for (const s of Object.keys(SRC)) for (const k of Object.keys(DST)) {
     const p = a.pct[s + ">" + k];
