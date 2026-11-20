@@ -4776,3 +4776,6 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 .u2d-net button { margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid #ddd5f3; background: #fff; box-shadow: none; color: #5b5385; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .u2d-net button.on { background: #5b21b6; border-color: #5b21b6; color: #fff; }
 .u2d-net button:disabled { opacity: .5; }
+
+/* 跨链桥：只能单向的链，箭头旁边一句「往外提请选 Polygon」 */
+.u2d-one { position: absolute; left: calc(50% + 26px); top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 11px; line-height: 1; padding: 5px 8px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px #ece6fb; color: #6b5a8e; }
