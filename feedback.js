@@ -448,6 +448,7 @@
           return '<div class="fb-say-r"><span><b>' + esc(x.name) + "</b> · " + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + " · <b>" + Number(x.amt).toLocaleString("en-US") + " DAI</b></span><span>" + stT + "</span>" +
             (x.shots || x.video ? '<span class="fb-say-pv">' + (x.shots ? Array.apply(null, Array(x.shots)).map(function (_, n) { return '<button type="button" class="ghost" data-pv="' + i + '" data-n="' + n + '">🖼 看截图 ' + (n + 1) + "</button>"; }).join("") : "") + (x.video ? '<button type="button" class="ghost" data-pv="' + i + '" data-v="1">▶ 看视频</button>' : "") + "</span>" : "") +
             (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">👉 打开他的 DeBox 宣告帖 ↗</a>' : "") +
+            (!burnOk ? '<button type="button" class="ghost" data-fix="' + i + '">🩹 他用别的钱包烧的？补认销毁</button>' : "") +
             (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.has ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : burnOk ? '<small>他还没在网站上传截图 / 视频。你已经在群里亲眼看到他说了，也可以直接通过：</small><button type="button" class="ghost" data-i="' + i + '" data-ok="1">🖐 我已看到他的宣告，手动通过，发奖</button>' : "") + "</div>";
         }).join("") + "</div>";
         // 🖼 / ▶ 看凭证：口令走请求正文，拿回来的图 / 视频放进一个盖在页面上的浮层里（后台每 20 秒刷新，浮层不受影响）
@@ -468,6 +469,20 @@
                 var close = function () { if (isV) { try { URL.revokeObjectURL(j.url); } catch (e) {} } o.remove(); };
                 document.getElementById("fb-pvx").onclick = close; o.onclick = function (e) { if (e.target === o) close(); };
               }, function () { done(); alert("没读出来，网络不好，请再点一次"); });
+          };
+        });
+        // 🩹 补认销毁：中奖人拿别的钱包把名字烧了，系统只认中奖钱包烧的。填上「烧名字的那个钱包」→ 先让服务器查一遍给你看 → 你确认 → 记到这笔奖上（奖仍然只发到中奖钱包）
+        sb.querySelectorAll("button[data-fix]").forEach(function (bt) {
+          bt.onclick = function () {
+            var x = L[Number(bt.getAttribute("data-fix"))], from = (prompt("他是用哪个钱包烧的名字？把那个钱包地址贴进来（0x 开头）\n" + x.name + " · " + x.amt + " DAI") || "").trim();
+            if (!from) return;
+            bt.disabled = true;
+            post({ action: "burnfix", id: x.id, from: from }).then(function (r) {
+              if (!r || r.error) { bt.disabled = false; return alert((r && r.error) || "没查出来，请再点一次"); }
+              var what = (r.hit || []).map(function (h) { return h.no ? "创世 #" + h.no : "名字"; }).join("、");
+              if (!confirm("查到了：这个钱包在开奖后烧了 " + what + "。\n把它记到「" + x.name + " · " + x.amt + " DAI」这笔奖上？\n\n· 奖仍然只发到中奖的那个钱包\n· 记上去以后，这枚名字不能再抵别的奖\n· 记上去改不回来")) { bt.disabled = false; return; }
+              return post({ action: "burnfix", id: x.id, from: from, go: 1 }).then(function (r2) { alert(r2 && r2.ok ? "记好了（" + r2.n + "/" + r2.need + "）。" + (r2.st === "ready" ? "机器人马上发奖。" : "他上传截图 / 视频、通过以后机器人发奖。") : (r2 && r2.error) || "没记上，请再点一次"); says(); });
+            }).catch(function () { bt.disabled = false; alert("网络不好，请再点一次"); });
           };
         });
         sb.querySelectorAll("button[data-i]").forEach(function (bt) {
