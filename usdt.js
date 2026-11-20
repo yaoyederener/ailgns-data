@@ -391,13 +391,13 @@
   function etaHtml() {
     if (!has("bridge")) return "";
     if (dir === "in") return ""; // 往里充的到账时间写在明细行「预计到账」里
-    return '<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><details><summary>为什么这么慢？能加急吗？</summary>' +
+    return '<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><p class="u2d-fastgo">着急？<a href="#/gale">⚡ 秒到通道（第三方 GaleBridge，约 20 秒，要收手续费）→</a></p><details><summary>为什么这么慢？能加急吗？</summary>' +
       '<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>' +
       '<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以从 Polygon 跨到 Anubis 只要 2 分钟。</p>' +
       '<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>' +
-      '<p><b>不能加急</b>：这是官方桥写死的规则，谁也改不了，付再多钱也快不了。</p>' +
+      '<p><b>官方桥不能加急</b>：这是官方桥写死的规则，谁也改不了。着急的可以走上面的「秒到通道」，那是第三方 GaleBridge 的服务，约 20 秒到，要收手续费。</p>' +
       '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；要换成 USDT 的，到账后这一页会帮你填好，点一下按钮就行。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
-      '<p><b>急用钱</b>：请提前 2 个多小时操作，别等到要用的时候才跨。</p></details></div>';
+      '<p><b>急用钱</b>：请提前 2 个多小时操作，或者走秒到通道。</p></details></div>';
   }
   function card() {
     var canFlip = N().canOut || to !== "A"; // 对调以后付出的币不能是 Anubis 的 DAI（这条链不能往外提）

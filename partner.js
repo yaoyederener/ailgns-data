@@ -71,7 +71,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
 
   // 📈 产品使用排行（站长 2026-11-19：「每日哪款产品用的人最多，我好优化」）。放在合伙人面板：站长平时看的后台就是这一页（旧的工单后台「数据」页会自动跳到这里）：一台设备一天打开过某个产品算 1 人，只记数量不记是谁
   var PROD_N = { otc: "OTC · AiLGNS", otclgns: "OTC · LGNS", otcglgns: "OTC · gLGNS", otcplgns: "OTC · LGNS（Polygon）", otcnft: "OTC · AWAKE NFT", otcswap: "闪兑", names: "域名", oracle: "每日预言家", lend: "借贷", member: "会员", rank: "荣耀榜",
-    scan: "账本", inbox: "收件箱", usdt: "USDT 跨链桥", fast: "极速预言家", aiswap: "aiswap", lp: "做市商", trade: "交易所盘口", farm: "开心农场", mj: "麻将", gd: "掼蛋", br: "大逃杀", play: "销毁乐园（游戏厅）", pixel: "像素画", square: "链上广场",
+    scan: "账本", inbox: "收件箱", usdt: "USDT 跨链桥", gale: "秒到跨链", fast: "极速预言家", aiswap: "aiswap", lp: "做市商", trade: "交易所盘口", farm: "开心农场", mj: "麻将", gd: "掼蛋", br: "大逃杀", play: "销毁乐园（游戏厅）", pixel: "像素画", square: "链上广场",
     genesis: "创世销毁", bonus: "创世每日分红", weekly: "手续费周榜", feedback: "问题反馈", updates: "更新日志", trades: "成交查询", wallet: "钱包快查", team: "团队查询", flows: "资金流向", growth: "团队新增业绩", tree: "团队树", upline: "查上级", custom: "私人定制", app: "下载 App", g2048: "2048", snake: "贪吃蛇", tetris: "方块", flappy: "飞鸟", mines: "扫雷", brick: "打砖块", merge: "合成", pet: "宠物" };
   function prodHtml(rows) {
     var col = function (r, title) {
