@@ -314,7 +314,7 @@ function paintWay(){var el=g("u2d-way");if(!el)return;var k=way?way.k:from+to,no
 var nm=k==="UA"?["换币","过桥"]:["过桥","换币"];el.innerHTML='<ol class="u2d-way">'+nm.map(function(x,i){var cl=now>i+1?"ok":now===i+1?"now":"";return'<li class="'+cl+'"><i>'+(cl==="ok"?"✓":i+1)+"</i><b>"+x+"</b></li>";}).join('<li class="ar"></li>')+"</ol>";dtVis();paintBtn();}
 function tokIn(k){var c=C(k);return'<span class="u2d-cw"><i class="u2d-coin '+c.cls+'"><img src="/icons/tokens/'+(c.sym==="USDT"?"usdt":"dai")+'.png?v=1" alt="" width="30" height="30">'+c.ch+"</i>"+(k==="A"?'<em class="u2d-ch" title="Anubis 链"></em>':"")+"</span><span><b>"+c.sym+"</b><small>"+c.chain+" 链</small></span>";}
 function tokBtn(side,k){return'<button type="button" class="u2d-tok u2d-tb" data-side="'+side+'" aria-label="换一个币">'+tokIn(k)+'<i class="u2d-car"></i></button>';}
-function pickList(side){var cur=side==="from"?from:to;var ks=["U","D","A"].filter(function(k){return k!==cur&&!(side==="from"&&k==="A"&&!N().canOut);});return'<div class="u2d-pk"><p>'+(side==="from"?"你要付出哪个币":"你要到账哪个币")+"</p>"+ks.map(function(k){return'<button type="button" class="u2d-tok" data-side="'+side+'" data-k="'+k+'">'+tokIn(k)+"</button>";}).join("")+"</div>";}
+function pickList(side){var cur=side==="from"?from:to;var other=side==="from"?to:from;var ok=["U","D","A"].filter(function(k){return k!==cur&&!(side==="from"&&k==="A"&&!N().canOut);});var ks=ok.filter(function(k){return k!==other;});if(!ks.length)ks=ok;return'<div class="u2d-pk"><p>'+(side==="from"?"你要付出哪个币":"你要到账哪个币")+"</p>"+ks.map(function(k){return'<button type="button" class="u2d-tok" data-side="'+side+'" data-k="'+k+'">'+tokIn(k)+"</button>";}).join("")+"</div>";}
 function choose(side,k){if(busy)return;var of=from,ot=to;if(side==="from"){from=k;if(to===k)to=of;}else{to=k;if(from===k)from=ot;}
 if(!N().canOut&&from==="A")from=to==="U"?"D":"U";pick=null;way=null;q=null;qSeq++;clearTimeout(qTimer);render();}
 function goLabel(){var k=from+to,two=way&&way.now===2;return k==="UA"||k==="AU"?"开始跨链":k==="UD"?"换成 DAI":k==="DU"?(two?"第 2 步：换成 USDT":"换成 USDT"):(two?"第 2 步：":"")+"跨到 "+C(to).chain;}
@@ -327,5 +327,5 @@ go();};if(g("u2d-flip"))g("u2d-flip").onclick=function(){if(busy)return;var t=fr
 function setNet(k){if(busy||!NETS[k]||k===net)return;net=k;pick=null;way=null;q=null;qSeq++;clearTimeout(qTimer);bal=null;render();if(account)loadBal().then(paintAll,function(){});}
 A.pages.usdt=function(id){rid=id;q=null;pick=null;sync();if(!hooked){hooked=true;A.wallets.onAccounts(function(a){account=a&&a[0]?String(a[0]).toLowerCase():null;bal=null;if(location.hash.indexOf("#/usdt")===0&&g("u2d-bal")){paintBal();track();loadBal().then(paintAll,function(){});}});}
 render();(account?Promise.resolve():A.wallets.silent().then(function(a){if(a)account=String(a).toLowerCase();},function(){})).then(function(){paintBal();track();return loadBal();}).then(function(){if(A.isCurrent(id))paintAll();},function(){if(A.isCurrent(id))paintBal();});};})();}catch(e){console.error('[bundle] usdt.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="hbcab5e56c8";
-/*v:hbcab5e56c8*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="hc8b3333fb6";
+/*v:hc8b3333fb6*/
