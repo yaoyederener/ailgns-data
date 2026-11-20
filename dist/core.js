@@ -1,6 +1,6 @@
 window.AIL_NIGHT="dist/night.css?v=hef467f17fe";
 window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h47df5b8dab","ko":"dist/lang-ko.js?v=h2cae4f4fe9"};
-window.AIL_BUNDLES={"names":"dist/names.js?v=hf09f4f10d7","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=hae6c4f7f0f","trade":"dist/trade.js?v=h9bfd11d99c","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=h6fc3fbed96","feedback":"dist/feedback.js?v=he6aebec8ab","games":"dist/games.js?v=h0dc512d078","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=h535a9a194f"};
+window.AIL_BUNDLES={"names":"dist/names.js?v=hf09f4f10d7","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=hae6c4f7f0f","trade":"dist/trade.js?v=h9bfd11d99c","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=h6fc3fbed96","feedback":"dist/feedback.js?v=h8853ab30cb","games":"dist/games.js?v=h0dc512d078","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=h535a9a194f"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function load(){if(link||!window.AIL_NIGHT)return;link=document.createElement("link");link.rel="stylesheet";link.id="ntm-css";link.href=window.AIL_NIGHT;document.head.appendChild(link);}
@@ -1118,5 +1118,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h54b7952277";
-/*v:h54b7952277*/
+;window.AIL_CORE="h1fa8b61da2";
+/*v:h1fa8b61da2*/

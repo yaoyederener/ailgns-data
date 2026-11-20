@@ -327,7 +327,7 @@
   }
   function startNag() { clearInterval(nagTimer); pendingPoll(); nagTimer = setInterval(pendingPoll, 30000); }
   if (/feedback\/admin/.test(location.hash)) setTimeout(startNag, 500);
-  window.addEventListener("hashchange", function () { if (/feedback\/admin/.test(location.hash)) startNag(); else { clearInterval(nagTimer); clearInterval(titleTimer); document.title = baseTitle; var b = document.getElementById("fb-bell"); if (b) b.remove(); } });
+  window.addEventListener("hashchange", function () { if (/feedback\/admin/.test(location.hash)) startNag(); else { clearInterval(nagTimer); clearInterval(titleTimer); if (/⚠️/.test(document.title)) document.title = baseTitle; /* 只在标题正闪着提醒时才还原；以前每次换页都还原，标签标题就一直停在第一个打开的页面上 */ var b = document.getElementById("fb-bell"); if (b) b.remove(); } });
   function beep() { try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.value = 0.08; o.start(); setTimeout(function () { o.stop(); c.close(); }, 250); } catch (e) {} }
   function api(q) { return fetch("/api/feedback?" + q + "&key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }); }
   function imgUrl(id, i) { return "/api/feedback?img=" + id + ":" + i + "&key=" + encodeURIComponent(key()); }
