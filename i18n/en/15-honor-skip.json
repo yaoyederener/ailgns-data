@@ -1,0 +1,5 @@
+{
+"本站自己的合约和官方钱包（一键成交合约、官方做市机器人、官方做市钱包、奖池等）不参加排名。": "The site's own contracts and official wallets (the “Fill instantly” contract, the official market-maker bot, official market-maker wallets, prize pools, etc.) are not ranked.",
+"🏅 荣耀榜修正：以前排在榜一的地址其实是本站「⚡ 一键成交」的合约（所有人一键成交的合计），不是某个人。现在本站自己的合约和官方钱包都不参加排名了，大家的名次顺着往前补。每个人自己的成交额没有变。": "🏅 Hall of fame fix: the address shown at No. 1 was actually this site's “⚡ Fill instantly” contract (the total of everyone's instant fills), not a person. The site's own contracts and official wallets are no longer ranked, and everyone moves up accordingly. Nobody's own trade volume has changed.",
+"荣耀榜修正：以前排在榜一的地址其实是本站「⚡ 一键成交」的合约（所有人一键成交的合计），不是某个人。现在本站自己的合约和官方钱包都不参加排名了，大家的名次顺着往前补。每个人自己的成交额没有变。": "Hall of fame fix: the address shown at No. 1 was actually this site's “⚡ Fill instantly” contract (the total of everyone's instant fills), not a person. The site's own contracts and official wallets are no longer ranked, and everyone moves up accordingly. Nobody's own trade volume has changed."
+}
