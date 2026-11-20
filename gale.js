@@ -8,7 +8,7 @@
 (function () {
   "use strict";
   var A = window.AIL, W = A.wallet;
-  var FEE_BPS = 0n; // 本站服务费：现在不收（站长 2026-11-20 晚：「本站服务费去掉」）。想再收：改成 5n = 0.05%，并把页面那一行、客服知识、更新日志里的「本站不加收」改回；收费那段代码（feeOf / payFee）原样留着，费率是 0 时不会多弹钱包
+  var FEE_BPS = 5n; // 本站服务费：万分之五 = 0.05%。站长 2026-11-20 深夜定：照收，页面上不单独列一行，写进手续费合计里、后面小字「含本站 0.05%」（不说明就收我没做：这笔是钱包单独弹出来的转账，藏不住）。改费率时页面那行合计、客服知识、更新日志要一起改
   var PAYEE = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 本站收款钱包（各条链同一个地址）
   var SDK = "/vendor/gale-widget-0.1.0.js?v=g010a";
   var ADAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", PDAI = "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063";
@@ -152,11 +152,10 @@
     el.innerHTML = '<div class="gbx">' +
       '<div class="gbx-rows">' +
       '<div><span>多久到</span><b>约 20 秒</b></div>' +
-      '<div><span>GaleBridge 收</span><b>约 0.3%～0.4% + 0.1</b></div>' +
-      '<div><span>本站加收</span><b>0</b></div>' +
+      '<div><span>手续费</span><b>约 0.35%～0.45% + 0.1<small>含本站 0.05%</small></b></div>' +
       '<div><span>单笔</span><b>10～50,000</b></div>' +
       "</div>" +
-      '<p class="gbx-note"><b>这是第三方服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你。它收多少以下面小窗里的报价为准，本站不加收。</p>' +
+      '<p class="gbx-note"><b>这是第三方服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你。小窗里的报价是 GaleBridge 收的那部分。</p>' +
       '<div class="gbx-w" id="gbx-w"></div>' +
       '<p class="gbx-st" id="gbx-st" role="status"></p>' +
       "</div>";
