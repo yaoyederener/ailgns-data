@@ -176,7 +176,7 @@
       // 段位规则
       html += '<section class="card hn-rules"><div class="card-head"><h2>📜 段位规则</h2></div><ul>' +
         "<li>" + TIER[0][0] + " <b>最强王者</b>：第 1 名</li><li>" + TIER[1][0] + " <b>荣耀王者</b>：第 2–3 名</li><li>" + TIER[2][0] + " <b>王者</b>：第 4–10 名</li><li>" + TIER[3][0] + " <b>星耀</b>：第 11–20 名</li><li>" + TIER[4][0] + " <b>钻石</b>：第 21–50 名</li></ul>" +
-        '<p class="muted">按在本站 OTC（AiLGNS / LGNS / gLGNS / NFT 卡牌 / 域名）的累计成交排名，买和卖都算；<b>单笔满 50 DAI 才计入</b>（和会员卡上的「OTC 累计成交」同一个数）。总榜前 50 名的名字在全站显示段位徽章；本月榜每月 1 号清零，月底前三名进名人堂；<b>累计满 100 万 DAI 送👑至尊 VIP，永久进名人堂「百万俱乐部」</b>。</p><p class="muted">本站自己的合约和官方钱包（一键成交合约、官方做市机器人、官方做市钱包、奖池等）不参加排名。</p></section>';
+        '<p class="muted">按在本站 OTC（AiLGNS / LGNS / gLGNS / NFT 卡牌 / 域名）的累计成交排名，买和卖都算；<b>单笔满 50 DAI 才计入</b>（和会员卡上的「OTC 累计成交」同一个数）。总榜前 50 名的名字在全站显示段位徽章；本月榜每月 1 号清零，月底前三名进名人堂；<b>累计满 100 万 DAI 送👑至尊 VIP，永久进名人堂「百万俱乐部」</b>。</p><p class="muted"><b>上榜必须有本站域名：钱包里没有域名的地址不上榜，成交额照常累计，注册域名后 1 小时内自动上榜。</b></p><p class="muted">本站自己的合约和官方钱包（一键成交合约、官方做市机器人、官方做市钱包、奖池等）不参加排名。</p></section>';
       // 🏅 商家认证规则（站长 2026-11-08 定：按上周名次分配、每周一轮换）
       html += '<section class="card hn-rules"><div class="card-head"><h2>🏅 商家认证规则</h2><span class="muted">每周一轮换</span></div>' +
         '<p>名字后面的商家牌子，按<b>上周</b>在本站 OTC 的成交名次评（挂单被吃、自己吃单都算，按成交额排）。周一 0 点结算，牌子挂一整周；新的一周重新排，所以每周都会换人。</p><ul>' +
@@ -199,11 +199,12 @@
         return;
       }
       var m = d.me || { rank: 0 }, nb = board === "month" ? "本月" : "总榜";
-      var msg = m.rank === 1 ? "👑 你就是" + nb + "<b>最强王者</b>！已成交 " + dai(m.vol) + "，守住宝座！"
+      var msg = m.noName ? "你的钱包里还没有本站域名，暂时不上榜" + (m.vol ? "（已成交 " + dai(m.vol) + "，照常累计）" : "") + "。<br>注册一个域名，1 小时内自动上榜。"
+        : m.rank === 1 ? "👑 你就是" + nb + "<b>最强王者</b>！已成交 " + dai(m.vol) + "，守住宝座！"
         : m.rank ? "你在" + nb + "排第 <b>" + m.rank + "</b> 名 " + tierChip(m.tier) + "（已成交 " + dai(m.vol) + "）<br>再成交 <b>" + dai(m.gap) + "</b> 就超过第 " + (m.rank - 1) + " 名" +
           (m.nextTier >= 0 && m.tierGap ? "；再成交 <b>" + dai(m.tierGap) + "</b> 升【" + TIER[m.nextTier][1] + "】" : "")
         : "你还没进" + nb + "前 50 名" + (m.vol ? "（已成交 " + dai(m.vol) + "）" : "") + "，再成交 <b>" + dai(m.tierGap || m.gap || 50) + "</b> 就能上榜成为【钻石】！";
-      box.innerHTML = '<div class="hn-mine">' + msg + '</div><a class="nm-go nm-golink" href="#/otc">去 OTC 交易冲榜 →</a>';
+      box.innerHTML = '<div class="hn-mine">' + msg + '</div>' + (m.noName ? '<a class="nm-go nm-golink" href="#/names">去注册域名 →</a>' : '<a class="nm-go nm-golink" href="#/otc">去 OTC 交易冲榜 →</a>');
     }
   }
 
