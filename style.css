@@ -4854,3 +4854,14 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 .swp .sw-go { width: 100%; margin-top: 12px; border-radius: 18px; font-size: 17px; }
 .swp .sw-go small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; opacity: .9; }
 .swp .u2d-rows dd { max-width: 70%; }
+
+/* 右上角的小按钮：语言 + 夜间模式（2026-11-20 从「更多」菜单里挪出来，不占地方） */
+.tset-btn { flex: none; width: 34px; height: 34px; margin: 0; padding: 0; border-radius: 999px; border: 1px solid var(--soft-line); background: var(--soft); box-shadow: none; font-size: 17px; line-height: 1; display: inline-grid; place-items: center; cursor: pointer; }
+.tset-btn[aria-expanded="true"] { background: #ece0fc; border-color: #c4b5fd; }
+.tset-pop { position: absolute; right: 8px; top: 52px; z-index: 950; width: 236px; padding: 10px; border-radius: 16px; background: #fff; border: 1px solid #e3d8ff; box-shadow: 0 12px 32px rgba(76, 29, 149, .18); display: grid; gap: 8px; }
+.tset-pop[hidden] { display: none; }
+.tset-night { width: 100%; margin: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--soft-line); background: var(--panel, #fff); box-shadow: none; color: var(--text); font: inherit; font-size: 14.5px; text-align: left; cursor: pointer; }
+.tset-lang { display: flex; gap: 6px; padding: 4px; border-radius: 12px; background: #ece8f8; }
+.tset-lang button { flex: 1; min-width: 0; margin: 0; padding: 8px 4px; border: 0; border-radius: 9px; background: transparent; box-shadow: none; color: #5b5385; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.tset-lang button.on { background: #fff; color: #4a1fb8; box-shadow: 0 1px 4px rgba(74, 31, 184, .16); }
+@media (max-width: 480px) { .top-in { gap: 8px; } .top-r { gap: 6px; } .top-in .brand { min-width: 0; overflow: hidden; } }
