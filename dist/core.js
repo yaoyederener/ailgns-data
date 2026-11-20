@@ -608,7 +608,10 @@ function anyName(a){return ownedMap().then(function(by){var list=(by[a]||[]).sli
 var fails=0;function bcall(to,data){return A.bcall?A.bcall(to,data):call(to,data);}
 var NMK="nmc1",store={},saveT=0;try{store=JSON.parse(localStorage.getItem(NMK)||"{}")||{};}catch(e){store={};}
 function remember(a,n){store[a]=[n,Math.floor(Date.now()/60000)];if(saveT)return;saveT=setTimeout(function(){saveT=0;try{var ks=Object.keys(store);if(ks.length>3000)ks.sort(function(x,y){return store[x][1]-store[y][1];}).slice(0,ks.length-2000).forEach(function(k){delete store[k];});localStorage.setItem(NMK,JSON.stringify(store));}catch(e){}},1500);}
-function lookup(a){return candidates().then(function(set){if(set&&!set[a])return"";return Promise.all(["ailgns","lgns"].map(function(t){return bcall(NAMES[t],SEL.nameOf+A.pad(a)).then(function(r){var n=decStr(r);return n&&!(A.hiddenNames||{})[n+"."+t]?n+"."+t:"";},function(){fails++;return"";});})).then(function(x){return x[0]||x[1];});}).then(function(n){return n||anyName(a);});}
+var whoQ=[],whoT=0,whoBad=0;function whoFlush(){whoT=0;var q=whoQ;whoQ=[];for(var i=0;i<q.length;i+=60)(function(part){var list=part.map(function(x){return x.a;});fetch("/api/who?a="+list.join(",")).then(function(r){if(!r.ok)throw new Error("who");return r.json();}).then(function(j){if(!j||!j.n)throw new Error("who");whoBad=0;part.forEach(function(x){x.ok(j.n[x.a]||null);});}).catch(function(){whoBad=Date.now();part.forEach(function(x){x.ok(undefined);});});})(q.slice(i,i+60));}
+function who(a){if(whoBad&&Date.now()-whoBad<60000)return Promise.resolve(undefined);return new Promise(function(ok){whoQ.push({a:a,ok:ok});if(!whoT)whoT=setTimeout(whoFlush,40);});}
+function lookup(a){a=String(a||"").toLowerCase();return who(a).then(function(r){if(r===undefined)return lookupOld(a);if(!r)return"";var HN=A.hiddenNames||{},ok=function(n){return n&&!HN[n];};return(r.p||[]).filter(ok)[0]||(r.o||[]).filter(ok)[0]||"";},function(){return lookupOld(a);});}
+function lookupOld(a){return candidates().then(function(set){if(set&&!set[a])return"";return Promise.all(["ailgns","lgns"].map(function(t){return bcall(NAMES[t],SEL.nameOf+A.pad(a)).then(function(r){var n=decStr(r);return n&&!(A.hiddenNames||{})[n+"."+t]?n+"."+t:"";},function(){fails++;return"";});})).then(function(x){return x[0]||x[1];});}).then(function(n){return n||anyName(a);});}
 function fresh(a){var f0=fails;return lookup(a).then(function(n){if(!n&&fails!==f0)return null;remember(a,n);return n;},function(){return null;});}
 function nameOf(a){a=String(a).toLowerCase();if(A.hidden&&A.hidden[a])return Promise.resolve("");if(!nameCache[a]){var c=store[a];if(c&&typeof c[0]==="string"&&!(c[0]&&(A.hiddenNames||{})[c[0]])){nameCache[a]=Promise.resolve(c[0]);if(Date.now()/60000-c[1]>5)fresh(a).then(function(n){if(n===null||n===c[0])return;nameCache[a]=Promise.resolve(n);if(!timer)timer=setTimeout(swapAll,300);});}else nameCache[a]=fresh(a).then(function(n){return n||"";});}
 return nameCache[a];}
@@ -1118,5 +1121,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h2c1a561166";
-/*v:h2c1a561166*/
+;window.AIL_CORE="h6bed26d164";
+/*v:h6bed26d164*/
