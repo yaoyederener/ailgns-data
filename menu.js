@@ -81,7 +81,7 @@
       if (!hasN && !hasL) sb.hidden = true;
       var pop = document.createElement("div"); pop.className = "tset-pop"; pop.id = "tset-pop"; pop.hidden = true;
       pop.innerHTML = (hasN ? '<button type="button" class="tset-night" id="tset-night"><b data-night-lb>🌙 夜间模式</b></button>' : "") +
-        (hasL ? '<div class="tset-lang" data-nolang role="group" aria-label="Language"><button type="button" data-lang="zh">简体</button><button type="button" data-lang="hant">繁體</button><button type="button" data-lang="en">English</button></div>' : "");
+        (hasL ? '<div class="tset-lang" data-nolang role="group" aria-label="Language"><button type="button" data-lang="zh">简体</button><button type="button" data-lang="hant">繁體</button><button type="button" data-lang="en">English</button><button type="button" data-lang="ko">한국어</button></div>' : "");
       tin.appendChild(pop);
       sb.onclick = function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; sb.setAttribute("aria-expanded", pop.hidden ? "false" : "true"); };
       document.addEventListener("click", function (e) { if (!pop.hidden && !pop.contains(e.target) && !sb.contains(e.target)) { pop.hidden = true; sb.setAttribute("aria-expanded", "false"); } });
