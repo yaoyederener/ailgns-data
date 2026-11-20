@@ -105,7 +105,7 @@
         if (r.method === "sendTransaction") {
           var tx = r.transaction || {};
           if (!okGale(tx.chainId, tx.to)) { say("这笔交易不是发给 GaleBridge 合约的，已拦下，没有发出去。", true); return Promise.reject(new Error("Blocked: unknown contract")); }
-          return payFee(tx).then(function () { return base.request(r); }).then(function (h) { paidSet(""); say("跨链这一笔已发出，下面的小窗里会显示到账进度。"); return h; });
+          return payFee(tx).then(function () { return base.request(r); }).then(function (h) { paidSet(""); say("跨链这一笔已发出，上面的小窗里会显示到账进度。"); return h; });
         }
       } catch (e) { return Promise.reject(e); }
       return base.request(r);
@@ -152,7 +152,7 @@
       '<div><span>本站服务费</span><b>0.05%</b></div>' +
       '<div><span>单笔</span><b>10～50,000</b></div>' +
       "</div>" +
-      '<p class="gbx-note">这是<b>第三方</b>服务，不是本站也不是官方桥：你的币进的是 GaleBridge 的合约，由它在目标链付给你。它收多少以下面小窗里的报价为准。本站服务费是单独一笔，所以钱包会多弹一次。</p>' +
+      '<p class="gbx-note"><b>这是第三方服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你。它收多少以下面小窗里的报价为准。本站服务费是单独一笔，所以钱包会多弹一次。</p>' +
       '<div class="gbx-w" id="gbx-w"></div>' +
       '<p class="gbx-st" id="gbx-st" role="status"></p>' +
       '<p class="gbx-alt">不着急？<a href="#/usdt">官方桥免费，从 Anubis 出去约 2 小时 10 分钟 →</a></p>' +
