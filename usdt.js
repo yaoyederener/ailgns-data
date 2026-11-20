@@ -73,7 +73,7 @@
   function setBal() { [["u2d-b1", balOf(C(from).bk)], ["u2d-b2", balOf(C(to).bk)]].forEach(function (x) { var e = g(x[0]); if (e) e.textContent = x[1]; }); }
   function paintBal() {
     var el = g("u2d-bal"); if (!el) return;
-    setBal();
+    setBal(); if (hisFor !== (account || "")) loadHis();
     if (!account || !bal) { el.innerHTML = ""; return; } // 没连钱包 / 余额还在读：这里不占地方（主按钮会写「连接钱包」，框右上角的余额先是「—」）
     var c = N(), low = bal.pol < c.gasMin, pol = f(n(bal.pol, 18), low ? 4 : 2), tip = gasTip();
     el.innerHTML = !low ? "" : dir === "in"
@@ -231,6 +231,7 @@
       return send(b.from, BRIDGE, SEL.bridge + DAI_ID + u256(CHAIN_ID[b.to]) + aw(account) + u256(amt), "b", "DAI 跨到 " + b.tn);
     }).then(function (rc) { txHash = rc && rc.transactionHash; return loadBal(); }).then(function () {
       track({ a: account, dir: d0, net: nk0, amt: amt.toString(), start: start.toString(), t0: Date.now(), tx: txHash || "", then: then || "" });
+      setTimeout(function () { loadHis(true); }, 10000);
     });
   }
   function bridged(d, nk) { return "✅ 已交给官方跨链桥，正在跨（官方桥到账" + dur(expOf(d, nk)) + "）。进度看页面上方的进度条，可以关掉这一页，回来还在。"; }
@@ -306,6 +307,49 @@
   }
   function track(p) { if (p) pendSave(p); clearInterval(watch); var cur = pend(); paintProg(cur); if (cur && !cur.done) { watch = setInterval(function () { if (!g("u2d-prog")) return clearInterval(watch); checkProg(); }, 20000); checkProg(); } }
 
+  // ---------- 我的跨链记录（站长 2026-11-20：自己跨了一笔，页面上找不到记录，问「钱到哪了、什么时候到」）----------
+  // 直接读官方桥上这个钱包的订单（/api/u2d?orders=），不靠浏览器里存的那一条：换手机、换浏览器、在官方桥页面跨的，都查得到。
+  // 上面那条进度条（u2d-prog）是刚跨完这一笔的即时反馈，还管「到了以后接着换成 USDT」；这里是完整的记录
+  var his = null, hisAt = 0, hisFor = "", hisBusy = false, hisTimer = null;
+  var HEXP = { out: 130 * 60, polygon: 120, bsc: 120 }, HNAME = { anubis: "Anubis", polygon: "Polygon", bsc: "BSC" }; // 官方桥大概多久到（秒）：从 Anubis 出去约 2 小时 10 分钟；进 Anubis 一两分钟
+  function hm(ts) { var d = new Date(ts * 1000), p2 = function (x) { return (x < 10 ? "0" : "") + x; }; return (new Date().toDateString() === d.toDateString() ? "" : (d.getMonth() + 1) + "-" + d.getDate() + " ") + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
+  function paintHis(msg) {
+    var el = g("u2d-his"); if (!el) return;
+    var head = '<div class="u2d-hh"><b>我的跨链记录</b>' + (account ? '<button type="button" class="u2d-hr" id="u2d-hr">' + (hisBusy ? "查询中…" : "查询进度") + "</button>" : "") + "</div>";
+    if (!account) { el.innerHTML = head + '<p class="muted">连接钱包后，这里显示你最近的跨链：钱到哪了、还要多久到。</p>'; return; }
+    var L = hisFor === account && his ? his : null, body;
+    if (msg) body = '<p class="u2d-warn">' + esc(msg) + "</p>";
+    else if (!L) body = '<p class="muted">正在查…</p>';
+    else if (!L.length) body = '<p class="muted">这个钱包最近没有跨链记录。</p>';
+    else body = L.map(function (o) {
+      var now = Date.now() / 1000, exp = o.from === "anubis" ? HEXP.out : (HEXP[o.from] || 120), done = o.st === "completed" || o.recvTs > 0, bad = !done && !!(o.fail || /fail|refund|cancel/i.test(o.st));
+      var el2 = Math.max(0, now - o.sendTs), late = !done && !bad && el2 > exp * 1.3 + 300, pct = done ? 100 : Math.max(4, Math.min(96, el2 / exp * 100));
+      var amt = o.amt ? f(n(BigInt(o.amt), o.dec)) + " " + esc(o.sym) : (esc(o.sym) || "跨链");
+      var t = done ? "✅ 已到账" + (o.recvTs ? " · " + hm(o.recvTs) + " · 用了" + dur(o.recvTs - o.sendTs) : "")
+        : bad ? "⚠️ 官方桥显示这笔没成功" + (o.fail ? "：" + esc(o.fail) : "") + "。请到官方桥 app.anubisbridge.com 的 History 里看，或者提工单给我们"
+        : late ? "⏳ 已经过了" + dur(el2) + "，比平时（" + dur(exp) + "）慢。币不会丢，官方桥还在处理"
+        : "⏳ 正在跨 · 预计 " + hm(o.sendTs + exp) + " 到（还要" + dur(exp - el2) + "）";
+      return '<div class="u2d-ho' + (done ? " done" : bad ? " bad" : "") + '"><div class="u2d-ht"><b>' + amt + "</b><span>" + (HNAME[o.from] || "其它链") + " → " + (HNAME[o.to] || "其它链") + " · " + hm(o.sendTs) + ' 发出</span></div><p>' + t + "</p>" + (done || bad ? "" : '<div class="u2d-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>') + "</div>";
+    }).join("");
+    el.innerHTML = head + body;
+    var b = g("u2d-hr"); if (b) b.onclick = function () { loadHis(true); };
+  }
+  function loadHis(force) {
+    clearTimeout(hisTimer);
+    if (!account) { hisFor = ""; return paintHis(); }
+    if (hisFor !== account) { his = null; hisFor = account; hisAt = 0; }
+    if (hisBusy) return paintHis();
+    if (!force && his && Date.now() - hisAt < 20000) { paintHis(); return hisNext(); } // 20 秒内查过：直接用刚才的，不再问一遍
+    var a = account; hisBusy = true; paintHis();
+    fetch("/api/u2d?orders=" + a).then(function (r) { return r.json(); }).then(function (j) {
+      hisBusy = false; if (a !== account) return;
+      if (!j || !j.ok) return paintHis(his ? "" : (j && j.error) || "记录暂时查不到，过一会儿再点「查询进度」"); // 以前查到过的先留着显示
+      his = j.list || []; hisAt = Date.now(); paintHis(); hisNext();
+    }, function () { hisBusy = false; if (a === account) paintHis(his ? "" : "网络不好，过一会儿再点「查询进度」"); });
+  }
+  // 有还没到的：页面开着就每分钟自己再查一次（切到后台不查），到了自动变成「已到账」
+  function hisNext() { clearTimeout(hisTimer); if (his && his.some(function (o) { return o.st !== "completed" && !o.recvTs; })) hisTimer = setTimeout(function () { if (!g("u2d-his")) return; if (document.hidden) return hisNext(); loadHis(true); }, 60000); }
+
   // ---------- 页面 ----------
   var hooked = false;
   function paintAll() { paintBal(); paintInfo(); paintWay(); }
@@ -369,7 +413,7 @@
       '<header class="u2d-hd"><h2>USDT 跨链桥<span class="u2d-free">0手续费</span></h2>' +
       '<div class="u2d-net" id="u2d-net"><span>你的币在哪条链</span>' + Object.keys(NETS).map(function (k) { return '<button type="button" data-net="' + k + '"' + (k === net ? ' class="on"' : "") + ">" + NETS[k].name + "</button>"; }).join("") + "</div>" +
       '</header>' +
-      '<div id="u2d-bal"></div><div id="u2d-prog"></div>' + card() +
+      '<div id="u2d-bal"></div><div id="u2d-prog"></div>' + card() + '<section class="u2d-card u2d-his" id="u2d-his"></section>' +
       '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
       '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。</p>' +
@@ -393,7 +437,7 @@
     [].forEach.call(document.querySelectorAll(".u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var s = b.getAttribute("data-side"); pick = pick === s ? null : s; render(); }; });
     [].forEach.call(document.querySelectorAll(".u2d-pk button"), function (b) { b.onclick = function () { choose(b.getAttribute("data-side"), b.getAttribute("data-k")); }; });
     [].forEach.call(document.querySelectorAll("#u2d-net button"), function (bt) { bt.onclick = function () { setNet(bt.getAttribute("data-net")); }; });
-    paintAll(); track();
+    paintAll(); track(); loadHis();
     if (amtStr && has("swap") && !q) onAmt();
   }
   // 换一条链：余额、报价都是那条链上的，清掉重读；这条链不能往外提的话，付出的币拨回这条链上的（sync() 里管）

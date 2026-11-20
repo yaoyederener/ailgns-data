@@ -88,8 +88,25 @@ async function orderOf(tx, a) {
   return o ? { found: true, status: String(o.status || ""), sendTs: Number(o.sendTs) || 0, receivedTs: Number(o.receivedTs) || 0, failed: o.failedMsg ? String(o.failedMsg).slice(0, 80) : "" } : { found: false };
 }
 
+// 我的跨链记录：?orders=钱包地址 → 官方桥上这个钱包最近 10 笔（哪条链到哪条链、多少、到没到）。不靠浏览器里存的那一条，换手机 / 换浏览器 / 在官方桥页面跨的都查得到
+// BNET / BTOK 是官方桥自己的编号（2026-11-20 从它的订单记录里对出来的：网络 1 Anubis、2 BSC、3 Polygon；币 1、7 是 DAI，3、5、8 是 USDT）。没见过的币编号：币名跟着对面那个币，只有 DAI（各链都是 18 位）才显示数量
+const BNET = { 1: "anubis", 2: "bsc", 3: "polygon" }, BTOK = { 1: ["DAI", 18], 7: ["DAI", 18], 3: ["USDT", 6], 5: ["USDT", 18], 8: ["USDT", 6] };
+async function ordersOf(a) {
+  const j = await get("https://app.anubisbridge.com/apiv1/orders?userAddress=" + a + "&page=1&pageSize=20", { headers: H }, 8000);
+  let L = j.items || j.list || j.data || j; if (L && !Array.isArray(L)) L = L.items || L.list || [];
+  return (Array.isArray(L) ? L : []).slice(0, 10).map((o) => {
+    const ft = BTOK[o.fromTokenId], tt = BTOK[o.toTokenId], sym = (ft || tt || [""])[0], dec = ft ? ft[1] : sym === "DAI" ? 18 : 0;
+    return { from: BNET[o.fromNetworkId] || "", to: BNET[o.toNetworkId] || "", sym, amt: dec && /^\d+$/.test(String(o.sendAmount || "")) ? String(o.sendAmount) : "", dec, st: String(o.status || "").slice(0, 20), sendTs: Number(o.sendTs) || 0, recvTs: Number(o.receivedTs) || 0, tx: low(o.fromTx), fail: o.failedMsg ? String(o.failedMsg).slice(0, 80) : "" };
+  });
+}
+
 export async function onRequestGet(ctx) {
   const sp = new URL(ctx.request.url).searchParams, dir = dirOf(sp.get("dir")), chain = netOf(sp.get("chain")), P = pairOf(chain, dir), amt = sp.get("amt") || "";
+  if (sp.get("orders") !== null) {
+    const a = low(sp.get("orders"));
+    if (!/^0x[0-9a-f]{40}$/.test(a)) return json({ error: "钱包地址不对" }, 400);
+    try { return json({ ok: true, list: await ordersOf(a) }); } catch (e) { return json({ error: "官方桥的记录暂时查不到（" + short(e) + "）" }, 502); }
+  }
   if (sp.get("order") !== null) {
     const tx = low(sp.get("order")), a = low(sp.get("a"));
     if (!/^0x[0-9a-f]{64}$/.test(tx) || !/^0x[0-9a-f]{40}$/.test(a)) return json({ error: "参数不对" }, 400);

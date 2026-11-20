@@ -4810,3 +4810,18 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 
 /* 领奖凭证上传：点了上传后先出的那句提示（不是报错，用中性色） */
 .or-say-st.tip { color: #6b5a8e; font-weight: 500; font-size: 13.5px; }
+
+/* 跨链桥「我的跨链记录」（2026-11-20）：读官方桥的订单，每一笔到哪了、预计几点到 */
+.u2d-his { padding: 14px 16px; }
+.u2d-hh { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.u2d-hh b { font-size: 15.5px; color: #1f1a3d; }
+.u2d-hr { width: auto; min-height: 0; margin: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid #d9ccfb; background: #fff; background-image: none; box-shadow: none; color: #5b21b6; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.u2d-his .muted, .u2d-his .u2d-warn { margin: 6px 0 0; font-size: 13px; }
+.u2d-ho { padding: 10px 0; border-top: 1px solid #f0ebfc; }
+.u2d-hh + .u2d-ho { border-top: 0; }
+.u2d-ht { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.u2d-ht b { font-size: 15px; color: #1f1a3d; white-space: nowrap; }
+.u2d-ht span { font-size: 12.5px; color: #8b84ad; text-align: right; }
+.u2d-ho p { margin: 4px 0 0; font-size: 13px; line-height: 1.55; color: #4b4470; }
+.u2d-ho.done p { color: #15803d; } .u2d-ho.bad p { color: #b42318; }
+.u2d-ho .u2d-bar { height: 8px; margin: 8px 0 0; }
