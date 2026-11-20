@@ -143,7 +143,7 @@
     var app = g("app");
     if (!app) return;
     if (!hooked) { hooked = true; window.addEventListener("hashchange", function () { try { if (location.hash.indexOf("#/gale") !== 0) unmount(); } catch (e) { /* 忽略 */ } }); }
-    eth = W.get() || null;
+    try { eth = W.get() || null; } catch (e) { eth = null; } /* 没连钱包时 W.get() 会抛错：等客户在小窗里点连接再选钱包 */
     app.innerHTML = '<div class="gbx">' +
       '<div class="gbx-head"><h2>⚡ 秒到跨链</h2><span class="gbx-tag">第三方 GaleBridge</span></div>' +
       '<div class="gbx-rows">' +
