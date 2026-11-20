@@ -78,6 +78,22 @@ export async function onRequestPost(ctx) {
     await kv.put("or:pay", JSON.stringify(m.pay));
     return json({ ok: true, st: payState(m.x) });
   }
+  // —— 上传过程留痕（2026-11-20，工单 #327：客户说「发截图没反应」，服务器上一条都没收到，查不出卡在哪一步）——
+  // 页面在「点了上传 / 选到几个文件 / 失败原因 / 成功」各报一条。只收确实有待领奖的钱包（mine 核过，别人刷不进来），留最近 200 条、30 天；后台用工单口令看（action: "logs"）
+  if (b.action === "log") {
+    const a = String(b.a || "").toLowerCase(), id = String(b.id || "");
+    if (!isAddr(a)) return json({ ok: false });
+    const m = await mine(kv, id, a);
+    if (m.err) return json({ ok: false });
+    const L = (await kv.get("or:uplog", "json")) || [];
+    L.push({ t: Date.now(), a, id, ev: String(b.ev || "").slice(0, 20), info: String(b.info || "").slice(0, 160), ua: String(ctx.request.headers.get("user-agent") || "").slice(0, 160) });
+    await kv.put("or:uplog", JSON.stringify(L.slice(-200)), { expirationTtl: 30 * 86400 });
+    return json({ ok: true });
+  }
+  if (b.action === "logs") {
+    if (!admOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
+    return json({ list: (await kv.get("or:uplog", "json")) || [] });
+  }
   // —— 后台看凭证 ——
   if (b.action === "view") {
     if (!admOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);

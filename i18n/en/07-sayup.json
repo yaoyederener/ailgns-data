@@ -1,0 +1,9 @@
+{
+"选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。": "After choosing, come back to this page — the upload progress shows here. If nothing changes here after you come back, this wallet app did not hand the pictures to the page. No need to keep retrying: say in the DeBox group that you won, and the team will approve it by hand once they see it.",
+"选的不是图片或视频，请再选一次": "That is not a picture or a video — please choose again",
+"没选到图片或视频，请再选一次。不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。": "No picture or video was chosen — please choose again. No need to keep retrying: say in the DeBox group that you won, and the team will approve it by hand once they see it.",
+"收到 {0} 张截图，正在处理…": "Got {0} screenshot(s), processing…",
+"没交上：图片处理不动（可能太大了），请换成手机截图再试。试了两次还不行就不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。": "Upload failed: the pictures could not be processed (maybe too large) — try phone screenshots instead. If it still fails after two tries — No need to keep retrying: say in the DeBox group that you won, and the team will approve it by hand once they see it.",
+"没交上：传了一分半钟还没传完，网络太慢，请换个网络再试。试了两次还不行就不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。": "Upload failed: still uploading after 90 seconds — the network is too slow, try another network. If it still fails after two tries — No need to keep retrying: say in the DeBox group that you won, and the team will approve it by hand once they see it.",
+"没交上：视频传了 {0} 分钟还没传完，网络太慢。请改传截图。试了两次还不行就不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。": "Upload failed: the video was still uploading after {0} minutes — the network is too slow. Upload screenshots instead. If it still fails after two tries — No need to keep retrying: say in the DeBox group that you won, and the team will approve it by hand once they see it."
+}

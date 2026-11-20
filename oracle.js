@@ -343,6 +343,7 @@
       r.readAsDataURL(file);
     });
   }
+  function sayLog(x, ev, info) { try { fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, keepalive: true, body: JSON.stringify({ action: "log", a: account, id: x.id, ev: ev, info: String(info || "").slice(0, 160) }) }).catch(function () {}); } catch (e) { /* 留痕失败不影响上传 */ } }
   function sayBox(me) {
     var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
     var L = (me && me.sayDue) || [];
@@ -681,23 +682,38 @@
   function bind(rid) {
     // 📷 领奖凭证：选截图（最多 3 张，先压小）或一段视频（最多 20MB）→ 直接上传，不用签名（站长 2026-11-16：要方便）
     document.querySelectorAll(".or-say-f").forEach(function (fi) {
+      // 🛡 2026-11-20 加固（工单 #327：客户说「发截图没反应」，服务器上一条都没收到，查不出卡在哪）：
+      //   ① 一点上传就先在按钮下面写一句话——选完回来这里没变化 = 这个钱包 App 没把图片交给网页，告诉他别反复试、怎么办；
+      //   ② 钱包 App 不告诉网页文件类型（type 是空的）时，按文件名认；认不出就当图片试，打不开会明说；
+      //   ③ 读图 / 上传都有时限，不会一直停在「正在处理」；④ 每一步往服务器留一条痕（sayLog），下次有人说传不上能查到卡在哪一步、用的什么钱包 App
+      var idx = fi.getAttribute("data-i");
+      var cur = function () { return ((data && data.me && data.me.sayDue) || [])[Number(idx)]; };
+      var say = function (t, bad) { var stEl = document.querySelector('.or-say-st[data-i="' + idx + '"]'); if (stEl) { stEl.textContent = t; stEl.className = "or-say-st" + (bad ? " bad" : t && bad === 0 ? " tip" : ""); } };
+      var HELP = "不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。";
+      fi.onclick = function () { var x = cur(); if (x && account) { say("选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。" + HELP, 0); sayLog(x, "open", ""); } };
       fi.onchange = function () {
-        var idx = fi.getAttribute("data-i"), x = ((data && data.me && data.me.sayDue) || [])[Number(idx)], stEl = document.querySelector('.or-say-st[data-i="' + idx + '"]');
-        var files = [].slice.call(fi.files || []), imgs = files.filter(function (f) { return /^image\//.test(f.type); }).slice(0, 3), vid = files.filter(function (f) { return /^video\//.test(f.type); })[0];
-        var say = function (t, bad) { if (stEl) { stEl.textContent = t; stEl.className = "or-say-st" + (bad ? " bad" : ""); } };
-        fi.value = "";
-        if (!x || !account) return say("请先连接中奖的那个钱包，再上传", true);
-        if (!imgs.length && !vid) return say("没选到图片或视频，请再选一次", true);
-        if (vid && vid.size > 20 * 1024 * 1024) return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true);
+        var x = cur();
+        var files = [].slice.call(fi.files || []);
+        var isImg = function (f) { return /^image\//.test(f.type) || (!f.type && /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name || "")); };
+        var isVid = function (f) { return /^video\//.test(f.type) || (!f.type && /\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name || "")); };
+        var imgs = files.filter(isImg).slice(0, 3), vid = files.filter(isVid)[0];
+        if (!imgs.length && !vid) imgs = files.filter(function (f) { return !f.type; }).slice(0, 3); // 钱包 App 没说这是什么文件：当图片试一下，打不开下面会明说
+        var done = function () { try { fi.value = ""; } catch (e) { /* 清不掉也不要紧 */ } }; // 传完再清（有的钱包 App 一清，刚选的文件就读不出来了）；清了才能再选同一张
+        if (!x || !account) { done(); return say("请先连接中奖的那个钱包，再上传", true); }
+        sayLog(x, "files", files.length + "个:" + files.slice(0, 4).map(function (f) { return (f.type || "?") + "/" + Math.round(f.size / 1024) + "K"; }).join(","));
+        if (!imgs.length && !vid) { done(); return say(files.length ? "选的不是图片或视频，请再选一次" : "没选到图片或视频，请再选一次。" + HELP, true); }
+        if (vid && vid.size > 20 * 1024 * 1024) { done(); return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true); }
         var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
+        var within = function (p, ms, msg) { return new Promise(function (ok, bad) { var t = setTimeout(function () { bad(new Error(msg)); }, ms); p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); bad(e); }); }); };
         var step = Promise.resolve(), lastSt = "";
-        if (imgs.length) step = step.then(function () { say("正在处理截图…"); return Promise.all(imgs.map(sayShrink)); })
-          .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: account, id: x.id, imgs: us }) }).then(jsonOf); })
+        if (imgs.length) step = step.then(function () { say("收到 " + imgs.length + " 张截图，正在处理…"); return within(Promise.all(imgs.map(sayShrink)), 30000, "图片处理不动（可能太大了），请换成手机截图再试"); })
+          .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return within(fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: account, id: x.id, imgs: us }) }).then(jsonOf), 90000, "传了一分半钟还没传完，网络太慢，请换个网络再试"); })
           .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
         if (vid) step = step.then(function () { return imgs.length ? new Promise(function (ok) { setTimeout(ok, 9000); say("截图已交，马上接着上传视频，请别关页面…"); }) : null; })
-          .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + account, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf); })
+          .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return within(fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + account, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf), 240000, "视频传了 4 分钟还没传完，网络太慢。请改传截图"); })
           .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
-        step.then(function () { say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。名字烧够以后机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); }, function (e) { say("没交上：" + ((e && e.message) || "网络不好，请再试一次"), true); });
+        step.then(function () { done(); sayLog(x, "ok", lastSt); say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。名字烧够以后机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); },
+          function (e) { done(); var m = (e && e.message) || "网络不好，请再试一次"; sayLog(x, "fail", m); say("没交上：" + m + "。试了两次还不行就" + HELP, true); });
       };
     });
     var c = document.getElementById("or-conn");
