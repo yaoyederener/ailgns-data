@@ -1,5 +1,5 @@
 window.AIL_NIGHT="dist/night.css?v=h6c3acd2d78";
-window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h977a2a75f5"};
+window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h84c9eecdd1"};
 window.AIL_BUNDLES={"names":"dist/names.js?v=hf09f4f10d7","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=hae6c4f7f0f","trade":"dist/trade.js?v=h9bfd11d99c","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=hf3ce9e43d5","aiswap":"dist/aiswap.js?v=h6fc3fbed96","feedback":"dist/feedback.js?v=he6aebec8ab","games":"dist/games.js?v=h0dc512d078","mj":"dist/mj.js?v=he854af01a2","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=hc8b3333fb6"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
@@ -881,7 +881,7 @@ if(!amt){var r0=refRate();out.innerHTML=r0?rows([["参考比例",rateTxt(r0)],["
 var x=swapQuote(bk,f,t,amt);if(!x.p1.steps.length){out.innerHTML='<p class="swp-warn">'+SWAP_NAME[f]+" 现在没有合适的买单接，暂时换不了。数量太小（不到 1 DAI）也换不了。</p>";return goText();}
 if(!x.p2.steps.length||x.out<=0n){out.innerHTML='<p class="swp-warn">'+SWAP_NAME[t]+" 现在没有卖单，或者数量太小，暂时换不了。</p>";return goText();}
 q=x;if(q.p1.tok<amt-amt/1000n)w.push("现在的买单只够接 "+amt2(q.p1.tok,f)+"，这次按这个数换。");var lost=q.dai-q.p2.dai;if(lost>10n**18n&&lost*50n>q.dai)w.push(SWAP_NAME[t]+" 的卖单不够：大约有 "+show(lost,2)+" DAI 换不完，会留在你钱包里。建议把数量改小。");var ra=swapDir==="a2l"?num(q.out,9)/num(q.p1.tok,18):num(q.p1.tok,9)/num(q.out,18);setGet(q.out);out.innerHTML=w.map(function(s){return'<p class="swp-warn">⚠️ '+s+"</p>";}).join("")+
-rows([["兑换比例",rateTxt(ra)],["手续费","两步各 1%，已扣"],["第 1 步","卖出 "+amt2(q.p1.tok,f)+" → "+show(q.dai,2)+" DAI"],["第 2 步","用这笔 DAI 买入 "+amt2(q.out,t)],["钱包确认","2 次"]]);goText();}
+rows([["兑换比例",rateTxt(ra)],["手续费","两步各 1%，已扣"],["第 1 步",amt2(q.p1.tok,f)+" → "+show(q.dai,2)+" DAI"],["第 2 步",show(q.dai,2)+" DAI → "+amt2(q.out,t)],["钱包确认","2 次"]]);goText();}
 function pend(){try{var p=JSON.parse(localStorage.getItem(SWAP_PEND)||"null");return p&&p.dai&&SWAP_NAME[p.to]&&SWAP_NAME[p.from]&&Date.now()-p.t<7*86400e3?p:null;}catch(e){return null;}}
 function setPend(p){try{if(p)localStorage.setItem(SWAP_PEND,JSON.stringify(p));else localStorage.removeItem(SWAP_PEND);}catch(e){}}
 function drawPend(){if(!alive())return;var p=pend();if(working){pendEl.innerHTML="";return;}
@@ -1112,5 +1112,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h9b44d64c25";
-/*v:h9b44d64c25*/
+;window.AIL_CORE="hf9bd85cf86";
+/*v:hf9bd85cf86*/

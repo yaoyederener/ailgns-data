@@ -687,8 +687,8 @@
       setGet(q.out);
       out.innerHTML = w.map(function (s) { return '<p class="swp-warn">⚠️ ' + s + "</p>"; }).join("") +
         rows([["兑换比例", rateTxt(ra)], ["手续费", "两步各 1%，已扣"],
-          ["第 1 步", "卖出 " + amt2(q.p1.tok, f) + " → " + show(q.dai, 2) + " DAI"],
-          ["第 2 步", "用这笔 DAI 买入 " + amt2(q.out, t)],
+          ["第 1 步", amt2(q.p1.tok, f) + " → " + show(q.dai, 2) + " DAI"],
+          ["第 2 步", show(q.dai, 2) + " DAI → " + amt2(q.out, t)],
           ["钱包确认", "2 次"]]);
       goText();
     }
