@@ -689,7 +689,7 @@
       var idx = fi.getAttribute("data-i");
       var cur = function () { return ((data && data.me && data.me.sayDue) || [])[Number(idx)]; };
       var say = function (t, bad) { var stEl = document.querySelector('.or-say-st[data-i="' + idx + '"]'); if (stEl) { stEl.textContent = t; stEl.className = "or-say-st" + (bad ? " bad" : t && bad === 0 ? " tip" : ""); } };
-      var HELP = "不用反复试：在 DeBox 群里说一声自己中奖了，团队看到会手动通过。";
+      var HELP2 = "在 DeBox 群里说一声自己中奖了，团队看到会手动通过。", HELP = "不用反复试：" + HELP2;
       fi.onclick = function () { var x = cur(); if (x && account) { say("选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。" + HELP, 0); sayLog(x, "open", ""); } };
       fi.onchange = function () {
         var x = cur();
@@ -701,7 +701,7 @@
         var done = function () { try { fi.value = ""; } catch (e) { /* 清不掉也不要紧 */ } }; // 传完再清（有的钱包 App 一清，刚选的文件就读不出来了）；清了才能再选同一张
         if (!x || !account) { done(); return say("请先连接中奖的那个钱包，再上传", true); }
         sayLog(x, "files", files.length + "个:" + files.slice(0, 4).map(function (f) { return (f.type || "?") + "/" + Math.round(f.size / 1024) + "K"; }).join(","));
-        if (!imgs.length && !vid) { done(); return say(files.length ? "选的不是图片或视频，请再选一次" : "没选到图片或视频，请再选一次。" + HELP, true); }
+        if (!imgs.length && !vid) { done(); return say(files.length ? "选的不是图片或视频，请再选一次" : "没选到图片或视频，请再选一次；还不行就" + HELP2, true); }
         if (vid && vid.size > 20 * 1024 * 1024) { done(); return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true); }
         var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
         var within = function (p, ms, msg) { return new Promise(function (ok, bad) { var t = setTimeout(function () { bad(new Error(msg)); }, ms); p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); bad(e); }); }); };
@@ -713,7 +713,7 @@
           .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return within(fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + account, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf), 240000, "视频传了 4 分钟还没传完，网络太慢。请改传截图"); })
           .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
         step.then(function () { done(); sayLog(x, "ok", lastSt); say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。名字烧够以后机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); },
-          function (e) { done(); var m = (e && e.message) || "网络不好，请再试一次"; sayLog(x, "fail", m); say("没交上：" + m + "。试了两次还不行就" + HELP, true); });
+          function (e) { done(); var m = (e && e.message) || "网络不好，请再试一次"; sayLog(x, "fail", m); say("没交上：" + m + "。再试一次；还不行就" + HELP2, true); });
       };
     });
     var c = document.getElementById("or-conn");
