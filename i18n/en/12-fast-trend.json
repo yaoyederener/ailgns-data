@@ -1,0 +1,12 @@
+{
+"走势图": "Trend chart",
+"开奖": "Draw",
+"出现次数": "Times",
+"当前遗漏": "Missing now",
+"最大遗漏": "Longest miss",
+"共 {0} 期（{1}:{2} – {3}:{4}）· 可以上下滑动": "{0} rounds ({1}:{2} – {3}:{4}) · scroll up and down",
+"一行是一期，从上到下越来越新，最下面是刚开的。球是那一期开出的数字；格子里的小数字是「遗漏」：这个数字已经连续几期没开了。": "One row per round, newest at the bottom. The ball is the number drawn that round; the small figures show how many rounds in a row that number has not come up.",
+"每一期的数字都来自区块哈希，期和期之间没有任何关系。走势图只是把开过的数字排出来，<b>不能用来预测下一期</b>。": "Each number comes from a block hash, and rounds are unrelated to each other. The chart only lists past numbers — <b>it cannot predict the next round</b>.",
+"每一期的数字都来自区块哈希，期和期之间没有任何关系。走势图只是把开过的数字排出来，": "Each number comes from a block hash, and rounds are unrelated to each other. The chart only lists past numbers — ",
+"不能用来预测下一期": "it cannot predict the next round"
+}
