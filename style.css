@@ -4943,3 +4943,14 @@ html.lang-ko body { word-break: keep-all; }
 #u2d-std[hidden], #u2d-fast[hidden] { display: none; }
 
 .gbx-rows b small { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: #8a85a8; }
+
+/* 秒到通道 · 本站自己的简体卡片（2026-11-21，不再嵌 GaleBridge 的小窗）：卡片本身用跨链桥那套 u2d- 样式，这里只补进度条和小字 */
+.gbx-in { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 500; color: #8a85a8; }
+.gbx-prog { margin: 12px 0 0; padding: 12px 14px; border-radius: 14px; background: #f5f0ff; border: 1px solid #d9ccf7; display: grid; gap: 6px; font-size: 13.5px; color: #4b4470; }
+.gbx-prog.ok { background: #ecfdf5; border-color: #86efac; color: #14532d; }
+.gbx-prog b { font-size: 15px; color: #1f1a3d; }
+.gbx-prog.ok b { color: #14532d; }
+.gbx-prog .bad { color: #9a3412; }
+.gbx-prog code { display: block; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, .7); font-size: 11.5px; word-break: break-all; }
+.gbx-prog a { color: #5920ad; font-weight: 700; }
+.gbx-prog button { justify-self: start; margin: 2px 0 0; padding: 6px 14px; border-radius: 999px; border: 1px solid #c9b8f3; background: #fff; box-shadow: none; color: #5920ad; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
