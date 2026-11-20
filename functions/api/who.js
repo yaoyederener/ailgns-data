@@ -41,7 +41,9 @@ async function index(origin, ctx) {
   if (memo && Date.now() - memoAt < IDX_TTL) return memo;
   const cache = caches.default, ck = new Request("https://ailgns.dev/api/who/_idx?v=1");
   try { const hit = await cache.match(ck); if (hit) { memo = await hit.json(); memoAt = Date.now(); return memo; } } catch (e) { /* 没缓存就现算 */ }
-  const get = (a, t) => fetch(origin + "/api/name-logs?a=" + a + "&t=" + t).then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.l) || null).catch(() => null);
+  // 快照先问自己这个站；拿不到（预览站没有数据库）再问正式站，都是公开数据
+  const one = (o, a, t) => fetch(o + "/api/name-logs?a=" + a + "&t=" + t).then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.l && j.l.length ? j.l : null)).catch(() => null);
+  const get = (a, t) => one(origin, a, t).then((l) => l || (origin === "https://ailgns.dev" ? null : one("https://ailgns.dev", a, t)));
   const [ax, ar, lx, lr] = await Promise.all([get(NAMES.ailgns, T_XFER), get(NAMES.ailgns, T_REG), get(NAMES.lgns, T_XFER), get(NAMES.lgns, T_REG)]);
   if (!ax || !ar) return null; // .ailgns 的快照都拿不到：这次答不了，让页面走老办法
   const idx = ownedIndex({ ailgns: { xf: ax, rg: ar }, lgns: { xf: lx || [], rg: lr || [] } });
