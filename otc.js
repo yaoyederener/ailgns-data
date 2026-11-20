@@ -1354,10 +1354,11 @@
       // 自动撮合：挂单前先看对面有没有价格更好的单，有就提示「一键先成交，剩下的再挂单」
       var now0 = Date.now() / 1000, live0 = orders.filter(function (o) { return o.open && o.expiry > now0 && o.giveLeft > 0n && !isDust(o) && o.maker !== account; });
       var mbox = document.getElementById("otc-match"), mp = null;
+      var MATCH_TIP_OFF = true; /* 改回 false 买单的提示就回来 */
       function match() {
         var q = qtyWei(), pw = toWei(price.value), pr = Number(price.value), sell = side === "sell";
         mp = null;
-        if (sell) { mbox.innerHTML = ""; return; } /* 站长 2026-11-17：「这个提示去掉，我们希望客户挂低价卖单」→ 挂卖单时不再提示「有更划算的单，现在就能成交」，直接按客户填的价挂；买单的提示没动 */
+        if (sell || MATCH_TIP_OFF) { mbox.innerHTML = ""; return; } /* 站长 2026-11-20：买单的这个提示也去掉（买单有最低出价线，价一填就高过卖单，提示每次都跳出来）；想马上成交的走上面的「一键扫单」。站长 2026-11-17：「这个提示去掉，我们希望客户挂低价卖单」→ 挂卖单时不再提示「有更划算的单，现在就能成交」，直接按客户填的价挂；买单的提示没动 */
         if (!q || !pw || !(pr > 0)) { mbox.innerHTML = ""; return; }
         var cross = live0.filter(function (o) { return !o._far && (sell ? !o.sellAilgns && priceOf(o) >= pr : o.sellAilgns && priceOf(o) <= pr); })
           .sort(function (a, b) { return sell ? priceOf(b) - priceOf(a) : priceOf(a) - priceOf(b); });

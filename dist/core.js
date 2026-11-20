@@ -974,7 +974,7 @@ return;}
 var gr=GUIDE&&GUIDE[MK]&&GUIDE[MK][side];if(gr){g=mkt*gr;var gn=GUIDE[MK].n[side],goff=(gr-1)*100;el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g,PD)+'</b><small>DAI / 枚 · 比 DEX 市价'+(goff>=0?"高 ":"低 ")+Math.abs(goff).toFixed(1)+'%</small></div>';if(auto||!price.value){price.value=g.toFixed(PD);auto=true;}
 return;}
 var off=(1-g/mkt)*100,sellGain=(side==="sell"?g:g*TAKER)-dexSell,buyGain=dexBuy-(side==="sell"?g/TAKER:g);el.innerHTML='<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">'+A.fmt(g,PD)+'</b><small>DAI / 枚 · 比市价'+(off>=0?"低 ":"高 ")+Math.abs(off).toFixed(1)+'%</small></div>';if(auto||!price.value){price.value=g.toFixed(PD);auto=true;}}
-var now0=Date.now()/1000,live0=orders.filter(function(o){return o.open&&o.expiry>now0&&o.giveLeft>0n&&!isDust(o)&&o.maker!==account;});var mbox=document.getElementById("otc-match"),mp=null;function match(){var q=qtyWei(),pw=toWei(price.value),pr=Number(price.value),sell=side==="sell";mp=null;if(sell){mbox.innerHTML="";return;}
+var now0=Date.now()/1000,live0=orders.filter(function(o){return o.open&&o.expiry>now0&&o.giveLeft>0n&&!isDust(o)&&o.maker!==account;});var mbox=document.getElementById("otc-match"),mp=null;var MATCH_TIP_OFF=true;function match(){var q=qtyWei(),pw=toWei(price.value),pr=Number(price.value),sell=side==="sell";mp=null;if(sell||MATCH_TIP_OFF){mbox.innerHTML="";return;}
 if(!q||!pw||!(pr>0)){mbox.innerHTML="";return;}
 var cross=live0.filter(function(o){return!o._far&&(sell?!o.sellAilgns&&priceOf(o)>=pr:o.sellAilgns&&priceOf(o)<=pr);}).sort(function(a,b){return sell?priceOf(b)-priceOf(a):priceOf(a)-priceOf(b);});var total=q*pw/TUNIT,p=cross.length?(sell?sweepPlanTok(cross,q):buyPlan(cross,q)):null;if(!p||!p.steps.length){mbox.innerHTML="";return;}
 var restGive=sell?q-p.tok:(q-p.tok)*pw/TUNIT,restWant=sell?restGive*pw/TUNIT:q-p.tok;var restDai=sell?restWant:restGive;if(restDai<MIN_DAI){restGive=0n;restWant=0n;}
@@ -1118,5 +1118,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h4618b48537";
-/*v:h4618b48537*/
+;window.AIL_CORE="h2fbad256c3";
+/*v:h2fbad256c3*/
