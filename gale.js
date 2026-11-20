@@ -1,4 +1,4 @@
-// ⚡ #/gale「秒到跨链」（站长 2026-11-20：官方桥从 Anubis 出去要等 2 小时 10 分钟，接第三方 GaleBridge 做秒到通道，本站加收 0.05%）
+// ⚡ 跨链桥页里的「秒到通道」（原 #/gale「秒到跨链」，2026-11-20 当天合并进 #/usdt；站长 2026-11-20：官方桥从 Anubis 出去要等 2 小时 10 分钟，接第三方 GaleBridge 做秒到通道，本站加收 0.05%）
 // 做法：用 GaleBridge 官方公开的嵌入组件（galebridge.net/docs/widget，SDK 0.1.0 固定存一份在 /vendor/，不从它的网站加载脚本）。
 //   · 客户的币进的是 GaleBridge 的合约，由它在目标链付款；本站不经手客户的币，没有新合约。
 //   · 组件在它自己域名的小窗（iframe）里，要钱包签名时把请求交给本页，本页只放行两种：给 GaleBridge 合约的授权、发给 GaleBridge 合约的交易；别的一律拦下。
@@ -138,14 +138,12 @@
     }, function () { say("秒到通道没加载出来，请刷新再试。", true); });
   }
 
-  A.pages.gale = function (id) {
+  // 2026-11-20 站长：「合并到跨链桥里面」→ 不再是单独一页，由跨链桥页（usdt.js）选了「秒到通道」时把内容画进它给的那一块
+  function draw(el, id) {
     rid = id;
-    var app = g("app");
-    if (!app) return;
-    if (!hooked) { hooked = true; window.addEventListener("hashchange", function () { try { if (location.hash.indexOf("#/gale") !== 0) unmount(); } catch (e) { /* 忽略 */ } }); }
+    if (!hooked) { hooked = true; window.addEventListener("hashchange", function () { try { if (location.hash.indexOf("#/usdt") !== 0) unmount(); } catch (e) { /* 忽略 */ } }); }
     try { eth = W.get() || null; } catch (e) { eth = null; } /* 没连钱包时 W.get() 会抛错：等客户在小窗里点连接再选钱包 */
-    app.innerHTML = '<div class="gbx">' +
-      '<div class="gbx-head"><h2>⚡ 秒到跨链</h2><span class="gbx-tag">第三方 GaleBridge</span></div>' +
+    el.innerHTML = '<div class="gbx">' +
       '<div class="gbx-rows">' +
       '<div><span>多久到</span><b>约 20 秒</b></div>' +
       '<div><span>GaleBridge 收</span><b>约 0.3%～0.4% + 0.1</b></div>' +
@@ -155,8 +153,13 @@
       '<p class="gbx-note"><b>这是第三方服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你。它收多少以下面小窗里的报价为准。本站服务费是单独一笔，所以钱包会多弹一次。</p>' +
       '<div class="gbx-w" id="gbx-w"></div>' +
       '<p class="gbx-st" id="gbx-st" role="status"></p>' +
-      '<p class="gbx-alt">不着急？<a href="#/usdt">官方桥免费，从 Anubis 出去约 2 小时 10 分钟 →</a></p>' +
       "</div>";
     mount(id);
+  }
+  A.gale = { mount: draw, unmount: unmount };
+  // 老网址 #/gale：转到跨链桥页并选好秒到通道
+  A.pages.gale = function () {
+    try { sessionStorage.setItem("u2d:mode", "fast"); } catch (e) { /* 存不了就落在本站通道，客户自己点一下 */ }
+    location.replace("#/usdt");
   };
 })();

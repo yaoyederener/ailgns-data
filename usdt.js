@@ -27,6 +27,7 @@
   function N() { return NETS[net]; }
   var ROUTERS = ["0x6131b5fae19ea4f9d964eac0408e4408b66337b5", "0x6a000f20005980200259b80c5102003040001068"]; // KyberSwap、ParaSwap（备用）的路由合约
   var SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", bridge: "0x8d3ccf9f" /* bridge(bytes32,uint32,bytes32,uint256) */ };
+  var mode = "std"; // 标题下选的通道：std = 本站通道（官方桥，0 手续费），fast = 秒到通道（第三方 GaleBridge，收费）
   var account = null, bal = null, q = null, busy = false, rid = 0, qTimer = null, qSeq = 0, watch = null, dir = "in", sdir = "in"; // dir = 过桥那一步的方向，sdir = 换币那一步的方向；都由下面的 from / to 推出来（sync()），别处不要直接改
   // 🆕 2026-11-20 两张卡合成一张（站长：主流都是一张卡——上面付出、下面到账、一个按钮）。
   // from / to = 付出的币、到账的币：U = 这条链的 USDT，D = 这条链的 DAI，A = Anubis 的 DAI。走哪几步由这一对决定：
@@ -391,11 +392,11 @@
   function etaHtml() {
     if (!has("bridge")) return "";
     if (dir === "in") return ""; // 往里充的到账时间写在明细行「预计到账」里
-    return '<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><p class="u2d-fastgo">着急？<a href="#/gale">⚡ 秒到通道（第三方 GaleBridge，约 20 秒，要收手续费）→</a></p><details><summary>为什么这么慢？能加急吗？</summary>' +
+    return '<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><p class="u2d-fastgo">着急？<a href="#/gale">⚡ 换成秒到通道（第三方 GaleBridge，约 20 秒，要收手续费）→</a></p><details><summary>为什么这么慢？能加急吗？</summary>' +
       '<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>' +
       '<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以从 Polygon 跨到 Anubis 只要 2 分钟。</p>' +
       '<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>' +
-      '<p><b>官方桥不能加急</b>：这是官方桥写死的规则，谁也改不了。着急的可以走上面的「秒到通道」，那是第三方 GaleBridge 的服务，约 20 秒到，要收手续费。</p>' +
+      '<p><b>官方桥不能加急</b>：这是官方桥写死的规则，谁也改不了。着急的可以在页面上方选「秒到通道」，那是第三方 GaleBridge 的服务，约 20 秒到，要收手续费。</p>' +
       '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；要换成 USDT 的，到账后这一页会帮你填好，点一下按钮就行。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
       '<p><b>急用钱</b>：请提前 2 个多小时操作，或者走秒到通道。</p></details></div>';
   }
@@ -416,9 +417,14 @@
     A.app.innerHTML =
       // 版式参照主流兑换页（Uniswap / 币安钱包那种）：一张窄卡居中、上面付出、下面到账、中间一个箭头、框右边选哪条链的哪个币、底下一个按钮
       '<div class="u2d">' +
-      '<header class="u2d-hd"><h2>USDT 跨链桥<span class="u2d-free">0手续费</span></h2>' +
+      '<header class="u2d-hd"><h2>USDT 跨链桥</h2>' +
+      // 2026-11-20 站长：秒到跨链「合并到跨链桥里面，并标注第三方跨链桥收费，我们的是0手续费」→ 标题下两个通道二选一。两个通道的内容都留在页面里，只是藏起一个（原来那一套的定时刷新照常跑，不会找不到元素）
+      '<div class="u2d-mode" id="u2d-mode">' +
+      '<button type="button" data-mode="std"><b>本站通道</b><em class="free">0手续费</em><small>走官方桥：进约 2 分钟，出约 2 小时 10 分钟</small></button>' +
+      '<button type="button" data-mode="fast"><b>⚡ 秒到通道</b><em class="paid">第三方收费</em><small>GaleBridge：约 20 秒</small></button>' +
+      '</div></header>' +
+      '<div id="u2d-fast" hidden></div><div id="u2d-std">' +
       '<div class="u2d-net" id="u2d-net"><span>你的币在哪条链</span>' + Object.keys(NETS).map(function (k) { return '<button type="button" data-net="' + k + '"' + (k === net ? ' class="on"' : "") + ">" + NETS[k].name + "</button>"; }).join("") + "</div>" +
-      '</header>' +
       '<div id="u2d-bal"></div><div id="u2d-prog"></div>' + card() + '<section class="u2d-card u2d-his" id="u2d-his"></section>' +
       '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
@@ -426,7 +432,9 @@
       '<p class="note">② 跨链用 <b>Anubis 官方跨链桥</b>（app.anubisbridge.com），两个方向都是它，和你自己去官方桥页面操作是同一个合约。</p>' +
       '<p class="note">收费：本站不收服务费，换出来的币全部到你自己钱包；过桥官方也不收费。你只付链上的 Gas。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>' +
       '<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>' +
-      '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section></div>';
+      '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section></div></div>';
+    Array.prototype.forEach.call(g("u2d-mode").querySelectorAll("button"), function (b) { b.onclick = function () { if (busy) return; mode = b.getAttribute("data-mode") === "fast" ? "fast" : "std"; paintMode(); }; });
+    paintMode();
     var a1 = g("u2d-a1"); a1.value = amtStr; a1.oninput = onAmt;
     g("u2d-max1").onclick = function () {
       if (!bal) return say("s", "先连接钱包", true);
@@ -447,6 +455,18 @@
     if (amtStr && has("swap") && !q) onAmt();
   }
   // 换一条链：余额、报价都是那条链上的，清掉重读；这条链不能往外提的话，付出的币拨回这条链上的（sync() 里管）
+  // 两个通道切换：只换显示，不重画页面。秒到通道的内容由 gale.js 画（嵌第三方 GaleBridge 的组件）
+  function paintMode() {
+    var m = g("u2d-mode"), st = g("u2d-std"), fa = g("u2d-fast");
+    if (!m || !st || !fa) return;
+    if (mode === "fast" && !(A.gale && A.gale.mount)) mode = "std";
+    Array.prototype.forEach.call(m.querySelectorAll("button"), function (b) { b.className = b.getAttribute("data-mode") === mode ? "on" : ""; });
+    st.hidden = mode === "fast"; fa.hidden = mode !== "fast";
+    try {
+      if (mode === "fast") { if (!g("gbx-w")) A.gale.mount(fa, rid); }
+      else if (A.gale) { A.gale.unmount(); fa.innerHTML = ""; }
+    } catch (e) { mode = "std"; st.hidden = false; fa.hidden = true; }
+  }
   function setNet(k) {
     if (busy || !NETS[k] || k === net) return;
     net = k; pick = null; way = null;
@@ -454,6 +474,8 @@
     if (account) loadBal().then(paintAll, function () { /* 余额读不到：框里先显示「—」 */ });
   }
   A.pages.usdt = function (id) {
+    try { if (sessionStorage.getItem("u2d:mode") === "fast") { mode = "fast"; sessionStorage.removeItem("u2d:mode"); } } catch (e) { /* 忽略 */ }
+    if (mode === "fast" && g("gbx-w") && g("u2d-std")) { rid = id; return; } // 秒到通道开着时页面被要求重画（切回前台之类）：不动，免得把客户正在跨的那一笔的小窗毁掉
     rid = id; q = null; pick = null; sync();
     if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); track(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
     render();
