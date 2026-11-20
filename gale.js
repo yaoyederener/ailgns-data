@@ -129,7 +129,7 @@
       var lang = window.AIL_LANG === "en" || window.AIL_LANG === "ko" ? "en" : "zh"; // 组件只有英文和繁体中文
       var dark = false; try { dark = /night|dark/.test(document.documentElement.className + " " + document.body.className); } catch (e) { dark = false; }
       widget = window.GaleBridge.createWidget({
-        container: "#gbx-w", clientId: "ailgns-otc-web", lang: lang, theme: dark ? "dark" : "light", accentColor: "#5920ad",
+        container: "#gbx-w", clientId: "ailgns-otc-bridge", /* 小窗按这个名字记「没跨完的那一笔」。2026-11-20 换过一次名字：我用假钱包测试时在面板里留了一笔永远跨不完的假记录，换名字后从头开始；客户不受影响 */ lang: lang, theme: dark ? "dark" : "light", accentColor: "#5920ad",
         fromChainId: "6714", fromTokenAddress: ADAI, toChainId: "137", toTokenAddress: PDAI,
         // 站长 2026-11-20 晚：「优化下选择框，看起来很乱」→ 小窗里的下拉是它自己的，样子改不了，只能把选项减到常用的 6 个（按链上最近的单子：去 BSC、Polygon 的最多，币是 USDT、DAI）。以太坊 Gas 贵、波场要另一种钱包，先不开
         allowedChains: ["6714", "137", "56"],
