@@ -27,7 +27,16 @@
   function N() { return NETS[net]; }
   var ROUTERS = ["0x6131b5fae19ea4f9d964eac0408e4408b66337b5", "0x6a000f20005980200259b80c5102003040001068"]; // KyberSwap、ParaSwap（备用）的路由合约
   var SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", bridge: "0x8d3ccf9f" /* bridge(bytes32,uint32,bytes32,uint256) */ };
-  var account = null, bal = null, q = null, busy = false, rid = 0, qTimer = null, qSeq = 0, watch = null, dir = "in", sdir = "in"; // dir = 整趟的方向（充进来 / 提出去）；sdir = 换币那一步的方向，默认跟着 dir，点换币卡片中间的 ⇅ 可以单独反过来（站长 2026-11-19：USDT 换 DAI 和 DAI 换 USDT 应该是相互的）
+  var account = null, bal = null, q = null, busy = false, rid = 0, qTimer = null, qSeq = 0, watch = null, dir = "in", sdir = "in"; // dir = 过桥那一步的方向，sdir = 换币那一步的方向；都由下面的 from / to 推出来（sync()），别处不要直接改
+  // 🆕 2026-11-20 两张卡合成一张（站长：主流都是一张卡——上面付出、下面到账、一个按钮）。
+  // from / to = 付出的币、到账的币：U = 这条链的 USDT，D = 这条链的 DAI，A = Anubis 的 DAI。走哪几步由这一对决定：
+  //   U→A 换币 + 过桥；A→U 过桥 + 换币；U⇄D 只换币；D⇄A 只过桥。
+  // 换币、过桥两段链上逻辑（doSwap / doBridge）和合成前一样，只是由一个按钮按顺序带着走；每一笔仍然要客户在钱包里确认
+  var from = "U", to = "A", pick = null, amtStr = "", way = null; // pick = 哪个框的选币列表开着；amtStr =「你付出」框里填的数；way = 两步的那一趟走到第几步 { k: "UA" | "AU", now: 1 | 2 }
+  function route() { var k = from + to; return k === "UA" ? ["swap", "bridge"] : k === "AU" ? ["bridge", "swap"] : (k === "UD" || k === "DU") ? ["swap"] : ["bridge"]; }
+  function has(s) { return route().indexOf(s) >= 0; }
+  function sync() { if (!N().canOut && from === "A") { from = "U"; to = "A"; } if (from === to) to = from === "A" ? "U" : "A"; sdir = from === "U" ? "in" : "out"; dir = from === "A" ? "out" : "in"; }
+  function C(k) { var c = N(); return k === "U" ? { cls: "usdt", ch: "₮", sym: "USDT", chain: c.name, bk: "usdt", d: c.ud } : k === "D" ? { cls: "dai", ch: "◈", sym: "DAI", chain: c.name, bk: "pdai", d: 18 } : { cls: "dai an", ch: "◈", sym: "DAI", chain: "Anubis", bk: "adai", d: 18 }; }
   // 换币这一步两个方向各自的：付出币、换出币、小数位
   function P() { var c = N(); return sdir === "in" ? { src: c.usdt, sd: c.ud, sn: "USDT", dd: 18, dn: "DAI", sb: "usdt", db: "pdai" } : { src: c.dai, sd: 18, sn: "DAI", dd: c.ud, dn: "USDT", sb: "pdai", db: "usdt" }; }
   // 过桥这一步两个方向各自的：从哪条链到哪条链、余额记在哪
@@ -61,7 +70,7 @@
     ]).then(function (r) { if (a === account && nk === net) bal = { usdt: r[0], pdai: r[1], pol: r[2], adai: r[3] }; });
   }
   // 余额写进每个兑换框右上角（Uniswap 式：钱在哪条链、有多少，就写在那个框里）
-  function setBal() { var p = P(), b = B(); [["u2d-b1", balOf(p.sb)], ["u2d-b2", balOf(p.db)], ["u2d-b2b", balOf(b.fb)], ["u2d-b3", balOf(b.tb)]].forEach(function (x) { var e = g(x[0]); if (e) e.textContent = x[1]; }); }
+  function setBal() { [["u2d-b1", balOf(C(from).bk)], ["u2d-b2", balOf(C(to).bk)]].forEach(function (x) { var e = g(x[0]); if (e) e.textContent = x[1]; }); }
   function paintBal() {
     var el = g("u2d-bal"); if (!el) return;
     setBal();
@@ -80,8 +89,8 @@
     return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return W.switchTo(eth, chain); }).then(function () { return account; });
   }
   function ready(chain) { return Promise.resolve().then(function () { return account ? W.switchTo(W.get(), chain) : connect(chain); }); }
-  function say(k, t, bad) { var el = g("u2d-say-" + k); if (el) { el.textContent = t || ""; el.className = "u2d-say" + (bad ? " bad" : t ? " on" : ""); } }
-  function lock(on) { busy = on; ["u2d-go-s", "u2d-go-b", "u2d-flip2", "u2d-flip"].forEach(function (i) { var b = g(i); if (b) b.disabled = on; }); [].forEach.call(document.querySelectorAll("#u2d-net button"), function (b) { b.disabled = on; }); }
+  function say(k, t, bad) { var el = g("u2d-say"); if (el) { el.textContent = t || ""; el.className = "u2d-say" + (bad ? " bad" : t ? " on" : ""); } } // 合成一张卡以后只有一处提示；第一个参数留着是为了少改调用的地方
+  function lock(on) { busy = on; [].forEach.call(document.querySelectorAll("#u2d-go, #u2d-flip, #u2d-max1, .u2d-tb, .u2d-pk button, #u2d-net button"), function (b) { b.disabled = on; }); var a = g("u2d-a1"); if (a) a.readOnly = on; }
   function wait(chain, hash) {
     var tries = 0;
     return new Promise(function (ok, fail) {
@@ -116,41 +125,55 @@
     });
   }
 
-  // ---------- 换币：报价 + 发交易（在 Polygon 上） ----------
+  // ---------- 报价 ----------
   function getQuote(amt) { var d = sdir, nk = net; return fetch("/api/u2d?amt=" + amt + "&dir=" + d + (nk === "polygon" ? "" : "&chain=" + nk)).then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error || !j.ok) throw new Error((j && j.error) || "现在拿不到报价，稍后再试"); if ((j.dir || "in") !== d || (j.chain || "polygon") !== nk) throw new Error("报价方向不对，请重新填一次数量"); return { dir: d, net: nk, amt: amt, out: BigInt(j.out), fee: BigInt(j.fee || 0), feeBps: Number(j.feeBps) || 0, sum: j.sum, via: j.via, at: Date.now() }; }); }
-  function paintQuote(err) {
-    var el = g("u2d-q"), top = g("u2d-top"), o1 = g("u2d-out1"), p = P(); if (!el) return;
-    var okq = !err && q && q.dir === sdir && q.net === net;
-    if (o1) { o1.textContent = okq ? f(n(q.out, p.dd)) : "0"; o1.className = "u2d-num" + (okq ? "" : " zero"); }
-    if (err) { el.innerHTML = '<p class="u2d-warn">' + esc(err) + "</p>"; if (top) top.innerHTML = ""; return; }
-    if (!okq) { el.innerHTML = '<p class="muted">填上要换多少 ' + p.sn + "，上面马上显示能换到多少 " + p.dn + "。想反过来，把 " + p.dn + " 换成 " + p.sn + "？点两个框中间的 ⇅。</p>"; if (top) top.innerHTML = ""; return; }
-    // out 已经是扣完本站服务费之后的到手数（显示即所得）；gap = 除服务费以外的差额，主要是 USDT 和 DAI 两个币本身的市价差，不是手续费
-    var inU = n(q.amt, p.sd), out = n(q.out, p.dd), fee = n(q.fee, p.dd), pct = q.feeBps / 100, gap = (1 - (out + fee) / inU) * 100, min = out * (1 - SLIP / 10000);
-    var feeTxt = q.feeBps ? "本站服务费 " + pct + "%（约 " + f(fee) + " " + p.dn + "）已经扣在这个数里" : "本站不收服务费，这是全网比价后的到手数";
-    el.innerHTML = '<p class="note">' + feeTxt + "。" + (gap > 0.005 ? (q.feeBps ? "另外约 " : "和 1:1 差的约 ") + f(gap, 2) + "% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。" : gap < -0.005 ? "这一刻 " + p.sn + " 比 " + p.dn + " 略贵，市价差对你有利。" : "") + "</p>" +
-      '<p class="note">最少到手 ' + f(min) + " " + p.dn + "：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>" +
-      (gap > 1 ? '<p class="u2d-warn">⚠️ 现在这个数量换下来比平时差不少（市价差超过 1%）。可以把数量改小分几次换，或者过一会儿再看。</p>' : "");
-    if (!top) return;
-    var paid = q.feeBps ? "已扣本站服务费 " + pct + "%" : "本站不收服务费", free = FEE ? "官方过桥费 " + FEE + " DAI" : "官方跨链桥不收费";
-    if (sdir !== dir) top.innerHTML = '<div class="u2d-sum"><small>' + f(inU) + " " + p.sn + " 在 " + N().name + " 链上换成约</small><b>" + f(out) + " " + p.dn + "</b><span>" + paid + "。只换币，不过桥</span></div>";
-    else if (dir === "in") top.innerHTML = out >= BMIN ? '<div class="u2d-sum"><small>' + f(inU) + " USDT 两步走完，到 Anubis 约</small><b>" + f(out - FEE) + " DAI</b><span>" + paid + "，" + free + "</span></div>" : '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
-    else top.innerHTML = '<div class="u2d-sum"><small>' + f(inU) + " DAI 两步走完，到 " + N().name + " 约</small><b>" + f(out) + " USDT</b><span>" + paid + "，" + free + "</span></div>";
+  function amtIn() { return units(amtStr, C(from).d); }
+  var FEE_WEI = BigInt(Math.round(FEE * 1e6)) * 10n ** 12n;
+  // 「你到账」那个数 + 下面的说明。到账数 = 整趟走完最后到手的数（显示即所得）
+  function paintInfo(err) {
+    var el = g("u2d-q"), o = g("u2d-out"), cf = C(from), ct = C(to), sw = has("swap"), br = has("bridge"); if (!el) return;
+    var amt = amtIn(), okq = sw && !err && !!q && q.dir === sdir && q.net === net && q.amt === amt.toString();
+    var outWei = !sw ? (n(amt, 18) >= BMIN ? amt - FEE_WEI : 0n) : !okq ? 0n : (from === "U" && to === "A") ? (q.out > FEE_WEI ? q.out - FEE_WEI : 0n) : q.out;
+    if (o) { o.textContent = outWei > 0n ? f(n(outWei, ct.d)) : "0"; o.className = "u2d-num" + (outWei > 0n ? "" : " zero"); }
+    if (err) { el.innerHTML = '<p class="u2d-warn">' + esc(err) + "</p>"; return; }
+    if (amt === 0n) { el.innerHTML = '<p class="muted">填上要付出多少 ' + cf.sym + "，下面马上显示能到账多少。</p>"; return; }
+    if (br && !sw && n(amt, 18) < BMIN) { el.innerHTML = '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>"; return; }
+    if (sw && !okq) return; // 报价还在路上，onAmt 已经写了「正在找价」
+    var h = "";
+    if (sw) {
+      // out 已经是扣完本站服务费之后的到手数；gap = 除服务费以外的差额，主要是 USDT 和 DAI 两个币本身的市价差，不是手续费
+      var p = P(), inU = n(q.amt, p.sd), out = n(q.out, p.dd), fee = n(q.fee, p.dd), pct = q.feeBps / 100, gap = (1 - (out + fee) / inU) * 100, min = out * (1 - SLIP / 10000);
+      var feeTxt = q.feeBps ? "本站服务费 " + pct + "%（约 " + f(fee) + " " + p.dn + "）已经扣在这个数里" : "本站不收服务费，这是全网比价后的到手数";
+      h += '<p class="note">' + feeTxt + "。" + (gap > 0.005 ? (q.feeBps ? "另外约 " : "和 1:1 差的约 ") + f(gap, 2) + "% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。" : gap < -0.005 ? "这一刻 " + p.sn + " 比 " + p.dn + " 略贵，市价差对你有利。" : "") + "</p>" +
+        '<p class="note">最少到手 ' + f(min) + " " + p.dn + "：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>" +
+        (gap > 1 ? '<p class="u2d-warn">⚠️ 现在这个数量换下来比平时差不少（市价差超过 1%）。可以把数量改小分几次换，或者过一会儿再看。</p>' : "");
+      if (from === "U" && to === "A" && out < BMIN) h += '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
+      if (from === "A" && n(amt, 18) < BMIN) h += '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>";
+    }
+    if (br) h += '<p class="note">' + (FEE ? "官方桥收 " + FEE + " DAI" : "官方跨链桥不收费，跨多少到多少") + "。到账地址就是你现在这个钱包，在 " + ct.chain + " 链上。</p>";
+    el.innerHTML = h;
   }
   function onAmt() {
-    clearTimeout(qTimer); var seq = ++qSeq, p = P(), amt = units((g("u2d-a1") || {}).value, p.sd), one = 10n ** BigInt(p.sd);
-    if (amt < one) { q = null; if (amt > 0n) paintQuote("最少换 1 " + p.sn); else paintQuote(); return; }
+    clearTimeout(qTimer); var seq = ++qSeq, a = g("u2d-a1"); if (a) amtStr = a.value;
+    var amt = amtIn(), cf = C(from), one = 10n ** BigInt(cf.d);
+    if (!has("swap")) { q = null; return paintInfo(); }
+    if (amt < one) { q = null; return amt > 0n ? paintInfo("最少换 1 " + cf.sym) : paintInfo(); }
     var el = g("u2d-q"); if (el) el.innerHTML = '<p class="muted">正在全网找最划算的价…</p>';
-    qTimer = setTimeout(function () { getQuote(amt.toString()).then(function (x) { if (seq !== qSeq) return; q = x; paintQuote(); }, function (e) { if (seq !== qSeq) return; q = null; paintQuote(String((e && e.message) || e)); }); }, 450);
+    qTimer = setTimeout(function () { getQuote(amt.toString()).then(function (x) { if (seq !== qSeq) return; q = x; paintInfo(); }, function (e) { if (seq !== qSeq) return; q = null; paintInfo(String((e && e.message) || e)); }); }, 450);
   }
-  function swap() {
-    if (busy) return;
-    var d0 = sdir, f0 = dir, p = P(), amt = units((g("u2d-a1") || {}).value, p.sd);
-    if (amt < 10n ** BigInt(p.sd)) return say("s", "先填要换多少 " + p.sn + "（最少 1）", true);
-    lock(true); say("s", "正在连接钱包…");
-    var before = 0n, got = 0n;
-    var c = N(), nk0 = net;
-    if (c.cap && n(amt, p.sd) > c.cap) return say("s", c.name + " 上一次最多换 " + c.cap / 10000 + " 万（池子浅，再多会亏很多）。大额请在上面选 Polygon", true);
-    ready(c.key).then(function () { return loadBal(); }).then(function () {
+
+  // ---------- 换币（在客户选的那条链上）。成功后返回这一笔实际到手多少 ----------
+  // 换完读余额，一直读到看见多出来的数（节点偶尔慢一两个区块）；读了 6 次还没变就返回 0，由调用的地方让客户自己再点
+  function settle(k, before) {
+    var tries = 0;
+    function later() { return ++tries >= 6 ? 0n : new Promise(function (r) { setTimeout(r, 1500); }).then(again); }
+    function again() { return loadBal().then(function () { return bal && bal[k] > before ? bal[k] - before : later(); }, later); }
+    return again();
+  }
+  function doSwap(amt, needBridge) {
+    var d0 = sdir, p = P(), c = N(), nk0 = net, before = 0n;
+    if (c.cap && n(amt, p.sd) > c.cap) return Promise.reject(new Error(c.name + " 上一次最多换 " + c.cap / 10000 + " 万（池子浅，再多会亏很多）。大额请在上面选 Polygon"));
+    return ready(c.key).then(function () { return loadBal(); }).then(function () {
       paintBal();
       if (!bal) throw new Error("没读到余额，刷新后再试");
       if (bal[p.sb] < amt) throw new Error(c.name + " 上的 " + p.sn + " 不够：你有 " + balOf(p.sb) + "，要换 " + f(n(amt, p.sd)));
@@ -159,40 +182,23 @@
       return getQuote(amt.toString());
     }).then(function (x) {
       if (sdir !== d0 || net !== nk0) throw new Error("方向或者链已经换了，请重新点一次");
-      q = x; paintQuote();
+      q = x; paintInfo();
+      if (needBridge && n(x.out, 18) < BMIN) throw new Error("换出来不到 " + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点");
       return fetch("/api/u2d", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sum: x.sum, via: x.via, dir: d0, chain: nk0, sender: account, slip: SLIP }) }).then(function (r) { return r.json(); });
     }).then(function (j) {
       if (!j || j.error || !j.ok) throw new Error((j && j.error) || "拿不到换币数据，稍后再试");
       // 本机再核一遍：只认登记的两个聚合器路由合约（KyberSwap、ParaSwap），方向要对，交易里必须写着你自己的地址
       if (ROUTERS.indexOf(String(j.to).toLowerCase()) < 0 || (j.dir || "in") !== d0 || (j.chain || "polygon") !== nk0 || net !== nk0 || String(j.data).toLowerCase().indexOf(account.slice(2)) < 0) throw new Error("换币数据没通过安全检查，已拦下，你的币没有动");
       return allow(p.src, j.to, amt, "s", p.sn).then(function () { return send(c.key, j.to, j.data, "s", p.sn + " 换成 " + p.dn); });
-    }).then(function () { return loadBal(); }).then(function () {
-      got = bal && bal[p.db] > before ? bal[p.db] - before : 0n;
-      var a1 = g("u2d-a1"); if (a1) a1.value = ""; q = null;
-      paintAll();
-      var gotTxt = got > 0n ? "，到手 " + f(n(got, p.dd)) + " " + p.dn : "";
-      if (d0 === "in" && f0 === "in" && dir === "in") {
-        say("s", "✅ 换好了" + gotTxt + "。接着到下面「过桥」，把 DAI 跨到 Anubis。");
-        var a2 = g("u2d-a2"); if (a2 && bal) { a2.value = plain(bal.pdai, 18, 4); onAmt2(); a2.scrollIntoView({ behavior: "smooth", block: "center" }); }
-      } else if (d0 === "out" && f0 === "out") say("s", "🎉 换好了" + gotTxt + "，就在你这个钱包里（" + c.name + " 链）。两步都走完了。");
-      else say("s", "✅ 换好了" + gotTxt + "，就在你这个钱包里（" + c.name + " 链）。");
-    }).catch(function (e) { say("s", "没成功：" + nice(e), true); }).then(function () { lock(false); });
+    }).then(function () { return settle(p.db, before); });
   }
 
-  // ---------- 过桥（充进来在 Polygon 上发，提出去在 Anubis 上发） ----------
-  function onAmt2() {
-    var el = g("u2d-b"), o2 = g("u2d-out2"), b = B(); if (!el) return; var v = units((g("u2d-a2") || {}).value, 18), okv = n(v, 18) >= BMIN;
-    if (o2) { o2.textContent = okv ? f(n(v, 18) - FEE) : "0"; o2.className = "u2d-num" + (okv ? "" : " zero"); }
-    el.innerHTML = v === 0n ? '<p class="muted">填上要跨多少 DAI。' + (N().canOut ? "想反过来跨？点两个框中间的 ⇅。" : "") + "</p>" : !okv ? '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>" : '<p class="note">' + (FEE ? "官方桥收 " + FEE + " DAI" : "官方跨链桥不收费，跨多少到多少") + "。到账地址就是你现在这个钱包，在 " + b.tn + " 链上。</p>";
-  }
-  function bridge() {
-    if (busy) return;
-    var d0 = dir, b = B(), c = N(), nk0 = net, amt = units((g("u2d-a2") || {}).value, 18);
-    if (n(amt, 18) < BMIN) return say("b", "官方桥最少跨 " + BMIN + " DAI", true);
-    if (d0 === "out" && !c.canOut) return say("b", "官方桥不支持把 DAI 跨回 " + c.name + "，往外提请在上面选 Polygon", true);
-    lock(true); say("b", "正在连接钱包…");
-    var start = 0n, txHash = "";
-    ready(b.from).then(function () { return loadBal(); }).then(function () {
+  // ---------- 过桥（往里充在客户那条链上发，往外提在 Anubis 上发）。then = "swap" 表示到了以后还要接着换成 USDT ----------
+  function doBridge(amt, then) {
+    var d0 = dir, b = B(), c = N(), nk0 = net, start = 0n, txHash = "";
+    if (n(amt, 18) < BMIN) return Promise.reject(new Error("官方桥最少跨 " + BMIN + " DAI"));
+    if (d0 === "out" && !c.canOut) return Promise.reject(new Error("官方桥不支持把 DAI 跨回 " + c.name + "，往外提请在上面选 Polygon"));
+    return ready(b.from).then(function () { return loadBal(); }).then(function () {
       paintBal();
       if (!bal) throw new Error("没读到余额，刷新后再试");
       if (d0 === "in") {
@@ -200,17 +206,50 @@
         if (bal.pol < c.gasMin / 2n) throw new Error("钱包里的 " + c.gas + " 不够付 Gas，" + gasTip());
       } else if (bal.adai < amt + GAS_KEEP / 5n) throw new Error("Anubis 上的 DAI 不够：你有 " + balOf("adai") + "，要跨 " + f(n(amt, 18)) + "，还要留一点点当 Gas。点「全部」会自动留好");
       start = bal[b.tb];
-      // Polygon 的 DAI 是普通代币，要先授权给桥；Anubis 的 DAI 是原生币，实测不用授权
+      // 客户那条链上的 DAI 是普通代币，要先授权给桥；Anubis 的 DAI 是原生币，实测不用授权
       return d0 === "in" ? allow(c.dai, BRIDGE, amt, "b", "DAI 给官方跨链桥") : null;
     }).then(function () {
       if (dir !== d0 || net !== nk0) throw new Error("方向或者链已经换了，请重新点一次");
       return send(b.from, BRIDGE, SEL.bridge + DAI_ID + u256(CHAIN_ID[b.to]) + aw(account) + u256(amt), "b", "DAI 跨到 " + b.tn);
     }).then(function (rc) { txHash = rc && rc.transactionHash; return loadBal(); }).then(function () {
-      var a2 = g("u2d-a2"); if (a2) a2.value = ""; paintAll();
-      say("b", "✅ 已交给官方跨链桥，正在跨（官方桥到账" + dur(expOf(d0, nk0)) + "）。进度看页面上方的进度条，可以关掉这一页，回来还在。");
-      track({ a: account, dir: d0, net: nk0, amt: amt.toString(), start: start.toString(), t0: Date.now(), tx: txHash || "" });
-    }).catch(function (e) { say("b", "没成功：" + nice(e), true); }).then(function () { lock(false); });
+      track({ a: account, dir: d0, net: nk0, amt: amt.toString(), start: start.toString(), t0: Date.now(), tx: txHash || "", then: then || "" });
+    });
   }
+  function bridged(d, nk) { return "✅ 已交给官方跨链桥，正在跨（官方桥到账" + dur(expOf(d, nk)) + "）。进度看页面上方的进度条，可以关掉这一页，回来还在。"; }
+
+  // ---------- 那一个按钮：按 from / to 这一对，把该走的步骤按顺序走完 ----------
+  function go() {
+    if (busy) return;
+    var k = from + to, r = route(), cf = C(from), amt = amtIn(), c = N(), stage = 1, got1 = 0n, second = way && way.now === 2 ? way.k : "";
+    if (amt === 0n) return say("s", "先填要付出多少 " + cf.sym, true);
+    if (r[0] === "swap" && amt < 10n ** BigInt(cf.d)) return say("s", "最少换 1 " + cf.sym, true);
+    if (r[0] === "bridge" && n(amt, 18) < BMIN) return say("s", "官方桥最少跨 " + BMIN + " DAI", true);
+    if (pick) { pick = null; render(); }
+    lock(true); say("s", "正在连接钱包…");
+    if (r.length === 2) { way = { k: k, now: 1 }; paintWay(); }
+    var job;
+    if (k === "UA") job = doSwap(amt, true).then(function (got) {
+      // 第 1 步换好了：界面切成「这条链的 DAI → Anubis」并填上到手的数。后面过桥万一没成，客户再点一次按钮就是接着跨，不会重复换币
+      got1 = got; stage = 2;
+      from = "D"; to = "A"; amtStr = got > 0n ? plain(got, 18, 4) : ""; q = null; way = { k: "UA", now: 2 };
+      render(); lock(true);
+      if (got === 0n) throw new Error("余额还没刷新出来。等几秒点「全部」，再点下面的按钮跨到 Anubis");
+      say("s", "✅ 第 1 步换好了，到手 " + f(n(got, 18)) + " DAI。接着第 2 步：跨到 Anubis…");
+      return doBridge(got, "");
+    }).then(function () { var nk = net; from = "U"; to = "A"; amtStr = ""; way = null; render(); say("s", bridged("in", nk)); });
+    else if (k === "AU") job = doBridge(amt, "swap").then(function () { amtStr = ""; way = null; render(); say("s", "✅ 第 1 步已交给官方跨链桥，" + dur(EXPECT.out) + "后到 " + c.name + "。到了以后这一页会帮你填好第 2 步，点一下按钮把 DAI 换成 USDT。可以关掉这一页，回来还在。"); });
+    else if (r[0] === "swap") job = doSwap(amt, false).then(function (got) {
+      var ct = C(to), gotTxt = got > 0n ? "，到手 " + f(n(got, ct.d)) + " " + ct.sym : "";
+      amtStr = ""; q = null; way = null; render();
+      say("s", (second === "AU" ? "🎉 换好了" : "✅ 换好了") + gotTxt + "，就在你这个钱包里（" + c.name + " 链）。" + (second === "AU" ? "两步都走完了。" : ""));
+    });
+    else job = doBridge(amt, "").then(function () { var d0 = dir, nk = net; if (second === "UA") { from = "U"; to = "A"; } amtStr = ""; way = null; render(); say("s", bridged(d0, nk)); });
+    job.catch(function (e) {
+      if (stage === 2) say("s", "第 1 步已经换好，" + (got1 > 0n ? f(n(got1, 18)) + " " : "") + "DAI 在你钱包里（" + c.name + " 链），没有丢。第 2 步还没做：" + nice(e), true);
+      else { if (r.length === 2) { way = null; paintWay(); } say("s", "没成功：" + nice(e), true); }
+    }).then(function () { lock(false); });
+  }
+
   // ---------- 到账进度条 ----------
   // 过桥那一笔记在本机（按钱包地址），关掉页面再回来还能接着看；每 20 秒查一次：先问官方桥这一笔的状态，再看目标链余额有没有变多，哪个先说到了都算到
   var PKEY = "u2d:pend:";
@@ -222,7 +261,7 @@
     var isIn = p.dir === "in", pn = NETS[p.net] || NETS.polygon, to = isIn ? "Anubis" : pn.name, exp = expOf(p.dir, p.net), el2 = (Date.now() - p.t0) / 1000, amt = f(n(BigInt(p.amt), 18) - FEE);
     var done = !!p.done, late = !done && el2 > exp * 1.3 + 300, pct = done ? 100 : Math.max(4, Math.min(96, el2 / exp * 100));
     var head = done ? "🎉 到账了：" + amt + " DAI 已经在 " + to + " 链上" : "正在跨链：" + amt + " DAI → " + to + " 链";
-    var sub2 = done ? "这一趟用了" + dur((p.done - p.t0) / 1000) + "。" + (isIn ? "现在可以去买 AiLGNS 或注册域名了。" : "接着到上面「换币」，把 DAI 换成 USDT。")
+    var sub2 = done ? "这一趟用了" + dur((p.done - p.t0) / 1000) + "。" + (isIn ? "现在可以去买 AiLGNS 或注册域名了。" : p.then === "" ? "DAI 已经在你这个钱包里了。" : "接着在下面点按钮，把 DAI 换成 USDT。")
       : late ? "已经过了" + dur(el2) + "，比平时（" + dur(exp) + "）慢。币不会丢，官方桥还在处理。"
       : "已经过了" + dur(el2) + " · 预计还要" + dur(exp - el2);
     el.innerHTML = '<div class="u2d-prog' + (done ? " done" : late ? " late" : "") + '"><div class="u2d-pt"><b>' + head + "</b><span>" + sub2 + '</span></div>' +
@@ -234,7 +273,7 @@
   }
   function arrived(p, nowBal) {
     if (p.done) return; p.done = Date.now(); pendSave(p); clearInterval(watch); paintProg(p);
-    loadBal().then(function () { paintBal(); if (p.dir === "out" && dir === "out" && sdir === "out" && bal) { var a1 = g("u2d-a1"); if (a1 && !a1.value) { a1.value = plain(bal.pdai, 18, 4); onAmt(); } } }, function () { /* 余额下次再读 */ });
+    loadBal().then(function () { paintBal(); if (p.dir === "out" && p.then !== "" && !busy && !amtStr && net === (p.net || "polygon") && bal) { var v = BigInt(p.amt); if (bal.pdai < v) v = bal.pdai; if (v > 0n) { from = "D"; to = "U"; pick = null; q = null; amtStr = plain(v, 18, 4); way = { k: "AU", now: 2 }; render(); } } }, function () { /* 余额下次再读 */ });
   }
   function checkProg() {
     var p = pend(); if (!p || p.done) return clearInterval(watch);
@@ -250,58 +289,69 @@
 
   // ---------- 页面 ----------
   var hooked = false;
-  function paintAll() { paintBal(); paintQuote(); onAmt2(); }
-  // 币的图标用官方标志（站长 2026-11-19：换成官方的）：icons/tokens/usdt.png、dai.png。图片万一没加载出来，后面还垫着原来的色块和符号
-  // Anubis 链上的 DAI：币的右下角压一个 Anubis 链的小标志（站长 2026-11-20；标志取自官方区块浏览器 browser.anubispace.org 的站标），和钱包里显示「哪条链上的币」一个画法
-  function tok(cls, ch, sym, chain) { return '<div class="u2d-tok"><span class="u2d-cw"><i class="u2d-coin ' + cls + '"><img src="/icons/tokens/' + (sym === "USDT" ? "usdt" : "dai") + '.png?v=1" alt="" width="30" height="30">' + ch + "</i>" + (/\ban\b/.test(cls) ? '<em class="u2d-ch" title="Anubis 链"></em>' : "") + "</span><span><b>" + sym + "</b><small>" + chain + " 链</small></span></div>"; }
-  function chip(c, t) { return '<span class="u2d-chip"><i class="u2d-dot ' + c + '"></i>' + t + "</span>"; }
-  // 换币那张卡（两个方向都在 Polygon 上）
-  function swapCard(no) {
-    var p = P(), isIn = sdir === "in", last = dir === "out" && !isIn; // last：这一格就是整趟的终点（提出去 + DAI 换成 USDT）
-    return '<section class="u2d-card"><div class="u2d-step">' + (no ? '<i class="st">第 ' + no + " 步</i>" : "") + "<b>换币</b><span>在 " + N().name + " 链上，" + p.sn + " 换成 " + p.dn + "</span></div>" +
-      '<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="u2d-b1">—</b><button type="button" class="u2d-max" id="u2d-max1">全部</button></span></div>' +
-      '<div class="u2d-bm"><input id="u2d-a1" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + (isIn ? tok("usdt", "₮", "USDT", N().name) : tok("dai", "◈", "DAI", N().name)) + "</div></div>" +
-      '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip" aria-label="反过来换" title="点一下，反过来换">⇅</button></div>' +
-      '<div class="u2d-box' + (last ? " end" : "") + '"><div class="u2d-bh"><span>你换到</span><span>余额 <b id="u2d-b2">—</b></span></div>' +
-      '<div class="u2d-bm"><output id="u2d-out1" class="u2d-num zero">0</output>' + (isIn ? tok("dai", "◈", "DAI", N().name) : tok("usdt", "₮", "USDT", N().name)) + "</div></div>" +
-      '<div id="u2d-q" class="u2d-info"></div><button type="button" class="u2d-go" id="u2d-go-s">换成 ' + p.dn + '</button><p class="u2d-say" id="u2d-say-s"></p>' +
-      (N().cap ? '<p class="note">' + N().name + " 上 DAI 的池子比较浅：一次最多换 " + N().cap / 10000 + " 万，超过 1 万价格会明显变差。大额请在上面选 Polygon。</p>" : "") +
-      (!isIn && N().canOut ? '<p class="note">' + N().name + ' 链上已经有 DAI？不用等过桥，直接在这里换。</p>' : "") + "</section>";
+  function paintAll() { paintBal(); paintInfo(); paintWay(); }
+  // 两步的那一趟：框下面一行「第 1 步 → 第 2 步」，走到哪步亮哪步。只有一步的（只换币 / 只过桥）不显示
+  function paintWay() {
+    var el = g("u2d-way"); if (!el) return;
+    var k = way ? way.k : from + to, now = way ? way.now : 0;
+    if (k !== "UA" && k !== "AU") { el.innerHTML = ""; return; }
+    var inT = net === "bsc" ? "几分钟" : dur(expOf("in", net)), nm = k === "UA" ? ["换币", "过桥"] : ["过桥", "换币"], tm = k === "UA" ? ["十几秒", inT] : [dur(EXPECT.out), "十几秒"];
+    el.innerHTML = '<ol class="u2d-way">' + nm.map(function (x, i) { return '<li class="' + (now > i + 1 ? "ok" : now === i + 1 ? "now" : "") + '"><b>第 ' + (i + 1) + " 步 " + x + "</b><small>" + tm[i] + "</small></li>"; }).join('<li class="ar">→</li>') + "</ol>";
+    var b = g("u2d-go"); if (b) b.textContent = goLabel();
   }
-  // 过桥那张卡
-  function bridgeCard(no) {
-    var b = B(), isIn = dir === "in";
-    return '<section class="u2d-card"><div class="u2d-step">' + (no ? '<i class="st">第 ' + no + " 步</i>" : "") + "<b>过桥</b><span>DAI 从 " + b.fn + " 链跨到 " + b.tn + " 链</span></div>" +
-      '<div class="u2d-box"><div class="u2d-bh"><span>你跨出</span><span>余额 <b id="u2d-b2b">—</b><button type="button" class="u2d-max" id="u2d-max2">全部</button></span></div>' +
-      '<div class="u2d-bm"><input id="u2d-a2" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + tok(isIn ? "dai" : "dai an", "◈", "DAI", b.fn) + "</div></div>" +
-      (N().canOut ? '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip2" aria-label="反过来跨" title="点一下，反过来跨">⇅</button></div>' : '<div class="u2d-mid"><i>↓</i><span class="u2d-one">往外提请选 Polygon</span></div>') +
-      '<div class="u2d-box' + (isIn ? " end" : "") + '"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="u2d-b3">—</b></span></div>' +
-      '<div class="u2d-bm"><output id="u2d-out2" class="u2d-num zero">0</output>' + tok(isIn ? "dai an" : "dai", "◈", "DAI", b.tn) + "</div></div>" +
-      '<div id="u2d-b" class="u2d-info"></div>' +
-      (isIn ? '<p class="u2d-eta">⏱ 这一步到账：<b>' + (N().key === "bsc" ? "几分钟" : "2 分钟左右") + "</b></p>"
-        : '<div class="u2d-eta slow"><p>⏳ 这一步到账要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><details><summary>为什么这么慢？能加急吗？</summary>' +
-          '<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>' +
-          '<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以从 Polygon 跨到 Anubis 只要 2 分钟。</p>' +
-          '<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>' +
-          '<p><b>不能加急</b>：这是官方桥写死的规则，谁也改不了，付再多钱也快不了。</p>' +
-          '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；到账后再到上面「换币」那张卡，把 DAI 换成 USDT。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
-          '<p><b>急用钱</b>：请提前 2 个多小时操作，别等到要用的时候才跨。</p></details></div>') +
-      '<button type="button" class="u2d-go" id="u2d-go-b">跨到 ' + b.tn + '</button><p class="u2d-say" id="u2d-say-b"></p>' +
-      '<p class="note">' + (isIn ? "已经有 " + N().name + " 链的 DAI？不用换币，直接在这里跨。" : "") + "官方桥最少跨 " + BMIN + " DAI。" + "</p></section>";
+  // 币的图标用官方标志：icons/tokens/usdt.png、dai.png，图片万一没加载出来，后面还垫着原来的色块和符号。
+  // Anubis 链上的 DAI：币的右下角压一个 Anubis 链的小标志（取自官方区块浏览器的站标），和钱包里显示「哪条链上的币」一个画法
+  function tokIn(k) { var c = C(k); return '<span class="u2d-cw"><i class="u2d-coin ' + c.cls + '"><img src="/icons/tokens/' + (c.sym === "USDT" ? "usdt" : "dai") + '.png?v=1" alt="" width="30" height="30">' + c.ch + "</i>" + (k === "A" ? '<em class="u2d-ch" title="Anubis 链"></em>' : "") + "</span><span><b>" + c.sym + "</b><small>" + c.chain + " 链</small></span>"; }
+  // 框右边那个币是个按钮：点一下，在框里列出能换成的另外两个币（主流兑换页的「选币」）
+  function tokBtn(side, k) { return '<button type="button" class="u2d-tok u2d-tb" data-side="' + side + '" aria-label="换一个币">' + tokIn(k) + '<i class="u2d-car">▾</i></button>'; }
+  function pickList(side) {
+    var cur = side === "from" ? from : to;
+    var ks = ["U", "D", "A"].filter(function (k) { return k !== cur && !(side === "from" && k === "A" && !N().canOut); });
+    return '<div class="u2d-pk"><p>' + (side === "from" ? "你要付出哪个币" : "你要到账哪个币") + "</p>" + ks.map(function (k) { return '<button type="button" class="u2d-tok" data-side="' + side + '" data-k="' + k + '">' + tokIn(k) + "</button>"; }).join("") + "</div>";
+  }
+  function choose(side, k) {
+    if (busy) return; var of = from, ot = to;
+    if (side === "from") { from = k; if (to === k) to = of; } else { to = k; if (from === k) from = ot; }
+    if (!N().canOut && from === "A") from = to === "U" ? "D" : "U"; // 这条链不能往外提：付出的币只能是这条链上的
+    pick = null; way = null; q = null; qSeq++; clearTimeout(qTimer); render();
+  }
+  function goLabel() {
+    var k = from + to, two = way && way.now === 2;
+    return k === "UA" || k === "AU" ? "开始跨链" : k === "UD" ? "换成 DAI" : k === "DU" ? (two ? "第 2 步：换成 USDT" : "换成 USDT") : (two ? "第 2 步：" : "") + "跨到 " + C(to).chain;
+  }
+  function etaHtml() {
+    if (!has("bridge")) return "";
+    if (dir === "in") return from === "U" ? "" : '<p class="u2d-eta">⏱ 这一步到账：<b>' + (N().key === "bsc" ? "几分钟" : "2 分钟左右") + "</b></p>"; // 两步的那一趟，时间写在「第 1 步 → 第 2 步」那一行里
+    return '<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><details><summary>为什么这么慢？能加急吗？</summary>' +
+      '<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>' +
+      '<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以从 Polygon 跨到 Anubis 只要 2 分钟。</p>' +
+      '<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>' +
+      '<p><b>不能加急</b>：这是官方桥写死的规则，谁也改不了，付再多钱也快不了。</p>' +
+      '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；要换成 USDT 的，到账后这一页会帮你填好，点一下按钮就行。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
+      '<p><b>急用钱</b>：请提前 2 个多小时操作，别等到要用的时候才跨。</p></details></div>';
+  }
+  function card() {
+    var canFlip = N().canOut || to !== "A"; // 对调以后付出的币不能是 Anubis 的 DAI（这条链不能往外提）
+    return '<section class="u2d-card">' +
+      '<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="u2d-b1">—</b><button type="button" class="u2d-max" id="u2d-max1">全部</button></span></div>' +
+      '<div class="u2d-bm"><input id="u2d-a1" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + tokBtn("from", from) + "</div>" + (pick === "from" ? pickList("from") : "") + "</div>" +
+      (canFlip ? '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip" aria-label="付出和到账对调" title="点一下，付出和到账对调">⇅</button></div>' : '<div class="u2d-mid"><i>↓</i><span class="u2d-one">往外提请选 Polygon</span></div>') +
+      '<div class="u2d-box end"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="u2d-b2">—</b></span></div>' +
+      '<div class="u2d-bm"><output id="u2d-out" class="u2d-num zero">0</output>' + tokBtn("to", to) + "</div>" + (pick === "to" ? pickList("to") : "") + "</div>" +
+      '<div id="u2d-way"></div><div id="u2d-q" class="u2d-info"></div>' + etaHtml() +
+      '<button type="button" class="u2d-go" id="u2d-go">' + goLabel() + '</button><p class="u2d-say" id="u2d-say"></p>' +
+      (has("swap") && N().cap ? '<p class="note">' + N().name + " 上 DAI 的池子比较浅：一次最多换 " + N().cap / 10000 + " 万，超过 1 万价格会明显变差。大额请在上面选 Polygon。</p>" : "") +
+      (has("bridge") ? '<p class="note">官方桥最少跨 ' + BMIN + " DAI。</p>" : "") + "</section>";
   }
   function render() {
-    var isIn = dir === "in";
+    sync();
     A.app.innerHTML =
-      // 版式参照 Uniswap 的兑换卡：窄卡居中、上下两个大框（付出 / 到手）、中间一个箭头、右边写清是哪条链的哪个币（站长 2026-11-19）
+      // 版式参照主流兑换页（Uniswap / 币安钱包那种）：一张窄卡居中、上面付出、下面到账、中间一个箭头、框右边选哪条链的哪个币、底下一个按钮
       '<div class="u2d">' +
       '<header class="u2d-hd"><h2>USDT 跨链桥<span class="u2d-free">0手续费</span></h2>' +
-      // 站长 2026-11-20：「充进来 / 提出去」两个大标签合并掉——方向就在「过桥」那张卡中间的 ⇅ 上切（和换币卡的 ⇅ 一个用法）。切了以后整趟的顺序跟着变（先做的那张卡排上面）
       '<div class="u2d-net" id="u2d-net"><span>你的币在哪条链</span>' + Object.keys(NETS).map(function (k) { return '<button type="button" data-net="' + k + '"' + (k === net ? ' class="on"' : "") + ">" + NETS[k].name + "</button>"; }).join("") + "</div>" +
-      '</header>' + // 站长 2026-11-20：两条链的小牌子、那句说明、「Gas 够用」的提示都嫌多余，删了；卡片里本来就写着哪条链。POL 不够付 Gas 的警告还留着
-      '<div id="u2d-top"></div><div id="u2d-bal"></div><div id="u2d-prog"></div>' +
-      // 站长 2026-11-20：「在一个对话框就在一个对话框，不要换来换去」——两张卡位置固定（换币在上、过桥在下），各自的 ⇅ 只换自己这张卡的方向，不带动另一张、不挪位置。
-      // 两张卡的方向正好凑成一整趟时（都往里 / 都往外），卡片左上角写「第 1 步 / 第 2 步」告诉客户先做哪张
-      swapCard(sdir === dir ? (isIn ? 1 : 2) : 0) + bridgeCard(sdir === dir ? (isIn ? 2 : 1) : 0) +
+      '</header>' +
+      '<div id="u2d-bal"></div><div id="u2d-prog"></div>' + card() +
       '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
       '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
       '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。</p>' +
@@ -309,30 +359,29 @@
       '<p class="note">收费：本站不收服务费，换出来的币全部到你自己钱包；过桥官方也不收费。你只付链上的 Gas。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>' +
       '<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>' +
       '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section></div>';
-    var a1 = g("u2d-a1"), a2 = g("u2d-a2"), p = P(), b = B();
-    a1.oninput = onAmt; a2.oninput = onAmt2;
-    g("u2d-max1").onclick = function () { if (bal) { a1.value = plain(bal[p.sb], p.sd, p.sd === 6 ? 2 : 4); onAmt(); } else say("s", "先连接钱包", true); };
-    g("u2d-max2").onclick = function () {
-      if (!bal) return say("b", "先连接钱包", true);
-      var v = bal[b.fb]; if (dir === "out") v = v > GAS_KEEP ? v - GAS_KEEP : 0n; // 提出去：在 Anubis 上留一点 DAI 当 Gas
-      a2.value = plain(v, 18, 4); onAmt2();
+    var a1 = g("u2d-a1"); a1.value = amtStr; a1.oninput = onAmt;
+    g("u2d-max1").onclick = function () {
+      if (!bal) return say("s", "先连接钱包", true);
+      var cf = C(from), v = bal[cf.bk]; if (from === "A") v = v > GAS_KEEP ? v - GAS_KEEP : 0n; // 往外提：在 Anubis 上留一点 DAI 当 Gas
+      a1.value = plain(v, cf.d, cf.d === 6 ? 2 : 4); onAmt();
     };
-    g("u2d-go-s").onclick = swap; g("u2d-go-b").onclick = bridge;
-    g("u2d-flip").onclick = function () { if (busy) return; var keep2 = (g("u2d-a2") || {}).value || ""; sdir = sdir === "in" ? "out" : "in"; q = null; qSeq++; clearTimeout(qTimer); render(); var c2 = g("u2d-a2"); if (c2 && keep2) { c2.value = keep2; onAmt2(); } /* 过桥那张卡填着的数不动 */ var c = g("u2d-a1"); if (c) c.focus({ preventScroll: true }); };
+    g("u2d-go").onclick = go;
+    if (g("u2d-flip")) g("u2d-flip").onclick = function () { if (busy) return; var t = from; from = to; to = t; pick = null; way = null; q = null; qSeq++; clearTimeout(qTimer); render(); };
+    [].forEach.call(document.querySelectorAll(".u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var s = b.getAttribute("data-side"); pick = pick === s ? null : s; render(); }; });
+    [].forEach.call(document.querySelectorAll(".u2d-pk button"), function (b) { b.onclick = function () { choose(b.getAttribute("data-side"), b.getAttribute("data-k")); }; });
     [].forEach.call(document.querySelectorAll("#u2d-net button"), function (bt) { bt.onclick = function () { setNet(bt.getAttribute("data-net")); }; });
-    if (g("u2d-flip2")) g("u2d-flip2").onclick = function () { if (busy) return; var keep = (g("u2d-a1") || {}).value || ""; setDir(dir === "in" ? "out" : "in"); var c = g("u2d-a1"); if (c && keep && !c.value) { c.value = keep; onAmt(); } var c2 = g("u2d-a2"); if (c2) c2.focus({ preventScroll: true }); };
     paintAll(); track();
+    if (amtStr && has("swap") && !q) onAmt();
   }
-  // 换一条链：余额、报价都是那条链上的，清掉重读；这条链不能往外提的话方向拨回「往里充」
+  // 换一条链：余额、报价都是那条链上的，清掉重读；这条链不能往外提的话，付出的币拨回这条链上的（sync() 里管）
   function setNet(k) {
     if (busy || !NETS[k] || k === net) return;
-    net = k; if (!NETS[k].canOut) dir = "in";
+    net = k; pick = null; way = null;
     q = null; qSeq++; clearTimeout(qTimer); bal = null; render();
     if (account) loadBal().then(paintAll, function () { /* 余额读不到：框里先显示「—」 */ });
   }
-  function setDir(d) { if (busy || d === dir) return; dir = d; render(); if (g("u2d-a1") && g("u2d-a1").value) onAmt(); } // 只换过桥的方向；换币那张卡填着的数不动
   A.pages.usdt = function (id) {
-    rid = id; q = null;
+    rid = id; q = null; pick = null; sync();
     if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); track(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
     render();
     // 钱包以前连过本站：不弹窗直接显示余额
