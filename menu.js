@@ -69,24 +69,32 @@
   dw.innerHTML = '<div class="dw-mask" data-close></div><aside class="dw-panel" role="dialog" aria-modal="true" aria-label="菜单">' +
     '<div class="dw-head"><div class="dw-top"><img class="hx-logo" src="icons/helix-logo.svg?v=1" alt="HELIX Protocol" width="119" height="40"><button type="button" class="dw-x" data-close aria-label="关闭菜单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
     '<button type="button" class="dw-wallet" id="dw-wallet"><span class="dw-wi">' + svg("wallet") + '</span><b id="dw-wt">连接钱包</b>' + CHEV + "</button>" +
-    '<button type="button" class="ntm-btn" id="ntm-btn"><b data-night-lb>🌙 夜间模式</b><small>晚上看不刺眼，再点一下换回来</small></button>' +
-    '<div class="lng-row" id="lng-row" data-nolang role="group" aria-label="Language"><button type="button" data-lang="zh">简体</button><button type="button" data-lang="hant">繁體</button><button type="button" data-lang="en">English</button></div></div>' + // 站长 2026-11-08：头部到这里结束（以前没关上，列表被包进头部撑出屏幕，菜单滑不动）
+    '</div>' + // 站长 2026-11-08：头部到这里结束（以前没关上，列表被包进头部撑出屏幕，菜单滑不动）
     '<div class="dw-body" id="dw-body"></div>' +
     '<p class="dw-foot">AWAKE HELIX 官方认证 AiLGNS OTC 服务站</p></aside>';
   document.body.appendChild(dw);
-  try { /* 🌙 夜间模式开关（night.js）：出错不能连累菜单 */
-    var ntb = document.getElementById("ntm-btn");
-    if (ntb && !window.AIL_NIGHT_OK) ntb.hidden = true; /* 浏览器太老：不显示开关 */
-    if (ntb) { ntb.onclick = function () { try { if (window.AIL_NIGHT_SET) window.AIL_NIGHT_SET(!window.AIL_NIGHT_ON()); } catch (e2) { /* 切不了就算了 */ } }; if (window.AIL_NIGHT_PAINT) window.AIL_NIGHT_PAINT(); }
-  } catch (e1) { /* 没有开关不影响别的 */ }
-  try { /* 🌐 语言切换（lang.js）：简体 / 繁體 / English，点了就记住并刷新页面；出错不能连累菜单 */
-    var lrow = document.getElementById("lng-row"), lcur = window.AIL_LANG || "zh";
-    if (lrow && !window.AIL_LANG_SET) lrow.hidden = true;
-    if (lrow) Array.prototype.forEach.call(lrow.querySelectorAll("button"), function (b) {
-      if (b.getAttribute("data-lang") === lcur) { b.className = "on"; b.setAttribute("aria-pressed", "true"); }
-      b.onclick = function () { try { window.AIL_LANG_SET(b.getAttribute("data-lang")); } catch (e3) { /* 切不了就算了 */ } };
-    });
-  } catch (e4) { /* 没有语言开关不影响别的 */ }
+  try { /* 🌐 右上角的小按钮（站长 2026-11-20：夜间模式和语言切换放在「更多」里太占地方，挪到上面做成一个小按钮）。
+     点开是一个小浮层：夜间模式开关 + 简体 / 繁體 / English。出错不能连累菜单 */
+    var sb = document.getElementById("tset-btn"), tin = document.querySelector(".top-in");
+    if (sb && tin) {
+      var hasN = !!(window.AIL_NIGHT_OK && window.AIL_NIGHT_SET), hasL = !!window.AIL_LANG_SET, lcur = window.AIL_LANG || "zh";
+      if (!hasN && !hasL) sb.hidden = true;
+      var pop = document.createElement("div"); pop.className = "tset-pop"; pop.id = "tset-pop"; pop.hidden = true;
+      pop.innerHTML = (hasN ? '<button type="button" class="tset-night" id="tset-night"><b data-night-lb>🌙 夜间模式</b></button>' : "") +
+        (hasL ? '<div class="tset-lang" data-nolang role="group" aria-label="Language"><button type="button" data-lang="zh">简体</button><button type="button" data-lang="hant">繁體</button><button type="button" data-lang="en">English</button></div>' : "");
+      tin.appendChild(pop);
+      sb.onclick = function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; sb.setAttribute("aria-expanded", pop.hidden ? "false" : "true"); };
+      document.addEventListener("click", function (e) { if (!pop.hidden && !pop.contains(e.target) && !sb.contains(e.target)) { pop.hidden = true; sb.setAttribute("aria-expanded", "false"); } });
+      window.addEventListener("hashchange", function () { pop.hidden = true; });
+      var nb2 = document.getElementById("tset-night");
+      if (nb2) { nb2.onclick = function () { try { window.AIL_NIGHT_SET(!window.AIL_NIGHT_ON()); } catch (e2) { /* 切不了就算了 */ } }; if (window.AIL_NIGHT_PAINT) window.AIL_NIGHT_PAINT(); }
+      Array.prototype.forEach.call(pop.querySelectorAll("[data-lang]"), function (b) {
+        if (b.getAttribute("data-lang") === lcur) { b.className = "on"; b.setAttribute("aria-pressed", "true"); }
+        // 点了马上有反应：按钮先变成「…」，再去切（切换要重新打开页面，英文词典比较大，手机上要等一两秒）
+        b.onclick = function () { if (b.className === "on") { pop.hidden = true; return; } b.textContent = "…"; try { window.AIL_LANG_SET(b.getAttribute("data-lang")); } catch (e3) { /* 切不了就算了 */ } };
+      });
+    }
+  } catch (e1) { /* 没有这个按钮不影响别的 */ }
   var body = document.getElementById("dw-body"), open = {};
 
   // ===== 宫格菜单（站长 2026-11-19：照支付宝那种功能宫格做——灰底白块、四列、一格一个彩色图标 + 短名字、不折叠全摊开）=====

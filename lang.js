@@ -6,23 +6,53 @@
 // 选择记在这台设备上（ail:lang）；网址带 ?lang=en / ?lang=hant / ?lang=zh 也能切（方便把英文版链接发给人）。
 // 不碰的地方：输入框里客户自己打的字、地址和哈希（.mono）、带 .ailgns 的名字（链上的名字一个字都不能变）、标了 data-nolang 的块。
 // 画布上画出来的字（小游戏、K 线）换不了。全站 DOM 脚本：每一步都包 try/catch，出错只是不翻译，不能连累页面（brand.js 2026-11-08 的教训）。
+// 🧹 本地存储满了的保险（站长 2026-11-20：手机上点「繁體 / English」没反应）。
+// 查下来最可疑的是存储满了：本站把挂单表、团队数据等缓存在 localStorage 里（为了秒开），量出来已经有 240 多万字，苹果手机的上限大约就是 250 万字。
+// 满了以后再存任何新东西都会失败，而且以前是悄悄失败——语言记不住、跨链进度记不住。这里在全站最早的地方垫一层：
+// 存不进去时，把「能重新取回来的缓存」从大到小清掉再存一次；清的只是缓存，下次打开会自己重新取。别的数据（登录签名、进行中的记录、设置）一概不动。
+(function () {
+  try {
+    var SP = window.Storage && window.Storage.prototype; if (!SP || SP.__ailSafe) return;
+    var raw = SP.setItem, CACHE = /^(ailgns-team-|otc:book:|lend:book:|nmc\d|nmlog:)/;
+    SP.setItem = function (k, v) {
+      try { return raw.call(this, k, v); } catch (e) {
+        var ls = null; try { ls = window.localStorage; } catch (e0) { /* 读不到就不管 */ }
+        if (this !== ls) throw e;
+        try {
+          var ks = [], i, key;
+          for (i = 0; i < this.length; i++) { key = this.key(i); if (key !== k && CACHE.test(key)) ks.push([key, (this.getItem(key) || "").length]); }
+          ks.sort(function (a, b) { return b[1] - a[1]; });
+          for (i = 0; i < ks.length; i++) { this.removeItem(ks[i][0]); try { return raw.call(this, k, v); } catch (e2) { /* 还不够，接着清下一个 */ } }
+        } catch (e3) { /* 清不了就照原样报错 */ }
+        throw e;
+      }
+    };
+    SP.__ailSafe = 1;
+  } catch (e4) { /* 垫不上不影响别的 */ }
+})();
 (function () {
   "use strict";
   var KEY = "ail:lang", OKS = { zh: 1, hant: 1, en: 1 }, root = document.documentElement, lang = "zh";
   try {
     var q = /[?&]lang=(zh|hant|en)\b/.exec(location.search);
-    if (q) { try { localStorage.setItem(KEY, q[1]); } catch (e0) { /* 记不住就只管这一次 */ } lang = q[1]; }
+    if (q) {
+      lang = q[1];
+      var kept = false; try { localStorage.setItem(KEY, q[1]); kept = localStorage.getItem(KEY) === q[1]; } catch (e0) { /* 记不住就只管这一次 */ }
+      // 记住了：把网址里的 ?lang= 抹掉，复制出去的链接是干净的；记不住（存储被禁用）就留着它，这样刷新以后语言还在
+      if (kept) { try { var sp0 = new URLSearchParams(location.search); sp0.delete("lang"); var r0 = sp0.toString(); history.replaceState(null, "", location.pathname + (r0 ? "?" + r0 : "") + location.hash); } catch (e5) { /* 抹不掉不要紧 */ } }
+    }
     else { var sv = localStorage.getItem(KEY); if (sv && OKS[sv]) lang = sv; }
   } catch (e) { lang = "zh"; }
   window.AIL_LANG = lang;
   window.AIL_LANG_SET = function (l) {
     if (!OKS[l] || l === lang) return;
-    try { localStorage.setItem(KEY, l); } catch (e) { return; }
-    try { /* 网址里要是带着 ?lang=，先去掉，不然刷新后又被它盖回去 */
-      var u = location.href.replace(/([?&])lang=(zh|hant|en)(&|(?=#)|$)/, function (m, a, b, c) { return c === "&" ? a : ""; });
-      if (u !== location.href) { location.replace(u); if (u.split("#")[0] === location.href.split("#")[0]) location.reload(); return; }
-    } catch (e2) { /* 改不了网址就直接刷新 */ }
-    location.reload();
+    try { localStorage.setItem(KEY, l); } catch (e) { /* 记不住也照样切：下面把语言写在网址里带过去 */ }
+    // 带着 ?lang= 和一个时间戳重新打开，而不是原地刷新：① 网址变了，浏览器一定会重新加载（有的钱包浏览器对原地刷新没反应）；
+    // ② 这台手机记不住语言（存储满了 / 被禁用）也能切过去。打开以后记住了就会把 ?lang= 从网址里抹掉（上面），?v= 由 app.js 抹掉
+    try {
+      var sp = new URLSearchParams(location.search); sp.set("lang", l); sp.set("v", String(Date.now()));
+      location.replace(location.pathname + "?" + sp.toString() + location.hash);
+    } catch (e2) { location.reload(); }
   };
   if (lang === "zh") return;
   try { root.setAttribute("lang", lang === "en" ? "en" : "zh-Hant"); root.classList.add("lang-" + lang); } catch (e) { /* 不要紧 */ }
