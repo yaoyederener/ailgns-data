@@ -28,7 +28,8 @@ export async function post(ctx, forceDs) {
   const cc = ctx.request.headers.get("cf-ipcountry") || "";
   const ds = !!ctx.env.DEEPSEEK_API_KEY && (forceDs || cc === "CN" || cc === "HK");
   // 英文版页面（lang.js）问的：让 AI 用英文答。事实、数字还是只看知识库，一个字不能多编
-  const style = body.lang === "en" ? "【这位客户用的是英文版页面】请用简单的英文回答（AiLGNS、LGNS、DAI、.ailgns 这些名字保持原样）；知识库里没有的不要编。" : "";
+  const style = body.lang === "en" ? "【这位客户用的是英文版页面】请用简单的英文回答（AiLGNS、LGNS、DAI、.ailgns 这些名字保持原样）；知识库里没有的不要编。"
+    : body.lang === "ko" ? "【这位客户用的是韩文版页面】请用简单、礼貌的韩文回答（한국어，~합니다 / ~하세요 的说法；AiLGNS、LGNS、DAI、.ailgns 这些名字保持原样，不要用汉字）；知识库里没有的不要编。" : "";
   const r = await answer(ctx.env, body.messages, { a: body.a, ctxLines: body.ctx, engine: ds ? "deepseek" : "", style });
   if (r.error === "no question") return new Response("no question", { status: 400 });
   const colo = (ctx.request.cf && ctx.request.cf.colo) || "";

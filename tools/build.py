@@ -237,7 +237,25 @@ def main():
         if "{" not in k and "<" not in k: enf.setdefault(k, v.strip())
     print("英文小段: %d 段" % len(enf))
     lang_src = {"hant": read("lang-hant.js"), "en": "window.AIL_LANG_DATA=" + json.dumps({"t": "en", "d": en, "f": enf}, ensure_ascii=False, separators=(",", ":")) + ";"}
-    for lg in ("hant", "en"):
+    # 🇰🇷 韩文词典（2026-11-20）：和英文同一套——整句 i18n/ko/*.json、小段 i18n/ko-frags.json。译文里不许有汉字、不许多出 {数字}。
+    #    韩文里还没有的句子：整句词典退回用英文那一句（比留中文强），小段不退（缺了就保持原样，由 lang.js 决定整句换不换）
+    ko = {}
+    for fp in sorted(glob.glob("i18n/ko/*.json")):
+        for k, v in json.loads(read(fp)).items():
+            if k in ko and ko[k] != v: sys.exit("韩文词典里同一句有两种译法：%s（%s）" % (k[:40], fp))
+            if re.search(r"[\u4e00-\u9fff]", v.replace("简体", "").replace("繁體", "")): sys.exit("韩文词典的译文里还有汉字：%s（%s）" % (k[:40], fp))
+            if set(re.findall(r"\{\d+\}", v)) - set(re.findall(r"\{\d+\}", k)): sys.exit("韩文词典的译文里多了原句没有的 {数字}：%s（%s）" % (k[:40], fp))
+            ko[k] = v
+    ko_fb = 0
+    for k, v in en.items():
+        if k not in ko: ko[k] = v; ko_fb += 1
+    kof = json.loads(read("i18n/ko-frags.json")) if os.path.exists("i18n/ko-frags.json") else {}
+    kof = {k: v for k, v in kof.items() if k not in ko}
+    for k, v in ko.items():
+        if "{" not in k and "<" not in k: kof.setdefault(k, v.strip())
+    print("韩文词典: %d 句（其中 %d 句还没有韩文、暂用英文），小段 %d 段" % (len(ko), ko_fb, len(kof)))
+    if kof: lang_src["ko"] = "window.AIL_LANG_DATA=" + json.dumps({"t": "ko", "d": ko, "f": kof}, ensure_ascii=False, separators=(",", ":")) + ";"
+    for lg in [x for x in ("hant", "en", "ko") if x in lang_src]:
         ljs = minjs(lang_src[lg])
         lv = hv(ljs)
         out["dist/lang-%s.js" % lg] = ljs + "\n/*v:%s*/" % lv

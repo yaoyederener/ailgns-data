@@ -2,6 +2,7 @@
 // 网站所有文字都是写在各页面 js 里的简体中文。这里不改任何页面代码：
 //   · 简体（默认）：这个文件什么都不做，不多下载一个字节，页面一个像素都不变
 //   · 繁體：下载转换表 dist/lang-hant.js（tools/hant.py 生成），把页面上出现的字换成繁体，新冒出来的字也跟着换
+//   · 한국어（站长 2026-11-20：「语言加一个韩文版本」）：和英文同一套办法，词典是 dist/lang-ko.js（i18n/ko/*.json + i18n/ko-frags.json）
 //   · English：下载词典 dist/lang-en.js（lang-en.js，人工翻译），页面上的句子在词典里查得到就换成英文，查不到的保持中文（还在分批翻译）
 // 选择记在这台设备上（ail:lang）；网址带 ?lang=en / ?lang=hant / ?lang=zh 也能切（方便把英文版链接发给人）。
 // 不碰的地方：输入框里客户自己打的字、地址和哈希（.mono）、带 .ailgns 的名字（链上的名字一个字都不能变）、标了 data-nolang 的块。
@@ -32,9 +33,9 @@
 })();
 (function () {
   "use strict";
-  var KEY = "ail:lang", OKS = { zh: 1, hant: 1, en: 1 }, root = document.documentElement, lang = "zh";
+  var KEY = "ail:lang", OKS = { zh: 1, hant: 1, en: 1, ko: 1 }, root = document.documentElement, lang = "zh";
   try {
-    var q = /[?&]lang=(zh|hant|en)\b/.exec(location.search);
+    var q = /[?&]lang=(zh|hant|en|ko)\b/.exec(location.search);
     if (q) {
       lang = q[1];
       var kept = false; try { localStorage.setItem(KEY, q[1]); kept = localStorage.getItem(KEY) === q[1]; } catch (e0) { /* 记不住就只管这一次 */ }
@@ -55,9 +56,10 @@
     } catch (e2) { location.reload(); }
   };
   if (lang === "zh") return;
-  try { root.setAttribute("lang", lang === "en" ? "en" : "zh-Hant"); root.classList.add("lang-" + lang); } catch (e) { /* 不要紧 */ }
+  var DICT = lang === "en" || lang === "ko", KO = lang === "ko"; // DICT = 查词典的语言（英文 / 韩文）；繁体是逐字换，走另一条路
+  try { root.setAttribute("lang", lang === "en" ? "en" : KO ? "ko" : "zh-Hant"); root.classList.add("lang-" + lang); } catch (e) { /* 不要紧 */ }
 
-  var CJK = /[\u4e00-\u9fff]/, NEED = lang === "en" ? /[\u4e00-\u9fff，。：；（）、！？「」]/ : /[\u4e00-\u9fff]/, SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, CODE: 1, CANVAS: 1, NOSCRIPT: 1 };
+  var CJK = /[\u4e00-\u9fff]/, NEED = DICT ? /[\u4e00-\u9fff，。：；（）、！？「」]/ : /[\u4e00-\u9fff]/, SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, CODE: 1, CANVAS: 1, NOSCRIPT: 1 };
   var NAME = /[^\s，。、：:；;（）()「」《》<>"'=\/|·,!！?？]+\.ailgns/gi; // 链上的名字：原样保留
   var ATTRS = ["placeholder", "title", "aria-label", "alt"];
   var conv = null; // 一段文字 → 换好的文字（没变化就返回原样）
@@ -104,7 +106,11 @@
     for (k in frag) if (own.call(frag, k)) { (idx[k.charAt(0)] = idx[k.charAt(0)] || []).push(k); if ((k.match(/[一-鿿]/g) || []).length <= 2) SHORT[k] = 1; }
     for (k in idx) idx[k].sort(function (a, b) { return b.length - a.length; });
     var PUN = { "，": ", ", "。": ". ", "：": ": ", "；": "; ", "（": " (", "）": ") ", "、": ", ", "！": "! ", "？": "? ", "「": "“", "」": "”", "『": "“", "』": "”", "《": "“", "》": "”", "～": "–" };
-    var A_END = /[A-Za-z0-9%”)]$/, A_START = /^[A-Za-z0-9“($]/;
+    // 两段译文之间要不要补空格：英文看字母数字；韩文的字（가-힣）也算「词」。
+    // 韩文另有一条：数字后面紧跟量词（5 + 건 / 3 + 분）不空格，写成「5건」「3분」才像韩文
+    var A_END = KO ? /[A-Za-z0-9%”)\uac00-\ud7a3]$/ : /[A-Za-z0-9%”)]$/, A_START = KO ? /^[A-Za-z0-9“($\uac00-\ud7a3]/ : /^[A-Za-z0-9“($]/;
+    var KO_CNT = /^(?:개월|시간|단계|라운드|블록|회차|레벨|번째|퍼센트|개|장|건|명|번|회|분|초|일|주|년|배|위|층|칸|점|판|매|줄|원|차|호)(?![\uac00-\ud7a3])/;
+    function gap(out, p) { if (!A_END.test(out) || !A_START.test(p)) return ""; if (KO && /[0-9]$/.test(out) && KO_CNT.test(p)) return ""; return " "; }
     function cjk(c) { return c >= "一" && c <= "鿿"; }
     function longAt(t, pos) { /* 这个位置是不是紧跟着一段认识的、三个字以上的原文 */
       var l = idx[t.charAt(pos)], y;
@@ -124,11 +130,11 @@
         }
         if (hit !== null) {
           p = frag[hit];
-          if (p) out += (A_END.test(out) && A_START.test(p) ? " " : "") + p;
+          if (p) out += gap(out, p) + p;
           i += hit.length; any = true; last = true;
         } else {
           p = own.call(PUN, c) ? PUN[c] : c;
-          out += (last && out && A_END.test(out) && /^[A-Za-z0-9]/.test(p) ? " " : "") + p;
+          out += (last && out && A_END.test(out) && (KO ? /^[A-Za-z0-9\uac00-\ud7a3]/ : /^[A-Za-z0-9]/).test(p) && !(KO && /[0-9]$/.test(out) && KO_CNT.test(p)) ? " " : "") + p;
           i++; last = false;
         }
       }
@@ -176,16 +182,18 @@
   function text(t) {
     try {
       var s = t.nodeValue; if (!s || !NEED.test(s) || !t.parentNode || skip(t.parentNode)) return;
-      if (lang === "en" && t.parentNode.firstElementChild && whole(t.parentNode)) return;
+      if (DICT && t.parentNode.firstElementChild && whole(t.parentNode)) return;
       var r = conv(s);
       if (r === s) return;
-      if (lang === "en") { /* 英文词和旁边的数字 / 词之间要有空格：「共<b>5</b>张」→ Total 5 orders */
+      if (DICT) { /* 英文词和旁边的数字 / 词之间要有空格：「共<b>5</b>张」→ Total 5 orders；韩文同理，但数字后面的量词不空格（<b>5</b>건） */
         try {
           var BLK = /^(BR|DIV|P|LI|H\d|TD|TH|TR|UL|OL|SECTION|BUTTON|SVG|IMG|DETAILS|SUMMARY)$/, a = t.previousSibling, b = t.nextSibling;
           var at = a ? (a.nodeType === 3 ? a.nodeValue : a.nodeType === 1 && !BLK.test(a.tagName) ? a.textContent : "") : "";
           var bt = b ? (b.nodeType === 3 ? b.nodeValue : b.nodeType === 1 && !BLK.test(b.tagName) ? b.textContent : "") : "";
-          if (at && /[A-Za-z0-9%)]$/.test(at) && /^[A-Za-z0-9(]/.test(r)) r = " " + r;
-          if (bt && /^[A-Za-z0-9(]/.test(bt) && /[A-Za-z0-9,.:;!?)]$/.test(r)) r = r + " ";
+          var W1 = KO ? /^[A-Za-z0-9(\uac00-\ud7a3]/ : /^[A-Za-z0-9(]/, W2 = KO ? /[A-Za-z0-9,.:;!?)\uac00-\ud7a3]$/ : /[A-Za-z0-9,.:;!?)]$/;
+          var KC = /^(?:개월|시간|단계|라운드|블록|회차|레벨|번째|개|장|건|명|번|회|분|초|일|주|년|배|위|층|칸|점|판|매|줄|원|차|호)(?![\uac00-\ud7a3])/;
+          if (at && (KO ? /[A-Za-z0-9%)\uac00-\ud7a3]$/ : /[A-Za-z0-9%)]$/).test(at) && W1.test(r) && !(KO && /[0-9]$/.test(at) && KC.test(r))) r = " " + r;
+          if (bt && W1.test(bt) && W2.test(r)) r = r + " ";
         } catch (e2) { /* 不补 */ }
       }
       t.nodeValue = r;
@@ -219,7 +227,7 @@
   function start() {
     try {
       var D = window.AIL_LANG_DATA; if (!D || D.t !== lang) return;
-      conv = lang === "en" ? makeEn(D) : makeHant(D);
+      conv = DICT ? makeEn(D) : makeHant(D);
       window.AIL_LANG_T = function (s) { try { return conv(String(s)); } catch (e) { return s; } };
       try { /* 画布上画的字（小游戏、图表）：画之前先换 */
         var CP = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
