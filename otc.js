@@ -621,20 +621,28 @@
     function to() { return swapDir === "a2l" ? "lgns" : "ailgns"; }
     function fmt(v, k) { return show(v, SWAP_D[k], SWAP_DEC[k]); }
     function amt2(v, k) { return fmt(v, k) + " " + SWAP_NAME[k]; }
-    app.innerHTML = placeTabs() + '<section class="card sweep swp" id="swp"><div class="card-head"><h2>⚡ 闪兑</h2><span class="muted">AiLGNS 和 LGNS 直接互换 · 试运行</span></div>' +
+    app.innerHTML = placeTabs() + '<section class="card sweep swp" id="swp"><div class="swp-in"><div class="card-head"><h2>⚡ 闪兑</h2><span class="muted">AiLGNS 和 LGNS 直接互换 · 试运行</span></div>' +
       '<div id="swp-pend"></div>' +
-      '<div class="sw-side"><button type="button" data-dir="a2l">AiLGNS → LGNS</button><button type="button" data-dir="l2a">LGNS → AiLGNS</button></div>' +
-      '<label class="full"><span id="swp-lab"></span><div class="row"><input id="swp-amt" inputmode="decimal" placeholder="0" autocomplete="off"><button type="button" class="ghost" id="swp-max" style="padding:0 14px">最大</button></div></label>' +
-      '<p class="note" id="swp-bal"></p><div class="sw-out" id="swp-out"></div>' +
+      // 站长 2026-11-20「闪兑这个界面优化下，精美一点」：换成和跨链桥同一套兑换卡（上面付出、下面到账、中间 ⇅ 对调、币带官方图标、下面是明细行），
+      // 直接复用跨链桥的样式类 u2d-*，两页长得一样。换币的逻辑一行没动，只是换了外壳
+      '<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="swp-bal">—</b><button type="button" class="u2d-max" id="swp-max">全部</button></span></div>' +
+      '<div class="u2d-bm"><input id="swp-amt" class="u2d-num" inputmode="decimal" placeholder="0" autocomplete="off"><div class="u2d-tok" id="swp-t1"></div></div></div>' +
+      '<div class="u2d-mid"><button type="button" class="u2d-flip" id="swp-flip" aria-label="付出和到账对调" title="点一下，付出和到账对调">⇅</button></div>' +
+      '<div class="u2d-box end"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="swp-bal2">—</b></span></div>' +
+      '<div class="u2d-bm"><output id="swp-get" class="u2d-num zero">0</output><div class="u2d-tok" id="swp-t2"></div></div></div>' +
+      '<div class="sw-out" id="swp-out"></div>' +
       '<button type="button" id="swp-go" class="sw-go"></button><p class="note" id="swp-st"></p>' +
       '<details class="swp-how"><summary>闪兑是怎么换的？要注意什么？</summary>' +
       "<ol><li>第 1 步：把你的币在本站 OTC 卖成 DAI。</li><li>第 2 步：用这笔 DAI 在本站 OTC 买入另一种币。</li></ol>" +
       "<p>· 每一步收 1% 手续费（和平时扫单一样），两步合计约 2%。上面的「预计到手」已经扣掉了。</p>" +
       "<p>· 钱包要确认 2 次；第一次用还要先点授权（只需一次）。</p>" +
       "<p>· 两步是两笔交易。万一第 1 步成了、第 2 步没成，你拿到的是 DAI，一分不少：回到这页点「继续换」，或者 DAI 留着都行。</p>" +
-      "<p>· 全程走本站现有的 OTC 合约，没有新合约；币只在你自己的钱包进出，本站不经手。</p></details></section>";
+      "<p>· 全程走本站现有的 OTC 合约，没有新合约；币只在你自己的钱包进出，本站不经手。</p></details></div></section>";
     var box = document.getElementById("swp"), inp = document.getElementById("swp-amt"), out = document.getElementById("swp-out"), go = document.getElementById("swp-go"),
-      st = document.getElementById("swp-st"), balEl = document.getElementById("swp-bal"), lab = document.getElementById("swp-lab"), pendEl = document.getElementById("swp-pend");
+      st = document.getElementById("swp-st"), balEl = document.getElementById("swp-bal"), bal2El = document.getElementById("swp-bal2"), getEl = document.getElementById("swp-get"), pendEl = document.getElementById("swp-pend");
+    function tokHtml(k) { return '<span class="u2d-cw"><i class="u2d-coin swp-c"><img src="/icons/tokens/' + k + '.png?v=1" alt="" width="30" height="30"></i></span><span><b>' + SWAP_NAME[k] + "</b><small>Anubis 链</small></span>"; }
+    function rows(list) { return '<div class="u2d-dt"><dl class="u2d-rows">' + list.map(function (r) { return "<div><dt>" + r[0] + "</dt><dd>" + r[1] + "</dd></div>"; }).join("") + "</dl></div>"; }
+    function setGet(v) { if (!getEl) return; getEl.textContent = v ? fmt(v, to()) : "0"; getEl.className = "u2d-num" + (v ? "" : " zero"); }
     function alive() { return document.getElementById("swp") === box; }
     function chk() { if (!alive()) throw new Error("你离开了闪兑页，已经停下；回到闪兑页可以接着换"); }
     function say(t, bad) { if (!alive()) return; st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
@@ -643,10 +651,11 @@
     function goText() {
       if (working) return;
       go.disabled = false;
-      go.innerHTML = q ? "<b>👉 开始闪兑</b><small>换出 " + amt2(q.p1.tok, from()) + " · 预计到手 " + amt2(q.out, to()) + " · 钱包确认 2 次</small>" : "<b>👉 开始闪兑</b><small>先在上面填要换多少</small>";
+      var a0 = amtWei(), f0 = from();
+      go.innerHTML = q ? (bal[f0] !== undefined && bal[f0] < q.p1.tok ? "<b>" + SWAP_NAME[f0] + " 余额不足</b>" : "<b>开始闪兑</b>") : a0 ? "<b>暂时换不了</b>" : "<b>输入数量</b>";
       var p = !q && !amtWei() && pend();
-      go.classList.toggle("ready", !!(q || p)); // 能点了才上色；没填数量时是浅紫的提示样子
-      if (p) go.innerHTML = "<b>👉 继续换成 " + SWAP_NAME[p.to] + "</b><small>上次第 1 步换来的 " + show(BigInt(p.dai), 2) + " DAI 还没换完 · 钱包确认 1 次</small>";
+      go.classList.toggle("ready", !!((q && !(bal[f0] !== undefined && bal[f0] < q.p1.tok)) || p)); // 能点了才上色；没填数量 / 余额不够时是浅紫的提示样子
+      if (p) go.innerHTML = "<b>继续换成 " + SWAP_NAME[p.to] + "</b><small>上次第 1 步换来的 " + show(BigInt(p.dai), 2) + " DAI 还没换完 · 钱包确认 1 次</small>";
     }
     /* 没填数量时先给个参考价：按两边最优的那张单算 */
     function refRate() {
@@ -660,12 +669,13 @@
     function draw() {
       if (!alive()) return;
       var f = from(), t = to(), amt = amtWei(), w = [];
-      box.querySelectorAll("[data-dir]").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-dir") === swapDir); });
-      lab.textContent = "换出多少 " + SWAP_NAME[f];
-      balEl.textContent = bal[f] !== undefined ? "钱包里有 " + amt2(bal[f], f) : "";
-      q = null;
+      var t1 = document.getElementById("swp-t1"), t2 = document.getElementById("swp-t2");
+      if (t1 && t1.getAttribute("data-k") !== f) { t1.setAttribute("data-k", f); t1.innerHTML = tokHtml(f); t2.innerHTML = tokHtml(t); } // 方向变了才重画两个币，免得每敲一个数字图标闪一下
+      balEl.textContent = bal[f] !== undefined ? fmt(bal[f], f) : "—";
+      if (bal2El) bal2El.textContent = bal[t] !== undefined ? fmt(bal[t], t) : "—";
+      q = null; setGet(null);
       if (!bk[f] || !bk[t]) { out.innerHTML = '<p class="muted">正在读取两个市场的挂单…</p>'; return goText(); }
-      if (!amt) { var r0 = refRate(); out.innerHTML = r0 ? '<p class="swp-ref">现在大约 <b>' + rateTxt(r0) + "</b><small>" + (swapDir === "a2l" ? "换出 1 AiLGNS 大约到手这么多 LGNS" : "大约这么多 LGNS 能换到 1 AiLGNS") + "；已扣两步手续费，换得多会差一些</small></p>" : '<p class="swp-warn">现在两个市场的挂单不够，暂时换不了。</p>'; return goText(); }
+      if (!amt) { var r0 = refRate(); out.innerHTML = r0 ? rows([["参考比例", rateTxt(r0)], ["手续费", "两步各 1%，已算在比例里"], ["说明", "换得多，比例会差一些"]]) : '<p class="swp-warn">现在两个市场的挂单不够，暂时换不了。</p>'; return goText(); }
       var x = swapQuote(bk, f, t, amt);
       if (!x.p1.steps.length) { out.innerHTML = '<p class="swp-warn">' + SWAP_NAME[f] + " 现在没有合适的买单接，暂时换不了。数量太小（不到 1 DAI）也换不了。</p>"; return goText(); }
       if (!x.p2.steps.length || x.out <= 0n) { out.innerHTML = '<p class="swp-warn">' + SWAP_NAME[t] + " 现在没有卖单，或者数量太小，暂时换不了。</p>"; return goText(); }
@@ -674,10 +684,12 @@
       var lost = q.dai - q.p2.dai;
       if (lost > 10n ** 18n && lost * 50n > q.dai) w.push(SWAP_NAME[t] + " 的卖单不够：大约有 " + show(lost, 2) + " DAI 换不完，会留在你钱包里。建议把数量改小。");
       var ra = swapDir === "a2l" ? num(q.out, 9) / num(q.p1.tok, 18) : num(q.p1.tok, 9) / num(q.out, 18);
-      out.innerHTML = '<div class="sw-get"><span>预计到手</span><b class="num">' + fmt(q.out, t) + "</b><em>" + SWAP_NAME[t] + "</em><small>" + rateTxt(ra) + " · 两步手续费已扣</small></div>" +
-        '<ol class="swp-steps"><li>卖出 <b>' + amt2(q.p1.tok, f) + "</b> → 得 <b>" + show(q.dai, 2) + " DAI</b><small>吃 " + q.p1.steps.length + " 张买单</small></li>" +
-        "<li>用这笔 DAI 买入 <b>" + amt2(q.out, t) + "</b><small>吃 " + q.p2.steps.length + " 张卖单</small></li></ol>" +
-        w.map(function (s) { return '<p class="swp-warn">⚠️ ' + s + "</p>"; }).join("");
+      setGet(q.out);
+      out.innerHTML = w.map(function (s) { return '<p class="swp-warn">⚠️ ' + s + "</p>"; }).join("") +
+        rows([["兑换比例", rateTxt(ra)], ["手续费", "两步各 1%，已扣"],
+          ["第 1 步", "卖出 " + amt2(q.p1.tok, f) + " → " + show(q.dai, 2) + " DAI"],
+          ["第 2 步", "用这笔 DAI 买入 " + amt2(q.out, t)],
+          ["钱包确认", "2 次"]]);
       goText();
     }
     function pend() { try { var p = JSON.parse(localStorage.getItem(SWAP_PEND) || "null"); return p && p.dai && SWAP_NAME[p.to] && SWAP_NAME[p.from] && Date.now() - p.t < 7 * 86400e3 ? p : null; } catch (e) { return null; } }
@@ -762,9 +774,7 @@
         return leg2(p.to, BigInt(p.dai), 0n, true);
       }).then(function (r2) { done(p.from, p.to, { paid: BigInt(p.paid || "0"), got: BigInt(p.dai), tx: p.tx }, r2); }, function (e) { stop(niceError(e)); });
     }
-    box.querySelectorAll("[data-dir]").forEach(function (b) {
-      b.onclick = function () { if (working) return; swapDir = b.getAttribute("data-dir"); inp.value = ""; say(""); draw(); };
-    });
+    document.getElementById("swp-flip").onclick = function () { if (working) return; swapDir = swapDir === "a2l" ? "l2a" : "a2l"; inp.value = ""; say(""); draw(); };
     inp.oninput = function () { say(""); draw(); };
     document.getElementById("swp-max").onclick = function () {
       if (working) return;

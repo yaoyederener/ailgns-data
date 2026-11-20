@@ -4843,3 +4843,14 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 
 /* 一键偷菜结果：偷到的东西按品种列出来（工单 #330） */
 .fm-sumw span { display: inline-block; margin: 2px 4px 2px 0; padding: 1px 8px; border-radius: 999px; background: #f0fdf4; border: 1px solid #bbf7d0; white-space: nowrap; }
+
+/* 闪兑改成和跨链桥同一套兑换卡（2026-11-20）：结构用 u2d-* 的样式，这里只补闪兑自己的几处 */
+.swp-in { max-width: 480px; margin: 0 auto; }
+.swp .u2d-coin.swp-c { background: #fff; }
+.swp .sw-out { margin: 12px 0 0; }
+.swp .sw-out:empty { margin: 0; }
+.swp .sw-out .u2d-dt { margin-top: 0; }
+.swp .sw-out > .muted { margin: 4px 6px 0; font-size: 13px; }
+.swp .sw-go { width: 100%; margin-top: 12px; border-radius: 18px; font-size: 17px; }
+.swp .sw-go small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 500; opacity: .9; }
+.swp .u2d-rows dd { max-width: 70%; }
