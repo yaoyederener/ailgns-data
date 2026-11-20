@@ -44,6 +44,8 @@
   // 钱包：组件要的是标准的钱包接口，这里包一层，走本站自己的钱包模块（选钱包、各家钱包的小毛病都在那边处理）
   function provider() {
     return { request: function (a) {
+      // 还没连钱包时，只有客户自己点「连接」（eth_requestAccounts）才弹选钱包；小窗自己来问账号、查回执的，一律答「没连」，不打扰客户
+      if (!eth && (!a || a.method !== "eth_requestAccounts")) return Promise.reject(new Error("Connect an EVM wallet"));
       return (eth ? Promise.resolve(eth) : A.wallets.choose().then(function (p) { eth = p; return p; })).then(function (e) { return A.wallets.ask(e, a); });
     } };
   }
