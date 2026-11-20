@@ -192,7 +192,22 @@
   function bookOf(j) { return { orders: withOld(parseOrders(j.orders, j.from), j), mkt: j.reserves ? priceFromReserves(j.reserves) : null, raw: j.orders + oldSig(j) }; }
   /* 站长 2026-11-18：盘口 5 秒一刷，但一份有 46 万字。手里这份的指纹（j.h）带给后台，没变化后台只回 {same:1}，页面接着用手里这份——刷得勤也不费流量 */
   var lastBook = {};
+  /* 2026-11-21 提速：盘口平均 79 秒变一次，以前每变一次就把整份（约 47 万字）写进手机本地存储，写的那一下页面会顿，本地存储也快满了。
+     现在一分钟最多写一次，最新的先留在内存里，页面切到后台 / 关掉时补写。下次打开看到的「上次的盘口」最多旧一分钟，照样马上被最新的换掉 */
+  var bookSave = {}, bookSaveAt = {};
+  function flushBook(mk) { var j = bookSave[mk]; if (!j) return; bookSave[mk] = null; try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ } }
+  function saveBook(mk, j) {
+    bookSave[mk] = j;
+    var n = Date.now(); if (n - (bookSaveAt[mk] || 0) < 60000) return;
+    bookSaveAt[mk] = n; setTimeout(function () { flushBook(mk); }, 800); // 晚一点写，别和这一轮的重画挤在一起
+  }
+  try {
+    var flushAll = function () { Object.keys(bookSave).forEach(flushBook); };
+    document.addEventListener("visibilitychange", function () { if (document.hidden) flushAll(); });
+    window.addEventListener("pagehide", flushAll);
+  } catch (e) { /* 忽略 */ }
   function savedBook() {
+    if (lastBook[MK] && lastBook[MK].b) return lastBook[MK].b; // 这次打开期间已经拿到过：直接用内存里的，不用再从本地存储解一遍 47 万字
     try { var j = JSON.parse(localStorage.getItem(BOOK_KEY + MK) || "null"), b = j && j.orders ? bookOf(j) : null; if (b && j.h && !lastBook[MK]) lastBook[MK] = { h: j.h, b: b }; return b; } catch (e) { return null; }
   }
   // 市场超过 1000 张单后，自己更早挂的单不在窗口里（客户反馈「我的挂单」空的、撤不了）：连了钱包就再问后台要一次自己的老单，合并进来
@@ -218,7 +233,7 @@
     var book = fetch("/api/book?m=" + mk + (fresh ? "&fresh=1" : have ? "&h=" + have.h : "")).then(function (r) { try { age = Number(r.headers.get("x-age")) || 0; } catch (e) { age = 0; } return r.json(); }).then(function (j) {
       if (j && j.same && have) { have.b.age = age; if (j.reserves) { try { have.b.mkt = priceFromReserves(j.reserves); } catch (e) { /* 市价算不出就用上一份的 */ } } return have.b; } /* 挂单没变化：接着用手里这份，只换最新市价 */
       if (!j || j.error || !j.orders) throw new Error("book");
-      try { localStorage.setItem(BOOK_KEY + mk, JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
+      saveBook(mk, j);
       var b = bookOf(j); b.age = age; if (j.h) lastBook[mk] = { h: j.h, b: b }; return b;
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
@@ -824,6 +839,19 @@
   var openBook = {}; // 每个列表多展开了几张（自动刷新后保持）
   var freshNext = false; // 自己刚挂单 / 成交 / 撤单：下次读订单簿跳过缓存
   var bookRaw = null, bookTimer = 0; // 当前画在页面上的订单簿原文 + 自动刷新定时器
+  /* 2026-11-21（站长：「otc 有时候点不动」）：盘口一变就整页重画，按钮全是新换的——手指正按着、刚点下去、正在滑的那一下赶上重画，这次点击就丢了。
+     现在：手指按着 / 1.2 秒内碰过屏幕或滚动过 → 新盘口先拿在手里（pendBook），等手停了再画。只是晚画一两秒，数据照常每 5 秒拿 */
+  var touchAt = 0, touchDown = 0, touchHooked = false, pendBook = null, pendTimer = 0;
+  function touchBusy() { var n = Date.now(); if (touchDown && n - touchDown > 10000) touchDown = 0; /* 抬手那一下万一没收到，10 秒后不再当成按着 */ return !!touchDown || n - touchAt < 1200; }
+  function hookTouch() {
+    if (touchHooked) return; touchHooked = true;
+    try {
+      var o = { passive: true, capture: true }, mark = function () { touchAt = Date.now(); };
+      window.addEventListener("touchstart", function () { touchDown = touchAt = Date.now(); }, o);
+      ["touchend", "touchcancel"].forEach(function (e) { window.addEventListener(e, function () { touchDown = 0; touchAt = Date.now(); }, o); });
+      ["touchmove", "pointerdown", "mousedown", "wheel", "scroll"].forEach(function (e) { window.addEventListener(e, mark, o); });
+    } catch (e) { /* 装不上监听就和以前一样，立刻重画 */ }
+  }
   // ---------- 全站累计成交（给客户信心）：/api/totals，读一次缓存 5 分钟 ----------
   var totals = null, totalsAt = 0;
   function loadTotals() {
@@ -982,6 +1010,20 @@
     // 有上次存下的订单簿就先画出来（秒开），拿到最新的再换；用户已经在填表或开着吃单弹窗时不打断
     var snap = savedBook(), shown = null, fresh = freshNext;
     freshNext = false;
+    hookTouch(); clearTimeout(pendTimer); pendBook = null;
+    // 手指在操作时先不重画：等手停了（每 350 毫秒看一眼）再把拿在手里的最新盘口画上去；force = 内容没变也要画（合并了自己的老单）
+    function showWhenIdle(b, force) {
+      pendBook = b; clearTimeout(pendTimer);
+      (function tick() {
+        pendTimer = setTimeout(function () {
+          if (!A.isCurrent(id) || !pendBook) return;
+          if (touchBusy()) return tick();
+          var x = pendBook; pendBook = null;
+          if (!quiet() || !x.raw || (!force && x.raw === bookRaw)) return; // 这会儿在填表 / 开着弹窗：不画，下一轮自动刷新会补
+          bookRaw = x.raw; var y = window.scrollY; draw(id, x.orders, x.mkt); window.scrollTo(0, y);
+        }, 350);
+      })();
+    }
     if (snap) { draw(id, snap.orders, snap.mkt); shown = snap.raw; bookRaw = shown; }
     else app.innerHTML = placeTabs() + '<div class="loading">正在读取订单…</div>';
     var acct0 = account;
@@ -998,6 +1040,7 @@
       /* 2026-11-18 修：这里以前用 busy()，它把表单里预填的指导价当成「客户正在填表」→ 最新盘口不画，屏幕上一直是上次存下的旧盘口（做市机器人的新单看不到、旧单点了失败），
          而且 bookRaw 已经记成新的，后面的自动刷新也以为「没变化」。改成 quiet()（只看弹窗 / 扫单中 / 光标在输入框 / 客户真改过输入框）；这次不能画就不记 bookRaw，下一轮自动刷新会补画 */
       if (shown !== null && !quiet()) return;
+      if (shown !== null && touchBusy()) return void showWhenIdle(b, true); // 先画了上次存的盘口，客户已经在点 / 在滑：等手停了再换成最新的
       bookRaw = b.raw; var y0 = shown !== null ? window.scrollY : -1; draw(id, b.orders, b.mkt); if (y0 >= 0) window.scrollTo(0, y0);
     }, function () {
       if (A.isCurrent(id) && shown === null) app.innerHTML = placeTabs() + '<div class="card err">订单读取失败，请稍后刷新。</div>';
@@ -1020,7 +1063,8 @@
         if (!A.isCurrent(id) || !b) return;
         if (again !== true && b.age > 2500) setTimeout(function () { pull(true); }, 1200);
         if (!quiet() || !b.raw || b.raw === bookRaw) return;
-        bookRaw = b.raw; var y = window.scrollY; draw(id, b.orders, b.mkt); window.scrollTo(0, y);
+        if (touchBusy()) return void showWhenIdle(b);
+        pendBook = null; bookRaw = b.raw; var y = window.scrollY; draw(id, b.orders, b.mkt); window.scrollTo(0, y);
       }).catch(function () {});
     }
     clearInterval(bookTimer);
