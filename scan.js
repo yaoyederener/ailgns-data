@@ -146,7 +146,36 @@
       } catch (e) {}
     }, 1500);
   }
+  // 2026-11-21 提速（站长：「otc 有时候很卡，有时候点不动」）：名字改问服务器 /api/who（一批地址一次请求）。
+  // 以前每次打开页面、之后每 5 分钟，手机都要把两个域名合约的全部记录下载一遍（17 个请求、6.4MB）来算名字，那十几秒页面发卡。
+  // 服务器答不上来（没网、接口出错）才退回下面的老办法 lookupOld 自己读，名字不会因此显示不出来
+  var whoQ = [], whoT = 0, whoBad = 0;
+  function whoFlush() {
+    whoT = 0;
+    var q = whoQ; whoQ = [];
+    for (var i = 0; i < q.length; i += 60) (function (part) {
+      var list = part.map(function (x) { return x.a; });
+      fetch("/api/who?a=" + list.join(",")).then(function (r) { if (!r.ok) throw new Error("who"); return r.json(); }).then(function (j) {
+        if (!j || !j.n) throw new Error("who");
+        whoBad = 0;
+        part.forEach(function (x) { x.ok(j.n[x.a] || null); });
+      }).catch(function () { whoBad = Date.now(); part.forEach(function (x) { x.ok(undefined); }); });
+    })(q.slice(i, i + 60));
+  }
+  function who(a) { // 结果：{ p: [主名字…], o: [名下的域名…] }；undefined = 服务器这次答不了
+    if (whoBad && Date.now() - whoBad < 60000) return Promise.resolve(undefined); // 刚失败过：1 分钟内直接走老办法，别每个地址都去撞一次
+    return new Promise(function (ok) { whoQ.push({ a: a, ok: ok }); if (!whoT) whoT = setTimeout(whoFlush, 40); });
+  }
   function lookup(a) {
+    a = String(a || "").toLowerCase();
+    return who(a).then(function (r) {
+      if (r === undefined) return lookupOld(a);
+      if (!r) return "";
+      var HN = A.hiddenNames || {}, ok = function (n) { return n && !HN[n]; };
+      return (r.p || []).filter(ok)[0] || (r.o || []).filter(ok)[0] || "";
+    }, function () { return lookupOld(a); });
+  }
+  function lookupOld(a) {
     return candidates().then(function (set) {
       if (set && !set[a]) return "";
       return Promise.all(["ailgns", "lgns"].map(function (t) {
