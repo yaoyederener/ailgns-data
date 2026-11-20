@@ -4864,4 +4864,12 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 .tset-lang { display: flex; gap: 6px; padding: 4px; border-radius: 12px; background: #ece8f8; }
 .tset-lang button { flex: 1; min-width: 0; margin: 0; padding: 8px 4px; border: 0; border-radius: 9px; background: transparent; box-shadow: none; color: #5b5385; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .tset-lang button.on { background: #fff; color: #4a1fb8; box-shadow: 0 1px 4px rgba(74, 31, 184, .16); }
-@media (max-width: 480px) { .top-in { gap: 8px; } .top-r { gap: 6px; } .top-in .brand { min-width: 0; overflow: hidden; } }
+/* 手机上顶栏多了一个按钮：右边那组按钮不许掉到第二行。办法是让左边的品牌文字占「剩下的宽度」，不够就收窄（末尾省略），按钮略缩一点 */
+@media (max-width: 480px) {
+  .top-in { gap: 8px; } .top-r { gap: 5px; }
+  .top-in .brand { flex: 1 1 0; min-width: 0; overflow: hidden; }
+  .top-in .brand .brand-t { min-width: 0; overflow: hidden; }
+  .top-in .brand .brand-t > * { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tset-btn { width: 32px; height: 32px; font-size: 16px; }
+  .top-r .app-btn { padding: 8px 9px; }
+}
