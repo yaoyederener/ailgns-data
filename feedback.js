@@ -294,8 +294,10 @@
     var find = function (tries) {
       var id = lastP && lastP.top && lastP.top.id, el = (id && document.querySelector('.fb-tk[data-id="' + id + '"]')) || document.querySelector(".fb-tk[data-id]");
       if (!el && tries > 0) return setTimeout(function () { find(tries - 1); }, 400);
-      if (!el) { el = document.getElementById("fb-seg"); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // 直接跳过去，不用「慢慢滚」的动画：上线后核对时，带动画的滚动有一次根本没动（页面没在画面上时浏览器会把动画停掉），老的钱包浏览器也不一定认
+      var jump = function (x) { try { x.scrollIntoView({ block: "center" }); } catch (e2) { x.scrollIntoView(); } };
+      if (!el) { el = document.getElementById("fb-seg"); if (el) jump(el); return; }
+      jump(el);
       el.classList.add("fb-flash"); setTimeout(function () { el.classList.remove("fb-flash"); }, 1800);
     };
     if (lastP && !lastP.n) { var b = document.getElementById("fb-bell"); if (b && A.errTip) A.errTip("现在没有待处理的工单", b); }
