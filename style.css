@@ -4779,3 +4779,17 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 
 /* 跨链桥：只能单向的链，箭头旁边一句「往外提请选 Polygon」 */
 .u2d-one { position: absolute; left: calc(50% + 26px); top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 11px; line-height: 1; padding: 5px 8px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px #ece6fb; color: #6b5a8e; }
+
+/* 跨链桥合成一张卡（2026-11-20）：框右边的币是按钮，点开在框里选币；两步的那一趟在框下面有一行「第 1 步 → 第 2 步」 */
+button.u2d-tok { margin: 0; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; width: auto; min-height: 0; }
+button.u2d-tok:disabled { opacity: .6; }
+.u2d-car { font-style: normal; font-size: 11px; color: #8b84ad; margin-left: -2px; }
+.u2d-pk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ddd5f3; }
+.u2d-pk p { flex: 0 0 100%; margin: 0; font-size: 12.5px; color: #7a7396; }
+.u2d-way { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; padding: 10px 14px; list-style: none; border-radius: 14px; background: #f7f5fc; }
+.u2d-way li { flex: 1; min-width: 0; }
+.u2d-way li.ar { flex: none; color: #b8aee0; font-size: 15px; }
+.u2d-way b { display: block; font-size: 13.5px; color: #4b4470; }
+.u2d-way small { display: block; font-size: 12px; color: #8b84ad; }
+.u2d-way li.now b { color: #5b21b6; } .u2d-way li.now b::before { content: "● "; }
+.u2d-way li.ok b { color: #16a34a; } .u2d-way li.ok b::before { content: "✓ "; }
