@@ -372,7 +372,10 @@
   function tokBtn(side, k) { return '<button type="button" class="u2d-tok u2d-tb" data-side="' + side + '" aria-label="换一个币">' + tokIn(k) + '<i class="u2d-car"></i></button>'; }
   function pickList(side) {
     var cur = side === "from" ? from : to;
-    var ks = ["U", "D", "A"].filter(function (k) { return k !== cur && !(side === "from" && k === "A" && !N().canOut); });
+    var other = side === "from" ? to : from;
+    var ok = ["U", "D", "A"].filter(function (k) { return k !== cur && !(side === "from" && k === "A" && !N().canOut); });
+    // 站长 2026-11-20：对面那个框已经选着的币不再列出来（看着像重复；要对调点中间的 ⇅）。只有去掉以后一个都不剩时才留着它（选它 = 两边对调）
+    var ks = ok.filter(function (k) { return k !== other; }); if (!ks.length) ks = ok;
     return '<div class="u2d-pk"><p>' + (side === "from" ? "你要付出哪个币" : "你要到账哪个币") + "</p>" + ks.map(function (k) { return '<button type="button" class="u2d-tok" data-side="' + side + '" data-k="' + k + '">' + tokIn(k) + "</button>"; }).join("") + "</div>";
   }
   function choose(side, k) {
