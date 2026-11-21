@@ -50,16 +50,20 @@ async function build(kv) {
   const seen = {}, list = [], g = {};
   for (const x of l) { const id = x[1][1]; if (!seen[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && list.length < GENESIS) { seen[id] = 1; list.push(x); g[id.slice(2)] = list.length; } }
   const last = list.filter((x) => !HIDDEN["0x" + x[1][2].slice(26)]).slice(-10).reverse();
-  const t = await batch([["eth_getBlockByNumber", ["latest", false]]].concat(last.map((x) => ["eth_getBlockByNumber", ["0x" + x[0].toString(16), false]])));
+  // 🆕 最新注册的名字，普通域名也算（站长 2026-11-21：创世 1 万个卖完后卡片一直停在 #10000，「最新注册的域名不显示」）。多取几条，过滤掉屏蔽的名字后留 10 条
+  const lastAll = l.filter((x) => BigInt("0x" + x[2].slice(66, 130)) > 0n && !HIDDEN["0x" + x[1][2].slice(26)]).slice(-14).reverse();
+  const t = await batch([["eth_getBlockByNumber", ["latest", false]]].concat(last.concat(lastAll).map((x) => ["eth_getBlockByNumber", ["0x" + x[0].toString(16), false]])));
   const now = parseInt(t[0].timestamp, 16), head = parseInt(t[0].number, 16);
   const spb = last.length && head > last[0][0] ? Math.max(0.5, (now - parseInt(t[1].timestamp, 16)) / (head - last[0][0])) : 2;
   const from = head - Math.floor(86400 / spb), day = list.filter((x) => x[0] >= from).length;
   const recent = last.map((x, i) => ({ nm: decStr(x[2]), ago: now - parseInt(t[i + 1].timestamp, 16), no: list.indexOf(x) + 1 })).filter((r) => r.nm && !HIDDEN_NAMES[r.nm] && !banned(r.nm));
+  const noOf = new Map(list.map((x, i) => [x, i + 1])); // 是创世的带编号，普通域名是 0
+  const newest = lastAll.map((x, i) => ({ nm: decStr(x[2]), ago: now - parseInt(t[last.length + i + 1].timestamp, 16), no: noOf.get(x) || 0 })).filter((r) => r.nm && !HIDDEN_NAMES[r.nm] && !banned(r.nm)).slice(0, 10);
   const xf = (await kv.get("nmlogs:" + NAMES + ":" + T_XFER.slice(2, 10), "json")) || { l: [] }, x = {};
   for (const t of xf.l) if (t[1] && t[1][2] && t[1][2].toLowerCase() === DEAD64 && t[1][3]) { const k = t[1][3].toLowerCase().slice(2); if (g[k]) { x[k] = g[k]; delete g[k]; } }
   let pool = null; // 奖池钱包的 DAI 余额（Anubis 上 DAI 是原生币）；读不到就不给，页面自己再读
   if (GEN_POOL && list.length >= GENESIS) { try { pool = Number(BigInt(await rpc("eth_getBalance", [GEN_POOL, "latest"])) / 10n ** 16n) / 100; } catch (e) { pool = null; } }
-  return { n: list.length, day, recent, g, x, burned: Object.keys(x).length, pool, at: Date.now(), latest };
+  return { n: list.length, day, recent, newest, g, x, burned: Object.keys(x).length, pool, at: Date.now(), latest };
 }
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
