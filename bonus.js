@@ -36,11 +36,16 @@
       box.innerHTML = "钱包 " + short(account) + " 里没有创世域名，有 1 枚就能签到。" + (me.days > 0 ? "（本轮已签 " + n(me.days) + " 天）" : "");
       btn.textContent = "去域名市场买创世域名 →"; return;
     }
+    var need = Number(me.ailNeed) || 0, lack = !me.signed && need > 0 && me.ail >= 0 && me.ail < need; // 少 AiLGNS：创世域名有了，代币不够
     box.innerHTML = "钱包 " + short(account) + " 有 <b>" + n(me.held) + "</b> 枚创世域名，签到一天记 <b>" + n(me.held) + "</b> 票。" +
-      (me.days > 0 ? "<br>本轮已签 <b>" + n(me.days) + "</b> 天，共 <b>" + n(me.tickets) + "</b> 票。" : "");
+      (me.days > 0 ? "<br>本轮已签 <b>" + n(me.days) + "</b> 天，共 <b>" + n(me.tickets) + "</b> 票。" : "") +
+      (lack ? '<br><span class="bn-lack">钱包里有 <b>' + ailFmt(me.ail) + "</b> 枚 AiLGNS，签到要至少 <b>" + n(need) + "</b> 枚，还不够。</span>"
+        : need > 0 && me.ail >= need && !me.signed ? "<br>AiLGNS <b>" + ailFmt(me.ail) + "</b> 枚，够 " + n(need) + " 枚，可以签到。" : "");
     if (me.signed) { btn.textContent = "✅ 今天已签到，明天再来"; btn.disabled = true; }
+    else if (lack) btn.textContent = "去 OTC 买 AiLGNS →";
     else btn.textContent = "✍️ 今日签到（免费）";
   }
+  function ailFmt(v) { v = Number(v) || 0; return v >= 100 ? n(Math.floor(v)) : String(Math.floor(v * 10000) / 10000); } // 往下取，0.99996 不能显示成 1
   function paint() { try { paintPool(); paintMe(); } catch (e) {} }
 
   // 🏆 签到排行榜（站长 2026-11-21：「弄一个签到排行榜，把签到的创世域名都列出来」）：这一轮按票数排，每个钱包下面列出它现在手里的创世域名。
@@ -97,6 +102,7 @@
     if (busy) return;
     var me = info && info.me;
     if (account && me && me.held === 0) { location.hash = "#/names/otc"; return; }
+    if (account && me && me.held > 0 && !me.signed && Number(me.ailNeed) > 0 && me.ail >= 0 && me.ail < Number(me.ailNeed)) { location.hash = "#/otc"; return; }
     busy = true; say(""); paint();
     var done = function () { busy = false; paint(); };
     (eth && account ? Promise.resolve() : connect()).then(function () { paint(); return loadInfo(); }).then(function (j) {
@@ -104,6 +110,7 @@
       if (j.me.held < 0) throw new Error("暂时没读到你的域名，过一分钟再点");
       if (j.me.held === 0) { say("这个钱包里没有创世域名。刚买的等 1 分钟再点；挂在市场里卖的不算。", true); return null; }
       if (j.me.signed) { say("今天已经签过了，明天再来。"); return null; }
+      if (Number(j.me.ailNeed) > 0 && j.me.ail >= 0 && j.me.ail < Number(j.me.ailNeed)) { say("签到要这个钱包里至少有 " + n(j.me.ailNeed) + " 枚 AiLGNS，现在有 " + ailFmt(j.me.ail) + " 枚。去 OTC 买够再回来签。", true); return null; }
       say("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");
       return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(signText(j.day, account)), account] }).then(function (sig) {
         say("正在登记…");
@@ -123,7 +130,7 @@
   }
   function render() {
     A.app.innerHTML =
-      '<section class="card bn"><h1>🎁 创世域名分红计划</h1><p class="sub">持有创世域名，每天签到。奖池每满 ' + n(GOAL) + ' DAI，从所有票里随机抽 ' + n(WIN) + ' 张，每张分一份，发 AiLGNS。</p>' +
+      '<section class="card bn"><h1>🎁 创世域名分红计划</h1><p class="sub">持有创世域名和至少 1 枚 AiLGNS，每天签到。奖池每满 ' + n(GOAL) + ' DAI，从所有票里随机抽 ' + n(WIN) + ' 张，每张分一份，发 AiLGNS。</p>' +
       '<div class="bn-cd"><p class="bn-cap">分红奖池现在有</p><div class="bn-big"><b id="bn-pool">…</b><span>DAI</span></div>' +
       '<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-need">读取中…</span><span id="bn-all"></span></p></div>' +
       '<p class="bn-me" id="bn-me" hidden></p>' +
@@ -131,7 +138,7 @@
       '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/' + POOL + '">随时可查</a>。</p></section>' +
       '<section class="card bn"><h2>🏆 签到排行榜</h2><div id="bn-rk"></div><p class="note">每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。</p></section>' +
       '<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
-      "<li><b>谁能领：创世域名持有人</b><span>钱包里至少有 1 枚创世域名。1 枚签到一天记 1 票，持有越多票越多。</span></li>" +
+      "<li><b>谁能领：有创世域名，并持有 1 枚 AiLGNS</b><span>钱包里至少有 1 枚创世域名，同时至少有 1 枚 AiLGNS。1 枚创世域名签到一天记 1 票，创世域名越多票越多；AiLGNS 满 1 枚就行，多了不加票。</span></li>" +
       "<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>" +
       "<li><b>怎么抽：奖池满 " + n(GOAL) + " DAI，随机抽 " + n(WIN) + " 张票</b><span>奖池每累计满 " + n(GOAL) + " DAI 抽一次，从这一轮所有的票里随机抽 " + n(WIN) + " 张。票越多越容易中，票多的钱包可以中好几张。抽完开始下一轮，票从头算。</span></li>" +
       "<li><b>发什么：AiLGNS</b><span>每张中奖的票分一份，一份是奖池的 " + n(WIN) + " 分之一（约 " + n(GOAL / WIN) + " DAI）。发 AiLGNS，直接打到钱包。</span></li>" +
@@ -140,6 +147,7 @@
       '<section class="card bn"><h2>常见问题</h2>' +
       "<details><summary>签到要花钱吗？</summary><p>不花钱。签到只是在钱包里签个名，不转账、不用 Gas。任何让你转账才能签到的都是骗子。</p></details>" +
       "<details><summary>挂在市场上卖的创世域名算票吗？</summary><p>不算。挂单的名字存在市场里，不在你钱包里。撤单拿回钱包就算。已销毁的也不算。</p></details>" +
+      "<details><summary>AiLGNS 要放在哪？没有怎么办？</summary><p>放在签到的这个钱包里，至少 1 枚。挂在 OTC 卖单里的、押在借贷里的不算。没有可以去 <a href=\"#/otc\">OTC</a> 买。这一条是 2026-11-21 加的，之前已经签到的票照旧保留。</p></details>" +
       "<details><summary>刚买的创世域名签不了？</summary><p>等 1 分钟再点。网站要等链上记录同步过来才认得出。</p></details>" +
       "<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>" +
       "<details><summary>什么时候抽？</summary><p>没有固定日期。奖池满 " + n(GOAL) + " DAI 就抽一次，上面的进度条能看到还差多少。</p></details>" +

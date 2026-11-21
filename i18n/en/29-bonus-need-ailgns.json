@@ -1,0 +1,20 @@
+{
+"钱包里有": "The wallet holds",
+"枚 AiLGNS，签到要至少": "AiLGNS; signing in needs at least",
+"枚，还不够。": "— not enough yet.",
+"枚，够": "— meets the",
+"枚，可以签到。": "needed, you can sign in.",
+"去 OTC 买 AiLGNS →": "Buy AiLGNS on OTC →",
+"签到要这个钱包里至少有": "Signing in needs this wallet to hold at least",
+"枚 AiLGNS，现在有": "AiLGNS; it now holds",
+"枚。去 OTC 买够再回来签。": ". Buy enough on OTC, then come back to sign in.",
+"持有创世域名和至少 {0} 枚 AiLGNS，每天签到。奖池每满": "Hold a Genesis name and at least {0} AiLGNS, and sign in every day. Each time the pool reaches",
+"谁能领：有创世域名，并持有 {0} 枚 AiLGNS": "Who can get it: Genesis name holders with {0} AiLGNS",
+"钱包里至少有 {0} 枚创世域名，同时至少有 {1} 枚 AiLGNS。{2} 枚创世域名签到一天记 {3} 票，创世域名越多票越多；AiLGNS 满 {4} 枚就行，多了不加票。": "The wallet needs at least {0} Genesis name and at least {1} AiLGNS. {2} Genesis name signed in for a day = {3} ticket, and more Genesis names mean more tickets; {4} AiLGNS is enough, more does not add tickets.",
+"AiLGNS 要放在哪？没有怎么办？": "Where must the AiLGNS be? What if I have none?",
+"放在签到的这个钱包里，至少 {0} 枚。挂在 OTC 卖单里的、押在借贷里的不算。没有可以去": "In the wallet you sign in with, at least {0}. AiLGNS sitting in an OTC sell order or locked in a loan does not count. If you have none, buy on",
+"买。这一条是 {0}-{1}-{2} 加的，之前已经签到的票照旧保留。": ". This rule was added on {0}-{1}-{2}; tickets from earlier sign-ins are kept.",
+"暂时没读到你的 AiLGNS 余额，过一会儿再点": "Couldn't read your AiLGNS balance just now, tap again in a moment",
+"🎁 创世域名分红加了一条：签到的钱包里还要有至少 {0} 枚 AiLGNS。满 {1} 枚就行，多了不加票；挂在 OTC 卖单里的、押在借贷里的不算。之前已经签到的票照旧保留。": "🎁 One more rule for the Genesis dividend: the wallet that signs in must also hold at least {0} AiLGNS. {1} is enough and more does not add tickets; AiLGNS in an OTC sell order or locked in a loan does not count. Tickets from earlier sign-ins are kept.",
+"创世域名分红加了一条：签到的钱包里还要有至少 {0} 枚 AiLGNS。满 {1} 枚就行，多了不加票；挂在 OTC 卖单里的、押在借贷里的不算。之前已经签到的票照旧保留。": "One more rule for the Genesis dividend: the wallet that signs in must also hold at least {0} AiLGNS. {1} is enough and more does not add tickets; AiLGNS in an OTC sell order or locked in a loan does not count. Tickets from earlier sign-ins are kept."
+}
