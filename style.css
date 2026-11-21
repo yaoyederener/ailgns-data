@@ -1463,6 +1463,9 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-buy{flex-wrap:wrap;gap:8px}
 .nm-gen{margin:6px 0 0;font-weight:700;color:#d97706}
 .nm-gb{margin-left:6px;font-style:normal;font-size:12px;font-weight:700;color:#d97706}
+.nm-gb-g,.nm-gb-p{display:inline-block;padding:2px 9px;border-radius:99px;line-height:1.5;white-space:nowrap;vertical-align:middle}
+.nm-gb-g{background:#fff4d6;border:1px solid #f1cf7a;color:#b45309}
+.nm-gb-p{background:#eef0f4;border:1px solid #d5d9e2;color:#566072}
 .nm-rk2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .nm-rk2 h3{margin:0 0 6px;font-size:14px}
 .nm-rk2 ol{margin:0;padding:0;list-style:none;font-size:13px}
@@ -3749,7 +3752,12 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 #sc-out .lg-raw { padding-top: 10px; border-top: 1px dashed #e6dcff; }
 @media (prefers-reduced-motion: reduce) { .sc-home::before, .sc-home::after, #sc-out > .card, #sc-out .sc-wait, #sc-out .sc-coin.sc-has::after { animation: none !important; } }
 
-/* 🎁 创世域名每日分红 · 上线倒计时页 #/bonus */
+/* 🎁 创世域名分红 · 每日签到页 #/bonus */
+.bn-cap { margin: 0 0 6px; font-size: 14px; color: #5b4a86; font-weight: 600; }
+button.bn-go { width: 100%; border: 0; cursor: pointer; font-family: inherit; }
+button.bn-go:disabled { opacity: .6; cursor: default; }
+.bn-st { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: #f1fbf4; border: 1px solid #cfe9d6; font-size: 14px; line-height: 1.6; color: #1f6b3a; }
+.bn-st.bad { background: #fff6e5; border-color: #f3dca6; color: #7a5a12; }
 .bn-cd { margin: 6px 0 14px; padding: 18px 16px; border-radius: 16px; background: linear-gradient(135deg, #f4eeff, #fbf8ff); border: 1px solid #e6dbfb; }
 .bn-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .bn-big b { font-size: 46px; line-height: 1; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }

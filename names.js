@@ -1503,7 +1503,13 @@
       if (more) more.onclick = function () { mkN = mkShow() + mkStep(); draw(full, vols, gens); };
       var less = document.getElementById("nm-mkless");
       if (less) less.onclick = function () { mkN = 0; draw(full, vols, gens); box.scrollIntoView({ behavior: "smooth", block: "start" }); };
-      box.querySelectorAll("[data-g]").forEach(function (e) { var k = e.getAttribute("data-g").split(":"), n = gens[tlds.indexOf(k[0])][k[1]]; if (n) e.textContent = "🌟 创世 #" + n; });
+      box.querySelectorAll("[data-g]").forEach(function (e) {
+        // 站长 2026-11-21：「普通域名挂卖的时候要明显标注普通域名，要明显区分创世域名」。创世 = 金色标签，其余 .ailgns = 灰色「普通域名」标签。
+        // 创世表没读到（空的）时两种都不标：宁可不标，也不能把创世错标成普通
+        var k = e.getAttribute("data-g").split(":"), gm = gens[tlds.indexOf(k[0])] || {}, n = gm[k[1]];
+        if (n) { e.textContent = "🌟 创世 #" + n; e.className = "nm-gb nm-gb-g"; }
+        else if (k[0] === "ailgns" && Object.keys(gm).length) { e.textContent = "普通域名"; e.className = "nm-gb nm-gb-p"; }
+      });
       var qi = document.getElementById("nm-mkq"), qt;
       if (qi) qi.oninput = function () { clearTimeout(qt); qt = setTimeout(function () { mkQ = qi.value; mkN = 0; draw(full, vols, gens); var n = document.getElementById("nm-mkq"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 300); };
       document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(full, vols, gens); };
