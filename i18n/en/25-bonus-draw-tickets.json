@@ -1,0 +1,15 @@
+{
+"DAI，从所有票里随机抽": "DAI,",
+"张，每张分一份，发 AiLGNS。": "tickets are drawn at random from all tickets; each winning ticket gets one share, paid in AiLGNS.",
+"DAI，随机抽": "DAI,",
+"张票": "tickets are drawn at random",
+"DAI 抽一次，从这一轮所有的票里随机抽": "DAI there is one draw: from all tickets of this round,",
+"张。票越多越容易中，票多的钱包可以中好几张。抽完开始下一轮，票从头算。": "are drawn at random. More tickets, better odds, and a wallet with many tickets can win several times. Then the next round starts and tickets reset.",
+"每张中奖的票分一份，一份是奖池的": "Each winning ticket gets one share. One share is the pool divided by",
+"分之一（约": "(about",
+"DAI）。发 AiLGNS，直接打到钱包。": "DAI). Paid in AiLGNS straight to the wallet.",
+"张票，签到天数越多、创世域名越多，票就越多，越容易中，也可能中好几张。这一轮所有的票加起来不到": "tickets. More sign-in days and more Genesis names mean more tickets, better odds, and possibly several wins. If all tickets of the round add up to fewer than",
+"张时，每张票都中，按票平分。": ", every ticket wins and the pool is split per ticket.",
+"🎁 创世域名分红的抽法定了：奖池满 {0} DAI 时，从这一轮所有的票里随机抽 {1} 张，每张票分一份（约 {2} DAI），发 AiLGNS。票多的钱包可以中好几张。原来写的「一个钱包一轮最多中一次」作废。": "🎁 The Genesis dividend draw is settled: when the pool reaches {0} DAI, {1} tickets are drawn at random from all tickets of the round, and each winning ticket gets one share (about {2} DAI), paid in AiLGNS. A wallet with many tickets can win several times. The earlier wording \"a wallet can win at most once per round\" no longer applies.",
+"创世域名分红的抽法定了：奖池满 {0} DAI 时，从这一轮所有的票里随机抽 {1} 张，每张票分一份（约 {2} DAI），发 AiLGNS。票多的钱包可以中好几张。原来写的「一个钱包一轮最多中一次」作废。": "The Genesis dividend draw is settled: when the pool reaches {0} DAI, {1} tickets are drawn at random from all tickets of the round, and each winning ticket gets one share (about {2} DAI), paid in AiLGNS. A wallet with many tickets can win several times. The earlier wording \"a wallet can win at most once per round\" no longer applies."
+}
