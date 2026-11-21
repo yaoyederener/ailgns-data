@@ -888,7 +888,7 @@
       if (ids.length === 1) {
         var dx = e.clientX - prev[0], dy = e.clientY - prev[1];
         if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
-        if (moved) { box.setPointerCapture(e.pointerId); tx += dx; ty += dy; apply(); }
+        if (moved) { try { box.setPointerCapture(e.pointerId); } catch (x) { /* 苹果手机手指已抬起时会报错，不影响拖动 */ } tx += dx; ty += dy; apply(); }
       } else if (ids.length === 2) {
         var p = pts[ids[0]], q = pts[ids[1]], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
         var r = box.getBoundingClientRect();

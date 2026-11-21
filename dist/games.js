@@ -161,7 +161,7 @@ function login(sw){var eth,addr;A.wallets.choose().then(function(p){eth=p;return
 function checkWallet(){try{if(A.wallets.silent)A.wallets.silent().then(function(a){if(a&&a!==walletNow){walletNow=a;if(A.isCurrent(rid))stat();}}).catch(function(){});}catch(e){}}
 function fx(d,up){try{if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;var pill=document.getElementById("fm-coins"),sc=document.querySelector(".fm-scene");if(!pill||!sc)return;if(d){var f=document.createElement("span"),b=pill.querySelector("b"),to=me.coins,k=0;f.className="fm-fly"+(d<0?" neg":"");f.textContent=(d>0?"+":"-")+A.fmt(Math.abs(d));pill.appendChild(f);pill.classList.add("up");setTimeout(function(){try{f.remove();pill.classList.remove("up");}catch(e){}},1300);(function step(){k++;if(!b||!b.isConnected)return;b.textContent=A.fmt(Math.round(to-d*(1-k/12)));if(k<12)setTimeout(step,45);})();if(d>0)for(var i=0,n=Math.min(12,4+Math.floor(d/40));i<n;i++)(function(i){var c=document.createElement("i");c.className="fm-coin fm-rain";c.style.left=(6+Math.random()*86)+"%";c.style.animationDelay=(i*0.07)+"s";sc.appendChild(c);setTimeout(function(){try{c.remove();}catch(e){}},1500+i*70);})(i);}
 if(up){var l=document.createElement("div");l.className="fm-lvup";l.textContent="🎉 升到 "+me.lv+" 级啦！";sc.appendChild(l);setTimeout(function(){try{l.remove();}catch(e){}},2700);}}catch(e){}}
-function stat(){var el=document.getElementById("fm-stat");if(!el)return;if(!me){el.innerHTML="";return;}
+function stat(){var el=document.getElementById("fm-stat");if(!el)return;if(!me||!R){el.innerHTML="";return;}
 var lv=me.lv,lo=(lv-1)*(lv-1)*10,hi=lv*lv*10,pct=Math.max(0,Math.min(100,(me.xp-lo)/(hi-lo)*100));var t=now(),dog=me.dog>t?Math.ceil((me.dog-t)/3600):0,cop=me.cop>t?Math.ceil((me.cop-t)/3600):0;var dh=function(h){return h>=24?Math.floor(h/24)+" 天"+(h%24?" "+(h%24)+" 小时":""):h+" 小时";};try{var dz=document.getElementById("fm-deco");if(dz)dz.innerHTML=(me.decor||[]).map(function(k){return R.decor&&R.decor[k]?'<span class="fm-prop fm-deco d-'+k+'">'+R.decor[k].icon+"</span>":"";}).join("");}catch(e){}
 if(seenWho!==sig.addr){seenCoins=null;seenLv=null;seenWho=sig.addr;}
 var d0=seenCoins==null?0:me.coins-seenCoins,up=seenLv!=null&&lv>seenLv;seenCoins=me.coins;seenLv=lv;el.innerHTML='<div class="fm-hud"><span class="fm-pill fm-gold" id="fm-coins"><i class="fm-coin"></i><b class="num">'+A.fmt(me.coins)+'</b> 金币</span><span class="fm-pill fm-lv">⭐ <b>'+lv+"</b> 级</span>"+(me.paid>=R.king?'<span class="fm-king">👑 农场主</span>':"")+
@@ -240,5 +240,5 @@ $("dt-grid").onclick=function(e){var el=e.target.closest?e.target.closest(".dt-r
 if(myBet(c)){toast("这一局你已经进房间了",true);return;}
 sel=Number(el.getAttribute("data-i"));draw();};$("dt-pay").onclick=function(){try{recharge();}catch(e){toast("充值暂时打不开，稍后再试",true);}};draw();pull();if(sig)post("me").then(draw,function(){draw();});tm=setInterval(tick,250);}
 A.pages.br=page;})();}catch(e){console.error('[bundle] br.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]="h0dc512d078";
-/*v:h0dc512d078*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["games"]="h7fd8084232";
+/*v:h7fd8084232*/
