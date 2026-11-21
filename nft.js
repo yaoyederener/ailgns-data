@@ -42,23 +42,33 @@
 
   // ---------- 读链 ----------
   function K() { return A.otcKit; }
+  // 接口拿不到时自己读链：全部订单都读（一段 1000 张）。以前只读最近 1000 张，更早挂的卡看不到也撤不了（工单 #351 / #356）
   function readOrders() {
     var k = K();
     return k.read(k.OTC(), SEL.ordersCount).then(function (h) {
-      var count = Number(BigInt(h)), from = Math.max(0, count - 1000);
+      var count = Number(BigInt(h)), jobs = [];
       if (!count) return [];
-      return k.read(k.OTC(), SEL.getOrders + k.u256(from) + k.u256(count - from)).then(function (r) { return parseOrders(r, from); });
+      for (var s = 0; s < count; s += 1000) (function (s) { jobs.push(k.read(k.OTC(), SEL.getOrders + k.u256(s) + k.u256(Math.min(1000, count - s))).then(function (r) { return parseOrders(r, s); })); })(s);
+      return Promise.all(jobs).then(function (parts) { return [].concat.apply([], parts); });
     });
+  }
+  // 接口给的盘口 = 最近 1000 张（orders）+ 更早但还开着的老单（old: [{ id, o: 6 个字 }]）
+  function bookOrders(j) {
+    var list = parseOrders(j.orders, j.from);
+    (j.old || []).forEach(function (x) {
+      try { var o = x.o; if (o && o.length === 6 && x.id < j.from) list.push({ id: x.id, maker: "0x" + o[0].slice(24), sell: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), tokenId: BigInt("0x" + o[4]), price: BigInt("0x" + o[5]) }); } catch (e) { /* 坏的一条跳过 */ }
+    });
+    return list.sort(function (a, b) { return a.id - b.id; });
   }
   function loadBook(fresh) {
     return fetch("/api/book?m=nft" + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || j.error || !j.orders) throw new Error("book");
       try { localStorage.setItem("otc:book:nft", JSON.stringify(j)); } catch (e) { /* 存不下就算了 */ }
-      return parseOrders(j.orders, j.from);
+      return bookOrders(j);
     }).catch(readOrders);
   }
   function savedBook() {
-    try { var j = JSON.parse(localStorage.getItem("otc:book:nft") || "null"); return j && j.orders ? parseOrders(j.orders, j.from) : null; } catch (e) { return null; }
+    try { var j = JSON.parse(localStorage.getItem("otc:book:nft") || "null"); return j && j.orders ? bookOrders(j) : null; } catch (e) { return null; }
   }
   // 钱包里的卡（最多读 MAX_CARDS 张）
   function myCards(who) {

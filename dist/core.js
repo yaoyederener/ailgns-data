@@ -544,10 +544,11 @@ return list;}
 function niceError(e){var msg=(e&&(e.message||e.reason))||"";for(var k in REASONS)if(msg.indexOf(k)>=0)return REASONS[k];return A.otcKit.niceError(e);}
 function dai(v,d){return A.fmt(Number(v)/1e18,d===undefined?2:d);}
 function K(){return A.otcKit;}
-function readOrders(){var k=K();return k.read(k.OTC(),SEL.ordersCount).then(function(h){var count=Number(BigInt(h)),from=Math.max(0,count-1000);if(!count)return[];return k.read(k.OTC(),SEL.getOrders+k.u256(from)+k.u256(count-from)).then(function(r){return parseOrders(r,from);});});}
+function readOrders(){var k=K();return k.read(k.OTC(),SEL.ordersCount).then(function(h){var count=Number(BigInt(h)),jobs=[];if(!count)return[];for(var s=0;s<count;s+=1000)(function(s){jobs.push(k.read(k.OTC(),SEL.getOrders+k.u256(s)+k.u256(Math.min(1000,count-s))).then(function(r){return parseOrders(r,s);}));})(s);return Promise.all(jobs).then(function(parts){return[].concat.apply([],parts);});});}
+function bookOrders(j){var list=parseOrders(j.orders,j.from);(j.old||[]).forEach(function(x){try{var o=x.o;if(o&&o.length===6&&x.id<j.from)list.push({id:x.id,maker:"0x"+o[0].slice(24),sell:BigInt("0x"+o[1])===1n,open:BigInt("0x"+o[2])===1n,expiry:Number(BigInt("0x"+o[3])),tokenId:BigInt("0x"+o[4]),price:BigInt("0x"+o[5])});}catch(e){}});return list.sort(function(a,b){return a.id-b.id;});}
 function loadBook(fresh){return fetch("/api/book?m=nft"+(fresh?"&fresh=1":"")).then(function(r){return r.json();}).then(function(j){if(!j||j.error||!j.orders)throw new Error("book");try{localStorage.setItem("otc:book:nft",JSON.stringify(j));}catch(e){}
-return parseOrders(j.orders,j.from);}).catch(readOrders);}
-function savedBook(){try{var j=JSON.parse(localStorage.getItem("otc:book:nft")||"null");return j&&j.orders?parseOrders(j.orders,j.from):null;}catch(e){return null;}}
+return bookOrders(j);}).catch(readOrders);}
+function savedBook(){try{var j=JSON.parse(localStorage.getItem("otc:book:nft")||"null");return j&&j.orders?bookOrders(j):null;}catch(e){return null;}}
 function myCards(who){var k=K(),nft=k.M().token;return k.read(nft,SEL.balanceOf+k.u256(who)).then(function(h){var n=Math.min(Number(BigInt(h)),MAX_CARDS),idx=[];for(var i=0;i<n;i++)idx.push(i);return A.pool(idx,6,function(i){return k.read(nft,SEL.tokenOfOwnerByIndex+k.u256(who)+k.u256(i)).then(BigInt);});}).then(function(ids){return ids.filter(function(x){return x!==null&&x!==undefined;}).sort(function(a,b){return a<b?-1:1;});});}
 function ensureCardApproval(tokenId,say){var k=K();return k.read(k.M().token,SEL.getApproved+k.u256(tokenId)).then(function(h){if("0x"+h.slice(26).toLowerCase()===k.OTC().toLowerCase())return;return k.send(k.M().token,SEL.approve+k.u256(k.OTC())+k.u256(tokenId),say,"授权托管合约转这张卡（#"+tokenId+"）");});}
 function ensureDai(amount,say){var k=K();return k.allowance(k.DAI(),k.account()).then(function(a){if(a>=amount)return;return k.send(k.DAI(),SEL.approve+k.u256(k.OTC())+k.u256(amount),say,"授权 "+dai(amount)+" DAI 给托管合约");});}
@@ -1130,5 +1131,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hb30eac997f";
-/*v:hb30eac997f*/
+;window.AIL_CORE="he089d57fbc";
+/*v:he089d57fbc*/
