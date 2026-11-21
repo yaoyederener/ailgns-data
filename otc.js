@@ -1084,10 +1084,15 @@
        站长 11-10 定过「市场自由定价」、11-16 我劝过一次，这次是他明确要求改的 */
     /* 站长 2026-11-19：LGNS（Anubis）也加上这条。LGNS 在 DEX 卖出的手续费因人而异（5%～50% 以上），站长定按最高的 50% 算：
        最低出价 = DEX 市价 × (1 − 50%) × (1 − 池子 0.3%) = 市价 × 0.4985，和页面上「比 DEX 多拿」用的是同一个数（dexSellCmp），不跟实测税走 */
-    function bidFloor(mkt) { return (MK === "ailgns" || MK === "lgns") && mkt ? mkt * dexSellCmp() : 0; }
+    /* 站长 2026-11-21（工单 #352 / #353 / #354 / #357，三位客户都说 LGNS 买价卷得太低、大家去砸底池）：LGNS 的线调高。
+       原来按「卖出税 50%」算，线 = 市价 × 0.4985；可链上实测的税是 47.7% 左右，去 DEX 卖实际到手比这条线高约 4.5%，线下面还能挂一堆买单。
+       现在：税按链上实测的算（/api/sell-tax，只认 45%～50% 之间的读数；读不到、或者读到白名单那种 5% 的，仍按 50%），
+       再除以 0.99——卖家把币卖给买单要付 1% 手续费，这样他到手才不低于去 DEX。只拦新挂的买单，已经挂着的不动。AiLGNS 的线没变。 */
+    function lgnsNet() { var t = SELL_TAX; if (t === null || !(t >= 0.45 && t <= 0.5)) t = 0.5; return (1 - t) * 0.997; }
+    function bidFloor(mkt) { return !mkt ? 0 : MK === "lgns" ? mkt * lgnsNet() / TAKER : MK === "ailgns" ? mkt * dexSellCmp() : 0; }
     function bidFloorMsg(fl) {
       var ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
-      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。这是卖家把币拿去 DEX 卖最少能到手的价（卖出手续费按 50%、再扣池子 0.3% 算）；出价比这低，卖家卖给你还不如去 DEX，本站不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
+      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。卖家把币拿去 DEX 卖，按现在链上实际的卖出手续费算能到手多少，这条线就是保证他卖给你（扣掉本站 1% 手续费后）到手不比那少；出价比这低，卖家卖给你还不如去 DEX，本站不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
     }
     function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
