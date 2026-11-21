@@ -934,8 +934,18 @@
     var s = String(n).padStart(4, "0");
     return s.split("").map(function (d, i) { return (s.length - i === 3 && i ? '<em class="gc-sep">,</em>' : "") + '<span class="gc-d">' + d + "</span>"; }).join("");
   }
+  /* 站长 2026-11-21：创世 1 万个注册完了 → 这张卡改成「创世域名分红计划开启」，大数字显示「分红奖池累计金额」，钱由站长手动打进奖池钱包。
+     GEN_POOL = 奖池钱包地址（和 functions/api/name-genesis.js 里的同一个，改一边必须改另一边）；空着 = 站长还没给地址，金额显示 0。
+     金额 = 这个钱包在链上的 DAI 余额（Anubis 上 DAI 就是原生币）。现在还没开始往外发，余额就是累计；以后开始发了，要改成「余额 + 已发出去的」，别让数字倒着走 */
+  var GEN_POOL = "";
+  function poolOf(j) {
+    if (j && typeof j.pool === "number") return Promise.resolve(j.pool);
+    if (!GEN_POOL) return Promise.resolve(null);
+    return A.brpc("eth_getBalance", [GEN_POOL, "latest"]).then(function (x) { return Number(BigInt(x) / 10n ** 16n) / 100; }, function () { return null; });
+  }
+  function withPool(d, j) { return d.n < GENESIS || TLD !== "ailgns" ? d : poolOf(j).then(function (v) { d.pool = v; return d; }); }
   function gcRead() {
-    if (TLD === "ailgns") return genesisApi().then(function (j) { return { n: j.n, day: j.day, recent: j.recent }; }, function () { return gcReadChain(); });
+    if (TLD === "ailgns") return genesisApi().then(function (j) { return withPool({ n: j.n, day: j.day, recent: j.recent }, j); }, function () { return gcReadChain().then(function (d) { return withPool(d, null); }); });
     return gcReadChain();
   }
   function gcReadChain() {
@@ -966,6 +976,22 @@
       var b = document.getElementById("nm-genc");
       if (!b) { clearInterval(gcTimer); return; } // 离开了域名页
       var n = d.n, left = GENESIS - n, pct = Math.max(n / GENESIS * 100, 0.6), changed = gcLast >= 0 && n > gcLast;
+      if (left <= 0 && TLD === "ailgns") { // 创世卖完了：分红计划开启
+        var pv = typeof d.pool === "number" ? d.pool : 0;
+        b.innerHTML = '<div class="gc gc-bn">' +
+          '<div class="gc-top"><span class="gc-tag">🎁 创世域名 · 分红计划开启</span><span class="gc-live"><i></i>链上实时</span></div>' +
+          '<div class="gc-cd"><small>10,000 个创世域名已全部注册完 · 分红奖池累计金额</small><div class="gc-pool"><b>' + pv.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</b><em>DAI</em></div>' +
+          "<small>" + (GEN_POOL ? '奖池的钱在链上，随时可查 · <a href="#/scan/' + GEN_POOL + '">看奖池钱包 →</a>' : "奖池钱包地址即将公布，钱到账后这里实时显示") + "</small></div>" +
+          '<div class="gc-bar"><i style="width:100%"></i></div>' +
+          '<div class="gc-num"><div><small>创世域名</small><b>10,000 个已售完</b></div><div><small>分红对象</small><b>创世域名持有人</b></div><div><small>现在想要创世域名</small><b class="gc-me">去域名市场买</b></div></div>' +
+          '<ul class="gc-pts"><li>🎁 <b>分红计划已开启</b>：奖池的钱只分给持有创世域名的人</li><li>💰 <b>奖池金额链上可查</b>：页面读的是奖池钱包的链上余额，不是手填的数</li><li>📜 <b>怎么分、哪天分</b>：以公告为准，规则可能调整</li><li>💎 <b>创世域名只有 1 万个，已经卖完</b>：想要只能去域名市场向别人买</li></ul>' +
+          (d.recent.length ? '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>最后注册的几个：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") +
+            (d.recent.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + d.recent.length + " 个 ▾") + "</button>" : "") + "</div>" : "") +
+          '<button type="button" class="gc-go" id="gc-go">🎁 看分红计划 →</button></div>';
+        document.getElementById("gc-go").onclick = function () { location.hash = "#/bonus"; };
+        gcLast = n;
+        return;
+      }
       var tier = n < 10 ? ["前 10 号", 10] : n < 100 ? ["前 100 号", 100] : n < 1000 ? ["前 1,000 号", 1000] : null;
       b.innerHTML = '<div class="gc' + (changed ? " gc-hit" : "") + '">' +
         '<div class="gc-top"><span class="gc-tag">🌟 创世域名 · 公平发射</span><span class="gc-live"><i></i>链上实时</span></div>' +

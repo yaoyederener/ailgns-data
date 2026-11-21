@@ -9,7 +9,7 @@
     if (!el("bn-left")) return;
     var got = Math.min(TOTAL, Number(j && j.n) || 0), left = TOTAL - got, day = Number(j && j.day) || 0;
     el("bn-left").textContent = left > 0 ? n(left) : "0";
-    el("bn-unit").textContent = left > 0 ? "枚后开启" : "已全部铸造完成，即将开启";
+    el("bn-unit").textContent = left > 0 ? "枚后开启" : "已全部注册完，分红计划开启";
     el("bn-fill").style.width = Math.max(2, Math.round(got / TOTAL * 1000) / 10) + "%";
     el("bn-n").textContent = "已铸造 " + n(got) + " / " + n(TOTAL);
     el("bn-eta").textContent = left <= 0 ? "" : day > 0 ? "按近 24 小时 +" + n(day) + " 枚的速度估算，铸得快就提前" : "近 24 小时没有新铸造，暂时估不出时间";
