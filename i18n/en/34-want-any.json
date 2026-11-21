@@ -1,0 +1,14 @@
+{
+"💎 任意一枚创世域名": "💎 Any Genesis name",
+"任意一枚创世域名": "Any Genesis name",
+"指定某个名字": "A specific name",
+"📢 签名发布求购": "📢 Sign & post bid",
+"只填一个价格：谁手里有创世域名、愿意按这个价卖，就会挂单给你，你再点「买入」。": "Just enter a price. Anyone holding a Genesis name who is willing to sell at that price lists it, then you tap \"Buy\". ",
+"名字主人看到会按你的价格挂单，你再点「买入」。": "The owner sees it and lists the name at your price, then you tap \"Buy\". ",
+"签名不扣钱、不花 Gas": "Signing costs nothing and uses no gas",
+"，随时能撤；钱包里 DAI 要够「出价 + {0}% 手续费」。": ". Cancel any time. Your wallet needs enough DAI for the bid + {0}% fee.",
+"✅ 已发布，有创世域名的人看到会按你的价格挂单。记得常回来看看": "✅ Posted. Genesis holders who see it can list at your price. Check back often",
+"我有创世域名，按这个价卖": "I have a Genesis name — sell at this price",
+"域名市场的「求购意向」变简单了：默认是「求购任意一枚创世域名」，只填一个出价、签个名就发出去（不扣钱、不花 Gas）。谁手里有创世域名、愿意按这个价卖，就会挂单给你。想要某个具体的名字，点「指定某个名字」照旧能填。": "Bids in the name market are simpler: the default is \"bid for any Genesis name\" — enter one price and sign (free, no gas). Anyone holding a Genesis name who accepts the price lists it for you. Want one particular name? Tap \"A specific name\" as before.",
+"📢 域名市场的「求购意向」变简单了：默认是「求购任意一枚创世域名」，只填一个出价、签个名就发出去（不扣钱、不花 Gas）。谁手里有创世域名、愿意按这个价卖，就会挂单给你。想要某个具体的名字，点「指定某个名字」照旧能填。": "📢 Bids in the name market are simpler: the default is \"bid for any Genesis name\" — enter one price and sign (free, no gas). Anyone holding a Genesis name who accepts the price lists it for you. Want one particular name? Tap \"A specific name\" as before."
+}

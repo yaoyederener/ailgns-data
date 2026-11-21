@@ -2017,6 +2017,10 @@ tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ff
 .nm-sp-mine button.on{background:var(--grad);color:#fff;border-color:transparent}
 
 /* 求购意向：余额验证标记 */
+.nm-wk { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.nm-wk button { background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: none; padding: 12px 6px; border-radius: 12px; font-size: 15px; min-height: 46px; touch-action: manipulation; }
+.nm-wk button.on { background: var(--grad-dot); color: #fff; border-color: transparent; font-weight: 700; }
+b.nm-wk-any { color: #b8860b; }
 .nm-wok { font-size: 12px; color: var(--green, #2f9e6b); white-space: nowrap; }
 .nm-wbad { font-size: 12px; color: var(--muted, #8a84a3); white-space: nowrap; }
 tr.nm-wdim td { opacity: .5; }
