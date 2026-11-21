@@ -1345,7 +1345,7 @@
         var it = saleOf(w), any = w.name === WANT_ANY, act = account && w.by === account ? '<button type="button" class="act-btn" data-wc="' + i + '">撤单</button>'
           : it ? '<button type="button" class="act-btn btn-buy" data-wb="' + i + '">' + (any ? esc(it.label + "." + it.t) + " " : "已挂单 ") + Number(it.price / 10n ** 12n) / 1e6 + " · 买入</button>"
           : '<button type="button" class="act-btn btn-sell" data-ws="' + i + '">' + (any ? "我有创世域名，按这个价卖" : "我是主人，按这个价卖") + "</button>";
-        return '<tr' + (w.ok === false ? ' class="nm-wdim"' : "") + '><td class="act">' + act + '</td><td data-l="想要的域名" class="l"><b' + (any ? ' class="nm-wk-any"' : "") + ">" + (any ? "💎 " : "") + esc(w.name) + "</b></td><td data-l="出价 DAI" class="price"><b>' + w.price + '</b></td>' +
+        return '<tr' + (w.ok === false ? ' class="nm-wdim"' : "") + '><td class="act">' + act + '</td><td data-l="想要的域名" class="l"><b' + (any ? ' class="nm-wk-any"' : "") + ">" + (any ? "💎 " : "") + esc(w.name) + '</b></td><td data-l="出价 DAI" class="price"><b>' + w.price + '</b></td>' +
           '<td data-l="出价人" class="l mono">' + (A.nameTag ? A.nameTag(w.by) : A.short(w.by)) + (w.ok === false ? ' <span class="nm-wbad">余额不足</span>' : ' <span class="nm-wok">✅ 余额已验证</span>') + '</td><td data-l="时间">' + ago((now - w.at) / 1000) + "</td></tr>";
       }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-w-st2"></p>';
       var st2 = document.getElementById("nm-w-st2");
