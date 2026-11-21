@@ -579,6 +579,23 @@
     return m;
   })();
   var bundles = {}, lazyFails = 0, lazyTimer = 0;
+  // 🩹 新旧版本对不上（站长 2026-11-21 + 工单 #344：「点预测有时候是空白」「卡住没反应、界面扭曲」）：
+  //   网站发新版后，一直开着页面的人主体还是旧版；这时第一次点进预言家 / 域名这些「点了才下载」的页面，下到的却是新版那一块。
+  //   以前重试 3 次还对不上就照旧放行——新的一块配旧的主体和旧样式，轻则界面错位，重则一直停在「加载中」。
+  //   现在：换地址重下一次仍然是「别的版本」→ 说明服务器已经是新版 → 趁客户正在切页面这一下，把整页换成新版（和自动换新版同一个办法）。
+  //   只在客户自己点页面时换；后台悄悄预取时发现对不上不换，只记下来（skewed），等他点到那一页再换。
+  //   钱包正在等确认时不换（工单 #266 的教训）；一分钟内最多换一次，防止连环刷新。
+  var navWant = {}, skewed = {}, loopN = 0, loopTab = "";
+  function skewReload() {
+    try {
+      var w = window.AIL_WALLET || {}; if ((w.n || 0) > 0) return false;
+      var last = Number(sessionStorage.getItem("skew:at")) || 0; if (Date.now() - last < 60e3) return false;
+      sessionStorage.setItem("skew:at", String(Date.now()));
+      var sp = new URLSearchParams(location.search); sp.set("v", String(Date.now()));
+      location.replace(location.pathname + "?" + sp.toString() + location.hash);
+      return true;
+    } catch (e) { return false; }
+  }
   window.addEventListener("online", function () { if (lazyFails) { clearTimeout(lazyTimer); route(); } }); // 网络一恢复马上重试
   // 🚀 预取（站长 2026-11-09「极致丝滑」）：首页画完空闲 5 秒后，把其它页面的包按顺序悄悄下载好（一年缓存），之后切页不再等网络、弱网也不会「没加载出来」
   function prefetchAll() {
@@ -605,6 +622,8 @@
           /* 2026-11-13：不光看有没有记号，还要看版本号对不对——发版瞬间可能拿到旧内容配新版本号 */
           if (window.AIL_LOADED && window.AIL_LOADED[k] === ver) return res();
           s.remove();
+          // 已经换地址重下过、拿到的仍是别的版本：服务器换新版了。客户正在点这一页 → 整页换新；后台预取 → 先记下
+          if (n >= 1 && ver && window.AIL_LOADED && window.AIL_LOADED[k] && window.AIL_LOADED[k] !== ver) { skewed[k] = 1; if (navWant[k] && skewReload()) return; }
           try { if (window.caches) caches.keys().then(function (ks) { ks.forEach(function (c) { caches.open(c).then(function (x) { x.delete(url); }); }); }).catch(function () {}); } catch (e) {}
           if (n >= GAPS.length) return res();
           setTimeout(function () { tryLoad(url + (url.indexOf("?") > -1 ? "&" : "?") + "r=" + Date.now(), n + 1).then(res, rej); }, GAPS[n]);
@@ -638,8 +657,20 @@
     // 🚀 秒开（站长 2026-11-09）：首页只带核心包，域名 / 预言家 / 借贷 / 游戏 … 第一次点进去时才下载那一个小包（tools/build.py 生成清单 window.AIL_BUNDLES）
     if (!extra[tab] && LAZY[tab] && window.AIL_BUNDLES) {
       app.innerHTML = '<section class="card"><p class="muted">⏳ 加载中…</p></section>';
+      LAZY[tab].forEach(function (k) { navWant[k] = 1; });
+      if (LAZY[tab].some(function (k) { return skewed[k]; }) && skewReload()) return; // 预取时已经发现这一块是新版：现在换
       LAZY[tab].reduce(function (p, k) { return p.then(function () { return loadBundle(k); }); }, Promise.resolve()).then(function () {
-        if (id === renderId) route();
+        if (id !== renderId) return;
+        // 包都下完了，这一页却还是没有：别在「加载中」里打转。先试着整页换新；换不了就给一个能点的刷新
+        if (!extra[tab]) {
+          if (loopTab !== tab) { loopTab = tab; loopN = 0; }
+          if (++loopN >= 2) {
+            if (skewReload()) return;
+            app.innerHTML = '<section class="card"><h2>页面没加载出来</h2><p class="muted">网站刚更新过，这一页和你打开的旧版本对不上。<a href="javascript:location.reload()">点这里刷新</a>就好。</p></section>';
+            return;
+          }
+        }
+        route();
       }, function () {
         if (id !== renderId) return;
         lazyFails++;
@@ -648,7 +679,7 @@
       });
       return;
     }
-    lazyFails = 0;
+    lazyFails = 0; loopN = 0;
     if (["flows", "wallet", "team", "custom"].indexOf(tab) < 0 && !extra[tab]) tab = "otc";
     document.title = tab === "otc" ? "AiLGNS OTC 平台 · 加拿大局长技术团队实名开发维护" : (PAGE_TITLES[tab] ? PAGE_TITLES[tab] + " · " : "") + "AiLGNS OTC 平台"; // 浏览器历史/标签里别被截成一串（站长 2026-11-09 晚）
     if (a && !isAddr(a)) a = "";
