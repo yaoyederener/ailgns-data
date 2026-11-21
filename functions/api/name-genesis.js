@@ -9,7 +9,7 @@ const NAMES = "0xbc408e9d7350967e7247c917a086cb4ece0ed988", START = 18161697, T_
 const T_XFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef", DEAD64 = "0x" + "000000000000000000000000000000000000dead".padStart(64, "0");
 const GENESIS = 10000, STEP = 5000, MAX_RANGES = 40, FRESH = 30e3;
 // 创世分红奖池钱包（站长 2026-11-21：钱他手动打进去，页面显示累计金额）。和 names.js 里的 GEN_POOL 是同一个地址，改一边必须改另一边；空着 = 还没给地址
-const GEN_POOL = "";
+const GEN_POOL = "0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2";
 const HIDDEN = { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 }; // 站长钱包：不进「最近被抢注」
 const HIDDEN_NAMES = { "加拿大局长": 1, "aiotc": 1, "四哥": 1, "觉醒人生": 1 };
 const json = (o, extra) => new Response(JSON.stringify(o), { headers: Object.assign({ "content-type": "application/json", "cache-control": "public, max-age=15" }, extra || {}) });

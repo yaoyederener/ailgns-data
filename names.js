@@ -937,7 +937,7 @@
   /* 站长 2026-11-21：创世 1 万个注册完了 → 这张卡改成「创世域名分红计划开启」，大数字显示「分红奖池累计金额」，钱由站长手动打进奖池钱包。
      GEN_POOL = 奖池钱包地址（和 functions/api/name-genesis.js 里的同一个，改一边必须改另一边）；空着 = 站长还没给地址，金额显示 0。
      金额 = 这个钱包在链上的 DAI 余额（Anubis 上 DAI 就是原生币）。现在还没开始往外发，余额就是累计；以后开始发了，要改成「余额 + 已发出去的」，别让数字倒着走 */
-  var GEN_POOL = "";
+  var GEN_POOL = "0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2"; // 2026-11-21 在站长电脑上生成的专用钱包（登记在 lib/addresses.js「创世分红奖池」）
   function poolOf(j) {
     if (j && typeof j.pool === "number") return Promise.resolve(j.pool);
     if (!GEN_POOL) return Promise.resolve(null);
