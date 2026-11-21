@@ -3798,6 +3798,7 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .bn-rk-more, .bn-rk-all { border: 1px solid #e0d5f7; background: #fff; color: #6927db; border-radius: 99px; padding: 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .bn-rk-all { display: block; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
 .bn-rk-rest { align-self: center; font-size: 13px; color: var(--muted); }
+.bn-lack { color: #b45309; font-weight: 600; }
 .bn-cap { margin: 0 0 6px; font-size: 14px; color: #5b4a86; font-weight: 600; }
 button.bn-go { width: 100%; border: 0; cursor: pointer; font-family: inherit; }
 button.bn-go:disabled { opacity: .6; cursor: default; }
