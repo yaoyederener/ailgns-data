@@ -40,7 +40,10 @@ async function call(m, to, data) {
 // 工单 #282（2026-11-18）：盘口只读最近 1000 张，更早挂的单哪怕还有效也看不到、买家吃不到（当时 38 张卖单 41.5 枚）。
 // oldOpen = 窗口之前「还开着、没过期、还有剩」的单，随盘口一起发给页面（字段 old）。只读链，不碰合约。
 // 省事的办法：关掉 / 过期的单不会再活过来，所以每次只从「上次最早的那张有效老单」扫到窗口起点，不用从头扫；结果按机房缓存
-const OLD_MK = { ailgns: 1, lgns: 1 }, OLD_STALE = 60000, OLD_FRESH = 10000, OLD_STEP = 500, OLD_MAX = 500;
+// 工单 #351 / #356（2026-11-21）：卡牌市场也超过 1000 张了（1,378 张），客户 11 月挂的一张卡（#177，还没到期）被挡在窗口外——
+//   「买入」里看不到、自己的挂单里也看不到、撤不了，以为卡丢了（其实一直在托管合约里）。卡牌市场也补上老单。
+//   卡牌的订单是 6 个字（maker, sell, open, expiry, tokenId, price），没有「剩余数量」；过期但还开着的也要带上，卖家才能在页面上点「取回」
+const OLD_MK = { ailgns: 1, lgns: 1, nft: 1 }, OLD_STALE = 60000, OLD_FRESH = 10000, OLD_STEP = 500, OLD_MAX = 500;
 async function oldOpen(m, k, from, maxAge) {
   if (!from) return [];
   const key = new Request("https://ailgns.dev/__old/" + k);
@@ -58,6 +61,7 @@ async function oldOpen(m, k, from, maxAge) {
     for (const [s, r] of parts) {
       const w = (r || "0x").slice(2).match(/.{64}/g) || [], n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0;
       for (let i = 0; i < n; i++) {
+        if (k === "nft") { const o = w.slice(2 + i * 6, 8 + i * 6); if (o.length === 6 && BigInt("0x" + o[2]) === 1n) old.push({ id: s + i, o }); continue; }
         const o = w.slice(2 + i * 7, 9 + i * 7);
         if (o.length === 7 && BigInt("0x" + o[2]) === 1n && Number(BigInt("0x" + o[3])) > now && BigInt("0x" + o[6]) > 0n) old.push({ id: s + i, o });
       }
@@ -76,7 +80,7 @@ async function refresh(m, key, k, fresh) {
   const [orders, old] = await Promise.all([n ? call(m, m.otc, (m.get || GET_ORDERS) + u256(from) + u256(n - from)) : "0x", OLD_MK[k] && !m.get ? oldOpen(m, k, from, fresh ? OLD_FRESH : OLD_STALE).catch(() => []) : null]);
   /* h = 这份盘口里「挂单 + 老单」的指纹。页面下次带着 ?h= 来问，挂单没变就只回 {same:1, reserves}（两百来个字节），不用再发 46 万字。
      池子余额（reserves）不算进指纹：DEX 上几秒就有人交易，算进去就次次都「变了」；它单独放在回应里，页面照样拿到最新市价 */
-  const h = fnv(from + "|" + orders + "|" + (old ? old.map((x) => x.id + ":" + x.o[6]).join(",") : ""));
+  const h = fnv(from + "|" + orders + "|" + (old ? old.map((x) => x.id + ":" + x.o[x.o.length - 1]).join(",") : ""));
   const at = Date.now(), body = JSON.stringify(old ? { at, from, orders, reserves, old, h } : { at, from, orders, reserves, h });
   await caches.default.put(key, new Response(body, { headers: { "content-type": "application/json", "cache-control": "public, max-age=3600", "x-at": String(at), "x-h": h, "x-rsv": /^0x[0-9a-f]{1,400}$/i.test(reserves || "") ? reserves : "" } }));
   return { body, h, reserves };
