@@ -1341,7 +1341,7 @@
       // 「任意一枚创世域名」的求购：在卖的创世域名里最便宜、又不超过出价的那一个，算「已有人按这个价挂单」
       function saleOf(w) { if (w.name !== WANT_ANY) return sale[w.name]; var c = gsale[0]; return c && Number(c.price / 10n ** 12n) / 1e6 <= w.price ? c : null; }
       var now = Date.now();
-      el.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">想要的域名</th><th>出价 DAI</th><th class="l">出价人</th><th>时间</th></tr></thead><tbody>' + list.map(function (w, i) {
+      el.innerHTML = '<div class="tbl-wrap"><table class="cards book nm-wt"><thead><tr><th class="l">操作</th><th class="l">想要的域名</th><th>出价 DAI</th><th class="l">出价人</th><th>时间</th></tr></thead><tbody>' + list.map(function (w, i) {
         var it = saleOf(w), any = w.name === WANT_ANY, act = account && w.by === account ? '<button type="button" class="act-btn" data-wc="' + i + '">撤单</button>'
           : it ? '<button type="button" class="act-btn btn-buy" data-wb="' + i + '">' + (any ? esc(it.label + "." + it.t) + " " : "已挂单 ") + Number(it.price / 10n ** 12n) / 1e6 + " · 买入</button>"
           : '<button type="button" class="act-btn btn-sell" data-ws="' + i + '">' + (any ? "我有创世域名，按这个价卖" : "我是主人，按这个价卖") + "</button>";
