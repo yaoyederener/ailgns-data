@@ -2,7 +2,7 @@
 // 这页做两件事：① 显示奖池现在多少、离 500 DAI 还差多少；② 让持有创世域名的钱包每天签到一次（钱包免费签名，不上链、不花钱）。
 // 奖池金额来自 /api/name-genesis 的 pool（奖池钱包的链上余额）；签到记账在 /api/bonus。这页不转账、不调合约。发放还没做。
 (function () {
-  var A = window.AIL, GOAL = 500, timer = 0, eth = null, account = "", info = null, busy = false, pool = null;
+  var A = window.AIL, GOAL = 500, POOL = "0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2", timer = 0, eth = null, account = "", info = null, busy = false, pool = null;
   function n(v) { return Number(v || 0).toLocaleString("en-US"); }
   function n2(v) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function el(id) { return document.getElementById(id); }
@@ -44,6 +44,9 @@
     return fetch("/api/name-genesis").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
       if (j && j.pool !== undefined && j.pool !== null) pool = Number(j.pool) || 0;
       paint();
+    }).catch(function () {
+      // 接口没答上来：自己读一次奖池钱包的链上余额（Anubis 上 DAI 就是原生币）
+      return A.wallet.rpcOn("anubis", "eth_getBalance", [POOL, "latest"]).then(function (b) { pool = Number(BigInt(b) / 10n ** 14n) / 1e4; paint(); });
     }).catch(function () { if (el("bn-need") && pool === null) el("bn-need").textContent = "奖池金额暂时没读到，稍后自动重试"; });
   }
   function loadInfo() {
@@ -61,7 +64,7 @@
     if (account && me && me.held === 0) { location.hash = "#/names/otc"; return; }
     busy = true; say(""); paint();
     var done = function () { busy = false; paint(); };
-    (eth ? Promise.resolve() : connect()).then(function () { paint(); return loadInfo(); }).then(function (j) {
+    (eth && account ? Promise.resolve() : connect()).then(function () { paint(); return loadInfo(); }).then(function (j) {
       if (!j || !j.me) throw new Error("签到数据暂时没读到，稍后再点一次");
       if (j.me.held < 0) throw new Error("暂时没读到你的域名，过一分钟再点");
       if (j.me.held === 0) { say("这个钱包里没有创世域名。刚买的等 1 分钟再点；挂在市场里卖的不算。", true); return null; }
@@ -89,7 +92,7 @@
       '<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-need">读取中…</span><span id="bn-all"></span></p></div>' +
       '<p class="bn-me" id="bn-me" hidden></p>' +
       '<button type="button" class="bn-go bn-sign" id="bn-sign">连接钱包签到</button><p class="bn-st" id="bn-st" hidden></p>' +
-      '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2">随时可查</a>。</p></section>' +
+      '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/' + POOL + '">随时可查</a>。</p></section>' +
       '<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
       "<li><b>谁能领：创世域名持有人</b><span>钱包里至少有 1 枚创世域名。1 枚签到一天记 1 票，持有越多票越多。</span></li>" +
       "<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>" +
@@ -104,9 +107,12 @@
       "<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>" +
       "<details><summary>什么时候发？</summary><p>没有固定日期。奖池满 " + n(GOAL) + " DAI 就发一次，上面的进度条能看到还差多少。</p></details></section>";
     el("bn-sign").onclick = function () { try { onSign(); } catch (e) { busy = false; say("没签成，稍后再点一次。", true); } };
-    account = ""; info = null; busy = false;
-    var saved = ""; try { saved = String(localStorage.getItem("ib:acct") || "").toLowerCase(); } catch (e) {}
-    if (/^0x[0-9a-f]{40}$/.test(saved)) account = saved;
+    info = null; busy = false;
+    if (!eth || !account) { // 这次打开网站还没在这页连过钱包：先用上次认得的地址显示，点签到时再真正连
+      eth = null; account = "";
+      var saved = ""; try { saved = String(localStorage.getItem("ib:acct") || "").toLowerCase(); } catch (e) {}
+      if (/^0x[0-9a-f]{40}$/.test(saved)) account = saved;
+    }
     paint(); loadPool(); loadInfo();
     if (!account) { try { if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { a = String(a || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(a) && !account) { account = a; paint(); loadInfo(); } }, function () {}); } catch (e) {} }
     clearInterval(timer);
