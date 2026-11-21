@@ -43,7 +43,8 @@ export async function onRequestGet(ctx) {
   const everIn = {};
   xf.l.forEach((l) => { if (l[1] && l[1][3] && l[1][2] && "0x" + l[1][2].slice(26).toLowerCase() === a) everIn[l[1][3].toLowerCase()] = 1; });
   const moved = Object.keys(everIn).filter((id) => owner[id] !== a && label[id] && !banned(label[id])).map((id) => ({ label: label[id], to: owner[id] }));
-  const res = Response.json({ a, list, moved, to: xf.to, at: Date.now() }, { headers: { "cache-control": "public, max-age=10" } });
+  // gk = 这次创世编号表读到了没有：读到了页面才敢把没编号的名字标成「普通域名」
+  const res = Response.json({ a, list, moved, gk: Object.keys(g).length ? 1 : 0, to: xf.to, at: Date.now() }, { headers: { "cache-control": "public, max-age=10" } });
   ctx.waitUntil(cache.put(ck, res.clone()));
   return res;
 }

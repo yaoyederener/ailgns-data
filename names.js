@@ -34,6 +34,18 @@
   var RAR = { 4: "🐉 传承一亿年", 3: "💎 绝世罕见", 2: "🌟 稀有", 1: "💠 珍藏" };
   function rarTag(l) { var r = rarity(l); return '<span class="nm-rar t' + r[0] + '"><b>' + RAR[r[0]] + "</b><small>" + r[1] + "</small></span>"; }
   A.rarity = rarity;
+  // 普通域名的标志（站长 2026-11-21：「普通域名的 logo，设计一个，要写上普通域名，明显和创世域名有区别」）：
+  // 创世 = 金色放光的大徽章；普通 = 灰白的素圆牌，上面直接写「普通 / 域名」，不发光、不带金色。字按语言换（标了 data-nolang，翻译脚本不碰）。
+  // 只在「确实读到了创世编号表、这个名字不在表里」时才用；表没读到就还是显示 🌐，宁可不标也不能把创世错标成普通。
+  function plainEmblem(s) {
+    var L = window.AIL_LANG === "en" ? ["REGULAR", "NAME", 7.4, 9] : window.AIL_LANG === "ko" ? ["일반", "도메인", 13, 10] : ["普通", "域名", 14, 14];
+    var tx = function (y, t, z) { return '<text x="32" y="' + y + '" text-anchor="middle" font-size="' + z + '" font-weight="800" fill="#4b5563" font-family="system-ui,-apple-system,PingFang SC,sans-serif">' + t + "</text>"; };
+    return '<svg class="pl-emb" data-nolang width="' + s + '" height="' + s + '" viewBox="0 0 64 64" aria-hidden="true">' +
+      '<circle cx="32" cy="32" r="27" fill="#e9ecf1" stroke="#b7bfcb" stroke-width="1.6"/>' +
+      '<circle cx="32" cy="32" r="22.2" fill="#f9fafb" stroke="#cdd3dc" stroke-width="1" stroke-dasharray="1.6 2.6"/>' +
+      tx(30, L[0], L[2]) + tx(46, L[1], L[3]) + "</svg>";
+  }
+  var PLAIN_TAG = '<em class="nm-my-pl">普通域名</em>';
   function genEmblem(s) {
     var rays = "";
     for (var i = 0; i < 24; i++) { var a = i * 15, w = i % 2 ? 2.2 : 3.4, h = i % 2 ? 7 : 10; rays += '<rect x="' + (32 - w / 2) + '" y="1" width="' + w + '" height="' + h + '" rx="1" fill="url(#gnRay)" transform="rotate(' + a + ' 32 32)"/>'; }
@@ -436,9 +448,10 @@
         o.innerHTML = '<p class="nm-my-sum" id="nm-mysum">共 <b>' + list.length + "</b> 个域名" + (g ? "，其中 <b>" + g + "</b> 个是🌟创世域名" : "") + "</p>" + list.map(function (x) {
           var full = '<span class="nm-my-l">' + esc(x.label) + '</span><span class="nm-my-tld">.' + x.t + "</span>";
           var href = "#/names/" + encodeURIComponent(x.label + "." + x.t);
+          var pl = !x.no && x.gk && x.t === "ailgns"; // 普通域名：创世表读到了、这个名字不在里面
           return '<div class="nm-my' + (x.no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' +
-            (x.no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
-            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : "") + (x.exp ? "<small>到期 " + date(x.exp) + "</small>" : "") + "</span></a>" +
+            (x.no ? genEmblem(68) : pl ? plainEmblem(60) : '<span class="nm-my-dot">🌐</span>') +
+            '<span class="nm-my-t"><b>' + full + "</b>" + (x.no ? '<em class="nm-my-no">创世域名 #' + x.no + "</em>" : pl ? PLAIN_TAG : "") + (x.exp ? "<small>到期 " + date(x.exp) + "</small>" : "") + "</span></a>" +
             (self ? '<span class="nm-my-btns">' + giveBtn(x.t, x.id, x.label + "." + x.t) + '<button type="button" class="nm-my-sell" data-full="' + esc(x.label + "." + x.t) + '">挂单出售</button></span>' : "") + "</div>";
         }).join("") + '<div id="nm-myo"></div>';
         var n0 = list.length;
@@ -557,8 +570,9 @@
           var gP = genesis(t).then(function (g) { if (g[id]) return g; delete genCache[t]; genApi = null; return genesis(t); }).catch(function () { return {}; });
           return gP.then(function (g) {
             var no = anon ? 0 : g[id], href = "#/names/" + encodeURIComponent(full);
-            o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : '<span class="nm-my-dot">🌐</span>') +
-              '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : "") + rarTag(label) +
+            var pl = !no && !anon && t === "ailgns" && Object.keys(g).length > 0; // 普通域名：创世表读到了、这个名字不在里面（匿名的不标）
+            o.innerHTML = '<div class="nm-my' + (no ? " gen" : "") + '"><a class="nm-my-a" href="' + href + '">' + (no ? genEmblem(68) : pl ? plainEmblem(60) : '<span class="nm-my-dot">🌐</span>') +
+              '<span class="nm-my-t"><b><span class="nm-my-l">' + esc(label) + '</span><span class="nm-my-tld">.' + t + "</span></b>" + (no ? '<em class="nm-my-no">创世域名 #' + no + "</em>" : pl ? PLAIN_TAG : "") + rarTag(label) +
               "<small>" + (anon ? "🔒 持有人选择匿名" : sale ? "🛒 正在域名市场出售，点开可以买" : "主人 " + A.nameTag(owner)) + "</small></span></a>" +
               (account && owner === account ? '<span class="nm-my-btns">' + giveBtn(t, id, full) + "</span>" : "") + "</div>" +
               (anon || sale ? "" : '<p class="muted" style="word-break:break-all">指向地址：<span class="mono">' + ad + "</span></p>");
@@ -1168,7 +1182,7 @@
     return fetch("/api/name-owned?a=" + a).then(function (r) { if (!r.ok) throw new Error("api"); return r.json(); }).then(function (j) {
       if (!j || !Array.isArray(j.list)) throw new Error("api");
       movedOf[a] = (j.moved || []).map(function (x) { return { t: "ailgns", label: x.label, to: x.to }; });
-      return j.list.map(function (x) { return { t: "ailgns", id: x.id, label: x.label, exp: x.exp || 0, no: x.no || 0 }; });
+      return j.list.map(function (x) { return { t: "ailgns", id: x.id, label: x.label, exp: x.exp || 0, no: x.no || 0, gk: j.gk ? 1 : 0 }; });
     }).catch(function () { return ownedListChain(a); });
   }
   function ownedListChain(a) {

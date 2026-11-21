@@ -1953,6 +1953,8 @@ tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ff
 .nm-my.gen{background:linear-gradient(135deg,#fff 0%,var(--soft) 100%);border-color:#c9a8ff;box-shadow:0 6px 18px rgba(112,39,217,.12)}
 .nm-my .gen-emb{flex:none;filter:drop-shadow(0 4px 10px rgba(112,39,217,.35))}
 .nm-my-dot{flex:none;width:56px;text-align:center;font-size:26px}
+.nm-my .pl-emb{flex:none;margin:0 4px}
+.nm-my-pl{align-self:flex-start;font-style:normal;font-size:12px;font-weight:700;line-height:1.5;padding:1px 9px;border-radius:99px;background:#eef0f4;border:1px solid #d5d9e2;color:#566072}
 .nm-my-t{display:flex;flex-direction:column;gap:2px;min-width:0}
 .nm-my-t b{font-size:17px;color:var(--purple-ink);word-break:break-all}
 .nm-my-no{font-style:normal;font-weight:800;font-size:14px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
