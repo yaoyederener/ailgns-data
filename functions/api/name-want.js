@@ -1,13 +1,14 @@
 // 域名求购意向（不上链、不锁钱）：买家连钱包、签名证明是本人，钱包里 DAI 够「出价 + 3% 手续费」才能发
 // 名字主人看到后按这个价挂单，买家再去市场买入（成交走现有托管合约，一手交钱一手交货）
 // GET  → { list: [{ id, name, price, by, at, ok }] }  价格高的排前面，30 天过期；ok = 出价人现在 DAI 还够
-// POST { name, price, by, day, sig }            → 发布（同一个人对同一个名字只留最新一条）
+// POST { name, price, by, day, sig }            → 发布（同一个人对同一个名字只留最新一条）；name = "任意一枚创世域名" 就是不指定名字
 // POST { action: "cancel", id, by, day, sig }   → 出价人随时撤单
 // DELETE ?id=…&key=BACKUP_KEY                   → 站长删掉不合适的
 // 文字模板必须和 names.js 里的 wantText / cancelText 一字不差
 import { recoverAddress } from "../../lib/evmsig.js";
 
 const KEY = "nmwant:list", DAY = 86400000, KEEP = 30 * DAY, MAX = 300;
+const ANY = "任意一枚创世域名"; // 不指定名字：求购任意一枚创世域名（和 names.js 的 WANT_ANY 一字不差）
 const NAME_RE = /^([a-z0-9一-鿿-]{2,40})\.(ailgns|lgns)$/;
 const DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", RPC = "https://rpc.anubispace.org";
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
@@ -65,7 +66,7 @@ export async function onRequestPost(ctx) {
   }
 
   const name = String(b.name || "").trim().toLowerCase(), price = Math.round(Number(b.price) * 100) / 100;
-  if (!NAME_RE.test(name)) return Response.json({ error: "域名格式不对，例如 发财.ailgns" }, { status: 400 });
+  if (name !== ANY && !NAME_RE.test(name)) return Response.json({ error: "域名格式不对，例如 发财.ailgns" }, { status: 400 });
   if (!(price >= 1 && price <= 10000000)) return Response.json({ error: "出价要在 1 到 10,000,000 DAI 之间" }, { status: 400 });
   if (recoverAddress(wantText(name, price, by, day), sig) !== by) return Response.json({ error: "签名核对失败：请用出价的钱包签名" }, { status: 400 });
   // 防刷：同一个地址一小时最多 6 条

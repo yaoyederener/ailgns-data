@@ -1271,20 +1271,33 @@
   // 📢 求购意向（不上链、不锁钱）：买家留「想要哪个名字、出多少」，出价高的排前面；名字主人按这个价挂单，买家再去买入
   function wantPanel() {
     var box = document.getElementById("nm-wp"); if (!box) return;
-    box.innerHTML = '<p class="note">想要的名字已经被别人注册了？在这里出个价，名字主人看到会按你的价格挂单，你再点「买入」成交。<br>发布时要<b>连钱包签个名（不扣钱、不花 Gas）</b>，钱包里 DAI 要够「出价 + 3% 手续费」，这样大家知道你是真心要买。钱一直在你自己钱包里，随时可以撤单。</p>' +
-      '<div class="form-grid"><label>想要的域名<input id="nm-w-n" placeholder="例如 发财.ailgns" autocomplete="off" autocapitalize="none" spellcheck="false"></label>' +
+    box.innerHTML = '<div class="nm-wk" id="nm-w-k"><button type="button" data-k="any"' + (wantAny ? ' class="on"' : "") + '>💎 任意一枚创世域名</button><button type="button" data-k="one"' + (wantAny ? "" : ' class="on"') + '>指定某个名字</button></div>' +
+      '<div class="form-grid"><label id="nm-w-nl"' + (wantAny ? " hidden" : "") + '>想要的域名<input id="nm-w-n" placeholder="例如 发财.ailgns" autocomplete="off" autocapitalize="none" spellcheck="false"></label>' +
       '<label>出价（DAI）<input id="nm-w-p" inputmode="decimal" placeholder="例如 500"></label>' +
-      '</div><button id="nm-w-go" style="padding:12px 22px;margin-top:10px">📢 连钱包签名，发布求购</button><p class="note" id="nm-w-st"></p><div id="nm-w-list"><p class="muted">读取中…</p></div>';
+      '</div><button id="nm-w-go" style="padding:12px 22px;margin-top:10px">📢 签名发布求购</button>' +
+      '<p class="note" id="nm-w-tip"></p><p class="note" id="nm-w-st"></p><div id="nm-w-list"><p class="muted">读取中…</p></div>';
+    var tip = document.getElementById("nm-w-tip");
+    function tipSet() { tip.innerHTML = "<span>" + (wantAny ? "只填一个价格：谁手里有创世域名、愿意按这个价卖，就会挂单给你，你再点「买入」。" : "名字主人看到会按你的价格挂单，你再点「买入」。") + "</span><b>签名不扣钱、不花 Gas</b>，随时能撤；钱包里 DAI 要够「出价 + 3% 手续费」。"; }
+    tipSet();
+    document.getElementById("nm-w-k").onclick = function (e) {
+      var b = e.target.closest("button[data-k]"); if (!b) return;
+      wantAny = b.getAttribute("data-k") === "any";
+      [].forEach.call(this.querySelectorAll("button"), function (x) { x.classList.toggle("on", x === b); });
+      document.getElementById("nm-w-nl").hidden = wantAny; tipSet();
+      if (!wantAny) document.getElementById("nm-w-n").focus();
+    };
     var go = document.getElementById("nm-w-go"), wst = document.getElementById("nm-w-st");
     go.onclick = function () {
       var raw = document.getElementById("nm-w-n").value.trim().toLowerCase(), p = Math.round(Number(document.getElementById("nm-w-p").value.trim()) * 100) / 100, day = bjDay();
-      if (raw && !/\.(ailgns|lgns)$/.test(raw)) raw += ".ailgns";
-      var m = raw.match(/^(.+)\.(ailgns|lgns)$/);
-      if (!m) { A.errTip("请填想要的域名，例如 发财.ailgns", go); return; }
+      if (wantAny) raw = WANT_ANY;
+      else if (raw && !/\.(ailgns|lgns)$/.test(raw)) raw += ".ailgns";
+      var m = wantAny ? null : raw.match(/^(.+)\.(ailgns|lgns)$/);
+      if (!wantAny && !m) { A.errTip("请填想要的域名，例如 发财.ailgns", go); return; }
       if (!(p >= 1)) { A.errTip("出价至少 1 DAI", go); return; }
-      go.disabled = true; wst.textContent = "检查这个名字…";
-      W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[m[2]], data: SEL.available + "0000000000000000000000000000000000000000000000000000000000000020" + str(m[1]) }, "latest"]).then(function (r) {
-        if (BigInt("0x" + word(r, 0)) === 1n) { go.disabled = false; wst.innerHTML = '🎉 <b>' + esc(raw) + '</b> 还没人注册，不用求购！<a href="#/names/' + encodeURIComponent(raw) + '">直接去注册 →</a>'; return; }
+      go.disabled = true; wst.textContent = wantAny ? "" : "检查这个名字…";
+      // 任意一枚创世域名：没有具体名字，不用查「有没有人注册」
+      (wantAny ? Promise.resolve("") : W.rpcOn("anubis", "eth_call", [{ to: CONTRACTS[m[2]], data: SEL.available + "0000000000000000000000000000000000000000000000000000000000000020" + str(m[1]) }, "latest"])).then(function (r) {
+        if (!wantAny && BigInt("0x" + word(r, 0)) === 1n) { go.disabled = false; wst.innerHTML = '🎉 <b>' + esc(raw) + '</b> 还没人注册，不用求购！<a href="#/names/' + encodeURIComponent(raw) + '">直接去注册 →</a>'; return; }
         wst.textContent = "请在钱包确认连接…";
         return (eth ? Promise.resolve() : connect()).then(function () {
           wst.textContent = "检查钱包里的 DAI…";
@@ -1301,7 +1314,7 @@
         }).then(function (j) {
           go.disabled = false;
           if (j.error) throw new Error(j.error);
-          wst.textContent = "✅ 已发布，名字主人看到会按你的价格挂单。记得常回来看看";
+          wst.textContent = wantAny ? "✅ 已发布，有创世域名的人看到会按你的价格挂单。记得常回来看看" : "✅ 已发布，名字主人看到会按你的价格挂单。记得常回来看看";
           loadWants();
         });
       }).catch(function (e) { bigTip(""); go.disabled = false; wst.textContent = ""; A.errTip((e && e.message) || "发布失败，请稍后再试", go); });
@@ -1309,6 +1322,7 @@
     loadWants();
   }
   // 签名文字必须和 functions/api/name-want.js 里一字不差
+  var WANT_ANY = "任意一枚创世域名", wantAny = true; // 站长 2026-11-21：求购意向简单点，默认「求购任意一枚创世域名」，只填一个价格。WANT_ANY 和服务器的 ANY 一字不差
   function wantText(name, price, by, day) { return "AiLGNS 域名求购\n我想用 " + price + " DAI 买 " + name + "\n出价地址：" + by + "\n日期：" + day; }
   function cancelText(id, by, day) { return "AiLGNS 域名求购撤单\n撤销求购 " + id + "\n出价地址：" + by + "\n日期：" + day; }
   function bjDay() { return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); }
@@ -1320,21 +1334,25 @@
     var el = document.getElementById("nm-w-list"); if (!el) return;
     if (!list.length) { el.innerHTML = '<p class="muted">还没有求购意向，第一个出价吧</p>'; return; }
     list = list.slice().sort(function (a, b) { return b.price - a.price || a.at - b.at; });
-    listings().then(function (ls) { return ls; }, function () { return []; }).then(function (ls) {
-      var sale = {}; ls.forEach(function (x) { if (!x.expired) sale[x.label + "." + x.t] = x; });
+    Promise.all([listings().then(function (ls) { return ls; }, function () { return []; }), genesis("ailgns").then(function (m) { return m || {}; }, function () { return {}; })]).then(function (r) {
+      var ls = r[0], gm = r[1];
+      var sale = {}, gsale = []; ls.forEach(function (x) { if (x.expired) return; sale[x.label + "." + x.t] = x; if (x.t === "ailgns" && gm[x.tid] > 0) gsale.push(x); });
+      gsale.sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : 0; });
+      // 「任意一枚创世域名」的求购：在卖的创世域名里最便宜、又不超过出价的那一个，算「已有人按这个价挂单」
+      function saleOf(w) { if (w.name !== WANT_ANY) return sale[w.name]; var c = gsale[0]; return c && Number(c.price / 10n ** 12n) / 1e6 <= w.price ? c : null; }
       var now = Date.now();
       el.innerHTML = '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">想要的域名</th><th>出价 DAI</th><th class="l">出价人</th><th>时间</th></tr></thead><tbody>' + list.map(function (w, i) {
-        var it = sale[w.name], act = account && w.by === account ? '<button type="button" class="act-btn" data-wc="' + i + '">撤单</button>'
-          : it ? '<button type="button" class="act-btn btn-buy" data-wb="' + i + '">已挂单 ' + Number(it.price / 10n ** 12n) / 1e6 + " · 买入</button>"
-          : '<button type="button" class="act-btn btn-sell" data-ws="' + i + '">我是主人，按这个价卖</button>';
-        return '<tr' + (w.ok === false ? ' class="nm-wdim"' : "") + '><td class="act">' + act + '</td><td data-l="想要的域名" class="l"><b>' + esc(w.name) + '</b></td><td data-l="出价 DAI" class="price"><b>' + w.price + '</b></td>' +
+        var it = saleOf(w), any = w.name === WANT_ANY, act = account && w.by === account ? '<button type="button" class="act-btn" data-wc="' + i + '">撤单</button>'
+          : it ? '<button type="button" class="act-btn btn-buy" data-wb="' + i + '">' + (any ? esc(it.label + "." + it.t) + " " : "已挂单 ") + Number(it.price / 10n ** 12n) / 1e6 + " · 买入</button>"
+          : '<button type="button" class="act-btn btn-sell" data-ws="' + i + '">' + (any ? "我有创世域名，按这个价卖" : "我是主人，按这个价卖") + "</button>";
+        return '<tr' + (w.ok === false ? ' class="nm-wdim"' : "") + '><td class="act">' + act + '</td><td data-l="想要的域名" class="l"><b' + (any ? ' class="nm-wk-any"' : "") + ">" + (any ? "💎 " : "") + esc(w.name) + "</b></td><td data-l="出价 DAI" class="price"><b>' + w.price + '</b></td>' +
           '<td data-l="出价人" class="l mono">' + (A.nameTag ? A.nameTag(w.by) : A.short(w.by)) + (w.ok === false ? ' <span class="nm-wbad">余额不足</span>' : ' <span class="nm-wok">✅ 余额已验证</span>') + '</td><td data-l="时间">' + ago((now - w.at) / 1000) + "</td></tr>";
       }).join("") + '</tbody></table></div><p class="muted nm-st" id="nm-w-st2"></p>';
       var st2 = document.getElementById("nm-w-st2");
       el.querySelectorAll("button[data-ws]").forEach(function (b) {
         b.onclick = function () {
           var w = list[Number(b.getAttribute("data-ws"))];
-          try { sessionStorage.setItem("nm:sellpick", w.name); sessionStorage.setItem("nm:sellprice", String(w.price)); } catch (x) { /* 忽略 */ }
+          try { if (w.name !== WANT_ANY) sessionStorage.setItem("nm:sellpick", w.name); sessionStorage.setItem("nm:sellprice", String(w.price)); } catch (x) { /* 忽略 */ }
           var sg = document.getElementById("nm-sellgo"); sg.click(); sg.scrollIntoView({ behavior: "smooth", block: "start" });
         };
       });
@@ -1352,7 +1370,7 @@
       });
       el.querySelectorAll("button[data-wb]").forEach(function (b) {
         b.onclick = function () {
-          var it = sale[list[Number(b.getAttribute("data-wb"))].name];
+          var it = saleOf(list[Number(b.getAttribute("data-wb"))]);
           buyIt(it, b, function (t) { st2.textContent = t; }).then(function () { st2.textContent = "✅ 成功"; market(); wantPanel(); ordAfter(); }, function (e) { st2.textContent = ""; A.errTip(e.message || String(e), b); });
         };
       });
