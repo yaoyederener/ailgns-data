@@ -1465,6 +1465,24 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-gb{margin-left:6px;font-style:normal;font-size:12px;font-weight:700;color:#d97706}
 .nm-gb-g,.nm-gb-p{display:inline-block;padding:2px 9px;border-radius:99px;line-height:1.5;white-space:nowrap;vertical-align:middle}
 .nm-gb-g{background:#fff4d6;border:1px solid #f1cf7a;color:#b45309}
+/* 🌟 域名市场两个栏目：创世（金色、会闪）/ 普通（灰白、素） */
+.nm-kd{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:0 0 12px}
+.nm-kd button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;padding:12px 12px 10px;border-radius:14px;text-align:left;font-family:inherit;cursor:pointer;white-space:normal;line-height:1.35}
+.nm-kd button b{font-size:17px;font-weight:800}.nm-kd button span{font-size:12px;font-weight:400}.nm-kd button em{margin-top:4px;font-style:normal;font-size:13px;font-weight:700}
+.nm-kd-g{position:relative;overflow:hidden;border:2px solid #f1cf7a;background:linear-gradient(135deg,#fff9e6,#ffeaa8);color:#92400e;opacity:.72}
+.nm-kd-g span{color:#a16207}
+.nm-kd-g.on{opacity:1;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.22),0 8px 22px rgba(217,119,6,.22)}
+.nm-kd-g::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.75),rgba(255,255,255,0));transform:skewX(-18deg);animation:nmKdShine 3.2s ease-in-out infinite;pointer-events:none}
+@keyframes nmKdShine{0%,55%{left:-60%}100%{left:130%}}
+.nm-kd-p{border:2px solid #e2e5ec;background:#f6f7f9;color:#4b5563;opacity:.8}
+.nm-kd-p span{color:#6b7280}
+.nm-kd-p.on{opacity:1;border-color:#9aa3b2;background:#fff;box-shadow:0 0 0 3px rgba(107,114,128,.14)}
+tr.nm-grow td{background:#fffbef}
+tr.nm-grow td.l>b{color:#92400e}
+tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ffd76a 55%,#ffe9a8 100%);background-size:220% 100%;border-color:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,.35);animation:nmGbGlow 2.8s linear infinite}
+@keyframes nmGbGlow{0%{background-position:120% 0}100%{background-position:-100% 0}}
+@media (hover:none){table.cards tbody tr.nm-grow:hover td,table.cards tbody tr.nm-grow:active td{background:#fffbef}}
+@media (prefers-reduced-motion:reduce){.nm-kd-g::after,tr.nm-grow .nm-gb-g{animation:none}}
 .nm-gb-p{background:#eef0f4;border:1px solid #d5d9e2;color:#566072}
 .nm-rk2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .nm-rk2 h3{margin:0 0 6px;font-size:14px}
