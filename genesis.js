@@ -29,22 +29,18 @@
     var seq = 0;
     function render(root, full) {
       rid = "r" + (++seq); lastLeft = null;
-      clearInterval(timer); timer = setInterval(function () { if (!document.body.contains(root) || !root.querySelector("#gs-flip")) { clearInterval(timer); return; } load(); }, 15000); // 接口缓存 15 秒，跟着刷；容器没了就停
+      clearInterval(timer); timer = setInterval(function () { if (!document.body.contains(root) || !root.querySelector("#gs-bn")) { clearInterval(timer); return; } load(); }, 15000); // 接口缓存 15 秒，跟着刷；容器没了就停
+      // 站长 2026-11-21（1 万枚已全部注册完）：「创世域名销毁进行中」那张铸造实况卡删掉（翻牌数字、已铸造 VS 还能注册、进度条、今天新铸都没用了）；
+      // 销毁统计提到最上面，只留两个高亮大数字：已销毁、剩余创世域名，「还能注册」删掉。
+      // 中奖的人销毁领奖的按钮必须留着（删了就没法领奖），放在统计下面单独一张卡。
       root.innerHTML =
-        '<section class="card gs-hero"><div class="gc-top"><h2>🔥 创世域名销毁进行中</h2><span class="gc-live"><i></i>链上实时</span></div>' +
-        '<p class="muted"><b>中奖领钱的人，必须先销毁 1 枚创世名。</b>烧自己手里的，或去域名市场任意买一枚来烧都行。<b>中奖后 3 天内不销毁，视为放弃领奖。</b></p>' +
-        '<div class="gs-big"><small id="gs-cap">已铸造的创世名（限量 10,000）</small><div class="gc-flip" id="gs-flip">' + flip(0) + '</div><small id="gs-sub">每被注册 1 个，这里就跳 1 下 · 铸完永久没有</small></div>' +
-        // 一边铸造、一边销毁：左边紫色是已铸出来的，右边火色是等着被烧的；中间进度条紫色吃掉火色
-        '<div class="gs-duel"><div class="gs-mint"><small>🌟 已铸造</small><b id="gs-n">—</b><span>一边在铸</span></div><div class="gs-vs">VS</div><div class="gs-fire"><small>🔥 还能注册</small><b id="gs-rest">—</b><span>铸完只能去市场买</span></div></div>' +
-        '<div class="gs-bar"><i id="gs-fill"></i></div>' +
-        '<p class="gs-day">今天新铸 <b id="gs-day">—</b> 个 · 中奖要领钱的，手里先备一枚</p>' +
-        '<div class="gs-act">' + (full ? '<a class="nm-go gs-reg" href="#/names">🌟 现在去注册创世名（5 DAI / 年起）</a>' : "") + '<a class="nm-go gs-ghost" href="#/names">🛒 已中奖、没有创世名？去买一枚</a>' +
-        HOW + '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 中奖的人点这里销毁领奖<small>没中奖的不用点</small></button><p class="gs-bwarn">⚠️ 风险提示：<b>中奖后再来烧，没中奖不要烧</b>。烧掉不退、不补偿，也不会因此多发奖。</p></div><div class="gs-burn-box"></div></section>' +
-        // 站长 2026-11-09：已销毁创世域名统计 + 销毁记录放在销毁按钮正下方（规则卡上面），每条点开进中文账本
-        '<section class="card gs-burned"><div class="gc-top"><h3>🔥 创世域名销毁统计</h3><span class="gc-live"><i></i>链上实时</span></div>' +
-        // 站长 2026-11-09：高亮、大数字，让人一眼看到剩多少：已销毁 / 现存（已铸造 − 已销毁）/ 还能注册（10,000 − 已铸造）
-        '<div class="gs-bstats"><div class="gs-bs hot"><small>🔥 已销毁</small><b id="gs-bn">—</b><span>永久消失</span></div><div class="gs-bs"><small>🌟 现存创世名</small><b id="gs-bleft">—</b><span>已铸造 − 已销毁</span></div><div class="gs-bs"><small>🆕 还能注册</small><b id="gs-bmint">—</b><span>限量 10,000</span></div></div>' +
+        '<section class="card gs-burned"><div class="gc-top"><h2>🔥 创世域名销毁统计</h2><span class="gc-live"><i></i>链上实时</span></div>' +
+        '<div class="gs-bstats two"><div class="gs-bs hot"><small>🔥 已销毁</small><b id="gs-bn">—</b><span>永久消失</span></div><div class="gs-bs keep"><small>🌟 剩余创世域名</small><b id="gs-bleft">—</b><span>限量 10,000 − 已销毁</span></div></div>' +
         '<p class="gs-bcap">销毁记录（点「账本」看链上那笔）</p><ul class="gs-recent gs-blist" id="gs-blist"><li class="muted">读取中…</li></ul></section>' +
+        '<section class="card gs-hero"><div class="gc-top"><h3>🏆 中奖的人在这里销毁领奖</h3></div>' +
+        '<p class="muted"><b>中奖领钱的人，必须先销毁 1 枚创世名。</b>烧自己手里的，或去域名市场任意买一枚来烧都行。<b>中奖后 3 天内不销毁，视为放弃领奖。</b></p>' +
+        '<div class="gs-act"><a class="nm-go gs-ghost" href="#/names/otc">🛒 已中奖、没有创世名？去买一枚</a>' +
+        HOW + '<button type="button" class="nm-go gs-off gs-on gs-burn">🔥 中奖的人点这里销毁领奖<small>没中奖的不用点</small></button><p class="gs-bwarn">⚠️ 风险提示：<b>中奖后再来烧，没中奖不要烧</b>。烧掉不退、不补偿，也不会因此多发奖。</p></div><div class="gs-burn-box"></div></section>' +
         '<section class="card gs-rule"><h3>📜 规则（大白话）</h3><ol>' +
         '<li><b>中奖要领钱，先烧 1 枚创世名。</b>烧 = 永久销毁，拿不回来；烧完机器人核对链上记录才发奖。<b>烧掉的名字以后谁再注册都不算创世</b>，编号永久作废。</li>' +
         '<li><b>烧哪一枚都行。</b>自己手里的，或者去域名市场任意买一枚来烧；没满之前也可以直接注册一枚。编号跟着名字走，买来的也算。</li>' +

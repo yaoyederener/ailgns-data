@@ -3521,8 +3521,12 @@ body.otc-page #hn-tick-wrap,body.otc-page #hn-tick{display:none}
 /* 🔥 已销毁创世域名统计 + 记录（2026-11-09） */
 .gs-burned { background: linear-gradient(135deg, #fff1e8, #ffffff 55%, #fff7f2); border: 1.5px solid #fdba74; box-shadow: 0 6px 18px rgba(249, 115, 22, .12); } .gs-burned .gc-top h3 { margin: 0; }
 .gs-bstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.gs-bstats.two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gs-bstats.two .gs-bs { padding: 16px 8px; }
+.gs-bstats.two .gs-bs b, .gs-bstats.two .gs-bs.hot b { font-size: 38px; }
 .gs-bs { border-radius: 16px; padding: 12px 6px; text-align: center; background: #fff; border: 1.5px solid #fde0c8; }
 .gs-bs small { display: block; font-size: 12px; font-weight: 700; color: #7a68b8; } .gs-bs b { display: block; font-size: 30px; line-height: 1.1; margin: 4px 0 2px; color: #4b2fb0; font-variant-numeric: tabular-nums; } .gs-bs span { display: block; font-size: 11px; color: #9a8fc0; }
+.gs-bs.keep { background: linear-gradient(135deg, #7c3aed, #4f46e5); border: 0; box-shadow: 0 6px 16px rgba(99, 60, 230, .28); } .gs-bs.keep small, .gs-bs.keep b, .gs-bs.keep span { color: #fff; }
 .gs-bs.hot { background: linear-gradient(135deg, #f97316, #ef4444); border: 0; box-shadow: 0 6px 16px rgba(239, 68, 68, .28); } .gs-bs.hot small, .gs-bs.hot b, .gs-bs.hot span { color: #fff; } .gs-bs.hot b { font-size: 34px; }
 .gs-act .gs-bwarn { margin: 0; padding: 8px 10px; border-radius: 12px; background: #fff7ed; border: 1px dashed #fdba74; color: #9a3412; font-size: 12.5px; line-height: 1.5; text-align: center; } .gs-act .gs-bwarn b { color: #c2410c; }
 .gs-act .gs-burn small { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; opacity: .92; }
