@@ -1,0 +1,10 @@
+{
+"点开看": "Tap to view",
+"最近 {0} 笔，往下滑看更多": "Latest {0} trades — scroll for more",
+"域名页的「成交排行」把最近 50 笔成交都列出来了，放在一个能上下滑的框里。手机上先只显示「最新成交」，「最贵成交」折叠着，点一下展开。": "The \"Trade ranking\" on the Names page now lists the latest 50 trades in a scrollable box. On phones only \"Latest trades\" shows at first; \"Highest trades\" is folded — tap to open.",
+"🏆 域名页的「成交排行」把最近 50 笔成交都列出来了，放在一个能上下滑的框里。手机上先只显示「最新成交」，「最贵成交」折叠着，点一下展开。": "🏆 The \"Trade ranking\" on the Names page now lists the latest 50 trades in a scrollable box. On phones only \"Latest trades\" shows at first; \"Highest trades\" is folded — tap to open.",
+"💎 最贵成交": "💎 Highest trades",
+"最贵成交": "Highest trades",
+"🕒 最新成交": "🕒 Latest trades",
+"最新成交": "Latest trades"
+}

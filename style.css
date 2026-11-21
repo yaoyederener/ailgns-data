@@ -1491,6 +1491,23 @@ tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ff
 .nm-rk2 ol{margin:0;padding:0;list-style:none;font-size:13px}
 .nm-rk2 li{display:flex;justify-content:space-between;gap:6px;padding:5px 0;border-bottom:1px solid var(--line,#eee)}
 @media (max-width:560px){.nm-rk2{grid-template-columns:1fr}}
+/* 成交排行：最新成交放在能上下滑的框里（约 10 行高）；手机上最新成交排前面，最贵成交折叠 */
+.nm-fx-top>summary{list-style:none;display:flex;align-items:center;gap:8px;pointer-events:none}
+.nm-fx-top>summary::-webkit-details-marker{display:none}
+.nm-fx-top>summary h3{margin:0 0 6px}
+.nm-fx-tg{display:none;font-style:normal;font-size:12px;color:var(--muted,#8a84a3)}
+.nm-fx-sc{max-height:318px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:6px!important}
+.nm-fx-more{margin:6px 0 0;font-size:12px;color:var(--muted,#8a84a3);text-align:center}
+@media (max-width:560px){
+  .nm-fx-new{order:-1}
+  .nm-fx-sc{max-height:264px}
+  .nm-fx-top>summary{pointer-events:auto;cursor:pointer;justify-content:space-between;padding:10px 12px;border:1px solid var(--line,#eee);border-radius:12px;background:var(--panel,#faf8ff)}
+  .nm-fx-top>summary h3{margin:0}
+  .nm-fx-tg{display:inline}
+  .nm-fx-tg::after{content:" ▾"}
+  .nm-fx-top[open]>summary{margin-bottom:6px}
+  .nm-fx-top[open] .nm-fx-tg::after{content:" ▴"}
+}
 /* 轻量浏览器 */
 .sc-tip{font-size:12px;margin:6px 0 0}
 .sc-addr{word-break:break-all;font-size:13px}
