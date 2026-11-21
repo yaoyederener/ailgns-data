@@ -1471,6 +1471,19 @@
       // 🔍 搜索：按域名或卖家地址 / 名字筛选（挂单多了一页页翻找不到）
       var q = mkQ.trim().toLowerCase().replace(/\.(ailgns|lgns)$/, "");
       if (q) list = full.filter(function (it) { return it.label.toLowerCase().indexOf(q) >= 0 || it.maker.indexOf(q) >= 0 || ((A.nameCache || {})[it.maker] || "").toLowerCase().indexOf(q) >= 0; });
+      // 🌟 两个栏目（站长 2026-11-21：「普通域名放在一个栏目里，创世域名放在一个栏目里，不要放在一起，创世域名要高亮突出」）。
+      // 创世表没读到时分不出来：不显示栏目，照老样子一张表全列，宁可不分也不能把创世分到普通里。
+      // 搜索时两个栏目各数各的；当前栏目没搜到、另一个栏目有，就自动跳过去。
+      var gKnown = tlds.some(function (t, i) { return t === "ailgns" && Object.keys(gens[i] || {}).length > 0; }), cntG = 0, cntP = 0;
+      list.forEach(function (it) { if (it.gno > 0) cntG++; else cntP++; });
+      if (gKnown) {
+        if (!mkKindSet && !q) mkKind = cntG ? "gen" : "plain";
+        if (q && (mkKind === "gen" ? !cntG && cntP : !cntP && cntG)) mkKind = mkKind === "gen" ? "plain" : "gen";
+        list = list.filter(function (it) { return mkKind === "gen" ? it.gno > 0 : !(it.gno > 0); });
+      }
+      var kindBar = !gKnown ? "" : '<div class="nm-kd" id="nm-kd">' +
+        '<button type="button" data-kd="gen" class="nm-kd-g' + (mkKind === "gen" ? " on" : "") + '"><b>🌟 创世域名</b><span>限量 1 万个 · 带创世编号 · 能签到分红</span><em>' + cntG + (q ? " 个符合" : " 个在卖") + "</em></button>" +
+        '<button type="button" data-kd="plain" class="nm-kd-p' + (mkKind === "plain" ? " on" : "") + '"><b>普通域名</b><span>没有创世编号 · 不能签到分红</span><em>' + cntP + (q ? " 个符合" : " 个在卖") + "</em></button></div>";
       // ✨ AI 推荐（站长 2026-11-09）：只显示 AI 挑出的那 20 个，按 AI 给的顺序，理由写在名字下面
       var aiMap = null;
       if (mkSort === "ai") {
@@ -1485,16 +1498,18 @@
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.pin - a.pin || b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
-        '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + list.length + " 个</span>" : "") + "</div>" +
+      box.innerHTML = kindBar + '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
+        '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + (gKnown ? cntG + cntP : list.length) + " 个</span>" : "") + "</div>" +
         '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["ai", "✨ AI 推荐"], ["price", "价格低→高"], ["priced", "价格高→低"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
         (mkSort === "ai" ? '<p class="muted nm-aidisc">✨ AI 每小时从全部挂单里挑 20 个，只按<b>寓意、稀缺、性价比</b>三条看名字和价格，不看卖家' + (aiAt ? " · 更新于 " + new Date(aiAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }) : "") + ' · 仅供参考，不构成投资建议</p>' +
           (!list.length ? '<p class="muted nm-aiempty">' + (aiErr === "loading" ? "✨ AI 正在挑选，几秒后自动显示…" : aiErr ? "AI 这会儿没答上来，稍后再点一次，或先看「推荐排序」" : "这一小时 AI 没挑出特别值得推荐的，看看其它排序") + "</p>" : "") : "") +
+        (!list.length && mkSort !== "ai" ? '<p class="muted nm-kd-none">' + (q ? "没有搜到符合的挂单。" : "这个栏目现在没有挂单。") + "</p>" : "") +
         '<div class="tbl-wrap"><table class="cards book"><thead><tr><th class="l">操作</th><th class="l">域名</th><th>标价 DAI</th><th>买家付（含 3%）</th><th>剩余时间</th><th class="l">卖家</th></tr></thead><tbody>' + list.map(function (it, i) {
         var mine = account && it.maker === account, p = Number(it.price / 10n ** 12n) / 1e6;
         var act = mine ? '<button type="button" class="ghost act-btn" data-i="' + i + '" data-m="1">撤单</button>'
           : '<button type="button" class="act-btn btn-buy" data-i="' + i + '" data-m="0">买入</button>';
-        return '<tr' + (i >= mkShow() ? " hidden" : "") + (it.pin && mkSort === "rec" ? ' class="nm-pinrow"' : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l">' + (it.pin && mkSort === "rec" ? '<span class="nm-pin">⭐ 置顶</span> ' : "") + '<b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i>' + (mkSort === "ai" && it.why ? '<small class="nm-why"><i>' + esc(it.tag || "推荐") + "</i>" + esc(it.why) + "</small>" : "") + '</td>' +
+        var rc = (it.pin && mkSort === "rec" ? "nm-pinrow" : "") + (gKnown && it.gno > 0 ? " nm-grow" : "");
+        return '<tr' + (i >= mkShow() ? " hidden" : "") + (rc ? ' class="' + rc.trim() + '"' : "") + '><td class="act">' + act + '</td><td data-l="域名" class="l">' + (it.pin && mkSort === "rec" ? '<span class="nm-pin">⭐ 置顶</span> ' : "") + '<b>' + esc(it.label) + "." + it.t + '</b> <i class="nm-gb" data-g="' + it.t + ":" + it.tid + '"></i>' + (mkSort === "ai" && it.why ? '<small class="nm-why"><i>' + esc(it.tag || "推荐") + "</i>" + esc(it.why) + "</small>" : "") + '</td>' +
           '<td data-l="标价 DAI" class="price"><b>' + p + '</b></td><td data-l="买家付">' + Math.round(p * 1.03 * 1e6) / 1e6 + '</td><td data-l="剩余时间">' + leftT(it.expiry - now2) + '</td>' +
           '<td data-l="卖家" class="l mono">' + (mine ? '<b style="color:var(--gold)">我的</b>' : (A.nameTag ? A.nameTag(it.maker) : A.short(it.maker))) +
           '<br><small class="nm-vol">' + (it.vol ? "OTC 累计成交 " + A.fmt(it.vol, 2) + " DAI" : "暂无 OTC 成交") + "</small></td></tr>";
@@ -1510,6 +1525,8 @@
         if (n) { e.textContent = "🌟 创世 #" + n; e.className = "nm-gb nm-gb-g"; }
         else if (k[0] === "ailgns" && Object.keys(gm).length) { e.textContent = "普通域名"; e.className = "nm-gb nm-gb-p"; }
       });
+      var kd = document.getElementById("nm-kd");
+      if (kd) kd.onclick = function (e) { var b = e.target.closest("button[data-kd]"); if (!b) return; mkKind = b.getAttribute("data-kd"); mkKindSet = true; mkN = 0; draw(full, vols, gens); };
       var qi = document.getElementById("nm-mkq"), qt;
       if (qi) qi.oninput = function () { clearTimeout(qt); qt = setTimeout(function () { mkQ = qi.value; mkN = 0; draw(full, vols, gens); var n = document.getElementById("nm-mkq"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 300); };
       document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(full, vols, gens); };
@@ -1523,6 +1540,7 @@
     }
   }
   // 挂单多：手机先显示 5 个、电脑 10 个，点「再看」每次多显示同样多个，不一下子全铺开
+  var mkKind = "gen", mkKindSet = false; // 市场的两个栏目：gen 创世域名 / plain 普通域名；没点过就默认创世（没有创世挂单才默认普通）
   var mkSort = "rec", mkN = 0, mkQ = "", aiPicks = null, aiAt = 0, aiErr = ""; // ✨ AI 推荐：/api/name-ai 每小时挑 20 个 + 理由
   function mkStep() { return innerWidth < 640 ? 5 : 10; }
   function mkShow() { return mkN || mkStep(); }
