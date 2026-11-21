@@ -41,6 +41,38 @@
   }
   function paint() { try { paintPool(); paintMe(); } catch (e) {} }
 
+  // 🏆 签到排行榜（站长 2026-11-21：「弄一个签到排行榜，把签到的创世域名都列出来」）：这一轮按票数排，每个钱包下面列出它现在手里的创世域名。
+  // 先给上次存的，再去拿新的（接口那头缓存 60 秒）。手机先看前 10 个钱包、每个钱包先看 3 个名字，其余点开再看
+  var rk = null, rkAll = false, rkOpen = {};
+  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function paintRank() {
+    var box = el("bn-rk"); if (!box) return;
+    if (!rk) { box.innerHTML = '<p class="muted">读取中…</p>'; return; }
+    var list = rk.list || [];
+    if (!list.length) { box.innerHTML = '<p class="muted">这一轮还没有人签到。你来当第一个。</p>'; return; }
+    var show = rkAll ? list.length : Math.min(10, list.length);
+    box.innerHTML = '<p class="bn-rk-top">第 ' + n(rk.round) + " 轮 · 共 " + n(rk.w) + ' 个钱包签到 · 按票数排</p><ol class="bn-rk-l">' + list.slice(0, show).map(function (r, i) {
+      var g = r.g || [], open = !!rkOpen[r.a], cut = open ? g.length : Math.min(3, g.length), me = account && r.a === account;
+      var who = me ? '<b class="bn-rk-me">我</b>' : (A.nameTag ? A.nameTag(r.a) : short(r.a));
+      return '<li class="bn-rk-i' + (me ? " me" : "") + '"><div class="bn-rk-h"><i class="bn-rk-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><span class="bn-rk-w mono">' + who + '</span><b class="bn-rk-t">' + n(r.t) + " 票</b></div>" +
+        '<p class="bn-rk-s">签到 ' + n(r.n) + " 天 · " + (r.td ? "今天已签" : "今天还没签") + (r.gn >= 0 ? " · 现在有 " + n(r.gn) + " 枚创世域名" : "") + "</p>" +
+        (g.length ? '<p class="bn-rk-g">' + g.slice(0, cut).map(function (x) { return '<a href="#/names/' + encodeURIComponent(x[1] + ".ailgns") + '">🌟 ' + esc(x[1]) + ".ailgns <small>#" + x[0] + "</small></a>"; }).join("") +
+          (g.length > 3 ? '<button type="button" class="bn-rk-more" data-rk="' + r.a + '">' + (open ? "收起" : "展开全部 " + n(r.gn) + " 枚") + "</button>" : "") +
+          (open && r.gn > g.length ? '<span class="bn-rk-rest">还有 ' + n(r.gn - g.length) + " 枚没列出</span>" : "") + "</p>"
+          : r.gn === 0 ? '<p class="bn-rk-g none">签到后名字已转走或挂到市场，现在钱包里没有创世域名</p>' : "") + "</li>";
+    }).join("") + "</ol>" + (list.length > 10 ? '<button type="button" class="bn-rk-all" id="bn-rk-all">' + (rkAll ? "收起，只看前 10 名" : "再看后面 " + n(list.length - 10) + " 个钱包") + "</button>" : "") +
+      (rk.w > list.length ? '<p class="note">榜上只列票数最多的 ' + n(list.length) + " 个钱包。</p>" : "");
+  }
+  function loadRank() {
+    if (!rk) { try { var c = JSON.parse(localStorage.getItem("bn:rk") || "null"); if (c && c.list) rk = c; } catch (e) {} }
+    try { paintRank(); } catch (e) {}
+    return fetch("/api/bonus?rank=1").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
+      if (!j || !j.list) throw new Error("bad");
+      rk = j; try { localStorage.setItem("bn:rk", JSON.stringify(j)); } catch (e) {}
+      paintRank();
+    }).catch(function () { try { if (!rk && el("bn-rk")) el("bn-rk").innerHTML = '<p class="muted">排行榜暂时没读到，稍后自动重试。</p>'; } catch (e) {} });
+  }
+
   function loadPool() {
     return fetch("/api/name-genesis").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
       if (j && j.pool !== undefined && j.pool !== null) pool = Number(j.pool) || 0;
@@ -79,6 +111,7 @@
         info = info || {}; info.me = r.me; info.day = r.day; info.round = r.round;
         if (info.all && !r.already) { info.all.today = (Number(info.all.today) || 0) + 1; if (r.me.days === 1) info.all.w = (Number(info.all.w) || 0) + 1; }
         say("✅ 签到成功，今天记 " + n(r.me.held) + " 票。明天再来。");
+        setTimeout(function () { try { loadRank(); } catch (e) {} }, 1500); // 榜一分钟更新一次，刚签的可能要等一会儿才上榜
       });
     }).then(done, function (e) {
       var m = String((e && e.message) || "");
@@ -94,6 +127,7 @@
       '<p class="bn-me" id="bn-me" hidden></p>' +
       '<button type="button" class="bn-go bn-sign" id="bn-sign">连接钱包签到</button><p class="bn-st" id="bn-st" hidden></p>' +
       '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/' + POOL + '">随时可查</a>。</p></section>' +
+      '<section class="card bn"><h2>🏆 签到排行榜</h2><div id="bn-rk"></div><p class="note">每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。</p></section>' +
       '<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
       "<li><b>谁能领：创世域名持有人</b><span>钱包里至少有 1 枚创世域名。1 枚签到一天记 1 票，持有越多票越多。</span></li>" +
       "<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>" +
@@ -115,10 +149,17 @@
       var saved = ""; try { saved = String(localStorage.getItem("ib:acct") || "").toLowerCase(); } catch (e) {}
       if (/^0x[0-9a-f]{40}$/.test(saved)) account = saved;
     }
-    paint(); loadPool(); loadInfo();
+    paint(); loadPool(); loadInfo(); loadRank();
+    el("bn-rk").onclick = function (e) {
+      try {
+        var t = e.target, m = t.closest ? t.closest("button[data-rk]") : null;
+        if (m) { var k = m.getAttribute("data-rk"); rkOpen[k] = !rkOpen[k]; paintRank(); return; }
+        if (t.id === "bn-rk-all") { rkAll = !rkAll; paintRank(); }
+      } catch (x) {}
+    };
     if (!account) { try { if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { a = String(a || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(a) && !account) { account = a; paint(); loadInfo(); } }, function () {}); } catch (e) {} }
     clearInterval(timer);
-    timer = setInterval(function () { if (!el("bn-pool")) { clearInterval(timer); return; } loadPool(); if (!busy) loadInfo(); }, 60000);
+    timer = setInterval(function () { if (!el("bn-pool")) { clearInterval(timer); return; } loadPool(); if (!busy) loadInfo(); loadRank(); }, 60000);
   }
   A.pages.bonus = function () { try { render(); } catch (e) { A.app.innerHTML = '<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>'; } };
 })();

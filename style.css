@@ -3753,6 +3753,25 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 @media (prefers-reduced-motion: reduce) { .sc-home::before, .sc-home::after, #sc-out > .card, #sc-out .sc-wait, #sc-out .sc-coin.sc-has::after { animation: none !important; } }
 
 /* 🎁 创世域名分红 · 每日签到页 #/bonus */
+.bn-rk-top { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+.bn-rk-l { list-style: none; margin: 0; padding: 0; }
+.bn-rk-i { padding: 12px 0; border-top: 1px solid #efe8fb; }
+.bn-rk-i:first-child { border-top: 0; }
+.bn-rk-i.me { margin: 0 -8px; padding: 12px 8px; border-radius: 12px; background: #f7f3ff; border-top-color: transparent; }
+.bn-rk-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bn-rk-no { flex: 0 0 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #ece6f8; color: #5b4a86; font-style: normal; font-weight: 700; font-size: 13px; }
+.bn-rk-no.top { background: var(--grad-dot); color: #fff; }
+.bn-rk-w { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; color: #3d2f66; }
+.bn-rk-me { color: #6927db; }
+.bn-rk-t { flex: 0 0 auto; font-size: 17px; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
+.bn-rk-s { margin: 4px 0 0 36px; font-size: 13px; color: var(--muted); }
+.bn-rk-g { margin: 8px 0 0 36px; display: flex; flex-wrap: wrap; gap: 6px; }
+.bn-rk-g a { display: inline-block; max-width: 100%; padding: 3px 10px; border-radius: 99px; background: #fff4d6; border: 1px solid #f1cf7a; color: #b45309; font-size: 13px; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bn-rk-g a small { font-weight: 400; opacity: .85; }
+.bn-rk-g.none { display: block; font-size: 13px; color: var(--muted); }
+.bn-rk-more, .bn-rk-all { border: 1px solid #e0d5f7; background: #fff; color: #6927db; border-radius: 99px; padding: 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.bn-rk-all { display: block; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
+.bn-rk-rest { align-self: center; font-size: 13px; color: var(--muted); }
 .bn-cap { margin: 0 0 6px; font-size: 14px; color: #5b4a86; font-weight: 600; }
 button.bn-go { width: 100%; border: 0; cursor: pointer; font-family: inherit; }
 button.bn-go:disabled { opacity: .6; cursor: default; }
