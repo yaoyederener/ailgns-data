@@ -1,13 +1,13 @@
 // 运营费用发放公告：定时任务每 5 分钟调用一次，读 Anubis、Polygon 两个发放合约的新发放记录，攒起来每 8 小时汇总发一次，
 // 发到「运营费用」专用 DeBox 群（只发这个群，和行情播报群分开）。写今日总收入和按 4:3:3 每份分多少（不写收款地址），并提醒 LGNS 及时换 DAI。
-import { RPCS } from "../../lib/teamlib.js";
+import { RPCS, NODE_RPC } from "../../lib/teamlib.js";
 import { sendDebox } from "../../lib/debox.js";
 import { SUPPORT_USER } from "../../lib/support.js";
 import { build as buildAdminStats } from "../../lib/adminstats.js";
 import { build as buildPartner } from "../../lib/partner.js";
 import { TODO } from "../../lib/todo.js";
 import { pushInbox } from "../../lib/inbox.js";
-import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert, mmAlert } from "../../lib/alert.js";
+import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert, mmAlert, nodeAlert, NODE_LAG_BLOCKS } from "../../lib/alert.js";
 
 // 📝 站长待办实时推送（站长 2026-11-10：「带优化功能实时滚动推送给我，按当前运营状况推最紧急的」）
 //    清单（lib/todo.js）一有更新就推一次；另外每天北京时间 8 点推一次当日最紧急 5 条。只推到站长自己的收件箱（+ 开了通知的手机 / 电脑），不发客户
@@ -78,7 +78,19 @@ async function ownerWatch(ctx, kv) {
     await fire(walletAlert(Number(ail) / 1e18, Number(dai) / 1e18, px["AiLGNS（Anubis）"] || 0, new Date(Date.now() + 8 * 3600e3).getUTCHours()));
   } catch (e) { /* 同上 */ }
   try { await fire(mmAlert(await mmInfo(kv, get))); } catch (e) { /* 同上 */ }
+  try { await fire(nodeAlert(await nodeInfo(kv))); } catch (e) { /* 同上 */ }
   return out;
+}
+// 本站自己的备用节点正不正常：和官方节点比最新块；不正常从哪一刻开始记在 KV node:bad，好了就清掉。官方节点自己读不到：这一轮不判断
+async function nodeInfo(kv) {
+  const head = (u) => fetch(u, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }), signal: AbortSignal.timeout(10000) }).then((r) => r.json()).then((j) => { const n = parseInt(j.result, 16); if (!(n > 0)) throw new Error("no head"); return n; });
+  let pub = 0;
+  for (let k = 0; k < 3 && !pub; k++) pub = await head(RPCS[k]).catch(() => 0);
+  if (!pub) return null;
+  const mine = await head(NODE_RPC).catch(() => 0), behind = mine ? pub - mine : null, now = Date.now(), since = Number(await kv.get("node:bad")) || 0;
+  if (mine && behind < NODE_LAG_BLOCKS) { if (since) await kv.delete("node:bad"); return { mins: 0, behind }; }
+  if (!since) { await kv.put("node:bad", String(now), { expirationTtl: 7 * 86400 }); return { mins: 0, behind }; }
+  return { mins: (now - since) / 60000, behind };
 }
 // 官方做市机器人现在有没有买单挂着；没有的话已经连续多久了（开始的时刻记在 KV mm:idle，有单了就清掉）
 const MM_BOT = "0x06cc2a46d7ad17496c2de9c61362808e06b44437";
