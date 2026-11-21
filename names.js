@@ -959,7 +959,7 @@
   }
   function withPool(d, j) { return d.n < GENESIS || TLD !== "ailgns" ? d : poolOf(j).then(function (v) { d.pool = v; return d; }); }
   function gcRead() {
-    if (TLD === "ailgns") return genesisApi().then(function (j) { return withPool({ n: j.n, day: j.day, recent: j.recent }, j); }, function () { return gcReadChain().then(function (d) { return withPool(d, null); }); });
+    if (TLD === "ailgns") return genesisApi().then(function (j) { return withPool({ n: j.n, day: j.day, recent: j.recent, newest: j.newest }, j); }, function () { return gcReadChain().then(function (d) { return withPool(d, null); }); });
     return gcReadChain();
   }
   function gcReadChain() {
@@ -999,8 +999,13 @@
           '<div class="gc-bar"><i style="width:100%"></i></div>' +
           '<div class="gc-num"><div><small>创世域名</small><b>10,000 个已售完</b></div><div><small>分红对象</small><b>创世域名持有人</b></div><div><small>现在想要创世域名</small><b class="gc-me">去域名市场买</b></div></div>' +
           '<ul class="gc-pts"><li>🎁 <b>分红计划已开启</b>：奖池的钱只分给持有创世域名的人</li><li>💰 <b>奖池金额链上可查</b>：页面读的是奖池钱包的链上余额，不是手填的数</li><li>📜 <b>怎么分、哪天分</b>：以公告为准，规则可能调整</li><li>💎 <b>创世域名只有 1 万个，已经卖完</b>：想要只能去域名市场向别人买</li></ul>' +
-          (d.recent.length ? '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>最后注册的几个：</small>' + d.recent.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>#" + r.no + " · " + ago(r.ago) + "</em></span>"; }).join("") +
-            (d.recent.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + d.recent.length + " 个 ▾") + "</button>" : "") + "</div>" : "") +
+          // 站长 2026-11-21：卖完后这里一直停在 #10000，「最新注册的域名不显示」→ 改成显示最新注册的名字（普通域名也算，标「普通域名」；创世的带编号）。接口没给 newest 时照旧显示最后几个创世
+          (function () {
+            var rs = d.newest && d.newest.length ? d.newest : d.recent, isNew = rs === d.newest;
+            if (!rs.length) return "";
+            return '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>' + (isNew ? "最新注册：" : "最后注册的几个：") + "</small>" + rs.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>" + (r.no ? "#" + r.no : "普通域名") + " · " + ago(r.ago) + "</em></span>"; }).join("") +
+              (rs.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + rs.length + " 个 ▾") + "</button>" : "") + "</div>";
+          })() +
           '<button type="button" class="gc-go" id="gc-go">🎁 看分红计划 →</button></div>';
         document.getElementById("gc-go").onclick = function () { location.hash = "#/bonus"; };
         gcLast = n;
