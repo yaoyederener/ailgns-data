@@ -4969,6 +4969,6 @@ html.lang-ko body { word-break: keep-all; }
 /* 域名页「批量注册」大按钮（站长 2026-11-21：创世卖完后主推普通域名的批量注册，入口搞大点） */
 .nm-batchrow .link.nm-bb { display: grid; gap: 6px; justify-items: center; padding: 20px 16px 18px; border-radius: 20px; box-shadow: 0 10px 26px rgba(73, 54, 255, .28); }
 .nm-bb b { font-size: 24px; line-height: 1.2; font-weight: 900; letter-spacing: .5px; }
-.nm-bb span { font-size: 15.5px; line-height: 1.4; font-weight: 700; opacity: .96; }
+.nm-bb span { font-size: 15.5px; line-height: 1.4; font-weight: 700; opacity: .96; text-wrap: balance; }
 .nm-bb em { font-style: normal; font-size: 13.5px; line-height: 1.4; padding: 4px 14px; border-radius: 999px; background: rgba(255, 255, 255, .2); }
 @media (max-width: 520px) { .nm-batchrow .link.nm-bb { padding: 18px 12px 16px; } .nm-bb b { font-size: 22px; } .nm-bb span { font-size: 14.5px; } .nm-bb em { font-size: 13px; } }
