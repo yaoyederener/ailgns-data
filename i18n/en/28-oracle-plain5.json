@@ -21,5 +21,6 @@
 "个普通域名，满足其一就能参加（刚注册的等 {0} 分钟再试）": "regular names — any one of these is enough (if you just registered, try again in {0} minute)",
 "🔮 每日预言家多了一条参加的路：没有创世域名的，这个钱包注册满 {0} 个普通域名也能玩（每天 {1} 次）。创世域名和 OTC 满 {2} 万的照旧。预言家页连上钱包能看到「注册过的普通域名 X / {3} 个」。": "🔮 The Daily Oracle has one more way in: without a Genesis name, a wallet that has registered {0} regular names can play ({1} guess a day). Genesis names and the OTC {2}0,000 route are unchanged. Connect your wallet on the Oracle page to see \"regular names registered X / {3}\".",
 "每日预言家多了一条参加的路：没有创世域名的，这个钱包注册满 {0} 个普通域名也能玩（每天 {1} 次）。创世域名和 OTC 满 {2} 万的照旧。预言家页连上钱包能看到「注册过的普通域名 X / {3} 个」。": "The Daily Oracle has one more way in: without a Genesis name, a wallet that has registered {0} regular names can play ({1} guess a day). Genesis names and the OTC {2}0,000 route are unchanged. Connect your wallet on the Oracle page to see \"regular names registered X / {3}\".",
-"免费参与 · 创世域名、OTC 满 {0} 万、或注册满 {1} 个普通域名就能玩": "Free to play · Genesis name, OTC {0}0,000, or {1} regular names registered"
+"免费参与 · 创世域名、OTC 满 {0} 万、或注册满 {1} 个普通域名就能玩": "Free to play · Genesis name, OTC {0}0,000, or {1} regular names registered",
+"，或者这个钱包": ", or this wallet has to"
 }
