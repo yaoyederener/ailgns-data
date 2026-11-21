@@ -386,12 +386,14 @@
   }
   function meBox0(d) {
     var me = d.me;
-    if (!account) return '<p>参加资格（满足其一）：① 主名字是 <b>🌟 创世 .ailgns 域名</b> ② <b>OTC 累计成交满 5 万 DAI</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
+    if (!account) return '<p>参加资格（满足其一）：① 主名字是 <b>🌟 创世 .ailgns 域名</b> ② <b>OTC 累计成交满 5 万 DAI</b> ③ <b>注册满 5 个普通域名</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
     if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
-    if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，<a href="#/names">买一个新的 🌟 创世 .ailgns 域名</a>，设为主名字就能再参加。</p>';
+    if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，<a href="#/names">买一个 🌟 创世 .ailgns 域名</a>设为主名字，或者<a href="#/names">注册满 5 个普通域名</a>，就能再参加。</p>';
     if (!me.ok) return (me.name ? "" : '<div id="or-fix" hidden></div>') + '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。满足其一就能参加：</p><ul class="or-req">' +
       '<li>' + (me.name ? "❌ 主名字 <b>" + esc(me.name) + "</b> 不是创世域名" : "❌ 还没有 .ailgns 主名字") + '：<a href="#/names">注册 / 买一个 🌟 创世 .ailgns 域名，设为主名字 →</a></li>' +
-      '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li></ul>';
+      '<li>❌ OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li>' +
+      '<li>❌ 这个钱包注册过的普通域名 <b>' + Number(me.reg || 0) + "</b> / " + Number(me.regNeed || 5) + ' 个：<a href="#/names">去批量注册普通域名（5 DAI 一个）→</a></li></ul>' +
+      '<p class="muted">普通域名按「注册到这个钱包」的个数算，买来的、别人转来的不算；刚注册的等 1 分钟再回来看。</p>';
     if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";
     if (me.lock) return '<p class="nm-bad">这个钱包本轮已经用 <b>' + esc(me.lock) + "</b> 预测过了。一个钱包每轮只认一个名字，换主名字不会多出次数。</p>";
     if (me.hold) return '<p class="nm-bad">' + esc(me.name) + " 是本轮开放后才转进这个钱包的，要等<b>下一轮</b>才能用它预测（刚注册的名字不受此限）。</p>";
@@ -598,9 +600,9 @@
   }
   function rules() {
     return '<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>' +
-      "<li><b>谁能玩</b>（满足其一）：① 主名字是 🌟 创世 .ailgns 域名（全站付费注册的前 1 万个）② OTC 累计成交满 5 万 DAI。免费参与，只需钱包签名。</li>" +
+      "<li><b>谁能玩</b>（满足其一）：① 主名字是 🌟 创世 .ailgns 域名（全站付费注册的前 1 万个）② OTC 累计成交满 5 万 DAI ③ 这个钱包注册满 5 个普通域名（2026-11-21 起；按注册到这个钱包的个数算，买来的、别人转来的不算）。免费参与，只需钱包签名。</li>" +
       "<li><b>猜什么</b>：猜揭晓价。<b>📣 11 月 15 日那一轮起精确到小数点后 4 位</b>，例如 827.3546（11 月 14 日那一轮和以前是 3 位）。原因：猜的人多了，11 月 13 日、14 日连续两晚 3 位小数被猜中，大奖池攒不起来；改 4 位难 10 倍，奖池才能滚大。11 月 15 日这一轮在改之前已经提交的 3 位预测照常有效，按末位补 0 计入（例如 854.686 算 854.6860）。以后人数再涨还会升到 5 位，升档都会提前在这里公告。</li>" +
-      "<li><b>📣 提前公告 · 1 万个创世名注册满那天起</b>：任何 .ailgns 主名字都能玩，普通名每天 1 次，创世名按档位每天 1～5 次（永久门票）；按钱包算不按名字数量；OTC 满 5 万的资格照旧。中奖领钱要先烧 1 枚创世名。</li>" +
+      "<li><b>📣 创世域名已全部注册完（2026-11-21）</b>：没有创世域名的，这个钱包注册满 5 个普通域名就能玩，每天 1 次；创世名照旧按档位每天 1～5 次；OTC 满 5 万的资格照旧。以前公告的「任何 .ailgns 主名字都能玩」不再执行，以这一条为准。中奖领钱要先烧 1 枚创世名。</li>" +
       "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
       "<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（上一期封卷前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>" +
       "<li><b>随时能猜</b>：<b>下午 3 点封卷</b>（11 月 12 日起；11 月 10–11 日是早上 9 点）。下午 3 点前提交的参加当晚揭晓；下午 3 点到晚上 9 点是锁定期（6 小时），这段时间提交的算第二天。</li>" +
