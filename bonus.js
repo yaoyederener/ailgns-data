@@ -167,7 +167,8 @@
         if (t.id === "bn-rk-all") { rkAll = !rkAll; paintRank(); }
       } catch (x) {}
     };
-    if (!account) { try { if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { a = String(a || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(a) && !account) { account = a; paint(); loadInfo(); } }, function () {}); } catch (e) {} }
+    // 不弹窗问一下钱包现在是哪个地址：和上次记的不一样（客户在钱包里换了号再刷新，工单 #361）就换成现在这个，重新读签到状态
+    if (!eth) { try { if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { a = String(a || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(a) && !eth && a !== account) { account = a; info = null; paint(); loadInfo(); } }, function () {}); } catch (e) {} }
     clearInterval(timer);
     timer = setInterval(function () { if (!el("bn-pool")) { clearInterval(timer); return; } loadPool(); if (!busy) loadInfo(); loadRank(); }, 60000);
   }
