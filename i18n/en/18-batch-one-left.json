@@ -1,0 +1,11 @@
+{
+"再补 {0} 个，两个都算票": "Add {0} more — both will count as tickets",
+"要在 {0} 分钟内注册上；点这里随机挑一个能注册的": "Must be registered within {0} minutes; tap to pick a random available name",
+"正在挑一个能注册的域名…": "Picking an available name…",
+"没挑到，再点一次": "Nothing found, tap again",
+"补上了，和刚才那个凑成一对，两个的票大约半分钟到账。": "Done — it pairs with the one before, and the tickets for both arrive in about half a minute.",
+"⚠️ 只注册成了 {0} 个，落单的不算票。{1} 分钟内再注册 {2} 个，两个的票一起到——点下面的按钮补一个。": "⚠️ Only {0} name was registered, and a single one earns no tickets. Register {1} more within {2} minutes and the tickets for both arrive together — tap the button below to add one.",
+"⚠️ 只成了 {0} 个，落单的不算票。{1} 分钟内再注册 {2} 个，两个的票一起到——点下面的按钮补一个。": "⚠️ Only {0} was registered, and a single one earns no tickets. Register {1} more within {2} minutes and the tickets for both arrive together — tap the button below to add one.",
+" · 和刚注册的那个凑成一对，两个都算票": " · pairs with the one just registered — both count as tickets",
+"，和刚才那个凑成一对，两个都算票": ", pairs with the one before — both count as tickets"
+}
