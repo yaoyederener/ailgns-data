@@ -1128,7 +1128,8 @@
     }).catch(function () { out.innerHTML = '<p class="muted">查询失败，请稍后再试</p>'; });
   }
 
-  // 成交排行：最贵 10 笔 + 最新 10 笔
+  // 成交排行：最贵 10 笔 + 最近 50 笔（站长 2026-11-21：近期成交都列出来；最新成交放在一个能上下滑的框里；手机上只先显示最新成交，最贵成交折叠着）
+  var RANK_LAST = 50; // 最新成交列多少笔
   function ranks() {
     var box = document.getElementById("nm-rank"), O = OTC[TLD];
     if (!box || !O) return;
@@ -1136,11 +1137,13 @@
     Promise.all([logs(O, T_FILL, START[TLD]), genesis().catch(function () { return {}; })]).then(function (x) {
       var fills = x[0].map(function (l) { return { b: l[0], tid: l[2].slice(2, 66), price: BigInt("0x" + l[2].slice(66, 130)) }; }), g = x[1];
       if (!fills.length) { box.innerHTML = '<p class="muted">还没有成交。第一笔成交会出现在这里！</p>'; return; }
-      var top = fills.slice().sort(function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; }).slice(0, 10), last = fills.slice(-10).reverse(), all = top.concat(last), names = {};
+      var top = fills.slice().sort(function (a, b) { return a.price > b.price ? -1 : a.price < b.price ? 1 : 0; }).slice(0, 10), last = fills.slice(-RANK_LAST).reverse(), all = top.concat(last), names = {};
       return Promise.all(all.map(function (f) { return names[f.tid] || (names[f.tid] = A.bcall(NAMES, SEL.labelOf + f.tid).then(decStr)); })).then(function (labels) {
         all.forEach(function (f, i) { f.label = labels[i]; });
         var row = function (f, i) { return '<li><span>' + (i + 1) + ". <b>" + esc(f.label) + "." + TLD + "</b>" + (g[f.tid] ? ' <i class="nm-gb">🌟 创世 #' + g[f.tid] + "</i>" : "") + "</span><b>" + Number(f.price / 10n ** 12n) / 1e6 + " DAI</b></li>"; };
-        box.innerHTML = '<div class="nm-rk2"><div><h3>💎 最贵成交</h3><ol>' + top.map(row).join("") + '</ol></div><div><h3>🕒 最新成交</h3><ol>' + last.map(row).join("") + "</ol></div></div>";
+        var wide = !window.matchMedia || !window.matchMedia("(max-width:560px)").matches; // 电脑：两栏都摊开；手机：最贵成交折叠，点一下才展开
+        box.innerHTML = '<div class="nm-rk2"><details class="nm-fx-top"' + (wide ? " open" : "") + '><summary><h3>💎 最贵成交</h3><i class="nm-fx-tg">点开看</i></summary><ol>' + top.map(row).join("") + '</ol></details>' +
+          '<div class="nm-fx-new"><h3>🕒 最新成交</h3><ol class="nm-fx-sc">' + last.map(row).join("") + "</ol>" + (last.length > 10 ? '<p class="nm-fx-more">最近 ' + last.length + " 笔，往下滑看更多</p>" : "") + "</div></div>";
       });
     }).catch(function () { box.innerHTML = '<p class="muted">读取失败，请稍后再试</p>'; });
   }
