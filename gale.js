@@ -258,7 +258,8 @@
       if (c.ours <= 0n) return;
       var key = [account, c.d.c, c.s.addr, c.amt.toString()].join("|");
       if (paidGet() === key) return;
-      var tx = c.s.native ? { from: account, to: PAYEE, value: "0x" + c.ours.toString(16) } : { from: account, to: c.s.addr, data: SEL.transfer + word(PAYEE) + word(c.ours.toString(16)) };
+      // DAI 也走合约转账：Anubis 上「直接转网络自带的 DAI」链上不认（估不出 Gas，钱包的确认按钮是灰的，2026-11-21 站长实测）
+      var tx = { from: account, to: c.s.addr, data: SEL.transfer + word(PAYEE) + word(c.ours.toString(16)) };
       return sendTx(tx, "本站服务费 " + show(c.ours, c.s.d) + " " + c.s.sym).then(function () { paidSet(key); });
     }).then(function () {
       return W.rpcOn(c.d.key, "eth_blockNumber", []).then(function (x) { startBlock = parseInt(x, 16); }, function () { startBlock = 0; });
