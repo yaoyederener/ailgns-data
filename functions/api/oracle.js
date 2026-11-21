@@ -104,7 +104,7 @@ export async function onRequestGet(ctx) {
   if (isAddr(a)) {
     try {
       const el = await eligibility(kv, a), name = el.name;
-      out.me = { a, name, gno: el.gno, vol: el.vol, reg: el.reg || 0, regNeed: PLAIN_MIN, gh: el.gh || 0, ghWait: el.ghWait || 0, ph: el.ph || 0, phWait: el.phWait || 0, phNeed: PLAIN_MIN, ok: el.ok, need: OTC_MIN, cool: el.cool };
+      out.me = { a, name, gno: el.gno, vol: el.vol, reg: el.reg || 0, regNeed: PLAIN_MIN, gh: el.gh || 0, ghWait: el.ghWait || 0, ph: el.ph || 0, phWait: el.phWait || 0, phNeed: PLAIN_MIN, pass: !!el.pass, ok: el.ok, need: OTC_MIN, cool: el.cool };
       if (round >= DAILY_FROM) { const dm = (await kv.get("or:dcool", "json")) || {}, dc = [dm[el.key] || "", dm[a] || ""].sort().pop(); out.me.dcool = dc >= round ? dc : ""; } /* 每日奖冷却到哪一轮（含）；照样能猜大奖 */
       if (out.kings) { const i = out.kings.all.findIndex((x) => x.a === a); out.me.king = i >= 0 ? { rank: i + 1, fee: out.kings.all[i].fee } : null; }
       try { // 📋 我的预测记录：今晚揭晓那一轮 + 往前 5 轮（客户 2026-11-14：封卷后页面只显示新一轮，下午填的找不到）；这块读不到不影响别的
@@ -235,8 +235,9 @@ export async function onRequestPost(ctx) {
   if (a === "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6" || a === "0x89dd06754bb239b6c4c92bc47c8fa72889084e27") return json({ error: "站长钱包不参加" }, 400);
   let el;
   try { el = await eligibility(kv, a); } catch (e) { return json({ error: "读链失败，请稍后再试" }, 502); }
-  if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + "（或这个钱包）已经领过奖，不能再参加。想继续玩：用一个新钱包，持有 1 枚没中过奖的 🌟 创世域名，或者持有 " + PLAIN_MIN + " 枚普通域名" }, 400);
-  if (!el.ok) return json({ error: "还没有参加资格：钱包里至少持有 1 枚创世域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，或者至少持有 " + PLAIN_MIN + " 枚普通域名，满足其一就能参加（刚注册的等 1 分钟再试；买来的下一轮才算）" }, 400);
+  if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + "（或这个钱包）已经领过奖，不能再参加。想继续玩：用一个新钱包，设好主名字，持有 1 枚没中过奖的 🌟 创世域名，或者持有 " + PLAIN_MIN + " 枚普通域名" }, 400);
+  if (!el.name && el.pass) return json({ error: "还差一步：先把一个 .ailgns 名字设为主名字（域名页点进名字 →「设为我的主名字」，不花钱，只付一点 Gas），设好就能参加" }, 400);
+  if (!el.ok) return json({ error: "还没有参加资格：先设一个 .ailgns 主名字，再满足其一——钱包里至少持有 1 枚创世域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，或者至少持有 " + PLAIN_MIN + " 枚普通域名，满足其一就能参加（刚注册的等 1 分钟再试；买来的下一轮才算）" }, 400);
   const name = el.name || a.slice(0, 6) + "…" + a.slice(-4); // 没有域名、靠 OTC 成交参加的，用短地址显示
   const key = "or:g:" + round + ":" + el.key, mine = normG(await kv.get(key, "json"), round) || { a, name, ps: [] };
   if (mine.a !== a) return json({ error: name + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次" }, 400);
