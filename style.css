@@ -5025,6 +5025,8 @@ html.lang-ko body { word-break: keep-all; }
 .nm-bb b { font-size: 24px; line-height: 1.2; font-weight: 900; letter-spacing: .5px; }
 .nm-bb span { font-size: 15.5px; line-height: 1.4; font-weight: 700; opacity: .96; text-wrap: balance; }
 .nm-bb-g { display: block; box-sizing: border-box; width: 100%; max-width: 330px; padding: 7px 12px; border-radius: 12px; background: rgba(255, 255, 255, .16); font-style: normal; font-size: 14.5px; line-height: 1.4; font-weight: 700; text-align: left; }
+.or-step { margin: 10px 0 2px; font-size: 14px; color: #5b4a86; }
+.or-req li.or-hl-n mark { background: #fee2e2; color: #991b1b; }
 .or-req mark { padding: 1px 7px; border-radius: 7px; font-weight: 800; background: #fff1c2; color: #92400e; }
 .or-req li.or-hl-p mark { background: #ede9fe; color: #5b21b6; }
 .nm-bb em { font-style: normal; font-size: 13.5px; line-height: 1.4; padding: 4px 14px; border-radius: 999px; background: rgba(255, 255, 255, .2); }
