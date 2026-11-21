@@ -1,7 +1,7 @@
 // 🤖 让 AI 出名字（批量注册用）：POST { desc, n } → { names: [...], ai, by }。只出便宜档（中文 3 字及以上 / 英文数字 5 位及以上 = 5 DAI/年），涉政的过滤掉
 // 谁来想（站长 2026-11-21：「AI 选域名做得不够机智，要不要接 Claude 或 DeepSeek」）：
 //   以前只有 Claude → 不行就退到 Workers AI 的小模型 → 再不行用固定吉利词库。可是大陆 / 香港的访客 Claude 不给用（服务商的地区规则，我们不绕），
-//   他们其实一直在用小模型或词库，所以显得呆。现在：大陆 / 香港 → DeepSeek（在这两地合规可用，客服早就在用）；其它地区 → Claude，失败了再问 DeepSeek；
+//   他们其实一直在用小模型或词库，所以显得呆。现在：所有地区都先问 DeepSeek（在大陆 / 香港合规可用，客服早就在用）；其它地区 DeepSeek 没答上再问 Claude；
 //   两个都没答上来才退到 Workers AI，最后才是词库。返回里的 by 写明这次是谁想的（claude / deepseek / llama / 词库），方便查。
 //   带后台口令时可以用 engine 指定一个来试（只给站长测试用，客户的请求不认）。
 import { banned } from "../../lib/ban.js";
@@ -43,8 +43,12 @@ async function askLlama(env, sys, user) {
   try { const r = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", { messages: [{ role: "system", content: sys }, { role: "user", content: user }], max_tokens: 600 }); return String((r && r.response) || ""); } catch (e) { return ""; }
 }
 const ASK = { claude: askClaude, deepseek: askDeepseek, llama: askLlama };
-// 纯计算：按地区排出先问谁。大陆 / 香港不问 Claude（它在这两地不提供服务）
-export function orderOf(cc, hasDs) { return cc === "CN" || cc === "HK" ? (hasDs ? ["deepseek", "llama"] : ["llama"]) : ["claude", "deepseek", "llama"]; }
+// 纯计算：按地区排出先问谁。大陆 / 香港不问 Claude（它在这两地不提供服务）。
+// 站长 2026-11-21 上线当晚实测后定：所有地区都先问 DeepSeek（约 1.5 秒、名字更活泼），Claude 只做备用（当晚单独试它两次，一次空手而回、一次给不够）
+export function orderOf(cc, hasDs) {
+  const cn = cc === "CN" || cc === "HK";
+  return (hasDs ? ["deepseek"] : []).concat(cn ? [] : ["claude"], ["llama"]);
+}
 export async function onRequestPost(ctx) {
   const env = ctx.env;
   if (!env.AI && !env.ANTHROPIC_API_KEY && !env.DEEPSEEK_API_KEY) return Response.json({ error: "ai not bound" }, { status: 501 });
