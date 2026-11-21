@@ -22,6 +22,7 @@
     rid = id;
     var hp = location.hash.split("/"); MK = hp[2] === "lgns" ? "lgns" : "ailgns"; // #/lp = AiLGNS，#/lp/lgns = LGNS（Anubis）；别的币种先不开
     K().useMarket(MK); M = K().M();
+    try { if (K().loadTax) K().loadTax().then(function () { if (rid === id) preview(); }, function () {}); } catch (e) { /* 税读不到就按默认 50% 算底线 */ }
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym; PD = M.pd || 2; mkt = 0; midTouched = false; side = { side: "both" }; data = null;
     // 站长 2026-11-10：试运行对所有人开放——做市工具可用、按新规则记账；首次发放时间另行公告
     A.app.innerHTML =
@@ -152,6 +153,16 @@
     if (!bad) return "";
     return "中间价 " + f(p.mid, PD) + " 和现在的市价（约 " + f(ref, PD) + "）差了一倍以上，是不是" + (bad.side === "buy" ? "多写" : "少写") + "了一位？这样铺出去的" + (bad.side === "buy" ? "买单会被别人马上高价卖给你" : "卖单会被别人马上低价买走") + "，链上成交撤不回来。【这个价不能挂】请到「高级设置」把中间价改回市价附近。";
   }
+  /* 🧱 买单底线（站长 2026-11-21「套上」，工单 #373 / #374 顺手查出）：这里铺的买单和普通挂单守同一条「买单最低出价」（otc.js bidFloor）。
+     以前这里不拦，用一键做市能挂出低于底线的买单。有一张买单不高于底线，整批不让挂。没有 DEX 市价可比时返回 ""。 */
+  function floorText(p) {
+    var fl = 0; try { fl = K().bidFloor ? K().bidFloor(mkt) : 0; } catch (e) { fl = 0; }
+    if (!fl || !p.mid) return "";
+    var low = ladder(p).filter(function (r) { return r.side === "buy" && r.px <= fl; });
+    if (!low.length) return "";
+    var lo = Math.min.apply(null, low.map(function (r) { return r.px; })), ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
+    return "买单价格太低：最低一张 " + f(lo, PD) + "，本站买单最低出价是 " + f(ok, PD) + "（低于它，卖家卖给你还不如去官方 DEX 卖，本站不让挂）。请把中间价调高、把价差调小，或者只铺卖单。";
+  }
   function preview() {
     var p = params(), el = document.getElementById("lp-prev"), sum = document.getElementById("lp-sum"); if (!el) return;
     if (!p.mid || !p.amt || !p.sp) { el.innerHTML = ""; if (sum) sum.textContent = !p.amt ? "先填金额" : "正在读盘口价格…"; return; }
@@ -160,7 +171,7 @@
       var what = p.which === "buy" ? "买单（压 DAI，等人卖给你）" : p.which === "sell" ? "卖单（压 " + SYM + "，等人来买）" : "买单 + 卖单";
       sum.innerHTML = "将铺 <b>" + rs.length + " 张" + what + "</b>，每张约 <b>" + f(rs[0].dai, 0) + " DAI</b>，价格 <b>" + f(lo, PD) + " ～ " + f(hi, PD) + "</b>（盘口中间价 " + f(p.mid, PD) + "）· 有效 " + (K().DURATIONS.filter(function (d) { return d[0] === p.dur; })[0] || ["", "30 天"])[1] +
         (rs[0].dai < 50 ? ' · <b class="nm-bad">每张最少 50 DAI，请加大金额</b>' : "") +
-        (farText(p) ? '<br><b class="nm-bad">⛔ ' + esc(farText(p)) + "</b>" : "");
+        (farText(p) ? '<br><b class="nm-bad">⛔ ' + esc(farText(p)) + "</b>" : floorText(p) ? '<br><b class="nm-bad">⛔ ' + esc(floorText(p)) + "</b>" : "");
     }
     var rows = ladder(p), per = rows[0].dai, buyDai = rows.filter(function (r) { return r.side === "buy"; }).reduce(function (s, r) { return s + r.dai; }, 0), sellCoin = rows.filter(function (r) { return r.side === "sell"; }).reduce(function (s, r) { return s + r.coin; }, 0);
     el.innerHTML = '<table class="lp-ladder"><thead><tr><th>方向</th><th>价格</th><th>金额</th><th>数量</th></tr></thead><tbody>' + rows.map(function (r) { return '<tr class="' + r.side + '"><td>' + (r.side === "buy" ? "买" : "卖") + '</td><td>' + f(r.px, PD) + '</td><td>' + f(r.dai, 0) + ' DAI</td><td>' + f(r.coin, 4) + ' ' + SYM + "</td></tr>"; }).join("") + "</tbody></table>" +
@@ -208,7 +219,7 @@
     if (!p.mid || !p.amt || !p.sp) return A.errTip("先填中间价、总资金、价差", go);
     var rows = ladder(p);
     if (rows[0].dai < 50) return A.errTip("每张最少 50 DAI，请加大资金或减少档数", go);
-    var ft = farText(p); if (ft) return A.errTip(ft, go);
+    var ft = farText(p) || floorText(p); if (ft) return A.errTip(ft, go);
     var buyDai = 0n, sellCoin = 0n, calls = [];
     rows.forEach(function (r) {
       if (r.side === "buy") { var d = toWei(r.dai.toFixed(6), 18), c = toWei((r.dai / r.px).toFixed(6), TD); buyDai += d; calls.push({ to: OTC, data: SEL.create + u256(0) + u256(d) + u256(c) + u256(p.dur), tag: "买单 " + f(r.px, PD) }); }

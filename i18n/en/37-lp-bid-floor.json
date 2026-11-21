@@ -1,0 +1,5 @@
+{
+"买单价格太低：最低一张 ": "Buy price too low: your lowest buy order is ",
+"，本站买单最低出价是 ": "; the minimum bid on this site is ",
+"（低于它，卖家卖给你还不如去官方 DEX 卖，本站不让挂）。请把中间价调高、把价差调小，或者只铺卖单。": " (below it, sellers would get more by selling on the official DEX, so such orders are not allowed). Raise the mid price, narrow the spread, or place sell orders only."
+}
