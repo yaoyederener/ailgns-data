@@ -18,7 +18,8 @@
   var FLOWS_URL = "/api/flows";
   var FLOWS_FALLBACK = "https://raw.githubusercontent.com/yaoyederener/monita/main/data/ailgns_flows.json";
   var HK_RPC = "https://ailgnsotc.cc/rpc"; // 香港中转节点（站长 2026-11-10）：大陆客户从 ailgnsotc.cc 打开时优先走它，别的网址当最后兜底
-  var RPCS = location.hostname === "ailgnsotc.cc" ? [HK_RPC, "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", HK_RPC];
+  var NODE_RPC = "https://rpc.ailgns.dev"; // 本站自己的节点（2026-11-21）：排在最后当备用，前面的都读不到才用它
+  var RPCS = location.hostname === "ailgnsotc.cc" ? [HK_RPC, "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", NODE_RPC] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", HK_RPC, NODE_RPC];
   var EXPLORER = "#/scan"; // 全站只用本站账本，不跳官方浏览器（站长 2026-11-05 定）
   var C = {
     PAIR: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", // token0 = AILGNS, token1 = DAI

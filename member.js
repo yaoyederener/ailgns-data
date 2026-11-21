@@ -1390,7 +1390,7 @@
   var STAKE = "0x0664f1369209677fecb279f5ec3df1e53a22212e";
   var LGNS_BURN2 = "0x13b44a18f3f1ffeb7b3e65ecd3210084fae31ad0ed6a2a9ce02f67427deb06f5";
   var COMMUNITY = "0xc9f9a8a2dBf8188AD6610e0239105CAbE67c4993";
-  var ANUBIS_RPCS = location.hostname === "ailgnsotc.cc" ? ["https://ailgnsotc.cc/rpc", "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org"] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", "https://ailgnsotc.cc/rpc"]; // 香港中转节点（2026-11-10）
+  var ANUBIS_RPCS = location.hostname === "ailgnsotc.cc" ? ["https://ailgnsotc.cc/rpc", "https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", "https://rpc.ailgns.dev"] : ["https://rpc.anubispace.org", "https://rpc2.anubispace.org", "https://rpc3.anubispace.org", "https://ailgnsotc.cc/rpc", "https://rpc.ailgns.dev"]; // 香港中转节点（2026-11-10）
 
   function batchRpc(calls, k) {
     k = k || 0;
