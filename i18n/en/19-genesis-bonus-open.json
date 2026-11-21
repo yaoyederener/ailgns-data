@@ -19,5 +19,7 @@
 "：想要只能去域名市场向别人买": ": the only way to get one now is to buy from someone on the name market",
 "最后注册的几个：": "Last ones registered:",
 "🎁 看分红计划 →": "🎁 See the dividend plan →",
-"已全部注册完，分红计划开启": "all registered — the dividend plan is open"
+"已全部注册完，分红计划开启": "all registered — the dividend plan is open",
+"🎁 创世域名 {0} 个已全部注册完，分红计划开启：域名页最上面的卡片现在显示「分红奖池累计金额」，读的是奖池钱包的链上余额。签到和发放还没开始，什么时候开始、具体怎么分以公告为准，规则可能调整。现在再注册的名字不再是创世域名，想要创世域名可以去域名市场买。": "🎁 All {0} Genesis names are registered and the dividend plan is open: the card at the top of the Names page now shows the “Dividend pool total”, read from the pool wallet's on-chain balance. Check-in and payouts have not started yet; when they start and how the pool is shared will be announced, and the rules may change. Names registered from now on are no longer Genesis names — to get one, buy it on the name market.",
+"创世域名 {0} 个已全部注册完，分红计划开启：域名页最上面的卡片现在显示「分红奖池累计金额」，读的是奖池钱包的链上余额。签到和发放还没开始，什么时候开始、具体怎么分以公告为准，规则可能调整。现在再注册的名字不再是创世域名，想要创世域名可以去域名市场买。": "All {0} Genesis names are registered and the dividend plan is open: the card at the top of the Names page now shows the “Dividend pool total”, read from the pool wallet's on-chain balance. Check-in and payouts have not started yet; when they start and how the pool is shared will be announced, and the rules may change. Names registered from now on are no longer Genesis names — to get one, buy it on the name market."
 }
