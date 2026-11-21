@@ -190,7 +190,7 @@
     function stat() {
       var el = document.getElementById("fm-stat");
       if (!el) return;
-      if (!me) { el.innerHTML = ""; return; }
+      if (!me || !R) { el.innerHTML = ""; return; } /* 规则还没读到就先不画（网慢时点得快会报错，2026-11-21 报错清扫） */
       var lv = me.lv, lo = (lv - 1) * (lv - 1) * 10, hi = lv * lv * 10, pct = Math.max(0, Math.min(100, (me.xp - lo) / (hi - lo) * 100));
       var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0, cop = me.cop > t ? Math.ceil((me.cop - t) / 3600) : 0;
       // 站长 2026-11-16：以前超过 48 小时只写「3 天」（四舍五入），续买后看不出是 3 天整还是 3 天 10 小时；狗和警察一个写小时一个写天也让人糊涂。现在统一写「几天几小时」
