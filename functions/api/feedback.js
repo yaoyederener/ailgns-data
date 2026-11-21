@@ -10,7 +10,8 @@
 // POST { key, action: "set", id, st?, note? }       → 改状态 / 写回复（回复客户能在页面上看到）
 // KV：tk:seq 编号；tk:list [id…]；tk:<id> 工单；tk:img:<id>:<n> 截图
 import { sendDebox } from "../../lib/debox.js";
-import { pushInbox } from "../../lib/inbox.js";
+import { pushInbox, inboxText, AUTH_TTL, OWNER_ALSO } from "../../lib/inbox.js";
+import { recoverAddress } from "../../lib/evmsig.js";
 import { triage, LV_NAME } from "../../lib/triage.js";
 import { SUPPORT_USER } from "../../lib/support.js";
 import { reviewerOf } from "../../lib/reviewers.js";
@@ -21,6 +22,19 @@ const keyOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) |
 
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
+/* 🔒 私密工单（站长 2026-11-21）：产品优化员名单（lib/reviewers.js）里的地址发的工单，光有后台口令看不到、也改不了。
+   只有两种人能看：站长的钱包（BOSS），和发单人自己。怎么认人：用「收件箱登录」的那个钱包签名（pa / pts / psig，签一次管 30 天），不另设口令。
+   巡检机器人只有口令，所以自动跳过这些工单。 */
+const BOSS = [OWNER].concat(OWNER_ALSO);
+const isPriv = (t) => !!(t && (t.vip || reviewerOf(t.a)));
+function signer(a, ts, sig) {
+  a = String(a || "").toLowerCase(); ts = Number(ts);
+  if (!isAddr(a) || !ts || !sig) return "";
+  const now = Date.now();
+  if (ts > now + 5 * 60e3 || now - ts > AUTH_TTL) return "";
+  try { return recoverAddress(inboxText(a, ts), String(sig)) === a ? a : ""; } catch (e) { return ""; }
+}
+const signerOf = (p) => signer(p.get("pa"), p.get("pts"), p.get("psig"));
 const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效" };
 const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
@@ -66,12 +80,14 @@ export async function onRequestGet(ctx) {
     const m0 = rimg.match(/^(\d+):(\d)$/); if (!m0) return new Response("bad", { status: 400 });
     const t0 = await kv.get("tk:" + m0[1], "json");
     if (!t0 || t0.a !== ra) return new Response("not found", { status: 404 });
+    if (isPriv(t0) && signerOf(u.searchParams) !== ra) return new Response("not found", { status: 404 }); // 🔒 私密工单的图：只有本人签过名才给
     const d = await kv.get("tk:img:" + m0[1] + ":" + (mimg ? "" : "r") + m0[2]);
     const m = d && d.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!m) return new Response("not found", { status: 404 });
     return new Response(Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0)), { headers: { "content-type": m[1], "cache-control": "private, max-age=86400" } });
   }
   if (isAddr(mine)) {
+    if (reviewerOf(mine) && signerOf(u.searchParams) !== mine) return json({ list: [], lock: 1 }); // 🔒 光知道地址不行，要本人签过名
     const ids = (await kv.get("tk:a:" + mine, "json")) || [];
     const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter(Boolean).reverse();
     return json({ list: ts.map(pub) });
@@ -79,7 +95,8 @@ export async function onRequestGet(ctx) {
   // 站长电脑上的提醒小程序用：只给「还没处理的工单数」，不给内容，不用口令
   if (u.searchParams.get("pending")) {
     const ids = ((await kv.get("tk:list", "json")) || []).slice(-100);
-    const ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter(Boolean);
+    const seeAll = BOSS.includes(signerOf(u.searchParams));
+    const ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && (seeAll || !isPriv(t))); // 🔒 私密工单不计数，除非是站长钱包
     // 老工单还没分诊的，顺手补（每次最多 3 张）
     const todo = ts.filter((t) => !t.tri && t.st !== "done").slice(0, 3);
     for (const t of todo) await runTriage(ctx, kv, t).catch(() => {});
@@ -89,9 +106,11 @@ export async function onRequestGet(ctx) {
     return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, lv, top: top ? { id: top.id, lv: top.tri ? top.tri.lv : 2, topic: top.tri ? top.tri.topic : "", dup: top.tri ? top.tri.dup : 0 } : null, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
   }
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
+  const boss = BOSS.includes(signerOf(u.searchParams)); // 🔒 是不是站长钱包
   const vid = u.searchParams.get("vid");
   if (vid) {
     const vt = await kv.get("tk:" + (Number(vid) || 0), "json");
+    if (isPriv(vt) && !boss) return new Response("not found", { status: 404 });
     if (vt && vt.vn) return videoParts(ctx, kv, vt.id, vt);
     const r = await kv.getWithMetadata("tk:vid:" + (Number(vid) || 0), "arrayBuffer");
     if (!r || !r.value) return new Response("视频没找到（可能已过期：视频只留 14 天，11-19 之前传的留 60 天）", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -99,6 +118,7 @@ export async function onRequestGet(ctx) {
   }
   const img = u.searchParams.get("img");
   if (img) {
+    if (!boss && isPriv(await kv.get("tk:" + (Number(img.split(":")[0]) || 0), "json"))) return new Response("not found", { status: 404 });
     const d = await kv.get("tk:img:" + img.replace(":", ":"));
     if (!d) return new Response("not found", { status: 404 });
     const m = d.match(/^data:(image\/\w+);base64,(.+)$/);
@@ -108,13 +128,13 @@ export async function onRequestGet(ctx) {
   }
   const st = u.searchParams.get("st") || "";
   const ids = ((await kv.get("tk:list", "json")) || []).slice(-300).reverse();
-  let ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter(Boolean);
+  let ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && (boss || !isPriv(t))); // 🔒 私密工单只给站长钱包
   const cnt = { new: 0, doing: 0, done: 0, skip: 0 };
   ts.forEach((t) => { cnt[t.st] = (cnt[t.st] || 0) + 1; });
   if (st) ts = ts.filter((t) => t.st === st);
   if (st === "done" || st === "skip") ts.sort((x, y) => ((y.up || y.t) - (x.up || x.t))); // 已解决 / 无效：最近处理的在前（站长 2026-11-08：之前按级别排，老单子一直占着第一条）
   else ts.sort((x, y) => ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // ⭐ 产品优化员置顶；再按轻重缓急：级别高的在前，同级新的在前
-  return json({ list: ts, cnt });
+  return json({ list: ts, cnt, boss });
 }
 
 const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i, VID_MAX = 20 * 1024 * 1024;
@@ -202,6 +222,7 @@ export async function onRequestPost(ctx) {
     if (!keyOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
     const t = await kv.get("tk:" + b.id, "json");
     if (!t) return json({ error: "没有这个工单" }, 404);
+    if (isPriv(t) && !BOSS.includes(signer(b.pa, b.pts, b.psig))) return json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
     if (b.st && ST[b.st]) t.st = b.st;
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);

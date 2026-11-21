@@ -204,17 +204,21 @@
         }, function () { go.disabled = false; say("网络不好，请再点一次"); });
     };
   }
+  // 🔒 私密工单：把「收件箱登录」的钱包签名带上（站长钱包能看全部；发单人能看自己的）。a 给了就只在签名正是这个地址时才带
+  function fbSig(a) { try { var x = JSON.parse(localStorage.getItem("ibAuth") || "null"); if (x && x.a && x.ts && x.sig && (!a || x.a === a)) return x; } catch (e) {} return null; }
+  function fbPq(a) { var x = fbSig(a); return x ? "&pa=" + x.a + "&pts=" + x.ts + "&psig=" + x.sig : ""; }
   function mine(a) {
     var box = document.getElementById("fb-mine"); if (!box) return;
-    fetch("/api/feedback?mine=" + a).then(function (r) { return r.json(); }).then(function (j) {
+    fetch("/api/feedback?mine=" + a + fbPq(a)).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.lock) { box.innerHTML = '<p class="muted">🔒 这个地址的工单只有本人能看。先到 <a href="#/inbox">📬 收件箱</a> 用钱包登录一次（签名免费），再回到这里。</p>'; return; }
       var l = j.list || [], seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + a) || 0); } catch (e) {}
       // 客户看进度：像聊天一样——左边我说的，右边客服回的；状态大字；新回复高亮
       box.innerHTML = l.length ? l.map(function (t) {
         var s = ST[t.st] || ST["new"], fresh = t.note && t.up > seen;
         return '<div class="fb-th' + (fresh ? " fresh" : "") + '" id="fb-t' + t.id + '"><div class="fb-thh"><span class="fb-tag" style="background:' + s[1] + '">' + (t.st === "done" ? "✅ " : t.st === "doing" ? "⏳ " : "📮 ") + s[0] + '</span><b>工单 #' + t.id + '</b><small class="muted">' + tm(t.t) + "</small>" + (fresh ? '<i class="fb-new">新回复</i>' : "") + "</div>" +
-          '<div class="fb-bub me"><small>我</small>' + esc(t.txt || "（截图 " + t.n + " 张）") + (t.n ? '<div class="fb-ims">' + Array.apply(null, Array(t.n)).map(function (_, i) { var u = "/api/feedback?mimg=" + t.id + ":" + i + "&a=" + a; return '<a href="' + u + '" target="_blank"><img loading="lazy" src="' + u + '" alt="我的截图"></a>'; }).join("") + "</div>" : "") + "</div>" + // 站长 2026-11-08：显示客户自己当初的截图
+          '<div class="fb-bub me"><small>我</small>' + esc(t.txt || "（截图 " + t.n + " 张）") + (t.n ? '<div class="fb-ims">' + Array.apply(null, Array(t.n)).map(function (_, i) { var u = "/api/feedback?mimg=" + t.id + ":" + i + "&a=" + a + fbPq(a); return '<a href="' + u + '" target="_blank"><img loading="lazy" src="' + u + '" alt="我的截图"></a>'; }).join("") + "</div>" : "") + "</div>" + // 站长 2026-11-08：显示客户自己当初的截图
           (t.bot && !t.note ? '<div class="fb-bub bot"><small>🤖 机器人初步答复</small>' + esc(t.bot) + '<em>人工客服会再确认</em></div>' : "") +
-          (t.note ? '<div class="fb-bub cs"><small>💬 客服' + (t.up ? " · " + tm(t.up) : "") + "</small>" + esc(t.note) + (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { var u = "/api/feedback?rimg=" + t.id + ":" + i + "&a=" + a; return '<a href="' + u + '" target="_blank"><img loading="lazy" src="' + u + '"></a>'; }).join("") + "</div>" : "") + "</div>" : '<div class="fb-wait">客服还没回复，会按轻重缓急处理；回复了这里会亮起来，页面右下角也会提醒</div>') +
+          (t.note ? '<div class="fb-bub cs"><small>💬 客服' + (t.up ? " · " + tm(t.up) : "") + "</small>" + esc(t.note) + (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { var u = "/api/feedback?rimg=" + t.id + ":" + i + "&a=" + a + fbPq(a); return '<a href="' + u + '" target="_blank"><img loading="lazy" src="' + u + '"></a>'; }).join("") + "</div>" : "") + "</div>" : '<div class="fb-wait">客服还没回复，会按轻重缓急处理；回复了这里会亮起来，页面右下角也会提醒</div>') +
           (t.st !== "done" || t.note ? '<div class="fb-thf"><button type="button" class="link fb-more" data-id="' + t.id + '">补充说明 / 追问</button></div>' : "") + "</div>";
       }).join("") : '<p class="muted">这个地址还没有提交过反馈</p>';
       try { var mx = Math.max.apply(null, [0].concat(l.map(function (t) { return t.up || 0; }))); if (mx) localStorage.setItem("fb:seen:" + a, String(mx)); } catch (e) {}
@@ -230,7 +234,7 @@
     A.wallets.silent().then(function (acc) {
       if (!acc) return; acc = String(acc).toLowerCase();
       var seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + acc) || 0); } catch (e) {}
-      return fetch("/api/feedback?mine=" + acc).then(function (r) { return r.json(); }).then(function (j) {
+      return fetch("/api/feedback?mine=" + acc + fbPq(acc)).then(function (r) { return r.json(); }).then(function (j) {
         var fresh = (j.list || []).filter(function (t) { return t.note && t.up > seen; });
         if (!fresh.length || document.getElementById("fb-pill") || pillOff) return;
         var t = fresh[0], el = document.createElement("a"); el.id = "fb-pill"; el.className = "fb-pill"; el.href = "#/feedback/" + t.id;
@@ -323,17 +327,17 @@
     }
   }
   function pendingPoll() {
-    fetch("/api/feedback?pending=1").then(function (r) { return r.json(); }).then(function (p) { bellPaint(p); nag(p); }).catch(function () {});
+    fetch("/api/feedback?pending=1" + fbPq()).then(function (r) { return r.json(); }).then(function (p) { bellPaint(p); nag(p); }).catch(function () {});
   }
   function startNag() { clearInterval(nagTimer); pendingPoll(); nagTimer = setInterval(pendingPoll, 30000); }
   if (/feedback\/admin/.test(location.hash)) setTimeout(startNag, 500);
   window.addEventListener("hashchange", function () { if (/feedback\/admin/.test(location.hash)) startNag(); else { clearInterval(nagTimer); clearInterval(titleTimer); if (/⚠️/.test(document.title)) document.title = baseTitle; /* 只在标题正闪着提醒时才还原；以前每次换页都还原，标签标题就一直停在第一个打开的页面上 */ var b = document.getElementById("fb-bell"); if (b) b.remove(); } });
   function beep() { try { var c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.value = 0.08; o.start(); setTimeout(function () { o.stop(); c.close(); }, 250); } catch (e) {} }
-  function api(q) { return fetch("/api/feedback?" + q + "&key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }); }
-  function imgUrl(id, i) { return "/api/feedback?img=" + id + ":" + i + "&key=" + encodeURIComponent(key()); }
+  function api(q) { return fetch("/api/feedback?" + q + "&key=" + encodeURIComponent(key()) + fbPq()).then(function (r) { return r.json(); }); }
+  function imgUrl(id, i) { return "/api/feedback?img=" + id + ":" + i + "&key=" + encodeURIComponent(key()) + fbPq(); }
   function card(t, one) {
     var ims = ""; for (var i = 0; i < t.n; i++) ims += '<a href="' + imgUrl(t.id, i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, i) + '"></a>';
-    if (t.v) ims += '<a class="fb-vbtn" href="/api/feedback?vid=' + t.id + "&key=" + encodeURIComponent(key()) + '" target="_blank" rel="noopener">▶ 看客户的视频' + (t.vs ? "（" + Math.max(1, Math.round(t.vs / 1048576)) + " MB）" : "") + "</a>"; // 站长 2026-11-17：客户随工单传的录屏，新开一页播放
+    if (t.v) ims += '<a class="fb-vbtn" href="/api/feedback?vid=' + t.id + "&key=" + encodeURIComponent(key()) + fbPq() + '" target="_blank" rel="noopener">▶ 看客户的视频' + (t.vs ? "（" + Math.max(1, Math.round(t.vs / 1048576)) + " MB）" : "") + "</a>"; // 站长 2026-11-17：客户随工单传的录屏，新开一页播放
     var s = ST[t.st] || ST["new"], tr = t.tri, lv = tr ? LV[tr.lv] : null;
     return '<div class="fb-tk lv' + (tr ? tr.lv : 2) + (t.vip ? " fb-vip" : "") + '" data-id="' + t.id + '"><div class="fb-tkh"><b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> ' + (t.vip ? '<span class="fb-tag" style="background:#b45309">⭐ ' + esc(t.vip) + ' · 站长亲审</span> ' : "") + '<span class="fb-tag" style="background:' + s[1] + '">' + s[0] + "</span>" + (lv ? '<span class="fb-tag" style="background:' + lv[1] + '">' + lv[0] + (tr.dup > 1 ? " · " + tr.dup + " 人同问" : "") + "</span>" : '<span class="fb-tag" style="background:#9ca3af">分诊中</span>') +
       (one ? "" : ' <a href="#/feedback/admin/' + t.id + '">打开处理 →</a>') + "</div>" +
@@ -372,7 +376,8 @@
     });
     box.querySelectorAll("[data-set]").forEach(function (b) {
       b.onclick = function () {
-        var cd = b.closest(".fb-tk"), s = b.getAttribute("data-set"), note = cd.querySelector("textarea").value.trim(), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), note: note };
+        var cd = b.closest(".fb-tk"), s = b.getAttribute("data-set"), note = cd.querySelector("textarea").value.trim(), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), note: note }, sg = fbSig();
+        if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
         if (cd._rimgs && cd._rimgs.length) body.rimgs = cd._rimgs;
         if (s === "done" && !note && !confirm("还没写回复，确定直接标「已解决」吗？")) return;
         if (s !== "save") body.st = s;
@@ -586,6 +591,7 @@
         var l = j.list || [];
         box.innerHTML = l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">没有' + ST[st][0] + "的工单 🎉</p>";
         bindCards(box, function (cd) { cd.remove(); });
+        if (j.boss === false) box.insertAdjacentHTML("beforeend", '<p class="muted fb-privtip">🔒 有一类工单只有站长的钱包能看：站长先在 <a href="#/inbox">📬 收件箱</a> 用自己的钱包登录一次，再回到这里。</p>');
       }, function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
     }
     load(true);
