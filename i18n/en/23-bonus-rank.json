@@ -1,0 +1,23 @@
+{
+"这一轮还没有人签到。你来当第一个。": "Nobody has signed in this round yet. Be the first.",
+"轮 · 共": "·",
+"个钱包签到 · 按票数排": "wallets signed in · ranked by tickets",
+"天 ·": "day(s) ·",
+"今天已签": "signed in today",
+"今天还没签": "not signed in today",
+"· 现在有": "· now holds",
+"枚创世域名": "Genesis name(s)",
+"枚没列出": "more not listed",
+"签到后名字已转走或挂到市场，现在钱包里没有创世域名": "The names were moved or listed after signing in; this wallet holds no Genesis name now",
+"收起，只看前 {0} 名": "Collapse to the top {0}",
+"再看后面": "Show the next",
+"个钱包": "wallets",
+"榜上只列票数最多的": "The board lists only the top",
+"个钱包。": "wallets by tickets.",
+"排行榜暂时没读到，稍后自动重试。": "Couldn't load the leaderboard; retrying shortly.",
+"🏆 签到排行榜": "🏆 Sign-in leaderboard",
+"签到排行榜": "Sign-in leaderboard",
+"每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。": "Updates every minute. Names shown are the Genesis names the wallet holds now; names listed on the market don't count.",
+"🏆 创世域名分红页加了「签到排行榜」：这一轮按票数排，每个钱包下面列出它手里的创世域名。每分钟更新一次。": "🏆 The Genesis dividend page now has a sign-in leaderboard: this round ranked by tickets, with each wallet's Genesis names listed under it. Updates every minute.",
+"创世域名分红页加了「签到排行榜」：这一轮按票数排，每个钱包下面列出它手里的创世域名。每分钟更新一次。": "The Genesis dividend page now has a sign-in leaderboard: this round ranked by tickets, with each wallet's Genesis names listed under it. Updates every minute."
+}
