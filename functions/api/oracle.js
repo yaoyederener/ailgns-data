@@ -9,7 +9,7 @@ import { pushInbox } from "../../lib/inbox.js";
 const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 站长站内信（谷歌社交账号钱包），和工单后台同一个
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const admOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY)); // 后台只用工单口令（站长：只留一个口令）
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, normG, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, kingOn, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, normG, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, PLAIN_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, kingOn, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -104,7 +104,7 @@ export async function onRequestGet(ctx) {
   if (isAddr(a)) {
     try {
       const el = await eligibility(kv, a), name = el.name;
-      out.me = { a, name, gno: el.gno, vol: el.vol, ok: el.ok, need: OTC_MIN, cool: el.cool };
+      out.me = { a, name, gno: el.gno, vol: el.vol, reg: el.reg || 0, regNeed: PLAIN_MIN, ok: el.ok, need: OTC_MIN, cool: el.cool };
       if (round >= DAILY_FROM) { const dm = (await kv.get("or:dcool", "json")) || {}, dc = [dm[el.key] || "", dm[a] || ""].sort().pop(); out.me.dcool = dc >= round ? dc : ""; } /* 每日奖冷却到哪一轮（含）；照样能猜大奖 */
       if (out.kings) { const i = out.kings.all.findIndex((x) => x.a === a); out.me.king = i >= 0 ? { rank: i + 1, fee: out.kings.all[i].fee } : null; }
       try { // 📋 我的预测记录：今晚揭晓那一轮 + 往前 5 轮（客户 2026-11-14：封卷后页面只显示新一轮，下午填的找不到）；这块读不到不影响别的
@@ -235,8 +235,8 @@ export async function onRequestPost(ctx) {
   if (a === "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6" || a === "0x89dd06754bb239b6c4c92bc47c8fa72889084e27") return json({ error: "站长钱包不参加" }, 400);
   let el;
   try { el = await eligibility(kv, a); } catch (e) { return json({ error: "读链失败，请稍后再试" }, 502); }
-  if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + "（或这个钱包）已经领过奖，不能再参加。想继续玩：用一个新钱包，买新的 🌟 创世 .ailgns 域名设为主名字" }, 400);
-  if (!el.ok) return json({ error: "还没有参加资格：主名字是创世 .ailgns 域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，满足其一就能参加" }, 400);
+  if (el.cool) return json({ error: "恭喜你中过奖！" + (el.name || "这个钱包") + "（或这个钱包）已经领过奖，不能再参加。想继续玩：用一个新钱包，买一个 🌟 创世 .ailgns 域名设为主名字，或者注册满 " + PLAIN_MIN + " 个普通域名" }, 400);
+  if (!el.ok) return json({ error: "还没有参加资格：主名字是创世 .ailgns 域名，或者 OTC 累计成交满 " + OTC_MIN.toLocaleString("en-US") + " DAI，或者这个钱包注册满 " + PLAIN_MIN + " 个普通域名，满足其一就能参加（刚注册的等 1 分钟再试）" }, 400);
   const name = el.name || a.slice(0, 6) + "…" + a.slice(-4); // 没有域名、靠 OTC 成交参加的，用短地址显示
   const key = "or:g:" + round + ":" + el.key, mine = normG(await kv.get(key, "json"), round) || { a, name, ps: [] };
   if (mine.a !== a) return json({ error: name + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次" }, 400);
