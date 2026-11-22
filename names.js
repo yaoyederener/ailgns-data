@@ -1538,9 +1538,10 @@
         : mkSort === "new" ? function (a, b) { return b.id - a.id; }
         : function (a, b) { return b.pin - a.pin || b.vol - a.vol || b.cost - a.cost || (a.gno || 1e9) - (b.gno || 1e9) || (a.t === b.t ? 0 : a.t === "ailgns" ? -1 : 1) || b.id - a.id; });
       var now2 = Date.now() / 1000;
-      box.innerHTML = kindBar + '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>' +
+      box.innerHTML = kindBar + (mkSort !== "rec" ? "" : '<div class="nm-rulebar"><b>📋 挂单展示规则</b><span>⭐ <b>付费置顶</b>的排最前（出价高的在前）</span><span>① 卖家 <b>OTC 累计成交越多</b>，越靠前</span><span>② 名字<b>注册价越高</b>（越稀缺），越靠前</span><span>③ <b>创世编号越小</b>，越靠前</span><span>④ 都一样的，新挂的在前</span></div>') +
         '<div class="nm-mkq"><input id="nm-mkq" placeholder="🔍 搜域名或卖家地址，例如 发财 / 0xf0da…" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(mkQ) + '">' + (q ? '<span class="muted">找到 ' + (gKnown ? cntG + cntP : list.length) + " 个</span>" : "") + "</div>" +
-        '<div class="seg nm-sort" id="nm-sort">' + [["rec", "推荐排序"], ["ai", "✨ AI 推荐"], ["price", "价格低→高"], ["priced", "价格高→低"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+        '<div class="seg nm-sort" id="nm-sort">' + [["price", "价格低→高"], ["priced", "价格高→低"], ["rec", "推荐排序"], ["ai", "✨ AI 推荐"], ["new", "最新挂单"]].map(function (x) { return '<button type="button" data-s="' + x[0] + '"' + (mkSort === x[0] ? ' class="on"' : "") + ">" + x[1] + "</button>"; }).join("") + "</div>" +
+        (bsCheap(list).length >= 2 ? '<button type="button" class="nm-bs-open" id="nm-bs-open"><b>🧹 一键扫单</b><small>从最便宜的开始，一次买好几个</small></button>' : "") + '<div id="nm-bs">' + bsNoteHtml() + "</div>" +
         (mkSort === "ai" ? '<p class="muted nm-aidisc">✨ AI 每小时从全部挂单里挑 20 个，只按<b>寓意、稀缺、性价比</b>三条看名字和价格，不看卖家' + (aiAt ? " · 更新于 " + new Date(aiAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }) : "") + ' · 仅供参考，不构成投资建议</p>' +
           (!list.length ? '<p class="muted nm-aiempty">' + (aiErr === "loading" ? "✨ AI 正在挑选，几秒后自动显示…" : aiErr ? "AI 这会儿没答上来，稍后再点一次，或先看「推荐排序」" : "这一小时 AI 没挑出特别值得推荐的，看看其它排序") + "</p>" : "") : "") +
         (!list.length && mkSort !== "ai" ? '<p class="muted nm-kd-none">' + (q ? "没有搜到符合的挂单。" : "这个栏目现在没有挂单。") + "</p>" : "") +
@@ -1571,6 +1572,8 @@
       if (qi) qi.oninput = function () { clearTimeout(qt); qt = setTimeout(function () { mkQ = qi.value; mkN = 0; draw(full, vols, gens); var n = document.getElementById("nm-mkq"); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 300); };
       document.getElementById("nm-sort").onclick = function (e) { var b = e.target.closest("button[data-s]"); if (!b) return; mkSort = b.getAttribute("data-s"); draw(full, vols, gens); };
       rankLookup();
+      var bsB = document.getElementById("nm-bs-open");
+      if (bsB) bsB.onclick = function () { sweepBox(list, gKnown ? mkKind : ""); };
       var st = document.getElementById("nm-mst"), say = function (t) { st.textContent = t; };
       box.querySelectorAll("button[data-i]").forEach(function (b) {
         b.onclick = function () {
@@ -1579,9 +1582,91 @@
       });
     }
   }
+  // 🧹 一键扫单（站长 2026-11-22）：从最便宜的开始一次买好几个。没有新合约，还是市场合约原来的「买入」：
+  // 先授权一次总额，钱包支持「一次确认发一串」就一次付完，不支持就一个名字确认一次；被别人先买走的自动跳过、不扣钱
+  var BS_MAX = 20, bsNote = null, bsNoteAt = 0;
+  function bsCheap(list) { return list.filter(function (it) { return !it.expired && !(account && it.maker === account); }).sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : a.id - b.id; }); }
+  function bsDai(w) { return Number(w / 10n ** 12n) / 1e6; }
+  function bsPay(it) { return it.price + it.price * 3n / 100n; }
+  function bsNoteHtml() { return bsNote && Date.now() - bsNoteAt < 180000 ? '<div class="nm-bs-done">' + bsNote.map(function (t) { return "<p>" + esc(t) + "</p>"; }).join("") + "</div>" : ""; }
+  function bsSeq(arr, fn) { return arr.reduce(function (p, x, i) { return p.then(function () { return fn(x, i); }); }, Promise.resolve()); }
+  function sweepBox(list, kind) {
+    var box = document.getElementById("nm-bs"); if (!box) return;
+    if (box.querySelector(".nm-bs")) { box.innerHTML = ""; return; } // 再点一次收起
+    bsNote = null;
+    var all = bsCheap(list), cap = Math.min(BS_MAX, all.length), n = Math.min(5, cap), busy = false;
+    var opts = [3, 5, 10, 20].filter(function (k) { return k < cap; }); opts.push(cap);
+    function paint() {
+      var picks = all.slice(0, n), sum = 0n, pay = 0n;
+      picks.forEach(function (it) { sum += it.price; pay += bsPay(it); });
+      box.innerHTML = '<div class="nm-bs"><b class="nm-bs-h">🧹 一键扫单' + (kind === "gen" ? " · 创世域名" : kind === "plain" ? " · 普通域名" : "") + "</b>" +
+        '<p class="nm-bs-t">从最便宜的开始，买几个？</p>' +
+        '<div class="nm-bs-n">' + opts.map(function (k) { return '<button type="button" data-bn="' + k + '"' + (k === n ? ' class="on"' : "") + ">" + (k === all.length ? "全部 " + k + " 个" : k + " 个") + "</button>"; }).join("") + "</div>" +
+        '<ol class="nm-bs-l">' + picks.map(function (it) { return "<li><span>" + esc(it.label) + "." + it.t + (it.gno > 0 ? " <i>🌟 #" + it.gno + "</i>" : "") + "</span><b>" + bsDai(it.price) + "</b></li>"; }).join("") + "</ol>" +
+        '<p class="nm-bs-sum"><b>共 ' + n + " 个 · 你一共付 " + bsDai(pay) + " DAI</b><small>标价合计 " + bsDai(sum) + " DAI + 3% 手续费</small></p>" +
+        '<div class="nm-bs-b"><button type="button" class="nm-go" id="nm-bs-ok">🧹 确认扫 ' + n + ' 个</button><button type="button" class="ghost" id="nm-bs-no">取消</button></div>' +
+        '<p class="nm-st" id="nm-bs-st"></p>' +
+        '<p class="muted nm-bs-tip">钱包会先让你授权一次（不扣钱），再付款。钱包不支持一次付完的，会一个名字确认一次。中途被别人先买走的自动跳过，不扣那一个的钱。</p></div>';
+      box.querySelectorAll("[data-bn]").forEach(function (b) { b.onclick = function () { if (busy) return; n = Number(b.getAttribute("data-bn")); paint(); }; });
+      box.querySelector("#nm-bs-no").onclick = function () { if (!busy) box.innerHTML = ""; };
+      var ok = box.querySelector("#nm-bs-ok"), st = box.querySelector("#nm-bs-st"), say = function (t) { st.textContent = t; };
+      ok.onclick = function () {
+        if (busy) return; busy = true; ok.disabled = true;
+        sweepRun(picks, say).then(function (r) {
+          var m = [r.got ? "✅ 扫单完成：买到 " + r.got + " 个，一共付了 " + bsDai(r.paid) + " DAI" : "⚠️ 一个也没买到，没有扣你的钱"];
+          if (r.skip) m.push(r.skip + " 个已被别人买走或下架，自动跳过，没扣那几个的钱");
+          if (r.stop) m.push("你在钱包里点了取消，后面的没有买");
+          if (r.poor) m.push("DAI 不够了，后面的没有买");
+          if (r.got) m.push("买到的名字已经在你钱包里，下方「🧾 域名订单查询」能看到");
+          bsNote = m; bsNoteAt = Date.now(); market(); ordAfter();
+        }, function (e) { busy = false; ok.disabled = false; say(""); A.errTip(e.message || String(e), ok); });
+      };
+    }
+    paint();
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  function sweepRun(picks, say) {
+    var res = { got: 0, paid: 0n, skip: 0, stop: false, poor: false }, NO = /reject|denied|cancel|取消|拒绝/i;
+    return connect().then(function () { say("正在核对最新挂单和余额…"); return listings(true); }).then(function (fresh) {
+      var live = {}; fresh.forEach(function (x) { if (!x.expired) live[x.t + ":" + x.id] = x; });
+      var ok = picks.filter(function (it) { var x = live[it.t + ":" + it.id]; return x && x.price === it.price && x.maker !== account; });
+      res.skip = picks.length - ok.length;
+      if (!ok.length) throw new Error("你选的名字刚刚都被别人买走了，没有扣你的钱。请刷新后再试");
+      var need = {}, total = 0n;
+      ok.forEach(function (it) { need[it.O] = (need[it.O] || 0n) + bsPay(it); total += bsPay(it); });
+      var Os = Object.keys(need);
+      return W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(BigInt, function () { return -1n; }).then(function (bal) {
+        if (bal >= 0n && bal < total) throw new Error("DAI 不够：这 " + ok.length + " 个一共要 " + bsDai(total) + " DAI，你钱包里有 " + bsDai(bal) + " DAI。少选几个再试");
+        tipN = 0; tipAt = Date.now(); tipTotal = ok.length + Os.length;
+        return bsSeq(Os, function (O) {
+          return W.rpcOn("anubis", "eth_call", [{ to: DAI, data: SEL.allowance + A.pad(account) + A.pad(O) }, "latest"]).then(function (a) {
+            if (BigInt(a) < need[O]) return tx(DAI, SEL.approve + A.pad(O) + u256(need[O]), say, "🔒 第 1 步：授权市场合约收 " + bsDai(need[O]) + " DAI（含 3% 手续费，只授权这一次扫单的总额）。请在钱包确认");
+          });
+        });
+      }).then(function () {
+        var one = function () {
+          return bsSeq(ok, function (it, i) {
+            if (res.stop || res.poor) return;
+            return tx(it.O, SEL.oBuy + u256(it.id) + u256(bsPay(it)), say, "🔒 付款买第 " + (i + 1) + " / " + ok.length + " 个：" + it.label + "." + it.t + "，名字直接到你钱包。请在钱包确认").then(function () { res.got++; res.paid += bsPay(it); }, function (e) {
+              var m = String((e && e.message) || e);
+              if (/DAI 不够/.test(m)) res.poor = true; else if (NO.test(m) || (e && e.code === 4001)) res.stop = true; else res.skip++; // 其余 = 这张单已被买走 / 下架，跳过
+            });
+          });
+        };
+        if (ok.length < 2) return one();
+        return sendCalls(ok.map(function (it) { return { to: it.O, data: SEL.oBuy + u256(it.id) + u256(bsPay(it)) }; }), say).then(function (done) {
+          if (done) { res.got = ok.length; res.paid = total; return; }
+          return one();
+        }, function (e) {
+          if (NO.test(String((e && e.message) || e)) || (e && e.code === 4001)) { res.stop = true; return; }
+          say("一次付完没成功，改成一个一个确认"); return one();
+        });
+      });
+    }).then(function () { return res; });
+  }
   // 挂单多：手机先显示 5 个、电脑 10 个，点「再看」每次多显示同样多个，不一下子全铺开
   var mkKind = "gen", mkKindSet = false; // 市场的两个栏目：gen 创世域名 / plain 普通域名；没点过就默认创世（没有创世挂单才默认普通）
-  var mkSort = "rec", mkN = 0, mkQ = "", aiPicks = null, aiAt = 0, aiErr = ""; // ✨ AI 推荐：/api/name-ai 每小时挑 20 个 + 理由
+  var mkSort = "price", mkN = 0, mkQ = "", aiPicks = null, aiAt = 0, aiErr = ""; // ✨ AI 推荐：/api/name-ai 每小时挑 20 个 + 理由
   function mkStep() { return innerWidth < 640 ? 5 : 10; }
   function mkShow() { return mkN || mkStep(); }
   // 卖家的「OTC 累计成交」：和会员卡上同一个数（本站 OTC 单笔满 50 DAI 的成交累计）
