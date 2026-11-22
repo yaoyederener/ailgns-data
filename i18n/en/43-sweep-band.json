@@ -1,0 +1,5 @@
+{
+"🛡 一键扫单加了一道保护：只吃和盘口价相差 {0}% 以内的单，差得更多的不扫，防止一口气扫太深、成交价差太多吃亏。面板里会写清有几张没扫。": "🛡 One-click sweep now has a safeguard: it only fills orders priced within {0}% of the book price and skips anything further away, so you can't sweep too deep and end up with a much worse price. The panel shows how many orders were skipped.",
+"一键扫单加了一道保护：只吃和盘口价相差 {0}% 以内的单，差得更多的不扫，防止一口气扫太深、成交价差太多吃亏。面板里会写清有几张没扫。": "One-click sweep now has a safeguard: it only fills orders priced within {0}% of the book price and skips anything further away, so you can't sweep too deep and end up with a much worse price. The panel shows how many orders were skipped.",
+"按价格从优到差，一次吃下多张单 · 只吃差价 {0}% 以内的": "Best price first, fills several orders at once · only orders within {0}% of the book price"
+}
