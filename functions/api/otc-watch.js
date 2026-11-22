@@ -402,12 +402,14 @@ async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
 }
 
 const PROMO = "🎁 交易就送会员，累计成交满 1 万 DAI 送高级 VIP";
-// 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 近 1 小时成交（不报累计） ② 域名累计注册 + 这段新增 ③ 创世域名免费预测 + 奖池 ④ 网址
+// 群播报（站长 2026-11-10 定稿，每 4 小时一条）：① OTC 近 1 小时成交（不报累计） ② 域名累计注册（创世 + 普通）+ 这段新增 ③ 创世域名免费预测 + 奖池 ④ 防骗提醒（2026-11-22 加）⑤ 网址
 // tot：KV st:tot 全站累计（daily-stats 攒的）；fills：上次播报以来的新成交；names：/api/name-genesis；pool：/api/oracle funds 算出的奖池钱包实际余额 { ail, dai }
 // 群发结果记录（最近 20 次）：/api/otc-watch?bcdry=1 的 log 里能看到每次发没发成、DeBox 报了什么错
 async function bcLog(kv, row) {
   try { const l = (await kv.get("bc:log", "json")) || []; l.push(row); await kv.put("bc:log", JSON.stringify(l.slice(-20))); } catch (e) { /* 记不上不影响播报 */ }
 }
+// 🛡️ 防骗提醒（站长 2026-11-22：「客户总是被骗」，每条播报都带）。口径和客服知识库【防骗】【安全】两条一致
+const SCAM = "⚠️ 防骗提醒：官方不会主动私聊你，不会索要助记词、私钥，也不会让你转账、授权。凡是私聊你的「客服」「管理员」都是骗子，请直接拉黑。";
 const BC_HOURS = [8, 12, 16, 20]; // 北京时间这几个整点各发一条（夜里不发）
 function bcText(fills, tot, names, newNames, pool, until) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
@@ -417,8 +419,9 @@ function bcText(fills, tot, names, newNames, pool, until) {
   const h1 = fills.filter((f) => f.t && f.t >= until - 3600e3), use = h1.length ? h1 : fills, span = h1.length ? "近 1 小时" : "近 4 小时";
   return [`📊 AiLGNS OTC 平台播报 · ${hm(until)}`, "",
     `1️⃣ OTC ${span}成交 ${use.length} 笔 · ${n0(sumDai(use))} DAI` + (use.length ? "" : "，欢迎挂单"),
-    `2️⃣ 域名市场累计注册 ${n0(names)} 个` + (newNames > 0 ? `，近 4 小时新增 ${newNames} 个` : ""),
-    `3️⃣ 持有创世域名免费参与预测，奖池已累计 ${pool.ail.toLocaleString("en-US", { maximumFractionDigits: 2 })} AiLGNS（约 ${n0(pool.dai)} DAI）`, "",
+    `2️⃣ 域名累计注册 ${n0(names)} 个` + (newNames > 0 ? `，近 4 小时新增 ${n0(newNames)} 个` : ""),
+    `3️⃣ 持有创世域名并设好主名字，免费参与预测，奖池已累计 ${pool.ail.toLocaleString("en-US", { maximumFractionDigits: 2 })} AiLGNS（约 ${n0(pool.dai)} DAI）`, "",
+    SCAM, "",
     "👉 网址：" + SITE].join("\n");
 }
 // 现在比 DEX 划算的挂单（各市场合起来，按划算的比例各取前 3）：bids 求购单（卖给它比 DEX 多拿），asks 出售单（买它比 DEX 便宜）
@@ -553,12 +556,12 @@ export async function onRequestGet(ctx) {
   const bcSnap = (await kv.get("bc:last", "json")) || null; // 上次播报时的域名总数
   let bcNames = 0, bcPool = { ail: 0, dai: 0 };
   const build = async (dry2) => {
-    try { const j = await fetch(url.origin + "/api/name-genesis").then((r) => r.json()); bcNames = j.n || 0; } catch (e) {}
+    try { const j = await fetch(url.origin + "/api/name-genesis").then((r) => r.json()); bcNames = j.total || j.n || 0; } catch (e) {} // total = 创世 + 普通域名（2026-11-22 前读的是 n，创世卖完后一直是 10,000）
     try { // 和预测页大字一致：奖池钱包实际余额（AiLGNS + DAI 按 OTC 预言机价折成 AiLGNS），不是记账数
       const j = await fetch(url.origin + "/api/oracle").then((r) => r.json()), f = j.funds || {}, px = (f.otc && f.otc.px) || f.px || 1;
       const ail = (f.ail || 0) + (f.dai || 0) / px; bcPool = { ail: Math.floor(ail * 100) / 100, dai: Math.floor(ail * px * 100) / 100 };
     } catch (e) {}
-    const newNames = bcSnap && bcNames ? Math.max(0, bcNames - (bcSnap.names || 0)) : 0;
+    const newNames = bcSnap && bcSnap.all && bcNames ? Math.max(0, bcNames - (bcSnap.names || 0)) : 0; // 旧快照记的是创世数（没有 all 标记），不能拿来减，否则第一条会报「新增几千个」
     return bcText(hr.fills, (await kv.get("st:tot", "json")) || {}, bcNames, newNames, bcPool, until);
   };
   // bcdry=1：只看播报文字不发送；bc=1&key=口令：立刻发一条到群里（站长看效果用），不清空这段的成交
@@ -567,7 +570,7 @@ export async function onRequestGet(ctx) {
     const k = url.searchParams.get("key"); if (!k || !((ctx.env.FEEDBACK_KEY && k === ctx.env.FEEDBACK_KEY) || (ctx.env.BACKUP_KEY && k === ctx.env.BACKUP_KEY))) return Response.json({ error: "口令不对" }, { status: 403 });
     const text = await build(false), r = {};
     for (const g of gids) { try { await sendDebox(ctx.env, g, text, "group"); r[g] = "ok"; } catch (e) { r[g] = String(e.message || e).slice(0, 200); } }
-    await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
+    await kv.put("bc:last", JSON.stringify({ names: bcNames, all: 1, at: now }));
     await bcLog(kv, { at: now, how: "手动", n: hr.fills.length, sent: r });
     return Response.json({ sent: r, text });
   }
@@ -584,7 +587,7 @@ export async function onRequestGet(ctx) {
     await bcLog(kv, { at: now, how: "定时", n: hr.fills.length, sent: groupSent });
     if (okAny || !gids.length) {
       await kv.put("otcw:hr1", "1");
-      await kv.put("bc:last", JSON.stringify({ names: bcNames, at: now }));
+      await kv.put("bc:last", JSON.stringify({ names: bcNames, all: 1, at: now }));
       await kv.put("otcw:hr", JSON.stringify({ since: until, fills: [] }));
     } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr));
   } else if (fills.length) await kv.put("otcw:hr", JSON.stringify(hr)); // 有新成交才写，省 KV 写入次数
