@@ -20,7 +20,7 @@
     });
   };
   var ST = { wait: "⏳ 等烧创世名", say: "📣 等上传宣传截图", review: "🔎 凭证已交，等认证", ready: "🕐 机器人待发", sending: "🕐 发放中", paid: "✅ 已到账", forfeit: "已放弃" };
-  // 📣 站长 2026-11-22：分到超过 100 DAI 的奖，除了烧 1 枚创世名，还要上传宣传截图 / 视频，团队在工单后台点「通过」后机器人才发。
+  // 📣 站长 2026-11-22：分到超过 100 DAI 的奖，除了烧 1 枚创世名，还要上传宣传截图 / 视频；传上来像样就自动通过、机器人直接发，异常的才由团队在工单后台手动通过（站长当晚定）。
   // 上传和预言家领奖用同一个接口（/api/oracle-proof，不用签名、不用连钱包：凭证只给团队看，奖只发到上榜的钱包，别人乱传领不走）。
   var DEBOX_GROUP = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
   function wkShrink(file) { // 截图先压小再传（最长边 1400、JPEG）
@@ -37,7 +37,7 @@
   }
   function upBox(x, i, min) { // 发放记录里「要交凭证、还没通过」的那一行下面的上传块
     if (!x.say || x.say.ok || (x.st !== "wait" && x.st !== "say" && x.st !== "review")) return "";
-    return '<li class="wkb-upl"><p>这笔超过 ' + min + " DAI：除了销毁 1 枚创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里，团队看过后机器人才发。这一行是你的话，在下面上传。</p>" +
+    return '<li class="wkb-upl"><p>这笔超过 ' + min + " DAI：除了销毁 1 枚创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里，传上来机器人就自动发（看不清的，团队再看一眼）。这一行是你的话，在下面上传。</p>" +
       '<a class="wkb-upg" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
       '<label class="nm-go wkb-upb"><input type="file" class="wkb-upf" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (x.say.has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
       '<p class="wkb-ups" data-i="' + i + '"></p></li>';
@@ -60,14 +60,14 @@
         if (vid && vid.size > 20 * 1024 * 1024) { done(); return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true); }
         var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
         var within = function (p, ms, msg) { return new Promise(function (ok, bad) { var t = setTimeout(function () { bad(new Error(msg)); }, ms); p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); bad(e); }); }); };
-        var step = Promise.resolve();
+        var step = Promise.resolve(), lastSt = "";
         if (imgs.length) step = step.then(function () { say("收到 " + imgs.length + " 张截图，正在处理…"); return within(Promise.all(imgs.map(wkShrink)), 30000, "图片处理不动（可能太大了），请换成手机截图再试"); })
           .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return within(fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: x.a, id: x.id, imgs: us }) }).then(jsonOf), 90000, "传了一分半钟还没传完，网络太慢，请换个网络再试"); })
-          .then(function (j) { if (j.error) throw new Error(j.error); });
+          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
         if (vid) step = step.then(function () { return imgs.length ? new Promise(function (ok) { setTimeout(ok, 9000); say("截图已交，马上接着上传视频，请别关页面…"); }) : null; })
           .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return within(fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + x.a, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf), 240000, "视频传了 4 分钟还没传完，网络太慢。请改传截图"); })
-          .then(function (j) { if (j.error) throw new Error(j.error); });
-        step.then(function () { done(); say(x.st === "wait" ? "✅ 交上去了。还要销毁 1 枚创世名；团队看过凭证后机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); if (reload) setTimeout(reload, 1500); },
+          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
+        step.then(function () { done(); say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。销毁 1 枚创世名以后，机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); if (reload) setTimeout(reload, 1500); },
           function (e) { done(); say("没交上：" + ((e && e.message) || "网络不好，请再试一次") + "。再试一次；还不行就" + HELP2, true); });
       };
     });
@@ -97,7 +97,7 @@
       "<li><b>谁能分</b><span>前 " + d.rules.top + " 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>" +
       "<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 " + d.rules.top + " 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>" +
       "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，先到「🔥 创世域名销毁」页销毁 1 枚创世名，机器人核对后自动发到你的钱包，不用申请。</span></li>" +
-      "<li><b>超过 " + (d.rules.sayMin || 100) + " DAI</b><span>分到超过 " + (d.rules.sayMin || 100) + " DAI 的，除了销毁创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行；团队看过后机器人才发。</span></li>" +
+      "<li><b>超过 " + (d.rules.sayMin || 100) + " DAI</b><span>分到超过 " + (d.rules.sayMin || 100) + " DAI 的，除了销毁创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发；看不清的，团队再看一眼。</span></li>" +
       "<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>" +
       "<li><b>没领的</b><span>" + d.rules.burnDays + " 天没烧算放弃，这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
       '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';

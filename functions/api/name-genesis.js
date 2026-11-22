@@ -49,6 +49,9 @@ async function build(kv) {
   const { l, latest } = await regLogs(kv);
   const seen = {}, list = [], g = {};
   for (const x of l) { const id = x[1][1]; if (!seen[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n && list.length < GENESIS) { seen[id] = 1; list.push(x); g[id.slice(2)] = list.length; } }
+  // 📊 全部域名累计注册数（创世 + 普通，同一个名字过期后被重新注册只算一次）。群播报用：以前播报读 n，创世 1 万个卖完后一直停在 10,000（站长 2026-11-22）
+  const everId = {}; let total = 0;
+  for (const x of l) { const id = x[1][1]; if (!everId[id] && BigInt("0x" + x[2].slice(66, 130)) > 0n) { everId[id] = 1; total++; } }
   const last = list.filter((x) => !HIDDEN["0x" + x[1][2].slice(26)]).slice(-10).reverse();
   // 🆕 最新注册的名字，普通域名也算（站长 2026-11-21：创世 1 万个卖完后卡片一直停在 #10000，「最新注册的域名不显示」）。多取几条，过滤掉屏蔽的名字后留 10 条
   const lastAll = l.filter((x) => BigInt("0x" + x[2].slice(66, 130)) > 0n && !HIDDEN["0x" + x[1][2].slice(26)]).slice(-14).reverse();
@@ -63,7 +66,7 @@ async function build(kv) {
   for (const t of xf.l) if (t[1] && t[1][2] && t[1][2].toLowerCase() === DEAD64 && t[1][3]) { const k = t[1][3].toLowerCase().slice(2); if (g[k]) { x[k] = g[k]; delete g[k]; } }
   let pool = null; // 奖池钱包的 DAI 余额（Anubis 上 DAI 是原生币）；读不到就不给，页面自己再读
   if (GEN_POOL && list.length >= GENESIS) { try { pool = Number(BigInt(await rpc("eth_getBalance", [GEN_POOL, "latest"])) / 10n ** 16n) / 100; } catch (e) { pool = null; } }
-  return { n: list.length, day, recent, newest, g, x, burned: Object.keys(x).length, pool, at: Date.now(), latest };
+  return { n: list.length, total, day, recent, newest, g, x, burned: Object.keys(x).length, pool, at: Date.now(), latest };
 }
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;

@@ -21,7 +21,7 @@ async function mine(kv, id, a) { // 找到这笔奖，并确认还收凭证
     if (!x) return { err: json({ error: "没找到这笔奖，请刷新页面再试一次" }, 404) };
     const st = wkState(x);
     if (!wkNeedSay(x) || st === "paid" || st === "forfeit" || st === "sending") return { err: json({ error: "这笔奖不用再交了" }, 400) };
-    if (x.ok) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
+    if (x.ok && !x.ok.auto) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
     return { pay, x, key: "wk:pay", wk: 1, st: () => wkState(x) };
   }
   const pay = (await kv.get("or:pay", "json")) || [], x = pay.find((p) => String(p.id) === String(id) && p.a === a);
@@ -39,9 +39,17 @@ async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱
 }
 const IMG_MIN = 4000, VID_MIN = 100 * 1024; // 🤖 简单审核：截图不能是空白小图、视频不能只有一丁点；不够格的留给站长手动看
 function tell(ctx, kv, x, what, good) {
-  if (x.kind === "week") { // 周榜：不自动通过，都等团队看
-    ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🏆 周榜中奖人交了领奖凭证（" + what + "），等你认证\n" + x.name + " · " + x.cyc + " 那一周 · " + x.amt + " DAI\n到工单后台最上面点开看一眼，再点「通过」，机器人才会发奖。", "#/feedback/admin").catch(() => {}));
+  if (x.kind === "week") { // 🏆 周榜。站长 2026-11-22 晚：「机器人最好自动发放，异常才手动发」→ 凭证像样（不是空白小图 / 一丁点视频）就自动通过，站长只收一条通知；不像样的才留给他手动看
     ctx.waitUntil(kv.delete("wk:cache").catch(() => {}));
+    if (x.ok) return; // 已经通过了又重传：不重复通知
+    if (good) {
+      x.ok = { at: Date.now(), auto: 1 };
+      const next = wkState(x) === "ready" ? "机器人几分钟内发奖。" : "他销毁 1 枚创世名后机器人自动发。";
+      ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🤖 周榜奖已自动通过（" + what + "）\n" + x.name + " · " + x.cyc + " 那一周 · " + x.amt + " DAI\n" + next + "不用你点；想看凭证或撤回，到工单后台最上面。", "#/feedback/admin").catch(() => {}));
+      ctx.waitUntil(pushInbox(kv, x.a, "sys", "✅ 你的周榜领奖凭证已通过（" + x.cyc + " 那一周）。" + (wkState(x) === "ready" ? "机器人几分钟内把 AiLGNS 发到这个钱包。" : "销毁 1 枚创世名以后，机器人自动把 AiLGNS 发到这个钱包。") + "\n⚠️ 领奖全程自助，官方不会私聊你。", "#/weekly").catch(() => {}));
+      return;
+    }
+    ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🏆 周榜中奖人交了领奖凭证（" + what + "），文件太小、系统没敢自动通过，等你认证\n" + x.name + " · " + x.cyc + " 那一周 · " + x.amt + " DAI\n到工单后台最上面点开看一眼，再点「通过」，机器人才会发奖。", "#/feedback/admin").catch(() => {}));
     return;
   }
   if (good && autoOk(x) && !x.ok) { // 小奖：凭证像样就自动通过，站长只收一条「已自动通过」的通知，想撤回还可以到后台撤
