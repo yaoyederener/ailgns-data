@@ -22,8 +22,9 @@
 "你在钱包里点了取消，后面的没有买": "You cancelled in your wallet, so the rest were not bought",
 "DAI 不够了，后面的没有买": "Not enough DAI, so the rest were not bought",
 "买到的名字已经在你钱包里，下方「🧾 域名订单查询」能看到": "The names you bought are already in your wallet; see \"🧾 Name order lookup\" below",
-"你选的名字刚刚都被别人买走了，没有扣你的钱。请刷新后再试": "The names you picked were all just bought by someone else. You were not charged. Please refresh and try again",
 "DAI 不够：这 {0} 个一共要 {1} DAI，你钱包里有 {2} DAI。少选几个再试": "Not enough DAI: these {0} cost {1} DAI in total and your wallet has {2} DAI. Pick fewer and try again",
 "🧹 域名市场：默认按「价格低→高」排，最便宜的排最前；新增「🧹 一键扫单」，从最便宜的开始一次买好几个（最多 {0} 个），被别人先买走的自动跳过、不扣钱。": "🧹 Name market: listings are now sorted by price, low to high, by default, so the cheapest come first. New \"🧹 Sweep\": buy several at once starting from the cheapest (up to {0}); any name someone else buys first is skipped and not charged.",
-"域名市场：默认按「价格低→高」排，最便宜的排最前；新增「🧹 一键扫单」，从最便宜的开始一次买好几个（最多 {0} 个），被别人先买走的自动跳过、不扣钱。": "Name market: listings are now sorted by price, low to high, by default, so the cheapest come first. New \"🧹 Sweep\": buy several at once starting from the cheapest (up to {0}); any name someone else buys first is skipped and not charged."
+"域名市场：默认按「价格低→高」排，最便宜的排最前；新增「🧹 一键扫单」，从最便宜的开始一次买好几个（最多 {0} 个），被别人先买走的自动跳过、不扣钱。": "Name market: listings are now sorted by price, low to high, by default, so the cheapest come first. New \"🧹 Sweep\": buy several at once starting from the cheapest (up to {0}); any name someone else buys first is skipped and not charged.",
+"⚠️ 挂单刚刚有变化，你选的那几个已经被别人买走了，没有扣你的钱": "⚠️ The listings just changed: the names you picked were already bought by someone else. You were not charged",
+"下面已经换成最新的挂单，请再点一次「🧹 一键扫单」": "The list below now shows the latest listings — please tap \"🧹 Sweep\" again"
 }

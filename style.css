@@ -5109,3 +5109,5 @@ html.lang-ko body { word-break: keep-all; }
 .nm-bs-done { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: #f1fbf5; border: 1.5px solid #bfe6cf; }
 .nm-bs-done p { margin: 2px 0; font-size: 14px; color: #1f6b45; line-height: 1.6; }
 .nm-bs-done p:first-child { font-weight: 800; font-size: 15px; }
+.nm-bs-done.nm-bs-warn { background: #fff8e6; border-color: #f0d78a; }
+.nm-bs-done.nm-bs-warn p { color: #7a5a12; }

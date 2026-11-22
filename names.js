@@ -1588,7 +1588,7 @@
   function bsCheap(list) { return list.filter(function (it) { return !it.expired && !(account && it.maker === account); }).sort(function (a, b) { return a.price < b.price ? -1 : a.price > b.price ? 1 : a.id - b.id; }); }
   function bsDai(w) { return Number(w / 10n ** 12n) / 1e6; }
   function bsPay(it) { return it.price + it.price * 3n / 100n; }
-  function bsNoteHtml() { return bsNote && Date.now() - bsNoteAt < 180000 ? '<div class="nm-bs-done">' + bsNote.map(function (t) { return "<p>" + esc(t) + "</p>"; }).join("") + "</div>" : ""; }
+  function bsNoteHtml() { return bsNote && Date.now() - bsNoteAt < 180000 ? '<div class="nm-bs-done' + (/^⚠️/.test(bsNote[0]) ? " nm-bs-warn" : "") + '">' + bsNote.map(function (t) { return "<p>" + esc(t) + "</p>"; }).join("") + "</div>" : ""; }
   function bsSeq(arr, fn) { return arr.reduce(function (p, x, i) { return p.then(function () { return fn(x, i); }); }, Promise.resolve()); }
   function sweepBox(list, kind) {
     var box = document.getElementById("nm-bs"); if (!box) return;
@@ -1619,7 +1619,12 @@
           if (r.poor) m.push("DAI 不够了，后面的没有买");
           if (r.got) m.push("买到的名字已经在你钱包里，下方「🧾 域名订单查询」能看到");
           bsNote = m; bsNoteAt = Date.now(); market(); ordAfter();
-        }, function (e) { busy = false; ok.disabled = false; say(""); A.errTip(e.message || String(e), ok); });
+        }, function (e) {
+          busy = false; ok.disabled = false; say("");
+          // 页面上的挂单是旧的（选的都已被买走 / 下架）：直接换成最新挂单，让客户再点一次，不用自己刷新
+          if (e && e.bsStale) { bsNote = ["⚠️ 挂单刚刚有变化，你选的那几个已经被别人买走了，没有扣你的钱", "下面已经换成最新的挂单，请再点一次「🧹 一键扫单」"]; bsNoteAt = Date.now(); market(); return; }
+          A.errTip(e.message || String(e), ok);
+        });
       };
     }
     paint();
@@ -1631,7 +1636,7 @@
       var live = {}; fresh.forEach(function (x) { if (!x.expired) live[x.t + ":" + x.id] = x; });
       var ok = picks.filter(function (it) { var x = live[it.t + ":" + it.id]; return x && x.price === it.price && x.maker !== account; });
       res.skip = picks.length - ok.length;
-      if (!ok.length) throw new Error("你选的名字刚刚都被别人买走了，没有扣你的钱。请刷新后再试");
+      if (!ok.length) { var gone = new Error("stale"); gone.bsStale = true; throw gone; }
       var need = {}, total = 0n;
       ok.forEach(function (it) { need[it.O] = (need[it.O] || 0n) + bsPay(it); total += bsPay(it); });
       var Os = Object.keys(need);
