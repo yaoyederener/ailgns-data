@@ -213,6 +213,16 @@
       if (d0 || up) fx(d0, up);
     }
 
+    /* 🌱 站长 2026-11-23（工单 #375：「韭菜苗看起来像豌豆，能不能换成小草的样子」）：韭菜原来用的 🌿 在不少手机上画出来是圆叶子，像豌豆苗。
+       改成自己画的一丛细长叶子（每台手机看到的都一样）。只换页面上的图标；提示文字里的 🌿 不动。 */
+    var FMZ_CHIVE = '<svg class="fmz-chive" viewBox="0 0 36 36" width="1em" height="1em" aria-hidden="true">' +
+      '<path d="M16.5 34C12 29 7 22 3 14c6.5 5.500 11.500 13 14.500 20z" fill="#6fbf4f"/>' +
+      '<path d="M19.500 34C24 29 29 22 33 14c-6.500 5.500-11.500 13-14.500 20z" fill="#6fbf4f"/>' +
+      '<path d="M17 34C14 26 11 16 9 6c4.500 8 7.500 18 9 28z" fill="#3f9e3a"/>' +
+      '<path d="M19 34c3-8 6-18 8-28-4.500 8-7.500 18-9 28z" fill="#3f9e3a"/>' +
+      '<path d="M18 34.500C16.800 24 17.300 12 18 2c.700 10 1.200 22 0 32.500z" fill="#2f8a34"/>' +
+      '<ellipse cx="18" cy="33.500" rx="3.200" ry="1.600" fill="#eef7dc"/></svg>';
+    function cropIc(c) { return c && c.cut ? FMZ_CHIVE : c.icon; }
     function farmHtml() {
       var t = now(), C = R.crops, ripe = 0;
       var plots = me.plots.map(function (p, i) {
@@ -220,9 +230,9 @@
         var c = C[p.c], s = p.t + c.grow - t, pr = Math.min(1, (t - p.t) / c.grow);
         /* 站长 2026-11-18 韭菜：熟了自己不能收，等别人来割；熟了 R.chiveSelf（24 小时）还没人割，才按普通成熟显示、自己收一半 */
         var selfAt = p.t + c.grow + (R.chiveSelf || 86400);
-        if (c.cut && s <= 0 && t < selfAt) return '<button type="button" class="fm-plot cutme" data-cutme="' + selfAt + '"><em class="fm-tip cut">割</em><span class="fm-ic">' + c.icon + "</span><b>" + c.name + "</b><small>等别人来割</small></button>";
+        if (c.cut && s <= 0 && t < selfAt) return '<button type="button" class="fm-plot cutme" data-cutme="' + selfAt + '"><em class="fm-tip cut">割</em><span class="fm-ic">' + cropIc(c) + "</span><b>" + c.name + "</b><small>等别人来割</small></button>";
         if (s <= 0) ripe++;
-        return '<div class="fm-plot' + (s <= 0 ? " ripe" : " grow") + '">' + (s <= 0 ? '<em class="fm-tip">收</em><i class="fm-spark">✨</i>' : "") + '<span class="fm-ic' + (s > 0 && pr >= 0.67 ? " young" : "") + '">' + (s <= 0 || pr >= 0.67 ? c.icon : pr < 0.34 ? "🌱" : "🌿") + "</span><b>" + c.name + (p.stolen ? '<em class="fm-st">被偷 ' + p.stolen + "</em>" : "") + "</b>" +
+        return '<div class="fm-plot' + (s <= 0 ? " ripe" : " grow") + '">' + (s <= 0 ? '<em class="fm-tip">收</em><i class="fm-spark">✨</i>' : "") + '<span class="fm-ic' + (s > 0 && (pr >= 0.67 || (c.cut && pr >= 0.34)) ? " young" : "") + '">' + (s <= 0 || pr >= 0.67 ? cropIc(c) : pr < 0.34 ? "🌱" : c.cut ? FMZ_CHIVE : "🌿") + "</span><b>" + c.name + (p.stolen ? '<em class="fm-st">被偷 ' + p.stolen + "</em>" : "") + "</b>" +
           '<small data-ripe="' + (p.t + c.grow) + '">' + left(s) + "</small>" + (s > 0 ? '<i class="fm-bar"><i style="width:' + (pr * 100).toFixed(0) + '%"></i></i><button type="button" class="fm-boost" data-boost="' + i + '">⚡ ' + boostCost(s, R.boost) + "</button>" : "") + "</div>";
       }).join("");
       var more = me.plots.length < 6 + R.plots.length ? '<button type="button" class="fm-plot buy" id="fm-buyplot"><span class="fm-ic fm-plus">＋</span><b>开垦新地</b><small>' + R.plots[me.plots.length - 6] + " 金币</small></button>" : "";
@@ -278,7 +288,7 @@
       m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>选种子</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="fm-seeds">' +
         Object.keys(C).map(function (k) {
           var c = C[k], lock = me.lv < c.lv || (c.vip && !me.paid);
-          return '<button type="button" data-seed="' + k + '"' + (lock || me.coins < c.seed ? " disabled" : "") + '><span class="fm-ic">' + c.icon + "</span><b>" + c.name + "</b><small>" +
+          return '<button type="button" data-seed="' + k + '"' + (lock || me.coins < c.seed ? " disabled" : "") + '><span class="fm-ic">' + cropIc(c) + "</span><b>" + c.name + "</b><small>" +
             (lock ? (c.vip && !me.paid ? "👑 充值解锁" : "🔒 " + c.lv + " 级解锁") : c.seed + " 金币 · " + left(c.grow).replace(" 0 秒", "").replace(" 0 分", "") + (c.cut ? " · 别人来割你得 " : " · 卖 ") + c.yield * c.price) + "</small></button>";
         }).join("") + "</div></div>";
       m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
