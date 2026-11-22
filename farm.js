@@ -215,12 +215,12 @@
 
     /* 🌱 站长 2026-11-23（工单 #375：「韭菜苗看起来像豌豆，能不能换成小草的样子」）：韭菜原来用的 🌿 在不少手机上画出来是圆叶子，像豌豆苗。
        改成自己画的一丛细长叶子（每台手机看到的都一样）。只换页面上的图标；提示文字里的 🌿 不动。 */
-    var FMZ_CHIVE = '<svg class="fmz-chive" viewBox="0 0 36 36" width="1em" height="1em" aria-hidden="true">' +
+    var FMZ_CHIVE = '<svg class="fmz-chive" viewBox="0 0 36 36" width="1em" height="1em" aria-hidden="true"><g stroke="#3a9636" stroke-width="1.300" stroke-linejoin="round">' +
       '<path d="M16.5 34C12 29 7 22 3 14c6.5 5.500 11.500 13 14.500 20z" fill="#6fbf4f"/>' +
       '<path d="M19.500 34C24 29 29 22 33 14c-6.500 5.500-11.500 13-14.500 20z" fill="#6fbf4f"/>' +
       '<path d="M17 34C14 26 11 16 9 6c4.500 8 7.500 18 9 28z" fill="#3f9e3a"/>' +
       '<path d="M19 34c3-8 6-18 8-28-4.500 8-7.500 18-9 28z" fill="#3f9e3a"/>' +
-      '<path d="M18 34.500C16.800 24 17.300 12 18 2c.700 10 1.200 22 0 32.500z" fill="#2f8a34"/>' +
+      '<path d="M18 34.500C16.800 24 17.300 12 18 2c.700 10 1.200 22 0 32.500z" fill="#2f8a34"/></g>' +
       '<ellipse cx="18" cy="33.500" rx="3.200" ry="1.600" fill="#eef7dc"/></svg>';
     function cropIc(c) { return c && c.cut ? FMZ_CHIVE : c.icon; }
     function farmHtml() {
