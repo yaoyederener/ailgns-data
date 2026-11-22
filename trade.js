@@ -86,6 +86,7 @@
     var hm = (location.hash.split("/")[2] || "").toLowerCase(); MK = TRADE_OTC[hm] ? hm : "ailgns";
     M = A.otcKit.M(); if (M.otc !== TRADE_OTC[MK]) { K().useMarket(MK); M = K().M(); }
     OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym; PD = M.pd;
+    try { if (K().loadTax) K().loadTax().then(function () {}, function () {}); } catch (e) {} // LGNS 买单底线要用链上实测的卖出手续费；读不到按 50% 算
     A.app.innerHTML =
       '<div class="tr2">' +
       // 顶部价格条（交易所手机版样式：币对 + 大字最新价 + 24h 数据）
@@ -322,7 +323,9 @@
         var px = Number(document.getElementById("tr-p").value) || 0, dai = toWei((num(coin, TD) * px).toFixed(6), 18), dur = Number(document.getElementById("tr-dur").value);
         if (!px) throw new Error("先填价格");
         // 站长 2026-11-17：AiLGNS 的买单出价必须高于卖家去官方 DEX 卖的到手价（和 OTC 页同一条规矩）
-        if (side !== "sell" && MK === "ailgns" && book.mkt && M.dexSell && px <= book.mkt * M.dexSell) throw new Error("买单出价不能低于 " + f2(book.mkt * M.dexSell) + " DAI（卖家去官方 DEX 卖的到手价）。出价比这低，卖家卖给你就吃亏，本站不让挂。请把价格调高一点");
+        // 2026-11-22：LGNS 也套上（以前这页只拦 AiLGNS，有人从这里挂出远低于底线的 LGNS 买单）。两个市场都用 otc.js 的 bidFloor，和 OTC 页、一键做市同一条线
+        var bfl = 0; try { bfl = side !== "sell" && book.mkt && K().bidFloor ? K().bidFloor(book.mkt) : 0; } catch (e) { bfl = 0; }
+        if (bfl && px <= bfl) throw new Error(MK === "lgns" ? "买单出价不能低于 " + f2(bfl) + " DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 2%，比这还低不让挂。请把价格调高一点" : "买单出价不能低于 " + f2(bfl) + " DAI（卖家去官方 DEX 卖的到手价）。出价比这低，卖家卖给你就吃亏，本站不让挂。请把价格调高一点");
         var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
         return K().balance(token, account).then(function (b) {
           if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));
