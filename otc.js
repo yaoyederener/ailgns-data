@@ -1660,7 +1660,7 @@
     // ---------- 土豪扫单：按价格从优到差一口气吃下挂单簿的一部分，滑块选扫多少（按 DAI 金额占全部挂单的百分比），实时算均价 ----------
     var SW_CAP = 9000; // 一键扫单最多扫全部挂单的 90%：别人同时在吃的单会让整笔扫单失败（客户反馈），留 10% 余量
     function sweepHtml() {
-      return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>一键扫单</h2><span class="muted">按价格从优到差，一次吃下多张单 · 只吃差价 5% 以内的</span></div>' +
+      return '<section class="card sweep" id="otc-sweep"><div class="card-head"><h2>一键扫单</h2><span class="muted">按价格从优到差，一次吃下多张单</span></div>' +
         '<div class="sw-side"><button type="button" data-sw="buy" class="on">扫卖单 · 买入 ' + SYM + '</button><button type="button" data-sw="sell">扫买单 · 卖出 ' + SYM + "</button></div>" +
         '<div class="sw-pct"><b id="sw-pv">90%</b><input type="range" id="sw-r" min="1" max="9000" value="9000" step="1" aria-label="扫单比例"></div>' +
         '<div class="sw-quick">' + [10, 20, 30, 50, 90].map(function (x) { return '<button type="button" data-swp="' + x * 100 + '">' + x + "%</button>"; }).join("") + '<button type="button" data-swp="max" class="sw-max">最大</button></div>' +
@@ -1709,14 +1709,7 @@
       if (!box) return;
       var side = sweepSide, r = document.getElementById("sw-r"), pv = document.getElementById("sw-pv"), out = document.getElementById("sw-out"), ladder = document.getElementById("sw-ladder"), go = document.getElementById("sw-go"), st = document.getElementById("sw-st");
       function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) errTip(t, st); }
-      /* 🛡 站长 2026-11-22 晚：「批量扫单也优化一下，差价在 -5% 到 5% 才能成交，超过部分不成交，防止客户损失太大」。
-         差价 = 盘口每一行写的那个「对比最低卖价 / 最高买价 / DEX 市价」（otcRef，和盘口同一个基准）。只扫差价在 ±5% 以内的单：
-         买入时不会一路扫到比最低卖价贵 5% 以上的卖单，卖出时不会扫到比它低 5% 以上的买单。超出的单不进扫单名单，进度条、合计、「最多扫 90%」都只按名单里的算。 */
-      var SW_BAND = 0.05;
-      function inBand(o) { var rf = otcRef(mkt); if (!rf || !(rf.p > 0)) return true; var d = priceOf(o) / rf.p - 1; return d >= -SW_BAND - 1e-9 && d <= SW_BAND + 1e-9; }
-      function pool() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account && !o._far; }); } // 自己的单不能吃；离谱价的单跳过
-      function list() { return pool().filter(inBand); }
-      function bandNote() { var n = pool().length - list().length; return n > 0 ? '<p class="muted sw-bal">🛡 为了防止吃亏，只扫和盘口价相差 5% 以内的单；另有 <b>' + n + "</b> 张差得太多，不扫。</p>" : ""; }
+      function list() { return (side === "buy" ? sells : buys).filter(function (o) { return o.maker !== account && !o._far; }); } // 自己的单不能吃；离谱价的单跳过
       function total(l) { return l.reduce(function (t, o) { return t + daiLeft(o, o.giveLeft); }, 0n); }
       // 进度条 = 占全部挂单的比例（万分比，最细 0.01%）。连上钱包后，余额最多能扫到哪里就只能拖到哪里（右边那段灰掉）
       var bal = { buy: null, sell: null };
@@ -1760,14 +1753,14 @@
         r.style.setProperty("--p", bp / 100 + "%");
         r.style.setProperty("--m", m / 100 + "%");
         box.querySelectorAll(".sw-quick [data-swp]").forEach(function (q) { var v = q.getAttribute("data-swp"); q.disabled = v !== "max" && Number(v) > m; q.classList.toggle("on", (v === "max" ? m : Number(v)) === bp); });
-        if (!l.length) { out.innerHTML = bandNote() + '<div class="empty">现在没有可以扫的' + (side === "buy" ? "卖单" : "买单") + "</div>"; ladder.innerHTML = ""; go.disabled = true; return; }
+        if (!l.length) { out.innerHTML = '<div class="empty">现在没有可以扫的' + (side === "buy" ? "卖单" : "买单") + "</div>"; ladder.innerHTML = ""; go.disabled = true; return; }
         go.disabled = sweeping || !p.steps.length; // 正在扫单时别把按钮点亮，防止连点两次
         if (!p.steps.length) { out.innerHTML = balLine(m) + '<div class="empty">' + (m === 0 ? "钱包里的" + (side === "buy" ? " DAI " : " " + SYM + " ") + "不够扫一张单" : "往右拖一点，至少要吃到一张单") + "</div>"; ladder.innerHTML = ""; return; }
         var buy = side === "buy", fee = buy ? p.tok / 100n : p.dai / 100n, net = buy ? p.tok - fee : p.dai - fee;
         var pnl = pnlHtml(buy, buy ? net : p.tok, buy ? p.dai : net, mkt); lastPnl = pnlOf(buy, buy ? net : p.tok, buy ? p.dai : net, mkt);
         var more = lastPnl ? " · 比" + (buy && M.buyRef ? "场外行情" : " DEX ") + (buy ? "省 " : "多拿 ") + A.fmt(lastPnl.d, 2) + " DAI" : ""; // 按钮上也写一遍多拿多少
         if (!sweeping) go.innerHTML = buy ? "<b>👉 点击确认付款 " + show(p.dai, 2) + " DAI</b><small>买入 " + tShow(net) + " " + SYM + more + "</small>" : "<b>👉 点击确认卖出 " + tShow(p.tok) + " " + SYM + "</b><small>收到 " + show(net, 2) + " DAI" + more + "</small>"; // 分两行：付多少一行，得多少一行
-        out.innerHTML = balLine(m) + bandNote() + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + " · 吃掉 " + p.steps.length + " 张单</small></div>"; // 平均单价和明细表去掉了（站长要求）
+        out.innerHTML = balLine(m) + pnl + '<div class="sw-get"><span>你将收到</span><b class="num">' + (buy ? tShow(net) + "</b><em>" + SYM : show(net, 2) + "</b><em>DAI") + "</em><small>已扣 1% 手续费 · 你付 " + (buy ? show(p.dai, 2) + " DAI" : tShow(p.tok) + " " + SYM) + " · 吃掉 " + p.steps.length + " 张单</small></div>"; // 平均单价和明细表去掉了（站长要求）
         ladder.innerHTML = ""; // 各档位对比表去掉了（站长要求），只看上面进度条选中的这一档
       }
       box.querySelectorAll("[data-sw]").forEach(function (b) {

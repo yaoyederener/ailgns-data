@@ -218,7 +218,7 @@
   function sum() {
     var el = document.getElementById("nb-sum"), go = document.getElementById("nb-go"); if (!el || !go) return;
     var n = list().length, t = total();
-    el.innerHTML = n ? "选了 <b>" + n + "</b> 个 · 1 年 · 共 <b>" + t + " DAI</b>" + (n >= 2 ? " · 送 <b>" + t + "</b> 张极速票" : pairing() ? " · 和刚注册的那个凑成一对，两个都算票" : " · <em>只选 1 个没有极速票，至少 2 个</em>") : "还没选";
+    el.innerHTML = n ? "选了 <b>" + n + "</b> 个 · 1 年 · 共 <b>" + t + " DAI</b>" + (jpNo ? " · <em>领奖用的名字，不算极速票</em>" : n >= 2 ? " · 送 <b>" + t + "</b> 张极速票" : pairing() ? " · 和刚注册的那个凑成一对，两个都算票" : " · <em>只选 1 个没有极速票，至少 2 个</em>") : "还没选";
     if (simple) el.innerHTML = n ? (n === 1 && pairing() ? "共 <b>" + t + " DAI</b>，和刚才那个凑成一对，两个都算票" : "共 <b>" + t + " DAI</b> = <b>" + t + "</b> 张票") : "";
     var tooMany = n > 50; // 自己点要每个名字在钱包里确认一次，超过 50 个只能交给机器人
     go.disabled = !n || busy || tooMany; go.innerHTML = tooMany ? "自己点付款<small>超过 50 个域名，钱包要确认 " + (n + 1) + " 次，太多了；请用下面的机器人代点</small>" : n ? (simple ? "付 " + t + " DAI 买 " + t + " 张票" : "自己点：注册这 " + n + " 个（" + t + " DAI）") + "<small>钱包要确认 " + (n + 1) + " 次（授权 1 次 + 每个名字 1 次）</small>" : simple ? "付款" : "注册选中的";
@@ -229,6 +229,8 @@
      现在：只成了 1 个时，主按钮直接换成「再补 1 个，两个都算票」，点一下随机挑一个能注册的；10 分钟内补上，两个凑成一对都算票（规则本来如此，见 lib/fast.js）。
      pairAt = 刚才那 1 个是什么时候注册成的；只按 9 分钟算，留一点余量 */
   var pairAt = 0;
+  var jpNo = false; /* 这个钱包正在领神算子大奖（/api/fast 的 me.jp）：现在注册的名字是领奖用的，不算极速票 */
+  var JP_MSG = "这些是领奖用的名字，注册费进每日大奖奖池，不算极速票。回销毁页把它们烧掉就能领奖。";
   function pairing() { return pairAt > 0 && Date.now() - pairAt < 540000; }
   function oneLeft() {
     pairAt = Date.now();
@@ -248,7 +250,15 @@
   var REG = "0x21425f852a1e0fb798fb9ebeb288def27bc0f2d1"; // 代注册机器人钱包（只放 Gas）
   function botText(names, total, a, day) { return "AiLGNS 代注册委托\n请机器人帮我注册（各 1 年，DAI 付款）：" + names.join("、") + "\n共 " + total + " DAI\n我的地址：" + a + "\n日期：" + day; }
   function bjDay() { return new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10); }
+  var jpAsk = "";
+  function jpProbe() { /* 连着的钱包是不是正在领神算子大奖：每个钱包只问一次 */
+    try {
+      var a = H().account(); if (!a || jpAsk === a) return; jpAsk = a;
+      fetch("/api/fast?a=" + a).then(function (r) { return r.json(); }).then(function (j) { var was = jpNo; jpNo = !!(j && j.me && j.me.jp); if (jpNo !== was) sum(); }, function () {});
+    } catch (e) { /* 问不到就照常 */ }
+  }
   function botStatus() {
+    jpProbe();
     var h = H(), el = document.getElementById("nb-botst"); if (!el || !h.account()) return;
     fetch("/api/reg-order?a=" + h.account()).then(function (r) { return r.json(); }).then(function (j) {
       var l = (j && j.list) || [], p = l.filter(function (o) { return o.state === "pending"; });
@@ -263,7 +273,7 @@
       fetch("/api/reg-order?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
         var o = ((j && j.list) || []).filter(function (x) { return x.id === id; })[0];
         if (!o || o.state !== "done") { if (o) say("🤖 机器人正在替你注册 " + o.names.length + " 个名字…" + ((o.done || []).length ? "已注册好 " + o.done.length + " 个，" : "") + "已等 " + Math.round((Date.now() - t0) / 1000) + " 秒" + (o.names.length > 20 ? "（一分钟大约 10 个；可以关掉这个窗口，注册好的票会自动到账）" : "（一般一分钟左右）")); return setTimeout(tick, 5000); }
-        var done = o.done || [], fail = o.fail || [], tk = done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false;
+        var done = o.done || [], fail = o.fail || [], tk = !jpNo && done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false;
         if (tk && base !== null) {
           try {
             var me0 = String(a).toLowerCase(), old = JSON.parse(localStorage.getItem("fx:pend") || "null");
@@ -271,7 +281,7 @@
             localStorage.setItem("fx:pend", JSON.stringify({ a: me0, target: from + tk, n: tk, t: Date.now() })); quick = true;
           } catch (e1) { /* 存不了就照常等账本 */ }
         }
-        say((done.length ? "✅ 机器人注册好了 " + done.length + " 个" + (wasSimple ? "" : "：" + done.join("、")) + "。" : "机器人没注册成。") + (tk ? tk + " 张极速票" + (quick ? "已到账，现在就能去押。" : "大约半分钟到账。") : done.length === 1 ? (pairing() ? "补上了，和刚才那个凑成一对，两个的票大约半分钟到账。" : "⚠️ 只成了 1 个，落单的不算票。10 分钟内再注册 1 个，两个的票一起到——点下面的按钮补一个。") : "") + (fail.length ? " 没成功 " + fail.length + " 个（没扣钱）：" + fail.join("、") : ""), !done.length);
+        say((done.length ? "✅ 机器人注册好了 " + done.length + " 个" + (wasSimple ? "" : "：" + done.join("、")) + "。" : "机器人没注册成。") + (jpNo && done.length ? JP_MSG : tk ? tk + " 张极速票" + (quick ? "已到账，现在就能去押。" : "大约半分钟到账。") : done.length === 1 ? (pairing() ? "补上了，和刚才那个凑成一对，两个的票大约半分钟到账。" : "⚠️ 只成了 1 个，落单的不算票。10 分钟内再注册 1 个，两个的票一起到——点下面的按钮补一个。") : "") + (fail.length ? " 没成功 " + fail.length + " 个（没扣钱）：" + fail.join("、") : ""), !done.length);
         var el2 = document.getElementById("nb-botst"); if (el2) el2.innerHTML = "";
         var b = document.getElementById("nb-go");
         if (b && done.length) { b.textContent = wasSimple && tk ? "去押注 →" : "去看我的域名 →"; b.disabled = false; b.onclick = function () { box.remove(); box = null; location.hash = wasSimple && tk ? "#/fast" : "#/names/" + a; }; }
@@ -285,7 +295,7 @@
     var t = total(), wei = BigInt(t) * 10n ** 18n, a, base = null; /* base = 下单前账本上我还有几张极速票（读不到就不做「注册完马上能押」） */
     h.connect().then(function () {
       a = h.account();
-      try { fetch("/api/fast?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响下单 */ }
+      try { fetch("/api/fast?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.me) jpNo = !!j.me.jp; if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响下单 */ }
       return Promise.all([h.balance(h.DAI), h.allowance(h.DAI, REG)]);
     }).then(function (r) {
       if (r[0] < wei) throw new Error("DAI 不够：要 " + t + " DAI，钱包只有 " + (Number(r[0] / 10n ** 16n) / 100));
@@ -311,7 +321,7 @@
     busy = true; sum();
     var done = [], fail = [], t = total(), base = null; /* base = 付款前账本上我还有几张极速票（读不到就不做「秒到账」，照常等半分钟） */
     h.connect().then(function () {
-      try { fetch("/api/fast?a=" + h.account(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响注册 */ }
+      try { fetch("/api/fast?a=" + h.account(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.me) jpNo = !!j.me.jp; if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响注册 */ }
       return h.prepay(t, "DAI", say);
     }).then(function () {
       // 先试「一次确认发一串」（EIP-5792 wallet_sendCalls）
@@ -337,7 +347,7 @@
       if (done.length) {
         try { fetch("/api/batch-mark", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ a: h.account(), names: done }) }); } catch (e) {} // 🏷️ 标记为批量注册（2026-11-11 起先按普通注册分：30% / 70% 每日奖池；极速预言家上线再改回 10% / 90%）
         // 🎟 票秒到账：自己点买成了 2 个及以上 → 记一笔「刚买的」，极速页马上算进可押的票（账本约半分钟后追上，自动消掉）
-        var tk = done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false, wasPair = done.length === 1 && pairing(); /* wasPair：这 1 个是补给刚才落单那个的 */
+        var tk = !jpNo && done.length >= 2 ? done.reduce(function (x, n) { return x + price(n); }, 0) : 0, quick = false, wasPair = !jpNo && done.length === 1 && pairing(); /* wasPair：这 1 个是补给刚才落单那个的 */
         if (tk && base !== null) {
           try {
             var me0 = String(h.account()).toLowerCase(), old = JSON.parse(localStorage.getItem("fx:pend") || "null");
@@ -345,7 +355,7 @@
             localStorage.setItem("fx:pend", JSON.stringify({ a: me0, target: from + tk, n: tk, t: Date.now() })); quick = true;
           } catch (e1) { /* 存不了就照常等账本 */ }
         }
-        say("✅ " + (simple ? "买好了：" : "注册成功 " + done.length + " 个：" + done.join("、") + "。") + (tk ? (simple ? "" : "送 ") + tk + " 张极速票" + (quick ? "已到账，现在就能去押。" : "大约半分钟到账。") : wasPair ? "补上了，和刚才那个凑成一对，两个的票大约半分钟到账。" : "⚠️ 只注册成了 1 个，落单的不算票。10 分钟内再注册 1 个，两个的票一起到——点下面的按钮补一个。") + (fail.length ? " 没成功 " + fail.length + " 个：" + fail.join("、") : ""));
+        say("✅ " + (simple ? "买好了：" : "注册成功 " + done.length + " 个：" + done.join("、") + "。") + (jpNo ? JP_MSG : tk ? (simple ? "" : "送 ") + tk + " 张极速票" + (quick ? "已到账，现在就能去押。" : "大约半分钟到账。") : wasPair ? "补上了，和刚才那个凑成一对，两个的票大约半分钟到账。" : "⚠️ 只注册成了 1 个，落单的不算票。10 分钟内再注册 1 个，两个的票一起到——点下面的按钮补一个。") + (fail.length ? " 没成功 " + fail.length + " 个：" + fail.join("、") : ""));
         if (A.just) done.forEach(function (n) { A.just.set("names", n + ".ailgns"); });
         if (A.inbox && A.inbox.authed && A.inbox.authed()) { /* 收件箱会收到链上记录 */ }
         var b = document.getElementById("nb-go"); if (b) { b.textContent = simple && (tk || wasPair) ? "去押注 →" : "去看我的域名 →"; b.disabled = false; b.onclick = function () { box.remove(); box = null; location.hash = simple && (tk || wasPair) ? "#/fast" : "#/names/" + h.account(); }; }
