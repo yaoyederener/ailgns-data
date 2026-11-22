@@ -57,8 +57,8 @@
   /* 站长 2026-11-21 晚：挂买单的人反映没利润、不愿挂（线 = DEX 到手价 ÷ 0.99，比最低卖单还高）。折中：去掉「÷ 0.99」，LGNS 的线 = 去 DEX 卖的到手价。
      这样买来去砸 DEX 不赚不亏（不鼓励砸底池），转手挂卖单有约 1% 差价；代价是卖家卖给买单（付 1% 手续费后）比去 DEX 少约 1%，下单窗口有提示。 */
   /* 站长 2026-11-22「还是把买单价格限制在 3% 左右，挂单的太少了」（做市商 11-21 提过 4%，我劝过先观察，这次是他定的）：
-     LGNS 的线再放宽 = DEX 到手价 × 0.97。卖家卖给贴线的买单，到手比去 DEX 少约 4%（3% + 本站 1% 手续费）；下单窗口不加「少拿」提示（站长定的）。AiLGNS 的线没变。 */
-  var LGNS_BID_SLACK = 0.97;
+     LGNS 的线再放宽。我建议 2%（3% 离被投诉的老线太近，先紧后松容易），站长同意：线 = DEX 到手价 × 0.98。卖家卖给贴线的买单，到手比去 DEX 少约 3%（2% + 本站 1% 手续费）；下单窗口不加「少拿」提示（站长定的）。AiLGNS 的线没变。 */
+  var LGNS_BID_SLACK = 0.98;
   function bidFloor(mkt) { return !mkt ? 0 : MK === "lgns" ? mkt * lgnsNet() * LGNS_BID_SLACK : MK === "ailgns" ? mkt * dexSellCmp() : 0; }
   // 指导价跟真实成交走（站长要求）：/api/guide 给出最近 30 笔成交价 ÷ 当时 DEX 市价的中位数，页面乘上现在的市价
   var GUIDE = null;
@@ -1099,7 +1099,7 @@
     /* lgnsNet / bidFloor 2026-11-21 挪到文件前面（loadTax 后面），一键做市 lp.js 也要用同一条线 */
     function bidFloorMsg(fl) {
       var ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
-      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 3%，比这还低不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
+      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 2%，比这还低不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
     }
     function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
@@ -1374,7 +1374,7 @@
             else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = "现在没有别的卖单，按行情价挂，你就排第一"; }
           } else {
             var gfl = bidFloor(mkt), gmin = gfl ? (Math.floor(gfl / tick) + 1) * tick : 0;
-            if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = MK === "lgns" ? "比本站买单最低出价（约 " + A.fmt(gfl, PD) + "）高一点；这条线是「卖家去 DEX 卖的到手价」再低 3%，比它低不让挂" : "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
+            if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = MK === "lgns" ? "比本站买单最低出价（约 " + A.fmt(gfl, PD) + "）高一点；这条线是「卖家去 DEX 卖的到手价」再低 2%，比它低不让挂" : "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
             else if (otcBid) { g1 = otcBid; why = "和其他客户最高的买单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk - tick : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
           }
