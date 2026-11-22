@@ -3827,6 +3827,16 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .bn-rk-all { display: block; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 12px; font-size: 14px; }
 .bn-rk-rest { align-self: center; font-size: 13px; color: var(--muted); }
 .bn-lack { color: #b45309; font-weight: 600; }
+/* 🤝 主钱包作保（2026-11-21 夜）：签到按钮下面一块折叠的小卡片 */
+.bn-bind { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: #f7f3ff; border: 1px solid #e6dcff; font-size: 14px; color: #3d2f66; }
+.bn-bind summary { cursor: pointer; font-weight: 700; color: #6927db; }
+.bn-bind p { margin: 8px 0; line-height: 1.6; }
+.bn-bind-b { margin: 10px 0 0; padding: 10px; border-radius: 10px; background: #fff; border: 1px solid #ece4ff; }
+.bn-bind-b b { display: block; margin: 0 0 6px; }
+.bn-bind-b input { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #d9cdfa; font-size: 13px; background: #fff; color: #2a2145; }
+.bn-bind-b small { display: block; margin: 6px 0 0; color: #7a6f99; }
+button.bn-bind-go { width: 100%; margin: 8px 0 0; padding: 11px 12px; border: 0; border-radius: 12px; background: var(--grad-dot); color: #fff; font-weight: 700; font-size: 15px; font-family: inherit; cursor: pointer; }
+button.bn-bind-go.ghost { background: #efe8ff; color: #6927db; }
 .bn-cap { margin: 0 0 6px; font-size: 14px; color: #5b4a86; font-weight: 600; }
 button.bn-go { width: 100%; border: 0; cursor: pointer; font-family: inherit; }
 button.bn-go:disabled { opacity: .6; cursor: default; }
