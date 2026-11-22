@@ -7,6 +7,7 @@
 // 不要求钱包签名（站长要方便）：凭证只是给团队看的，奖只会发到中奖钱包，别人乱传也领不走钱；通过不通过由团队看了算。
 import { needSay, payState, autoOk } from "../../lib/oracle.js";
 import { pushInbox, OWNER } from "../../lib/inbox.js";
+import { wkNeedSay, wkState } from "../../lib/weekly.js"; // 周榜超过 100 DAI 的奖也在这里交凭证（2026-11-22），编号以 wk: 开头，名单在 wk:pay
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const TTL = 60 * 86400, MAX_IMG = 3, IMG_MAX = 1200000, VID_MAX = 20 * 1024 * 1024;
 const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i;
@@ -15,12 +16,20 @@ const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 
 async function mine(kv, id, a) { // 找到这笔奖，并确认还收凭证
+  if (/^wk:/.test(String(id))) { // 🏆 周榜的奖
+    const pay = (await kv.get("wk:pay", "json")) || [], x = pay.find((p) => String(p.id) === String(id) && p.a === a);
+    if (!x) return { err: json({ error: "没找到这笔奖，请刷新页面再试一次" }, 404) };
+    const st = wkState(x);
+    if (!wkNeedSay(x) || st === "paid" || st === "forfeit" || st === "sending") return { err: json({ error: "这笔奖不用再交了" }, 400) };
+    if (x.ok) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
+    return { pay, x, key: "wk:pay", wk: 1, st: () => wkState(x) };
+  }
   const pay = (await kv.get("or:pay", "json")) || [], x = pay.find((p) => String(p.id) === String(id) && p.a === a);
   if (!x) return { err: json({ error: "没找到这笔奖。请确认连的是中奖的那个钱包，再刷新页面试一次" }, 404) };
   const st = payState(x);
   if (!needSay(x) || st === "paid" || st === "forfeit") return { err: json({ error: "这笔奖不用再交了" }, 400) };
   if (x.ok && !x.ok.auto) return { err: json({ error: "这笔奖已经认证通过，等机器人发奖就行" }, 400) };
-  return { pay, x };
+  return { pay, x, key: "or:pay", st: () => payState(x) };
 }
 async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱刷（前端传完截图会等 9 秒再传视频）
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x", k = "or:proof:rl:" + ip;
@@ -30,6 +39,11 @@ async function limit(kv, ctx) { // 同一个网络 8 秒内只收一次，防乱
 }
 const IMG_MIN = 4000, VID_MIN = 100 * 1024; // 🤖 简单审核：截图不能是空白小图、视频不能只有一丁点；不够格的留给站长手动看
 function tell(ctx, kv, x, what, good) {
+  if (x.kind === "week") { // 周榜：不自动通过，都等团队看
+    ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🏆 周榜中奖人交了领奖凭证（" + what + "），等你认证\n" + x.name + " · " + x.cyc + " 那一周 · " + x.amt + " DAI\n到工单后台最上面点开看一眼，再点「通过」，机器人才会发奖。", "#/feedback/admin").catch(() => {}));
+    ctx.waitUntil(kv.delete("wk:cache").catch(() => {}));
+    return;
+  }
   if (good && autoOk(x) && !x.ok) { // 小奖：凭证像样就自动通过，站长只收一条「已自动通过」的通知，想撤回还可以到后台撤
     x.ok = { at: Date.now(), auto: 1 };
     ctx.waitUntil(pushInbox(kv, OWNER, "oracle", "🤖 小奖已自动通过（" + what + "）\n" + x.name + " · " + x.day + " · " + (KIND_CN[x.kind] || x.kind) + " · " + x.amt + " DAI\n" + (payState(x) === "ready" ? "机器人几分钟内发奖。" : "他名字烧够后机器人自动发。") + "不用你点；想看凭证或撤回，到工单后台最上面。", "#/feedback/admin").catch(() => {}));
@@ -58,8 +72,8 @@ export async function onRequestPost(ctx) {
     await kv.put("or:proof:" + id + ":v", buf, { expirationTtl: TTL, metadata: { type, size: buf.byteLength } });
     m.x.say = Object.assign({}, m.x.say || {}, { v: 1, vt: type, at: Date.now() });
     tell(ctx, kv, m.x, "视频", buf.byteLength >= VID_MIN);
-    await kv.put("or:pay", JSON.stringify(m.pay));
-    return json({ ok: true, st: payState(m.x) });
+    await kv.put(m.key, JSON.stringify(m.pay));
+    return json({ ok: true, st: m.st() });
   }
   let b = {};
   try { b = await ctx.request.json(); } catch (e) { return json({ error: "格式不对" }, 400); }
@@ -75,8 +89,8 @@ export async function onRequestPost(ctx) {
     for (let i = 0; i < imgs.length; i++) await kv.put("or:proof:" + id + ":i" + i, imgs[i], { expirationTtl: TTL });
     m.x.say = Object.assign({}, m.x.say || {}, { n: imgs.length, at: Date.now() });
     tell(ctx, kv, m.x, imgs.length + " 张截图", imgs.some((s) => s.length >= IMG_MIN));
-    await kv.put("or:pay", JSON.stringify(m.pay));
-    return json({ ok: true, st: payState(m.x) });
+    await kv.put(m.key, JSON.stringify(m.pay));
+    return json({ ok: true, st: m.st() });
   }
   // —— 上传过程留痕（2026-11-20，工单 #327：客户说「发截图没反应」，服务器上一条都没收到，查不出卡在哪一步）——
   // 页面在「点了上传 / 选到几个文件 / 失败原因 / 成功」各报一条。只收确实有待领奖的钱包（mine 核过，别人刷不进来），留最近 200 条、30 天；后台用工单口令看（action: "logs"）

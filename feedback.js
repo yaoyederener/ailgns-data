@@ -463,17 +463,19 @@
     // 📣 预言家中奖待认证（站长 2026-11-14）：中奖人交了 DeBox 宣告帖 → 这里点「通过」→ 机器人才发奖
     function says() {
       var sb = document.getElementById("fb-says"); if (!sb) return;
-      var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
+      var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三", week: "OTC 周榜" };
+      var postTo = function (url, o) { o.key = key(); return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
       var post = function (o) { o.key = key(); return fetch("/api/oracle", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
-      post({ action: "says" }).then(function (j) {
-        var L = (j && j.list) || [];
+      // 🏆 周榜超过 100 DAI 的奖（站长 2026-11-22）也要交宣传截图 / 视频、等这里点「通过」：和预言家的并在一起显示（周榜那边读不到不影响预言家）
+      Promise.all([post({ action: "says" }), postTo("/api/weekly", { action: "says" }).catch(function () { return null; })]).then(function (rs) {
+        var j = rs[0], L = ((j && j.list) || []).concat((rs[1] && rs[1].list) || []);
         if (!L.length) { sb.innerHTML = ""; return; }
-        sb.innerHTML = '<div class="fb-say"><b>🏆 预言家中奖待认证（' + L.length + ' 笔）</b><small>中奖人在群里说一声并上传截图 / 视频 → 你点开看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
+        sb.innerHTML = '<div class="fb-say"><b>🏆 中奖待认证 · 预言家 / 周榜（' + L.length + ' 笔）</b><small>中奖人在群里说一声并上传截图 / 视频 → 你点开看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
           var burnOk = x.bn >= x.need, stT = x.ok ? (burnOk ? "✅ 已通过，机器人马上发" : "✅ 已通过，等他烧够名字（" + x.bn + "/" + x.need + "）") : x.has ? (burnOk ? "🔎 等你认证" : "🔎 凭证已交，名字还没烧够（" + x.bn + "/" + x.need + "）") : burnOk ? "📣 名字烧够了，等他上传截图 / 视频" : "⏳ 等他烧名字（" + x.bn + "/" + x.need + "）和上传凭证";
           return '<div class="fb-say-r"><span><b>' + esc(x.name) + "</b> · " + esc(x.day) + " · " + (KN[x.kind] || esc(x.kind)) + " · <b>" + Number(x.amt).toLocaleString("en-US") + " DAI</b></span><span>" + stT + "</span>" +
             (x.shots || x.video ? '<span class="fb-say-pv">' + (x.shots ? Array.apply(null, Array(x.shots)).map(function (_, n) { return '<button type="button" class="ghost" data-pv="' + i + '" data-n="' + n + '">🖼 看截图 ' + (n + 1) + "</button>"; }).join("") : "") + (x.video ? '<button type="button" class="ghost" data-pv="' + i + '" data-v="1">▶ 看视频</button>' : "") + "</span>" : "") +
             (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">👉 打开他的 DeBox 宣告帖 ↗</a>' : "") +
-            (!burnOk ? '<button type="button" class="ghost" data-fix="' + i + '">🩹 他用别的钱包烧的？补认销毁</button>' : "") +
+            (!burnOk && x.src !== "week" ? '<button type="button" class="ghost" data-fix="' + i + '">🩹 他用别的钱包烧的？补认销毁</button>' : "") +
             (x.ok ? '<button type="button" class="ghost" data-i="' + i + '" data-ok="0">撤回通过</button>' : x.has ? '<button type="button" class="nm-go" data-i="' + i + '" data-ok="1">✅ 通过，发奖</button>' : burnOk ? '<small>他还没在网站上传截图 / 视频。你已经在群里亲眼看到他说了，也可以直接通过：</small><button type="button" class="ghost" data-i="' + i + '" data-ok="1">🖐 我已看到他的宣告，手动通过，发奖</button>' : "") + "</div>";
         }).join("") + "</div>";
         // 🖼 / ▶ 看凭证：口令走请求正文，拿回来的图 / 视频放进一个盖在页面上的浮层里（后台每 20 秒刷新，浮层不受影响）
@@ -515,7 +517,7 @@
             var x = L[Number(bt.getAttribute("data-i"))], ok = bt.getAttribute("data-ok") === "1";
             if (ok && !confirm((x.has ? "确认通过？" : "他还没在网站上传截图 / 视频。\n确认你已经在群里亲眼看到他说自己中奖了？") + "\n" + x.name + " · " + x.amt + " DAI\n通过后机器人会自动把奖金发给他，发出去收不回。")) return;
             bt.disabled = true;
-            post({ action: "approve", id: x.id, ok: ok }).then(function (r) { if (r.error) alert(r.error); says(); }, function () { bt.disabled = false; });
+            (x.src === "week" ? postTo("/api/weekly", { action: "approve", id: x.id, ok: ok }) : post({ action: "approve", id: x.id, ok: ok })).then(function (r) { if (r.error) alert(r.error); says(); }, function () { bt.disabled = false; });
           };
         });
       }, function () {});
