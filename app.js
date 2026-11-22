@@ -569,11 +569,14 @@
   }
   // 桌面图标（PWA）里没有钱包，主站交易做不了：从图标打开时直接进 App 壳页（网址墙 + 钱包直达 + 联系方式）；地址里带 full=1 才留在主站看
   (function () { try { var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone; if (sa && !/[?&]full=1/.test(location.search + location.hash) && !sessionStorage.getItem("full")) location.replace("/app"); if (/[?&]full=1/.test(location.search + location.hash)) sessionStorage.setItem("full", "1"); } catch (e) {} })();
-  var GAMES = { play: 1, farm: 1, br: 1, gd: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
+  var GAMES = { farm: 1, br: 1, gd: 1 };
+  // 🧹 2026-11-23 站长：「删除这些玩的少的游戏」→ 销毁乐园大厅和 9 个小游戏下架（一周加起来不到 350 次打开）。老链接、收藏夹点进来一律转去开心农场。
+  //    代码文件 pixel.js / games.js 和接口 /api/pixel、/api/game 留着没删（数据也在），要恢复：把它们加回 tools/build.py 的 games 包和 index.src.html，再把这里和 menu.js 的入口加回来
+  var GONE = { play: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
   // 路由 → 要先加载的包（顺序加载；没打包的开发环境 window.AIL_BUNDLES 不存在，所有脚本照旧一次全载）
   var LAZY = (function () {
     var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"],
-      games: ["pixel", "play", "farm", "br", "g2048", "snake", "tetris", "flappy", "mines", "brick", "merge", "pet"],
+      games: ["farm", "br"],
       misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly", "usdt", "gale"] };
     Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
     m.oracle = ["kchart", "oracle"]; m.trade = ["kchart", "trade"]; // K 线组件两页共用，单独一个小包
@@ -655,6 +658,7 @@
     var parts = location.hash.replace(/^#\/?/, "").split("/");
     var extra = window.AIL.pages;
     var tab = parts[0] || "otc", a = (parts[1] || "").toLowerCase();
+    if (GONE[tab]) { location.replace("#/farm"); return; } // 下架的小游戏：转去开心农场（hashchange 会再进来一次）
     // 🚀 秒开（站长 2026-11-09）：首页只带核心包，域名 / 预言家 / 借贷 / 游戏 … 第一次点进去时才下载那一个小包（tools/build.py 生成清单 window.AIL_BUNDLES）
     if (!extra[tab] && LAZY[tab] && window.AIL_BUNDLES) {
       app.innerHTML = '<section class="card"><p class="muted">⏳ 加载中…</p></section>';

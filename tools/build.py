@@ -33,7 +33,7 @@ GROUPS = {
     "lp":       ["lp.js"],
     "aiswap":   ["aiswap.js"],
     "feedback": ["feedback.js"],
-    "games":    ["pixel.js", "games.js", "farm.js", "br.js"],
+    "games":    ["farm.js", "br.js"],  # pixel.js / games.js（销毁乐园大厅 + 9 个小游戏）2026-11-23 下架，文件留着没删
     "mj":       ["mj.js"],
     "gd":       ["gd.js"],
     "misc":     ["trades.js", "arb.js", "updates.js", "orders.js", "med.js", "partner.js", "ops.js", "square.js", "bonus.js", "fast.js", "funds.js", "weekly.js", "usdt.js", "gale.js"],

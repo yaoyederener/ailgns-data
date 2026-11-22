@@ -433,7 +433,7 @@
   function lobby() {
     run++; G = null; pend = null; ON = null; BUY = null;
     var b = beans(), base = Number(ls("mj:base")) || 100;
-    A.app.innerHTML = '<a class="px-back" href="#/play">← 销毁乐园</a><section class="card mj" id="mj-root"><h1 class="mj-hero"><span class="mj-fan">' + tile(0) + tile(9) + tile(18) + '</span><span class="mj-logo">血流成河</span><span class="mj-sub2">四川麻将</span><small class="mj-tag">试玩版</small></h1>' +
+    A.app.innerHTML = '<section class="card mj" id="mj-root"><h1 class="mj-hero"><span class="mj-fan">' + tile(0) + tile(9) + tile(18) + '</span><span class="mj-logo">血流成河</span><span class="mj-sub2">四川麻将</span><small class="mj-tag">试玩版</small></h1>' +
       '<p class="sub">四川麻将，你一个人对三个机器人。胡了不下桌，一局能胡好多次。</p>' +
       '<div class="mj-bean"><span>我的欢乐豆</span><b>' + n(b) + "</b>" + (b < 2000 ? '<button type="button" class="ghost" data-act="refill">免费领 10,000 豆</button>' : "") + "</div>" +
       '<p class="mj-lb">选底分（底分越大，输赢越大）</p><div class="mj-bases">' + [50, 100, 500, 1000].map(function (x) { return '<button type="button" class="' + (x === base ? "on" : "") + '" data-base="' + x + '">' + n(x) + "</button>"; }).join("") + "</div>" +
