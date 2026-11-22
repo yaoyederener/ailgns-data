@@ -9,6 +9,12 @@ import { inboxText, AUTH_TTL, pushInbox, OWNER } from "../../lib/inbox.js";
 import { ensureWeek } from "../../lib/cred.js";
 import { rpc } from "../../lib/oracle.js";
 import { txNote } from "../../lib/txnote.js";
+import { reviewerOf } from "../../lib/reviewers.js";
+
+// 🔒 私密聊天不进「发送记录」（站长 2026-11-23：「后台隐藏一下私密聊天」）：收信人全是私密工单名单里的钱包的，不记、也不显示。
+//    发送记录是口令就能看的，私密工单的规矩是只有站长钱包签名和本人能看。群发里顺带有这些钱包的不算私密，照常记
+export const privLog = (x) => !!(x && Array.isArray(x.to) && x.to.length > 0 && x.to.every((a) => !!reviewerOf(a)));
+export const pubLog = (log) => (Array.isArray(log) ? log : []).filter((x) => x && !privLog(x));
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 function auth(a, ts, sig) {
   a = String(a || "").toLowerCase(); ts = Number(ts);
@@ -39,7 +45,7 @@ export async function onRequestPost(ctx) {
   if (b.action === "admin" || b.action === "adminlog") {
     const k = String(b.key || ""), env = ctx.env;
     if (!k || !((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY))) return json({ error: "口令不对" }, 403);
-    const log = (await kv.get("ib:adminlog", "json")) || [];
+    const log = pubLog(await kv.get("ib:adminlog", "json"));
     if (b.action === "adminlog") return json({ log });
     // 「@商户」= 本周全部 OTC 商户（✔ 认证商家及以上，名单按 lib/cred.js 每周一轮换）
     let to = [...new Set((String(b.to || "").toLowerCase().match(/0x[0-9a-f]{40}/g) || []))], max = 50;
@@ -50,7 +56,7 @@ export async function onRequestPost(ctx) {
     if (msg.length < 2) return json({ error: "内容太短" }, 400);
     const link = /^#\/[\w\/.%-]{0,80}$/.test(String(b.link || "")) ? String(b.link) : "";
     for (const x of to) await pushInbox(kv, x, "sys", "📣 站长通知\n" + msg, link);
-    log.unshift({ t: Date.now(), to, msg: msg.slice(0, 300), link });
+    if (!privLog({ to })) log.unshift({ t: Date.now(), to, msg: msg.slice(0, 300), link });
     await kv.put("ib:adminlog", JSON.stringify(log.slice(0, 50)));
     return json({ ok: true, n: to.length, log: log.slice(0, 50) });
   }
@@ -86,9 +92,11 @@ export async function onRequestPost(ctx) {
     await pushInbox(kv, t.a, "ticket", "📣 站长通知\n" + msg + (said ? "\n\n—— 回复你的留言：" + said : ""), "#/inbox");
     t.note = msg; t.st = "done"; t.up = Date.now();
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
-    const log = (await kv.get("ib:adminlog", "json")) || [];
-    log.unshift({ t: Date.now(), to: [t.a], msg: ("【回复工单 #" + t.id + "】" + msg).slice(0, 300), link: "#/inbox" });
-    await kv.put("ib:adminlog", JSON.stringify(log.slice(0, 50)));
+    if (!t.vip && !privLog({ to: [t.a] })) { // 私密工单的回复不记进发送记录
+      const log = pubLog(await kv.get("ib:adminlog", "json"));
+      log.unshift({ t: Date.now(), to: [t.a], msg: ("【回复工单 #" + t.id + "】" + msg).slice(0, 300), link: "#/inbox" });
+      await kv.put("ib:adminlog", JSON.stringify(log.slice(0, 50)));
+    }
     return json({ ok: true, to: t.a, id: t.id });
   }
   return json({ error: "不认识的操作" }, 400);
