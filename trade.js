@@ -64,6 +64,8 @@
         if (lo === Infinity) lo = b0;
         if (!hi) hi = a0;
         if (lo) bids = bids.filter(function (o) { return priceOf(o) > lo * 0.5; });
+        var lowCut = 0; try { lowCut = K().lowBidCut ? K().lowBidCut(mkt) : 0; } catch (e) { lowCut = 0; } // 站长 2026-11-22：出价比 DEX 到手价低 5% 以上的买单不显示、不撮合（和 otc.js markFar 同一条线）
+        if (lowCut) bids = bids.filter(function (o) { return priceOf(o) >= lowCut; });
         if (hi) asks = asks.filter(function (o) { return priceOf(o) < hi * 2; });
       }
       book = { asks: asks, bids: bids, all: all, mkt: mkt };
