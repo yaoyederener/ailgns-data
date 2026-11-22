@@ -1574,6 +1574,7 @@ tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ff
 .fm-hen { background: #fff7ed; border-color: #fdba74; }
 .fm-hen.hungry { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
 .fm-ic { font-size: 34px; line-height: 1.1; }
+.fmz-chive { display: inline-block; vertical-align: -0.12em; }
 .fm-plot b, .fm-hen b { font-size: 14px; }
 .fm-plot small, .fm-hen small { font-size: 11.5px; opacity: .85; }
 .fm-st { display: block; font-style: normal; font-size: 11px; color: #dc2626; font-weight: 600; }
