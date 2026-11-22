@@ -181,6 +181,7 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
         var bad = f.need > 0 || /⚠️/.test(f.st || "");
         var big = f.bal == null ? "读不到" : fm(f.bal, 2);
         var chip = f.need > 0 ? '<span class="ptn-fdc bad">要补 ' + fm(f.need, 0) + " DAI</span>" : f.need === 0 ? '<span class="ptn-fdc ok">✅ 不用补</span>' : "";
+        if (f.k === "gen" && f.left != null) chip = f.left > 0 ? '<span class="ptn-fdc bad">离发放还差 ' + fm(f.left, 0) + " DAI</span>" : '<span class="ptn-fdc ok">✅ 满了，可以发放</span>'; /* 创世分红奖池：满 500 发一次，不是「必须补」 */
         var day = f.k === "mm" && f.delta != null ? '<div class="ptn-fdd">今天 <b class="' + (f.delta >= 0 ? "up" : "down") + '">' + (f.delta >= 0 ? "+" : "") + fm(f.delta, 2) + " DAI</b>" + (f.pc != null ? " · 昨天（" + esc(f.pd || "") + "）收在 " + fm(f.pc, 2) : "") + "</div>" : "";
         return '<div class="ptn-fdr' + (bad ? " bad" : "") + '"><div class="ptn-fdh"><b>' + esc(f.n) + "</b>" + chip + '</div><div class="ptn-fdb"><b>' + big + "</b><small>" + esc(f.unit || "DAI") + "</small></div>" + day +
           '<p class="ptn-fds">' + esc(f.st || "") + "</p>" + (f.led ? '<p class="ptn-fdl">' + esc(f.led) + "</p>" : "") + '<p class="muted ptn-fdt">' + esc(f.tip || "") + "</p>" +

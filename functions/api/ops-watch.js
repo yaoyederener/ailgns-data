@@ -7,7 +7,7 @@ import { build as buildAdminStats } from "../../lib/adminstats.js";
 import { build as buildPartner } from "../../lib/partner.js";
 import { TODO } from "../../lib/todo.js";
 import { pushInbox } from "../../lib/inbox.js";
-import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert, mmAlert, nodeAlert, NODE_LAG_BLOCKS } from "../../lib/alert.js";
+import { alertOwner, jackpotAlert, dailyPoolAlert, fastPoolAlert, walletAlert, mmAlert, nodeAlert, NODE_LAG_BLOCKS, genAlert, GEN_HOUR } from "../../lib/alert.js";
 
 // 📝 站长待办实时推送（站长 2026-11-10：「带优化功能实时滚动推送给我，按当前运营状况推最紧急的」）
 //    清单（lib/todo.js）一有更新就推一次；另外每天北京时间 8 点推一次当日最紧急 5 条。只推到站长自己的收件箱（+ 开了通知的手机 / 电脑），不发客户
@@ -79,6 +79,14 @@ async function ownerWatch(ctx, kv) {
   } catch (e) { /* 同上 */ }
   try { await fire(mmAlert(await mmInfo(kv, get))); } catch (e) { /* 同上 */ }
   try { await fire(nodeAlert(await nodeInfo(kv))); } catch (e) { /* 同上 */ }
+  try { // 🎁 创世分红奖池：每天提醒一次转钱（只发小铃铛）。今天发过了就不再读面板数据
+    const bj = new Date(Date.now() + 8 * 3600e3), day = bj.toISOString().slice(0, 10), hr = bj.getUTCHours();
+    if (hr >= GEN_HOUR && hr < 23 && !(await kv.get("al:gen:" + day))) {
+      const p = await kv.get("ptn:res", "json"), g = p && Date.now() - p.at < 1800e3 ? (p.funds || []).find((f) => f && f.k === "gen") : null; // 面板数据超过半小时没更新：这一轮不发
+      const a = genAlert(g, hr, day);
+      if (a && (await alertOwner(ctx.env, kv, a[0], a[1], a[2], a[3], true))) out.push(a[0]);
+    }
+  } catch (e) { /* 同上 */ }
   return out;
 }
 // 本站自己的备用节点正不正常：和官方节点比最新块；不正常从哪一刻开始记在 KV node:bad，好了就清掉。官方节点自己读不到：这一轮不判断
