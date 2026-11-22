@@ -1,0 +1,6 @@
+{
+"DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低": "DAI. The site's minimum bid is what a seller would receive on the DEX, minus",
+"%，比这还低不让挂。请把单价填到": "%; anything lower can't be listed. Please set the price to",
+"⚖️ LGNS（Anubis）市场的「买单最低出价」再放宽一点：现在是「卖家去 DEX 卖的到手价」再低 {0}%（原来正好等于到手价），给挂买单的朋友多留一点空间，让盘口的买单多起来。卖币的朋友，卖之前请看清买单的单价。": "⚖️ The minimum bid on the LGNS (Anubis) market was loosened a little more: it is now {0}% below what a seller would receive on the DEX (it used to equal that amount exactly), leaving bid makers more room so the bid side fills up. If you are selling, please check the bid price before you sell.",
+"LGNS（Anubis）市场的「买单最低出价」再放宽一点：现在是「卖家去 DEX 卖的到手价」再低 {0}%（原来正好等于到手价），给挂买单的朋友多留一点空间，让盘口的买单多起来。卖币的朋友，卖之前请看清买单的单价。": "The minimum bid on the LGNS (Anubis) market was loosened a little more: it is now {0}% below what a seller would receive on the DEX (it used to equal that amount exactly), leaving bid makers more room so the bid side fills up. If you are selling, please check the bid price before you sell."
+}
