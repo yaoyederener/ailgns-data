@@ -54,7 +54,9 @@
   }
   // 买单最低出价（说明见下面挂单表单里那一大段注释）。放在这里是因为一键做市（lp.js，经 A.otcKit）也要守同一条线
   function lgnsNet() { var t = SELL_TAX; if (t === null || !(t >= 0.45 && t <= 0.5)) t = 0.5; return (1 - t) * 0.997; }
-  function bidFloor(mkt) { return !mkt ? 0 : MK === "lgns" ? mkt * lgnsNet() / TAKER : MK === "ailgns" ? mkt * dexSellCmp() : 0; }
+  /* 站长 2026-11-21 晚：挂买单的人反映没利润、不愿挂（线 = DEX 到手价 ÷ 0.99，比最低卖单还高）。折中：去掉「÷ 0.99」，LGNS 的线 = 去 DEX 卖的到手价。
+     这样买来去砸 DEX 不赚不亏（不鼓励砸底池），转手挂卖单有约 1% 差价；代价是卖家卖给买单（付 1% 手续费后）比去 DEX 少约 1%，下单窗口有提示。 */
+  function bidFloor(mkt) { return !mkt ? 0 : MK === "lgns" ? mkt * lgnsNet() : MK === "ailgns" ? mkt * dexSellCmp() : 0; }
   // 指导价跟真实成交走（站长要求）：/api/guide 给出最近 30 笔成交价 ÷ 当时 DEX 市价的中位数，页面乘上现在的市价
   var GUIDE = null;
   var guideP = fetch("/api/guide").then(function (r) { return r.json(); }).then(function (j) { GUIDE = j || {}; }, function () { GUIDE = {}; });
@@ -1094,7 +1096,7 @@
     /* lgnsNet / bidFloor 2026-11-21 挪到文件前面（loadTax 后面），一键做市 lp.js 也要用同一条线 */
     function bidFloorMsg(fl) {
       var ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
-      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。卖家把币拿去 DEX 卖，按现在链上实际的卖出手续费算能到手多少，这条线就是保证他卖给你（扣掉本站 1% 手续费后）到手不比那少；出价比这低，卖家卖给你还不如去 DEX，本站不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
+      return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。这是卖家把币拿去 DEX 卖、按现在链上实际的卖出手续费算的到手价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
     }
     function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
