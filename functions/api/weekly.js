@@ -43,7 +43,7 @@ export async function onRequestGet(ctx) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     let done = null;
     try { done = await settleWeek(kv, now); } catch (e) { return json({ error: "结算没成：" + String((e && e.message) || e).slice(0, 120), pay: [] }); }
-    if (done) for (const w of done.top) if (w.amt > 0) { try { await pushInbox(kv, w.a, "sys", "🏆 OTC 手续费周榜\n你是 " + done.cyc + " 这一周的第 " + (done.top.indexOf(w) + 1) + " 名，分到 " + w.amt + " DAI。\n" + WK_BURN_DAYS + " 天内先销毁 1 枚创世名，" + (w.amt > WK_SAY_MIN ? "你这笔超过 " + WK_SAY_MIN + " DAI，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到周榜页「发放记录」里自己那一行，团队看过后" : "") + "机器人核对后用这笔 DAI 在本站 OTC 买成 AiLGNS，自动转到你的钱包；过期没烧名字算放弃。\n⚠️ 领奖全程在网页上自助，官方不会私聊你，不会索要助记词、私钥。", "#/weekly"); } catch (e) { /* 通知失败不影响结算 */ } }
+    if (done) for (const w of done.top) if (w.amt > 0) { try { await pushInbox(kv, w.a, "sys", "🏆 OTC 手续费周榜\n你是 " + done.cyc + " 这一周的第 " + (done.top.indexOf(w) + 1) + " 名，分到 " + w.amt + " DAI。\n" + WK_BURN_DAYS + " 天内先销毁 1 枚创世名，" + (w.amt > WK_SAY_MIN ? "你这笔超过 " + WK_SAY_MIN + " DAI，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到周榜页「发放记录」里自己那一行。" : "") + "机器人核对后用这笔 DAI 在本站 OTC 买成 AiLGNS，自动转到你的钱包；过期没烧名字算放弃。\n⚠️ 领奖全程在网页上自助，官方不会私聊你，不会索要助记词、私钥。", "#/weekly"); } catch (e) { /* 通知失败不影响结算 */ } }
     let pays = (await kv.get("wk:pay", "json")) || [];
     try { pays = (await burnCheck(kv, u.origin, pays, now, "wk:pay")).pays; } catch (e) { return json({ error: "烧名字核对没成", pay: [] }); }
     const stuck = pays.filter((x) => wkState(x) === "sending" && now - x.lock > WK_STUCK);
