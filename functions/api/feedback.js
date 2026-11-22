@@ -51,14 +51,15 @@ async function runTriage(ctx, kv, t) {
     await pushInbox(kv, OWNER, "ticket", "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200), "#/feedback/admin/" + t.id).catch(() => {});
     return;
   }
-  const tri = await triage(ctx.env, t.txt, t.n);
-  if (tri.topic) {
+  const tri = await triage(ctx.env, t.txt, t.n, ctx.request.headers.get("cf-ipcountry") || "");
+  if (tri.topic && tri.ai !== false) { // 分诊没成的（主题都是「未分类」）不算「同一问题」——以前会把每张都标成「已有 40 位客户反馈」、顶到最高级（2026-11-22 修）
+
     const ids = ((await kv.get("tk:list", "json")) || []).slice(-100).filter((x) => x !== t.id);
     const others = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((x) => x && x.tri && x.tri.topic === tri.topic && x.a !== t.a && Date.now() - x.t < 7 * 86400e3);
     if (others.length >= 1 && tri.ok && tri.lv > 1) { tri.lv = 1; tri.dup = others.length + 1; tri.why = "同一问题已有 " + (others.length + 1) + " 位客户反馈：" + tri.why; }
     else if (others.length) tri.dup = others.length + 1;
   }
-  t.tri = { ok: tri.ok, lv: tri.lv, cat: tri.cat, topic: tri.topic, why: tri.why, dup: tri.dup || 0, ai: tri.ai };
+  t.tri = { ok: tri.ok, lv: tri.lv, cat: tri.cat, topic: tri.topic, why: tri.why, dup: tri.dup || 0, ai: tri.ai, ...(tri.err ? { err: tri.err } : {}) };
   if (!tri.ok) t.st = "skip";
   if (tri.ok && tri.lv === 3 && tri.reply) t.bot = tri.reply;
   await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
