@@ -4519,6 +4519,12 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-pays small { display: block; font-size: 12.5px; color: var(--muted); }
 .wkb-st { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: #92400e; text-align: right; }
 .wkb-st.paid, .wkb-st.paid a { color: #15803d; text-decoration: none; }
+/* 📣 超过 100 DAI 的奖：发放记录那一行下面的「上传宣传截图 / 视频」块（2026-11-22） */
+.wkb-pays li.wkb-upl { display: block; padding: 12px; margin: 2px 0 10px; border: 1px solid #e4dafa; border-radius: 14px; background: #faf7ff; }
+.wkb-upl p { margin: 0 0 10px; font-size: 14px; line-height: 1.6; color: #4a3d6b; }
+.wkb-upl .wkb-upg { display: block; margin: 0 0 10px; font-size: 14.5px; font-weight: 700; color: #6d28d9; text-decoration: none; }
+.wkb-upl .wkb-upb { display: block; width: 100%; box-sizing: border-box; min-height: 50px; padding: 13px 12px; border-radius: 14px; font-size: 16.5px; font-weight: 800; text-align: center; cursor: pointer; }
+.wkb-upl .wkb-ups { margin: 8px 0 0; font-size: 14px; font-weight: 700; color: #047857; } .wkb-upl .wkb-ups:empty { display: none; } .wkb-upl .wkb-ups.bad { color: #b42318; } .wkb-upl .wkb-ups.tip { color: #6b5a8e; font-weight: 500; font-size: 13.5px; }
 .wkb-st.forfeit { color: var(--muted); }
 .wkb-minip { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 0 0 6px; }
 .wkb-minip b { color: #5b3fc4; }
