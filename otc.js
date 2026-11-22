@@ -59,7 +59,14 @@
   /* 站长 2026-11-22「还是把买单价格限制在 3% 左右，挂单的太少了」（做市商 11-21 提过 4%，我劝过先观察，这次是他定的）：
      LGNS 的线再放宽。我建议 2%（3% 离被投诉的老线太近，先紧后松容易），站长同意：线 = DEX 到手价 × 0.98。卖家卖给贴线的买单，到手比去 DEX 少约 3%（2% + 本站 1% 手续费）；下单窗口不加「少拿」提示（站长定的）。AiLGNS 的线没变。 */
   var LGNS_BID_SLACK = 0.98;
-  function bidFloor(mkt) { return !mkt ? 0 : MK === "lgns" ? mkt * lgnsNet() * LGNS_BID_SLACK : MK === "ailgns" ? mkt * dexSellCmp() : 0; }
+  function dexNet(mkt) { return !mkt ? 0 : MK === "lgns" ? mkt * lgnsNet() : MK === "ailgns" ? mkt * dexSellCmp() : 0; } // 卖家把币拿去 DEX 卖的到手价（只算 Anubis 的 AiLGNS / LGNS 两个市场）
+  function bidFloor(mkt) { var n = dexNet(mkt); return MK === "lgns" ? n * LGNS_BID_SLACK : n; }
+  /* 🚧 站长 2026-11-22 晚：「前端拦截一下低价买单，低于市场价 5% 以上的买单拦截掉」。
+     买单最低出价只管得住从本站页面新挂的单；绕过页面直接调合约挂的、以前挂的低价买单还会出现在盘口里等人点错。
+     所以再加一道：盘口里出价比「DEX 到手价」低 5% 以上的买单，和离谱价的单一样处理（标 _far + _low）——不显示、不让成交，一键扫单 / 限价撮合 / 交易所盘口页都跳过；
+     挂单人自己在「我的挂单」里照样能看到、能撤。「市场价」我取的是 DEX 到手价（和买单底线同一个基准），不是池子标价（LGNS 池子标价含 48% 左右的卖出税，没法比）。 */
+  var LOW_BID = 0.95;
+  function lowBidCut(mkt) { return dexNet(mkt) * LOW_BID; }
   // 指导价跟真实成交走（站长要求）：/api/guide 给出最近 30 笔成交价 ÷ 当时 DEX 市价的中位数，页面乘上现在的市价
   var GUIDE = null;
   var guideP = fetch("/api/guide").then(function (r) { return r.json(); }).then(function (j) { GUIDE = j || {}; }, function () { GUIDE = {}; });
@@ -596,7 +603,8 @@
     var lo = Math.min(mkt || Infinity, ask || Infinity), hi = Math.max(mkt || 0, bid || 0);
     if (lo === Infinity) lo = bid;
     if (!hi) hi = ask;
-    buys.forEach(function (o) { o._far = !!lo && priceOf(o) <= lo * 0.5; o._ref = lo; });
+    var net = dexNet(mkt), cut = net * LOW_BID;
+    buys.forEach(function (o) { var p = priceOf(o); o._far = !!lo && p <= lo * 0.5; o._ref = lo; o._low = false; if (!o._far && cut && p < cut) { o._far = true; o._low = true; o._ref = net; } });
     sells.forEach(function (o) { o._far = !!hi && priceOf(o) >= hi * 2; o._ref = hi; });
   }
   function notFar(o) { return !o._far; }
@@ -1113,6 +1121,7 @@
       var buysC = A.BOT ? buys.filter(function (o) { return o.maker !== A.BOT; }) : buys;
       otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buysC.length ? priceOf(buysC[0]) : 0;
       markFar(sells, buys, mkt || 0);
+      var lowN = buys.filter(function (o) { return o._low; }).length; // 出价比 DEX 到手价低 5% 以上、被拦掉的买单有几张
       sells = sells.filter(notFar); buys = buys.filter(notFar); // 站长 2026-11-16：离谱价的单干脆不在盘口显示（挂单人自己在「我的挂单」里照样能看到、能撤）
       var oref = otcRef(mkt), orefN = oref ? oref.n : "市价";
 
@@ -1160,7 +1169,7 @@
         var botBuy = A.BOT ? buys.filter(function (o) { return o.maker === A.BOT; })[0] : null;
         if (botBuy) html += '<div class="bot-bar"><span class="bot-bar-i">🤖</span><div><b>官方做市机器人正在收 ' + SYM + '</b><small>现在出价 <b>' + A.fmt(priceOf(botBuy), PD) + ' DAI</b> · 价格跟着官方 DEX 实时调整 · 想卖的直接点下面带 🤖 的那一行「卖出」</small></div></div>';
       }
-      html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低") + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
+      html += book("buys", "卖出 " + SYM, buys, "卖成 DAI · 价格从高到低" + (lowN ? " · 另有 " + lowN + " 张出价太低已隐藏" : "")) + book("sells", "买入 " + SYM, sells, "用 DAI 买 · 价格从低到高"); // 卖出放上面：鼓励大家卖
       html += '<div id="otc-guide-slot"></div>'; // 站长 2026-11-08：客户进来先看币种和挂单簿，担保交易引导卡 + 查我的订单 放在挂单簿下面
       fetch("/api/saved" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
         var el = document.getElementById("saved-bar"); if (!el || !j.all || !(j.all.dai > 0)) return;
@@ -1811,6 +1820,7 @@
             var now = Date.now() / 1000, live = b.orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); });
             sells = live.filter(function (o) { return o.sellAilgns; }).sort(function (x, y) { return priceOf(x) - priceOf(y); });
             buys = live.filter(function (o) { return !o.sellAilgns; }).sort(function (x, y) { return priceOf(y) - priceOf(x); });
+            markFar(sells, buys, mkt || 0);
           }, function () { /* 读不到就用页面上的 */ }).then(function () {
             p = plan(Number(r.value));
             if (!p.steps.length) throw new Error("你要吃的单刚被别人吃完了，现在没有可以扫的单；稍等一下再看看");
@@ -1896,7 +1906,8 @@
       if (o._far) { // 离谱价：大红字说明 + 不让成交
         var fw = document.createElement("div"), fd = o._ref ? Math.abs((p / o._ref - 1) * 100) : 0;
         fw.className = "otc-far";
-        fw.textContent = "⛔ 这张" + (o.sellAilgns ? "卖单要价 " : "买单出价 ") + A.fmt(p, PD + 2) + " DAI，比现在的行情（约 " + A.fmt(o._ref, PD) + " DAI）" + (o.sellAilgns ? "高 " : "低 ") + (fd >= 99.99 && !o.sellAilgns ? "99.99" : fd.toFixed(fd < 1000 ? 2 : 0)) + "%。" +
+        if (o._low) fw.textContent = "⛔ 这张买单出价 " + A.fmt(p, PD) + " DAI，比你自己把币拿去 DEX 卖的到手价（约 " + A.fmt(o._ref, PD) + " DAI）低 " + fd.toFixed(2) + "%。卖给它不如自己去 DEX 卖。出价比 DEX 到手价低 5% 以上的买单，本站不显示、也不让成交。请关闭后选价格正常的单。";
+        else fw.textContent = "⛔ 这张" + (o.sellAilgns ? "卖单要价 " : "买单出价 ") + A.fmt(p, PD + 2) + " DAI，比现在的行情（约 " + A.fmt(o._ref, PD) + " DAI）" + (o.sellAilgns ? "高 " : "低 ") + (fd >= 99.99 && !o.sellAilgns ? "99.99" : fd.toFixed(fd < 1000 ? 2 : 0)) + "%。" +
           (o.sellAilgns ? "按这个价买，等于多花好几倍的钱" : "按这个价卖，等于把币白送给对方") + "，链上成交追不回来。为了保护你，这张单不能" + (o.sellAilgns ? "买" : "卖") + "。请关闭后选价格正常的单。";
         quote.parentNode.insertBefore(fw, quote);
         var fg = document.getElementById("f-go"); fg.disabled = true; fg.textContent = "价格离谱，已拦住";
@@ -2210,7 +2221,7 @@
     M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; },
     useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
     cancelMany: cancelMany, // 账本「一键批量撤单」用
-    bidFloor: bidFloor, loadTax: loadTax, // 一键做市铺买单也守「买单最低出价」（站长 2026-11-21）
+    bidFloor: bidFloor, lowBidCut: lowBidCut, loadTax: loadTax, // 一键做市铺买单也守「买单最低出价」（站长 2026-11-21）
     deboxCard: deboxCard // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
   };
   A.pages.otc = function (id) {

@@ -1,0 +1,5 @@
+{
+"🚧 盘口不再显示出价太低的买单：AiLGNS 和 LGNS（Anubis）两个市场里，出价比「卖家去 DEX 卖的到手价」低 {0}% 以上的买单，本站不显示、也不让成交，防止点错吃亏。挂单人自己在「我的挂单」里照样能看到、能撤，撤单后钱原路退回。": "🚧 The order book no longer shows bids that are far too low: on the AiLGNS and LGNS (Anubis) markets, bids more than {0}% below what a seller would receive on the DEX are hidden and cannot be filled, so nobody sells into them by mistake. The maker can still see and cancel them under \"My orders\"; cancelling returns the funds.",
+"盘口不再显示出价太低的买单：AiLGNS 和 LGNS（Anubis）两个市场里，出价比「卖家去 DEX 卖的到手价」低 {0}% 以上的买单，本站不显示、也不让成交，防止点错吃亏。挂单人自己在「我的挂单」里照样能看到、能撤，撤单后钱原路退回。": "The order book no longer shows bids that are far too low: on the AiLGNS and LGNS (Anubis) markets, bids more than {0}% below what a seller would receive on the DEX are hidden and cannot be filled, so nobody sells into them by mistake. The maker can still see and cancel them under \"My orders\"; cancelling returns the funds.",
+"卖成 DAI · 价格从高到低 · 另有 {0} 张出价太低已隐藏": "Sell for DAI · highest price first · {0} more bid(s) hidden (priced too low)"
+}
