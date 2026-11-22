@@ -1,0 +1,7 @@
+{
+"🏆 神算子大奖领奖调整：中奖钱包在领奖期（{0} 天）里注册的名字是领奖用的，注册费进每日大奖奖池，不再算极速预言家的票。别的钱包不受影响。": "🏆 Oracle jackpot claim update: names the winning wallet registers during its claim period ({0} days) are claim names — the fee goes to the daily jackpot pool and they no longer count as Fast Oracle tickets. Other wallets are not affected.",
+"神算子大奖领奖调整：中奖钱包在领奖期（{0} 天）里注册的名字是领奖用的，注册费进每日大奖奖池，不再算极速预言家的票。别的钱包不受影响。": "Oracle jackpot claim update: names the winning wallet registers during its claim period ({0} days) are claim names — the fee goes to the daily jackpot pool and they no longer count as Fast Oracle tickets. Other wallets are not affected.",
+"。这些名字是领奖用的：注册费进每日大奖奖池，不算极速预言家的票。": ". These names are for claiming the prize: the fee goes to the daily jackpot pool and they do not count as Fast Oracle tickets.",
+"领奖用的名字，不算极速票": "claim names — no Fast Oracle tickets",
+"这些是领奖用的名字，注册费进每日大奖奖池，不算极速票。回销毁页把它们烧掉就能领奖。": "These are claim names: the fee goes to the daily jackpot pool and they do not count as Fast Oracle tickets. Go back to the burn page and burn them to claim your prize."
+}
