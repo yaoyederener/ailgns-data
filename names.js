@@ -1388,7 +1388,8 @@
     lsP = fetch("/api/name-market" + (fresh && again ? "?f=1" : "")).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
       if (!j.list) throw new Error("bad");
       return j.list.map(function (it) { it.price = BigInt(it.price); return it; });
-    }).catch(function () { return slowListings(tlds); });
+    }).catch(function () { return slowListings(tlds); })
+      .then(function (l) { var F = A.FLAG || {}; return l.filter(function (it) { return !F[String(it.maker || "").toLowerCase()]; }); }); /* ⚠️ 涉嫌盗号钱包的挂单不展示（接口已经滤过，这里再滤一次，管住自己读链的那条路） */
     lsP.catch(function () { lsP = null; });
     return lsP;
   }
