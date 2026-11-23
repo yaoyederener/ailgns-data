@@ -5137,3 +5137,33 @@ html.lang-ko body { word-break: keep-all; }
 .gs-stp li.now, .wkb-stp li.now { border: 2px solid #7c5cff; color: #2d1b69; font-weight: 700; }
 .gs-stp .nm-go { display: block; text-align: center; text-decoration: none; }
 .wkb-upl a.wkb-upb { text-decoration: none; margin-bottom: 10px; }
+
+/* 🚀 一键发币 #/aiswap/launch（aiswap.js lch*） */
+.lch-entry { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: linear-gradient(135deg, #f4efff, #ece4ff); border: 1.5px solid #cbb9ff; text-decoration: none; color: #4a2bc2; }
+.lch-entry b { font-size: 16px; white-space: nowrap; } .lch-entry span { font-size: 13px; color: #7a68b8; text-align: right; }
+.lch-warn { background: #fff8e6; border: 1.5px solid #f0d78a; } .lch-warn > b { display: block; font-size: 16px; color: #7a5200; margin-bottom: 6px; }
+.lch-warn ul { margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.7; color: #6b5200; }
+.lch-gen { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: #f6f2ff; font-size: 14.5px; color: #5a4a8a; }
+.lch-gen.ok { background: #f1fbf5; color: #1f6b45; font-weight: 700; } .lch-gen.bad { background: #fff1f0; color: #b42318; font-weight: 700; }
+.lch-form input { width: 100%; box-sizing: border-box; font-size: 17px; padding: 11px 12px; border-radius: 12px; border: 1.5px solid #d9ccff; color: #2d1b69; background: #fff; }
+.lch-form input:disabled { background: #f4f1fb; color: #7a6aa8; }
+.lch-q { display: flex; gap: 6px; margin-top: 6px; } .lch-q button { flex: 1; padding: 8px 0; border-radius: 10px; background: #fff; border: 1px solid #e3d8ff; color: #5a35d6; font-weight: 700; box-shadow: none; }
+.lch-pct { margin: 0; } .lch-pct button:disabled { opacity: .55; }
+.lch-sum { margin-top: 12px; padding: 10px 12px; border-radius: 14px; background: #faf8ff; border: 1px solid #e9e1fb; }
+.lch-sum p, .lch-coin p { display: flex; justify-content: space-between; gap: 10px; margin: 5px 0; font-size: 14.5px; color: #6b5aa6; }
+.lch-sum p b, .lch-coin p b { color: #2d1b69; text-align: right; word-break: break-all; } .lch-sum p.muted { display: block; }
+.lch-sum .lch-bad { display: block; color: #b42318; font-weight: 700; } .lch-keep { color: #b45309 !important; }
+.lch-steps ol { list-style: none; margin: 10px 0; padding: 0; }
+.lch-steps li { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; margin: 0 0 8px; padding: 12px; border-radius: 14px; background: #fff; border: 1.5px solid #e4dafa; }
+.lch-steps li i { font-style: normal; font-size: 13px; font-weight: 800; color: #fff; background: #7c5cff; border-radius: 999px; padding: 3px 11px; white-space: nowrap; }
+.lch-steps li b { font-size: 16px; color: #2d1b69; } .lch-steps li em { grid-column: 1 / -1; font-style: normal; font-size: 13px; font-weight: 700; color: #8a7bbd; }
+.lch-steps li span { grid-column: 1 / -1; font-size: 14px; line-height: 1.6; color: #4a3d6b; word-break: break-all; }
+.lch-steps li.now { border: 2px solid #7c5cff; background: #fdfcff; } .lch-steps li.now em { color: #5a35d6; }
+.lch-steps li.done { background: #f3fbf6; border-color: #c9ead6; } .lch-steps li.done i { background: #2f9e62; } .lch-steps li.done em { color: #1f7a4a; }
+.lch-go { min-height: 54px; font-size: 18px; font-weight: 800; border-radius: 14px; background: linear-gradient(135deg, #7c5cff, #5a35d6); }
+.lch-soon { padding: 12px; border-radius: 12px; background: #f6f2ff; color: #5a4a8a; font-size: 14.5px; line-height: 1.6; }
+.lch-ok { font-size: 17px; font-weight: 800; color: #1f6b45; } .lch-btns { display: flex; gap: 8px; } .lch-btns .nm-go { flex: 1; margin: 0; }
+.lch-reset { margin-top: 10px; font-size: 13px; }
+.lch-coin { margin: 0 0 10px; padding: 12px; border-radius: 14px; background: #fff; border: 1.5px solid #e4dafa; }
+.lch-ch { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; } .lch-ch b { font-size: 18px; color: #4a2bc2; } .lch-ch span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #6b5aa6; font-size: 14px; }
+.lch-coin .lch-ca { display: block; font-size: 12px; color: #8a7bbd; word-break: break-all; }

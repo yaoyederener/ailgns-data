@@ -68,13 +68,19 @@ async function pools() {
   return shown;
 }
 
-export async function onRequestGet({ request }) {
+export async function onRequestGet({ request, env }) {
   const key = new Request(new URL(request.url).origin + "/api/aiswap?v=1"), hit = await caches.default.match(key);
   if (hit) return hit;
   let body;
   if (!aiswapReady()) body = { cfg: aiswapConfig(), pools: [], at: Date.now() };
   else {
-    try { body = { cfg: aiswapConfig(), pools: await pools(), at: Date.now() }; }
+    try {
+      let ps = await pools();
+      // 站长 2026-11-23（一键发币）：池子列表只显示交过发币费、登记上榜的币（/api/launch 的榜单）。没上榜的币仍然能用「粘贴地址」买卖，只是不在列表里。
+      // 榜单读不到（预览站没有存储）时不过滤，照老样子全显示
+      try { const ll = env && env.TEAM_KV ? await env.TEAM_KV.get("launch:list", "json") : null; if (ll) { const ok = new Set(ll.map((x) => String(x.token).toLowerCase())), q = AISWAP.quote.toLowerCase(); ps = ps.filter((x) => ok.has(x.t0.addr === q ? x.t1.addr : x.t0.addr)); } } catch (e) { /* 读不到就不过滤 */ }
+      body = { cfg: aiswapConfig(), pools: ps, at: Date.now() };
+    }
     catch (e) { body = { cfg: aiswapConfig(), pools: [], at: Date.now(), err: String(e && e.message || e).slice(0, 120) }; }
   }
   const res = new Response(JSON.stringify(body), { headers: { "content-type": "application/json", "cache-control": "public, max-age=" + TTL } });
