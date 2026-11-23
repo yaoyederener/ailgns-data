@@ -2,6 +2,8 @@
 // 这页做「讲规则 + 铸造实况 + 销毁按钮（选创世名 → 转黑洞）+ 引导去注册 / 去市场买」；数据走 /api/name-genesis（有缓存，秒开）
 (function () {
   "use strict";
+  // 站长 2026-11-23：「很多人烧了域名没有宣传」→ 烧完当场写明：这只是第一步，奖还没到手，还差第二步
+  var GS_NEXT = '<div class="gs-stp"><b>⚠️ 奖还没到手：这只是第一步</b><ol><li class="done">第一步：销毁名字 ✅ 已完成</li><li class="now">第二步：到 DeBox 的 AiLGNS 群里说一声自己中奖了，截个图或录一小段视频，到预言家页上传 👉 现在做这一步</li><li>第三步：团队看过后，机器人自动发奖</li></ol><a class="nm-go" href="#/oracle">👉 去做第二步：上传截图 / 视频</a></div>';
   try {
     var A = window.AIL; if (!A || !A.pages) return;
     var GENESIS = 10000;
@@ -195,7 +197,7 @@
           if (o && o.state === "pending") return showRun(o);
           if (o && o.state === "done" && o.done >= o.n && Date.now() - (o.doneAt || 0) < 86400e3) { // 刚烧完：等网站核对（几分钟），先让他取消授权
             hideManual(true);
-            host.innerHTML = '<div class="gs-bot"><b>✅ 机器人已烧完 ' + n(o.done) + ' 个名字</b><p class="muted">网站几分钟内核对完链上记录。接下来到 DeBox 的 AiLGNS 群里说一声自己中奖了，截个图或录一小段视频，到预言家页上传，团队看过后发奖。</p><a class="nm-go" href="#/oracle">👉 去预言家页上传截图 / 视频</a><div class="gs-botrv"></div></div>';
+            host.innerHTML = '<div class="gs-bot"><b>✅ 机器人已烧完 ' + n(o.done) + ' 个名字</b><p class="muted">网站几分钟内核对完链上记录。</p>' + GS_NEXT + '<div class="gs-botrv"></div></div>';
             if (ap) revokeBtn(host.querySelector(".gs-botrv"), acct, "名字已经烧完，机器人用不着这个权限了，请点一下收回。");
             return;
           }
@@ -239,7 +241,7 @@
           return nm.sendCalls(grp.map(function (x) { return { to: nm.NAMES(), data: dat(x.id) }; }), say).then(function (ok) { if (ok) { done += grp.length; return; } return each(); }, each);
         }).then(function () {
           box.innerHTML = '<div class="gs-bdone"><b>' + (done ? "✅ 已销毁 " + n(done) + " 个名字" : "还没有销毁") + '</b>' +
-            (done >= K ? '<p>名字烧够了。还有最后一步：到 DeBox 的 AiLGNS 群里说一声自己中奖了，截个图或录一小段视频，到预言家页上传，团队看过后机器人发奖。</p><a class="nm-go" href="#/oracle">👉 去预言家页上传截图 / 视频</a>'
+            (done >= K ? "<p>名字烧够了。</p>" + GS_NEXT
               : '<p class="muted">还差 ' + n(K - done) + ' 个' + (fail ? "（有 " + fail + " 个没成功）" : "") + '。等 1 分钟，再点一次上面的销毁按钮接着烧。</p>') +
             '<p><a href="#/scan/' + acct + '">📒 在账本里看这些销毁 ›</a></p></div>';
           if (done) { try { fetch("/api/hit?e=jpburn", { method: "POST" }); } catch (x) {} setTimeout(loadBurns, 5000); setTimeout(loadBurns, 60000); }
