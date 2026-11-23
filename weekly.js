@@ -37,14 +37,17 @@
   }
   function upBox(x, i, min) { // 发放记录里「要交凭证、还没通过」的那一行下面的上传块
     if (!x.say || x.say.ok || (x.st !== "wait" && x.st !== "say" && x.st !== "review")) return "";
-    return '<li class="wkb-upl"><p>' + (Number(x.amt) > min ? "这笔超过 " + min + " DAI，" : "") + "领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>" +
+    var tail = '<a class="wkb-upg" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
+      '<label class="nm-go wkb-upb"><input type="file" class="wkb-upf" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (x.say.has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
+      '<p class="wkb-ups" data-i="' + i + '"></p></li>';
+    if (x.burn === false) return '<li class="wkb-upl"><p>这笔不用销毁创世名，领奖一共两步。这一行是你的话，照着做：</p>' + // 50 DAI 及以下（站长 2026-11-23）
+      '<ol class="wkb-stp"><li class="' + (x.say.has ? "done" : "now") + '">第一步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : " 👉 现在做这一步") + "</li>" +
+      "<li>第二步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" + tail;
+    return '<li class="wkb-upl"><p>这笔超过 ' + min + " DAI，领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>" +
       '<ol class="wkb-stp"><li class="' + (x.st === "wait" ? "now" : "done") + '">第一步：销毁 1 枚创世名' + (x.st === "wait" ? " 👉 现在做这一步" : " ✅ 已完成") + "</li>" +
       '<li class="' + (x.say.has ? "done" : x.st === "wait" ? "" : "now") + '">第二步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : x.st === "wait" ? "" : " 👉 现在做这一步") + "</li>" +
       "<li>第三步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" +
-      (x.st === "wait" ? '<a class="nm-go wkb-upb" href="#/genesis">🔥 去销毁名字</a>' : "") +
-      '<a class="wkb-upg" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
-      '<label class="nm-go wkb-upb"><input type="file" class="wkb-upf" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (x.say.has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
-      '<p class="wkb-ups" data-i="' + i + '"></p></li>';
+      (x.st === "wait" ? '<a class="nm-go wkb-upb" href="#/genesis">🔥 去销毁名字</a>' : "") + tail;
   }
   function bindUp(root, pays, reload) {
     Array.prototype.forEach.call(root.querySelectorAll(".wkb-upf"), function (fi) {
@@ -100,20 +103,20 @@
       "<li><b>排什么</b><span>每周一到周日（北京时间），你在本站 OTC <b>吃单付的手续费</b>加起来，从高到低排。挂单被别人吃不付手续费，不算。</span></li>" +
       "<li><b>谁能分</b><span>前 " + d.rules.top + " 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>" +
       "<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 " + d.rules.top + " 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>" +
-      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，先到「🔥 创世域名销毁」页销毁 1 枚创世名，机器人核对后自动发到你的钱包，不用申请。</span></li>" +
-      "<li><b>上传宣传截图</b><span>" + (d.rules.sayAll ? "从 " + dayCn(d.rules.sayAll) + "那一周起，所有上榜领奖的" : "分到超过 " + (d.rules.sayMin || 100) + " DAI 的") + "，除了销毁创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发；看不清的，团队再看一眼。不上传就一直不发。" + (d.rules.sayAll ? "之前那一周照旧，只有分到超过 " + (d.rules.sayMin || 100) + " DAI 的要传。" : "") + "</span></li>" +
+      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发到你的钱包，不用申请；看不清的，团队再看一眼。</span></li>" +
+      "<li><b>超过 " + (d.rules.burnMin || 50) + " DAI</b><span>分到超过 " + (d.rules.burnMin || 50) + " DAI 的，还要在结算后 " + d.rules.burnDays + " 天内先到「🔥 创世域名销毁」页销毁 1 枚创世名。" + (d.rules.burnMin || 50) + " DAI 及以下的不用销毁。</span></li>" +
       "<li><b>到账记得晒</b><span>奖金到账后，记得把到账截图或视频发到 DeBox 的 AiLGNS 群里晒一晒，让更多人看到周榜是真发奖。自愿的，不发也不影响领奖。</span></li>" +
       "<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>" +
-      "<li><b>没领的</b><span>" + d.rules.burnDays + " 天没烧算放弃，这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
-      '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';
+      "<li><b>没领的</b><span>" + d.rules.burnDays + " 天内没做算放弃：超过 " + (d.rules.burnMin || 50) + " DAI 的看有没有销毁创世名，" + (d.rules.burnMin || 50) + " DAI 及以下的看有没有上传。这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
+      '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 超过 50 DAI 的去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';
     if (d.last && d.last.top && d.last.top.length) {
       html += '<section class="card"><div class="card-head"><h2>🗓 上周结果</h2><span class="muted">' + dayCn(d.last.cyc) + " – " + dayCn(d.last.to) + " · 共分 " + dai(d.last.avail) + ' DAI</span></div><ol class="wkb-list">' +
         d.last.top.map(function (x, i) { return row(x, i, true); }).join("") + "</ol></section>";
     }
     if (d.pays && d.pays.length) {
       html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x, pi) {
-        var s = ST[x.st] || x.st, more = x.st === "wait" ? " · 还剩 " + left(x.due) : "";
-        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>" + upBox(x, pi, d.rules.sayMin || 100);
+        var s = ST[x.st] || x.st, more = x.st === "wait" || (x.st === "say" && x.burn === false) ? " · 还剩 " + left(x.due) : "";
+        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>" + upBox(x, pi, d.rules.burnMin || 50);
       }).join("") + "</ul></section>";
     }
     A.app.innerHTML = html;
