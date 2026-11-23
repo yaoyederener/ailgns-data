@@ -16,6 +16,7 @@ import { addHonor } from "../../lib/honor.js";
 import { nmTop } from "../../lib/nmtop.js";
 import { oracleNotify } from "../../lib/ornotify.js";
 import { alertOwner, lagAlert } from "../../lib/alert.js";
+import { claimLines } from "../../lib/bcclaim.js";
 
 // kv：进度等 KV 键的前缀（AiLGNS 沿用原来的键）；deploy：合约部署区块，第一次运行从这里开始读；otc 空着 = 还没部署，跳过
 // pd：单价显示几位小数；dex：AiLGNS 才说「比官方 DEX 买更便宜」（LGNS 在 DEX 买不扣税，不这么说）
@@ -411,7 +412,7 @@ async function bcLog(kv, row) {
 // 🛡️ 防骗提醒（站长 2026-11-22：「客户总是被骗」，每条播报都带）。口径和客服知识库【防骗】【安全】两条一致
 const SCAM = "⚠️ 防骗提醒：官方不会主动私聊你，不会索要助记词、私钥，也不会让你转账、授权。凡是私聊你的「客服」「管理员」都是骗子，请直接拉黑。";
 const BC_HOURS = [8, 12, 16, 20]; // 北京时间这几个整点各发一条（夜里不发）
-function bcText(fills, tot, names, newNames, pool, until) {
+function bcText(fills, tot, names, newNames, pool, until, claim) {
   const hm = (t) => { const d = new Date(t + 8 * 3600e3); return d.getUTCHours() + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
   const n0 = (v) => Math.round(v || 0).toLocaleString("en-US");
   // 站长 2026-11-10：不报累计成交（不想让人知道总量），只报近 1 小时；这一小时没有就报近 4 小时的
@@ -421,6 +422,7 @@ function bcText(fills, tot, names, newNames, pool, until) {
     `1️⃣ OTC ${span}成交 ${use.length} 笔 · ${n0(sumDai(use))} DAI` + (use.length ? "" : "，欢迎挂单"),
     `2️⃣ 域名累计注册 ${n0(names)} 个` + (newNames > 0 ? `，近 4 小时新增 ${n0(newNames)} 个` : ""),
     `3️⃣ 持有创世域名并设好主名字，免费参与预测，奖池已累计 ${pool.ail.toLocaleString("en-US", { maximumFractionDigits: 2 })} AiLGNS（约 ${n0(pool.dai)} DAI）`, "",
+    ...(claim && claim.length ? claim.concat("") : []), // 🎁 催领奖：有人没领才出这一段（lib/bcclaim.js）
     SCAM, "",
     "👉 网址：" + SITE].join("\n");
 }
@@ -558,15 +560,17 @@ export async function onRequestGet(ctx) {
   const until = Math.floor(now / 3600e3) * 3600e3;
   const first = HOURLY_ON && !(await kv.get("otcw:hr1")); // 2026-11-08 重新上线：第一次先发一条汇总，之后每小时一条
   const bcSnap = (await kv.get("bc:last", "json")) || null; // 上次播报时的域名总数
-  let bcNames = 0, bcPool = { ail: 0, dai: 0 };
+  let bcNames = 0, bcPool = { ail: 0, dai: 0 }, bcOr = [], bcWk = [];
   const build = async (dry2) => {
     try { const j = await fetch(url.origin + "/api/name-genesis").then((r) => r.json()); bcNames = j.total || j.n || 0; } catch (e) {} // total = 创世 + 普通域名（2026-11-22 前读的是 n，创世卖完后一直是 10,000）
     try { // 和预测页大字一致：奖池钱包实际余额（AiLGNS + DAI 按 OTC 预言机价折成 AiLGNS），不是记账数
       const j = await fetch(url.origin + "/api/oracle").then((r) => r.json()), f = j.funds || {}, px = (f.otc && f.otc.px) || f.px || 1;
+      bcOr = j.pays || [];
       const ail = (f.ail || 0) + (f.dai || 0) / px; bcPool = { ail: Math.floor(ail * 100) / 100, dai: Math.floor(ail * px * 100) / 100 };
     } catch (e) {}
+    try { bcWk = (await fetch(url.origin + "/api/weekly").then((r) => r.json())).pays || []; } catch (e) {} // 读不到就不催周榜，不影响播报
     const newNames = bcSnap && bcSnap.all && bcNames ? Math.max(0, bcNames - (bcSnap.names || 0)) : 0; // 旧快照记的是创世数（没有 all 标记），不能拿来减，否则第一条会报「新增几千个」
-    return bcText(hr.fills, (await kv.get("st:tot", "json")) || {}, bcNames, newNames, bcPool, until);
+    return bcText(hr.fills, (await kv.get("st:tot", "json")) || {}, bcNames, newNames, bcPool, until, claimLines(bcOr, bcWk, now));
   };
   // bcdry=1：只看播报文字不发送；bc=1&key=口令：立刻发一条到群里（站长看效果用），不清空这段的成交
   if (url.searchParams.get("bcdry") === "1") return Response.json({ text: await build(true), due, quiet, gids, since: hr.since, log: (await kv.get("bc:log", "json")) || [] });
