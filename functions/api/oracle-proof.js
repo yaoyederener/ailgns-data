@@ -7,7 +7,7 @@
 // 不要求钱包签名（站长要方便）：凭证只是给团队看的，奖只会发到中奖钱包，别人乱传也领不走钱；通过不通过由团队看了算。
 import { needSay, payState, autoOk } from "../../lib/oracle.js";
 import { pushInbox, OWNER } from "../../lib/inbox.js";
-import { wkNeedSay, wkState } from "../../lib/weekly.js"; // 周榜超过 100 DAI 的奖也在这里交凭证（2026-11-22），编号以 wk: 开头，名单在 wk:pay
+import { wkNeedSay, wkState } from "../../lib/weekly.js"; // 周榜的奖也在这里交凭证（2026-11-22 超过 100 DAI 的；2026-11-23 起所有上榜的），编号以 wk: 开头，名单在 wk:pay
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const TTL = 60 * 86400, MAX_IMG = 3, IMG_MAX = 1200000, VID_MAX = 20 * 1024 * 1024;
 const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i;

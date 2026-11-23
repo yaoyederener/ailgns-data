@@ -466,7 +466,7 @@
       var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三", week: "OTC 周榜" };
       var postTo = function (url, o) { o.key = key(); return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
       var post = function (o) { o.key = key(); return fetch("/api/oracle", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
-      // 🏆 周榜超过 100 DAI 的奖（站长 2026-11-22）也要交宣传截图 / 视频、等这里点「通过」：和预言家的并在一起显示（周榜那边读不到不影响预言家）
+      // 🏆 周榜的奖（站长 2026-11-22 超过 100 DAI 的，2026-11-23 起所有上榜的）也要交宣传截图 / 视频、等这里点「通过」：和预言家的并在一起显示（周榜那边读不到不影响预言家）
       Promise.all([post({ action: "says" }), postTo("/api/weekly", { action: "says" }).catch(function () { return null; })]).then(function (rs) {
         var j = rs[0], L = ((j && j.list) || []).concat((rs[1] && rs[1].list) || []);
         if (!L.length) { sb.innerHTML = ""; return; }

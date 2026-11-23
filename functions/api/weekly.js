@@ -6,7 +6,7 @@
 // POST { action: "paid", id, tx, ail, key } → 机器人买好 AiLGNS 转完后记为已发（ail = 实际转了多少枚）
 // POST { action: "says", key } / { action: "approve", id, ok, key } → 工单后台：超过 100 DAI 的奖要交宣传截图 / 视频，团队点「通过」才发（2026-11-22；key 是工单口令）
 // 这里不发交易、不碰私钥。预览站（没有数据库）返回示例数据，只给站长看页面长什么样。
-import { WK_POOL, WK_FROM, WK_TOP, WK_BURN_DAYS, WK_GAS, WK_STUCK, WK_SAY_MIN, wkNeedSay, wkSayHas, addDays, weekEnd, endAt, wkState, split, owedOf, availOf, boardOf, poolBal, settleWeek } from "../../lib/weekly.js";
+import { WK_POOL, WK_FROM, WK_TOP, WK_BURN_DAYS, WK_GAS, WK_STUCK, WK_SAY_MIN, WK_SAY_ALL, wkNeedSay, wkSayHas, addDays, weekEnd, endAt, wkState, split, owedOf, availOf, boardOf, poolBal, settleWeek } from "../../lib/weekly.js";
 import { burnCheck, payDue, bjDay, weekStart, burnedCount } from "../../lib/oracle.js";
 import { pushInbox } from "../../lib/inbox.js";
 import { alertOwner } from "../../lib/alert.js";
@@ -14,7 +14,7 @@ import { alertOwner } from "../../lib/alert.js";
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 // 📣 站长 2026-11-23：「让中奖的人记得发截图或视频，上级领导要求我们加强宣传」→ 结算通知、到账通知里都带这一句。是提醒、自愿的：100 DAI 及以下的不发也照常领（超过 100 的上传凭证是另一条硬规定，没变）
 const WK_SHARE = "📣 奖金到账后，记得把到账截图或视频发到 DeBox 的 AiLGNS 群里晒一晒，让更多人看到周榜是真发奖。";
-const rules = () => ({ top: WK_TOP, burnDays: WK_BURN_DAYS, gas: WK_GAS, from: WK_FROM, sayMin: WK_SAY_MIN });
+const rules = () => ({ top: WK_TOP, burnDays: WK_BURN_DAYS, gas: WK_GAS, from: WK_FROM, sayMin: WK_SAY_MIN, sayAll: WK_SAY_ALL });
 const admOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY)); // 工单后台看凭证、点「通过」用工单口令（和预言家一样）
 const pub = (x) => ({ id: x.id, cyc: x.cyc, a: x.a, name: x.name, fee: x.fee, amt: x.amt, ail: x.ail || 0, st: wkState(x), tx: x.tx || "", due: payDue(x), say: wkNeedSay(x) ? { has: wkSayHas(x), ok: !!x.ok } : null }); // say：这笔要不要交宣传凭证、交了没、通过了没
 
@@ -45,7 +45,7 @@ export async function onRequestGet(ctx) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     let done = null;
     try { done = await settleWeek(kv, now); } catch (e) { return json({ error: "结算没成：" + String((e && e.message) || e).slice(0, 120), pay: [] }); }
-    if (done) for (const w of done.top) if (w.amt > 0) { try { await pushInbox(kv, w.a, "sys", "🏆 OTC 手续费周榜\n你是 " + done.cyc + " 这一周的第 " + (done.top.indexOf(w) + 1) + " 名，分到 " + w.amt + " DAI。\n" + WK_BURN_DAYS + " 天内先销毁 1 枚创世名，" + (w.amt > WK_SAY_MIN ? "你这笔超过 " + WK_SAY_MIN + " DAI，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到周榜页「发放记录」里自己那一行。" : "") + "机器人核对后用这笔 DAI 在本站 OTC 买成 AiLGNS，自动转到你的钱包；过期没烧名字算放弃。\n" + WK_SHARE + "\n⚠️ 领奖全程在网页上自助，官方不会私聊你，不会索要助记词、私钥。", "#/weekly"); } catch (e) { /* 通知失败不影响结算 */ } }
+    if (done) for (const w of done.top) if (w.amt > 0) { try { await pushInbox(kv, w.a, "sys", "🏆 OTC 手续费周榜\n你是 " + done.cyc + " 这一周的第 " + (done.top.indexOf(w) + 1) + " 名，分到 " + w.amt + " DAI。\n" + WK_BURN_DAYS + " 天内先销毁 1 枚创世名，" + (wkNeedSay({ amt: w.amt, cyc: done.cyc }) ? "还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到周榜页「发放记录」里自己那一行。" : "") + "机器人核对后用这笔 DAI 在本站 OTC 买成 AiLGNS，自动转到你的钱包；过期没烧名字算放弃。\n" + WK_SHARE + "\n⚠️ 领奖全程在网页上自助，官方不会私聊你，不会索要助记词、私钥。", "#/weekly"); } catch (e) { /* 通知失败不影响结算 */ } }
     let pays = (await kv.get("wk:pay", "json")) || [];
     try { pays = (await burnCheck(kv, u.origin, pays, now, "wk:pay")).pays; } catch (e) { return json({ error: "烧名字核对没成", pay: [] }); }
     const stuck = pays.filter((x) => wkState(x) === "sending" && now - x.lock > WK_STUCK);

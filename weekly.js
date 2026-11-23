@@ -37,7 +37,7 @@
   }
   function upBox(x, i, min) { // 发放记录里「要交凭证、还没通过」的那一行下面的上传块
     if (!x.say || x.say.ok || (x.st !== "wait" && x.st !== "say" && x.st !== "review")) return "";
-    return '<li class="wkb-upl"><p>这笔超过 ' + min + " DAI，领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>" +
+    return '<li class="wkb-upl"><p>' + (Number(x.amt) > min ? "这笔超过 " + min + " DAI，" : "") + "领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>" +
       '<ol class="wkb-stp"><li class="' + (x.st === "wait" ? "now" : "done") + '">第一步：销毁 1 枚创世名' + (x.st === "wait" ? " 👉 现在做这一步" : " ✅ 已完成") + "</li>" +
       '<li class="' + (x.say.has ? "done" : x.st === "wait" ? "" : "now") + '">第二步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : x.st === "wait" ? "" : " 👉 现在做这一步") + "</li>" +
       "<li>第三步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" +
@@ -101,7 +101,7 @@
       "<li><b>谁能分</b><span>前 " + d.rules.top + " 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>" +
       "<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 " + d.rules.top + " 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>" +
       "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，先到「🔥 创世域名销毁」页销毁 1 枚创世名，机器人核对后自动发到你的钱包，不用申请。</span></li>" +
-      "<li><b>超过 " + (d.rules.sayMin || 100) + " DAI</b><span>分到超过 " + (d.rules.sayMin || 100) + " DAI 的，除了销毁创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发；看不清的，团队再看一眼。</span></li>" +
+      "<li><b>上传宣传截图</b><span>" + (d.rules.sayAll ? "从 " + dayCn(d.rules.sayAll) + "那一周起，所有上榜领奖的" : "分到超过 " + (d.rules.sayMin || 100) + " DAI 的") + "，除了销毁创世名，还要到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发；看不清的，团队再看一眼。不上传就一直不发。" + (d.rules.sayAll ? "之前那一周照旧，只有分到超过 " + (d.rules.sayMin || 100) + " DAI 的要传。" : "") + "</span></li>" +
       "<li><b>到账记得晒</b><span>奖金到账后，记得把到账截图或视频发到 DeBox 的 AiLGNS 群里晒一晒，让更多人看到周榜是真发奖。自愿的，不发也不影响领奖。</span></li>" +
       "<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>" +
       "<li><b>没领的</b><span>" + d.rules.burnDays + " 天没烧算放弃，这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
