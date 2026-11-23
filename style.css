@@ -1642,7 +1642,7 @@ tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ecd28a 0%,#fff8dc 45%,#d4
 @media (max-width: 600px) { .fm-items { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
 /* 站长 2026-11-12：开心农场换成游戏场景皮肤（只换样子，规则、充值、接口都没动）。会动的效果都放在最下面的 no-preference 里，手机关了动态效果就不动 */
 .fm-scene { position: relative; overflow: hidden; margin-bottom: 12px; padding: 0 12px 12px; border-radius: 22px; background: #c3e6a6; border: 2px solid #a5d484; box-shadow: 0 6px 18px rgba(80, 140, 60, .16); }
-.fm-sky { position: absolute; left: 0; right: 0; top: 0; height: 108px; overflow: hidden; background: linear-gradient(180deg, #aee0ff, #e8f8ff); }
+.fm-sky { position: absolute; left: 0; right: 0; top: 0; height: 108px; overflow: hidden; background: linear-gradient(180deg, #7fd3ff 0%, #c9efff 62%, #f2fbff 100%); } /* 工单 #380：天空调亮一点 */
 .fm-sun { position: absolute; right: 16px; top: 10px; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fffbe0, #fcd34d 60%, #fbbf24); box-shadow: 0 0 0 6px rgba(252, 211, 77, .28), 0 0 0 14px rgba(252, 211, 77, .13); }
 .fm-cloud { position: absolute; top: 16px; left: 14px; width: 46px; height: 16px; border-radius: 99px; background: #fff; opacity: .95; }
 .fm-cloud::before, .fm-cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
@@ -4530,6 +4530,11 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-upl .wkb-upb { display: block; width: 100%; box-sizing: border-box; min-height: 50px; padding: 13px 12px; border-radius: 14px; font-size: 16.5px; font-weight: 800; text-align: center; cursor: pointer; }
 .wkb-upl .wkb-ups { margin: 8px 0 0; font-size: 14px; font-weight: 700; color: #047857; } .wkb-upl .wkb-ups:empty { display: none; } .wkb-upl .wkb-ups.bad { color: #b42318; } .wkb-upl .wkb-ups.tip { color: #6b5a8e; font-weight: 500; font-size: 13.5px; }
 .wkb-st.forfeit { color: var(--muted); }
+/* 农场（工单 #380）：标题换成「某某的农场」，名字长就缩小、放不下就省略；菜地标题右边并排两个按钮 */
+.fm-scene .fm-top h2 { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+.fm-scene .fm-top h2.long { font-size: 20px; letter-spacing: 1px; line-height: 36px; }
+.fm-hdb { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.fm-field .card-head #fm-plantall { padding: 7px 10px; font-size: 13px; }
 /* ⚠️ 账本里涉嫌盗号钱包的警告卡（2026-11-24） */
 .card.sc-flag { border: 1.5px solid #f3b4ae; background: #fff5f4; }
 .card.sc-flag h2 { color: #b42318; }
@@ -4676,10 +4681,11 @@ tr.bk-mine td { background-color: rgba(245, 185, 66, .10); }
 .fm-deco.d-castle { right: 96px; bottom: 4px; font-size: 34px; }
 /* 工单 #328（2026-11-20）：10000 金币的彩虹原来只是一个 28px 的小表情，「太寒酸」。改成横跨天空的一道大彩虹（纯 CSS 画的七色拱桥，轻轻呼吸），标题正好在桥下 */
 .fm-sky { isolation: isolate; }
-.fm-deco.d-rainbow { left: 50%; top: 10px; width: 220px; height: 110px; margin-left: -110px; font-size: 0; filter: none; z-index: -1; border-radius: 220px 220px 0 0;
-  background: radial-gradient(110px 110px at 50% 100%, transparent 0 68px, #a78bfa 68px 74px, #60a5fa 74px 80px, #34d399 80px 86px, #fde047 86px 92px, #fb923c 92px 98px, #f87171 98px 104px, transparent 104px);
+/* 工单 #380（2026-11-24）：「彩虹要铺满整个背景，眼前一亮」——原来是标题后面一道 220px 的小拱桥，改成横跨整片天空的大彩虹，色带加宽，从左边到右边铺满 */
+.fm-deco.d-rainbow { left: 0; right: 0; top: 0; bottom: 0; width: auto; height: auto; margin: 0; font-size: 0; filter: none; z-index: -1; border-radius: 0;
+  background: radial-gradient(ellipse 62% 128% at 50% 128%, rgba(255,255,255,.55) 0 40%, #a78bfa 40% 50%, #60a5fa 50% 60%, #34d399 60% 70%, #fde047 70% 80%, #fb923c 80% 90%, #f87171 90% 100%, transparent 100%);
   animation: fm-rainbow 5s ease-in-out infinite; }
-@keyframes fm-rainbow { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
+@keyframes fm-rainbow { 0%, 100% { opacity: .82; } 50% { opacity: 1; } }
 .fm-decos .fm-items { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
 .fm-decos .fm-items button.has { opacity: 1; filter: none; background: #f0fdf4; border-color: #86efac; color: #166534; box-shadow: none; }
 .fm-dc { font-style: normal; font-size: 13px; letter-spacing: -1px; }
