@@ -4530,6 +4530,14 @@ html.night, html.night body { background: #121219; } /* 夜间样式文件还在
 .wkb-upl .wkb-upb { display: block; width: 100%; box-sizing: border-box; min-height: 50px; padding: 13px 12px; border-radius: 14px; font-size: 16.5px; font-weight: 800; text-align: center; cursor: pointer; }
 .wkb-upl .wkb-ups { margin: 8px 0 0; font-size: 14px; font-weight: 700; color: #047857; } .wkb-upl .wkb-ups:empty { display: none; } .wkb-upl .wkb-ups.bad { color: #b42318; } .wkb-upl .wkb-ups.tip { color: #6b5a8e; font-weight: 500; font-size: 13.5px; }
 .wkb-st.forfeit { color: var(--muted); }
+/* 上期中奖名单：领没领的小标签，还没领的整行标黄（站长 2026-11-23） */
+.wkb-lt { display: inline-block; margin-top: 4px; padding: 1px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; line-height: 1.6; background: #f1ecff; color: #5b3fc4; }
+.wkb-lt.ok { background: #eaf8ef; color: #15803d; }
+.wkb-lt.off { background: #f1f2f5; color: var(--muted); }
+.wkb-lt.due { background: #ffe1a6; color: #8a3b00; }
+.wkb-list li.wkb-due { margin: 6px -8px; padding: 10px 8px; border: 1.5px solid #f5b942; border-radius: 12px; background: #fff7e0; }
+.wkb-list li.wkb-due + li.wkb-due { margin-top: 0; }
+.wkb-lowe { margin: 0 0 8px; padding: 9px 12px; border-radius: 12px; background: #fff7e0; border: 1px solid #f5d58a; color: #8a3b00; font-size: 14px; line-height: 1.55; }
 .wkb-minip { font-size: 14px; line-height: 1.6; color: var(--muted); margin: 0 0 6px; }
 .wkb-minip b { color: #5b3fc4; }
 .wkb-fold > summary, .hn-fold > summary { list-style: none; cursor: pointer; text-align: center; padding: 12px 10px; margin-top: 8px; border-radius: 14px; background: var(--panel-2); color: #5b3fc4; font-weight: 700; font-size: 14.5px; }

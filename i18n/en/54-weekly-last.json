@@ -1,0 +1,11 @@
+{
+"🗓 上期中奖名单": "🗓 Last week's winners",
+"上期中奖名单": "Last week's winners",
+"✅ 已发": "✅ Paid",
+"⏰ 还没领": "⏰ Not claimed yet",
+"⏰ 还没领 · 还剩 {0} 天 {1} 小时": "⏰ Not claimed yet · {0} d {1} h left",
+"⏰ 还没领 · 还剩 {0} 小时": "⏰ Not claimed yet · {0} h left",
+"🔎 审核中": "🔎 Under review",
+"🕐 发放中": "🕐 Paying out",
+"⏰ 还有 {0} 人没领。标黄的请到下面「发放记录」里自己那一行照着做，过期算放弃。": "⏰ {0} winner(s) have not claimed yet. If a highlighted row is yours, follow the steps in your own row under \"Payout records\" below; unclaimed prizes are forfeited after the deadline."
+}
