@@ -5217,3 +5217,10 @@ html.lang-ko body { word-break: keep-all; }
 .nm-one em { font-style: normal; font-size: 12px; line-height: 1.4; opacity: .78; }
 .nm-one:active { background: #ece6ff; }
 .nb-oneh { margin: 8px 0 0; font-size: 12.5px; line-height: 1.55; }
+
+/* 🔮 只注册 1 个 · 三种挑法（2026-11-24）：随机 / 自己填 / AI 起名 */
+.nb-own1 { display: flex; gap: 8px; width: 100%; align-items: stretch; }
+.nb-f .nb-own1 input[type=text] { flex: 1 1 auto; width: auto; min-width: 0; height: 46px; padding: 8px 12px; font-size: 16px; border: 1.5px solid #c4b5fd; border-radius: 12px; background: #fff; }
+.nb-own1 .nm-go { flex: none; width: auto; margin: 0; padding: 0 18px; white-space: nowrap; }
+.nb-onep { margin: 2px 0 6px; font-size: 13px; }
+.nb-oneh { width: 100%; }
