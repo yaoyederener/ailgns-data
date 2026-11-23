@@ -1461,27 +1461,27 @@ html.dw-lock, html.dw-lock body { overflow: hidden; }
 .nm-buy select,.nm-rk select{margin-left:4px;padding:6px;font-size:15px;border-radius:8px}
 .nm-rk{display:flex;align-items:center;font-size:14px}
 .nm-buy{flex-wrap:wrap;gap:8px}
-.nm-gen{margin:6px 0 0;font-weight:700;color:#d97706}
-.nm-gb{margin-left:6px;font-style:normal;font-size:12px;font-weight:700;color:#d97706}
+.nm-gen{margin:6px 0 0;font-weight:700;color:#a67c00}
+.nm-gb{margin-left:6px;font-style:normal;font-size:12px;font-weight:700;color:#a67c00}
 .nm-gb-g,.nm-gb-p{display:inline-block;padding:2px 9px;border-radius:99px;line-height:1.5;white-space:nowrap;vertical-align:middle}
-.nm-gb-g{background:#fff4d6;border:1px solid #f1cf7a;color:#b45309}
+.nm-gb-g{background:linear-gradient(135deg,#fdf6dd,#efd995);border:1px solid #d4af37;color:#6b4e08}
 /* 🌟 域名市场两个栏目：创世（金色、会闪）/ 普通（灰白、素） */
 .nm-kd{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:0 0 12px}
 .nm-kd button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;padding:12px 12px 10px;border-radius:14px;text-align:left;font-family:inherit;cursor:pointer;white-space:normal;line-height:1.35}
 .nm-kd button b{font-size:17px;font-weight:800}.nm-kd button span{font-size:12px;font-weight:400}.nm-kd button em{margin-top:4px;font-style:normal;font-size:13px;font-weight:700}
-.nm-kd-g{position:relative;overflow:hidden;border:2px solid #f1cf7a;background:linear-gradient(135deg,#fff9e6,#ffeaa8);color:#92400e;opacity:.72}
-.nm-kd-g span{color:#a16207}
-.nm-kd-g.on{opacity:1;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.22),0 8px 22px rgba(217,119,6,.22)}
+.nm-kd-g{position:relative;overflow:hidden;border:2px solid #d9b65c;background:linear-gradient(135deg,#fdf6dd 0%,#f0dc9c 55%,#e2c46a 100%);color:#6b4e08;opacity:.72}
+.nm-kd-g span{color:#86660f}
+.nm-kd-g.on{opacity:1;border-color:#c9a227;box-shadow:0 0 0 3px rgba(212,175,55,.26),0 8px 22px rgba(184,134,11,.24)}
 .nm-kd-g::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.75),rgba(255,255,255,0));transform:skewX(-18deg);animation:nmKdShine 3.2s ease-in-out infinite;pointer-events:none}
 @keyframes nmKdShine{0%,55%{left:-60%}100%{left:130%}}
 .nm-kd-p{border:2px solid #e2e5ec;background:#f6f7f9;color:#4b5563;opacity:.8}
 .nm-kd-p span{color:#6b7280}
 .nm-kd-p.on{opacity:1;border-color:#9aa3b2;background:#fff;box-shadow:0 0 0 3px rgba(107,114,128,.14)}
-tr.nm-grow{background:linear-gradient(135deg,#fffdf4,#fff5d6)}
+tr.nm-grow{background:linear-gradient(135deg,#fffdf3,#f8ecc4)}
 tr.nm-grow td{background:transparent}
-@media (max-width:640px){table.cards tbody tr.nm-grow{margin:10px 0;padding:12px;border:1.5px solid #f1cf7a;border-radius:14px;box-shadow:0 4px 14px rgba(217,119,6,.12)}}
-tr.nm-grow td.l>b{color:#92400e}
-tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ffd76a 55%,#ffe9a8 100%);background-size:220% 100%;border-color:#f59e0b;box-shadow:0 0 8px rgba(245,158,11,.35);animation:nmGbGlow 2.8s linear infinite}
+@media (max-width:640px){table.cards tbody tr.nm-grow{margin:10px 0;padding:12px;border:1.5px solid #d9b65c;border-radius:14px;box-shadow:0 4px 14px rgba(184,134,11,.16)}}
+tr.nm-grow td.l>b{color:#7a5a0c}
+tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ecd28a 0%,#fff8dc 45%,#d4af37 55%,#ecd28a 100%);background-size:220% 100%;border-color:#c9a227;box-shadow:0 0 8px rgba(212,175,55,.4);animation:nmGbGlow 2.8s linear infinite}
 @keyframes nmGbGlow{0%{background-position:120% 0}100%{background-position:-100% 0}}
 @media (hover:none){table.cards tbody tr.nm-grow:hover td,table.cards tbody tr.nm-grow:active td{background:transparent}}
 @media (prefers-reduced-motion:reduce){.nm-kd-g::after,tr.nm-grow .nm-gb-g{animation:none}}
@@ -1968,8 +1968,11 @@ tr.nm-grow .nm-gb-g{background:linear-gradient(100deg,#ffe9a8 0%,#fff8dc 45%,#ff
 /* 我的域名：创世域名大徽章，和会员勋章一样 */
 .nm-my-sum{margin:12px 0 8px;color:var(--purple-ink)}
 .nm-my{display:flex;align-items:center;gap:12px;margin:8px 0;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--soft-line);text-decoration:none;color:inherit}
-.nm-my.gen{background:linear-gradient(135deg,#fff 0%,var(--soft) 100%);border-color:#c9a8ff;box-shadow:0 6px 18px rgba(112,39,217,.12)}
-.nm-my .gen-emb{flex:none;filter:drop-shadow(0 4px 10px rgba(112,39,217,.35))}
+.nm-my.gen{background:linear-gradient(135deg,#fffdf3 0%,#f8ecc4 60%,#efd995 100%);border-color:#d4af37;box-shadow:0 6px 18px rgba(184,134,11,.18)}
+.nm-my .gen-emb{flex:none;filter:drop-shadow(0 4px 10px rgba(184,134,11,.4))}
+.nm-my.gen .nm-my-t b{color:#6b4e08}
+.nm-my.gen .nm-my-no{background:linear-gradient(90deg,#9a6f00,#d4af37 50%,#9a6f00);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nm-my.gen .nm-my-t small{color:#86660f}
 .nm-my-dot{flex:none;width:56px;text-align:center;font-size:26px}
 .nm-my .pl-emb{flex:none;margin:0 4px}
 .nm-my-pl{align-self:flex-start;font-style:normal;font-size:12px;font-weight:700;line-height:1.5;padding:1px 9px;border-radius:99px;background:#eef0f4;border:1px solid #d5d9e2;color:#566072}
@@ -2286,7 +2289,7 @@ tr[hidden], .cards [hidden] { display: none !important; }
 .or-seed { display: block; margin-top: 4px; color: #b7791f; font-size: 12.5px; }
 
 .or-req { margin: 6px 0 0; padding-left: 18px; line-height: 1.9; }
-.or-gb { font-style: normal; font-size: 12px; color: #b7791f; background: #fff7e6; border: 1px solid #fde7b0; border-radius: 999px; padding: 1px 8px; }
+.or-gb { font-style: normal; font-size: 12px; color: #6b4e08; background: linear-gradient(135deg,#fdf6dd,#efd995); border: 1px solid #d4af37; border-radius: 999px; padding: 1px 8px; }
 
 .nm-mkq { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
 .nm-mkq input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 15px; border: 1px solid #e3d8ff; border-radius: 10px; background: #fbf9ff; color: var(--purple-ink); }
@@ -3821,7 +3824,7 @@ details.lp-calc > summary { cursor: pointer; list-style: none; } details.lp-calc
 .bn-rk-t { flex: 0 0 auto; font-size: 17px; font-weight: 800; color: #6927db; font-variant-numeric: tabular-nums; }
 .bn-rk-s { margin: 4px 0 0 36px; font-size: 13px; color: var(--muted); }
 .bn-rk-g { margin: 8px 0 0 36px; display: flex; flex-wrap: wrap; gap: 6px; }
-.bn-rk-g a { display: inline-block; max-width: 100%; padding: 3px 10px; border-radius: 99px; background: #fff4d6; border: 1px solid #f1cf7a; color: #b45309; font-size: 13px; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bn-rk-g a { display: inline-block; max-width: 100%; padding: 3px 10px; border-radius: 99px; background: linear-gradient(135deg,#fdf6dd,#efd995); border: 1px solid #d4af37; color: #6b4e08; font-size: 13px; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bn-rk-g a small { font-weight: 400; opacity: .85; }
 .bn-rk-g.none { display: block; font-size: 13px; color: var(--muted); }
 .bn-rk-more, .bn-rk-all { border: 1px solid #e0d5f7; background: #fff; color: #6927db; border-radius: 99px; padding: 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
