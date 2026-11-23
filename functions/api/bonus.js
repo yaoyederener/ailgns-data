@@ -15,6 +15,7 @@
 //       小号这边不存任何记录：主钱包是谁由小号自己的签到签名说了算，别人没法替它乱绑。
 //   · 一轮 = 从上次发放到奖池再满 500 DAI。轮号存在 KV bn:round，发放后才 +1（现在一直是第 1 轮）。
 //   · 每个钱包每轮一条 KV：bn:s:<轮号>:<地址> = { d: { 日期: 当天票数 } }；汇总数字放在这条的 metadata 里，列目录就能算总数，不用逐条读。
+import { isStolen } from "../../lib/stolen.js";
 import { recoverAddress } from "../../lib/evmsig.js";
 import { banned } from "../../lib/ban.js";
 import { RPCS } from "../../lib/teamlib.js";
@@ -113,7 +114,7 @@ export function genOf(xf, rg, g, want, isBanned) {
   rg.forEach((l) => { if (l[1] && l[1][1]) label[l[1][1].toLowerCase()] = decStr(l[2]); });
   for (const id of Object.keys(owner)) {
     const a = owner[id], no = g[id.slice(2)];
-    if (!no || !want[a]) continue;
+    if (!no || !want[a] || isStolen(id)) continue; /* ⚠️ 被盗名单上的不算（lib/stolen.js） */
     const nm = label[id]; if (!nm || (isBanned && isBanned(nm))) continue;
     (out[a] = out[a] || []).push([no, nm]);
   }

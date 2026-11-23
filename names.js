@@ -706,7 +706,7 @@
         if (r.exp < Date.now() / 1000 + dur + 30 * 86400) { A.errTip("名字快到期了，先续费再挂单（或选短一点的有效期）", go); return; }
         var wei = BigInt(Math.round(Number(p) * 1e6)) * 10n ** 12n, O = OTC[TLD];
         go.disabled = true;
-        nftOk(NAMES, O, r.id, say).then(function () {
+        notStolen(r.id).then(function () { return nftOk(NAMES, O, r.id, say); }).then(function () {
           return tx(O, SEL.oList + r.id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
         }).then(function () { say("✅ 已挂到市场"); listedDone(v, p); market(); show(v); }, function (e) { go.disabled = false; say(""); A.errTip(e.message || String(e), go); });
       };
@@ -1262,7 +1262,7 @@
       }).then(function (x) {
         if (x[0] !== account) throw new Error(x[0] === O ? label + "." + t + " 已经在市场里挂着了" : label + "." + t + " 不在你当前连接的钱包里，请换成注册它的钱包");
         if (Number(BigInt("0x" + word(x[1], 0))) < Date.now() / 1000 + dur + 30 * 86400) throw new Error("这个名字快到期了，先续费再挂单（或选短一点的有效期）");
-        return nftOk(C, O, id, say);
+        return notStolen(id).then(function () { return nftOk(C, O, id, say); });
       }).then(function () {
         return tx(O, SEL.oList + id + u256(wei) + u256(dur), say, "🔒 第 2 步：挂单 " + p + " DAI，名字存进市场合约。请在钱包确认");
       }).then(function () {
@@ -1380,6 +1380,14 @@
     });
   }
   var lsP = null, lsAt = 0;
+  /* ⚠️ 被盗域名名单（站长 2026-11-24）：服务器给（/api/name-stolen，5 分钟内复用）。读不到就当没有，不挡正常客户；市场接口那头本来就滤过一遍 */
+  var stolenSet = null, stolenAt = 0, STOLEN_MSG = "这个域名已被原主人报失（涉嫌被盗），本站不支持挂单出售。有疑问请提工单。";
+  function stolenList() {
+    if (stolenSet && Date.now() - stolenAt < 300000) return Promise.resolve(stolenSet);
+    return fetch("/api/name-stolen").then(function (r) { return r.json(); }).then(function (j) { var s = {}; (j.list || []).forEach(function (x) { s[String(x).toLowerCase()] = 1; }); stolenSet = s; stolenAt = Date.now(); return s; }).catch(function () { return stolenSet || {}; });
+  }
+  function tidKey(id) { return String(id || "").toLowerCase().replace(/^0x/, ""); }
+  function notStolen(id) { return stolenList().then(function (s) { if (s[tidKey(id)]) throw new Error(STOLEN_MSG); }); }
   function listings(fresh) { // 两个市场里所有在卖的名字（15 秒内复用）
     if (lsP && !fresh && Date.now() - lsAt < 15000) return lsP;
     var again = !!lsP; lsAt = Date.now();
@@ -1389,7 +1397,7 @@
       if (!j.list) throw new Error("bad");
       return j.list.map(function (it) { it.price = BigInt(it.price); return it; });
     }).catch(function () { return slowListings(tlds); })
-      .then(function (l) { var F = A.FLAG || {}; return l.filter(function (it) { return !F[String(it.maker || "").toLowerCase()]; }); }); /* ⚠️ 涉嫌盗号钱包的挂单不展示（接口已经滤过，这里再滤一次，管住自己读链的那条路） */
+      .then(function (l) { var F = A.FLAG || {}; return stolenList().then(function (S) { return l.filter(function (it) { return !F[String(it.maker || "").toLowerCase()] && !S[tidKey(it.tid)]; }); }); }); /* ⚠️ 涉嫌盗号钱包的挂单不展示（接口已经滤过，这里再滤一次，管住自己读链的那条路） */
     lsP.catch(function () { lsP = null; });
     return lsP;
   }
