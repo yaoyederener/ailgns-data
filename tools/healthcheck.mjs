@@ -8,7 +8,7 @@ import fs from "node:fs";
 const BASE = (process.env.BASE || "").replace(/\/$/, "");
 const TAG = process.env.TAG || BASE.replace(/^https?:\/\//, "");
 const ROUTES = ["", "otc", "otc/lgns", "names", "oracle", "lend", "member", "rank", "farm", "scan", "inbox", "fast", "mj", "gd", "br",
-  "trade", "feedback", "app", "updates", "genesis", "bonus", "aiswap", "lp", "square", "weekly"];
+  "trade", "feedback", "app", "updates", "genesis", "bonus", "aiswap", "lp", "square", "weekly", "cover"];
 const CORE_ROUTES = ["", "otc", "names", "oracle"]; // 这几页白屏直接算不通过
 // 代码写错才会出现的报错
 const PROGRAM = /TypeError|ReferenceError|SyntaxError|RangeError|is not defined|is not a function|is not iterable|Cannot read|Cannot set|undefined is not|null is not|Unexpected token|Invalid or unexpected/i;
