@@ -1,11 +1,12 @@
 // 🎁 创世域名分红 · 每日签到页 #/bonus（站长 2026-11-21 定的五条：创世域名持有人 / 每日签到 / 奖池累计满 500 DAI 发一次 / 发 AiLGNS / 钱来自普通域名销售收入）
 // 2026-11-21 站长补充：满 500 DAI 时「按票数随机抽 50 人」。
+// 2026-11-23 站长要「大户拿得多、小户也雨露均沾」→ 50 份分两种抽法：WIN_T 份按票抽（票多中得多）+ WIN_W 份按钱包抽（每个签到钱包机会一样；按票已中的不再参加）。
 // 2026-11-21 站长再定：「票多的占优势」→ 抽的是票不是钱包：从这一轮所有的票里抽 50 张，每张分一份（奖池的 1/50），同一个钱包可以中多张；总票数不到 50 张就每张都中、按票平分。
 // （原来写的「一个钱包一轮最多中一次、中签的平分」会让大户拆钱包，已作废。）
 // 这页做两件事：① 显示奖池现在多少、离 500 DAI 还差多少；② 让持有创世域名的钱包每天签到一次（钱包免费签名，不上链、不花钱）。
 // 奖池金额来自 /api/name-genesis 的 pool（奖池钱包的链上余额）；签到记账在 /api/bonus。这页不转账、不调合约。发放还没做。
 (function () {
-  var A = window.AIL, GOAL = 500, WIN = 50, POOL = "0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2", timer = 0, eth = null, account = "", info = null, busy = false, pool = null;
+  var A = window.AIL, GOAL = 500, WIN = 50, WIN_T = 30, WIN_W = 20, POOL = "0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2", timer = 0, eth = null, account = "", info = null, busy = false, pool = null;
   function n(v) { return Number(v || 0).toLocaleString("en-US"); }
   function n2(v) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function el(id) { return document.getElementById(id); }
@@ -184,7 +185,7 @@
   }
   function render() {
     A.app.innerHTML =
-      '<section class="card bn"><h1>🎁 创世域名分红计划</h1><p class="sub">持有创世域名，再加至少 1 枚 AiLGNS 或 1 万枚 LGNS，每天签到。奖池每满 ' + n(GOAL) + ' DAI，从所有票里随机抽 ' + n(WIN) + ' 张，每张分一份，发 AiLGNS。</p>' +
+      '<section class="card bn"><h1>🎁 创世域名分红计划</h1><p class="sub">持有创世域名，再加至少 1 枚 AiLGNS 或 1 万枚 LGNS，每天签到。奖池每满 ' + n(GOAL) + ' DAI 分 ' + n(WIN) + ' 份：' + n(WIN_T) + ' 份按票抽（票多中得多），' + n(WIN_W) + ' 份按钱包抽（人人机会一样），发 AiLGNS。</p>' +
       '<div class="bn-cd"><p class="bn-cap">分红奖池现在有</p><div class="bn-big"><b id="bn-pool">…</b><span>DAI</span></div>' +
       '<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-need">读取中…</span><span id="bn-all"></span></p></div>' +
       '<p class="bn-me" id="bn-me" hidden></p>' +
@@ -199,8 +200,8 @@
       '<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
       "<li><b>谁能领：有创世域名，并持有 1 枚 AiLGNS 或 1 万枚 LGNS</b><span>钱包里至少有 1 枚创世域名；另外还要持有至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。质押在官方流动性池里的 LP 也算，按里面实际含的 AiLGNS 和 LGNS 折算。1 枚创世域名签到一天记 1 票，创世域名越多票越多；持仓够门槛就行，多了不加票。</span></li>" +
       "<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>" +
-      "<li><b>怎么抽：奖池满 " + n(GOAL) + " DAI，随机抽 " + n(WIN) + " 张票</b><span>奖池每累计满 " + n(GOAL) + " DAI 抽一次，从这一轮所有的票里随机抽 " + n(WIN) + " 张。票越多越容易中，票多的钱包可以中好几张。抽完开始下一轮，票从头算。</span></li>" +
-      "<li><b>发什么：AiLGNS</b><span>每张中奖的票分一份，一份是奖池的 " + n(WIN) + " 分之一（约 " + n(GOAL / WIN) + " DAI）。发 AiLGNS，直接打到钱包。</span></li>" +
+      "<li><b>怎么抽：奖池满 " + n(GOAL) + " DAI，分成 " + n(WIN) + " 份，两种抽法</b><span>奖池每累计满 " + n(GOAL) + " DAI 抽一次，分成 " + n(WIN) + " 份。① 按票抽 " + n(WIN_T) + " 份：从这一轮所有的票里随机抽 " + n(WIN_T) + " 张，票越多越容易中，票多的钱包可以中好几份。② 阳光普照 " + n(WIN_W) + " 份：从这一轮签到过的钱包里随机抽 " + n(WIN_W) + " 个，每个钱包机会一样，不看票多票少；按票已经中了的钱包不再参加这一步。抽完开始下一轮，票从头算。</span></li>" +
+      "<li><b>发什么：AiLGNS</b><span>每一份是奖池的 " + n(WIN) + " 分之一（约 " + n(GOAL / WIN) + " DAI）。发 AiLGNS，直接打到钱包。</span></li>" +
       "<li><b>钱从哪里来</b><span>普通域名的销售收入。以后计划加入极速预言奖池的分红。</span></li>" +
       '</ol></section>' +
       '<section class="card bn"><h2>常见问题</h2>' +
@@ -211,7 +212,7 @@
       "<details><summary>刚买的创世域名签不了？</summary><p>等 1 分钟再点。网站要等链上记录同步过来才认得出。</p></details>" +
       "<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>" +
       "<details><summary>什么时候抽？</summary><p>没有固定日期。奖池满 " + n(GOAL) + " DAI 就抽一次，上面的进度条能看到还差多少。</p></details>" +
-      "<details><summary>签到了就一定有吗？</summary><p>不一定。每轮只抽 " + n(WIN) + " 张票，签到天数越多、创世域名越多，票就越多，越容易中，也可能中好几张。这一轮所有的票加起来不到 " + n(WIN) + " 张时，每张票都中，按票平分。</p></details></section>";
+      "<details><summary>签到了就一定有吗？</summary><p>不一定。每轮一共 " + n(WIN) + " 份：" + n(WIN_T) + " 份按票抽，签到天数越多、创世域名越多，票就越多，越容易中，也可能中好几份；" + n(WIN_W) + " 份按钱包抽，只要这一轮签到过，每个钱包机会一样。票或者钱包不够抽的时候，有几个中几个，那一部分的钱平分。</p></details></section>";
     el("bn-sign").onclick = function () { try { onSign(); } catch (e) { busy = false; say("没签成，稍后再点一次。", true); } };
     el("bn-b-go").onclick = function () { try { onBind(); } catch (e) { busy = false; sayB("没办成，稍后再点一次。", true); } };
     el("bn-b-save").onclick = function () { try { onSaveMain(); } catch (e) { sayB("没办成，稍后再点一次。", true); } };
