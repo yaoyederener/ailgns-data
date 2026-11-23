@@ -84,6 +84,16 @@
     return '<li><i class="wkb-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><div class="wkb-who"><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>付手续费 " + dai(x.fee) + " DAI · 占 " + pct(x.share) + "</small></div>" +
       (showAmt ? '<em class="num">' + (x.amt > 0 ? "≈ " + dai(x.amt) : "—") + "<small>DAI</small></em>" : "") + "</li>";
   }
+  // 上期中奖名单的一行（站长 2026-11-23）：每个人后面标领没领，还没领的整行标黄
+  function lastRow(x, i, pay) {
+    var st = pay ? pay.st : "", due = st === "wait" || st === "say";
+    var tag = !pay ? "" : st === "paid" ? '<span class="wkb-lt ok">✅ 已发</span>'
+      : due ? '<span class="wkb-lt due">⏰ 还没领' + (pay.due > Date.now() ? " · 还剩 " + left(pay.due) : "") + "</span>"
+      : st === "forfeit" ? '<span class="wkb-lt off">已放弃</span>'
+      : '<span class="wkb-lt">' + (st === "review" ? "🔎 审核中" : "🕐 发放中") + "</span>";
+    return "<li" + (due ? ' class="wkb-due"' : "") + '><i class="wkb-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><div class="wkb-who"><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>付手续费 " + dai(x.fee) + " DAI · 占 " + pct(x.share) + "</small>" + tag + "</div>" +
+      '<em class="num">' + (x.amt > 0 ? "≈ " + dai(x.amt) : "—") + "<small>DAI</small></em></li>";
+  }
   function draw(d, state, reload) {
     if (!d) { A.app.innerHTML = '<section class="card"><p class="muted">' + (state === "fail" ? "读取失败，请稍后刷新再试。" : "读取中…") + "</p></section>"; return; }
     var p = d.pool, canPay = d.on && !d.pre && p && p.avail != null, html = "";
@@ -110,8 +120,12 @@
       "<li><b>没领的</b><span>" + d.rules.burnDays + " 天内没做算放弃：超过 " + (d.rules.burnMin || 50) + " DAI 的看有没有销毁创世名，" + (d.rules.burnMin || 50) + " DAI 及以下的看有没有上传。这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
       '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 超过 50 DAI 的去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';
     if (d.last && d.last.top && d.last.top.length) {
-      html += '<section class="card"><div class="card-head"><h2>🗓 上周结果</h2><span class="muted">' + dayCn(d.last.cyc) + " – " + dayCn(d.last.to) + " · 共分 " + dai(d.last.avail) + ' DAI</span></div><ol class="wkb-list">' +
-        d.last.top.map(function (x, i) { return row(x, i, true); }).join("") + "</ol></section>";
+      var lp = {}, lowe = 0;
+      (d.pays || []).forEach(function (y) { if (y.cyc === d.last.cyc) lp[String(y.a).toLowerCase()] = y; });
+      d.last.top.forEach(function (x) { var y = lp[String(x.a).toLowerCase()]; if (y && (y.st === "wait" || y.st === "say")) lowe++; });
+      html += '<section class="card"><div class="card-head"><h2>🗓 上期中奖名单</h2><span class="muted">' + dayCn(d.last.cyc) + " – " + dayCn(d.last.to) + " · 共分 " + dai(d.last.avail) + ' DAI</span></div>' +
+        (lowe ? '<p class="wkb-lowe">⏰ 还有 ' + lowe + " 人没领。标黄的请到下面「发放记录」里自己那一行照着做，过期算放弃。</p>" : "") + '<ol class="wkb-list">' +
+        d.last.top.map(function (x, i) { return lastRow(x, i, lp[String(x.a).toLowerCase()]); }).join("") + "</ol></section>";
     }
     if (d.pays && d.pays.length) {
       html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x, pi) {
