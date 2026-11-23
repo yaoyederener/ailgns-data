@@ -22,6 +22,10 @@
    "0xd53a00bb90bb606f10d888419a14eca779f17285", "0xe8782615e32557f257dd88d70b1eb0d7f47b91c3", "0x5505d382bf5d705c5d3ec0cbfc17a3dde394b322",
    "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", "0x06cc2a46d7ad17496c2de9c61362808e06b44437"].forEach(function (x) { TEAM[x] = 1; KNOWN[x] = "🔧 运营维护"; });
   KNOWN["0x06cc2a46d7ad17496c2de9c61362808e06b44437"] = "🤖 官方做市机器人"; // 站长 2026-11-17
+  /* ⚠️ 涉嫌盗号的钱包（站长 2026-11-24，工单 #429）：全站显示成警告，域名市场不展示它们的挂单。名单要和 lib/flagged.js 一致 */
+  var FLAG = {}, FLAG_NAME = "⚠️ 涉嫌盗号钱包";
+  ["0x63bd82a6b92baaf35aa21ab9aebbc22d56656069", "0xc5e29a77f8c5d800f9ef43df137fcb54b1503b2e"].forEach(function (x) { FLAG[x] = 1; KNOWN[x] = FLAG_NAME; });
+  A.FLAG = FLAG; A.FLAG_NAME = FLAG_NAME;
   KNOWN["0xdcc5354175d60ffc8364e71e792fcd66366f00fe"] = "OTC 自动撮合合约";
   KNOWN["0xf09b0cd8bd6ed6fa528284f53fc8e9df753b62de"] = "🏆 OTC 商户奖金池"; // 站长 2026-11-15：手续费周榜的奖金钱包，账本里统一叫这个名字
   KNOWN["0x6ec474047a6c12d0cab53855a990c1c8b3996c20"] = "OTC 批量扫单合约";
@@ -843,6 +847,7 @@
     var teamNote = TEAM[a] && !isMe(a) ? '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营维护和市场托底</b>用的地址：服务器、节点、客服、开发等日常开支，以及在 OTC 挂买单托底、注入预测奖池的资金都从这里出。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>' : "";
     // 站长随后还要加一句「把 AiLGNS 拉升 100 倍」：没写。那是对币价的承诺，机器人只是跟着 DEX 价挂买单、抬不了币价，写了就是骗客户进场，涨不到还要担责；只写了做得到的「把买单价挂得更高更稳」。手续费那句按他说的删了
     // 站长 2026-11-17 深夜：说明里不要出现「抛售」两个字（哪怕是「不是抛售」），那个词本身会引起恐慌 → 改讲它做的正事：把买单价格拉高。它会把收来的币换回 DAI 这件事照实保留
+    if (FLAG[a]) teamNote = '<section class="card sc-flag"><h2>⚠️ 风险提示：涉嫌盗号钱包</h2><p>有客户报案：2026 年 11 月 22 日被冒充客服的骗子骗走助记词，钱包里的创世域名被转到了这个地址。技术人员已经逐笔核对过链上记录。</p><p>本站域名市场已不再展示这个地址的挂单。请不要和它交易。</p><p class="muted">官方不会主动私聊你，不会索要助记词、私钥。凡是私聊你的「客服」都是骗子。</p></section>';
     if (A.BOT && a === A.BOT && !isMe(a)) teamNote = '<section class="card"><h2>🤖 官方做市机器人</h2><p>这是团队的<b>做市机器人</b>，全天在本站 OTC 挂买单。它做的事只有一件：<b>把买单的价格拉高</b>，一直挂在紧贴官方 DEX 实际到手价的位置，让想卖 AiLGNS 的朋友随时有人接、卖得上价。</p>' +
       '<p>有它在，盘口上的最高买价比以前高出一截，而且全天不断档。</p>' +
       '<p class="muted">它是这样循环的：挂买单 → 有客户卖给它 → 把收到的币换回 DAI → 接着挂下一张买单。它自己不囤币，买进多少、换出多少，下面每一笔都能对上。</p><p>团队会继续努力，把买单的价格挂得更高、更稳。</p></section>';
@@ -988,7 +993,7 @@
         if (!full) return;
         // 荣耀榜总榜前 50：名字前面加段位徽章（荣耀榜页面和顶部播报条里不加，避免重复）
         Promise.all([nameOf(full), A.rankReady || null]).then(function (x) {
-          var nm = x[0], p = node.parentNode, nb = p && p.closest && p.closest("[data-nb]"), bg = !nb && A.rankBadge ? A.rankBadge(full) : "";
+          var nm = FLAG[String(full).toLowerCase()] ? FLAG_NAME : x[0], p = node.parentNode, nb = p && p.closest && p.closest("[data-nb]"), bg = !nb && A.rankBadge ? A.rankBadge(full) : "";
           if (node.nodeValue.indexOf(s) < 0) return;
           if (!nm && (!bg || node.nodeValue.indexOf(bg + s) >= 0)) return;
           node.nodeValue = node.nodeValue.replace(s, bg + (nm || s));

@@ -1,0 +1,7 @@
+{
+"⚠️ 涉嫌盗号钱包": "⚠️ Suspected theft wallet",
+"⚠️ 风险提示：涉嫌盗号钱包": "⚠️ Risk notice: suspected theft wallet",
+"有客户报案：{0} 年 {1} 月 {2} 日被冒充客服的骗子骗走助记词，钱包里的创世域名被转到了这个地址。技术人员已经逐笔核对过链上记录。": "A customer has reported that on {1}/{2}/{0} a scammer posing as customer service tricked them into giving up their seed phrase, and the Genesis names in their wallets were moved to this address. Our technical staff have checked the on-chain records transfer by transfer.",
+"本站域名市场已不再展示这个地址的挂单。请不要和它交易。": "This site's name market no longer shows listings from this address. Please do not trade with it.",
+"官方不会主动私聊你，不会索要助记词、私钥。凡是私聊你的「客服」都是骗子。": "The official team will never message you privately and will never ask for your seed phrase or private key. Anyone who messages you privately as \"customer service\" is a scammer."
+}
