@@ -7866,5 +7866,18 @@
 ".ailgns。点下面的按钮付款；10 分钟内注册上，两个的票一起到。": ".ailgns. Tap the button below to pay; register it within 10 minutes and the tickets for both arrive together.",
 "🔮 只注册 1 个": "🔮 Register just 1",
 "5 DAI · 注册费 70% 进每日预言家奖池": "5 DAI · 70% of the fee goes into the Daily Oracle prize pool",
-"不送极速票 · 点这里随机挑一个 →": "No Fast Oracle tickets · tap to pick a random name →"
+"不送极速票 · 点这里随机挑一个 →": "No Fast Oracle tickets · tap to pick a random name →",
+"输入你想要的名字。中文 3 个字及以上、英文数字 5 位及以上是": "Type the name you want. Chinese names of 3+ characters and English/number names of 5+ characters cost ",
+"，更短的更贵，下面会显示价格。注册费的": "; shorter ones cost more and the price is shown below. Of the fee, ",
+"中文、英文都行，不用写 .ailgns": "Chinese or English, no need to add .ailgns",
+"先输入一个名字": "Type a name first",
+"这个名字不合规：可以用中文、小写字母、数字、连字符；英文最少 3 位，中文最少 2 个字": "This name is not valid: use Chinese, lowercase letters, numbers or hyphens; at least 3 characters in English or 2 in Chinese",
+"这个名字已经有人注册了，换一个试试": "This name is already taken, try another",
+"这个名字不能注册，换一个试试": "This name cannot be registered, try another",
+"写一句你想要什么样的名字，AI 出一批，你挑一个。不写就随机出。注册费的": "Describe the kind of name you want; AI suggests a batch and you pick one. Leave it blank for random ideas. Of the fee, ",
+"比如「想要带 888 的发财名」": "e.g. \"a lucky name with 888 in it\"",
+"🤖 让 AI 出一批名字": "🤖 Let AI suggest names",
+"这一批都被人注册了，再点一次换一批": "All of these are already taken, tap again for a new batch",
+"都能注册，点一个你喜欢的：": "All available — tap the one you like:",
+"查能不能注册": "Check availability"
 }

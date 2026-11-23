@@ -83,7 +83,7 @@
     }
     box = document.createElement("div"); box.className = "modal nb-modal";
     box.innerHTML = '<div class="modal-box nb-box"><div class="card-head"><h2>' + (one ? "🔮 只注册 1 个域名" : "📦 批量注册域名") + '</h2><button type="button" class="ghost" id="nb-x" style="padding:4px 12px">关闭</button></div>' +
-      (one ? "" : '<div class="seg nb-seg"><button type="button" data-m="quick" class="on">🎲 随机</button><button type="button" data-m="num">🔢 挑号码</button><button type="button" data-m="ai">🤖 AI 起名</button><button type="button" data-m="own">✍️ 自己填</button></div>') +
+      (one ? '<div class="seg nb-seg nb-seg3"><button type="button" data-m="quick" class="on">🎲 随机</button><button type="button" data-m="own">✍️ 自己填</button><button type="button" data-m="ai">🤖 AI 起名</button></div>' : '<div class="seg nb-seg"><button type="button" data-m="quick" class="on">🎲 随机</button><button type="button" data-m="num">🔢 挑号码</button><button type="button" data-m="ai">🤖 AI 起名</button><button type="button" data-m="own">✍️ 自己填</button></div>') +
       '<div id="nb-pane"></div>' +
       '<div class="nb-cand" id="nb-cand"></div>' +
       '<div class="nb-foot"><div class="nb-sum" id="nb-sum">还没选</div><button type="button" class="nm-go" id="nb-go" disabled>注册选中的</button>' + (one ? "" : '<button type="button" class="nm-go nb-bot" id="nb-bot" disabled>🤖 交给机器人代点</button>') + '</div>' + (one ? "" : '<p class="muted nb-botst" id="nb-botst"></p>') +
@@ -91,7 +91,7 @@
       (one ? '<p class="muted nb-note">只用 DAI 付，钱包确认 2 次（授权 1 次 + 注册 1 次）。想一次注册 2 个以上、拿极速票，请用「📦 批量注册」。</p></div>' : '<p class="muted nb-note">便宜档 <b>5 DAI / 年</b>：中文 3 字及以上、英文数字 5 位及以上。3 位英文 640、4 位 160、中文 2 字 50。批量只用 DAI 付，先授权一次总额，再逐个注册；钱包支持「一次确认」的只按一次，否则一个名字按一下，中途停了已注册的照样有效。<br>🤖 <b>交给机器人代点</b>：你只确认 2 次（授权这次的总额 + 签名委托），团队的机器人一般一分钟左右替你逐个注册完，名字直接归你；被人抢先的名字不扣钱。结果发到站内信。</p></div>');
     document.body.appendChild(box);
     document.getElementById("nb-x").onclick = function () { if (busy && !(A.sure || confirm)("正在注册，关了的话已注册的照样有效，没注册的不会扣钱。确定关闭？")) return; box.remove(); box = null; };
-    box.querySelectorAll(".nb-seg button").forEach(function (b) { b.onclick = function () { mode = b.getAttribute("data-m"); box.querySelectorAll(".nb-seg button").forEach(function (x) { x.classList.toggle("on", x === b); }); pane(); }; });
+    box.querySelectorAll(".nb-seg button").forEach(function (b) { b.onclick = function () { if (busy) return; mode = b.getAttribute("data-m"); box.querySelectorAll(".nb-seg button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (one) { cands = []; picked = {}; say(""); drawCand(); } /* 只注册 1 个：换一种挑法就清掉上一个 */ pane(); }; });
     pane(); drawCand();
   }
   function say(t, bad) { var el = document.getElementById("nb-st"); if (el) { el.textContent = t || ""; el.className = "muted nb-st" + (bad ? " nm-bad" : ""); } }
@@ -133,7 +133,7 @@
       // 🔮 只注册 1 个：一打开就随机挑好一个能注册的，不喜欢点一下换一个，下面直接付款
       p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">每个域名 <b>5 DAI</b>，注册了就归你。这笔注册费的 <b>70% 进每日预言家奖池</b>，不送极速票。</p>' +
         '<button type="button" class="nm-go nb-gen" id="nb-gen">🎲 换一个名字</button>' +
-        '<p class="muted nb-oneh">想自己起名字：关掉这个窗口，在域名页最上面的搜索框里输入。<br>10 分钟内只注册这 1 个，注册费才进每日奖池；连着注册 2 个，两个都算极速票。</p></div>';
+        ONE_H + "</div>";
       var g1 = document.getElementById("nb-gen");
       g1.onclick = function () {
         if (busy) return;
@@ -168,6 +168,52 @@
           say(got.length < qn ? "这次只挑到 " + got.length + " 个，再点一次换一批" : "挑好了，往下看：不喜欢就再点一次换一批，喜欢就在下面付款。"); drawCand();
         });
       };
+    } else if (mode === "own" && one) {
+      // ✍️ 只注册 1 个 · 自己填（站长 2026-11-24：「让客户自己手动选择」）：输一个名字，查能不能注册，能就直接在下面付款
+      p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">输入你想要的名字。中文 3 个字及以上、英文数字 5 位及以上是 <b>5 DAI</b>，更短的更贵，下面会显示价格。注册费的 <b>70% 进每日预言家奖池</b>。</p>' +
+        '<div class="nb-own1"><input id="nb-own1" type="text" maxlength="32" placeholder="中文、英文都行，不用写 .ailgns" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" class="nm-go nb-gen" id="nb-gen">查能不能注册</button></div>' + ONE_H + "</div>";
+      var o1 = document.getElementById("nb-own1"), og = document.getElementById("nb-gen");
+      og.onclick = function () {
+        if (busy) return;
+        var n = o1.value.trim().toLowerCase().replace(/\.(ailgns|lgns)$/, "");
+        if (!n) return say("先输入一个名字", true);
+        cands = []; picked = {}; drawCand();
+        if (!H().valid(n)) return say("这个名字不合规：可以用中文、小写字母、数字、连字符；英文最少 3 位，中文最少 2 个字", true);
+        og.disabled = true; say("查可用中…");
+        check([n], function (err) {
+          if (!document.getElementById("nb-own1")) return;
+          og.disabled = false;
+          if (err) return say(err, true);
+          if (avail[n] !== 1) return say(avail[n] === 0 ? "这个名字已经有人注册了，换一个试试" : "这个名字不能注册，换一个试试", true);
+          cands = [n]; picked = {}; picked[n] = 1; say(""); drawCand();
+        });
+      };
+      o1.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); og.onclick(); } };
+    } else if (mode === "ai" && one) {
+      // 🤖 只注册 1 个 · AI 起名（站长 2026-11-24：「也加上 ai 选择」）：AI 出一批，只留能注册的，客户点一个
+      p.innerHTML = '<div class="nb-f nb-q"><p class="nb-qt">写一句你想要什么样的名字，AI 出一批，你挑一个。不写就随机出。注册费的 <b>70% 进每日预言家奖池</b>。</p>' +
+        '<textarea id="nb-desc" rows="2" maxlength="80" placeholder="比如「想要带 888 的发财名」"></textarea><button type="button" class="nm-go nb-gen" id="nb-gen">🤖 让 AI 出一批名字</button>' + ONE_H + "</div>";
+      var ag = document.getElementById("nb-gen");
+      ag.onclick = function () {
+        if (busy) return;
+        var d = document.getElementById("nb-desc").value.trim() || "随机生成：吉利、好记、口语化的中文名";
+        ag.disabled = true; say("AI 想名字中…");
+        fetch("/api/name-ideas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ desc: d, n: 12 }) }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!document.getElementById("nb-desc")) return;
+          if (j.error) { ag.disabled = false; return say(j.error, true); }
+          var ns = (j.names || []).map(function (s) { return String(s).trim().toLowerCase(); }).filter(Boolean);
+          if (!ns.length) { ag.disabled = false; return say("AI 没想出合规的名字，再点一次或换个说法", true); }
+          say("查可用中…");
+          check(ns, function (err) {
+            if (!document.getElementById("nb-desc")) return;
+            ag.disabled = false;
+            if (err) return say(err, true);
+            var ok = ns.filter(function (n, i) { return avail[n] === 1 && H().valid(n) && ns.indexOf(n) === i; });
+            if (!ok.length) return say("这一批都被人注册了，再点一次换一批", true);
+            cands = ok; picked = {}; picked[ok[0]] = 1; say(""); drawCand();
+          });
+        }).catch(function () { ag.disabled = false; say("AI 现在没空，稍后再试", true); });
+      };
     } else if (mode === "num") {
       p.innerHTML = '<div class="nb-f"><label>要几个 <input id="nb-cnt" type="number" min="1" max="50" value="10" inputmode="numeric"></label>' +
         '<label>几位数 <select id="nb-len"><option value="0">随机（5～10 位）</option><option value="5">5 位</option><option value="6">6 位</option><option value="7">7 位</option><option value="8">8 位</option><option value="9">9 位</option><option value="10">10 位</option></select></label>' +
@@ -201,6 +247,7 @@
     }
   }
   var cands = [];
+  var ONE_H = '<p class="muted nb-oneh">10 分钟内只注册这 1 个，注册费才进每日奖池；连着注册 2 个，两个都算极速票。</p>'; /* 只注册 1 个：三种挑法下面都带这句 */
   function addCands(ns) {
     var h = H(), fresh = [];
     ns.forEach(function (n) { if (cands.indexOf(n) < 0) { cands.push(n); fresh.push(n); } });
@@ -220,7 +267,9 @@
       botStatus(); sum(); return;
     }
     if (one) { // 只注册 1 个：只列挑好的那一个，不给勾选
-      el.innerHTML = cands.length ? '<p class="nb-tkl">挑好了：<i>' + esc(cands[0]) + ".ailgns</i></p>" : "";
+      el.innerHTML = !cands.length ? "" : cands.length === 1 ? '<p class="nb-tkl">挑好了：<i>' + esc(cands[0]) + ".ailgns</i></p>" :
+        '<p class="muted nb-onep">都能注册，点一个你喜欢的：</p><ul class="nb-list">' + cands.map(function (n) { return '<li><label><input type="radio" name="nb-one1" data-n="' + esc(n) + '"' + (picked[n] ? " checked" : "") + '> <b>' + esc(n) + '</b><small>.ailgns</small></label><em>' + price(n) + ' DAI/年</em></li>'; }).join("") + "</ul>";
+      el.querySelectorAll("input[data-n]").forEach(function (c) { c.onchange = function () { if (busy) return; picked = {}; picked[c.getAttribute("data-n")] = 1; sum(); }; });
       botStatus(); sum(); return;
     }
     if (!cands.length) { el.innerHTML = '<p class="muted">上面生成或填入名字，能注册的会自动勾上。</p>'; sum(); return; }
