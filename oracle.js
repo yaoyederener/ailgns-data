@@ -351,16 +351,27 @@
     var SCAM = "<div class=\"scam-warn\"><b>🚨 警惕骗子：领奖全程在这个网页上自助完成，不需要任何「客服」帮忙</b><ul><li>官方<b>不会私聊你</b>，更不会「指导你领奖」。你在群里说完中奖，马上来私聊你的，就是骗子。</li><li><b>绝不要</b>把助记词、私钥告诉任何人；不要屏幕共享、不要装对方发来的软件。</li><li>领奖<b>不用先转账</b>，没有手续费、保证金、税、「解冻费」。让你先打钱的，就是骗子。</li><li>只认 <b>ailgns.dev</b> 这个网址。别人发来的链接、二维码、「领奖页面」一律不要点、不要授权。</li></ul><small>奖金由机器人自动发到中奖的钱包，没有任何人工环节需要你配合。</small></div>";
     return (L.length ? SCAM : "") + L.map(function (x, i) {
       var burnOk = (x.bn || 0) >= (x.need || 1), big = (x.need || 1) > 1;
-      var s1 = burnOk ? "✅ 名字已烧够" + (big ? "（" + x.need + " 个）" : "") : "⏳ 先销毁名字" + (big ? "：已烧 " + (x.bn || 0) + " / " + x.need + " 个" : "：1 枚创世 .ailgns 名") + ' <a href="#/genesis">去销毁 →</a>';
+      // 站长 2026-11-23：「很多人烧了域名没有宣传，把步骤标清楚，第一步，第二步，第三步」→ 三步各一块，写明现在该做哪一步，按钮放在那一步里面
       var has = x.url || x.shots || x.video, what = (x.shots ? x.shots + " 张截图" : "") + (x.shots && x.video ? " + " : "") + (x.video ? "视频" : "") || (x.url ? "帖子链接" : "");
-      var s2 = x.ok && !has ? "✅ 团队已在群里看到你" : has ? "✅ 凭证已交（" + what + "）" + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "") : "⏳ 到 DeBox 群里说一声自己中奖了（写上你的名字、哪一期、中了多少），<b>截个图或录一小段视频</b>，在下面上传";
-      var s3 = x.ok ? "✅ 团队已认证" + (burnOk ? "，机器人几分钟内发奖" : "，名字烧够后机器人自动发奖") : has ? "⏳ 等团队看一眼凭证（一般当天）" : "⏳ 团队看过后，机器人自动把 AiLGNS 发到这个钱包";
+      var said = !!(has || x.ok), cur = !burnOk ? 1 : !said ? 2 : 3; // 现在该做哪一步
+      var stp = function (k, title, done, body) {
+        return '<div class="or-stp' + (done ? " done" : k === cur ? " now" : "") + '"><div class="or-stp-h"><i>' + ["第一步", "第二步", "第三步"][k - 1] + "</i><b>" + title + "</b><em>" + (done ? "✅ 已完成" : k === 3 ? (cur === 3 ? "⏳ 不用操作，等着就行" : "前两步做完自动发") : k === cur ? "👉 现在做这一步" : "⏳ 还没做") + "</em></div>" + body + "</div>";
+      };
+      var b1 = burnOk ? "<p>名字已烧够" + (big ? "（" + x.need + " 个）" : "") + "。</p>"
+        : "<p>" + (big ? "要销毁 " + x.need + " 个 .ailgns 名字，已烧 " + (x.bn || 0) + " 个。" : "销毁 1 枚创世 .ailgns 名字。") + '</p><a class="nm-go or-stp-go" href="#/genesis">🔥 去销毁名字</a><p class="or-stp-tip">烧完一定要回到这一页，接着做第二步。</p>';
+      var up = x.ok ? "" : '<label class="nm-go or-say-up"><input type="file" class="or-say-f" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
+        '<p class="or-say-st" data-i="' + i + '"></p>' +
+        '<p class="or-stp-tip">点上面的按钮，从相册选就行：截图最多 3 张；视频 20 秒以内（最大 20MB）。不用签名、不花钱。</p>';
+      var b2 = x.ok && !has ? "<p>团队已在群里看到你。</p>"
+        : has ? "<p>凭证已交（" + what + "）。" + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "") + "</p>" + up
+        : '<ul class="or-stp-l"><li>打开 DeBox 的 AiLGNS 群，说一声自己中奖了（写上你的名字、哪一期、中了多少）。</li><li>把你发的那条消息截个图，或者录一小段视频。</li><li>回到这一页，点下面的按钮上传。</li></ul>' +
+          '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' + up;
+      var b3 = "<p>" + (x.ok ? "团队已认证" + (burnOk ? "，机器人几分钟内把奖发到这个钱包。" : "，名字烧够后机器人自动发奖。") : has ? "等团队看一眼凭证（一般当天），看过后机器人自动把 AiLGNS 发到这个钱包。" : "前两步做完、团队看过后，机器人自动把 AiLGNS 发到这个钱包。") + "</p>";
       return '<div class="or-say"><b>🏆 你中了 ' + dayCn(x.day) + " 的" + (KN[x.kind] || "奖") + "：" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS（≈ " + dai(x.amt) + "）" : dai(x.amt)) + "</b>" +
-        "<small>领奖三步，做完才发奖。为什么要在群里说一声：让大家看得见中奖的是真人，防作弊。</small><ol><li>" + s1 + "</li><li>" + s2 + "</li><li>" + s3 + "</li></ol>" +
-        (x.ok ? "" : '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
-          '<label class="nm-go or-say-up"><input type="file" class="or-say-f" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
-          '<p class="or-say-st" data-i="' + i + '"></p>' +
-          '<p class="muted">点上面的按钮，从相册选就行：截图最多 3 张；视频 20 秒以内（最大 20MB）。不用签名、不花钱。</p>') + "</div>";
+        "<small>领奖一共三步，三步都做完才发奖。只烧名字、不到群里说一声并上传截图，领不到奖。</small>" +
+        (cur === 2 ? '<p class="or-stp-warn">⚠️ 你已经烧了名字，但还没上传截图 / 视频，奖还发不了。请做下面的第二步。</p>' : "") +
+        stp(1, "销毁名字", burnOk, b1) + stp(2, "到群里说一声，上传截图", said, b2) + stp(3, "等机器人发奖", false, b3) +
+        '<p class="or-stp-why">为什么要在群里说一声：让大家看得见中奖的是真人，防作弊。</p></div>';
     }).join("");
   }
   function meBox(d) {

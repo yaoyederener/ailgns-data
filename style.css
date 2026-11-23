@@ -5111,3 +5111,29 @@ html.lang-ko body { word-break: keep-all; }
 .nm-bs-done p:first-child { font-weight: 800; font-size: 15px; }
 .nm-bs-done.nm-bs-warn { background: #fff8e6; border-color: #f0d78a; }
 .nm-bs-done.nm-bs-warn p { color: #7a5a12; }
+
+/* 领奖三步（站长 2026-11-23）：预言家领奖卡 or-stp、销毁页 gs-stp、周榜 wkb-stp */
+.or-stp { margin: 10px 0 0; padding: 12px; border-radius: 14px; background: #fff; border: 1.5px solid #e4dafa; }
+.or-stp.now { border: 2px solid #7c5cff; background: #fdfcff; box-shadow: 0 2px 10px rgba(124, 92, 255, .12); }
+.or-stp.done { background: #f3fbf6; border-color: #c9ead6; }
+.or-stp-h { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-bottom: 4px; }
+.or-stp-h i { font-style: normal; font-size: 13px; font-weight: 800; color: #fff; background: #7c5cff; border-radius: 999px; padding: 3px 11px; white-space: nowrap; }
+.or-stp.done .or-stp-h i { background: #2f9e62; }
+.or-stp-h b { font-size: 16px; color: #2d1b69; }
+.or-stp-h em { font-style: normal; font-size: 13px; font-weight: 700; color: #8a7bbd; margin-left: auto; white-space: nowrap; }
+.or-stp.now .or-stp-h em { color: #5a35d6; }
+.or-stp.done .or-stp-h em { color: #1f7a4a; }
+.or-stp p { margin: 4px 0; font-size: 14.5px; line-height: 1.6; color: #4a3d6b; }
+.or-stp .or-stp-tip { font-size: 13px; color: #7a6aa8; }
+.or-stp-l { margin: 4px 0 8px; padding-left: 20px; font-size: 14.5px; line-height: 1.65; color: #4a3d6b; }
+.or-stp .or-stp-go { display: block; margin: 8px 0 4px; text-align: center; text-decoration: none; min-height: 50px; padding: 13px 12px; border-radius: 14px; font-size: 16.5px; font-weight: 800; box-sizing: border-box; }
+.or-say .or-stp-warn { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: #fff6e0; border: 1.5px solid #f0d078; color: #7a5200; font-size: 14.5px; font-weight: 700; line-height: 1.55; }
+.or-say .or-stp-why { margin: 10px 0 0; font-size: 13px; color: #7a6aa8; }
+.gs-stp { margin: 10px 0; padding: 12px; border-radius: 14px; background: #fff6e0; border: 1.5px solid #f0d078; text-align: left; }
+.gs-stp > b { display: block; font-size: 16px; color: #7a5200; }
+.gs-stp ol, .wkb-stp { list-style: none; margin: 8px 0 10px; padding: 0; }
+.gs-stp li, .wkb-stp li { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: #fff; border: 1px solid #e9e1fb; font-size: 14.5px; line-height: 1.55; color: #6b5aa6; }
+.gs-stp li.done, .wkb-stp li.done { background: #f3fbf6; border-color: #c9ead6; color: #1f7a4a; }
+.gs-stp li.now, .wkb-stp li.now { border: 2px solid #7c5cff; color: #2d1b69; font-weight: 700; }
+.gs-stp .nm-go { display: block; text-align: center; text-decoration: none; }
+.wkb-upl a.wkb-upb { text-decoration: none; margin-bottom: 10px; }
