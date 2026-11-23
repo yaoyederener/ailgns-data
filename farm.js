@@ -99,7 +99,7 @@
   try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
     var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
-    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2>开心农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
+    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2 id="fm-title">我的农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
       '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 进入运营资金。</p>';
@@ -191,6 +191,7 @@
       var el = document.getElementById("fm-stat");
       if (!el) return;
       if (!me || !R) { el.innerHTML = ""; return; } /* 规则还没读到就先不画（网慢时点得快会报错，2026-11-21 报错清扫） */
+      fmTitle();
       var lv = me.lv, lo = (lv - 1) * (lv - 1) * 10, hi = lv * lv * 10, pct = Math.max(0, Math.min(100, (me.xp - lo) / (hi - lo) * 100));
       var t = now(), dog = me.dog > t ? Math.ceil((me.dog - t) / 3600) : 0, cop = me.cop > t ? Math.ceil((me.cop - t) / 3600) : 0;
       // 站长 2026-11-16：以前超过 48 小时只写「3 天」（四舍五入），续买后看不出是 3 天整还是 3 天 10 小时；狗和警察一个写小时一个写天也让人糊涂。现在统一写「几天几小时」
@@ -222,7 +223,31 @@
       '<path d="M19 34c3-8 6-18 8-28-4.500 8-7.500 18-9 28z" fill="#3f9e3a"/>' +
       '<path d="M18 34.500C16.800 24 17.300 12 18 2c.700 10 1.200 22 0 32.500z" fill="#2f8a34"/></g>' +
       '<ellipse cx="18" cy="33.500" rx="3.200" ry="1.600" fill="#eef7dc"/></svg>';
-    function cropIc(c) { return c && c.cut ? FMZ_CHIVE : c.icon; }
+    /* 🌳 工单 #380（2026-11-24）：「发财树的图标太丑了」——摇钱树原来用的是 💰 钱袋。改成自己画的一棵挂满金币的树（每台手机看到的都一样）。只换页面上的图标 */
+    var FMZ_TREE = '<svg class="fmz-tree" viewBox="0 0 36 36" width="1em" height="1em" aria-hidden="true">' +
+      '<ellipse cx="18" cy="33.6" rx="8" ry="1.8" fill="#d9b98a"/>' +
+      '<path d="M15.6 33.6c.9-4.6.9-8.6.2-12.4h4.400c-.700 3.800-.700 7.800.200 12.400z" fill="#a06a35" stroke="#7a4c22" stroke-width=".8" stroke-linejoin="round"/>' +
+      '<circle cx="10.5" cy="17.5" r="6.5" fill="#2f9e44"/><circle cx="25.5" cy="17.5" r="6.5" fill="#2f9e44"/><circle cx="18" cy="12.5" r="10" fill="#40b356"/><circle cx="14.5" cy="8.5" r="4.6" fill="#6fd07f" opacity=".75"/>' +
+      '<g fill="#ffd43b" stroke="#d9960a" stroke-width=".9"><circle cx="11.5" cy="13" r="3.2"/><circle cx="23.5" cy="10.5" r="3.2"/><circle cx="18" cy="18.5" r="3.4"/><circle cx="8.8" cy="20.5" r="2.6"/><circle cx="27.2" cy="20" r="2.6"/></g>' +
+      '<g fill="#d9960a"><rect x="10.7" y="12.2" width="1.6" height="1.6"/><rect x="22.7" y="9.7" width="1.6" height="1.6"/><rect x="17.1" y="17.6" width="1.8" height="1.8"/></g>' +
+      '<path d="M29.5 5.500l.700 1.800 1.800.700-1.800.700-.700 1.800-.700-1.800-1.800-.700 1.800-.700z" fill="#fff3b0"/></svg>';
+    function cropIc(c) { return c && c.art === "tree" ? FMZ_TREE : c && c.cut ? FMZ_CHIVE : c.icon; }
+    /* 🏡 工单 #380：顶上不写「开心农场」，写「某某的农场」，用钱包的主名字（去掉 .ailgns）；没有主名字就写「我的农场」。名字长就缩小一号，出错不影响农场 */
+    function fmTitle() {
+      try {
+        var h = document.getElementById("fm-title"), a = sig && sig.addr;
+        if (!h || !a || !A.nameOf) return;
+        A.nameOf(a).then(function (n) {
+          n = String(n || "").replace(/\.(ailgns|lgns)$/, "");
+          if (!n || !h.isConnected) return;
+          var L = window.AIL_LANG;
+          h.textContent = L === "en" ? n + "'s Farm" : L === "ko" ? n + "의 농장" : n + "的农场";
+          h.classList.toggle("long", h.textContent.length > 8);
+        }).catch(function () {});
+      } catch (e) { /* 名字读不到就留着「我的农场」 */ }
+    }
+    /* 韭菜割下来地主至少拿多少（规则从服务器来；老缓存没有这一项时按老数显示） */
+    function chiveMin() { return R && R.chive ? Math.floor(R.chive.base / 2) : 60; }
     function farmHtml() {
       var t = now(), C = R.crops, ripe = 0;
       var plots = me.plots.map(function (p, i) {
@@ -258,7 +283,8 @@
           (cowList.length ? '<button type="button" class="ghost" id="fm-feedcow"' + (cowHungry ? "" : " disabled") + ">喂牛（" + K.feed + " 金币/头）</button>" : "") +
           (cowList.length < K.max ? '<button type="button" class="ghost" id="fm-cow">买奶牛（' + K.price + " 金币）</button>" : "") + "</div></section>";
       }
-      return '<section class="card fm-field"><div class="card-head"><h2>🌾 菜地</h2><button type="button" id="fm-harvest"' + (ripe ? ' class="fm-ripe"' : " disabled") + ">" + (ripe ? "🧺 一键收获（" + ripe + "）" : "一键收获") + "</button></div>" +
+      var emptyN = me.plots.filter(function (p) { return !p; }).length;
+      return '<section class="card fm-field"><div class="card-head"><h2>🌾 菜地</h2><span class="fm-hdb">' + (emptyN ? '<button type="button" id="fm-plantall">🌱 一键种菜（' + emptyN + "）</button>" : "") + '<button type="button" id="fm-harvest"' + (ripe ? ' class="fm-ripe"' : " disabled") + ">" + (ripe ? "🧺 一键收获（" + ripe + "）" : "一键收获") + "</button></span></div>" +
         '<div class="fm-grid">' + plots + more + "</div></section>" +
         '<section class="card fm-coop"><div class="card-head"><h2>🐔 鸡舍</h2><span class="muted">每 2 小时下 1 个蛋，蛋 ' + H.egg + " 金币</span></div>" +
         (hens ? '<div class="fm-grid">' + hens + "</div>" : '<p class="muted">还没有鸡。买一只小母鸡，喂饱了每 2 小时下一个蛋（最多攒 4 个，攒多了会被人偷）。</p>') +
@@ -283,17 +309,17 @@
     }
 
     function seedPicker(i) {
-      var m = document.getElementById("fm-modal"), C = R.crops;
+      var m = document.getElementById("fm-modal"), C = R.crops, all = i === "all", emptyN = me.plots.filter(function (p) { return !p; }).length;
       m.hidden = false;
-      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>选种子</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="fm-seeds">' +
+      m.innerHTML = '<div class="modal-box"><div class="card-head"><h2>' + (all ? "一键种菜 · 选种子" : "选种子") + "</h2>" + (all ? '<span class="muted">' + emptyN + " 块空地全种上</span>" : "") + '<button class="ghost" data-close style="padding:4px 12px">关闭</button></div><div class="fm-seeds">' +
         Object.keys(C).map(function (k) {
           var c = C[k], lock = me.lv < c.lv || (c.vip && !me.paid);
           return '<button type="button" data-seed="' + k + '"' + (lock || me.coins < c.seed ? " disabled" : "") + '><span class="fm-ic">' + cropIc(c) + "</span><b>" + c.name + "</b><small>" +
-            (lock ? (c.vip && !me.paid ? "👑 充值解锁" : "🔒 " + c.lv + " 级解锁") : c.seed + " 金币 · " + left(c.grow).replace(" 0 秒", "").replace(" 0 分", "") + (c.cut ? " · 别人来割你得 " : " · 卖 ") + c.yield * c.price) + "</small></button>";
+            (lock ? (c.vip && !me.paid ? "👑 充值解锁" : "🔒 " + c.lv + " 级解锁") : c.seed + " 金币 · " + left(c.grow).replace(" 0 秒", "").replace(" 0 分", "") + (c.cut ? " · 别人来割，对半分，你至少得 " + chiveMin() : " · 卖 " + c.yield * c.price)) + "</small></button>";
         }).join("") + "</div></div>";
       m.querySelector("[data-close]").onclick = function () { m.hidden = true; };
       m.onclick = function (e) { if (e.target === m) m.hidden = true; };
-      m.querySelectorAll("[data-seed]").forEach(function (b) { b.onclick = function () { m.hidden = true; run("plant", { plot: i, crop: b.getAttribute("data-seed") }); }; });
+      m.querySelectorAll("[data-seed]").forEach(function (b) { b.onclick = function () { m.hidden = true; if (all) run("plantAll", { crop: b.getAttribute("data-seed") }); else run("plant", { plot: i, crop: b.getAttribute("data-seed") }); }; });
     }
 
     /* 站长 2026-11-13：吃一堑长一智。被哪家警察抓过，记在这台手机里，1 天内一键偷菜自动绕开那家；单独点「偷」不拦 */
@@ -338,9 +364,10 @@
         out.querySelectorAll("[data-plant]").forEach(function (b) { b.onclick = function () { seedPicker(+b.getAttribute("data-plant")); }; });
         var on = function (id, fn) { var e = document.getElementById(id); if (e) e.onclick = fn; };
         on("fm-harvest", function () { run("harvest"); });
+        on("fm-plantall", function () { seedPicker("all"); });
         // 站长 2026-11-12：熟了的菜地一闪一闪，客户会去点它 → 点熟菜地也等于点「一键收获」
         out.querySelectorAll(".fm-plot.ripe").forEach(function (b) { b.onclick = function () { run("harvest"); }; });
-        out.querySelectorAll("[data-cutme]").forEach(function (b) { b.onclick = function () { var c = R.crops.chive, s = +b.getAttribute("data-cutme") - now(); toast("🌿 韭菜自己不能收，等别人来割：割了你拿 " + c.yield * c.price + " 金币。" + (s > 0 ? "再过 " + left(s) + " 还没人割，你可以自己收一半" : "现在可以自己收一半了，刷新一下")); }; });
+        out.querySelectorAll("[data-cutme]").forEach(function (b) { b.onclick = function () { var c = R.crops.chive, s = +b.getAttribute("data-cutme") - now(); toast("🌿 韭菜自己不能收，等别人来割：割下来两人对半分，你至少得 " + chiveMin() + " 金币，来割的人金币越少割得越多。" + (s > 0 ? "再过 " + left(s) + " 还没人割，你可以自己收一半" : "现在可以自己收一半了，刷新一下")); }; });
         on("fm-buyplot", function () { if ((A.sure || confirm)("花 " + R.plots[me.plots.length - 6] + " 金币开垦一块新地？")) run("buyPlot"); });
         on("fm-eggs", function () { run("eggs"); });
         out.querySelectorAll(".fm-rv").forEach(function (b) { b.onclick = function () { b.disabled = true; run("steal", { to: b.getAttribute("data-rv") }); }; }); // ⚔️ 偷回去：复仇那一次不会被拦
@@ -363,7 +390,7 @@
       var want = tab;
       fetch("/api/farm?list=1&me=" + sig.addr).then(function (r) { return r.json(); }).then(function (d) {
         if (!A.isCurrent(rid) || tab !== want) return;
-        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">🌿 <b>别人家熟了的韭菜可以帮忙割</b>：对方拿全额，你另得四成，狗和警察不拦，点「偷」就一起割了。</p><p class="note">🎁 <b>每天第一次偷必得手</b>，对方有狗有警察也拦不住。被人偷了？回农场首页「农场动态」点「⚔️ 偷回去」，那一次同样不会被拦。</p><p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
+        out.innerHTML = friendsHtml(d, tab === "top") + (tab === "friends" ? '<p class="note">🌿 <b>别人家熟了的韭菜可以帮忙割</b>：割下来和对方对半分，每块每人 ' + chiveMin() + " 金币起；你手里的金币越少割得越多（不到 500 金币翻倍，不到 5000 金币 1.5 倍）。狗和警察不拦，点「偷」就一起割了。</p>" + '<p class="note">🎁 <b>每天第一次偷必得手</b>，对方有狗有警察也拦不住。被人偷了？回农场首页「农场动态」点「⚔️ 偷回去」，那一次同样不会被拦。</p><p class="note">别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，最多被偷走 40%；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷 ' + R.stealDay + " 次。🐕 有的农场养了看门狗，从外面看不出来：一半机会被咬（空手而归，赔 " + R.dog.bite + " 金币），没被咬也只能偷到一部分。" + (R.cop ? "👮 有的农场请了警察，也看不出来：被抓就空手而归，罚 " + R.cop.fine + " 金币" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次能偷到" : "") + "。" : "") + "</p>" : "");
         var all = out.querySelector("#fm-all");
         if (all) all.onclick = function () {
           var bs = [].slice.call(out.querySelectorAll("[data-steal]")).filter(function (b) { return !b.disabled && !b.hasAttribute("data-cop"); }), c0 = me ? me.coins : 0, ok = 0, bad = 0, no = 0, cops = 0, i = 0, tally = {}, cutN = 0, cutGot = 0, lostAll = 0, best = null, batch = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); // 这一轮的编号，服务器按它算保底
