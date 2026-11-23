@@ -7,5 +7,6 @@
 "⏰ 还没领 · 还剩 {0} 小时": "⏰ Not claimed yet · {0} h left",
 "🔎 审核中": "🔎 Under review",
 "🕐 发放中": "🕐 Paying out",
-"⏰ 还有 {0} 人没领。标黄的请到下面「发放记录」里自己那一行照着做，过期算放弃。": "⏰ {0} winner(s) have not claimed yet. If a highlighted row is yours, follow the steps in your own row under \"Payout records\" below; unclaimed prizes are forfeited after the deadline."
+"⏰ 还有 {0} 人没领。标黄的请到下面「发放记录」里自己那一行照着做，过期算放弃。": "⏰ {0} winner(s) have not claimed yet. If a highlighted row is yours, follow the steps in your own row under \"Payout records\" below; unclaimed prizes are forfeited after the deadline.",
+"🏆 OTC 手续费周榜页新增「上期中奖名单」：每个人后面标着已发、还没领、审核中，还没领的整行标黄，并写着还剩多久。群里的定时播报也会点名提醒还没领奖的朋友（每日预言家和周榜）。中奖的请在截止前领，过期算放弃。": "🏆 The OTC fee weekly board page now has a \"Last week's winners\" list: each winner is marked as paid, not claimed yet or under review, and unclaimed rows are highlighted in yellow with the time left. The scheduled group broadcast also reminds winners who have not claimed yet (daily oracle and weekly board). Please claim before the deadline; unclaimed prizes are forfeited."
 }
