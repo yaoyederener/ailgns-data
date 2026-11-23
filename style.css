@@ -5012,6 +5012,8 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
   .tset-btn { width: 28px; height: 28px; }
   .hd-tk { min-width: 30px; height: 30px; padding: 0 4px; font-size: 11.5px; }
   .top-r .app-btn { padding: 7px 7px; }
+  .top-in .brand .brand-t b { font-size: 13px; }
+  .top-in .brand .brand-t small { font-size: 7.5px; }
 }
 
 /* 极速预言家 · 走势图（2026-11-20）：一期一行、0–9 十列，开奖数字是球、球之间连线，别的格子是遗漏数。配色用本站的紫色 */
