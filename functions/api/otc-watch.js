@@ -499,6 +499,9 @@ export async function onRequestGet(ctx) {
         logs.length = 0; logs.push(...keep); upto = cutB;
       }
       const cache = {};
+      /* 🩹 工单 #404（2026-11-23）：卡牌 / 域名市场的合约在成交时会连着发两条记录——Filled 和 Closed(expired=false)。以前把后一条当成「撤单」，
+         卖家卖出去以后又收到一条「已撤单，已退回到你的钱包」，以为东西没卖掉也没退回来。同一笔交易里这张单已经有成交记录的，Closed 不再发通知。 */
+      const soldIn = new Set(logs.filter((l) => l.topics[0] === NFT_FILLED).map((l) => l.transactionHash + ":" + l.topics[1]));
       for (const l of logs) {
         const id = parseInt(l.topics[1], 16), d = words(l.data);
         const o = cache[id] || (cache[id] = await order(m, id));
@@ -518,6 +521,7 @@ export async function onRequestGet(ctx) {
               : `✅ 卖出成功 #${id}\n${nm} 已卖给求购方，收到 ${fmt(price)} DAI` + link]);
             fills.push({ m, qty: 1, price, k: l.transactionHash + l.logIndex, nm: m.names ? nm : undefined });
           } else {
+            if (soldIn.has(l.transactionHash + ":" + l.topics[1])) continue; // 成交带出来的收尾记录，不是撤单
             const expired = BigInt("0x" + d[0]) === 1n;
             const kind = m.kind || "卡牌", nm = o.sell ? await itemName(m, o.tokenId) : "";
             msgs.push([o.maker, (expired ? `⏰ 你的${kind}${o.sell ? "卖单" : "求购单"} #${id} 到期未成交，已自动退回` : `↩️ 你的${kind}${o.sell ? "卖单" : "求购单"} #${id} 已撤单，已退回`) + (o.sell ? " " + nm : " DAI（含预存的手续费）") + " 到你的钱包" + link]);
