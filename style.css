@@ -4995,6 +4995,23 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
   .top-r .app-btn { padding: 8px 8px; }
   .top-r .ib-bell, .top-r .debox { width: 34px; height: 34px; }
 }
+/* 顶部「工单」按钮（站长 2026-11-24：「把工单按钮放在上面，让客户随时找到我」）：每一页右上角都有，点了进 #/feedback 提工单。
+   手机上那一排本来就挤：App 按钮在手机上只留「App」两个字（去掉小图标），间距收一点，品牌文字照旧占剩下的宽度；360 宽的小屏再缩一号 */
+.hd-tk { flex: none; display: inline-grid; place-items: center; min-width: 34px; height: 34px; padding: 0 8px; border-radius: 999px; border: 1.5px solid #b79cf7; background: #fff; color: #5b21b6; font-size: 12.5px; font-weight: 800; line-height: 1; white-space: nowrap; text-decoration: none; box-shadow: 0 2px 6px rgba(112, 39, 217, .12); }
+.hd-tk:hover { text-decoration: none; background: #f3ecff; }
+@media (max-width: 480px) {
+  .top-r .app-btn .app-ic { display: none; }
+  .top-r .app-btn { padding: 8px 9px; }
+  .hd-tk { padding: 0 6px; font-size: 12px; }
+  .top-in .brand .brand-t small { font-size: 8.5px; letter-spacing: .3px; }
+}
+@media (max-width: 380px) {
+  .top-in { gap: 5px; } .top-r { gap: 3px; }
+  .top-r .ib-bell, .top-r .debox { width: 30px; height: 30px; }
+  .tset-btn { width: 28px; height: 28px; }
+  .hd-tk { min-width: 30px; height: 30px; padding: 0 5px; font-size: 11.5px; }
+  .top-r .app-btn { padding: 7px 7px; }
+}
 
 /* 极速预言家 · 走势图（2026-11-20）：一期一行、0–9 十列，开奖数字是球、球之间连线，别的格子是遗漏数。配色用本站的紫色 */
 .fxt-sc { position: relative; max-height: 440px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid #e6dbfb; border-radius: 14px; background: #fff; }
