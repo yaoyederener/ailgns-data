@@ -4,6 +4,7 @@
 //   GET ?a=0x… → { a, list: [{ id, label, no }], to, at }   owner = 每个 tokenId 最后一次 Transfer 的 to；挂在市场里的名字在市场合约名下，自然不在列表里
 // 边缘缓存 10 秒。快照最多落后几个块：刚买 / 刚注册的名字等 1 分钟再点。
 import { banned } from "../../lib/ban.js";
+import { isStolen } from "../../lib/stolen.js";
 import { RPCS } from "../../lib/teamlib.js";
 const SEL_EXPIRES = "0xcb52c823";
 
@@ -28,7 +29,7 @@ export async function onRequestGet(ctx) {
   ((rg && rg.l) || []).forEach((l) => { if (l[1] && l[1][1]) label[l[1][1].toLowerCase()] = decStr(l[2]); });
   const g = (gen && gen.g) || {};
   const list = Object.keys(owner).filter((id) => owner[id] === a)
-    .map((id) => ({ id: id.slice(2), label: label[id] || "", no: g[id.slice(2)] || 0, exp: 0 }))
+    .map((id) => (isStolen(id) ? { id: id.slice(2), label: label[id] || "", no: 0, exp: 0, stolen: 1 } : { id: id.slice(2), label: label[id] || "", no: g[id.slice(2)] || 0, exp: 0 })) /* ⚠️ 被盗名单上的不算创世 */
     .filter((x) => x.label && !banned(x.label))
     .sort((p, q) => (p.no || 1e9) - (q.no || 1e9));
   // 到期时间：一批 eth_call 读 expires(id)（站长 2026-11-09「查询域名超过 5 秒」：查钱包改走这个接口，列表要显示到期）

@@ -4,6 +4,7 @@
 import { RPCS } from "../../lib/teamlib.js";
 import { banned } from "../../lib/ban.js";
 import { isFlagged } from "../../lib/flagged.js";
+import { isStolen } from "../../lib/stolen.js";
 
 const M = {
   ailgns: { O: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", C: "0xbc408e9d7350967e7247c917a086cb4ece0ed988" },
@@ -60,7 +61,7 @@ async function build() {
       if (!it.label) it.label = "名字已释放"; // 名字注册到期被释放了，但挂单还在合约里：只给卖家看、能取回
     });
   }
-  return list.filter((it) => !banned(it.label) && !isFlagged(it.maker)); // 🚫 涉政名字不进市场；⚠️ 涉嫌盗号钱包的挂单不进市场（lib/flagged.js）
+  return list.filter((it) => !banned(it.label) && !isFlagged(it.maker) && !isStolen(it.tid)); // 🚫 涉政名字不进市场；⚠️ 涉嫌盗号钱包的挂单不进市场（lib/flagged.js）
 }
 
 export async function onRequestGet(ctx) {
