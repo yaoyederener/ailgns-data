@@ -2381,7 +2381,8 @@
     useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
     cancelMany: cancelMany, // 账本「一键批量撤单」用
     bidFloor: bidFloor, lowBidCut: lowBidCut, loadTax: loadTax, // 一键做市铺买单也守「买单最低出价」（站长 2026-11-21）
-    deboxCard: deboxCard // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
+    deboxCard: deboxCard, // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
+    lpQuote: lpQuote // 看盘页（chart.js）显示 LP 参考价
   };
   A.pages.otc = function (id) {
     // #/otc · #/otc/lgns · #/otc/plgns · #/otc/glgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
