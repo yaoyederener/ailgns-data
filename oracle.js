@@ -868,5 +868,16 @@
     if (box) box.innerHTML = '<p class="muted">长按图片保存，发到群里晒一晒 👇</p><img class="or-poster" src="' + url + '" alt="晒单海报">';
   }
 
+  // 工单 #444：在钱包里换了账户，预测页还停在上一个钱包，要手动刷新才换 → 钱包一换就自动重读（只在预测页开着时重画）
+  try {
+    A.wallets.onAccounts(function (a) {
+      try {
+        var na = a && a[0] ? String(a[0]).toLowerCase() : "";
+        if (na === account) return;
+        account = na;
+        if (curRid && A.isCurrent(curRid) && document.getElementById("or-out")) load(curRid);
+      } catch (e) { /* 重读失败不影响页面，手动刷新照旧能用 */ }
+    });
+  } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   A.pages.oracle = page;
 })();
