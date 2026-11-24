@@ -8,9 +8,9 @@
   "use strict";
   var A = window.AIL;
   var COINS = {
-    ailgns: { sym: "AiLGNS", ico: "icons/tokens/ailgns.png?v=1", pd: 2, qd: 4, otc: "#/otc/ailgns", foot: "AiLGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25" },
-    lgns: { sym: "LGNS", ico: "icons/tokens/lgns.png?v=1", pd: 4, qd: 2, otc: "#/otc/lgns", foot: "LGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25", tax: 1 },
-    lp: { sym: "LP", full: "AiLGNS-LGNS 的 LP", ico: "icons/tokens/lp.png?v=2", lp: 1, otc: "#/otc/lp" }
+    ailgns: { sym: "AiLGNS", ico: "icons/tokens/ailgns.png?v=1", pd: 2, qd: 4, ca: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", otc: "#/otc/ailgns", foot: "AiLGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25" },
+    lgns: { sym: "LGNS", ico: "icons/tokens/lgns.png?v=1", pd: 4, qd: 2, ca: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", otc: "#/otc/lgns", foot: "LGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25", tax: 1 },
+    lp: { sym: "LP", full: "AiLGNS-LGNS 的 LP", ico: "icons/tokens/lp.png?v=2", lp: 1, ca: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", otc: "#/otc/lp" }
   };
   var ORDER = ["ailgns", "lgns", "lp"];
   var ZH = !window.AIL_LANG || /^zh/i.test(window.AIL_LANG) || window.AIL_LANG === "hant";
@@ -87,6 +87,18 @@
     tick(); timer = setInterval(tick, 15000);
   }
 
+  // 合约地址（站长 2026-11-25：客户要找合约地址，高亮出来让他一点就复制）。整块都能点；剪贴板不让用就退回老办法
+  function caHtml(k) { var C = COINS[k]; return C.ca ? '<button type="button" class="cht-ca" id="cht-ca" data-ca="' + C.ca + '"><span class="cht-ca-l"><small>' + esc(C.sym) + ' 合约地址（Anubis 链）</small><code>' + C.ca + '</code></span><span class="cht-ca-b" id="cht-ca-b">复制</span></button>' : ""; }
+  function caBind() {
+    var b = document.getElementById("cht-ca"); if (!b) return;
+    b.onclick = function () {
+      var a = b.getAttribute("data-ca"), t = document.getElementById("cht-ca-b");
+      var done = function () { if (t) { t.textContent = "✅ 已复制"; setTimeout(function () { t.textContent = "复制"; }, 2000); } };
+      var old = function () { try { var x = document.createElement("textarea"); x.value = a; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0"; document.body.appendChild(x); x.select(); x.setSelectionRange(0, 99); var ok = document.execCommand("copy"); document.body.removeChild(x); if (ok) done(); else if (t) t.textContent = "请长按地址复制"; } catch (e) { if (t) t.textContent = "请长按地址复制"; } };
+      try { navigator.clipboard.writeText(a).then(done, old); } catch (e) { old(); }
+    };
+  }
+
   // ───────── 单个币 ─────────
   function headHtml(k, sub) { var C = COINS[k]; return '<a class="cht-back" href="#/chart">‹ 全部币种</a><div class="cht-top"><img src="' + C.ico + '" alt="" width="40" height="40"><span class="cht-nm"><b>' + esc(C.sym) + ' <i>/ DAI</i></b><small>' + esc(sub) + "</small></span></div>"; }
   function cell(t, v) { return '<div><small>' + t + "</small><b>" + v + "</b></div>"; }
@@ -110,13 +122,13 @@
   var kc = null;
   function pageCoin(id, k) {
     var C = COINS[k];
-    A.app.innerHTML = '<section class="card cht">' + headHtml(k, "官方 DEX 池子价") +
+    A.app.innerHTML = '<section class="card cht">' + headHtml(k, "官方 DEX 池子价") + caHtml(k) +
       '<div class="cht-px" id="cht-px"></div><div class="cht-st" id="cht-st"></div><p class="muted cht-tip" id="cht-lag"></p>' +
       '<div id="cht-k"></div>' +
       '<a class="btn cht-go" href="' + C.otc + '">去本站 OTC 买卖 ' + esc(C.sym) + '</a>' +
       '<h3 class="cht-h3">实时成交</h3><div class="cht-trs" id="cht-tr"></div>' +
       '<h3 class="cht-h3">池子</h3><p class="muted cht-tip" id="cht-pool"></p></section>';
-    drawCoin(k);
+    drawCoin(k); caBind();
     if (kc) { try { kc.stop(); } catch (e) {} kc = null; }
     try { if (A.kchart) kc = A.kchart(document.getElementById("cht-k"), { i: "15m", m: k === "ailgns" ? "" : k, d: C.pd, foot: C.foot, alive: function () { return A.isCurrent(id); } }); } catch (e) {}
     var tick = function () {
@@ -136,11 +148,11 @@
       cell("AiLGNS 这部分值", big(q.vAil) + " DAI") + cell("LGNS 这部分值", big(q.vLgns) + " DAI") + cell("合计", big(q.px) + " DAI");
   }
   function pageLp(id) {
-    A.app.innerHTML = '<section class="card cht">' + headHtml("lp", "AiLGNS-LGNS 的 LP · 参考价") +
+    A.app.innerHTML = '<section class="card cht">' + headHtml("lp", "AiLGNS-LGNS 的 LP · 参考价") + caHtml("lp") +
       '<div class="cht-px" id="cht-px"></div><div class="cht-st" id="cht-st"></div>' +
       '<p class="muted cht-tip">LP 现在拆不开，DEX 上也没有能直接卖 LP 的池子，所以没有 K 线和成交记录。这个参考价是按「1 个 LP 里含的 AiLGNS 和 LGNS，拿去 DEX 卖出实际到手多少 DAI」折算的，会随行情和 LGNS 卖出手续费变化，只供参考。</p>' +
       '<a class="btn cht-go" href="#/otc/lp">去本站 LP 市场买卖</a></section>';
-    drawLp();
+    drawLp(); caBind();
     var tick = function () {
       if (!A.isCurrent(id)) { clearInterval(timer); return; }
       if (document.hidden) return;

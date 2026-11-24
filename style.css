@@ -5398,3 +5398,11 @@ html.lang-ko body { word-break: keep-all; }
 .cht-t.dn span:nth-child(-n+3) { color: #d93a4f; }
 .cht-t span:first-child { color: #9a92ba !important; }
 .cht-t .cht-a { color: #7a5cd6; font-size: 11.5px; }
+
+/* 看盘：合约地址高亮条，整条点一下就复制 */
+.cht-ca { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; height: auto; margin: 12px 0 0; padding: 10px 12px; box-sizing: border-box; text-align: left; background: #fff8e1; border: 1.5px solid #f2c94c; border-radius: 12px; box-shadow: none; color: #2e2654; font: inherit; cursor: pointer; white-space: normal; }
+.cht-ca:hover { filter: none; background: #fff3c9; }
+.cht-ca-l { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cht-ca-l small { font-size: 11.5px; font-weight: 600; color: #9a6b00; }
+.cht-ca-l code { font-size: 12.5px; font-weight: 600; color: #2e2654; word-break: break-all; line-height: 1.35; background: none; padding: 0; user-select: all; -webkit-user-select: all; }
+.cht-ca-b { flex: none; padding: 7px 12px; border-radius: 9px; background: #7027d9; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }

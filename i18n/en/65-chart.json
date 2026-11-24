@@ -45,5 +45,9 @@
 "哪里能看 K 线、实时价格和成交？": "Where can I see charts, live prices and trades?",
 "☰ 更多 → 交易 →「看盘」（ailgns.dev/#/chart）。能看 AiLGNS、LGNS 在官方 DEX 池子的最新价、24 小时涨跌、K 线、实时成交和池子资金，还有 AiLGNS-LGNS LP 的参考价。这个页面只看行情，不需要连接钱包。注意：页面上是池子的标价，LGNS 在 DEX 卖出要扣手续费，实际到手会比标价少；LP 没有能直接卖的池子，给的是折算出来的参考价。": "Open More, Trading, Charts at ailgns.dev/#/chart. It shows the latest price, 24h change, candlestick chart, live trades and pool liquidity for AiLGNS and LGNS in the official DEX pools, plus a reference price for the AiLGNS-LGNS LP. The page only shows market data and needs no wallet connection. Note: prices are the pool's quoted price. Selling LGNS on the DEX carries a fee, so you receive less than quoted. LP has no pool that sells it directly, so its price is a calculated reference.",
 "池子资金（DAI）": "Pool liquidity (DAI)",
-"24 小时成交额（DAI）": "24h volume (DAI)"
+"24 小时成交额（DAI）": "24h volume (DAI)",
+"AiLGNS 合约地址（Anubis 链）": "AiLGNS contract address (Anubis chain)",
+"LGNS 合约地址（Anubis 链）": "LGNS contract address (Anubis chain)",
+"LP 合约地址（Anubis 链）": "LP contract address (Anubis chain)",
+"请长按地址复制": "Press and hold the address to copy"
 }
