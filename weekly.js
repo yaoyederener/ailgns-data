@@ -98,6 +98,12 @@
     if (!d) { A.app.innerHTML = '<section class="card"><p class="muted">' + (state === "fail" ? "读取失败，请稍后刷新再试。" : "读取中…") + "</p></section>"; return; }
     var p = d.pool, canPay = d.on && !d.pre && p && p.avail != null, html = "";
     if (d.demo) html += '<p class="wkb-demo">👀 这是预览站，下面全是<b>示例数据</b>，只为看页面长什么样。</p>';
+    /* 🎁 领奖入口（站长 2026-11-24：「客户找不到领奖的地方」）：有人中了奖还没领，就在最上面放一张黄卡，点名字 / 点大按钮直接滑到「发放记录」里那一行（上传按钮就在那一行下面） */
+    var due = [];
+    (d.pays || []).forEach(function (x, pi) { if ((x.st === "wait" || x.st === "say") && x.due > Date.now()) due.push({ x: x, i: pi }); });
+    if (due.length) html += '<section class="card wkb-claim" id="wkb-claim"><h2>🎁 中奖了在这里领奖</h2><p class="wkb-clp">还有 <b>' + due.length + "</b> 位没领。点自己的名字，直接跳到领奖的地方照着做。<b>过期算放弃</b></p>" +
+      '<div class="wkb-clc">' + due.map(function (o) { return '<button type="button" class="wkb-clb" data-go="' + o.i + '"><b>' + esc(o.x.name) + "</b><small>" + dai(o.x.amt) + " DAI · 还剩 " + left(o.x.due) + "</small></button>"; }).join("") + "</div>" +
+      '<button type="button" class="nm-go wkb-clgo" data-go="' + due[0].i + '">👉 我要领奖</button></section>';
     html += '<section class="card wkb-hero"><div class="wkb-tag">🏆 OTC 手续费周榜 · 试运行</div>' +
       (canPay ? '<div class="wkb-big"><b class="num">' + dai(p.avail) + '</b><small>DAI</small></div><div class="wkb-cap">奖金钱包里现在能分的钱 · 有多少分多少</div>'
         : '<div class="wkb-big wkb-soon"><b>' + (d.on && d.pre ? dayCn(d.rules.from) + "开始" : "准备中") + '</b></div><div class="wkb-cap">' + (d.on && d.pre ? "从这一周起，前 " + d.rules.top + " 名开始分奖金钱包里的钱" : "奖金钱包开放后，这里显示钱包里能分的钱") + "</div>") +
@@ -130,10 +136,15 @@
     if (d.pays && d.pays.length) {
       html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x, pi) {
         var s = ST[x.st] || x.st, more = x.st === "wait" || (x.st === "say" && x.burn === false) ? " · 还剩 " + left(x.due) : "";
-        return '<li><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>" + upBox(x, pi, d.rules.burnMin || 50);
+        return '<li id="wkb-p' + pi + '"><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>" + upBox(x, pi, d.rules.burnMin || 50);
       }).join("") + "</ul></section>";
     }
     A.app.innerHTML = html;
+    try { // 领奖入口：滑到发放记录里那一行，闪一下
+      var goRow = function (i) { var li = document.getElementById("wkb-p" + i); if (!li) return; li.scrollIntoView({ block: "start", behavior: "smooth" }); li.classList.add("wkb-flash"); setTimeout(function () { li.classList.remove("wkb-flash"); }, 2600); };
+      Array.prototype.forEach.call(A.app.querySelectorAll("[data-go]"), function (b) { b.onclick = function () { goRow(b.getAttribute("data-go")); }; });
+      if (/^#\/weekly\/claim/.test(location.hash) && due.length && !draw.went) { draw.went = 1; setTimeout(function () { var c = document.getElementById("wkb-claim"); if (c) c.scrollIntoView({ block: "start" }); }, 60); }
+    } catch (e) { /* 入口挂不上不影响看榜，往下滑照样能领 */ }
     try { bindCopy(A.app); } catch (e) { /* 复制按钮挂不上不影响看榜 */ }
     try { if (d.pays && d.pays.length) bindUp(A.app, d.pays, reload); } catch (e) { /* 上传按钮挂不上不影响看榜 */ }
     try { if (A.credFill) A.credFill(A.app); } catch (e) { /* 信誉标志挂不上不影响看榜 */ }

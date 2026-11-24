@@ -8082,5 +8082,14 @@
 "投票还没结束，不能提前改成通过": "Voting has not ended; it cannot be approved early",
 "投票没通过的理赔不能改成通过": "A claim rejected by vote cannot be changed to approved",
 "团队否决要写公开的理由": "A team veto needs a public reason",
-"要填转走的金额": "Enter the amount transferred out"
+"要填转走的金额": "Enter the amount transferred out",
+"🎁 中奖了在这里领奖": "🎁 Won a prize? Claim it here",
+"位没领。点自己的名字，直接跳到领奖的地方照着做。": " winners have not claimed yet. Tap your own name to jump straight to the claim steps. ",
+"过期算放弃": "Unclaimed prizes are forfeited after the deadline",
+"👉 我要领奖": "👉 Claim my prize",
+"🎁 上周中奖的点这里领奖（还有": "🎁 Last week's winners: tap here to claim (",
+"位没领）›": " not claimed yet) ›",
+"你有周榜奖金还没领": "You have an unclaimed weekly prize",
+"DAI · 过期算放弃": "DAI · forfeited after the deadline",
+"去领奖 ›": "Claim ›"
 }
