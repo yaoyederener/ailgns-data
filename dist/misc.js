@@ -364,7 +364,8 @@ var a=account;hisBusy=true;paintHis();fetch("/api/u2d?orders="+a).then(function(
 function hisNext(){clearTimeout(hisTimer);if(his&&his.some(function(o){return o.st!=="completed"&&!o.recvTs;}))hisTimer=setTimeout(function(){if(!g("u2d-his"))return;if(document.hidden)return hisNext();loadHis(true);},60000);}
 var hooked=false;function paintAll(){paintBal();paintInfo();paintWay();}
 function paintWay(){var el=g("u2d-way");if(!el)return;var k=way?way.k:from+to,now=way?way.now:0;if(k!=="UA"&&k!=="AU"){el.innerHTML="";dtVis();paintBtn();return;}
-var nm=k==="UA"?["换币","过桥"]:["过桥","换币"];el.innerHTML='<ol class="u2d-way">'+nm.map(function(x,i){var cl=now>i+1?"ok":now===i+1?"now":"";return'<li class="'+cl+'"><i>'+(cl==="ok"?"✓":i+1)+"</i><b>"+x+"</b></li>";}).join('<li class="ar"></li>')+"</ol>";dtVis();paintBtn();}
+var nm=k==="UA"?["换币","过桥"]:["过桥","换币"];el.innerHTML='<ol class="u2d-way">'+nm.map(function(x,i){var cl=now>i+1?"ok":now===i+1?"now":"";return'<li class="'+cl+'"><i>'+(cl==="ok"?"✓":i+1)+"</i><b>"+x+"</b></li>";}).join('<li class="ar"></li>')+"</ol>"+
+(k==="AU"&&now<2?'<p class="u2d-two">⚠️ 要点两次：'+dur(EXPECT.out)+"后到 "+C(to).chain+" 的先是 <b>DAI</b>；到了以后回到这一页，再点一次「第 2 步：换成 USDT」，才变成 USDT。</p>":"");dtVis();paintBtn();}
 function tokIn(k){var c=C(k);return'<span class="u2d-cw"><i class="u2d-coin '+c.cls+'"><img src="/icons/tokens/'+(c.sym==="USDT"?"usdt":"dai")+'.png?v=1" alt="" width="30" height="30">'+c.ch+"</i>"+(k==="A"?'<em class="u2d-ch" title="Anubis 链"></em>':"")+"</span><span><b>"+c.sym+"</b><small>"+c.chain+" 链</small></span>";}
 function tokBtn(side,k){return'<button type="button" class="u2d-tok u2d-tb" data-side="'+side+'" aria-label="换一个币">'+tokIn(k)+'<i class="u2d-car"></i></button>';}
 function pickList(side){var cur=side==="from"?from:to;var other=side==="from"?to:from;var ok=["U","D","A"].filter(function(k){return k!==cur&&!(side==="from"&&k==="A"&&!N().canOut);});var ks=ok.filter(function(k){return k!==other;});if(!ks.length)ks=ok;return'<div class="u2d-pk"><p>'+(side==="from"?"你要付出哪个币":"你要到账哪个币")+"</p>"+ks.map(function(k){return'<button type="button" class="u2d-tok" data-side="'+side+'" data-k="'+k+'">'+tokIn(k)+"</button>";}).join("")+"</div>";}
@@ -496,5 +497,5 @@ var el=document.getElementById("vdg-adm"),list=d.list||[];if(!el)return;el.inner
 job=api({action:"del",id:vid});}else if(a==="name"){var tb=row.querySelector(".vdg-rt"),old=tb.querySelector("b").textContent.replace(/^\d+\.\s/,"");tb.innerHTML='<input type="text" maxlength="40" value="'+esc(old)+'"><button type="button" class="ghost">保存</button>';tb.querySelector("button").onclick=function(){var nv=tb.querySelector("input").value.trim();if(!nv)return;api({action:"set",id:vid,title:nv}).then(load,load);};return;}else job=api({action:"set",id:vid,move:a==="up"?-1:1});job.then(load,load);};});}).catch(function(){var el=document.getElementById("vdg-adm");if(el)el.innerHTML='<p class="muted">没读出来，请刷新再试。</p>';});}
 load();}
 A.pages.videos=page;})();}catch(e){console.error('[bundle] tutorial.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h039770e95a";
-/*v:h039770e95a*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h149e124010";
+/*v:h149e124010*/

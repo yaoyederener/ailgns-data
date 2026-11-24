@@ -5320,3 +5320,5 @@ html.lang-ko body { word-break: keep-all; }
 .lpv-eg{width:100%;border-collapse:collapse;margin:4px 0 10px}
 .lpv-eg td{padding:8px 4px;border-bottom:1px solid rgba(124,92,255,.14);font-size:16px}
 .lpv-eg td:last-child{text-align:right}
+.u2d-two { margin: 0; padding: 10px 16px 12px; background: #faf8ff; color: #5b4a9a; font-size: 13.5px; line-height: 1.65; }
+.u2d-two b { color: #4a1fb8; }

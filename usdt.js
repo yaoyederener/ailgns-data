@@ -363,7 +363,9 @@
     var k = way ? way.k : from + to, now = way ? way.now : 0;
     if (k !== "UA" && k !== "AU") { el.innerHTML = ""; dtVis(); paintBtn(); return; }
     var nm = k === "UA" ? ["换币", "过桥"] : ["过桥", "换币"];
-    el.innerHTML = '<ol class="u2d-way">' + nm.map(function (x, i) { var cl = now > i + 1 ? "ok" : now === i + 1 ? "now" : ""; return '<li class="' + cl + '"><i>' + (cl === "ok" ? "✓" : i + 1) + "</i><b>" + x + "</b></li>"; }).join('<li class="ar"></li>') + "</ol>";
+    el.innerHTML = '<ol class="u2d-way">' + nm.map(function (x, i) { var cl = now > i + 1 ? "ok" : now === i + 1 ? "now" : ""; return '<li class="' + cl + '"><i>' + (cl === "ok" ? "✓" : i + 1) + "</i><b>" + x + "</b></li>"; }).join('<li class="ar"></li>') + "</ol>" +
+      /* 工单 #451（2026-11-25）：客户以为跨过去自动变成 USDT，其实到账的先是 DAI，要回来再点一次。还没走到第 2 步时把这句写在按钮上方 */
+      (k === "AU" && now < 2 ? '<p class="u2d-two">⚠️ 要点两次：' + dur(EXPECT.out) + "后到 " + C(to).chain + " 的先是 <b>DAI</b>；到了以后回到这一页，再点一次「第 2 步：换成 USDT」，才变成 USDT。</p>" : "");
     dtVis(); paintBtn();
   }
   // 币的图标用官方标志：icons/tokens/usdt.png、dai.png，图片万一没加载出来，后面还垫着原来的色块和符号。
