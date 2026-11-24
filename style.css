@@ -5287,3 +5287,11 @@ html.lang-ko body { word-break: keep-all; }
 .sc-nft i { font-style: normal; font-size: 26px; line-height: 1.2; } .sc-nft b { font-size: 15px; font-variant-numeric: tabular-nums; } .sc-nft small { font-size: 11px; color: #8a7fb0; }
 .sc-nftn { margin: 10px 0 0; font-size: 12.5px; }
 @media (max-width: 600px) { .sc-nfts { grid-template-columns: repeat(3, 1fr); } }
+
+/* 🎬 视频教程（站长 2026-11-24）：字大、一条一个视频，手机上铺满 */
+.vdg-it { margin: 14px 0 22px; } .vdg-it h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.4; }
+.vdg-it video { display: block; width: 100%; max-height: 70vh; border-radius: 14px; background: #1b1530; }
+.vdg-form input[type="text"], .vdg input[type="password"], .vdg-rt input { width: 100%; box-sizing: border-box; padding: 12px; margin: 6px 0 10px; font-size: 16px; border: 1px solid #e3d9ff; border-radius: 12px; background: #fff; }
+.vdg-row { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid #efe9ff; } .vdg-row:last-child { border-bottom: 0; }
+.vdg-rt b { display: block; font-size: 16px; } .vdg-btns { display: flex; flex-wrap: wrap; gap: 6px; } .vdg-btns button { padding: 7px 12px; font-size: 13.5px; }
+.vdg-btns .vdg-del { color: #c0392b; border-color: #f0c4bd; }
