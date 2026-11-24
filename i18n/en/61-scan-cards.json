@@ -47,5 +47,9 @@
 "官方 ILO 共建 · {0} 笔": "Official ILO · {0} deposit(s)",
 "官方 IDO 认购": "Official IDO subscription",
 "释放和领取进度请到官方页面查看": "See the official page for vesting and claims",
-"这些在官方合约里，上面的「账户余额」没有算它们。质押和 LP 要到官方页面取回才能用；ILO、IDO 是参与记录，「约值」只算了现在可领的奖励，本金怎么处理以官方规则为准。": "These sit in official contracts and are not counted in the balance above. Staked coins and LP must be withdrawn on the official page before use. ILO and IDO are participation records: the estimate only counts rewards claimable now; how the principal is handled follows the official rules."
+"这些在官方合约里，上面的「账户余额」没有算它们。质押和 LP 要到官方页面取回才能用；ILO、IDO 是参与记录，「约值」只算了现在可领的奖励，本金怎么处理以官方规则为准。": "These sit in official contracts and are not counted in the balance above. Staked coins and LP must be withdrawn on the official page before use. ILO and IDO are participation records: the estimate only counts rewards claimable now; how the principal is handled follows the official rules.",
+"🏛 官方合约": "🏛 Official contract",
+"❓ 未知合约": "❓ Unknown contract",
+"🚨 风险合约 · 被客户报案": "🚨 Risky contract · reported by customers",
+"其余的授权都是给本站或官方合约的。": "The other approvals are to this site or official contracts."
 }
