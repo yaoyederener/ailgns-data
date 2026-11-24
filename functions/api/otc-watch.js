@@ -32,6 +32,8 @@ export const MARKETS = [
   // gLGNS（Anubis，18 位）：DEX 买卖不扣税
   { key: "glgns", sym: "gLGNS", chain: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", dec: 18, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/",
     pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 18004618, link: "https://ailgns.dev/#/otc/glgns" },
+  // 官方 AiLGNS/LGNS 流动性凭证 LP（Anubis，18 位）：DEX 上没有报价（没有 pair）→ 不推好单、不记指导价；成交通知和最近成交照常
+  { key: "lp", sym: "LP", chain: "Anubis", otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", dec: 18, qd: 8, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 0, kv: "otcw:lp:", deploy: 19978379, link: "https://ailgns.dev/#/otc/lp" },
   // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」
   { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", dec: 0, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 2, kv: "otcw:nft:", deploy: 18008025, link: "https://ailgns.dev/#/otc/nft" },
   // 域名市场（同一份 AwakeNftEscrow 代码）：成交通知里显示名字（从域名合约 labelOf 读），不显示编号
@@ -153,7 +155,7 @@ async function recordTrades(m, kv, logs, cache) {
     // 2026-11-12 起 LGNS 也记一份（otc:fills:lgns），给 LGNS 盘口的「最近成交」用；预言家只读 ailgns 那份
     // 2026-11-19 起所有币种市场和卡牌都记（gLGNS、Polygon LGNS、AWAKE NFT）：OTC 页「全部市场」列表的最新成交价、24 小时成交额从这里来（/api/markets）；域名市场不记
     const fpx = rec.nft ? rec.dai : rec.price;
-    if (["ailgns", "lgns", "glgns", "plgns", "nft"].indexOf(m.key) >= 0 && fpx > 0 && rec.dai >= 0.5) {
+    if (["ailgns", "lgns", "glgns", "plgns", "nft", "lp"].indexOf(m.key) >= 0 && fpx > 0 && rec.dai >= 0.5) {
       const fk = "otc:fills:" + m.key, pr = m.key === "ailgns" ? 1000 : 1e6, fl = (await kv.get(fk, "json")) || [];
       if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(fpx * pr) / pr, dai: rec.dai, tx: rec.tx, id: rec.id, mk: rec.maker }); await kv.put(fk, JSON.stringify(fl.slice(0, 300))); }
     }
@@ -355,7 +357,7 @@ function edge(o, p, tax) {
 }
 const dur = (sec) => { const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? `${d}天${h}小时` : h ? `${h}小时${m}分` : `${Math.max(1, m)}分钟`; };
 const d2 = (v, pd = 2) => v.toLocaleString("en-US", { minimumFractionDigits: pd, maximumFractionDigits: pd });
-const qtyStr = (m, v) => v.toFixed(m.dec === 18 ? 4 : 2);
+const qtyStr = (m, v) => v.toFixed(m.qd || (m.dec === 18 ? 4 : 2)); // LP 一个值几十万，数量要多显示几位
 function dealText(m, list, p, tax) {
   const ns = list.filter((x) => x.o.sell).length, name = label(m), arb = list.some((x) => x.e.arb >= PP_MIN_DAI);
   const head = [arb ? `💰 ${name} OTC 出现买了就赚的单！` : ns === list.length ? `🔥 比 DEX 便宜的 ${name} 好单！` : ns ? `🔥 ${name} OTC 好单：比 DEX 买得便宜、卖得贵！` : `💰 手里有 ${name} 的看过来：在 OTC 卖给这张求购单，比在 DEX 卖多拿钱！`];
@@ -382,7 +384,7 @@ function dealText(m, list, p, tax) {
 }
 // 找出该推的好单；send=false 时只返回文字（预览）
 async function pushDeals(m, env, kv, send, gids = [], quiet = false) {
-  if (m.nft) return { hits: 0, skipped: "nft" }; // 卡牌没有 DEX 市价，不推好单
+  if (m.nft || !m.pair) return { hits: 0, skipped: "no-dex" }; // 卡牌 / LP 没有 DEX 市价，不推好单
   const now = Math.floor(Date.now() / 1000), [orders, p, tax] = await Promise.all([book(m, now), market(m), sellTax(m)]);
   const hits = orders.filter((o) => o.sell).map((o) => ({ o, e: edge(o, p, tax) })).filter((x) => x.e.pct >= PP_MIN_PCT && x.e.gain >= PP_MIN_DAI); // 求购单不实时推，放进每小时播报（站长要求）
   const fresh = [];
@@ -430,7 +432,7 @@ function bcText(fills, tot, names, newNames, pool, until, claim) {
 async function topDeals() {
   const now = Math.floor(Date.now() / 1000), all = [];
   for (const m of MARKETS) {
-    if (m.nft) continue;
+    if (m.nft || !m.pair) continue;
     try {
       const [orders, p, tax] = await Promise.all([book(m, now), market(m), sellTax(m)]);
       for (const o of orders) { const e = edge(o, p, tax); if (e.pct >= PP_MIN_PCT && e.gain >= PP_MIN_DAI) all.push({ m, o, e }); }

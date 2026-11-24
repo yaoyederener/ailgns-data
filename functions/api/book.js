@@ -1,4 +1,4 @@
-// OTC 订单簿快照：GET ?m=ailgns|lgns|plgns|glgns[&fresh=1] → { at, from, orders: getOrders 原始返回, reserves: DEX 池子 getReserves 原始返回 }
+// OTC 订单簿快照：GET ?m=ailgns|lgns|plgns|glgns|lp[&fresh=1] → { at, from, orders: getOrders 原始返回, reserves: DEX 池子 getReserves 原始返回 }
 // 直接读链要先后两次调用（挂单数 → 挂单列表），国内打开要好几秒；这里在 Cloudflare 边缘缓存一份：
 // 缓存超过 8 秒照样先返回旧的（秒开），同时后台去链上刷新；fresh=1（自己刚挂单 / 成交 / 撤单后）直接读链并更新缓存
 import { RPCS } from "../../lib/teamlib.js";
@@ -10,6 +10,7 @@ const MARKETS = {
   plgns: { otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", pair: "0x882df4b0fb50a229c3b4124eb18c759911485bfb", rpcs: POLYGON_RPCS },
   glgns: { otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", rpcs: RPCS },
   nft: { otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", pair: null, rpcs: RPCS },
+  lp: { otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", pair: null, rpcs: RPCS }, // 官方 AiLGNS/LGNS 的 LP：DEX 上没有报价，参考价页面自己算（otc.js lpValue）
   // 点对点借款合约（AilgnsLoanEscrow）：读取函数是 loansCount / getLoans；pair 用来给页面算抵押品现值参考
   lend_old: { otc: "0x8d84d678d195e770caad263d1c37967ec796165c", pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", rpcs: RPCS, count: "0x9d11ed75", get: "0x86b20104" }, // 已下架的旧借款合约，只为让旧单能撤 / 还
   lend_ailgns: { otc: "0x242ab392571d325d814a48892ac16115a6d285dc", pair: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", rpcs: RPCS, count: "0x9d11ed75", get: "0x86b20104" },
