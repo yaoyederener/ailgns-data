@@ -256,7 +256,14 @@
   var firstOut = function (ms, sym) { return ms.filter(function (m) { return m.dir === "out" && (!sym || m.sym === sym); })[0]; };
   // 站长 2026-11-12：客户看价 824.99、账本写「单价 833」以为被多收了。吃单方的 1% 手续费是从收到的币里扣的，
   // 所以直接吃单两个价都写：挂单价（OTC 页面上看到的那个）+ 算上手续费的价；扫单一次吃多张，只写均价并说明已含手续费
-  var pxFee = function (dai, coin, buy) { if (!(coin > 0)) return ""; var real = dai / coin; return "，挂单价 " + (buy ? real * 0.99 : real / 0.99).toFixed(3) + "（" + (buy ? "含" : "扣") + " 1% 手续费" + (buy ? "合 " : "后合 ") + real.toFixed(3) + "）"; };
+  // 站长 2026-11-25：「（含 1% 手续费合 851.465）」客户看不懂，还以为挂单的人也被收了手续费。改成说清楚三件事：
+  // 对方挂的价是多少；手续费是吃单的一方付的、从哪里扣；挂单的一方不付
+  var pxFee = function (dai, coin, buy) {
+    if (!(coin > 0)) return "";
+    var real = dai / coin;
+    return "，对方挂单价 " + (buy ? real * 0.99 : real / 0.99).toFixed(3) +
+      '<br><small class="muted">' + (buy ? "吃单方付 1% 手续费（从买到的币里扣），算下来每枚合 " : "吃单方付 1% 手续费（从收到的 DAI 里扣），算下来每枚合 ") + real.toFixed(3) + "；挂单方不付手续费。</small>";
+  };
   var pxAvg = function (dai, coin, buy) { return coin > 0 ? "，均价 " + (dai / coin).toFixed(3) + "（已" + (buy ? "含" : "扣") + " 1% 手续费）" : ""; };
   // 链上留言：0 元交易，data = utf8("ailgns-msg:" + 文字)
   var MSG_PREFIX = "ailgns-msg:", GUESS_PREFIX = "ailgns-oracle-guess:", ANCHOR_PREFIX = "ailgns-oracle:";

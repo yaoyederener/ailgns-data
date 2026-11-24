@@ -11,5 +11,8 @@
 "卡牌就在这个钱包里，钱包 App 不一定显示，以这里（链上）为准。": "These cards are in this wallet. Wallet apps may not show them; what you see here (on-chain) is the truth.",
 "买了卡牌，钱包里怎么看不到？": "I bought a card but can't see it in my wallet?",
 "卡牌买到后就在你的钱包里，只是很多钱包 App 不显示这类卡牌。打开本站「账本」（ailgns.dev/#/scan），输入你的钱包地址，「账户余额」下面有一栏「🃏 我的卡牌」，买到的卡牌按编号列在那里，以链上为准。刚买完等几秒刷新一下。正在挂单出售的卡托管在卡牌市场里，卖掉或撤单前不在钱包，到 OTC → AWAKE NFT →「我的挂单」里看。": "The card is in your wallet after you buy it; many wallet apps just don't show this kind of card. Open the Ledger on this site (ailgns.dev/#/scan), enter your wallet address, and under “Balance” you will find “🃏 My cards” listing the cards you bought by number, read straight from the chain. If you just bought one, wait a few seconds and refresh. Cards listed for sale are held by the card market until sold or cancelled; see OTC → AWAKE NFT → “My orders”.",
-"🃏 账本新增「我的卡牌」：买了 AWAKE NFT 卡牌在钱包 App 里看不到的，打开账本输入钱包地址，「账户余额」下面就列着你买到的卡牌编号（直接读链上，刚买完就能看到）。": "🃏 The Ledger now has “My cards”: if an AWAKE NFT card you bought does not show in your wallet app, open the Ledger and enter your wallet address. The card numbers are listed right under “Balance” (read from the chain, visible right after purchase)."
+"🃏 账本新增「我的卡牌」：买了 AWAKE NFT 卡牌在钱包 App 里看不到的，打开账本输入钱包地址，「账户余额」下面就列着你买到的卡牌编号（直接读链上，刚买完就能看到）。": "🃏 The Ledger now has “My cards”: if an AWAKE NFT card you bought does not show in your wallet app, open the Ledger and enter your wallet address. The card numbers are listed right under “Balance” (read from the chain, visible right after purchase).",
+"，对方挂单价 {0}": ", maker's listed price {0}",
+"吃单方付 {0}% 手续费（从买到的币里扣），算下来每枚合 {1}；挂单方不付手续费。": "The taker pays the {0}% fee (deducted from the coins received), which works out to {1} per coin. The maker pays no fee.",
+"吃单方付 {0}% 手续费（从收到的 DAI 里扣），算下来每枚合 {1}；挂单方不付手续费。": "The taker pays the {0}% fee (deducted from the DAI received), which works out to {1} per coin. The maker pays no fee."
 }
