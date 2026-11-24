@@ -361,6 +361,10 @@
       var el = document.getElementById("lpv-box"); if (el && !lpQ) el.innerHTML = '<p class="muted">链上数据暂时没读出来，参考价先不显示（不乱给数）。请过一会儿刷新再看。</p>';
     });
   }
+  function priceFromReserves(h) {
+    var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
+    return dai / tok;
+  }
   // 每枚挂单币的 DAI 价格
   function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / tNum(o.giveTotal) : num(o.giveTotal) / tNum(o.wantTotal); }
 

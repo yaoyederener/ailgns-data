@@ -854,6 +854,7 @@ function lpCard(){setTimeout(lpCardFill,0);return'<section class="card lpv"><div
 function lpSteps(){return'<section class="card lpv"><div class="card-head"><h2>📖 LP 怎么卖</h2></div><ol class="lpv-steps">'+"<li><b>先把 LP 取回钱包。</b>打开官方网站 awakehelix.io →「流动性」→ AiLGNS / LGNS 那一行点「移除」。官方会扣 5%，剩下 95% 的 LP 回到你钱包（拿回来的还是 LP，不是币）。</li>"+"<li><b>回到这一页挂卖单。</b>填数量和单价，LP 存进本站的担保合约，有人买了 DAI 直接到你钱包。没人买随时撤单，LP 原样退回。</li>"+"<li><b>想买 LP 的</b>：直接点卖单成交，或者挂买单等人卖给你。买到的 LP 可以拿去官方页面质押，领每日 AiLGNS 奖励。</li></ol>"+'<p class="muted">成交手续费 1%，由吃单的一方付。退出质押那 5% 是官方扣的，本站不收。</p></section>';}
 function lpCardHtml(q){var eg=0.0002;return'<div class="lpv-big"><b class="num">'+A.fmt(q.px,0)+'</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>'+'<p>举例：你有 <b>'+eg+'</b> 个 LP，大约值 <b>'+A.fmt(q.px*eg,2)+' DAI</b>。</p>'+'<details class="lpv-how"><summary>这个数怎么算的</summary><ol>'+"<li>1 个 LP 里面含 <b>"+A.fmt(q.ail,2)+"</b> 枚 AiLGNS + <b>"+A.fmt(q.lgns,0)+"</b> 枚 LGNS（按池子现在的存量和 LP 总数算）。</li>"+"<li>AiLGNS 按去官方 DEX 卖出到手价 "+A.fmt(q.pAil,2)+" DAI 算 → "+A.fmt(q.vAil,0)+" DAI。</li>"+"<li>LGNS 按去 DEX 卖出到手价 "+A.fmt(q.pLgns,4)+" DAI 算（已扣现在实测的卖出税 "+(q.tax*100).toFixed(1)+"%）→ "+A.fmt(q.vLgns,0)+" DAI。</li>"+"<li>两项相加 = "+A.fmt(q.px,0)+" DAI。</li></ol>"+'<p class="muted">官方页面的算法不扣卖出税，数会比这个高。这里按「真能拿到手」算，宁可少算不多算。</p></details>'+'<p class="lpv-warn">⚠️ 目前官方不让把 LP 拆成币，LP 只能拿去官方质押领每日奖励，或者转给别人。所以参考价只是参考，实际能卖多少看买家愿意出多少。</p>';}
 function lpCardFill(){lpQuote().then(function(q){var el=document.getElementById("lpv-box");if(el)el.innerHTML=lpCardHtml(q);}).catch(function(){var el=document.getElementById("lpv-box");if(el&&!lpQ)el.innerHTML='<p class="muted">链上数据暂时没读出来，参考价先不显示（不乱给数）。请过一会儿刷新再看。</p>';});}
+function priceFromReserves(h){var dai=Number(A.word(h,M.pairDai))/1e18,tok=Number(A.word(h,1-M.pairDai))/Math.pow(10,TD);return dai/tok;}
 function priceOf(o){return o.sellAilgns?num(o.wantTotal)/tNum(o.giveTotal):num(o.giveTotal)/tNum(o.wantTotal);}
 function connect(){var eth;return A.wallets.choose().then(function(p){eth=p;return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){account=String(a[0]).toLowerCase();return W.switchTo(eth,M.chain);}).then(function(){return account;});}
 function ready(){return Promise.resolve().then(function(){return account?W.switchTo(W.get(),M.chain):connect();});}
@@ -1158,5 +1159,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h28926a6e77";
-/*v:h28926a6e77*/
+;window.AIL_CORE="hae69f076b8";
+/*v:hae69f076b8*/
