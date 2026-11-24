@@ -697,7 +697,9 @@
      哪一处读不到就不显示那一行（不当成 0 写出来）；三处都没有就整块不显示。折算用的价和上面余额是同一个（池子标价），只是「大约」 */
   var AWAY = { s360: "0x88ea98af226cd4402a3873400308a4d78784ece6", s600: "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", lpMgr: "0x5ddc8a13eabda89593beb885ab8b2afda26a3587", lp: "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2",
     ilo: "0x4ff8e905ab40ed18355b0b2c0dfae8213d5d8d90", ido: "0x5e6d77f8071642561c999e97c1022108b8d5de57" };
+  var awayFor = "";
   function awayBox(a, px, fb) {
+    awayFor = a; // 读链要几秒：这期间客户又查了别的钱包，晚到的这份就不能画上去
     var big = function (h) { return h && h.length >= 66 ? BigInt(h) : null; }, soft = function (pr) { return pr.then(big, function () { return null; }); };
     Promise.all([
       soft(call(AWAY.s360, "0xb79215d6" + u256(a))), soft(call(AWAY.s600, "0xb79215d6" + u256(a))),
@@ -709,6 +711,7 @@
       call(AWAY.ilo, "0x2a5bf6d2" + u256(a)).catch(function () { return null; }), call(AWAY.ilo, "0xc5d304e9" + u256(a)).catch(function () { return null; }),
       soft(call(AWAY.ido, "0xde4a534e" + u256(a)))
     ]).then(function (r) {
+      if (awayFor !== a) return;
       var card = document.querySelector(".sc-balc"), old = document.getElementById("sc-away"); if (old) old.remove();
       if (!card) return;
       var rows = [], sum = 0;
