@@ -5224,3 +5224,66 @@ html.lang-ko body { word-break: keep-all; }
 .nb-own1 .nm-go { flex: none; width: auto; margin: 0; padding: 0 18px; white-space: nowrap; }
 .nb-onep { margin: 2px 0 6px; font-size: 13px; }
 .nb-oneh { width: 100%; }
+
+/* 🛡 互助保障 #/cover（cover.js） */
+.cvr-addr { margin: 10px 0 0; font-size: 12.5px; word-break: break-all; } .cvr-addr small { display: block; color: #7a6aa8; margin-bottom: 2px; }
+.cvr-k { margin: 10px 0 0; padding: 12px; border-radius: 14px; background: #faf8ff; border: 1.5px solid #e4dafa; }
+.cvr-k > b { display: block; font-size: 16px; color: #4a2bc2; margin-bottom: 4px; } .cvr-k p { margin: 4px 0; font-size: 14.5px; line-height: 1.65; color: #4a3d6b; }
+.cvr-tb { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 15px; } .cvr-tb th, .cvr-tb td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #ece4ff; }
+.cvr-tb th { font-size: 13px; color: #7a6aa8; font-weight: 700; background: #f4efff; } .cvr-tb td:last-child, .cvr-tb th:last-child { text-align: right; } .cvr-tb td b { color: #2d1b69; }
+.cvr-warn { background: #fff8e6; border: 1.5px solid #f0d78a; } .cvr-warn > b { display: block; font-size: 16px; color: #7a5200; margin-bottom: 6px; }
+.cvr-warn ul { margin: 0; padding-left: 20px; font-size: 14.5px; line-height: 1.7; color: #6b5200; }
+.cvr-st { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; font-size: 15px; font-weight: 700; } .cvr-st.ok { background: #f1fbf5; color: #1f6b45; } .cvr-st.bad { background: #fff1f0; color: #b42318; }
+.cvr-rows p, .cvr-c p { display: flex; justify-content: space-between; gap: 10px; margin: 6px 0; font-size: 14.5px; color: #6b5aa6; } .cvr-rows p b, .cvr-c p b { color: #2d1b69; text-align: right; word-break: break-all; }
+.cvr-t { margin: 12px 0 4px; font-size: 15px; font-weight: 800; color: #2d1b69; }
+.cvr-in { width: 100%; box-sizing: border-box; font-size: 15px; padding: 12px; border-radius: 12px; border: 1.5px solid #d9ccff; color: #2d1b69; background: #fff; } .cvr-in:disabled { background: #f4f1fb; color: #7a6aa8; }
+.cvr-go { min-height: 54px; font-size: 17px; font-weight: 800; border-radius: 14px; background: linear-gradient(135deg, #7c5cff, #5a35d6); } .cvr-go:disabled { opacity: .5; }
+.cvr-soon { margin: 10px 0 0; padding: 12px; border-radius: 12px; background: #f6f2ff; color: #5a4a8a; font-size: 14.5px; line-height: 1.6; }
+.cvr-how ol { margin: 6px 0 0; padding-left: 22px; font-size: 14.5px; line-height: 1.75; color: #4a3d6b; }
+.cvr-c { margin: 0 0 10px; padding: 12px; border-radius: 14px; background: #fff; border: 1.5px solid #e4dafa; }
+.cvr-ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; } .cvr-ch b { font-size: 16px; color: #4a2bc2; }
+.cvr-cs { font-size: 13px; font-weight: 700; color: #7a5200; } .cvr-cs.paid { color: #1f6b45; } .cvr-cs.rejected { color: #b42318; }
+.cvr-c .cvr-tx, .cvr-c .cvr-note { display: block; font-size: 13px; color: #7a6aa8; }
+
+/* 🗳 互助保障 · 理赔投票（2026-11-24） */
+.cvr-vote { margin: 10px 0 2px; padding: 10px 12px; border-radius: 12px; background: #f6f3ff; border: 1px solid #e3dcff; }
+.cvr-vote p { margin: 0; display: block; }
+.cvr-vn { font-size: 14.5px; color: #3b2a70; }
+.cvr-vn b { font-size: 16px; }
+.cvr-vq, .cvr-vt { margin-top: 3px !important; font-size: 12.5px; color: #6b5fa5; line-height: 1.5; }
+.cvr-vb { display: flex; gap: 8px; margin: 9px 0 5px; }
+.cvr-vb button { flex: 1 1 0; min-width: 0; padding: 10px 6px; border-radius: 12px; border: 1.5px solid #cfc6ff; background: #fff; color: #4a36c9; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+.cvr-vb button.cvr-y.on { background: #6d4cf5; border-color: #6d4cf5; color: #fff; }
+.cvr-vb button.cvr-n.on { background: #efeaff; border-color: #6d4cf5; }
+.cvr-vh { font-size: 12.5px; line-height: 1.5; }
+
+/* 🎁 领奖入口（2026-11-24）：周榜页最上面的黄卡、荣耀榜里的黄按钮、全站底部的金色提示条 */
+.wkb-claim { border: 1.5px solid #f5b942; background: #fff9e6; }
+.wkb-claim h2 { margin: 0 0 6px; font-size: 19px; color: #8a3b00; }
+.wkb-clp { margin: 0 0 10px; font-size: 14px; line-height: 1.6; color: #6b4a12; }
+.wkb-clc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.wkb-clb { display: block; min-width: 0; padding: 9px 10px; border-radius: 12px; border: 1.5px solid #f5d58a; background: #fff; color: #3b2a70; text-align: left; font: inherit; cursor: pointer; }
+.wkb-clb b { display: block; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wkb-clb small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.45; color: #8a6a1c; white-space: normal; }
+.wkb-clb { white-space: normal; overflow: hidden; }
+.wkb-clgo { width: 100%; margin: 0; }
+.wkb-pays li.wkb-flash { outline: 3px solid #f5b942; outline-offset: 3px; border-radius: 10px; background: #fff7e0; transition: background .3s; }
+.wkb-pays li { scroll-margin-top: 150px; }
+#wkb-claim { scroll-margin-top: 150px; }
+.wkb-cta.wkb-ctag { display: block; margin: 0 0 10px; padding: 11px 12px; border-radius: 12px; border: 1.5px solid #f5b942; background: #fff7e0; color: #8a3b00; font-weight: 800; text-align: center; }
+.ib-przw { margin-top: 10px; }
+.ib-prz { display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 12px; border-radius: 14px; background: #fff7e0; border: 1.5px solid #f5b942; }
+.ib-prza { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; color: #8a3b00; text-decoration: none; }
+.ib-przi { flex: none; font-size: 22px; line-height: 1; }
+.ib-przt { flex: 1 1 auto; min-width: 0; }
+.ib-przt b { display: block; font-size: 14.5px; line-height: 1.35; }
+.ib-przt small { display: block; font-size: 12px; line-height: 1.4; opacity: .85; }
+.ib-przgo { flex: none; padding: 7px 12px; border-radius: 999px; background: #f5b942; color: #4a2a00; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.ib-przx { flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: rgba(138, 59, 0, .1); color: #8a3b00; font-size: 14px; line-height: 1; cursor: pointer; box-shadow: none; }
+
+/* 账本：卡牌 / NFT 显示框（站长 2026-11-23） */
+.sc-nfts { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.sc-nft { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px; border-radius: 14px; border: 1px solid #e3d9ff; background: linear-gradient(135deg, #f5f0ff, #ecf3ff); color: #5a35d6; text-decoration: none; text-align: center; }
+.sc-nft i { font-style: normal; font-size: 26px; line-height: 1.2; } .sc-nft b { font-size: 15px; font-variant-numeric: tabular-nums; } .sc-nft small { font-size: 11px; color: #8a7fb0; }
+.sc-nftn { margin: 10px 0 0; font-size: 12.5px; }
+@media (max-width: 600px) { .sc-nfts { grid-template-columns: repeat(3, 1fr); } }

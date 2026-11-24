@@ -115,7 +115,9 @@
       return '<li><i class="wkb-no">' + (i + 1) + '</i><div class="wkb-who"><b>' + wkEsc(x.name) + "</b><small>付手续费 " + wkNum(x.fee) + " DAI · 占 " + pc(x) + "</small></div>" +
         (canPay ? '<em class="num">' + (x.amt > 0 ? "≈ " + wkNum(x.amt) : "—") + "<small>DAI</small></em>" : "") + "</li>";
     };
-    box.innerHTML = '<section class="card or-pool wkb-pool"><div class="or-pc">' +
+    var claimCta = (function () { var n = 0; try { (w.pays || []).forEach(function (x) { if ((x.st === "wait" || x.st === "say") && x.due > Date.now()) n++; }); } catch (e) { n = 0; } /* 🎁 站长 2026-11-24：客户找不到领奖的地方 */
+        return n ? '<a class="wkb-cta wkb-ctag" href="#/weekly/claim">🎁 上周中奖的点这里领奖（还有 ' + n + " 位没领）›</a>" : ""; })();
+    box.innerHTML = claimCta + '<section class="card or-pool wkb-pool"><div class="or-pc">' +
       '<div class="or-pcl"><span>🏆 OTC 周榜奖池' + (w.demo ? "（示例数据）" : "") + "</span></div>" +
       '<div class="or-pbig"><em><i>' + big + "</i><span>DAI</span></em></div>" +
       '<div class="wkb-sub">前 ' + w.rules.top + " 名按吃单手续费占比分 · <b>有多少分多少</b> · 发 AiLGNS<br>" +
