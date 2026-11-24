@@ -590,7 +590,7 @@
       soft(call(AWAY.lpMgr, "0x963fdeb3" + u256(AWAY.lp) + u256(a))),
       call(AWAY.lp, "0x0902f1ac").catch(function () { return null; }), soft(call(AWAY.lp, "0x18160ddd"))
     ]).then(function (r) {
-      var card = document.querySelector(".sc-balc"), old = el("sc-away"); if (old) old.remove();
+      var card = document.querySelector(".sc-balc"), old = document.getElementById("sc-away"); if (old) old.remove();
       if (!card) return;
       var rows = [], sum = 0;
       var lg = function (v, name) { if (v === null || v <= 0n) return; var n = Number(v) / 1e9; if (n < 0.01) return; var w = n * (px.LGNS || 0); sum += w; rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lgns.png?v=1" alt="">' + name + "</span><b>" + fb(n) + " LGNS</b>" + (w ? "<small>≈ " + fb(w) + " DAI</small>" : "") + "</div>"); };
