@@ -826,7 +826,7 @@
     if (A.hidden && A.hidden[String(a).toLowerCase()]) return;
     Promise.all([awakeCards(a).catch(function () { return null; }), nftJob.catch(function () { return { items: [] }; })]).then(function (r) {
       var box = el("sc-cards"); if (!box || !el("sc-cardc")) return;
-      var aw = r[0], other = ((r[1] && r[1].items) || []).filter(function (n) { var t = ((n.token || {}).address_hash || "").toLowerCase(); return t && t !== NAMES.ailgns && t !== NAMES.lgns && t !== AWAKE && OFFICIAL[t]; }); /* 站长 2026-11-25：这一栏只展示官方的（卡牌、官方发的其它 NFT / 徽章）；本站域名在下面「域名」那一栏。来历不明的 NFT 不显示——谁都能往别人钱包里塞 NFT，骗子常用这招引人去点 */
+      var aw = r[0], other = ((r[1] && r[1].items) || []).filter(function (n) { var t = ((n.token || {}).address_hash || "").toLowerCase(); return t && t !== NAMES.ailgns && t !== NAMES.lgns && t !== AWAKE && OFFICIAL[t] && false; }); /* 站长 2026-11-25 再定：生产权 NFT 也「不要展示」（它不能转让、不能卖，放在这里没用）→ 这一栏只剩 AWAKE 卡牌 */ /* 站长 2026-11-25：这一栏只展示官方的（卡牌、官方发的其它 NFT / 徽章）；本站域名在下面「域名」那一栏。来历不明的 NFT 不显示——谁都能往别人钱包里塞 NFT，骗子常用这招引人去点 */
       var total = (aw ? aw.n : 0) + other.length, me = isMe(a);
       if (!total && !me) return; // 别人的钱包没有卡牌：不显示这一栏
       sec.hidden = false;
