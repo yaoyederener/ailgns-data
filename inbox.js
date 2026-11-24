@@ -50,20 +50,21 @@
   /* 气泡记在本机：一打开网站先按上次查到的显示，后台再核对一遍（已读了就马上收起） */
   function pillSave(n, txt) { try { var a = getAcct(); if (a) localStorage.setItem("ib:pill", JSON.stringify({ a: a, n: n || 0, txt: txt || "", t: Date.now() })); } catch (e) { /* 存不上不要紧 */ } }
   function pillCached() { try { var c = JSON.parse(localStorage.getItem("ib:pill") || "null"); if (c && c.n > 0 && c.a === getAcct() && Date.now() - c.t < 7 * 86400e3) pill(c.n, c.txt || ""); } catch (e) { /* 读不到就等网络 */ } }
-  // 🎁 奖金没领的悬浮提醒（站长 2026-11-24：「客户找不到领奖的地方」）：连过这个网站的钱包上了上周周榜、奖还没领 → 每一页底部弹一条，点了直接到领奖的地方。
-  // 每 10 分钟最多问一次周榜接口（结果记在本机）；点 ✕ 关掉后这一笔不再弹；有私信气泡时先让私信。整段包在 try 里：弹不出来不影响别的。
+  // 🎁 奖金没领的悬浮提醒（站长 2026-11-24：「客户找不到领奖的地方」）：连过这个网站的钱包上了上周周榜、奖还没领 → 每一页顶部栏目下面出一条黄色提示，点了直接到领奖的地方。
+  // 每 10 分钟最多问一次周榜接口（结果记在本机）；点 ✕ 关掉后这一笔不再出。整段包在 try 里：弹不出来不影响别的。
   function prizePill() {
     try {
       var a = String(getAcct() || "").toLowerCase(); if (!a) return;
-      var show = function (p) {
+      var show = function (p) { // 提示条放在页面里（顶部栏目下面、内容上面），不悬浮：不会挡住底部的客服按钮和「卖出」按钮
         var el = document.getElementById("ib-prize"), off = ""; try { off = localStorage.getItem("ib:prizex") || ""; } catch (e) { off = ""; }
-        var on = !!(p && p.id && p.due > Date.now() && off !== p.id && !PAUSED && !/^#\/weekly/.test(location.hash) && !document.getElementById("ib-pill"));
+        var on = !!(p && p.id && p.due > Date.now() && off !== p.id && !PAUSED && !/^#\/weekly/.test(location.hash));
         if (!on) { if (el) el.remove(); return; }
-        if (!el) { el = document.createElement("a"); el.id = "ib-prize"; el.className = "fb-pill ib-prize"; el.href = "#/weekly/claim"; document.body.appendChild(el); }
-        if (el.getAttribute("data-k") === p.id) return; el.setAttribute("data-k", p.id);
-        el.innerHTML = '<span class="fb-pill-i">🎁</span><span class="fb-pill-t"><b>你有周榜奖金还没领</b><small>' + esc(String(p.amt)) + ' DAI · 过期算放弃</small></span><span class="fb-pill-go">去领奖 ›</span><span class="fb-pill-x" role="button" aria-label="关掉">✕</span>';
-        el.onclick = function () { setTimeout(function () { var e2 = document.getElementById("ib-prize"); if (e2) e2.remove(); }, 0); };
-        var x = el.querySelector(".fb-pill-x"); if (x) x.onclick = function (ev) { ev.preventDefault(); ev.stopPropagation(); try { localStorage.setItem("ib:prizex", p.id); } catch (e) { /* 存不上不要紧 */ } el.remove(); };
+        if (el && el.getAttribute("data-k") === p.id) return;
+        var at = document.getElementById("mkt-top") || document.getElementById("app"); if (!at || !at.parentNode) return;
+        if (!el) { el = document.createElement("div"); el.id = "ib-prize"; el.className = "wrap ib-przw"; at.parentNode.insertBefore(el, at); }
+        el.setAttribute("data-k", p.id);
+        el.innerHTML = '<div class="ib-prz"><a class="ib-prza" href="#/weekly/claim"><span class="ib-przi">🎁</span><span class="ib-przt"><b>你有周榜奖金还没领</b><small>' + esc(String(p.amt)) + ' DAI · 过期算放弃</small></span><span class="ib-przgo">去领奖 ›</span></a><button type="button" class="ib-przx" aria-label="关掉">✕</button></div>';
+        var x = el.querySelector(".ib-przx"); if (x) x.onclick = function () { try { localStorage.setItem("ib:prizex", p.id); } catch (e) { /* 存不上不要紧 */ } el.remove(); };
       };
       var c = null; try { c = JSON.parse(localStorage.getItem("ib:prize") || "null"); } catch (e) { c = null; }
       if (c && c.a === a && Date.now() - c.t < 600000) return show(c.p);

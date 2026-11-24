@@ -1,5 +1,5 @@
-window.AIL_NIGHT="dist/night.css?v=hc753e6d06a";
-window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h9cb15e946c","ko":"dist/lang-ko.js?v=hfb69190cf0"};
+window.AIL_NIGHT="dist/night.css?v=hbceb19eb9e";
+window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=hbe536f37c1","ko":"dist/lang-ko.js?v=h1d50e2f3b3"};
 window.AIL_BUNDLES={"names":"dist/names.js?v=h49c10daccf","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=h11a8241a8d","trade":"dist/trade.js?v=hbd4b769297","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=h9a2771500a","aiswap":"dist/aiswap.js?v=h9fbd9d597d","feedback":"dist/feedback.js?v=h29c96954bc","games":"dist/games.js?v=h6264b89e60","mj":"dist/mj.js?v=hc48ff62250","gd":"dist/gd.js?v=h0de6573220","misc":"dist/misc.js?v=hf8f95f9f70"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
@@ -750,9 +750,9 @@ el.setAttribute("data-k",k);el.innerHTML='<span class="fb-pill-i">📬</span><sp
 function pillSave(n,txt){try{var a=getAcct();if(a)localStorage.setItem("ib:pill",JSON.stringify({a:a,n:n||0,txt:txt||"",t:Date.now()}));}catch(e){}}
 function pillCached(){try{var c=JSON.parse(localStorage.getItem("ib:pill")||"null");if(c&&c.n>0&&c.a===getAcct()&&Date.now()-c.t<7*86400e3)pill(c.n,c.txt||"");}catch(e){}}
 function prizePill(){try{var a=String(getAcct()||"").toLowerCase();if(!a)return;var show=function(p){var el=document.getElementById("ib-prize"),off="";try{off=localStorage.getItem("ib:prizex")||"";}catch(e){off="";}
-var on=!!(p&&p.id&&p.due>Date.now()&&off!==p.id&&!PAUSED&&!/^#\/weekly/.test(location.hash)&&!document.getElementById("ib-pill"));if(!on){if(el)el.remove();return;}
-if(!el){el=document.createElement("a");el.id="ib-prize";el.className="fb-pill ib-prize";el.href="#/weekly/claim";document.body.appendChild(el);}
-if(el.getAttribute("data-k")===p.id)return;el.setAttribute("data-k",p.id);el.innerHTML='<span class="fb-pill-i">🎁</span><span class="fb-pill-t"><b>你有周榜奖金还没领</b><small>'+esc(String(p.amt))+' DAI · 过期算放弃</small></span><span class="fb-pill-go">去领奖 ›</span><span class="fb-pill-x" role="button" aria-label="关掉">✕</span>';el.onclick=function(){setTimeout(function(){var e2=document.getElementById("ib-prize");if(e2)e2.remove();},0);};var x=el.querySelector(".fb-pill-x");if(x)x.onclick=function(ev){ev.preventDefault();ev.stopPropagation();try{localStorage.setItem("ib:prizex",p.id);}catch(e){}el.remove();};};var c=null;try{c=JSON.parse(localStorage.getItem("ib:prize")||"null");}catch(e){c=null;}
+var on=!!(p&&p.id&&p.due>Date.now()&&off!==p.id&&!PAUSED&&!/^#\/weekly/.test(location.hash));if(!on){if(el)el.remove();return;}
+if(el&&el.getAttribute("data-k")===p.id)return;var at=document.getElementById("mkt-top")||document.getElementById("app");if(!at||!at.parentNode)return;if(!el){el=document.createElement("div");el.id="ib-prize";el.className="wrap ib-przw";at.parentNode.insertBefore(el,at);}
+el.setAttribute("data-k",p.id);el.innerHTML='<div class="ib-prz"><a class="ib-prza" href="#/weekly/claim"><span class="ib-przi">🎁</span><span class="ib-przt"><b>你有周榜奖金还没领</b><small>'+esc(String(p.amt))+' DAI · 过期算放弃</small></span><span class="ib-przgo">去领奖 ›</span></a><button type="button" class="ib-przx" aria-label="关掉">✕</button></div>';var x=el.querySelector(".ib-przx");if(x)x.onclick=function(){try{localStorage.setItem("ib:prizex",p.id);}catch(e){}el.remove();};};var c=null;try{c=JSON.parse(localStorage.getItem("ib:prize")||"null");}catch(e){c=null;}
 if(c&&c.a===a&&Date.now()-c.t<600000)return show(c.p);if(document.hidden)return;fetch("/api/weekly").then(function(r){return r.json();}).then(function(w){var p=null;((w&&w.pays)||[]).forEach(function(x){if(!p&&String(x.a).toLowerCase()===a&&(x.st==="wait"||x.st==="say")&&x.due>Date.now())p={id:x.id,amt:x.amt,due:x.due};});try{localStorage.setItem("ib:prize",JSON.stringify({a:a,t:Date.now(),p:p}));}catch(e){}
 show(p);}).catch(function(){});}catch(e){}}
 try{window.addEventListener("hashchange",function(){setTimeout(prizePill,300);});}catch(e){}
@@ -1146,5 +1146,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h62a87341bd";
-/*v:h62a87341bd*/
+;window.AIL_CORE="h6583794030";
+/*v:h6583794030*/
