@@ -141,7 +141,7 @@
     }
     A.app.innerHTML = html;
     try { // 领奖入口：滑到发放记录里那一行，闪一下
-      var goRow = function (i) { var li = document.getElementById("wkb-p" + i); if (!li) return; li.scrollIntoView({ block: "start", behavior: "smooth" }); li.classList.add("wkb-flash"); setTimeout(function () { li.classList.remove("wkb-flash"); }, 2600); };
+      var goRow = function (i) { var li = document.getElementById("wkb-p" + i); if (!li) return; li.scrollIntoView({ block: "start" }); /* 不用平滑滚动：页面很长，有的钱包浏览器平滑滚动滚不到位 */ li.classList.add("wkb-flash"); setTimeout(function () { li.classList.remove("wkb-flash"); }, 2600); };
       Array.prototype.forEach.call(A.app.querySelectorAll("[data-go]"), function (b) { b.onclick = function () { goRow(b.getAttribute("data-go")); }; });
       if (/^#\/weekly\/claim/.test(location.hash) && due.length && !draw.went) { draw.went = 1; setTimeout(function () { var c = document.getElementById("wkb-claim"); if (c) c.scrollIntoView({ block: "start" }); }, 60); }
     } catch (e) { /* 入口挂不上不影响看榜，往下滑照样能领 */ }
