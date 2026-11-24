@@ -5,7 +5,7 @@
   var SQUARE = "0x0000000000000000000000000000000000a11905"; // 广场地址（收 0 元交易，只是个「公告栏」，没有私钥、没有钱）
   var PREFIX = "ailgns-post:", MAX = 300;
   var NAMES = { ailgns: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", lgns: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3" }, SEL_NAMEOF = "0xf5c57382";
-  var MK = { ailgns: "AiLGNS", lgns: "LGNS", glgns: "gLGNS", plgns: "LGNS（Polygon）", lp: "LP", nft: "AWAKE NFT" };
+  var MK = { ailgns: "AiLGNS", lgns: "LGNS", glgns: "gLGNS", plgns: "LGNS（Polygon）", lp: "LP", rm: "RM", nft: "AWAKE NFT" };
   var CONTACT = /https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|xyz|io|app|cc|top|vip|cn|me|link|site|online|shop|pro)\b|t\.me|微信|微信号|vx|wx|weixin|wechat|qq|扣扣|电报|telegram|tg|飞机|whatsapp|line\b|手机号|电话|加我|加一下|私聊|私信我|联系方式|联系我|\d{11}/i;
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function tm(t) { var x = new Date(t + 8 * 3600e3); return (x.getUTCMonth() + 1) + "/" + x.getUTCDate() + " " + String(x.getUTCHours()).padStart(2, "0") + ":" + String(x.getUTCMinutes()).padStart(2, "0"); }

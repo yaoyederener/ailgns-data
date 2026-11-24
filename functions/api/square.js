@@ -7,7 +7,7 @@
 // KV：sq:list 主帖 [tx…]；sq:p:<tx> 帖子；sq:re:<tx> 楼层 [tx…]
 import { rpc, primaryName } from "../../lib/oracle.js";
 
-const PREFIX = "ailgns-post:", MAX = 300, MARKETS = { ailgns: 1, lgns: 1, glgns: 1, plgns: 1, nft: 1, lp: 1 };
+const PREFIX = "ailgns-post:", MAX = 300, MARKETS = { ailgns: 1, lgns: 1, glgns: 1, plgns: 1, nft: 1, lp: 1, rm: 1 };
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
 const BAD = /习近平|共产党|六四|法轮|台独|藏独|游行|革命/;
 const CONTACT = /https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|xyz|io|app|cc|top|vip|cn|me|link|site|online|shop|pro)\b|t\.me|微信|微信号|vx|wx|weixin|wechat|qq|扣扣|电报|telegram|tg|飞机|whatsapp|line\b|手机号|电话|加我|加一下|私聊|私信我|联系方式|联系我|\d{11}/i;

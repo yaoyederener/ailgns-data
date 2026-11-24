@@ -34,6 +34,8 @@ export const MARKETS = [
     pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, pd: 2, kv: "otcw:glgns:", deploy: 18004618, link: "https://ailgns.dev/#/otc/glgns" },
   // 官方 AiLGNS/LGNS 流动性凭证 LP（Anubis，18 位）：DEX 上没有报价（没有 pair）→ 不推好单、不记指导价；成交通知和最近成交照常
   { key: "lp", sym: "LP", chain: "Anubis", otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", dec: 18, qd: 8, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 0, kv: "otcw:lp:", deploy: 19978379, link: "https://ailgns.dev/#/otc/lp" },
+  // RM（Rome，第三方项目的币，9 位）：DEX 上是 RM/USDT 池子（USDT 6 位小数），这里的市价换算只认 18 位的 DAI，所以不填 pair → 不推好单、不记指导价；成交通知和最近成交照常
+  { key: "rm", sym: "RM", chain: "Anubis", otc: "0x0fddaa1a312699b2ae43e2b43d8f7595087e21d0", dec: 9, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 2, kv: "otcw:rm:", deploy: 19990935, link: "https://ailgns.dev/#/otc/rm" },
   // AWAKE NFT 卡牌（AwakeNftEscrow）：整张成交，价格就是成交 DAI；没有 DEX 市价，不推「低于市价好单」
   { key: "nft", sym: "AWAKE NFT", chain: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", dec: 0, rpcs: RPCS, tx: "https://ailgns.dev/#/scan/", pd: 2, kv: "otcw:nft:", deploy: 18008025, link: "https://ailgns.dev/#/otc/nft" },
   // 域名市场（同一份 AwakeNftEscrow 代码）：成交通知里显示名字（从域名合约 labelOf 读），不显示编号
@@ -155,7 +157,7 @@ async function recordTrades(m, kv, logs, cache) {
     // 2026-11-12 起 LGNS 也记一份（otc:fills:lgns），给 LGNS 盘口的「最近成交」用；预言家只读 ailgns 那份
     // 2026-11-19 起所有币种市场和卡牌都记（gLGNS、Polygon LGNS、AWAKE NFT）：OTC 页「全部市场」列表的最新成交价、24 小时成交额从这里来（/api/markets）；域名市场不记
     const fpx = rec.nft ? rec.dai : rec.price;
-    if (["ailgns", "lgns", "glgns", "plgns", "nft", "lp"].indexOf(m.key) >= 0 && fpx > 0 && rec.dai >= 0.5) {
+    if (["ailgns", "lgns", "glgns", "plgns", "nft", "lp", "rm"].indexOf(m.key) >= 0 && fpx > 0 && rec.dai >= 0.5) {
       const fk = "otc:fills:" + m.key, pr = m.key === "ailgns" ? 1000 : 1e6, fl = (await kv.get(fk, "json")) || [];
       if (!fl.some((x) => x.tx === rec.tx && x.id === rec.id)) { fl.unshift({ t: rec.t, px: Math.round(fpx * pr) / pr, dai: rec.dai, tx: rec.tx, id: rec.id, mk: rec.maker }); await kv.put(fk, JSON.stringify(fl.slice(0, 300))); }
     }

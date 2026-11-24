@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var A = window.AIL;
-  var MK = { ailgns: { sym: "AiLGNS", dec: 18, chain: "Anubis" }, lgns: { sym: "LGNS", dec: 9, chain: "Anubis" }, glgns: { sym: "gLGNS", dec: 18, chain: "Anubis" }, lp: { sym: "LP", dec: 18, chain: "Anubis" }, plgns: { sym: "LGNS", dec: 9, chain: "Polygon" } };
+  var MK = { ailgns: { sym: "AiLGNS", dec: 18, chain: "Anubis" }, lgns: { sym: "LGNS", dec: 9, chain: "Anubis" }, glgns: { sym: "gLGNS", dec: 18, chain: "Anubis" }, lp: { sym: "LP", dec: 18, chain: "Anubis" }, rm: { sym: "RM", dec: 9, chain: "Anubis" }, plgns: { sym: "LGNS", dec: 9, chain: "Polygon" } };
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   var big = function (x, dec) { var b = BigInt(x); return dec >= 6 ? Number(b / BigInt(10) ** BigInt(dec - 6)) / 1e6 : Number(b) / Math.pow(10, dec); };
   var fmt = function (v, d) { return Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: d === undefined ? 2 : d }); };
