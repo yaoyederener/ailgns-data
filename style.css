@@ -4870,6 +4870,8 @@ html.lang-en .sw-side button { white-space: normal; line-height: 1.25; }
 
 /* 选了「更多币种」里的币：这一行变成高亮的小牌子「正在看：gLGNS」，列表收起（和点第一排的币一样直接到盘口） */
 .mkt-more.on > summary { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: #f3eeff; border: 1.5px solid #a78bfa; color: #6a628f; font-size: 13px; }
+/* 上面那排币种按钮和这个高亮框之间留出空（原来 .mkt-more 是 -4px，框的上边被按钮压住一点；站长 2026-11-25 截图） */
+.mkt-more.on, #mkt-top .mkt-more.on { margin-top: 8px; }
 .mkt-more.on > summary::before { content: ""; }
 .mkt-more.on > summary::after { content: "▾"; color: #7c5cd6; }
 .mkt-more.on[open] > summary::after { content: "▴"; }
