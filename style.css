@@ -5271,4 +5271,12 @@ html.lang-ko body { word-break: keep-all; }
 .wkb-pays li { scroll-margin-top: 150px; }
 #wkb-claim { scroll-margin-top: 150px; }
 .wkb-cta.wkb-ctag { display: block; margin: 0 0 10px; padding: 11px 12px; border-radius: 12px; border: 1.5px solid #f5b942; background: #fff7e0; color: #8a3b00; font-weight: 800; text-align: center; }
-.fb-pill.ib-prize { background: linear-gradient(120deg, #e0a316, #c9820a); }
+.ib-przw { margin-top: 10px; }
+.ib-prz { display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 12px; border-radius: 14px; background: #fff7e0; border: 1.5px solid #f5b942; }
+.ib-prza { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; color: #8a3b00; text-decoration: none; }
+.ib-przi { flex: none; font-size: 22px; line-height: 1; }
+.ib-przt { flex: 1 1 auto; min-width: 0; }
+.ib-przt b { display: block; font-size: 14.5px; line-height: 1.35; }
+.ib-przt small { display: block; font-size: 12px; line-height: 1.4; opacity: .85; }
+.ib-przgo { flex: none; padding: 7px 12px; border-radius: 999px; background: #f5b942; color: #4a2a00; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.ib-przx { flex: none; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: rgba(138, 59, 0, .1); color: #8a3b00; font-size: 14px; line-height: 1; cursor: pointer; box-shadow: none; }
