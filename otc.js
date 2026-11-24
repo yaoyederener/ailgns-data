@@ -397,9 +397,13 @@
     try { lpRdClick(b.getAttribute("data-lprd")); } catch (x) { /* 按钮出错不能影响页面别的地方 */ }
   });
   function lpCardHtml(q) {
-    var eg = 0.0002;
-    return '<div class="lpv-big"><b class="num">' + A.fmt(q.px, 0) + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
-      '<p>举例：你有 <b>' + eg + '</b> 个 LP，大约值 <b>' + A.fmt(q.px * eg, 2) + ' DAI</b>。</p>' +
+    /* 站长 2026-11-24：「531,176」加一句「0.0002 个约 106 DAI」，他下意识算成 531 × 0.0002 = 0.1 DAI。
+       改成：大数用「万」写（53.12 万，不会把逗号看成小数点）；举例换成三档对照表，手里有多少一眼对上 */
+    var wan = q.px >= 10000 ? A.fmt(q.px / 10000, 2) + " 万" : A.fmt(q.px, 0);
+    var row = function (n) { return "<tr><td>" + n + " 个 LP</td><td>≈ <b>" + A.fmt(q.px * n, n < 0.001 ? 2 : 0) + " DAI</b></td></tr>"; };
+    return '<div class="lpv-big"><b class="num">' + wan + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
+      '<p class="muted">1 个 LP 很值钱，大家手里一般只有零点零零几个。对照下面看你的值多少：</p>' +
+      '<table class="lpv-eg"><tbody>' + row(0.0001) + row(0.001) + row(0.01) + "</tbody></table>" +
       '<details class="lpv-how"><summary>这个数怎么算的</summary><ol>' +
       "<li>1 个 LP 里面含 <b>" + A.fmt(q.ail, 2) + "</b> 枚 AiLGNS + <b>" + A.fmt(q.lgns, 0) + "</b> 枚 LGNS（按池子现在的存量和 LP 总数算）。</li>" +
       "<li>AiLGNS 按去官方 DEX 卖出到手价 " + A.fmt(q.pAil, 2) + " DAI 算 → " + A.fmt(q.vAil, 0) + " DAI。</li>" +
