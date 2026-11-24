@@ -337,11 +337,65 @@
   // 怎么把 LP 拿出来卖（站长 2026-11-24：引导客户）。LP 平时押在官方页面里，要先退出来才在钱包里
   function lpSteps() {
     return '<section class="card lpv"><div class="card-head"><h2>📖 LP 怎么卖</h2></div><ol class="lpv-steps">' +
-      "<li><b>先把 LP 取回钱包。</b>打开官方网站 awakehelix.io →「流动性」→ AiLGNS / LGNS 那一行点「移除」。官方会扣 5%，剩下 95% 的 LP 回到你钱包（拿回来的还是 LP，不是币）。</li>" +
+      "<li><b>先把 LP 取回钱包。</b>点下面的按钮就行，不用去官方网站。官方会扣 5%，剩下 95% 的 LP 回到你钱包（拿回来的还是 LP，不是币）。</li>" +
       "<li><b>回到这一页挂卖单。</b>填数量和单价，LP 存进本站的担保合约，有人买了 DAI 直接到你钱包。没人买随时撤单，LP 原样退回。</li>" +
       "<li><b>想买 LP 的</b>：直接点卖单成交，或者挂买单等人卖给你。买到的 LP 可以拿去官方页面质押，领每日 AiLGNS 奖励。</li></ol>" +
+      '<div class="lpv-rd" id="lpv-rd">' + lpRdHtml() + "</div>" +
       '<p class="muted">成交手续费 1%，由吃单的一方付。退出质押那 5% 是官方扣的，本站不收。</p></section>';
   }
+  /* ⚡ 一键取回 LP（站长 2026-11-24：「把 lp 赎回取回做一个高亮的按钮，让客户可以一键赎回」）。
+     LP 平时押在官方的 LP 管理合约里。这里用客户自己的钱包直接调官方合约的取回（和官方页面「移除流动性」是同一个调用，链上模拟过），
+     本站不经手：95% 的 LP 回客户钱包，5% 官方永久留下。分两下点：第一下读出押了多少、把后果说清楚，第二下才发交易。
+     状态放在 lpRd 里：盘口自动刷新会重画页面，重画后按原样接着显示 */
+  var LP_MGR = "0x5ddc8a13eabda89593beb885ab8b2afda26a3587"; // 官方 GaugeLPManager；lpOf(池子, 钱包) = 0x963fdeb3，取回(池子, 数量) = 0xef693bed
+  var lpRd = { stage: "idle", bal: 0n, msg: "", bad: false };
+  function lpRdHtml() {
+    var st = lpRd.stage, h = "";
+    if (st === "ask") {
+      var back = lpRd.bal * 95n / 100n;
+      h = '<div class="lpv-rdbox"><p>你在官方押着 <b>' + show(lpRd.bal, 8) + '</b> 个 LP' + (lpQ ? "（约 " + A.fmt(num(lpRd.bal) * lpQ.px, 2) + " DAI）" : "") + "。</p>" +
+        "<p>取回后大约 <b>" + show(back, 8) + "</b> 个回到你钱包，另外 5% 官方永久留下，拿不回来。取回后就不再领官方的每日奖励。</p></div>" +
+        '<button type="button" class="nm-go lpv-rdgo" data-lprd="go">确认取回全部 LP</button><button type="button" class="ghost" data-lprd="no">先不取</button>';
+    } else if (st === "busy") {
+      h = '<button type="button" class="nm-go lpv-rdgo" disabled>处理中…</button>';
+    } else {
+      h = '<button type="button" class="nm-go lpv-rdgo" data-lprd="start">⚡ 一键取回我的 LP</button>';
+    }
+    return h + '<p class="' + (lpRd.bad ? "nm-bad" : "muted") + ' lpv-rdst" id="lpv-rdst">' + lpRd.msg + "</p>";
+  }
+  function lpRdDraw() { var el = document.getElementById("lpv-rd"); if (el) el.innerHTML = lpRdHtml(); }
+  function lpRdSay(t, bad) { lpRd.msg = t; lpRd.bad = !!bad; var el = document.getElementById("lpv-rdst"); if (el) { el.textContent = t; el.className = (bad ? "nm-bad" : "muted") + " lpv-rdst"; } }
+  function lpRdSet(stage, msg, bad) { lpRd.stage = stage; lpRd.msg = msg || ""; lpRd.bad = !!bad; lpRdDraw(); }
+  function lpRdClick(act) {
+    if (lpRd.stage === "busy" || MK !== "lp") return;
+    var pool = MARKETS.lp.token.slice(2).toLowerCase().padStart(64, "0");
+    if (act === "no") return lpRdSet("idle", "");
+    if (act === "start") {
+      lpRdSet("busy", "正在连接钱包，看你押了多少…");
+      return ready().then(function () {
+        return read(LP_MGR, "0x963fdeb3" + pool + account.slice(2).padStart(64, "0"));
+      }).then(function (h) {
+        var bal = BigInt(h);
+        if (bal <= 0n) return lpRdSet("idle", "这个钱包在官方没有押着的 LP。已经取回过的话，LP 就在钱包里，直接在下面挂卖单。");
+        lpRd.bal = bal; lpRdSet("ask", "");
+      }).catch(function (e) { lpRdSet("idle", "没读出来：" + niceError(e) + "。请再点一次。", true); });
+    }
+    if (act === "go") {
+      var bal = lpRd.bal;
+      lpRd.stage = "busy"; lpRd.msg = ""; lpRdDraw();
+      return ready().then(function () {
+        return send(LP_MGR, "0xef693bed" + pool + bal.toString(16).padStart(64, "0"), function (t) { lpRdSay(t); }, "取回 LP");
+      }).then(function () {
+        lpRdSet("idle", "✅ 取回成功，LP 已经在你钱包里。现在可以在下面「发布挂单」里挂卖单了。");
+        freshNext = true;
+      }).catch(function (e) { lpRdSet("ask", "没取成：" + niceError(e), true); });
+    }
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("[data-lprd]") : null;
+    if (!b) return;
+    try { lpRdClick(b.getAttribute("data-lprd")); } catch (x) { /* 按钮出错不能影响页面别的地方 */ }
+  });
   function lpCardHtml(q) {
     var eg = 0.0002;
     return '<div class="lpv-big"><b class="num">' + A.fmt(q.px, 0) + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
