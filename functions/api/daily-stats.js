@@ -19,6 +19,7 @@ const MARKETS = [
   { key: "lgns", name: "LGNS（Anubis）", chain: "anubis", otc: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818", deploy: 17936478 },
   { key: "plgns", name: "LGNS（Polygon）", chain: "polygon", otc: "0x4060f38d3e837843b69014d9f85ecfb3e29fa2db", deploy: 96510526 },
   { key: "glgns", name: "gLGNS（Anubis）", chain: "anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", deploy: 18004618 },
+  { key: "lp", name: "LP（AiLGNS/LGNS）", chain: "anubis", otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", deploy: 19978379 },
   { key: "nft", name: "AWAKE NFT 卡牌", chain: "anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", deploy: 18008025 }, // AwakeNftEscrow：事件结构不同（见下面 NFT_*）
   { key: "nm_ailgns", name: "域名市场 .ailgns", chain: "anubis", nft: true, otc: "0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e", deploy: 18161704 }, // 域名市场也是 AwakeNftEscrow
   { key: "nm_lgns", name: "域名市场 .lgns", chain: "anubis", nft: true, otc: "0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d", deploy: 18161717 }

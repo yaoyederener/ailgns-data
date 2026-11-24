@@ -23,7 +23,7 @@
       flat: true }, // DEX 不扣税、价差不到 1%：指导价就是市价，不算「比 DEX 多拿多少」
     // 官方 AiLGNS/LGNS 流动性凭证（LP，Anubis 链，18 位小数；站长 2026-11-24：客户加了流动性拆不开，要能直接卖 LP）。
     // LP 现在谁也拆不开（官方 AiLGNS 合约不让池子把 AiLGNS 转给普通钱包），DEX 上也没有 LP 的报价：参考价按「里面含的币去 DEX 卖出到手」折算，见 lpValue
-    lp: { sym: "LP", chain: "anubis", chainName: "Anubis", otc: "", token: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", dai: ANUBIS_DAI, dec: 18, pd: 0, qd: 8,
+    lp: { sym: "LP", chain: "anubis", chainName: "Anubis", otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", /* 站长 2026-11-24 部署，区块 19978379；代码和 gLGNS 那份逐字节一致（只换了币地址），链上核过 */ token: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", dai: ANUBIS_DAI, dec: 18, pd: 0, qd: 8,
       explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 1, dexBuy: 1, dexName: "参考价", eg: [0.0002, 500000], lp: true, full: "AiLGNS/LGNS 流动性 LP" },
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
