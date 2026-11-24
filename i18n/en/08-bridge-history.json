@@ -62,5 +62,7 @@
 "网络不好，过一会儿再点「查询进度」": "Network problem — tap Check progress again in a moment",
 "⚠️ 官方桥显示这笔没成功。请到官方桥 app.anubisbridge.com 的 History 里看，或者提工单给我们": "⚠️ The official bridge shows this transfer did not succeed. Check History at app.anubisbridge.com, or send us a ticket",
 "📦 USDT 跨链桥加了「我的跨链记录」：连上钱包，页面下面就列出你最近每一笔跨链——到哪了、预计几点到、到了没有。换手机、换浏览器也查得到。": "📦 USDT Bridge now has \"My bridge history\": connect your wallet and the page lists each recent transfer — where it is, when it should arrive, and whether it has arrived. It works from any phone or browser.",
-"USDT 跨链桥加了「我的跨链记录」：连上钱包，页面下面就列出你最近每一笔跨链——到哪了、预计几点到、到了没有。换手机、换浏览器也查得到。": "USDT Bridge now has \"My bridge history\": connect your wallet and the page lists each recent transfer — where it is, when it should arrive, and whether it has arrived. It works from any phone or browser."
+"USDT 跨链桥加了「我的跨链记录」：连上钱包，页面下面就列出你最近每一笔跨链——到哪了、预计几点到、到了没有。换手机、换浏览器也查得到。": "USDT Bridge now has \"My bridge history\": connect your wallet and the page lists each recent transfer — where it is, when it should arrive, and whether it has arrived. It works from any phone or browser.",
+"⚠️ 要点两次：约 {0} 小时 {1} 分钟后到 Polygon 的先是 ": "⚠️ Two taps needed: in about {0} h {1} min, what arrives on Polygon is first ",
+"；到了以后回到这一页，再点一次「第 2 步：换成 USDT」，才变成 USDT。": "; once it arrives, come back to this page and tap “Step 2: swap to USDT” to turn it into USDT."
 }
