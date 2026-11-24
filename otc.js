@@ -1453,7 +1453,7 @@
           var tick = Math.pow(10, -PD), g1 = 0, why = "";
           if (side === "sell") {
             if (otcAsk) { g1 = otcAsk; why = "和现在最低的卖单同价，排在最前面一档；同价的先挂先成交"; }
-            else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = "现在没有别的卖单，按行情价挂，你就排第一"; }
+            else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = M.lp ? "现在没有别的卖单。这是按 LP 里面含的币折算的参考价；LP 现在拆不开，想快点卖掉可以挂低一些" : "现在没有别的卖单，按行情价挂，你就排第一"; }
           } else {
             var gfl = bidFloor(mkt), gmin = gfl ? (Math.floor(gfl / tick) + 1) * tick : 0;
             if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = MK === "lgns" ? "比本站买单最低出价（约 " + A.fmt(gfl, PD) + "）高一点；这条线是「卖家去 DEX 卖的到手价」再低 2%，比它低不让挂" : "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
