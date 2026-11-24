@@ -5244,3 +5244,15 @@ html.lang-ko body { word-break: keep-all; }
 .cvr-ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; } .cvr-ch b { font-size: 16px; color: #4a2bc2; }
 .cvr-cs { font-size: 13px; font-weight: 700; color: #7a5200; } .cvr-cs.paid { color: #1f6b45; } .cvr-cs.rejected { color: #b42318; }
 .cvr-c .cvr-tx, .cvr-c .cvr-note { display: block; font-size: 13px; color: #7a6aa8; }
+
+/* 🗳 互助保障 · 理赔投票（2026-11-24） */
+.cvr-vote { margin: 10px 0 2px; padding: 10px 12px; border-radius: 12px; background: #f6f3ff; border: 1px solid #e3dcff; }
+.cvr-vote p { margin: 0; display: block; }
+.cvr-vn { font-size: 14.5px; color: #3b2a70; }
+.cvr-vn b { font-size: 16px; }
+.cvr-vq, .cvr-vt { margin-top: 3px !important; font-size: 12.5px; color: #6b5fa5; line-height: 1.5; }
+.cvr-vb { display: flex; gap: 8px; margin: 9px 0 5px; }
+.cvr-vb button { flex: 1 1 0; min-width: 0; padding: 10px 6px; border-radius: 12px; border: 1.5px solid #cfc6ff; background: #fff; color: #4a36c9; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; }
+.cvr-vb button.cvr-y.on { background: #6d4cf5; border-color: #6d4cf5; color: #fff; }
+.cvr-vb button.cvr-n.on { background: #efeaff; border-color: #6d4cf5; }
+.cvr-vh { font-size: 12.5px; line-height: 1.5; }
