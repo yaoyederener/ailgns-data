@@ -10,7 +10,7 @@ const KEEP = 7 * 86400, CHUNK = 5000, MAXC = 10, FRESH = 8e3;
 // LGNS 的池子是官方 DEX 的 LGNS/DAI 池；LGNS 在 DEX 卖出要扣税，所以场外成交价会比这条线低，这里画的是 DEX 池子价
 const MKS = {
   ailgns: { pair: PAIR, d0: 18, key: "kc:1m:v2", busy: "kc:busy", fx: 4 },
-  lgns: { pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", d0: 9, key: "kc:lgns:1m", busy: "kc:lgns:busy", fx: 6 },
+  lgns: { pair: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0", d0: 9, key: "kc:lgns:1m", busy: "kc:lgns:busy", fx: 6, chunk: 1000, maxc: 4, reset: 18000 }, // LGNS 池子约 1 秒 1 笔成交，一段读少一点
 };
 const pxOf = (M, r0, r1) => (r0 > 0n ? Number((r1 * 10n ** BigInt(M.d0) * 1000000000000n) / (r0 * 10n ** 18n)) / 1e12 : 0); // 储备比 → 1 个币值多少 DAI
 const IV = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 };
@@ -48,9 +48,16 @@ async function backfill(kv, M, st, latest, tsL, cur) {
   if (await kv.get(M.busy)) return; // 别人正在补
   await kv.put(M.busy, "1", { expirationTtl: 60 }); // KV 过期时间最短 60 秒，写 50 会报错
   try {
-    let budget = MAXC, dirty = !!st.fresh; delete st.fresh;
-    while (st.to < latest && budget-- > 0) { const f = st.to + 1, e = Math.min(latest, f + CHUNK - 1), r = await readChunk(M, st, f, e); st.to = e; st.tsTo = r.tsE; if (r.changed) dirty = true; }
-    while (st.tsFrom > tsL - KEEP && st.from > 1 && budget-- > 0) { const e = st.from - 1, f = Math.max(1, e - CHUNK + 1), r = await readChunk(M, st, f, e); st.from = f; st.tsFrom = r.tsF; dirty = true; }
+    // 2026-11-25 修：LGNS 的 K 线停更成一条平线。原因：一次要读的太多，后台 30 秒内读不完就被掐掉，进度一直存不下来，越落越远。
+    //   现在：① 每段读多少、一次读几段按币种定；② 最多干 15 秒就收工并把进度存下来；③ 中途出错也存已经读到的；
+    //   ④ 落后超过 5 小时就不从断的地方接了，清空重来——先补最新的，再一段段往前补历史（客户先看到的是最近的走势）
+    const CH = M.chunk || CHUNK, t0 = Date.now(); let budget = M.maxc || MAXC, dirty = !!st.fresh; delete st.fresh;
+    const more = () => budget-- > 0 && Date.now() - t0 < 15000;
+    if (M.reset && latest - st.to > M.reset) { st.c = {}; st.to = latest - 1; st.from = latest; st.tsTo = tsL; st.tsFrom = tsL; dirty = true; }
+    try {
+      while (st.to < latest && more()) { const f = st.to + 1, e = Math.min(latest, f + CH - 1), r = await readChunk(M, st, f, e); st.to = e; st.tsTo = r.tsE; if (r.changed) dirty = true; }
+      while (st.tsFrom > tsL - KEEP && st.from > 1 && more()) { const e = st.from - 1, f = Math.max(1, e - CH + 1), r = await readChunk(M, st, f, e); st.from = f; st.tsFrom = r.tsF; dirty = true; }
+    } catch (e) { /* 这一段没读成：前面读到的照样存 */ }
     const cut = tsL - KEEP - 3600;
     for (const k of Object.keys(st.c)) if (Number(k) < cut) { delete st.c[k]; dirty = true; }
     st.cur = cur; st.tsL = tsL; st.at = Date.now(); // 快照里带上现价和时间：下次请求直接用，不碰链
@@ -87,11 +94,11 @@ export async function onRequestGet(ctx) {
     const snap = await kv.get(M.key, "json"), age = snap && snap.at ? Date.now() - snap.at : Infinity;
     if (snap && age < 60e3) {
       if (age > 30e3) ctx.waitUntil(tick(kv, M).then((m) => backfill(kv, M, m.st, m.latest, m.tsL, m.cur)).catch(() => {}));
-      return Response.json({ c: aggregate(snap, sec, n, snap.tsL, snap.cur, M.fx), cur: snap.cur, from: snap.tsFrom, done: snap.tsFrom <= snap.tsL - KEEP, at: snap.at }, { headers: { "cache-control": "public, max-age=5" } });
+      return Response.json({ c: aggregate(snap, sec, n, snap.tsL, snap.cur, M.fx), cur: snap.cur, from: snap.tsFrom, done: snap.tsFrom <= snap.tsL - KEEP, at: snap.at, lag: Math.max(0, snap.tsL - (snap.tsTo || snap.tsL)) }, { headers: { "cache-control": "public, max-age=5" } });
     }
     const m = await tick(kv, M), st = m.st, done = st.tsFrom <= m.tsL - KEEP;
     ctx.waitUntil(backfill(kv, M, st, m.latest, m.tsL, m.cur).catch(() => {})); // 后台补，不耽误这次回答
-    return Response.json({ c: aggregate(st, sec, n, m.tsL, m.cur, M.fx), cur: m.cur, from: st.tsFrom, done, at: Date.now() }, { headers: { "cache-control": "public, max-age=5" } });
+    return Response.json({ c: aggregate(st, sec, n, m.tsL, m.cur, M.fx), cur: m.cur, from: st.tsFrom, done, at: Date.now(), lag: Math.max(0, m.tsL - (st.tsTo || m.tsL)) }, { headers: { "cache-control": "public, max-age=5" } });
   } catch (e) {
     return Response.json({ error: String(e && e.message || e).slice(0, 200) }, { status: 502 });
   }

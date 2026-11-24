@@ -5359,3 +5359,42 @@ html.lang-ko body { word-break: keep-all; }
 .sc-ap.off { border-color: #d6c8fa; background: #f6f2ff; }
 .sc-ap.bad { border-color: #f87171; background: #fef2f2; }
 .sc-apdanger { margin: 10px 0; padding: 12px; border-radius: 12px; background: #dc2626; color: #fff; font-size: 14.5px; line-height: 1.6; }
+
+/* 📈 看盘（#/chart，chart.js）：币种列表 + 单币行情。涨绿跌红，和 K 线组件一致 */
+.cht-h { display: flex; justify-content: space-between; padding: 6px 4px; font-size: 11.5px; color: #9a92ba; border-bottom: 1px solid #efeaf9; }
+.cht-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) 64px auto; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid #f3effb; color: #2e2654; text-decoration: none; }
+.cht-row:hover { background: #faf8ff; text-decoration: none; }
+.cht-row img, .cht-top img { border-radius: 50%; display: block; }
+.cht-nm { display: flex; flex-direction: column; min-width: 0; }
+.cht-nm b { font-size: 15px; color: #2e2654; }
+.cht-nm b i { font-style: normal; font-weight: 500; font-size: 12.5px; color: #9a92ba; }
+.cht-nm small { font-size: 11.5px; color: #9a92ba; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cht-sp { width: 64px; height: 24px; display: block; }
+.cht-r { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 78px; }
+.cht-r b { font-size: 15px; color: #2e2654; font-variant-numeric: tabular-nums; }
+.cht-chg { display: inline-block; min-width: 62px; padding: 2px 6px; border-radius: 6px; font-size: 12px; font-weight: 600; text-align: center; color: #fff; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.cht-chg.up { background: #0ecb81; }
+.cht-chg.dn { background: #f6465d; }
+.cht-chg.na { background: #f1edfa; color: #9a92ba; }
+.cht-tip { font-size: 12px; line-height: 1.6; margin: 10px 0 0; }
+.cht-tip:empty { display: none; }
+.cht-back { display: inline-block; font-size: 13px; color: #7a5cd6; text-decoration: none; margin-bottom: 8px; }
+.cht-top { display: flex; align-items: center; gap: 10px; }
+.cht-px { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 12px 0 10px; }
+.cht-px b { font-size: 30px; line-height: 1.1; color: #2e2654; font-variant-numeric: tabular-nums; }
+.cht-px small { font-size: 12px; color: #9a92ba; }
+.cht-st { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.cht-st div { background: #faf8ff; border: 1px solid #efeaf9; border-radius: 10px; padding: 7px 8px; min-width: 0; }
+.cht-st small { display: block; font-size: 11px; color: #9a92ba; }
+.cht-st b { display: block; font-size: 13px; color: #2e2654; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cht-go { display: flex; align-items: center; justify-content: center; height: 44px; margin: 14px 0 4px; text-decoration: none; }
+.cht-h3 { font-size: 15px; margin: 18px 0 8px; color: #2e2654; }
+.cht-trs { max-height: 420px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.cht-th, .cht-t { display: grid; grid-template-columns: 62px 34px minmax(0, 1fr) minmax(0, 1fr) 86px; gap: 6px; align-items: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cht-th { padding: 4px 2px 6px; color: #9a92ba; font-size: 11.5px; border-bottom: 1px solid #efeaf9; position: sticky; top: 0; background: #fff; }
+.cht-t { padding: 7px 2px; border-bottom: 1px solid #f6f3fc; text-decoration: none; color: #2e2654; }
+.cht-th span:nth-child(n+3), .cht-t span:nth-child(n+3) { text-align: right; }
+.cht-t.up span:nth-child(-n+3) { color: #0a9b63; }
+.cht-t.dn span:nth-child(-n+3) { color: #d93a4f; }
+.cht-t span:first-child { color: #9a92ba !important; }
+.cht-t .cht-a { color: #7a5cd6; font-size: 11.5px; }
