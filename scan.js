@@ -787,14 +787,16 @@
     var kind = function (x) { return FLAG[x.sp] ? 0 : (KNOWN[x.sp] || REG[x.sp]) ? 2 : 1; }; // 0 被报案 1 不认识 2 认识
     var ls = r.list.sort(function (x, y) { return kind(x) - kind(y); });
     if (!ls.length) { box.innerHTML = '<p class="sc-apok">✅ 没查到还在生效的授权。</p>' + (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : ""); return; }
-    var unk = ls.filter(function (x) { return kind(x) < 2; }).length;
-    box.innerHTML = '<p class="' + (unk ? "sc-apwarn" : "sc-apok") + '">' + (unk ? "⚠️ 有 " + unk + " 个授权给了不认识的合约，建议取消。" : "✅ 现在生效的 " + ls.length + " 个授权，都是给本站或官方合约的，属于正常使用。") + "</p>" +
+    var unk = ls.filter(function (x) { return kind(x) === 1; }).length, bad = ls.filter(function (x) { return kind(x) === 0; }).length;
+    box.innerHTML = (bad ? '<p class="sc-apdanger">🚨 有 ' + bad + " 个授权给了<b>风险合约</b>（被客户报案的地址）。请马上取消，它现在还能动你的币。</p>" : "") +
+      '<p class="' + (unk ? "sc-apwarn" : "sc-apok") + '">' + (unk ? "⚠️ 有 " + unk + " 个授权给了未知合约（不是本站的，也不在官方名单里）。不认识就建议取消。" : bad ? "其余的授权都是给本站或官方合约的。" : "✅ 现在生效的 " + ls.length + " 个授权，都是给本站或官方合约的，属于正常使用。") + "</p>" +
       ls.map(function (x, i) {
         var k = kind(x), tok = C.tokens[x.tok] || (OFFICIAL[x.tok] ? OFFICIAL[x.tok].replace(/ 代币$/, "").replace(/ 池子$/, " 的 LP") : "") || x.name || short(x.tok);
         var our = !!OURS[x.sp], off = !!OFFICIAL[x.sp];
-        var who2 = k === 0 ? '<b class="sc-apbad">⚠️ 被客户报案的地址</b>' : our ? '<b class="sc-apsafe">✅ 本站合约 · 安全</b>' + (KNOWN[x.sp] ? " " + KNOWN[x.sp] : "") : KNOWN[x.sp] ? "<b>" + KNOWN[x.sp] + "</b>" : REG[x.sp] ? "<b>已登记的合约</b>" : '<b class="sc-apunk">⚠️ 不认识的合约</b>';
+        /* 站长 2026-11-25：「官方合约也标记一下，其它标记未知合约，风险合约要警示出来」→ 四种标签：本站（绿）/ 官方（紫）/ 未知（橙）/ 风险（红，目前 = 被客户报案的地址） */
+        var who2 = k === 0 ? '<b class="sc-aptag bad">🚨 风险合约 · 被客户报案</b>' : our ? '<b class="sc-apsafe">✅ 本站合约 · 安全</b>' + (KNOWN[x.sp] ? " " + KNOWN[x.sp] : "") : off ? '<b class="sc-aptag off">🏛 官方合约</b> ' + esc(OFFICIAL[x.sp]) : KNOWN[x.sp] ? "<b>" + KNOWN[x.sp] + "</b>" : REG[x.sp] ? "<b>已登记的合约</b>" : '<b class="sc-aptag unk">❓ 未知合约</b>';
         var amt2 = x.all ? "这个合约里你所有的 NFT（域名 / 卡牌）" : x.v > (1n << 200n) ? "不限数量" : "最多 " + amt(x.v.toString(), x.dec);
-        return '<div class="sc-ap' + (k < 2 ? " unk" : our ? " safe" : "") + '"><div class="sc-apt"><span>能动你的 <b>' + esc(tok) + "</b></span><small>" + amt2 + '</small></div><div class="sc-apw">给了 ' + who2 + ' <span class="mono muted">' + short(x.sp) + "</span></div>" +
+        return '<div class="sc-ap' + (k === 0 ? " bad" : k === 1 ? " unk" : our ? " safe" : off ? " off" : "") + '"><div class="sc-apt"><span>能动你的 <b>' + esc(tok) + "</b></span><small>" + amt2 + '</small></div><div class="sc-apw">给了 ' + who2 + ' <span class="mono muted">' + short(x.sp) + "</span></div>" +
           (me ? '<button type="button" class="' + (k < 2 ? "nm-go" : "ghost") + ' sc-apx" data-apx="' + i + '">取消这个授权</button><p class="muted nm-st sc-aps"></p>' : "") + "</div>";
       }).join("") +
       (me ? '<p class="muted">给本站、官方合约的授权是平时交易要用的，取消后下次用到时钱包会让你重新授权一次，不影响资产。</p>' : '<p class="muted">用这个钱包连接本站后，每一条后面会出现「取消这个授权」按钮。</p>') +
@@ -1251,10 +1253,10 @@
         (function () {
           var z = t.to && t.to.hash ? t.to.hash.toLowerCase() : "";
           if (!z || !t.to.is_contract) return "";
-          if (FLAG[z]) return '<p class="sc-unk bad">⚠️ 这笔交易的对象是<b>被客户报案的地址</b>，请不要再和它打交道。</p>';
+          if (FLAG[z]) return '<p class="sc-unk bad">🚨 <b>风险合约</b>：这笔交易的对象是被客户报案的地址，请不要再和它打交道；给过它授权的，请到钱包页的「授权检查」里取消。</p>';
           if (OFFICIAL[z]) return '<p class="sc-unk ok">🏛 这是<b>官方合约</b>（在官方网站公布的合约名单里）。</p>';
           if (KNOWN[z] || REG[z]) return "";
-          return '<p class="sc-unk">⚠️ 这笔交易打交道的合约<b>不是本站的，也不在官方合约名单里</b>。不认识它的话请留意：别给不认识的合约授权，也别在它的页面上输入助记词。</p>';
+          return '<p class="sc-unk">❓ <b>未知合约</b>：这笔交易打交道的合约不是本站的，也不在官方合约名单里。不认识它的话请留意：别给未知合约授权，也别在它的页面上输入助记词。</p>';
         })() +
         (tt.length ? '<h3 class="lg-h3">🔁 这笔交易里币的流向</h3><div class="lg-flow">' + tt.map(function (x) {
           var tok = (x.token && x.token.address_hash || "").toLowerCase(), tld = tok === NAMES.ailgns ? "ailgns" : tok === NAMES.lgns ? "lgns" : "", id = x.total && x.total.token_id;

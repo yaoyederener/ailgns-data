@@ -5353,3 +5353,9 @@ html.lang-ko body { word-break: keep-all; }
 .sc-nftc img { width: 100%; height: auto; aspect-ratio: 975 / 1500; object-fit: cover; border-radius: 9px; display: block; margin-bottom: 4px; background: #e9e4f7; }
 .sc-ap.safe { border-color: #86efac; background: #f0fdf4; }
 .sc-apsafe { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #16a34a; color: #fff; font-size: 12.5px; }
+/* 授权清单四种标签 */
+.sc-aptag { display: inline-block; padding: 2px 8px; border-radius: 999px; color: #fff; font-size: 12.5px; }
+.sc-aptag.off { background: #7c5cd6; } .sc-aptag.unk { background: #ea580c; } .sc-aptag.bad { background: #dc2626; }
+.sc-ap.off { border-color: #d6c8fa; background: #f6f2ff; }
+.sc-ap.bad { border-color: #f87171; background: #fef2f2; }
+.sc-apdanger { margin: 10px 0; padding: 12px; border-radius: 12px; background: #dc2626; color: #fff; font-size: 14.5px; line-height: 1.6; }
