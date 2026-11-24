@@ -5264,7 +5264,8 @@ html.lang-ko body { word-break: keep-all; }
 .wkb-clc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
 .wkb-clb { display: block; min-width: 0; padding: 9px 10px; border-radius: 12px; border: 1.5px solid #f5d58a; background: #fff; color: #3b2a70; text-align: left; font: inherit; cursor: pointer; }
 .wkb-clb b { display: block; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wkb-clb small { display: block; margin-top: 2px; font-size: 12px; color: #8a6a1c; }
+.wkb-clb small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.45; color: #8a6a1c; white-space: normal; }
+.wkb-clb { white-space: normal; overflow: hidden; }
 .wkb-clgo { width: 100%; margin: 0; }
 .wkb-pays li.wkb-flash { outline: 3px solid #f5b942; outline-offset: 3px; border-radius: 10px; background: #fff7e0; transition: background .3s; }
 .wkb-pays li { scroll-margin-top: 150px; }
