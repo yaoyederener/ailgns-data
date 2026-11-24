@@ -24,7 +24,7 @@
     // 官方 AiLGNS/LGNS 流动性凭证（LP，Anubis 链，18 位小数；站长 2026-11-24：客户加了流动性拆不开，要能直接卖 LP）。
     // LP 现在谁也拆不开（官方 AiLGNS 合约不让池子把 AiLGNS 转给普通钱包），DEX 上也没有 LP 的报价：参考价按「里面含的币去 DEX 卖出到手」折算，见 lpValue
     lp: { sym: "LP", chain: "anubis", chainName: "Anubis", otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", /* 站长 2026-11-24 部署，区块 19978379；代码和 gLGNS 那份逐字节一致（只换了币地址），链上核过 */ token: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", dai: ANUBIS_DAI, dec: 18, pd: 0, qd: 8,
-      explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 1, dexBuy: 1, dexName: "参考价", eg: [0.0002, 500000], lp: true, full: "AiLGNS/LGNS 流动性 LP" },
+      explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 1, dexBuy: 1, dexName: "参考价", eg: [0.0002, 500000], lp: true, full: "AiLGNS-LGNS 的 LP" } /* full：列表里写清楚是哪个池子的 LP（站长 2026-11-24） */,
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
@@ -555,7 +555,7 @@
       // 站长 2026-11-19：点 gLGNS / Polygon LGNS 要和点 AiLGNS 一样「跳过去」。以前选了「更多」里的币，这张列表会一直摊开压在盘口上面，看着像没跳。
       // 现在选完就收起，这一行变成一个高亮的小牌子写着「正在看：哪个币」，下面直接就是它的盘口；想换币再点这一行
       (rest.length ? '<details class="mkt-more' + (restOn ? " on" : "") + '" id="mkl"><summary>' +
-        (restOn ? '<span class="mkt-cur">' + (MK_ICON[MK] ? '<img src="' + MK_ICON[MK] + '" alt="">' : "") + "<b>正在看：" + M.sym + "</b><small>" + M.chainName + " 链</small></span><span>换币种</span>"
+        (restOn ? '<span class="mkt-cur">' + (MK_ICON[MK] ? '<img src="' + MK_ICON[MK] + '" alt="">' : "") + "<b>正在看：" + M.sym + "</b><small>" + (M.full ? M.full + " · " : "") + M.chainName + " 链</small></span><span>换币种</span>"
           : "更多币种（共 " + MKEYS.length + " 个 · " + rest.map(function (k) { return MARKETS[k].sym + (MARKETS[k].chain === "polygon" ? " · Polygon" : ""); }).join("、") + "）") +
         "</summary>" + marketList(swapOn) + "</details>" : "");
   }
@@ -576,7 +576,7 @@
     if (!keys.length) return '<p class="mkl-none">没有找到这个币种。想上新币可以点右下角「客服」留言。</p>';
     return keys.map(function (k) {
       var m = MARKETS[k], x = d[k], on = k === MK && !swapOn;
-      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + (MK_ICON[k] ? '<img src="' + MK_ICON[k] + '" alt=""' + (m.nft ? ' class="fit"' : "") + ">" : "") + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
+      return '<a class="mkl-r' + (on ? " on" : "") + '" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + (MK_ICON[k] ? '<img src="' + MK_ICON[k] + '" alt=""' + (m.nft ? ' class="fit"' : "") + ">" : "") + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + (m.full ? mklEsc(m.full) + " · " : "") + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
         '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : '<small>暂无成交</small>') + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) + (x.more ? "+" : "") : "<small>—</small>") + "</span></a>";
     }).join("");
   }
