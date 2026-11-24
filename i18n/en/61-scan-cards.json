@@ -14,5 +14,10 @@
 "🃏 账本新增「我的卡牌」：买了 AWAKE NFT 卡牌在钱包 App 里看不到的，打开账本输入钱包地址，「账户余额」下面就列着你买到的卡牌编号（直接读链上，刚买完就能看到）。": "🃏 The Ledger now has “My cards”: if an AWAKE NFT card you bought does not show in your wallet app, open the Ledger and enter your wallet address. The card numbers are listed right under “Balance” (read from the chain, visible right after purchase).",
 "，对方挂单价 {0}": ", maker's listed price {0}",
 "吃单方付 {0}% 手续费（从买到的币里扣），算下来每枚合 {1}；挂单方不付手续费。": "The taker pays the {0}% fee (deducted from the coins received), which works out to {1} per coin. The maker pays no fee.",
-"吃单方付 {0}% 手续费（从收到的 DAI 里扣），算下来每枚合 {1}；挂单方不付手续费。": "The taker pays the {0}% fee (deducted from the DAI received), which works out to {1} per coin. The maker pays no fee."
+"吃单方付 {0}% 手续费（从收到的 DAI 里扣），算下来每枚合 {1}；挂单方不付手续费。": "The taker pays the {0}% fee (deducted from the DAI received), which works out to {1} per coin. The maker pays no fee.",
+"💼 押在别处的": "💼 Held elsewhere",
+"官方质押 · {0} 天": "Official staking · {0} days",
+"官方流动性池 · 押着的 LP": "Official liquidity pool · staked LP",
+"不在钱包里": "not in the wallet",
+"这些币押在官方合约里，上面的「账户余额」没有算它们。要用的话先到官方页面取回。": "These coins are held in official contracts and are not counted in the balance above. Withdraw them on the official page before using them."
 }

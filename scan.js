@@ -579,6 +579,35 @@
   }
   // 🃏 卡牌 / NFT 显示框：AWAKE 卡牌直接读链（刚买完马上就有，不等官方浏览器收录），其它 NFT 用浏览器接口的结果；域名另有一栏，不在这里重复
   var AWAKE = "0x58839f46bd0e3f4494e2beb8ca93da9352208615", CARD_MAX = 60;
+  /* 💼 押在别处的（站长 2026-11-25：账本只算钱包里的币，客户押在官方的看不到，以为钱没了 / 以为自己够门槛，工单 #447）。
+     只读链上，不动钱。三处：官方 LGNS 质押 360 天、600 天两个合约（getDepositorBalance），官方流动性池里押着的 AiLGNS-LGNS LP（lpOf，按池子存量折成两种币）。
+     哪一处读不到就不显示那一行（不当成 0 写出来）；三处都没有就整块不显示。折算用的价和上面余额是同一个（池子标价），只是「大约」 */
+  var AWAY = { s360: "0x88ea98af226cd4402a3873400308a4d78784ece6", s600: "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", lpMgr: "0x5ddc8a13eabda89593beb885ab8b2afda26a3587", lp: "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2" };
+  function awayBox(a, px, fb) {
+    var big = function (h) { return h && h.length >= 66 ? BigInt(h) : null; }, soft = function (pr) { return pr.then(big, function () { return null; }); };
+    Promise.all([
+      soft(call(AWAY.s360, "0xb79215d6" + u256(a))), soft(call(AWAY.s600, "0xb79215d6" + u256(a))),
+      soft(call(AWAY.lpMgr, "0x963fdeb3" + u256(AWAY.lp) + u256(a))),
+      call(AWAY.lp, "0x0902f1ac").catch(function () { return null; }), soft(call(AWAY.lp, "0x18160ddd"))
+    ]).then(function (r) {
+      var card = document.querySelector(".sc-balc"), old = el("sc-away"); if (old) old.remove();
+      if (!card) return;
+      var rows = [], sum = 0;
+      var lg = function (v, name) { if (v === null || v <= 0n) return; var n = Number(v) / 1e9; if (n < 0.01) return; var w = n * (px.LGNS || 0); sum += w; rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lgns.png?v=1" alt="">' + name + "</span><b>" + fb(n) + " LGNS</b>" + (w ? "<small>≈ " + fb(w) + " DAI</small>" : "") + "</div>"); };
+      lg(r[0], "官方质押 · 360 天"); lg(r[1], "官方质押 · 600 天");
+      if (r[2] !== null && r[2] > 0n && r[3] && r[3].length >= 130 && r[4] !== null && r[4] > 0n) {
+        var ONE = 10n ** 18n, r0 = BigInt("0x" + r[3].slice(2, 66)), r1 = BigInt("0x" + r[3].slice(66, 130));
+        var ail = Number(r0 * r[2] / r[4]) / 1e18, lgn = Number(r1 * r[2] / r[4]) / 1e9, w2 = ail * (px.AiLGNS || 0) + lgn * (px.LGNS || 0);
+        if (ail > 1e-6 || lgn > 0.01) {
+          sum += w2;
+          rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lp.png?v=2" alt="">官方流动性池 · 押着的 LP</span><b>' + fb(Number(r[2] * 100000000n / ONE) / 1e8) + " 个</b><small>里面含 " + fb(ail) + " AiLGNS + " + fb(lgn) + " LGNS" + (w2 ? "，≈ " + fb(w2) + " DAI" : "") + "</small></div>");
+        }
+      }
+      if (!rows.length) return;
+      card.insertAdjacentHTML("beforeend", '<div class="sc-away" id="sc-away"><div class="sc-awh"><b>💼 押在别处的</b><span class="muted">' + (sum ? "约 " + fb(sum) + " DAI · " : "") + "不在钱包里</span></div>" + rows.join("") +
+        '<p class="muted sc-awn">这些币押在官方合约里，上面的「账户余额」没有算它们。要用的话先到官方页面取回。</p></div>');
+    }).catch(function () { /* 读不到就不显示，不影响别的 */ });
+  }
   function awakeCards(a) {
     return call(AWAKE, "0x70a08231" + u256(a)).then(function (h) {
       var n = Number(BigInt(h || "0x0")), idx = [];
@@ -973,9 +1002,10 @@
       var have = main.map(function (k) { var v = num[k] || 0; return { k: k, v: v, worth: k === "DAI" ? v : v * (px[k] || 0) }; }).filter(function (c) { return c.v > 0; }).sort(function (x, y) { return y.worth - x.worth; }); // 站长 2026-11-07：为 0 的不显示，有钱的高亮、按价值排
       box.className = "sc-bal sc-n" + Math.min(have.length, 3);
       box.innerHTML = have.length ? have.map(function (c, i) {
-        return '<div class="sc-coin sc-has' + (i === 0 ? " sc-top" : "") + '"><span>' + c.k + (c.k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(c.v) + "</b>" + (c.k !== "DAI" ? "<small>≈ " + fb(c.worth) + " DAI</small>" : "") + "</div>";
+        return '<div class="sc-coin sc-has' + (i === 0 ? " sc-top" : "") + '"><span><img class="sc-ci" src="icons/tokens/' + c.k.toLowerCase() + '.png?v=1" alt="">' + c.k + (c.k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(c.v) + "</b>" + (c.k !== "DAI" ? "<small>≈ " + fb(c.worth) + " DAI</small>" : "") + "</div>";
       }).join("") : '<div class="sc-coin sc-zero"><span>AiLGNS · LGNS · DAI</span><b>0</b></div>';
       var sum = el("sc-balsum"); if (sum) sum.textContent = total ? "一共约 " + fb(total) + " DAI" : "这个钱包现在没有钱";
+      awayBox(a, px, fb);
       var bx = el("sc-balx"); if (bx) bx.innerHTML = others.length ? '<p class="muted sc-others">其它：' + others.sort(function (x, y) { return y.v - x.v; }).slice(0, 8).map(function (o) { return esc(o.sym) + " " + amt(String(Math.round(o.v * 1e6)), 6); }).join(" · ") + "</p>" : "";
     });
     var nftJob = allNfts(a);
