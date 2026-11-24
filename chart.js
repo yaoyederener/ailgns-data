@@ -94,8 +94,8 @@
     var C = COINS[k], m = mem[k] || {}, d = m.dex, day = m.day, el;
     if ((el = document.getElementById("cht-px"))) el.innerHTML = "<b>" + (d ? num(d.px, C.pd) : "—") + "</b>" + chgHtml(day ? day.chg : null) + '<small>DAI · 24 小时</small>';
     if ((el = document.getElementById("cht-st"))) el.innerHTML =
-      cell("24 小时最高", day && day.full ? num(day.hi, C.pd) : "—") + cell("24 小时最低", day && day.full ? num(day.lo, C.pd) : "—") + cell("24 小时成交额", day && day.full ? big(day.vol) + " DAI" : "—") +
-      cell("池子资金", d ? big(d.liq) + " DAI" : "—") + cell("持币地址", d && d.info ? big(d.info.holders) : "—") + cell("发行总量", d && d.info ? big(d.info.supply) : "—");
+      cell("24 小时最高", day && day.full ? num(day.hi, C.pd) : "—") + cell("24 小时最低", day && day.full ? num(day.lo, C.pd) : "—") + cell("24 小时成交额（DAI）", day && day.full ? big(day.vol) : "—") +
+      cell("池子资金（DAI）", d ? big(d.liq) : "—") + cell("持币地址", d && d.info ? big(d.info.holders) : "—") + cell("发行总量", d && d.info ? big(d.info.supply) : "—");
     if ((el = document.getElementById("cht-lag"))) el.textContent = day && !day.full ? "K 线历史还在补读，24 小时数据补齐后显示。" : "";
     if ((el = document.getElementById("cht-pool"))) el.innerHTML = d ? "<span>池子里现在有：</span><b>" + big(d.coin) + " " + esc(C.sym) + "</b> + <b>" + big(d.dai) + " DAI</b>" + (C.tax ? "<br><span>LGNS 在 DEX 卖出要扣手续费（比例会变），实际到手比标价少，卖之前可以先看看本站 OTC 的买单。</span>" : "") : "";
     if ((el = document.getElementById("cht-tr"))) {
