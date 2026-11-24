@@ -695,13 +695,19 @@
   /* 💼 押在别处的（站长 2026-11-25：账本只算钱包里的币，客户押在官方的看不到，以为钱没了 / 以为自己够门槛，工单 #447）。
      只读链上，不动钱。三处：官方 LGNS 质押 360 天、600 天两个合约（getDepositorBalance），官方流动性池里押着的 AiLGNS-LGNS LP（lpOf，按池子存量折成两种币）。
      哪一处读不到就不显示那一行（不当成 0 写出来）；三处都没有就整块不显示。折算用的价和上面余额是同一个（池子标价），只是「大约」 */
-  var AWAY = { s360: "0x88ea98af226cd4402a3873400308a4d78784ece6", s600: "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", lpMgr: "0x5ddc8a13eabda89593beb885ab8b2afda26a3587", lp: "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2" };
+  var AWAY = { s360: "0x88ea98af226cd4402a3873400308a4d78784ece6", s600: "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", lpMgr: "0x5ddc8a13eabda89593beb885ab8b2afda26a3587", lp: "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2",
+    ilo: "0x4ff8e905ab40ed18355b0b2c0dfae8213d5d8d90", ido: "0x5e6d77f8071642561c999e97c1022108b8d5de57" };
   function awayBox(a, px, fb) {
     var big = function (h) { return h && h.length >= 66 ? BigInt(h) : null; }, soft = function (pr) { return pr.then(big, function () { return null; }); };
     Promise.all([
       soft(call(AWAY.s360, "0xb79215d6" + u256(a))), soft(call(AWAY.s600, "0xb79215d6" + u256(a))),
       soft(call(AWAY.lpMgr, "0x963fdeb3" + u256(AWAY.lp) + u256(a))),
-      call(AWAY.lp, "0x0902f1ac").catch(function () { return null; }), soft(call(AWAY.lp, "0x18160ddd"))
+      call(AWAY.lp, "0x0902f1ac").catch(function () { return null; }), soft(call(AWAY.lp, "0x18160ddd")),
+      /* 站长 2026-11-25：「我账户里还有 ILO 共建代币，没有扫出来」。ILO 共建不是代币，是官方 ILO 合约里的参与记录（投了多少、奖励释放了多少、还能领多少），
+         按代币扫不到，要直接问合约：getUserDeposits(address) 每笔 9 个数（DAI 等值、LGNS 数量、LP、价格、时间、期数、总奖励、已领、模式），
+         getUserRewardSummary(address) = 奖励总值（DAI）、已释放、已领、现在可领（后三个是 LGNS，9 位小数）。官方 IDO 认购只读投入总额 totalDaiDeposited(address) */
+      call(AWAY.ilo, "0x2a5bf6d2" + u256(a)).catch(function () { return null; }), call(AWAY.ilo, "0xc5d304e9" + u256(a)).catch(function () { return null; }),
+      soft(call(AWAY.ido, "0xde4a534e" + u256(a)))
     ]).then(function (r) {
       var card = document.querySelector(".sc-balc"), old = document.getElementById("sc-away"); if (old) old.remove();
       if (!card) return;
@@ -716,9 +722,22 @@
           rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lp.png?v=2" alt="">官方流动性池 · 押着的 LP</span><b>' + fb(Number(r[2] * 100000000n / ONE) / 1e8) + " 个</b><small>里面含 " + fb(ail) + " AiLGNS + " + fb(lgn) + " LGNS" + (w2 ? "，≈ " + fb(w2) + " DAI" : "") + "</small></div>");
         }
       }
+      try { // ILO 共建
+        var W = function (h) { return (h || "0x").slice(2).match(/.{64}/g) || []; }, dw = W(r[5]), sw = W(r[6]);
+        var cnt = dw.length > 1 ? Number(BigInt("0x" + dw[1])) : 0;
+        if (cnt > 0 && cnt < 500 && dw.length >= 2 + cnt * 9) {
+          var dai = 0, lg2 = 0;
+          for (var i = 0; i < cnt; i++) { dai += Number(BigInt("0x" + dw[2 + i * 9])) / 1e18; lg2 += Number(BigInt("0x" + dw[3 + i * 9])) / 1e9; }
+          var rel = sw.length >= 4 ? Number(BigInt("0x" + sw[1])) / 1e9 : null, got = sw.length >= 4 ? Number(BigInt("0x" + sw[2])) / 1e9 : null, can = sw.length >= 4 ? Number(BigInt("0x" + sw[3])) / 1e9 : null;
+          if (can) sum += can * (px.LGNS || 0);
+          rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lgns.png?v=1" alt="">官方 ILO 共建 · ' + cnt + " 笔</span><b>投入 " + fb(lg2) + " LGNS</b><small>投入时约 " + fb(dai) + " DAI" +
+            (rel !== null ? " · 奖励已释放 " + fb(rel) + " LGNS，已领 " + fb(got) + "，现在可领 " + fb(can) : "") + "</small></div>");
+        }
+      } catch (e) { /* 这一行读不懂就不显示 */ }
+      if (r[7] !== null && r[7] > 0n) { var idoDai = Number(r[7]) / 1e18; if (idoDai >= 0.01) rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/dai.png?v=1" alt="">官方 IDO 认购</span><b>投入 ' + fb(idoDai) + " DAI</b><small>释放和领取进度请到官方页面查看</small></div>"); }
       if (!rows.length) return;
       card.insertAdjacentHTML("beforeend", '<div class="sc-away" id="sc-away"><div class="sc-awh"><b>💼 押在别处的</b><span class="muted">' + (sum ? "约 " + fb(sum) + " DAI · " : "") + "不在钱包里</span></div>" + rows.join("") +
-        '<p class="muted sc-awn">这些币押在官方合约里，上面的「账户余额」没有算它们。要用的话先到官方页面取回。</p></div>');
+        '<p class="muted sc-awn">这些在官方合约里，上面的「账户余额」没有算它们。质押和 LP 要到官方页面取回才能用；ILO、IDO 是参与记录，「约值」只算了现在可领的奖励，本金怎么处理以官方规则为准。</p></div>');
     }).catch(function () { /* 读不到就不显示，不影响别的 */ });
   }
   /* 🔑 授权检查 + 一键取消（站长 2026-11-25：「让客户知道账户有哪些授权是很好的，出个一键取消授权功能」）。

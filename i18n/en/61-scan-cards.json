@@ -43,5 +43,9 @@
 "给本站、官方合约的授权是平时交易要用的，取消后下次用到时钱包会让你重新授权一次，不影响资产。": "Approvals to this site and official contracts are needed for normal trading. If you revoke one, your wallet will ask you to approve again next time; your assets are not affected.",
 "用这个钱包连接本站后，每一条后面会出现「取消这个授权」按钮。": "Connect this wallet to the site and a Revoke button appears on each item.",
 "✅ 本站合约 · 安全": "✅ This site's contract · safe",
-"已登记的合约": "Registered contract"
+"已登记的合约": "Registered contract",
+"官方 ILO 共建 · {0} 笔": "Official ILO · {0} deposit(s)",
+"官方 IDO 认购": "Official IDO subscription",
+"释放和领取进度请到官方页面查看": "See the official page for vesting and claims",
+"这些在官方合约里，上面的「账户余额」没有算它们。质押和 LP 要到官方页面取回才能用；ILO、IDO 是参与记录，「约值」只算了现在可领的奖励，本金怎么处理以官方规则为准。": "These sit in official contracts and are not counted in the balance above. Staked coins and LP must be withdrawn on the official page before use. ILO and IDO are participation records: the estimate only counts rewards claimable now; how the principal is handled follows the official rules."
 }
