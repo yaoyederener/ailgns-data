@@ -5348,3 +5348,8 @@ html.lang-ko body { word-break: keep-all; }
 .sc-apunk { color: #c2410c; } .sc-apbad { color: #b91c1c; }
 .sc-apx { margin-top: 8px; width: 100%; padding: 10px; }
 .sc-aps { margin: 4px 0 0; } .sc-aps:empty { display: none; }
+/* 账本：卡牌用官方卡面；授权清单里本站合约高亮 */
+.sc-nftc { padding: 6px 6px 8px; }
+.sc-nftc img { width: 100%; height: auto; aspect-ratio: 975 / 1500; object-fit: cover; border-radius: 9px; display: block; margin-bottom: 4px; background: #e9e4f7; }
+.sc-ap.safe { border-color: #86efac; background: #f0fdf4; }
+.sc-apsafe { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #16a34a; color: #fff; font-size: 12.5px; }
