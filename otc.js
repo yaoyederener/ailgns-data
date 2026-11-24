@@ -25,16 +25,22 @@
     // LP 现在谁也拆不开（官方 AiLGNS 合约不让池子把 AiLGNS 转给普通钱包），DEX 上也没有 LP 的报价：参考价按「里面含的币去 DEX 卖出到手」折算，见 lpValue
     lp: { sym: "LP", chain: "anubis", chainName: "Anubis", otc: "0xfeeaa5f8a104836d15b492399b2ea587a41c4771", /* 站长 2026-11-24 部署，区块 19978379；代码和 gLGNS 那份逐字节一致（只换了币地址），链上核过 */ token: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", dai: ANUBIS_DAI, dec: 18, pd: 0, qd: 8,
       explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 1, dexBuy: 1, dexName: "参考价", eg: [0.0002, 500000], lp: true, full: "AiLGNS-LGNS 的 LP" } /* full：列表里写清楚是哪个池子的 LP（站长 2026-11-24） */,
+    /* RM（Rome，Anubis 链，9 位小数；群里叫「斯巴达」）。站长 2026-11-25 定：开 OTC 市场，放「更多币种」冷启动、不宣传。
+       第三方项目的币，不是本站也不是 AWAKE 官方的；可升级合约，发行方随时能改规则 → 页面顶上有风险说明（third）。
+       DEX 上只有 RM/USDT 池子深（约 3,700 万 U），参考价读它：USDT 是 6 位小数（qdec），USDT ≈ DAI。DEX 卖出扣约 18% 税（只看过一笔，可能因人而异）→ dexSell = 0.82 × 0.997 */
+    rm: { sym: "RM", chain: "anubis", chainName: "Anubis", otc: "", token: "0x2e045e1380f5f5b6e7550328910a7377c9fce59d", dai: ANUBIS_DAI, dec: 9, pd: 2,
+      pair: "0x8cbabf4e076baaad295fd32b3249e7f9d812b9c5", pairDai: 1, qdec: 6, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.8175, dexBuy: 1.003, dexName: " DEX", eg: [10, 27], third: true, full: "Rome",
+      dexNote: "RM 在 DEX 卖出要扣约 18% 的税（按最近的卖单估的，可能因人而异），买入不扣。" },
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns", "lp"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
+  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns", "lp", "rm"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
   var RETIRED = {}; // 下架的市场（前端不显示、不接新单，只留给有老挂单的客户撤单）。gLGNS 2026-11-10 下架过，2026-11-19 站长说客户还是要，放回来了
-  var MK_NEW = { glgns: 1, lp: 1 }; // 市场列表里挂「新上架」的
+  var MK_NEW = { glgns: 1, lp: 1, rm: 1 }; // 市场列表里挂「新上架」的
   // 市场列表里的币种图标（站长 2026-11-19：加上官方 logo）。AiLGNS / LGNS / gLGNS 取自官方区块浏览器 browser.anubispace.org 的代币图标，缩成 96 像素；
   // 卡牌没有官方图标，用 AWAKE HELIX 的标志。图片读不出来时，底下的字母还在
-  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1", lp: "icons/tokens/lp.png?v=2" /* LP：AiLGNS + LGNS 两个官方图标叠在一起，本站自己拼的 */ };
+  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1", rm: "icons/tokens/rm.png?v=1", lp: "icons/tokens/lp.png?v=2" /* LP：AiLGNS + LGNS 两个官方图标叠在一起，本站自己拼的 */ };
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -396,6 +402,12 @@
     if (!b) return;
     try { lpRdClick(b.getAttribute("data-lprd")); } catch (x) { /* 按钮出错不能影响页面别的地方 */ }
   });
+  // 第三方项目的币（RM）：页面顶上的说明。只写事实，不评价项目
+  function thirdCard() {
+    return '<section class="card lpv"><div class="card-head"><h2>ℹ️ 关于 ' + SYM + '</h2></div>' +
+      "<p><b>" + SYM + " 在 DEX 卖出要扣约 18% 的税，在这里成交只收 1% 手续费</b>（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。</p>" +
+      '<p class="lpv-warn">⚠️ ' + SYM + " 是第三方项目的代币，<b>不是本站发行的，也不是 AWAKE 官方的</b>。它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。本站只提供担保交易这个工具，买不买请自己判断。</p></section>";
+  }
   function lpCardHtml(q) {
     /* 站长 2026-11-24：「531,176」加一句「0.0002 个约 106 DAI」，他下意识算成 531 × 0.0002 = 0.1 DAI。
        改成：大数用「万」写（53.12 万，不会把逗号看成小数点）；举例换成三档对照表，手里有多少一眼对上 */
@@ -420,7 +432,7 @@
     });
   }
   function priceFromReserves(h) {
-    var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
+    var dai = Number(A.word(h, M.pairDai)) / Math.pow(10, M.qdec || 18), tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD); // qdec：池子另一边不是 DAI 而是 USDT（6 位小数）时用
     return dai / tok;
   }
   // 每枚挂单币的 DAI 价格
@@ -1151,7 +1163,7 @@
     if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
     if (!OTC) {
       app.innerHTML = placeTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
-        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>' + (M.lp ? lpCard() + lpSteps() : "");
+        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>' + (M.lp ? lpCard() + lpSteps() : M.third ? thirdCard() : "");
       return;
     }
     // 有上次存下的订单簿就先画出来（秒开），拿到最新的再换；用户已经在填表或开着吃单弹窗时不打断
@@ -1290,7 +1302,7 @@
       var acts = '<div class="otc-acts" hidden><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = placeTabs() + (M.lp ? lpCard() + lpSteps() : "") + acts + '<div class="otc-top"><a class="ot-sw" href="#/scan/' + (account || "~") + '/otc">订单查询</a>' + (MK === "ailgns" || MK === "lgns" ? '<a class="ot-sw" href="#/trade' + (MK === "lgns" ? "/lgns" : "") + '">盘口</a>' : "") + // 站长 2026-11-09 晚：三个按钮 订单查询 / 一键扫单 / 盘口（挂单、做市在上面四步引导卡里）
+      var html = placeTabs() + (M.lp ? lpCard() + lpSteps() : M.third ? thirdCard() : "") + acts + '<div class="otc-top"><a class="ot-sw" href="#/scan/' + (account || "~") + '/otc">订单查询</a>' + (MK === "ailgns" || MK === "lgns" ? '<a class="ot-sw" href="#/trade' + (MK === "lgns" ? "/lgns" : "") + '">盘口</a>' : "") + // 站长 2026-11-09 晚：三个按钮 订单查询 / 一键扫单 / 盘口（挂单、做市在上面四步引导卡里）
      '' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
         (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';

@@ -45,5 +45,11 @@
 "官方 AiLGNS/LGNS 的流动性（LP）目前拆不开，这是官方代币合约的规则，任何网站都拆不了。想变现可以把 LP 整个卖掉：① 打开本站 OTC →「更多币种」→ LP（ailgns.dev/#/otc/lp），点「⚡ 一键取回我的 LP」，官方扣 5%，剩下 95% 的 LP 回到你钱包（拿回来的还是 LP，不是币；也可以去官方网站 awakehelix.io「流动性」页点「移除」，效果一样）；② 在同一页挂卖单等人买，或者直接卖给现有的买单，成交后 DAI 到你钱包。页面顶上有「1 个 LP 大约值多少」的参考价，只是参考，实际卖多少看买家出价。成交手续费 1% 由吃单方付。有人私聊说能帮你拆 LP 的都是骗子。": "The official AiLGNS/LGNS liquidity (LP) cannot be split right now. That is a rule of the official token contract and no website can split it. To cash out you can sell the LP itself: 1) open OTC, More markets, LP (ailgns.dev/#/otc/lp) and tap the one-tap button to get your LP back; the official protocol keeps 5% and 95% returns to your wallet (as LP, not tokens; removing it on the official site awakehelix.io does the same); 2) on the same page place a sell order, or sell into an existing buy order; DAI arrives in your wallet when filled. The page shows a reference value for 1 LP; it is only a guide, the real price depends on buyers. The 1% trading fee is paid by the taker. Anyone messaging you privately offering to split LP is a scammer.",
 "1 个 LP 很值钱，大家手里一般只有零点零零几个。对照下面看你的值多少：": "One LP is worth a lot, so most people hold only a tiny fraction of one. Use the table below to see what yours is worth:",
 " 万": " ×10k",
-"{0} 个 LP": "{0} LP"
+"{0} 个 LP": "{0} LP",
+"ℹ️ 关于 RM": "ℹ️ About RM",
+"RM 在 DEX 卖出要扣约 {0}% 的税，在这里成交只收 {1}% 手续费": "Selling RM on the DEX costs about {0}% in tax; trades here cost a {1}% fee",
+"（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。": " (paid by the taker). The seller's coins sit in the escrow contract and the buyer pays DAI; the swap happens in one transaction. Cancel any time before it fills and the coins come back as they were.",
+"⚠️ RM 是第三方项目的代币，": "⚠️ RM is a third-party project's token, ",
+"不是本站发行的，也不是 AWAKE 官方的": "not issued by this site and not an official AWAKE token",
+"。它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。本站只提供担保交易这个工具，买不买请自己判断。": ". Its contract can be upgraded and its rules changed by the issuer; this site cannot control that and gives no guarantee for this token. We only provide the escrow trading tool. Decide for yourself whether to buy."
 }
