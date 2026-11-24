@@ -826,7 +826,7 @@
     if (A.hidden && A.hidden[String(a).toLowerCase()]) return;
     Promise.all([awakeCards(a).catch(function () { return null; }), nftJob.catch(function () { return { items: [] }; })]).then(function (r) {
       var box = el("sc-cards"); if (!box || !el("sc-cardc")) return;
-      var aw = r[0], other = ((r[1] && r[1].items) || []).filter(function (n) { var t = ((n.token || {}).address_hash || "").toLowerCase(); return t && t !== NAMES.ailgns && t !== NAMES.lgns && t !== AWAKE; });
+      var aw = r[0], other = ((r[1] && r[1].items) || []).filter(function (n) { var t = ((n.token || {}).address_hash || "").toLowerCase(); return t && t !== NAMES.ailgns && t !== NAMES.lgns && t !== AWAKE && OFFICIAL[t]; }); /* 站长 2026-11-25：这一栏只展示官方的（卡牌、官方发的其它 NFT / 徽章）；本站域名在下面「域名」那一栏。来历不明的 NFT 不显示——谁都能往别人钱包里塞 NFT，骗子常用这招引人去点 */
       var total = (aw ? aw.n : 0) + other.length, me = isMe(a);
       if (!total && !me) return; // 别人的钱包没有卡牌：不显示这一栏
       sec.hidden = false;
@@ -834,7 +834,7 @@
       if (!aw && !other.length) { box.innerHTML = '<p class="muted">卡牌暂时没读出来，刷新一下再看。</p>'; return; }
       if (!total) { box.innerHTML = '<p class="muted">这个钱包里现在没有卡牌。刚买的等几秒刷新一下；正在挂单出售的卡托管在市场里，卖掉或撤单前不在钱包。<a href="#/otc/nft">去卡牌市场 →</a></p>'; return; }
       var tiles = (aw ? aw.ids : []).map(function (id) { return '<a class="sc-nft sc-nftc" href="#/otc/nft"><img src="icons/nft/awake-card.jpg?v=1" alt="AWAKE 卡牌" width="130" height="200"><b>#' + esc(id) + "</b><small>AWAKE 卡牌</small></a>"; }) /* 图是官方网站「我的 NFT」里用的那张卡面（官方每张卡都显示同一张图，合约里没有单独的图片） */
-        .concat(other.slice(0, CARD_MAX).map(function (n) { return '<span class="sc-nft"><i>🖼</i><b>#' + esc(String(n.id).slice(0, 10)) + "</b><small>" + esc((n.token.symbol || n.token.name || "NFT").slice(0, 14)) + "</small></span>"; }));
+        .concat(other.slice(0, CARD_MAX).map(function (n) { return '<span class="sc-nft"><i>🖼</i><b>#' + esc(String(n.id).slice(0, 10)) + "</b><small>🏛 " + esc(String(OFFICIAL[(n.token.address_hash || "").toLowerCase()] || n.token.symbol || "官方 NFT").slice(0, 14)) + "</small></span>"; }));
       var more = total - tiles.length;
       box.innerHTML = '<div class="sc-nfts">' + tiles.join("") + "</div>" + (more > 0 ? '<p class="muted">还有 ' + more + " 张没列出</p>" : "") +
         (aw && aw.n ? '<p class="muted sc-nftn">卡牌就在这个钱包里，钱包 App 不一定显示，以这里（链上）为准。</p>' : "");
