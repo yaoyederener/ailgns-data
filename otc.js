@@ -21,13 +21,17 @@
     glgns: { sym: "gLGNS", chain: "anubis", chainName: "Anubis", otc: "0x2b0ab121d60f823fffc4cef75af26055df388e2b", token: "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c", dai: ANUBIS_DAI, dec: 18, pd: 2,
       pair: "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.997, dexBuy: 1.003, dexName: " DEX", eg: [0.1, 83000],
       flat: true }, // DEX 不扣税、价差不到 1%：指导价就是市价，不算「比 DEX 多拿多少」
+    // 官方 AiLGNS/LGNS 流动性凭证（LP，Anubis 链，18 位小数；站长 2026-11-24：客户加了流动性拆不开，要能直接卖 LP）。
+    // LP 现在谁也拆不开（官方 AiLGNS 合约不让池子把 AiLGNS 转给普通钱包），DEX 上也没有 LP 的报价：参考价按「里面含的币去 DEX 卖出到手」折算，见 lpValue
+    lp: { sym: "LP", chain: "anubis", chainName: "Anubis", otc: "", token: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", dai: ANUBIS_DAI, dec: 18, pd: 0, qd: 8,
+      explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 1, dexBuy: 1, dexName: "参考价", eg: [0.0002, 500000], lp: true, full: "AiLGNS/LGNS 流动性 LP" },
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
+  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns", "lp"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
   var RETIRED = {}; // 下架的市场（前端不显示、不接新单，只留给有老挂单的客户撤单）。gLGNS 2026-11-10 下架过，2026-11-19 站长说客户还是要，放回来了
-  var MK_NEW = { glgns: 1 }; // 市场列表里挂「新上架」的
+  var MK_NEW = { glgns: 1, lp: 1 }; // 市场列表里挂「新上架」的
   // 市场列表里的币种图标（站长 2026-11-19：加上官方 logo）。AiLGNS / LGNS / gLGNS 取自官方区块浏览器 browser.anubispace.org 的代币图标，缩成 96 像素；
   // 卡牌没有官方图标，用 AWAKE HELIX 的标志。图片读不出来时，底下的字母还在
   var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1" };
@@ -147,7 +151,7 @@
   function show(wei, d, dec) { return A.fmt(num(wei, dec), d === undefined ? 4 : d); }
   function tWei(str) { return toWei(str, TD); }
   function tNum(v) { return num(v, TD); }
-  function tShow(v, d) { return show(v, d, TD); }
+  function tShow(v, d) { return show(v, d === undefined && M && M.qd ? M.qd : d, TD); } // LP 这种 1 个值几十万的，数量默认多显示几位小数
   // 往下取到 d 位小数的字符串（填进输入框用，不会超过余额）
   function floorStr(v, d, dec) {
     var s = (v / 10n ** BigInt(dec - d)).toString().padStart(d + 1, "0");
@@ -288,7 +292,61 @@
     });
   }
   // DEX 市价：每枚挂单币值多少 DAI
-  function marketPrice() { return read(M.pair, "0x0902f1ac").then(priceFromReserves); }
+  function marketPrice() { return M.lp ? lpQuote().then(function (q) { return q.px; }) : read(M.pair, "0x0902f1ac").then(priceFromReserves); }
+  /* 1 个 LP 大约值多少 DAI（站长 2026-11-24：「价格估算要做好，不要出错」）。纯计算，不读链，数字全部由调用的人给：
+     resLp / supLp = LP 池子（AiLGNS 在前、LGNS 在后）的 getReserves、totalSupply 原始返回；resAil / resLgns = AiLGNS/DAI、LGNS/DAI 两个池子的 getReserves（都是币在前、DAI 在后）；
+     tax = LGNS 在 DEX 卖出实测扣费（0～1）。算法：1 个 LP 占池子的份额 × 池子里的币 = 里面含多少 AiLGNS、多少 LGNS（用整数算，不丢精度）；
+     再各自按「拿去 DEX 卖出实际到手」折成 DAI：AiLGNS 扣 3% + 池子 0.3%（×0.967），LGNS 扣实测税 + 池子 0.3%。任何一个数读不到、是 0、或者不合常理就返回 null，绝不凑一个数出来 */
+  function lpValue(resLp, supLp, resAil, resLgns, tax) {
+    try {
+      var w = function (h, i) { return BigInt("0x" + String(h).slice(2 + i * 64, 66 + i * 64)); };
+      var sup = BigInt(supLp), a0 = w(resLp, 0), l0 = w(resLp, 1), ra = w(resAil, 0), rad = w(resAil, 1), rl = w(resLgns, 0), rld = w(resLgns, 1);
+      if (sup <= 0n || a0 <= 0n || l0 <= 0n || ra <= 0n || rad <= 0n || rl <= 0n || rld <= 0n) return null;
+      if (!(tax >= 0.3 && tax <= 0.7)) return null; // 普通卖家的税常年在 45%～50%；读到 5% 那种白名单的数、或者离谱的数，一律不给价（税算低了 LP 会被高估）
+      var ONE = 10n ** 18n;
+      var ail = Number(a0 * ONE / sup) / 1e18, lgns = Number(l0 * ONE / sup) / 1e9; // 1 个 LP 里的 AiLGNS（18 位小数）、LGNS（9 位小数）
+      var pAil = (Number(rad) / 1e18) / (Number(ra) / 1e18), pLgns = (Number(rld) / 1e18) / (Number(rl) / 1e9); // 两个池子的标价（DAI / 枚）
+      var nAil = pAil * 0.967, nLgns = pLgns * (1 - tax) * 0.997; // 去 DEX 卖出的到手价
+      var vAil = ail * nAil, vLgns = lgns * nLgns, px = vAil + vLgns;
+      if (!(px > 0) || !isFinite(px)) return null;
+      return { px: px, ail: ail, lgns: lgns, pAil: nAil, pLgns: nLgns, vAil: vAil, vLgns: vLgns, tax: tax };
+    } catch (e) { return null; }
+  }
+  var LP_SRC = { ail: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", lgns: "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0" }; // AiLGNS/DAI、LGNS/DAI 池子（和上面两个市场用的是同一对）
+  var lpQ = null, lpQAt = 0;
+  // 读链算一次 LP 参考价（30 秒内重复问直接用上一次的）。税读不到实测值就不给价（LP 一半的价值在 LGNS 上，税差一点价就差很多，不能拿 50% 硬算）
+  function lpQuote() {
+    if (lpQ && Date.now() - lpQAt < 30000) return Promise.resolve(lpQ);
+    var tk = MARKETS.lp.token;
+    return Promise.all([read(tk, "0x0902f1ac"), read(tk, "0x18160ddd"), read(tk, "0x0dfe1681"), read(LP_SRC.ail, "0x0902f1ac"), read(LP_SRC.lgns, "0x0902f1ac"),
+      fetch("/api/sell-tax").then(function (r) { return r.json(); })]).then(function (r) {
+      if ("0x" + String(r[2]).slice(26).toLowerCase() !== ANUBIS_AILGNS.toLowerCase()) throw new Error("LP 池子的币顺序变了");
+      var q = lpValue(r[0], r[1], r[3], r[4], r[5] && r[5].lgns);
+      if (!q) throw new Error("LP 参考价暂时算不出来");
+      lpQ = q; lpQAt = Date.now(); return q;
+    });
+  }
+  // LP 参考价说明卡：一个大数 + 怎么算出来的（默认折叠）。读不到就老实说读不到
+  function lpCard() {
+    return '<section class="card lpv"><div class="card-head"><h2>💧 1 个 LP 大约值多少</h2></div><div id="lpv-box"><p class="muted">正在读链上数据…</p></div></section>';
+  }
+  function lpCardFill() {
+    lpQuote().then(function (q) {
+      var el = document.getElementById("lpv-box"); if (!el) return;
+      var eg = 0.0002;
+      el.innerHTML = '<div class="lpv-big"><b class="num">' + A.fmt(q.px, 0) + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
+        '<p>举例：你有 <b>' + eg + '</b> 个 LP，大约值 <b>' + A.fmt(q.px * eg, 2) + ' DAI</b>。</p>' +
+        '<details class="lpv-how"><summary>这个数怎么算的</summary><ol>' +
+        "<li>1 个 LP 里面含 <b>" + A.fmt(q.ail, 2) + "</b> 枚 AiLGNS + <b>" + A.fmt(q.lgns, 0) + "</b> 枚 LGNS（按池子现在的存量和 LP 总数算）。</li>" +
+        "<li>AiLGNS 按去官方 DEX 卖出到手价 " + A.fmt(q.pAil, 2) + " DAI 算 → " + A.fmt(q.vAil, 0) + " DAI。</li>" +
+        "<li>LGNS 按去 DEX 卖出到手价 " + A.fmt(q.pLgns, 4) + " DAI 算（已扣现在实测的卖出税 " + (q.tax * 100).toFixed(1) + "%）→ " + A.fmt(q.vLgns, 0) + " DAI。</li>" +
+        "<li>两项相加 = " + A.fmt(q.px, 0) + " DAI。</li></ol>" +
+        '<p class="muted">官方页面的算法不扣卖出税，数会比这个高。这里按「真能拿到手」算，宁可少算不多算。</p></details>' +
+        '<p class="lpv-warn">⚠️ 目前官方不让把 LP 拆成币，LP 只能拿去官方质押领每日奖励，或者转给别人。所以参考价只是参考，实际能卖多少看买家愿意出多少。</p>';
+    }).catch(function () {
+      var el = document.getElementById("lpv-box"); if (el) el.innerHTML = '<p class="muted">链上数据暂时没读出来，参考价先不显示（不乱给数）。请过一会儿刷新再看。</p>';
+    });
+  }
   function priceFromReserves(h) {
     var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
     return dai / tok;
@@ -1020,7 +1078,8 @@
     if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
     if (!OTC) {
       app.innerHTML = placeTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
-        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>';
+        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>' + (M.lp ? lpCard() : "");
+      if (M.lp) lpCardFill();
       return;
     }
     // 有上次存下的订单簿就先画出来（秒开），拿到最新的再换；用户已经在填表或开着吃单弹窗时不打断

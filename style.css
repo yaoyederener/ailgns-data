@@ -5295,3 +5295,12 @@ html.lang-ko body { word-break: keep-all; }
 .vdg-row { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid #efe9ff; } .vdg-row:last-child { border-bottom: 0; }
 .vdg-rt b { display: block; font-size: 16px; } .vdg-btns { display: flex; flex-wrap: wrap; gap: 6px; } .vdg-btns button { padding: 7px 12px; font-size: 13.5px; }
 .vdg-btns .vdg-del { color: #c0392b; border-color: #f0c4bd; }
+
+/* LP 参考价卡（OTC · LP 市场） */
+.lpv-big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:4px 0 8px}
+.lpv-big b{font-size:30px;line-height:1.1}
+.lpv-big small{color:var(--muted,#7a7690)}
+.lpv-how{margin:8px 0;border:1px solid rgba(124,92,255,.18);border-radius:10px;padding:8px 12px}
+.lpv-how summary{cursor:pointer;font-weight:600}
+.lpv-how ol{margin:8px 0 4px;padding-left:20px;line-height:1.7}
+.lpv-warn{background:rgba(255,170,0,.1);border-radius:10px;padding:10px 12px;margin:8px 0 0;line-height:1.6}
