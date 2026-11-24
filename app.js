@@ -556,7 +556,7 @@
   function prodHit(tab) {
     if (PROD_SKIP[tab] || (tab === "feedback" && /admin/.test(location.hash))) return;
     var sub = tab === "otc" ? (location.hash.replace(/^#\/?/, "").split("/")[1] || "") : "";
-    var k = (tab + (/^(lgns|glgns|plgns|nft|swap|lp)$/.test(sub) ? sub : "")).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
+    var k = (tab + (/^(lgns|glgns|plgns|nft|swap|lp|rm)$/.test(sub) ? sub : "")).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12);
     if (!k || tracked["u" + k]) return;
     tracked["u" + k] = 1;
     var day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), seen = null;
@@ -763,7 +763,7 @@
     var g = GUIDES[tab];
     // 站长 2026-11-09：LGNS / gLGNS / Polygon LGNS 市场也要同样的四步引导（「我们现在靠这俩赚钱」）；卡牌市场没有扫单，不配
     if (tab === "otc" && parts[1]) {
-      var MS = { lgns: "LGNS", plgns: "LGNS（Polygon）", glgns: "gLGNS", lp: "LP" }, sym = MS[parts[1]]; // 2026-11-11 Polygon LGNS 恢复；2026-11-19 gLGNS 重新上架
+      var MS = { lgns: "LGNS", plgns: "LGNS（Polygon）", glgns: "gLGNS", lp: "LP", rm: "RM" }, sym = MS[parts[1]]; // 2026-11-11 Polygon LGNS 恢复；2026-11-19 gLGNS 重新上架
       g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["我要做市", "#/lp"]]] : null; // 站长 2026-11-10：和 AiLGNS 卡一致（订单查询在下面快捷条里已有）
     } else if (parts[1]) g = null;
     document.body.classList.toggle("has-guide", !!g);
