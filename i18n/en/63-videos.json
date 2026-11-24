@@ -6,5 +6,6 @@
 "没读出来，请刷新再试。": "Could not load. Please refresh and try again.",
 "有没有操作视频教程？": "Are there video tutorials?",
 "有。打开 ☰ 更多 → 服务 → 🎬 视频教程（ailgns.dev/#/videos），里面是客服录的操作视频，点开就能看、跟着做。看完还不会，点「📮 问题反馈」找客服。": "Yes. Open ☰ More → Service → 🎬 Video tutorials (ailgns.dev/#/videos). Support's how-to videos are there; tap to watch and follow along. Still stuck? Tap “📮 Feedback” to reach support.",
-"🎬 新增「视频教程」：☰ 更多 → 服务 → 视频教程，客服录的操作视频都放在这里，点开就能看，不用再到群里翻。": "🎬 New “Video tutorials”: ☰ More → Service → Video tutorials. Support's how-to videos are all here; tap to watch, no more digging through the group."
+"🎬 新增「视频教程」：☰ 更多 → 服务 → 视频教程，客服录的操作视频都放在这里，点开就能看，不用再到群里翻。": "🎬 New “Video tutorials”: ☰ More → Service → Video tutorials. Support's how-to videos are all here; tap to watch, no more digging through the group.",
+"⚠️ 这个视频偏大，客户打开会慢。能重录的话，录屏清晰度选 720p；不方便就照传，也能看。": "⚠️ This video is large and will open slowly for customers. If you can re-record, choose 720p; otherwise upload it as is, it will still play."
 }

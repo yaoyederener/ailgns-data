@@ -8,6 +8,65 @@
   function mb(n) { return n >= 1048576 ? Math.round(n / 1048576) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
   function api(body) { return fetch("/api/tutorial", { method: "POST", headers: { "content-type": "application/json", "x-key": key() }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }); }
 
+  /* 🚀 上传前自动整理（站长 2026-11-24：客户反映视频打开很慢）。
+     手机录的 mp4 / mov，「目录」（moov）常常在文件最末尾，播放器要先绕到末尾取目录才能开始放 → 点了半天不动。
+     这里在上传前把目录挪到最前面：不重新压制、画面一点不变，只是换个位置，并把目录里记的「每段数据在哪」统一往后挪目录那么长。
+     任何一步看不懂（文件结构特殊）就原样上传，绝不改坏视频。返回 { blob, secs（时长，读不到是 0）, moved } */
+  function u32(d, o) { return d.getUint32(o); }
+  function atomsOf(file, from, to) { // 读顶层的盒子：[{ type, start, size }]
+    var out = [], off = from;
+    function next() {
+      if (off + 8 > to || out.length > 200) return Promise.resolve(out);
+      return file.slice(off, off + 16).arrayBuffer().then(function (b) {
+        var d = new DataView(b), n = u32(d, 0), t = String.fromCharCode(d.getUint8(4), d.getUint8(5), d.getUint8(6), d.getUint8(7));
+        if (n === 1) { if (b.byteLength < 16 || u32(d, 8) !== 0) throw new Error("big"); n = u32(d, 12); }
+        else if (n === 0) n = to - off;
+        if (n < 8 || off + n > to) throw new Error("bad");
+        out.push({ type: t, start: off, size: n }); off += n; return next();
+      });
+    }
+    return next();
+  }
+  // 在目录里找出所有 stco / co64（记着每段数据位置的表），把里面的位置都加上 shift；顺手读出时长
+  function patchMoov(buf, shift) {
+    var d = new DataView(buf), secs = 0, bad = false;
+    var BOX = { moov: 1, trak: 1, mdia: 1, minf: 1, stbl: 1, edts: 0, udta: 0 };
+    (function walk(from, to) {
+      var off = from;
+      while (off + 8 <= to) {
+        var n = u32(d, off), t = String.fromCharCode(d.getUint8(off + 4), d.getUint8(off + 5), d.getUint8(off + 6), d.getUint8(off + 7));
+        if (n < 8 || off + n > to) { bad = true; return; }
+        if (t === "cmov") { bad = true; return; } // 压缩过的目录：不动
+        if (t === "mvhd") { var v = d.getUint8(off + 8); var ts = v === 1 ? u32(d, off + 28) : u32(d, off + 20), du = v === 1 ? u32(d, off + 32) * 4294967296 + u32(d, off + 36) : u32(d, off + 24); if (ts > 0) secs = du / ts; }
+        else if (t === "stco") { var c = u32(d, off + 12); if (off + 16 + c * 4 > off + n) { bad = true; return; } for (var i = 0; i < c; i++) { var o = off + 16 + i * 4, nv = u32(d, o) + shift; if (nv > 4294967295) { bad = true; return; } d.setUint32(o, nv); } }
+        else if (t === "co64") { var c2 = u32(d, off + 12); if (off + 16 + c2 * 8 > off + n) { bad = true; return; } for (var k = 0; k < c2; k++) { var o2 = off + 16 + k * 8, lo = u32(d, o2 + 4) + shift, hi = u32(d, o2); if (lo > 4294967295) { hi += 1; lo -= 4294967296; } d.setUint32(o2, hi); d.setUint32(o2 + 4, lo); } }
+        else if (BOX[t]) walk(off + 8, off + n);
+        off += n;
+      }
+    })(0, buf.byteLength);
+    return bad ? null : { secs: secs };
+  }
+  function fastStart(file) {
+    var keep = { blob: file, secs: 0, moved: false };
+    return atomsOf(file, 0, file.size).then(function (as) {
+      var mi = -1, di = -1;
+      as.forEach(function (a, i) { if (a.type === "moov" && mi < 0) mi = i; if (a.type === "mdat" && di < 0) di = i; });
+      if (mi < 0 || di < 0 || as[0].type !== "ftyp" || as[mi].size > 64 * 1024 * 1024) return keep;
+      var m = as[mi];
+      return file.slice(m.start, m.start + m.size).arrayBuffer().then(function (buf) {
+        if (mi < di) { var r0 = patchMoov(buf.slice(0), 0); return { blob: file, secs: r0 ? r0.secs : 0, moved: false }; } // 目录本来就在前面：只读时长
+        var r = patchMoov(buf, m.size);
+        if (!r) return keep;
+        var parts = [file.slice(0, as[0].size), buf];
+        as.forEach(function (a, i) { if (i !== 0 && i !== mi) parts.push(file.slice(a.start, a.start + a.size)); });
+        var out = new Blob(parts, { type: file.type });
+        return out.size === file.size ? { blob: out, secs: r.secs, moved: true } : keep;
+      });
+    }).catch(function () { return keep; });
+  }
+  // 体积提醒：录屏教程每分钟 10MB 以内就很清楚了；超过这个客户打开会慢（不拦，只提醒）
+  function heavy(size, secs) { return secs > 5 && size / secs > 10 * 1048576 / 60 * 1.5; }
+
   // ===== 客户看的页面 =====
   function page(id) {
     if ((location.hash.split("/")[2] || "") === "admin") return admin(id);
@@ -46,7 +105,15 @@
     var fi = document.getElementById("vdg-f"), st = document.getElementById("vdg-st"), busy = false;
     function say(t, bad) { st.textContent = t; st.className = bad ? "nm-bad" : "muted"; }
     document.getElementById("vdg-pick").onclick = function () { fi.click(); };
-    fi.onchange = function () { var f = fi.files && fi.files[0]; document.getElementById("vdg-fn").textContent = f ? f.name + "（" + mb(f.size) + "）" : "还没选视频"; };
+    fi.onchange = function () {
+      var f = fi.files && fi.files[0], fn = document.getElementById("vdg-fn");
+      fn.textContent = f ? f.name + "（" + mb(f.size) + "）" : "还没选视频";
+      if (!f) return;
+      fastStart(f).then(function (r) { // 选完就先看一眼：太大的提醒一句（不拦）
+        if (fi.files[0] !== f || !heavy(f.size, r.secs)) return;
+        fn.textContent = f.name + "（" + mb(f.size) + "，" + Math.round(r.secs) + " 秒）。⚠️ 这个视频偏大，客户打开会慢。能重录的话，录屏清晰度选 720p；不方便就照传，也能看。";
+      });
+    };
     document.getElementById("vdg-up").onclick = function () {
       if (busy) return;
       var f = fi.files && fi.files[0], title = document.getElementById("vdg-t").value.trim();
@@ -54,7 +121,10 @@
       if (!f) return say("请先选视频", true);
       if (!/^video\//.test(f.type || "")) return say("这个文件不是视频，请选手机里的录屏 / 视频", true);
       busy = true; say("准备上传…");
-      api({ action: "new", title: title, size: f.size, type: f.type }).then(function (j) {
+      fastStart(f).then(function (fsr) {
+        f = fsr.blob; // 目录挪到了前面的版本（没法挪就是原文件）；大小不变
+        return api({ action: "new", title: title, size: f.size, type: f.type });
+      }).then(function (j) {
         if (j.error) throw new Error(j.error);
         var i = 0, n = j.n, tries = 0;
         function next() {
