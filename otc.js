@@ -256,6 +256,9 @@
       var b = bookOf(j); b.age = age; if (j.h) lastBook[mk] = { h: j.h, b: b }; return b;
     }).catch(function () {
       return Promise.all([readOrders(), marketPrice().catch(function () { return null; })]).then(function (r) { return { orders: r[0], mkt: r[1], raw: null }; });
+    }).then(function (b) {
+      if (mk !== "lp") return b; // LP 没有 DEX 报价：参考价按里面含的币折算，算不出来就当没有参考价（不乱给）
+      return lpQuote().then(function (q) { b.mkt = q.px; return b; }, function () { b.mkt = null; return b; });
     }).then(function (b) { return noMine ? b : withMine(b, fresh); });
     return noMine ? book : Promise.all([book, tax]).then(function (r) { return r[0]; });
   }
@@ -328,28 +331,35 @@
   }
   // LP 参考价说明卡：一个大数 + 怎么算出来的（默认折叠）。读不到就老实说读不到
   function lpCard() {
-    return '<section class="card lpv"><div class="card-head"><h2>💧 1 个 LP 大约值多少</h2></div><div id="lpv-box"><p class="muted">正在读链上数据…</p></div></section>';
+    setTimeout(lpCardFill, 0);
+    return '<section class="card lpv"><div class="card-head"><h2>💧 1 个 LP 大约值多少</h2></div><div id="lpv-box">' + (lpQ ? lpCardHtml(lpQ) : '<p class="muted">正在读链上数据…</p>') + "</div></section>";
+  }
+  // 怎么把 LP 拿出来卖（站长 2026-11-24：引导客户）。LP 平时押在官方页面里，要先退出来才在钱包里
+  function lpSteps() {
+    return '<section class="card lpv"><div class="card-head"><h2>📖 LP 怎么卖</h2></div><ol class="lpv-steps">' +
+      "<li><b>先把 LP 取回钱包。</b>打开官方网站 awakehelix.io →「流动性」→ AiLGNS / LGNS 那一行点「移除」。官方会扣 5%，剩下 95% 的 LP 回到你钱包（拿回来的还是 LP，不是币）。</li>" +
+      "<li><b>回到这一页挂卖单。</b>填数量和单价，LP 存进本站的担保合约，有人买了 DAI 直接到你钱包。没人买随时撤单，LP 原样退回。</li>" +
+      "<li><b>想买 LP 的</b>：直接点卖单成交，或者挂买单等人卖给你。买到的 LP 可以拿去官方页面质押，领每日 AiLGNS 奖励。</li></ol>" +
+      '<p class="muted">成交手续费 1%，由吃单的一方付。退出质押那 5% 是官方扣的，本站不收。</p></section>';
+  }
+  function lpCardHtml(q) {
+    var eg = 0.0002;
+    return '<div class="lpv-big"><b class="num">' + A.fmt(q.px, 0) + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
+      '<p>举例：你有 <b>' + eg + '</b> 个 LP，大约值 <b>' + A.fmt(q.px * eg, 2) + ' DAI</b>。</p>' +
+      '<details class="lpv-how"><summary>这个数怎么算的</summary><ol>' +
+      "<li>1 个 LP 里面含 <b>" + A.fmt(q.ail, 2) + "</b> 枚 AiLGNS + <b>" + A.fmt(q.lgns, 0) + "</b> 枚 LGNS（按池子现在的存量和 LP 总数算）。</li>" +
+      "<li>AiLGNS 按去官方 DEX 卖出到手价 " + A.fmt(q.pAil, 2) + " DAI 算 → " + A.fmt(q.vAil, 0) + " DAI。</li>" +
+      "<li>LGNS 按去 DEX 卖出到手价 " + A.fmt(q.pLgns, 4) + " DAI 算（已扣现在实测的卖出税 " + (q.tax * 100).toFixed(1) + "%）→ " + A.fmt(q.vLgns, 0) + " DAI。</li>" +
+      "<li>两项相加 = " + A.fmt(q.px, 0) + " DAI。</li></ol>" +
+      '<p class="muted">官方页面的算法不扣卖出税，数会比这个高。这里按「真能拿到手」算，宁可少算不多算。</p></details>' +
+      '<p class="lpv-warn">⚠️ 目前官方不让把 LP 拆成币，LP 只能拿去官方质押领每日奖励，或者转给别人。所以参考价只是参考，实际能卖多少看买家愿意出多少。</p>';
   }
   function lpCardFill() {
     lpQuote().then(function (q) {
-      var el = document.getElementById("lpv-box"); if (!el) return;
-      var eg = 0.0002;
-      el.innerHTML = '<div class="lpv-big"><b class="num">' + A.fmt(q.px, 0) + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
-        '<p>举例：你有 <b>' + eg + '</b> 个 LP，大约值 <b>' + A.fmt(q.px * eg, 2) + ' DAI</b>。</p>' +
-        '<details class="lpv-how"><summary>这个数怎么算的</summary><ol>' +
-        "<li>1 个 LP 里面含 <b>" + A.fmt(q.ail, 2) + "</b> 枚 AiLGNS + <b>" + A.fmt(q.lgns, 0) + "</b> 枚 LGNS（按池子现在的存量和 LP 总数算）。</li>" +
-        "<li>AiLGNS 按去官方 DEX 卖出到手价 " + A.fmt(q.pAil, 2) + " DAI 算 → " + A.fmt(q.vAil, 0) + " DAI。</li>" +
-        "<li>LGNS 按去 DEX 卖出到手价 " + A.fmt(q.pLgns, 4) + " DAI 算（已扣现在实测的卖出税 " + (q.tax * 100).toFixed(1) + "%）→ " + A.fmt(q.vLgns, 0) + " DAI。</li>" +
-        "<li>两项相加 = " + A.fmt(q.px, 0) + " DAI。</li></ol>" +
-        '<p class="muted">官方页面的算法不扣卖出税，数会比这个高。这里按「真能拿到手」算，宁可少算不多算。</p></details>' +
-        '<p class="lpv-warn">⚠️ 目前官方不让把 LP 拆成币，LP 只能拿去官方质押领每日奖励，或者转给别人。所以参考价只是参考，实际能卖多少看买家愿意出多少。</p>';
+      var el = document.getElementById("lpv-box"); if (el) el.innerHTML = lpCardHtml(q);
     }).catch(function () {
-      var el = document.getElementById("lpv-box"); if (el) el.innerHTML = '<p class="muted">链上数据暂时没读出来，参考价先不显示（不乱给数）。请过一会儿刷新再看。</p>';
+      var el = document.getElementById("lpv-box"); if (el && !lpQ) el.innerHTML = '<p class="muted">链上数据暂时没读出来，参考价先不显示（不乱给数）。请过一会儿刷新再看。</p>';
     });
-  }
-  function priceFromReserves(h) {
-    var dai = Number(A.word(h, M.pairDai)) / 1e18, tok = Number(A.word(h, 1 - M.pairDai)) / Math.pow(10, TD);
-    return dai / tok;
   }
   // 每枚挂单币的 DAI 价格
   function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / tNum(o.giveTotal) : num(o.giveTotal) / tNum(o.wantTotal); }
@@ -658,7 +668,8 @@
      sells 要按价从低到高、buys 从高到低排好再传进来；mkt 没有就传 0 */
   function markFar(sells, buys, mkt) {
     var ask = sells.length ? priceOf(sells[0]) : 0, bid = buys.length ? priceOf(buys[0]) : 0;
-    var lo = Math.min(mkt || Infinity, ask || Infinity), hi = Math.max(mkt || 0, bid || 0);
+    /* LP 拆不开，买家出价比参考价低三四成都算正常，不能按「一半」拦：买单按参考价的 3 成当基准（出价不到参考价 15% 才算离谱，多半是少写了一位）；卖单照旧（要价 ≥ 参考价两倍算离谱） */
+    var lo = Math.min((M.lp ? mkt * 0.3 : mkt) || Infinity, ask || Infinity), hi = Math.max(mkt || 0, bid || 0);
     if (lo === Infinity) lo = bid;
     if (!hi) hi = ask;
     var net = dexNet(mkt), cut = net * LOW_BID;
@@ -1078,8 +1089,7 @@
     if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
     if (!OTC) {
       app.innerHTML = placeTabs() + '<section class="card" style="text-align:center;padding:36px 18px"><h2>' + SYM + "（" + M.chainName + " 链）OTC 即将上线</h2>" +
-        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>' + (M.lp ? lpCard() : "");
-      if (M.lp) lpCardFill();
+        '<p class="muted" style="margin:8px 0 0">托管合约部署完成后开放挂单和交易。</p></section>' + (M.lp ? lpCard() + lpSteps() : "");
       return;
     }
     // 有上次存下的订单簿就先画出来（秒开），拿到最新的再换；用户已经在填表或开着吃单弹窗时不打断
@@ -1168,7 +1178,7 @@
       var ok = (Math.floor(fl * Math.pow(10, PD)) + 1) / Math.pow(10, PD);
       return "买单出价不能低于 " + A.fmt(fl, PD) + (M.liveTax ? " DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 2%，比这还低不让挂。请把单价填到 " : " DAI。这是卖家把币拿去官方 DEX 卖、实际到手的价；出价比这低，卖家卖给你就吃亏，本站不让挂。请把单价填到 ") + ok.toFixed(PD) + " 或更高" + (otcAsk && otcAsk < ok ? "；想便宜买，可以直接买盘口里现成的卖单（最低 " + A.fmt(otcAsk, PD) + "）" : "") + "。";
     }
-    function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: "DEX 市价" } : null; }
+    function otcRef(mkt) { return otcAsk ? { p: otcAsk, n: "最低卖价" } : otcBid ? { p: otcBid, n: "最高买价" } : mkt ? { p: mkt, n: M.lp ? "参考价" : "DEX 市价" } : null; }
     function draw(id, orders, mkt) {
       var now = Date.now() / 1000;
       var live = orders.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && !isDust(o); });
@@ -1218,7 +1228,7 @@
       var acts = '<div class="otc-acts" hidden><button type="button" class="oa-sell" data-goform="sell">＋ 我要挂单卖 ' + SYM + '</button><button type="button" class="oa-buy" data-goform="buy">＋ 我要挂单买 ' + SYM + "</button>" +
         '<button type="button" data-gomine>📋 我的挂单' + (account && mine.length ? '<span class="gm-n">' + mine.length + "</span>" : "") + "</button></div>"; // 没连钱包也显示，点了先连钱包再跳过去
       // 打开就是交易：最上面只留一条「交易就送会员」+ 连钱包，紧接着就是挂单簿和挂单表单；介绍、DEX 对比这些营销内容在「营销广告」栏目
-      var html = placeTabs() + acts + '<div class="otc-top"><a class="ot-sw" href="#/scan/' + (account || "~") + '/otc">订单查询</a>' + (MK === "ailgns" || MK === "lgns" ? '<a class="ot-sw" href="#/trade' + (MK === "lgns" ? "/lgns" : "") + '">盘口</a>' : "") + // 站长 2026-11-09 晚：三个按钮 订单查询 / 一键扫单 / 盘口（挂单、做市在上面四步引导卡里）
+      var html = placeTabs() + (M.lp ? lpCard() + lpSteps() : "") + acts + '<div class="otc-top"><a class="ot-sw" href="#/scan/' + (account || "~") + '/otc">订单查询</a>' + (MK === "ailgns" || MK === "lgns" ? '<a class="ot-sw" href="#/trade' + (MK === "lgns" ? "/lgns" : "") + '">盘口</a>' : "") + // 站长 2026-11-09 晚：三个按钮 订单查询 / 一键扫单 / 盘口（挂单、做市在上面四步引导卡里）
      '' + // 站长 2026-11-08：顶部只留三个按钮，送会员的说明文字去掉（规则在会员页）
         (account ? "" : '<button class="ot-c" id="otc-top-c">' + (A.wallets && !window.ethereum && /Android|iPhone|iPad/i.test(navigator.userAgent) ? "在钱包 App 里打开" : "连接钱包") + "</button>") + "</div>";
       html += '<div class="saved-bar" id="saved-bar" hidden></div>';
@@ -1456,6 +1466,13 @@
         }
         if (!mkt) { el.hidden = true; return; }
         var g = mkt * (RANGE[side][0] + RANGE[side][1]) / 2, lo = mkt * RANGE[side][0], hi = mkt * RANGE[side][1], dexSell = mkt * DEX_SELL, dexBuy = mkt * DEX_BUY;
+        if (M.lp) { // LP：DEX 上没有报价，指导价 = 按里面含的币折算的参考价
+          g = mkt;
+          el.innerHTML = '<div class="guide-head"><span class="guide-tag">参考价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 1 个 LP · 按里面含的币折算</small></div>' +
+            "<p>LP 现在拆不开，参考价只是参考：卖家想快点卖掉可以比参考价低一些，买家出多少自己定。成交手续费 1% 由吃单方承担。</p>";
+          if (auto || !price.value) { price.value = g.toFixed(PD); auto = true; }
+          return;
+        }
         if (M.flat) { // DEX 不扣税的币：OTC 和 DEX 价差不到 1%，按市价挂就行；想快点成交就让一点
           g = mkt;
           el.innerHTML = '<div class="guide-head"><span class="guide-tag">指导价</span><b class="num">' + A.fmt(g, PD) + '</b><small>DAI / 枚 · 当前 DEX 市价</small></div>' +
@@ -1517,7 +1534,7 @@
         var need = m.p.steps.reduce(function (t, x) { return t + x.pay; }, 0n) + m.restGive, done = 0;
         { /* 和下面「发布挂单」同一条线：买价 ≥ 最低卖价 2 倍 / 卖价 ≤ 最高买价一半（没有买单时按参考价）→ 不让走。
              有没有剩余都拦：单价就是「最贵 / 最便宜吃到哪」的线，线划得离谱，数量一大就会一路吃到很亏的单；剩下的还会按这个价挂出去 */
-          var pv = num(toWei(price.value)), r2 = oref && pv ? pv / oref.p : null, far = r2 ? (m.sell ? r2 <= 0.5 : r2 >= 2) : false;
+          var pv = num(toWei(price.value)), r2 = oref && pv ? pv / oref.p : null, far = r2 ? (m.sell ? r2 <= (M.lp ? 0.15 : 0.5) : r2 >= 2) : false;
           var bfl2 = !m.sell ? bidFloor(mkt) : 0;
           if (bfl2 && pv <= bfl2 && m.restGive > 0n) { msay(bidFloorMsg(bfl2), true); return; } // 吃完剩下的要按这个价挂买单：同样不能低于 DEX 到手价
           if (far && (m.sell ? (otcBid ? pv <= otcBid * 0.5 : true) : true)) {
@@ -1561,7 +1578,8 @@
         var total = (q * p) / TUNIT; // DAI
         var r2 = oref ? num(p) / oref.p : null, diff = r2 ? (r2 - 1) * 100 : null; /* 对比本站 OTC 参考价 */
         var r = mkt ? num(p) / mkt : null, verdict = ""; /* r：对比 DEX，只用来提醒「比去 DEX 还吃亏」 */
-        if (r && M.flat) { // DEX 不扣税的币：只提醒比 DEX 还差的价格
+        if (M.lp) verdict = ""; // LP 没法去 DEX 卖，没有「比去 DEX 吃亏」这回事
+        else if (r && M.flat) { // DEX 不扣税的币：只提醒比 DEX 还差的价格
           if (side === "sell" && r < DEX_SELL) verdict = "⚠️ 低于" + DX + " 卖出到手价（约 " + A.fmt(mkt * DEX_SELL, PD) + "），你会少拿 DAI";
           if (side === "buy" && r > DEX_BUY) verdict = "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI";
         } else if (r) {
@@ -1569,7 +1587,7 @@
           else verdict = r > DEX_BUY ? "⚠️ 高于" + DX + " 买入价（约 " + A.fmt(mkt * DEX_BUY, PD) + "），你会多花 DAI" : "";
         }
         // 站长 2026-11-11：单价和市价差了一倍以上（卖价不到市价一半 / 买价超过市价两倍），大字红框提醒，多半是少写或多写了一个零；发布前还要再确认一次
-        var far = r2 ? (side === "sell" ? r2 <= 0.5 : r2 >= 2) : false;
+        var far = r2 ? (side === "sell" ? r2 <= (M.lp ? 0.15 : 0.5) : r2 >= 2) : false; // LP：卖价比参考价低很多也可能是真心价，低到 15% 以下才当成写错
         /* 站长 2026-11-15「改」：这种价直接不让挂（以前只弹确认）。起因：客户把 0.076 挂成 0.76 的买单，同一秒被外人的抢单机器人按 10 倍价卖给他，钱追不回来。
            只拦一定吃亏的方向：买价 ≥ 现有最低卖价的 2 倍（直接吃那张卖单就行，没理由出两倍）；卖价 ≤ 现有最高买价的一半。盘口没有对手单时按上面的参考价（最低卖价 / DEX）算。
            卖价只是比最低卖价低一半、但没低过买单一半的（可能是盘口卖单本身挂得离谱），不拦，还是弹确认。 */
@@ -1731,7 +1749,7 @@
     // buy=true：tok = 到手的币，dai = 付的 DAI；buy=false：tok = 卖出的币，dai = 到手的 DAI
     var lastPnl = null; // 最近一次报价算出来的「比 DEX 多赚」，成交后拿去记账 + 庆祝
     function pnlOf(buy, tok, dai, mkt) {
-      if (!mkt || !tok || !dai) return null;
+      if (!mkt || !tok || !dai || M.lp) return null; // LP 在 DEX 没法买卖，不算「比 DEX 多赚」
       var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * dexSellCmp(), mine = num(dai), d = buy ? dex - mine : mine - dex;
       return d > 0 && dex > 0 ? { d: d, dex: dex, pct: d / dex * 100, dai: buy ? mine : mine, min: !buy && !!M.liveTax } : null;
     }
@@ -1752,7 +1770,7 @@
       if (!mkt || !tok || !dai) return "";
       // AiLGNS 不能直接从底池买，只能场外收，买入按场外行情算：DEX 价 + 30% 溢价（站长定的标准，buyRef）
       var ref = buy && M.buyRef, dex = buy ? tNum(tok) * mkt * (ref || DEX_BUY) : tNum(tok) * mkt * dexSellCmp(), mine = num(dai), d = buy ? dex - mine : mine - dex;
-      if (!(d > 0) || !(dex > 0)) return "";
+      if (!(d > 0) || !(dex > 0) || M.lp) return "";
       // 站长 2026-11-12：比官方 DEX 多拿要一眼看到（大数字 + 官方 DEX / 本站两格对比）；不比 DEX 划算上面已经整块不显示
       var who = ref ? "场外行情" : M.chain === "anubis" ? "官方 DEX" : "DEX", pct = (d / dex * 100).toFixed(1), sp = ref ? "" : " ";
       var how = ref ? "场外行情按 DEX 价 + " + Math.round((ref - 1) * 100) + "% 溢价算" :
