@@ -5304,3 +5304,5 @@ html.lang-ko body { word-break: keep-all; }
 .lpv-how summary{cursor:pointer;font-weight:600}
 .lpv-how ol{margin:8px 0 4px;padding-left:20px;line-height:1.7}
 .lpv-warn{background:rgba(255,170,0,.1);border-radius:10px;padding:10px 12px;margin:8px 0 0;line-height:1.6}
+.lpv-steps{margin:6px 0 8px;padding-left:20px;line-height:1.75}
+.lpv-steps li{margin-bottom:6px}
