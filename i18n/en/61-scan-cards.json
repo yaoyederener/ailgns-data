@@ -19,5 +19,12 @@
 "官方质押 · {0} 天": "Official staking · {0} days",
 "官方流动性池 · 押着的 LP": "Official liquidity pool · staked LP",
 "不在钱包里": "not in the wallet",
-"这些币押在官方合约里，上面的「账户余额」没有算它们。要用的话先到官方页面取回。": "These coins are held in official contracts and are not counted in the balance above. Withdraw them on the official page before using them."
+"这些币押在官方合约里，上面的「账户余额」没有算它们。要用的话先到官方页面取回。": "These coins are held in official contracts and are not counted in the balance above. Withdraw them on the official page before using them.",
+"链上 Gas 费": "Network gas fee",
+"⚠️ 这笔交易打交道的合约": "⚠️ The contract this transaction interacted with ",
+"不是本站的，也不在官方合约名单里": "is not ours and is not on the official contract list",
+"。不认识它的话请留意：别给不认识的合约授权，也别在它的页面上输入助记词。": ". If you do not recognise it, be careful: do not approve unknown contracts and never type your seed phrase on their pages.",
+"🏛 这是": "🏛 This is an ",
+"官方合约": "official contract",
+"（在官方网站公布的合约名单里）。": " (listed in the official site's contract list)."
 }

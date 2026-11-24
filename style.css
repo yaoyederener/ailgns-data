@@ -5332,3 +5332,6 @@ html.lang-ko body { word-break: keep-all; }
 .sc-aw b { font-size: 15.5px; color: #2e2654; }
 .sc-aw small { flex-basis: 100%; text-align: right; color: #8a7fb0; font-size: 12.5px; }
 .sc-awn { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; }
+.sc-unk { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 13.5px; line-height: 1.6; }
+.sc-unk.ok { background: #f3eeff; border-color: #d6c8fa; color: #4a3a8a; }
+.sc-unk.bad { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }

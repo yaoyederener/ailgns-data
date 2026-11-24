@@ -38,6 +38,117 @@
   KNOWN["0xcb3670db84ec9e9dd8c9f341e461c29e4e789a7e"] = ".ailgns 域名市场";
   KNOWN["0x2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d"] = ".lgns 域名市场";
 
+  /* OFFICIAL-BEGIN 官方合约名单（站长 2026-11-25：账本里把官方合约标出名字）。取自两个官方站自己的前端代码：
+     anubis.origindefi.io（LGNS）和 awakehelix.io（AiLGNS），每个地址都在链上核过。官方改了合约要重新生成（脚本见 站长备忘 / 记忆 project-ledger-upgrade） */
+  var OFFICIAL = {
+    "0xf7e78f731dcdaa18a9a1cbeac6e73590e1128cc4": "官方账户 Accountant",
+    "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb": "AiLGNS 代币",
+    "0x39ba6313f3c59cac5611b8cf308d084551e9d60f": "AiLGNS/A 池子",
+    "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0": "AiLGNS/DAI 池子",
+    "0xbfaae809c1803ec4ae73a506309b3036c48d65a8": "AiLGNS/gLGNS 池子",
+    "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2": "AiLGNS/LGNS 池子",
+    "0x8a36a456e95cd55ea8cbd79ccc798fd1f716db68": "AiLGNS/USDT 池子",
+    "0xa921267c56b3a57696d6fd7949c9fad0a8e0c177": "A 代币",
+    "0xda24d74aa53c68911648b90a23517f8a92d3e730": "A/DAI 池子",
+    "0xb39d8759d59592363395e4c66a3d4e4acc9bc09d": "销毁 NFT 工厂",
+    "0x70a7e5e20b4f416e802c2297be7ac229467ef788": "官方账户 Burn Queue",
+    "0x616799578b7a9fcff46b6519c2460d07fba8cfd3": "社区基金",
+    "0x3deea5f638ca0dfb03a0873cf4c0b90ba50e1aa2": "社区金库",
+    "0x2e0d9d461a1b567112a9b824d939fb583853daa7": "每日结算",
+    "0x621e693a002f13fc0d87fdcd00de2c8bafceed04": "DAI/USD 预言机",
+    "0x0645460f6f485153775154451fe1322fdbb2233c": "生态储备",
+    "0x6aab661e1a99b20d1dae581ab0e1250e6f753a19": "排放计划",
+    "0x6c5352e15a8327c3f44898fe220100edc2989c58": "纪元时钟",
+    "0xaf6f4e641c86a25518509bc840051a8652af598a": "池子工厂",
+    "0x7088e192b9b7f41a07bb3f79378e13454d8a80d5": "手续费归集",
+    "0x6ee8344ae4785af3099b3dc5e603d88babce0ecb": "官方账户 Fundraise Importer",
+    "0xb8bc3c6b90aadd9aff393ecb4297b7fd6876f510": "Gauge 健康度",
+    "0x5ddc8a13eabda89593beb885ab8b2afda26a3587": "流动性池 LP 质押",
+    "0x8b52b9e85f7ce788c2c141cc2eb98965c705abb0": "Gauge 登记",
+    "0xdb752f219a79c8d9d6f6674e5ea295c2c5431d1f": "Gauge 金库",
+    "0x81a42a20f754dbecf7aee69685d844a880dea618": "Gauge 投票",
+    "0x1a5007a65610b1b55c0d78626b0b7fe1c590feec": "治理激励金库",
+    "0x2628aad0b92e319d444b40201a96487fc6f6555d": "官方账户 Health Feeder",
+    "0x0527935979d10685b8571fa02a8dedbd6f3024e3": "Helix 路由（添加流动性）",
+    "0x22841307af7e663f8ce784230c8f8e10a46888cf": "保险金库",
+    "0x9fafb6998eac3bc221da7b26d70373533b312914": "官方账户 Keeper",
+    "0xa4e362201f74a9ea4f227b941026ce6c9397c196": "LFEO",
+    "0xf61c45b0e63623231a874f2a2df03bf9f6abad9f": "官方账户 Lfeo Syncer",
+    "0xb975fd9b03ff440d6a43a52a7f072154cb520a4b": "LGNS 销毁入口",
+    "0xf73d1c309ea87a0bf8b6896d49349321242061ab": "官方账户 Lp Airdrop Distributor",
+    "0xf0e9ec153f68bfa2fc8c76165db2b80579dcb217": "LP 空投金库",
+    "0x732e959fed889626686f9fbe57233fe32b771963": "价格预言机",
+    "0x8da328455407aba25e46b4bc270672e208b4eda1": "官方账户 Oracle Updater",
+    "0x825d1b92d9cb744c9583999b6f57893e96d9b9c7": "POL 金库（协议自有流动性）",
+    "0x9e68f61e2615cc1d2c4a2d0026bfc1ebfdf68c1b": "Power 账本",
+    "0xa69a60b8d97d43031c00f16742eb6989553796fc": "Power 账本查询",
+    "0x9120720b1bfd3e06fd5295fa2b4182859d178e30": "官方账户 Pp Admin",
+    "0x18f46e10cc82fd4dc8fcd7844170f871cc87ce78": "官方账户 Pp Keeper",
+    "0x2c36beff699ba473d7bb0eb829d1fe723eeed963": "价格平衡执行",
+    "0x915527db1ac1444c454346f6076381a0b75c5a2c": "价格保护金库",
+    "0x77e6ab1c5557fd456b0656304e0e5c02a6d7dcca": "生产 NFT",
+    "0x27cb55ee75e777ff972b74b6e68782d12bd4ec46": "协议储备",
+    "0xb16325f0565a2d83031735a7ac6495b5bc72e422": "风控合约",
+    "0x99d9bd14dbd760785acfd8f816c0348f0e88fe60": "官方账户 Risk Feeder",
+    "0x156befcce20fa219caa5bc31b67909337ba41efd": "机器人参数时间锁",
+    "0xf7cdc210aea57ebdb6cb3e53e1526bea31c0c3a6": "官方账户 Robot Treasury",
+    "0xd56603bbe579ebf742cebdbca3af2c69f8152233": "机器人升级时间锁",
+    "0xf55f487df255c41a5d40c14faa917ffda8d7defd": "官方账户 Root Finalizer",
+    "0xefcba560a18210a2c7103a09ddcd24a5fde5afda": "卖出手续费转换",
+    "0xe925d91d226f2c2a8cf357f421582b25738d9e97": "官方账户 Token Initial Fee",
+    "0xe98f3366ac45a799531e5e779079b364fabccc00": "官方账户 Token Operator",
+    "0xe884a336550a4482ca6a17a3f93aa30ed4ed9bad": "Helix 涡轮",
+    "0xdfb6a28bc6dc51fed17c27c880f2c66cdd040a3e": "USDT 代币",
+    "0xf14c0e3da42fc36a416e6036dc4c7ca0375b734f": "USDT/DAI 池子",
+    "0x52d7f7745d4ba3de6c3a0b503815878aee7edf14": "veAiLGNS 投票权",
+    "0x853aa8e3a3c55d7124c0f8bc2cca826645fb0f15": "记账合约",
+    "0x31fe4354218e387a236c531c5ccee8149474e773": "活跃积分销毁",
+    "0x1e5feec473f7f445fc7f5feec0beabb2270b0b4e": "活跃积分质押",
+    "0xebd08fa8768c366fcccd8130aa3c0b35dc50f9a6": "聚合器",
+    "0x58839f46bd0e3f4494e2beb8ca93da9352208615": "AWAKE NFT 卡牌",
+    "0xf190ab12b73bfe1b626379af96e8f1859ec91f20": "债券质押",
+    "0x4d47845750185bc654da1a6a571e5a13e6506929": "官方跨链桥",
+    "0x11b10c9827c5b7071e96fcaa143b4e6e86b17c69": "销毁债券",
+    "0x3f403751975e1eb06d95901f7ff246513444e71f": "销毁债券（固定）",
+    "0x6170743b440696e17c9c0dbc551e0b8c010694d8": "销毁债券奖励发放",
+    "0xf7a0cacdf0810609ee5618247c4121b799e41664": "蛛网奖励发放",
+    "0xc9f9a8a2dbf8188ad6610e0239105cabe67c4993": "社区合约",
+    "0x943c6462d9a5a3ccadc12ef6ad34b9518e6128f6": "贡献积分",
+    "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14": "DAI",
+    "0x8c4ea5dac01e2e8fb67f50201aa2e10a6949c58d": "gLGNS/DAI 池子",
+    "0x32a4586797e3f561f41c0f47ca57ed08d64f3dc0": "LGNS/DAI 池子",
+    "0x579a71890ae0e99806f75cd2e006bb07559c3b49": "DAO 发放",
+    "0xcaf7a121ae9a36606caee1e177797143a2a5c777": "DAO 投票",
+    "0x5584cdeb1369673c91c6ad7ebea0ce7cb630ce60": "折扣质押",
+    "0x030590921e9841e1d2104642ed285c83b5f0ddb5": "募集合约",
+    "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c": "gLGNS 代币",
+    "0xac9e27714266766ab0a6908c6ccd899e7f90108f": "gLGNS 线性释放",
+    "0xa3007b26b64f0f43b56c8c67a12917faab02fc42": "治理 NFT 铸造",
+    "0x5e6d77f8071642561c999e97c1022108b8d5de57": "IDO 账本",
+    "0xb4e5b7665186229d8a5b0ba3706c5c119dd1b47b": "指数预言机",
+    "0xf7788f5a5cbbafac4120c63c79dcd9f1931c7824": "即时质押",
+    "0x8c6c69d640a392645ebcd021d3bfd8dd177ccefb": "Kopek",
+    "0x4d1d808a081fdac440703b3765fc61f8028c06b8": "LGNS 代币",
+    "0x4ff8e905ab40ed18355b0b2c0dfae8213d5d8d90": "LGNS ILO",
+    "0x88ea98af226cd4402a3873400308a4d78784ece6": "长期质押 360 天",
+    "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f": "长期质押 600 天",
+    "0x6d59827207b1e9ca32ea9b6247270a0e7023d9a9": "抽奖",
+    "0x0664f1369209677fecb279f5ec3df1e53a22212e": "新涡轮",
+    "0x229e0aa54ebcfd887a1c06bc649ad1afca87486a": "新涡轮 4x",
+    "0x8250f8eeaae5b6e21043fbd8c61c70e1b0906109": "新涡轮（社区）",
+    "0x71b514b8d08f61e39e24442c2fc83297584c1dd6": "新涡轮社区发放",
+    "0xbe1eca1b4cb8aef5055feb146e1f9285167fb0e2": "推广 Kedi",
+    "0x2243ae29f73137d678197b61b0621ae942845b8c": "sLGNS（质押凭证）",
+    "0x7a2e3fa6ea60437f0441b8eb5e60674b80339228": "LGNS 质押",
+    "0x3e412e02b6157fbe80b6c6697f3ce1142e629019": "兑换路由（DEX）",
+    "0x92b53785090f6fe0717ca3cf5db8f8040d3b070b": "涡轮"
+  };
+  /* OFFICIAL-END */
+  // 官方的：KNOWN 里还没有名字的才补（本站自己起过名的不动）。A.OFFICIAL 给别的页面用
+  Object.keys(OFFICIAL).forEach(function (x) { if (!KNOWN[x]) KNOWN[x] = "🏛 官方 · " + OFFICIAL[x]; });
+  A.OFFICIAL = OFFICIAL;
+  // 本站自己的合约 / 钱包，和已经登记过的第三方（池子、跨链桥路由等）：只用来判断「认不认识」，不显示名字。和 lib/addresses.js 同步（tools 里重新生成）
+  var REG = {}; "0000000000000000000000000000000000000000 000000000000000000000000000000000000dead 0000000000000000000000000000000000a11905 00e674bb1559557966a6c2244c36d12a63218a5f 06cc2a46d7ad17496c2de9c61362808e06b44437 16b309670cfc6e855d1def7ee55e395827e8a869 1af3f329e8be154074d8769d1ffa4ee058b1dbc3 21425f852a1e0fb798fb9ebeb288def27bc0f2d1 242ab392571d325d814a48892ac16115a6d285dc 2894d4fe8788140ee7e48e6dcbaa2e8d987ef64d 2b0ab121d60f823fffc4cef75af26055df388e2b 3b528845f03a46016bed5f1b9178707b7ac277bb 3c499c542cef5e3811e1192ce70d8cc03d5c3359 4060f38d3e837843b69014d9f85ecfb3e29fa2db 41fd86243836b698405554ae311d223dec7e3552 431c87b1ec15cb955c60262bd4d2ce798281e501 439cb33e9c5d7a26dd1fa503efe6fd3033ac173b 477abc5b8f2de7bf50e0728a44707ca0c670a982 4e730be6d46be71223ded5a32dc45799f6d4bc15 5505d382bf5d705c5d3ec0cbfc17a3dde394b322 55d398326f99059ff775485246999027b3197955 57b515c5cc7fe248b5ab32b6ef461a914020723f 589b441a19fdfd28aee5e57891a842e96d91de31 5daf3a821b562cc4131e37ac501e6b79a8dfc4c1 6131b5fae19ea4f9d964eac0408e4408b66337b5 6a000f20005980200259b80c5102003040001068 6b175474e89094c44da98b954eedeac495271d0f 6c18c9226c30bd3057b9606ba5b506efd4c2506a 6ec474047a6c12d0cab53855a990c1c8b3996c20 701876eb1b6cea82774f7041e092f7740624af81 7bf0cf0e4fcdaef1d3173843a16e4b5d2347784e 7dd9c7cbc32df500fa3c06fd60cd62c4e97b2eef 85ff1e15cabca867f244b9c2465227477f251972 8610bf581b1c10cb7d372f93b8cdcde382a7c1d1 882df4b0fb50a229c3b4124eb18c759911485bfb 8932fe7726c1ee743f662f485c3e5a5d1d595f71 89dd06754bb239b6c4c92bc47c8fa72889084e27 8ac76a51cc950d9822d68b83fe1ad97b32cd580d 8c67912b3ed44f4512c2f22b7b2263f6659396ed 8d84d678d195e770caad263d1c37967ec796165c 8f3cf7ad23cd3cadbd9735aff958023239c6a063 93af23fe74e5180f54f0996fa6bb6c157775f7f3 98dc516992437ad3c750bc7fd9916624599c324c 99f47ca8e7ed873e01a337aefc5b75f5328d2da3 a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48 a2c1ec79872d2c961cbd33ef750659e3b2439647 ab907917d541313e2ded546f39912c6d508c04f1 ae5a079ad9b76703d5e3950f3375b4d5fdd5f2ab b6a7a3be9a17ad241665ab9bddbd9a573d488818 bc408e9d7350967e7247c917a086cb4ece0ed988 c2132d05d31c914a87c6611c10748aeb04b58e8f c5da7d212aad698008d2bf6004aca2ee352a6723 c615f91a31791f1bf4ac7f7fdc60525bf1804186 cb3670db84ec9e9dd8c9f341e461c29e4e789a7e cc274e07847a6a86917b6ccd4e67706170d4036f cc95906da4b92b3a5c4b187553050df0f90eae08 d1a5c8492ed1773ca0f1a97abad71afb122a750a d53a00bb90bb606f10d888419a14eca779f17285 d69fd045e23c8a45c6b3f6b9a4ef66592d51dba4 dac17f958d2ee523a2206206994597c13d831ec7 dcc5354175d60ffc8364e71e792fcd66366f00fe e8782615e32557f257dd88d70b1eb0d7f47b91c3 eb51d9a39ad5eef215dc0bf39a8821ff804a0f01 edb9c6900a11d2dd37da6b59f3604c35a39db1e6 eee877c1b6285b82890bdcd027d2715f658ecf23 f09b0cd8bd6ed6fa528284f53fc8e9df753b62de f1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2 f1d45cfbcd430d5e90cc5fa25e8958cc3c798abe f1fb8f098979dc29a3020070ac93ef24f1b2ca4c f1fb9ce9472dec231bced60d6aa729f5e403020b feeaa5f8a104836d15b492399b2ea587a41c4771".split(" ").forEach(function (x) { REG["0x" + x] = 1; });
   // 先走我们自己的缓存代理（/api/bs，30 秒边缘缓存，官方接口冷启动慢时也快）；代理不通再直连官方接口
   function viaProxy(p) {
     return fetch("/api/bs?p=" + encodeURIComponent(p)).then(function (r) { if (!r.ok || (r.headers.get("content-type") || "").indexOf("json") < 0) throw new Error("proxy"); return r.json(); })
@@ -1037,8 +1148,17 @@
       var t = x[0], tt = x[1].items || [], a = (t.from && t.from.hash || "").toLowerCase(), r = translate(a, { tx: t, tr: tt, h: h, t: t.timestamp });
       out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 这笔交易</h2></div>' +
         '<div class="lg-one"><span class="lg-ico">' + r.ico + '</span><div>' + r.text + "</div></div>" +
-        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>手续费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd>" +
+        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>链上 Gas 费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd>" +
         (t.to && t.to.hash ? "<dt>对象</dt><dd>" + (KNOWN[t.to.hash.toLowerCase()] ? '<b class="sc-kn">' + KNOWN[t.to.hash.toLowerCase()] + "</b>" : who(t.to.hash)) + "</dd>" : "") + "</dl>" +
+        /* 站长 2026-11-25：交互的合约不是本站的、也不在官方名单里，要提醒。只说「不认识」，不说它一定有问题（我们没法替客户判断）；被报案的地址另有红字 */
+        (function () {
+          var z = t.to && t.to.hash ? t.to.hash.toLowerCase() : "";
+          if (!z || !t.to.is_contract) return "";
+          if (FLAG[z]) return '<p class="sc-unk bad">⚠️ 这笔交易的对象是<b>被客户报案的地址</b>，请不要再和它打交道。</p>';
+          if (OFFICIAL[z]) return '<p class="sc-unk ok">🏛 这是<b>官方合约</b>（在官方网站公布的合约名单里）。</p>';
+          if (KNOWN[z] || REG[z]) return "";
+          return '<p class="sc-unk">⚠️ 这笔交易打交道的合约<b>不是本站的，也不在官方合约名单里</b>。不认识它的话请留意：别给不认识的合约授权，也别在它的页面上输入助记词。</p>';
+        })() +
         (tt.length ? '<h3 class="lg-h3">🔁 这笔交易里币的流向</h3><div class="lg-flow">' + tt.map(function (x) {
           var tok = (x.token && x.token.address_hash || "").toLowerCase(), tld = tok === NAMES.ailgns ? "ailgns" : tok === NAMES.lgns ? "lgns" : "", id = x.total && x.total.token_id;
           var v = tld && id ? '<b data-nft="' + tld + ":" + id + '">🌐 域名</b>' : "<b>" + (id != null && (x.total || {}).value == null ? "1 张" : amt(x.total && x.total.value, x.total && x.total.decimals)) + " " + esc(x.token && x.token.symbol || "") + (id != null && (x.total || {}).value == null ? "（#" + esc(String(id)) + "）" : "") + "</b>";
