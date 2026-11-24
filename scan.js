@@ -719,6 +719,74 @@
         '<p class="muted sc-awn">这些币押在官方合约里，上面的「账户余额」没有算它们。要用的话先到官方页面取回。</p></div>');
     }).catch(function () { /* 读不到就不显示，不影响别的 */ });
   }
+  /* 🔑 授权检查 + 一键取消（站长 2026-11-25：「让客户知道账户有哪些授权是很好的，出个一键取消授权功能」）。
+     怎么查：翻这个钱包自己发出的操作（最近 300 笔），挑出「授权」那两种（代币 approve、NFT setApprovalForAll），
+     再到链上读现在还剩多少额度——只列现在还生效的。读不到的那一条不列（不乱写）。
+     取消 = 用客户自己的钱包把额度改成 0（NFT 是改成「不允许」），本站不经手、不收费（站长问过收 1 DAI，我建议不收：保命的功能收钱，该撤的人就不撤了）。
+     只有连着的钱包就是这个地址时才出「取消」按钮 */
+  var AP_PAGES = 6;
+  function apprBind(a) {
+    var btn = document.getElementById("sc-apgo"), box = document.getElementById("sc-apl"); if (!btn || !box) return;
+    btn.onclick = function () {
+      btn.disabled = true; btn.textContent = "正在查，稍等几秒…";
+      apprScan(a).then(function (r) { btn.hidden = true; apprDraw(a, r, box); }, function () { btn.disabled = false; btn.textContent = "没查出来，再点一次"; });
+    };
+  }
+  function apprScan(a) {
+    var pairs = {}, pages = 0;
+    function page(q) {
+      return get("/addresses/" + a + "/transactions?filter=from" + q).then(function (d) {
+        (d.items || []).forEach(function (x) {
+          var ri = x.raw_input || "", sel = ri.slice(0, 10), tok = x.to && x.to.hash ? x.to.hash.toLowerCase() : "";
+          if (!tok || ri.length < 138 || (sel !== "0x095ea7b3" && sel !== "0xa22cb465")) return;
+          var sp = "0x" + ri.slice(34, 74).toLowerCase(), k = tok + sp + sel;
+          if (/^0x0+$/.test(sp) || pairs[k]) return;
+          pairs[k] = { tok: tok, sp: sp, all: sel === "0xa22cb465", name: (x.to && x.to.name) || "" };
+        });
+        pages++;
+        var np = d.next_page_params;
+        if (np && pages < AP_PAGES) return page("&" + Object.keys(np).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(np[k]); }).join("&"));
+        return !!np;
+      });
+    }
+    return page("").then(function (more) {
+      var list = Object.keys(pairs).map(function (k) { return pairs[k]; });
+      return Promise.all(list.map(function (x) {
+        var q = x.all ? call(x.tok, "0xe985e9c5" + u256(a) + u256(x.sp)) : call(x.tok, "0xdd62ed3e" + u256(a) + u256(x.sp));
+        var dec = x.all ? Promise.resolve(0) : call(x.tok, "0x313ce567").then(function (h) { var n = Number(BigInt(h)); return n >= 0 && n <= 36 ? n : 18; }, function () { return 18; });
+        return Promise.all([q, dec]).then(function (r) { x.v = r[0] && r[0].length >= 66 ? BigInt(r[0]) : null; x.dec = r[1]; return x; }, function () { x.v = null; return x; });
+      })).then(function (ls) { return { list: ls.filter(function (x) { return x.v !== null && x.v > 0n; }), more: more }; });
+    });
+  }
+  function apprDraw(a, r, box) {
+    var me = isMe(a), short = function (z) { return z.slice(0, 6) + "…" + z.slice(-4); };
+    var kind = function (x) { return FLAG[x.sp] ? 0 : (KNOWN[x.sp] || REG[x.sp]) ? 2 : 1; }; // 0 被报案 1 不认识 2 认识
+    var ls = r.list.sort(function (x, y) { return kind(x) - kind(y); });
+    if (!ls.length) { box.innerHTML = '<p class="sc-apok">✅ 没查到还在生效的授权。</p>' + (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : ""); return; }
+    var unk = ls.filter(function (x) { return kind(x) < 2; }).length;
+    box.innerHTML = '<p class="' + (unk ? "sc-apwarn" : "sc-apok") + '">' + (unk ? "⚠️ 有 " + unk + " 个授权给了不认识的合约，建议取消。" : "✅ 现在生效的 " + ls.length + " 个授权，都是给本站或官方合约的，属于正常使用。") + "</p>" +
+      ls.map(function (x, i) {
+        var k = kind(x), tok = C.tokens[x.tok] || OFFICIAL[x.tok] || x.name || short(x.tok);
+        var who2 = k === 0 ? '<b class="sc-apbad">⚠️ 被客户报案的地址</b>' : KNOWN[x.sp] ? "<b>" + KNOWN[x.sp] + "</b>" : REG[x.sp] ? "<b>本站 / 已登记的合约</b>" : '<b class="sc-apunk">⚠️ 不认识的合约</b>';
+        var amt2 = x.all ? "这个合约里你所有的 NFT（域名 / 卡牌）" : x.v > (1n << 200n) ? "不限数量" : "最多 " + amt(x.v.toString(), x.dec);
+        return '<div class="sc-ap' + (k < 2 ? " unk" : "") + '"><div class="sc-apt"><span>能动你的 <b>' + esc(tok) + "</b></span><small>" + amt2 + '</small></div><div class="sc-apw">给了 ' + who2 + ' <span class="mono muted">' + short(x.sp) + "</span></div>" +
+          (me ? '<button type="button" class="' + (k < 2 ? "nm-go" : "ghost") + ' sc-apx" data-apx="' + i + '">取消这个授权</button><p class="muted nm-st sc-aps"></p>' : "") + "</div>";
+      }).join("") +
+      (me ? '<p class="muted">给本站、官方合约的授权是平时交易要用的，取消后下次用到时钱包会让你重新授权一次，不影响资产。</p>' : '<p class="muted">用这个钱包连接本站后，每一条后面会出现「取消这个授权」按钮。</p>') +
+      (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : "");
+    Array.prototype.forEach.call(box.querySelectorAll("[data-apx]"), function (b) {
+      b.onclick = function () {
+        var x = ls[Number(b.getAttribute("data-apx"))], st = b.parentNode.querySelector(".sc-aps"), K2 = A.otcKit; if (!x || !K2 || b.disabled) return;
+        var say = function (t, bad) { st.textContent = t; st.className = (bad ? "nm-bad" : "muted") + " nm-st sc-aps"; };
+        b.disabled = true; say("正在连接钱包…");
+        try { K2.useMarket("ailgns"); } catch (e) { /* 只是为了让下面在 Anubis 链上发 */ }
+        K2.ready().then(function () {
+          if (!isMe(a)) throw new Error("现在连着的不是这个钱包，取消不了");
+          return K2.send(x.tok, x.all ? "0xa22cb465" + u256(x.sp) + u256(0) : "0x095ea7b3" + u256(x.sp) + u256(0), function (t) { say(t); }, "取消授权");
+        }).then(function () { b.hidden = true; say("✅ 已取消，这个合约动不了你的币了。"); }, function (e) { b.disabled = false; say("没取消成：" + ((e && e.message) || e), true); });
+      };
+    });
+  }
   function awakeCards(a) {
     return call(AWAKE, "0x70a08231" + u256(a)).then(function (h) {
       var n = Number(BigInt(h || "0x0")), idx = [];
@@ -1050,7 +1118,11 @@
     if (a === C.pool) S.pledge = '<section class="card sc-pledge"><div class="sc-pl-grid"><div><b>100%</b><span>奖金全在这个账户</span></div><div><b>足额</b><span>有多少发多少，不打折</span></div><div><b>秒发</b><span>中奖按规则自动发到你钱包</span></div></div>' +
       '<p class="muted">预言家页面大字显示的奖池，就是下面这个钱包的实际余额（AiLGNS 按现价折算），链上任何人可查、谁也改不了。</p></section>';
     if (a === C.pool) S.pays = '<section class="card sc-pays"><div class="card-head"><h2>💸 发放记录</h2><span class="muted">奖金从这个钱包发出 · 链上可查</span></div><div id="sc-pays">' + wait + '</div></section>';
-    out.innerHTML = ["head", "pledge", "bal", "cards", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
+    S.appr = '<section class="card" id="sc-apc"><div class="card-head"><h2>🔑 授权检查</h2><span class="muted">谁能动这个钱包的币</span></div>' +
+      '<p class="muted">「授权」就是允许某个合约从这个钱包里扣币。用不着的、不认识的，建议取消。取消不收费，只花一点链上 Gas。</p>' +
+      '<button type="button" class="ghost sc-apgo" id="sc-apgo">🔍 查一下这个钱包的授权</button><div id="sc-apl"></div></section>';
+    out.innerHTML = ["head", "pledge", "bal", "cards", "pays", "pos", "appr", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
+    apprBind(a);
     // 📍 这个钱包最近从哪里连过网站：只有浏览器里存着站长口令（登录过工单后台）才去查、才显示；客户看不到这张卡（/api/geo 没口令一律拒绝）
     try {
       var gk = localStorage.getItem("fbKey");
