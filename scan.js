@@ -766,7 +766,7 @@
     var unk = ls.filter(function (x) { return kind(x) < 2; }).length;
     box.innerHTML = '<p class="' + (unk ? "sc-apwarn" : "sc-apok") + '">' + (unk ? "⚠️ 有 " + unk + " 个授权给了不认识的合约，建议取消。" : "✅ 现在生效的 " + ls.length + " 个授权，都是给本站或官方合约的，属于正常使用。") + "</p>" +
       ls.map(function (x, i) {
-        var k = kind(x), tok = C.tokens[x.tok] || OFFICIAL[x.tok] || x.name || short(x.tok);
+        var k = kind(x), tok = C.tokens[x.tok] || (OFFICIAL[x.tok] ? OFFICIAL[x.tok].replace(/ 代币$/, "").replace(/ 池子$/, " 的 LP") : "") || x.name || short(x.tok);
         var who2 = k === 0 ? '<b class="sc-apbad">⚠️ 被客户报案的地址</b>' : KNOWN[x.sp] ? "<b>" + KNOWN[x.sp] + "</b>" : REG[x.sp] ? "<b>本站 / 已登记的合约</b>" : '<b class="sc-apunk">⚠️ 不认识的合约</b>';
         var amt2 = x.all ? "这个合约里你所有的 NFT（域名 / 卡牌）" : x.v > (1n << 200n) ? "不限数量" : "最多 " + amt(x.v.toString(), x.dec);
         return '<div class="sc-ap' + (k < 2 ? " unk" : "") + '"><div class="sc-apt"><span>能动你的 <b>' + esc(tok) + "</b></span><small>" + amt2 + '</small></div><div class="sc-apw">给了 ' + who2 + ' <span class="mono muted">' + short(x.sp) + "</span></div>" +
