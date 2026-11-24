@@ -26,5 +26,20 @@
 "。不认识它的话请留意：别给不认识的合约授权，也别在它的页面上输入助记词。": ". If you do not recognise it, be careful: do not approve unknown contracts and never type your seed phrase on their pages.",
 "🏛 这是": "🏛 This is an ",
 "官方合约": "official contract",
-"（在官方网站公布的合约名单里）。": " (listed in the official site's contract list)."
+"（在官方网站公布的合约名单里）。": " (listed in the official site's contract list).",
+"🔑 授权检查": "🔑 Approval check",
+"谁能动这个钱包的币": "who can move this wallet's coins",
+"「授权」就是允许某个合约从这个钱包里扣币。用不着的、不认识的，建议取消。取消不收费，只花一点链上 Gas。": "An approval lets a contract take coins from this wallet. Revoke the ones you no longer use or do not recognise. Revoking is free; you only pay a little network gas.",
+"🔍 查一下这个钱包的授权": "🔍 Check this wallet's approvals",
+"正在查，稍等几秒…": "Checking, a few seconds…",
+"没查出来，再点一次": "Could not check, tap again",
+"✅ 没查到还在生效的授权。": "✅ No active approvals found.",
+"只查了这个钱包最近 {0} 笔操作，更早做的授权这里看不到。": "Only this wallet's latest {0} actions were checked; older approvals are not shown here.",
+"取消这个授权": "Revoke this approval",
+"⚠️ 不认识的合约": "⚠️ Unknown contract",
+"本站 / 已登记的合约": "This site / registered contract",
+"不限数量": "unlimited",
+"✅ 已取消，这个合约动不了你的币了。": "✅ Revoked. This contract can no longer move your coins.",
+"给本站、官方合约的授权是平时交易要用的，取消后下次用到时钱包会让你重新授权一次，不影响资产。": "Approvals to this site and official contracts are needed for normal trading. If you revoke one, your wallet will ask you to approve again next time; your assets are not affected.",
+"用这个钱包连接本站后，每一条后面会出现「取消这个授权」按钮。": "Connect this wallet to the site and a Revoke button appears on each item."
 }
