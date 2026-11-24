@@ -570,6 +570,36 @@
     }
     return page(null, 1).catch(function () { return { items: items }; });
   }
+  // 🃏 卡牌 / NFT 显示框：AWAKE 卡牌直接读链（刚买完马上就有，不等官方浏览器收录），其它 NFT 用浏览器接口的结果；域名另有一栏，不在这里重复
+  var AWAKE = "0x58839f46bd0e3f4494e2beb8ca93da9352208615", CARD_MAX = 60;
+  function awakeCards(a) {
+    return call(AWAKE, "0x70a08231" + u256(a)).then(function (h) {
+      var n = Number(BigInt(h || "0x0")), idx = [];
+      for (var i = 0; i < Math.min(n, CARD_MAX); i++) idx.push(i);
+      return Promise.all(idx.map(function (i) { return call(AWAKE, "0x2f745c59" + u256(a) + u256(i)).then(function (r) { return BigInt(r).toString(); }, function () { return null; }); }))
+        .then(function (ids) { return { n: n, ids: ids.filter(Boolean).sort(function (x, y) { return Number(x) - Number(y); }) }; });
+    });
+  }
+  function cardsBox(a, nftJob) {
+    var el = function (id) { return document.getElementById(id); };
+    var sec = el("sc-cardc"); if (!sec) return;
+    if (A.hidden && A.hidden[String(a).toLowerCase()]) return;
+    Promise.all([awakeCards(a).catch(function () { return null; }), nftJob.catch(function () { return { items: [] }; })]).then(function (r) {
+      var box = el("sc-cards"); if (!box || !el("sc-cardc")) return;
+      var aw = r[0], other = ((r[1] && r[1].items) || []).filter(function (n) { var t = ((n.token || {}).address_hash || "").toLowerCase(); return t && t !== NAMES.ailgns && t !== NAMES.lgns && t !== AWAKE; });
+      var total = (aw ? aw.n : 0) + other.length, me = isMe(a);
+      if (!total && !me) return; // 别人的钱包没有卡牌：不显示这一栏
+      sec.hidden = false;
+      el("sc-ch").textContent = "🃏 " + (me ? "我的卡牌" : "TA 的卡牌") + "（" + total + "）";
+      if (!aw && !other.length) { box.innerHTML = '<p class="muted">卡牌暂时没读出来，刷新一下再看。</p>'; return; }
+      if (!total) { box.innerHTML = '<p class="muted">这个钱包里现在没有卡牌。刚买的等几秒刷新一下；正在挂单出售的卡托管在市场里，卖掉或撤单前不在钱包。<a href="#/otc/nft">去卡牌市场 →</a></p>'; return; }
+      var tiles = (aw ? aw.ids : []).map(function (id) { return '<a class="sc-nft" href="#/otc/nft"><i>🃏</i><b>#' + esc(id) + "</b><small>AWAKE 卡牌</small></a>"; })
+        .concat(other.slice(0, CARD_MAX).map(function (n) { return '<span class="sc-nft"><i>🖼</i><b>#' + esc(String(n.id).slice(0, 10)) + "</b><small>" + esc((n.token.symbol || n.token.name || "NFT").slice(0, 14)) + "</small></span>"; }));
+      var more = total - tiles.length;
+      box.innerHTML = '<div class="sc-nfts">' + tiles.join("") + "</div>" + (more > 0 ? '<p class="muted">还有 ' + more + " 张没列出</p>" : "") +
+        (aw && aw.n ? '<p class="muted sc-nftn">卡牌就在这个钱包里，钱包 App 不一定显示，以这里（链上）为准。</p>' : "");
+    });
+  }
   // ===== 正在进行中：这个地址在本站的挂单、借贷、预言（机器人会告诉客户的事，这里也能看）=====
   var MK = { ailgns: { sym: "AiLGNS", dec: 18, chain: "Anubis" }, lgns: { sym: "LGNS", dec: 9, chain: "Anubis" }, glgns: { sym: "gLGNS", dec: 18, chain: "Anubis" }, plgns: { sym: "LGNS", dec: 9, chain: "Polygon" } };
   var LOANS = { ailgns: { c: "0x242ab392571d325d814a48892ac16115a6d285dc", sym: "AiLGNS", dec: 18 }, lgns: { c: "0x439cb33e9c5d7a26dd1fa503efe6fd3033ac173b", sym: "LGNS", dec: 9 }, glgns: { c: "0x00e674bb1559557966a6c2244c36d12a63218a5f", sym: "gLGNS", dec: 18 } };
@@ -861,6 +891,8 @@
       '<div class="lg-list" id="sc-msgs">' + wait + "</div></section>",
       bal: '<section class="card sc-balc"><div class="card-head"><h2>💰 账户余额</h2><span class="muted" id="sc-balsum"></span></div><div class="sc-bal" id="sc-bal">' + wait + '</div><div id="sc-balx"></div></section>',
       pos: '<section class="card" id="sc-posc"><div class="card-head"><h2>📌 在本站的事</h2><span class="muted" id="sc-possum">挂单 · 借贷 · 预测</span></div>' + catBtns(a, cat || "all") + '<div class="lg-list" id="sc-pos">' + wait + "</div></section>",
+      // 站长 2026-11-23：客户买了卡牌在账户里找不到 → 账本加卡牌 / NFT 显示框（别人的钱包没有就不占地方，自己的钱包没有也说一声）
+      cards: '<section class="card" id="sc-cardc" hidden><div class="card-head"><h2 id="sc-ch">🃏 我的卡牌</h2><span class="muted">买到的卡牌显示在这里</span></div><div id="sc-cards">' + wait + "</div></section>",
       names: '<section class="card"><h2 id="sc-nh">🌐 我的域名</h2><div id="sc-names">' + wait + "</div></section>",
       // 站长 2026-11-11：不全折叠，先露最新 5 条，其余点「展开看更多」（见 clipLg）
       hist: '<section class="card sc-histc"><div class="card-head"><div class="sc-fh"><h2>📜 钱的来龙去脉</h2><span class="muted" id="sc-hsum">转进来、转出去、买了什么 · 最新在上</span></div><button type="button" class="sc-hbtn" id="sc-hbtn" hidden>收起 ▴</button></div><div class="lg-list sc-clip" id="sc-lg">' + wait + "</div></section>" };
@@ -871,7 +903,7 @@
     if (a === C.pool) S.pledge = '<section class="card sc-pledge"><div class="sc-pl-grid"><div><b>100%</b><span>奖金全在这个账户</span></div><div><b>足额</b><span>有多少发多少，不打折</span></div><div><b>秒发</b><span>中奖按规则自动发到你钱包</span></div></div>' +
       '<p class="muted">预言家页面大字显示的奖池，就是下面这个钱包的实际余额（AiLGNS 按现价折算），链上任何人可查、谁也改不了。</p></section>';
     if (a === C.pool) S.pays = '<section class="card sc-pays"><div class="card-head"><h2>💸 发放记录</h2><span class="muted">奖金从这个钱包发出 · 链上可查</span></div><div id="sc-pays">' + wait + '</div></section>';
-    out.innerHTML = ["head", "pledge", "bal", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
+    out.innerHTML = ["head", "pledge", "bal", "cards", "pays", "pos", "hist", "names", "msg"].filter(function (k) { return S[k]; }).map(function (k) { return S[k]; }).join("");
     // 📍 这个钱包最近从哪里连过网站：只有浏览器里存着站长口令（登录过工单后台）才去查、才显示；客户看不到这张卡（/api/geo 没口令一律拒绝）
     try {
       var gk = localStorage.getItem("fbKey");
@@ -939,7 +971,9 @@
       var sum = el("sc-balsum"); if (sum) sum.textContent = total ? "一共约 " + fb(total) + " DAI" : "这个钱包现在没有钱";
       var bx = el("sc-balx"); if (bx) bx.innerHTML = others.length ? '<p class="muted sc-others">其它：' + others.sort(function (x, y) { return y.v - x.v; }).slice(0, 8).map(function (o) { return esc(o.sym) + " " + amt(String(Math.round(o.v * 1e6)), 6); }).join(" · ") + "</p>" : "";
     });
-    allNfts(a).then(function (x) {
+    var nftJob = allNfts(a);
+    cardsBox(a, nftJob);
+    nftJob.then(function (x) {
       var mine = (x.items || []).filter(function (n) { var t = (n.token.address_hash || "").toLowerCase(); return t === NAMES.ailgns || t === NAMES.lgns; });
       if (!el("sc-names")) return;
       if (A.hidden && A.hidden[String(a).toLowerCase()]) { el("sc-names").innerHTML = '<p class="muted">🔒 不公开</p>'; return; }

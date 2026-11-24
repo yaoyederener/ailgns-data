@@ -1,0 +1,12 @@
+{
+"买到的卡牌显示在这里": "Cards you buy show up here",
+"🃏 我的卡牌": "🃏 My cards",
+"🃏 我的卡牌（{0}）": "🃏 My cards ({0})",
+"🃏 TA 的卡牌（{0}）": "🃏 Their cards ({0})",
+"卡牌暂时没读出来，刷新一下再看。": "Could not load the cards just now. Please refresh and try again.",
+"这个钱包里现在没有卡牌。刚买的等几秒刷新一下；正在挂单出售的卡托管在市场里，卖掉或撤单前不在钱包。": "No cards in this wallet right now. If you just bought one, wait a few seconds and refresh. Cards listed for sale are held by the market until sold or cancelled.",
+"去卡牌市场 →": "Go to the card market →",
+"AWAKE 卡牌": "AWAKE card",
+"还有 {0} 张没列出": "{0} more not shown",
+"卡牌就在这个钱包里，钱包 App 不一定显示，以这里（链上）为准。": "These cards are in this wallet. Wallet apps may not show them; what you see here (on-chain) is the truth."
+}
