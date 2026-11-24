@@ -406,6 +406,7 @@
   function thirdCard() {
     return '<section class="card lpv"><div class="card-head"><h2>ℹ️ 关于 ' + SYM + '</h2></div>' +
       "<p><b>" + SYM + " 在 DEX 卖出要扣约 18% 的税，在这里成交只收 1% 手续费</b>（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。</p>" +
+      '<p class="muted">这里用 DAI 结算。手里是 USDT 的，先到官方 DEX 把 USDT 换成 DAI，大约 1 比 1（2026-11-25 实测：换 1 万以内损耗不到 0.5%，一次换得越多损耗越大）。</p>' +
       '<p class="lpv-warn">⚠️ ' + SYM + " 是第三方项目的代币，<b>不是本站发行的，也不是 AWAKE 官方的</b>。它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。本站只提供担保交易这个工具，买不买请自己判断。</p></section>";
   }
   function lpCardHtml(q) {

@@ -51,5 +51,6 @@
 "（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。": " (paid by the taker). The seller's coins sit in the escrow contract and the buyer pays DAI; the swap happens in one transaction. Cancel any time before it fills and the coins come back as they were.",
 "⚠️ RM 是第三方项目的代币，": "⚠️ RM is a third-party project's token, ",
 "不是本站发行的，也不是 AWAKE 官方的": "not issued by this site and not an official AWAKE token",
-"。它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。本站只提供担保交易这个工具，买不买请自己判断。": ". Its contract can be upgraded and its rules changed by the issuer; this site cannot control that and gives no guarantee for this token. We only provide the escrow trading tool. Decide for yourself whether to buy."
+"。它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。本站只提供担保交易这个工具，买不买请自己判断。": ". Its contract can be upgraded and its rules changed by the issuer; this site cannot control that and gives no guarantee for this token. We only provide the escrow trading tool. Decide for yourself whether to buy.",
+"这里用 DAI 结算。手里是 USDT 的，先到官方 DEX 把 USDT 换成 DAI，大约 {0} 比 {1}（{2}-{3}-{4} 实测：换 {5} 万以内损耗不到 {6}%，一次换得越多损耗越大）。": "Trades here settle in DAI. If you hold USDT, swap it to DAI on the official DEX first, roughly {0} to {1} (measured {2}-{3}-{4}: under {6}% loss for up to {5}0,000; larger swaps lose more)."
 }
