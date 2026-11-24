@@ -227,6 +227,8 @@ export async function onRequestPost(ctx) {
     if (b.st && ST[b.st]) t.st = b.st;
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);
+    // 🧹 清理正文（站长 2026-11-24：#434 客户把助记词写进了工单）：站长口令 + redact:1 才能改正文，记下改过的时间
+    if (b.redact === 1 && typeof b.txt === "string") { t.txt = b.txt.slice(0, 4000); t.red = Date.now(); }
     // 客服回复附图（最多 4 张，和客户截图一样存 KV）：覆盖式，重新保存就换新的一组
     if (Array.isArray(b.rimgs)) {
       const ri = b.rimgs.filter((x) => typeof x === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(x) && x.length < 700000).slice(0, 4);
