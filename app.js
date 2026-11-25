@@ -608,7 +608,6 @@
     var order = ["kchart", "names", "oracle", "trade", "lend", "lp", "aiswap", "misc", "feedback", "games"], i = 0;
     (function next() { if (i >= order.length) return; var k = order[i++]; loadBundle(k).catch(function () {}).then(function () { setTimeout(next, 400); }); })();
   }
-  A.useBundle = function (k) { return loadBundle(k); }; // 别的页面要用某一包里的功能（比如在预言家页直接弹出注册窗口）
   function loadBundle(k) {
     if (bundles[k]) return bundles[k];
     var url = window.AIL_BUNDLES && window.AIL_BUNDLES[k];
@@ -983,7 +982,7 @@
       } catch (e) { done(null); }
     });
   }
-  window.AIL = { sure: sure, sure2: sure2, askText: askText, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
+  window.AIL = { useBundle: function (k) { return loadBundle(k); }, sure: sure, sure2: sure2, askText: askText, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
