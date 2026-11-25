@@ -33,5 +33,16 @@
 "还要": "In",
 "🌀 新增「涡轮助手」（试运行，☰ 更多 → 交易）：把官方的「领排放 → 涡轮激活 → 24 小时后领取」放到一页，按第一、二、三步点；第四、五步可选：把 AiLGNS 在本站 OTC 卖成 DAI、再把 DAI 投进官方算力。调用的是官方合约，本站不经手；只有第四步在 OTC 成交时照常收 1% 手续费。手续费、锁定时间以官方为准。": "🌀 New “Turbine Helper” (trial, ☰ More → Trade): the official “claim emission → activate Turbine → claim after 24 hours” flow on one page, in steps 1, 2, 3. Steps 4 and 5 are optional: sell AiLGNS for DAI on this site's OTC, then put the DAI into official Power. It calls the official contracts and this site never holds your funds; only step 4, which trades on the OTC, pays the usual 1% fee. Fees and lock time follow the official rules.",
 "涡轮助手": "Turbine",
-"一页五步": "5 steps"
+"一页五步": "5 steps",
+"可选": "Optional",
+"现在可以做": "Ready",
+"算力": "Power",
+"到点领取": "Claim when unlocked",
+"激活涡轮": "Activate Turbine",
+"卖成 DAI": "Sell for DAI",
+"复投算力": "Reinvest into Power",
+"把产出的排放领出来": "Collect the emission you have earned",
+"付 DAI，换回同样数量的币": "Pay DAI and get the same number of coins back",
+"在本站 OTC 卖给现成的买单": "Sell into existing buy orders on this site's OTC",
+"把 DAI 投进官方算力": "Put DAI into official Power"
 }

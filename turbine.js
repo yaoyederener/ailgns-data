@@ -66,7 +66,12 @@
     return read(TURBINE, SEL.quote + u(amt)).then(function (h) { var q = { buy: big(word(h, 0)), fee: big(word(h, 1)), total: big(word(h, 2)) }, max = q.total + q.total * SLIP_BPS / 10000n; return max <= have ? { amt: amt, q: q, max: max, part: true } : null; }, function () { return null; });
   }
 
-  function step(n, title, body, done) { return '<div class="tbn-step' + (done ? " off" : "") + '"><div class="tbn-h"><i>' + n + "</i><b>" + title + "</b></div>" + body + "</div>"; }
+  /* 版式（站长 2026-11-25「把这五步做精美一点」）：左边一条竖线串起五个圆点（像物流进度），右边是卡片。
+     轮到要做的那一步：圆点实心、卡片白底描紫边带一点阴影，标题旁有「现在可以做」；没事可做的：圆点空心、卡片淡一档。第四、五步带「可选」小标 */
+  function step(n, title, sub, body, done, opt) {
+    return '<div class="tbn-step' + (done ? " off" : " on") + '"><div class="tbn-dot">' + n + '</div><div class="tbn-card"><div class="tbn-h"><b data-nobrand>' + title + "</b>" +
+      (opt ? '<em class="tbn-opt">可选</em>' : "") + (done ? "" : '<em class="tbn-now">现在可以做</em>') + '</div><p class="tbn-sub">' + sub + "</p>" + body + "</div></div>";
+  }
   function draw() {
     var box = document.getElementById("tbn-box"); if (!box) return;
     if (!account) { box.innerHTML = '<button type="button" class="nm-go tbn-go" id="tbn-conn">连接钱包</button><p class="muted nm-st" id="tbn-cst"></p>'; document.getElementById("tbn-conn").onclick = conn; return; }
@@ -88,7 +93,7 @@
       '<button type="button" class="nm-go tbn-go" data-act="activate">授权并激活涡轮</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次要付的 DAI，再激活。</p>';
     var s3 = "";
     if (open.length) s3 += '<p>已经解锁 <b class="tbn-n">' + f(openAmt, 6) + "</b> AiLGNS（" + open.length + ' 笔），可以领了。</p><button type="button" class="nm-go tbn-go" data-act="unlock">领取已解锁的</button>';
-    if (shut.length) s3 += '<div class="tbn-locks">' + shut.map(function (l) { return "<div><span>" + f(l.amt, 6) + ' AiLGNS</span><b class="tbn-left" data-at="' + l.at + '">' + T("还要") + " " + left(l.at - now) + "</b></div>"; }).join("") + "</div>";
+    if (shut.length) s3 += '<div class="tbn-locks">' + shut.map(function (l) { var pct = S.lockSec > 0 ? Math.max(3, Math.min(100, Math.round((S.lockSec - (l.at - now)) / S.lockSec * 100))) : 0; return '<div class="tbn-lock"><div class="tbn-lockr"><span>' + f(l.amt, 6) + ' AiLGNS</span><b class="tbn-left" data-at="' + l.at + '">' + T("还要") + " " + left(l.at - now) + '</b></div><div class="tbn-bar"><i style="width:' + pct + '%"></i></div></div>'; }).join("") + "</div>";
     if (!s3) s3 = '<p class="muted">没有锁着的。第二步激活后，' + hrs + " 小时回来这里领。</p>";
     if (!sellStr) { var ls = mem("sell"); try { if (ls && BigInt(ls) > 0n && BigInt(ls) <= S.ail) sellStr = plain(BigInt(ls), 6); } catch (e) {} }
     if (!daiStr) { var ld = mem("dai"); try { if (ld && BigInt(ld) > 0n && BigInt(ld) <= S.dai) daiStr = plain(BigInt(ld), 2); } catch (e) {} }
@@ -107,10 +112,10 @@
       (rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的 DAI 不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "") +
       '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
     s5 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p>";
-    box.innerHTML = step(1, "领排放", s1, S.stat <= 0n) + step(2, "激活涡轮（付 DAI）", s2, S.wait <= 0n) + step(3, hrs + " 小时后领取", s3, !S.locks.length) +
-      step(4, "把 AiLGNS 卖成 DAI（可选）", s4, S.ail <= 0n) + step(5, "DAI 复投算力（可选）", s5, S.dai <= 0n || S.open === false) +
-      '<p class="muted nm-st" id="tbn-st"></p>' +
-      '<div class="tbn-tail"><p>钱包里现在有 <b>' + f(S.ail, 6) + "</b> AiLGNS、<b>" + f(S.dai, 2) + ' DAI</b>。</p><button type="button" class="ghost tbn-re" data-act="reload">刷新数据</button></div>';
+    box.innerHTML = '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
+      '<div class="tbn-steps">' + step(1, "领排放", "把产出的排放领出来", s1, S.stat <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
+      step(4, "卖成 DAI", "在本站 OTC 卖给现成的买单", s4, S.ail <= 0n, 1) + step(5, "复投算力", "把 DAI 投进官方算力", s5, S.dai <= 0n || S.open === false, 1) + "</div>" +
+      '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
     var i4 = document.getElementById("tbn-sell"), i5 = document.getElementById("tbn-dai");
     if (i4) i4.oninput = function () { sellStr = i4.value; if (sellQ) { sellQ = null; draw(); var n4 = document.getElementById("tbn-sell"); if (n4) { n4.focus(); try { n4.setSelectionRange(n4.value.length, n4.value.length); } catch (e) {} } } };
     if (i5) i5.oninput = function () { daiStr = i5.value; };
