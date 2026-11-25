@@ -5454,8 +5454,3 @@ html.lang-ko body { word-break: keep-all; }
 .rpcp-kv div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; font-size: 13.5px; border-bottom: 1px solid #f3effb; }
 .rpcp-kv div:last-child { border-bottom: 0; }
 .rpcp-kv span { color: #9a92ba; flex: none; } .rpcp-kv b { text-align: right; word-break: break-all; color: #2e2654; }
-
-/* 域名页：从每日预言家入口进来注册时顶上的提示条（names.js SRC_DAILY） */
-.nm-src { border: 2px solid #c4b5fd; background: #f6f2ff; }
-.nm-src b { color: #4a1fb8; } .nm-src p { margin: 6px 0 0; font-size: 14px; line-height: 1.6; }
-.nm-src .nm-src-x { display: inline-block; margin-top: 8px; font-size: 13px; color: #7a5cd6; }
