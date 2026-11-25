@@ -5502,3 +5502,9 @@ html.lang-ko body { word-break: keep-all; }
 .ainw-it:active { background: #f3ebff; }
 .ainw-foot { margin-top: 14px; font-size: 12px; line-height: 1.6; }
 .sc-flag p { overflow-wrap: anywhere; }
+
+/* 🔑 授权检查：取消按钮加亮（站长 2026-11-25：「取消授权做高亮一点，客户看不到」）+ 一键取消 */
+.sc-apx { font-size: 15.5px; font-weight: 700; padding: 12px; }
+.sc-apx2 { border: 1.5px solid #7c3aed; border-radius: 12px; background: #ede4ff; color: #5b21b6; cursor: pointer; }
+.sc-apx2:active { background: #ddd0ff; } .sc-apx2:disabled { opacity: .55; }
+.sc-apall { width: 100%; margin: 4px 0 2px; padding: 14px 12px; font-size: 16px; font-weight: 700; }

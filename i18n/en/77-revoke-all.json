@@ -1,0 +1,10 @@
+{
+"🧹 一键取消不是本站、也不是官方的授权（{0} 个）": "🧹 Revoke all approvals not given to this site or official contracts ({0})",
+"钱包会弹 {0} 次确认，每次都点确认。只花一点 Gas，本站不收费。": "Your wallet will ask you to confirm {0} times — confirm each one. It only costs a little gas; this site charges nothing.",
+"✅ 不是本站、也不是官方的授权，已经全部取消。": "✅ All approvals not given to this site or official contracts have been revoked.",
+"✅ {0} 个授权已经全部取消，这些合约动不了你的币了。": "✅ All {0} approvals revoked. Those contracts can no longer move your coins.",
+"正在取消第 {0} / {1} 个，请在钱包里点确认…": "Revoking {0} of {1} — please confirm in your wallet…",
+"🧹 接着取消剩下的（{0} 个）": "🧹 Continue revoking the rest ({0})",
+"🚨 风险合约 · 假币 / 仿冒": "🚨 Risky contract · fake token / copycat",
+"🔑 账本「授权检查」升级：每条授权的「取消这个授权」按钮更醒目了；查出有不是本站、也不是官方合约的授权时，多一个「🧹 一键取消」按钮，把这些授权一个个取消（钱包会逐个弹确认，本站不收费）。": "🔑 Ledger “Approval check” upgrade: the “Revoke this approval” button on each item is now easier to see; when approvals to contracts that are neither this site's nor official are found, a new “🧹 Revoke all” button revokes them one by one (your wallet asks you to confirm each; this site charges nothing)."
+}
