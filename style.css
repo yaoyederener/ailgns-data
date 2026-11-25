@@ -5499,7 +5499,6 @@ html.lang-ko body { word-break: keep-all; }
 .ainw-it b { display: block; font-size: 14.5px; font-weight: 600; line-height: 1.5; }
 .ainw-it em { display: block; margin-top: 2px; font-style: normal; font-size: 12px; line-height: 1.4; color: #8a82a8; }
 .ainw-it i { margin-top: 5px; }
-.ainw-it:active { background: #f3ebff; }
 .ainw-foot { margin-top: 14px; font-size: 12px; line-height: 1.6; }
 .sc-flag p { overflow-wrap: anywhere; }
 
@@ -5726,6 +5725,8 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .vdc-idx { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px; border-radius: 14px; background: #faf8ff; border: 1px solid #efeaf9; }
 .vdc-k { max-width: 100%; white-space: normal; word-break: break-word; padding: 7px 11px; border-radius: 999px; border: 1px solid #ddd2ff; background: #fff; color: #4b3fa0; font-size: 13.5px; line-height: 1.35; text-align: left; }
 .vdc-k.vdc-off { border-color: #bfe3d6; color: #1f6f57; background: #f4fbf8; }
+.vdc-k[data-key] { padding: 9px 15px; font-size: 15px; font-weight: 600; }
+.vdc-k small { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: #efeaff; font-size: 12px; font-weight: 600; }
 .vdc-g { display: flex; align-items: center; gap: 8px; margin: 22px 0 4px; padding: 9px 12px; border-radius: 12px; background: #f3efff; font-size: 16px; color: #4b3fa0; }
 .vdc-g small { padding: 1px 8px; border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 600; }
 .vdg-it { scroll-margin-top: 150px; border-radius: 14px; transition: box-shadow .3s; }
@@ -5765,3 +5766,6 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .tbn-sk { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
 .tbn-sk i { height: 58px; border-radius: 14px; background: linear-gradient(90deg, #f1ecff 25%, #faf8ff 50%, #f1ecff 75%); background-size: 200% 100%; animation: tbn-sk 1.2s linear infinite; }
 @keyframes tbn-sk { to { background-position: -200% 0; } }
+/* 账本 · 失败交易的原因（2026-11-26） */
+.lg-why { display: inline-block; margin-top: 3px; color: #b45309; font-size: 13px; line-height: 1.5; }
+.sc-why { margin-top: 6px; padding: 8px 10px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 13.5px; line-height: 1.6; }

@@ -116,9 +116,10 @@
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
       signal: ctl ? ctl.signal : undefined
     }).then(function (r) { clearTimeout(timer); return r.json(); }).then(function (j) {
-      if (j.error) throw new Error(j.error.message);
+      if (j.error) { var er = new Error(j.error.message); er.data = j.error.data; er.code = j.error.code; throw er; } // data = 合约退回的原始报错（账本翻失败原因要用）
       return j.result;
     }).catch(function (e) {
+      if (e && e.code === 3) throw e; // 合约明确拒绝（execution reverted）：换节点结果也一样，别再挨个问一遍
       if (i < RPCS.length - 1) return rpc(method, params, i + 1);
       throw e;
     });
