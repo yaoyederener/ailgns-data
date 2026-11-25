@@ -1,0 +1,20 @@
+{
+"💡 每日熄灯": "💡 Daily Lights-Out",
+"💡 每日熄灯（每天一题）": "💡 Daily Lights-Out (one puzzle a day)",
+"点一格，它和上下左右一起翻面；把所有灯点灭。": "Tap a cell: it and its four neighbours flip. Turn every light off.",
+"↩ 撤销": "↩ Undo",
+"🔄 重来": "🔄 Restart",
+"💡 提示": "💡 Hint",
+"🎲 练习": "🎲 Practice",
+"📅 今日题": "📅 Today's puzzle",
+"🎲 再练一题": "🎲 Another practice puzzle",
+"📋 复制成绩，发给朋友比": "📋 Copy result to share with friends",
+"🎉 刚好最少步数！": "🎉 Perfect — fewest possible moves!",
+"👍 很接近最少步数": "👍 Very close to the fewest moves",
+"✅ 通关了，下次试试更少的步数": "✅ Cleared! Try fewer moves next time",
+"每天一题，全站同一题，步数越少越好。用提示不扣分，但会写在分享里。": "One puzzle a day, the same for everyone — fewer moves is better. Hints cost nothing but are noted when you share.",
+"纯娱乐小游戏：不收费、不连钱包、没有任何币和奖励；成绩只存在这台设备上。由团队维护。": "Just-for-fun game: no fees, no wallet, no coins or rewards; results are stored only on this device. Maintained by the team.",
+"每日熄灯页面打开失败，请刷新再试。": "The Daily Lights-Out page failed to open. Please refresh and try again.",
+"已复制，去发给朋友吧 ✅": "Copied — send it to your friends ✅",
+"💡 新小游戏「每日熄灯」：☰ 更多 → 销毁乐园 → 💡 每日熄灯。5×5 的灯，点一格它和上下左右一起翻面，把灯全点灭；每天一题、全站同一题，比谁用的步数少，可以复制成绩发给朋友。纯娱乐，不收费、不连钱包、没有任何币和奖励，成绩只存在你这台设备上。": "💡 New mini-game “Daily Lights-Out”: ☰ More → Play → 💡 Daily Lights-Out. A 5×5 grid of lights: tap a cell and it flips along with its four neighbours — turn them all off. One puzzle a day, the same for everyone; fewest moves wins, and you can copy your result to share. Just for fun: no fees, no wallet, no coins or rewards, and results stay on your device."
+}

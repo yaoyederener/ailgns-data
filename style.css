@@ -5733,3 +5733,23 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .vdc-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
 .vdc-pick button { padding: 8px 12px; border-radius: 10px; border: 1px solid #e3d9ff; background: #fff; color: #5b5385; font-size: 14px; }
 .vdc-pick button.on { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+
+/* 💡 每日熄灯（gx-light.js，游戏自动开发） */
+.gxl { max-width: 420px; margin: 0 auto 16px; padding: 0 4px; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.gxl-hero { text-align: center; margin: 8px 0 10px; }
+.gxl-hero h2 { margin: 0 0 4px; font-size: 22px; color: var(--purple-ink, #4a2fb8); }
+.gxl-hero p { margin: 0; font-size: 13px; color: #6b6785; }
+.gxl-bar { display: flex; justify-content: space-between; gap: 6px; font-size: 13px; color: #4a4570; margin: 8px 2px; flex-wrap: wrap; }
+.gxl-bd { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 12px; border-radius: 18px; background: linear-gradient(135deg, #f6f0ff, #ffffff 60%, #fbf4ff); border: 1px solid #e3d8ff; box-shadow: 0 6px 20px rgba(124, 77, 255, .08); }
+.gxl-c { aspect-ratio: 1 / 1; border: 0; padding: 0; border-radius: 14px; cursor: pointer; background: #e9e2fb; box-shadow: inset 0 -3px 0 rgba(90, 60, 180, .12); transition: background .12s, transform .08s, box-shadow .12s; }
+.gxl-c:active { transform: scale(.94); }
+.gxl-c.on { background: linear-gradient(145deg, #a98bff, #7c4dff); box-shadow: 0 0 14px rgba(124, 77, 255, .55), inset 0 -3px 0 rgba(0, 0, 0, .1); }
+.gxl-c.hint { outline: 3px solid #ffb300; outline-offset: 1px; }
+.gxl-tools { display: flex; gap: 8px; margin: 12px 0 8px; flex-wrap: wrap; }
+.gxl-b { flex: 1 1 0; min-width: 70px; border: 1px solid #d9cdfa; background: #fff; color: #4a2fb8; border-radius: 12px; padding: 10px 6px; font-size: 14px; font-family: inherit; cursor: pointer; }
+.gxl-b.pri { background: #7c4dff; color: #fff; border-color: #7c4dff; width: 100%; margin: 6px 0; }
+.gxl-tip { margin: 6px 0; font-size: 13px; color: #6b6785; text-align: center; white-space: pre-line; }
+.gxl-done { text-align: center; padding: 12px; border-radius: 14px; background: #f6f0ff; border: 1px solid #e3d8ff; }
+.gxl-done p { margin: 4px 0; font-size: 13px; color: #4a4570; }
+.gxl-done .gxl-b { width: 100%; margin-top: 6px; }
+.gxl-note { margin: 10px 0 0; font-size: 12px; color: #8a86a3; text-align: center; }
