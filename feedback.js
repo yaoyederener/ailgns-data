@@ -453,8 +453,8 @@
     st = st || "new"; adminSt = st;
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/ops" class="ad-nb">🛠️ 网站优化</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' +
-      '<div id="fb-says"></div>' + pushRow() +
-      '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div></section>';
+      '<div id="fb-says-tip"></div>' + pushRow() + // 站长 2026-11-25：「中奖待认证」那一大块挡着看工单，挪到工单列表下面（见这一行末尾的 fb-says）
+      '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div><div id="fb-says"></div></section>';
     document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
     document.querySelectorAll(".ad-nb").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); location.hash = b.getAttribute("href"); admin(rid, b.getAttribute("data-s")); }; });
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
@@ -469,6 +469,13 @@
       // 🏆 周榜的奖（站长 2026-11-22 超过 100 DAI 的，2026-11-23 起所有上榜的）也要交宣传截图 / 视频、等这里点「通过」：和预言家的并在一起显示（周榜那边读不到不影响预言家）
       Promise.all([post({ action: "says" }), postTo("/api/weekly", { action: "says" }).catch(function () { return null; })]).then(function (rs) {
         var j = rs[0], L = ((j && j.list) || []).concat((rs[1] && rs[1].list) || []);
+        // 那一大块挪到工单下面以后，上面只留一行提醒：有几笔、几笔已经上传在等你点通过；点一下滚过去
+        var tp = document.getElementById("fb-says-tip");
+        if (tp) {
+          var wait = L.filter(function (x) { return x.has && !x.ok; }).length;
+          tp.innerHTML = L.length ? '<button type="button" class="ghost fb-says-go">🏆 中奖待认证 ' + L.length + " 笔" + (wait ? "，其中 <b>" + wait + " 笔已上传、等你通过</b>" : "") + " · 在工单下面 ↓</button>" : "";
+          var gb = tp.querySelector(".fb-says-go"); if (gb) gb.onclick = function () { try { sb.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { sb.scrollIntoView(); } };
+        }
         if (!L.length) { sb.innerHTML = ""; return; }
         sb.innerHTML = '<div class="fb-say"><b>🏆 中奖待认证 · 预言家 / 周榜（' + L.length + ' 笔）</b><small>中奖人在群里说一声并上传截图 / 视频 → 你点开看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
           var burnOk = x.bn >= x.need, stT = x.ok ? (burnOk ? "✅ 已通过，机器人马上发" : "✅ 已通过，等他烧够名字（" + x.bn + "/" + x.need + "）") : x.has ? (burnOk ? "🔎 等你认证" : "🔎 凭证已交，名字还没烧够（" + x.bn + "/" + x.need + "）") : burnOk ? "📣 名字烧够了，等他上传截图 / 视频" : "⏳ 等他烧名字（" + x.bn + "/" + x.need + "）和上传凭证";

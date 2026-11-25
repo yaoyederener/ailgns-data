@@ -5410,3 +5410,6 @@ html.lang-ko body { word-break: keep-all; }
 
 /* 身份标注小牌子（scan.js BADGE）：跟在名字后面 */
 .sc-bdg { display: inline-block; font-style: normal; font-size: 11px; font-weight: 600; line-height: 1.5; padding: 0 7px; border-radius: 999px; background: #f1eaff; color: #5920ad; border: 1px solid #d5b9f5; white-space: nowrap; vertical-align: middle; }
+
+/* 工单后台：中奖待认证挪到工单下面后，顶上留的一行提醒 */
+.fb-says-go { display: block; width: 100%; height: auto; padding: 8px 12px; margin: 8px 0; text-align: left; font-size: 13.5px; font-weight: 500; white-space: normal; line-height: 1.5; }
