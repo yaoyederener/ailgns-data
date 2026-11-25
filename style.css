@@ -5559,3 +5559,48 @@ html.lang-ko body { word-break: keep-all; }
 .tbn-in input { flex: 1; min-width: 0; height: 48px; padding: 0 14px; border: 1.5px solid #d9cff5; border-radius: 14px; font-size: 18px; font-weight: 600; background: #fff; color: #2e2654; box-sizing: border-box; font-variant-numeric: tabular-nums; }
 .tbn-in input:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 4px rgba(139, 92, 246, .14); }
 .tbn-in button { flex: none; height: 48px; padding: 0 16px; font-size: 14.5px; border-radius: 14px; }
+
+/* 🏡 农场新风格（.fmx，站长 2026-11-25 效果图）：水彩顶图 + 淡紫粉底 + 白色圆角卡片 + 绿色字。只盖样式，不动结构 */
+.fmx { position: relative; margin: 0 -4px; padding: 10px 10px 0; border-radius: 30px; overflow: hidden; background: linear-gradient(180deg, #f6eeff 0%, #fbeaf6 46%, #efe9ff 100%); border: 1px solid #efe4fb; }
+.fmx .fm-scene { display: flex; flex-direction: column; padding: 0; margin-bottom: 12px; border-radius: 24px; background: #fff; border: 0; box-shadow: 0 8px 22px rgba(150, 120, 200, .16); overflow: hidden; }
+.fmx .fm-scene .fm-top { order: 1; height: auto; flex-direction: row; justify-content: center; align-items: center; gap: 8px; padding: 12px 10px 10px; background: #fff; }
+.fmx .fm-scene .fm-top h2 { font-size: 21px; font-weight: 800; letter-spacing: 1px; color: #1f5f2a; -webkit-text-fill-color: #1f5f2a; text-shadow: none; }
+.fmx .fm-scene .fm-top h2::before, .fmx .fm-scene .fm-top h2::after { content: "🌱"; font-size: 16px; margin: 0 8px; vertical-align: 2px; }
+.fmx .fm-scene .fm-top span { display: none; }
+.fmx .fm-sky { order: 2; position: relative; left: auto; right: auto; top: auto; height: auto; aspect-ratio: 909 / 368; background: #cfeaf7 url("/icons/farm/hero.jpg?v=1") center / cover no-repeat; }
+.fmx .fm-sky > i, .fmx .fm-sky > .fm-prop { display: none; }
+.fmx #fm-deco { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 4px; padding: 3px 8px; border-radius: 99px; background: rgba(255, 255, 255, .86); box-shadow: 0 2px 8px rgba(90, 70, 140, .18); }
+.fmx #fm-deco:empty { display: none; }
+.fmx #fm-deco .fm-deco { position: static; display: inline-flex; width: auto; height: auto; margin: 0; font-size: 18px; line-height: 1; filter: none; z-index: auto; background: none; border-radius: 0; animation: none; transform: none; }
+.fmx #fm-deco .fm-deco .fm-art { width: auto; height: 20px; max-width: 26px; }
+.fmx #fm-deco .fm-deco.d-rainbow { font-size: 18px; }
+.fmx #fm-stat { order: 3; padding: 0 12px 12px; }
+.fmx #fm-stat:empty { display: none; }
+.fmx .fm-hud { margin-top: 12px; }
+.fmx .fm-pill { border: 1.5px solid #cfe8c4; color: #1f5f2a; box-shadow: 0 2px 6px rgba(80, 140, 60, .12); }
+.fmx .fm-pill.fm-lv { border-color: #dccff7; color: #5b21b6; box-shadow: 0 2px 6px rgba(124, 58, 237, .10); }
+.fmx .fm-xp { background: #edf7e7; }
+.fmx .fm-tabs { display: flex; gap: 4px; padding: 5px; margin: 0 0 12px; border-radius: 22px; background: rgba(255, 255, 255, .92); box-shadow: 0 6px 18px rgba(150, 120, 200, .14); border: 0; }
+.fmx .fm-tabs button { flex: 1; min-width: 0; padding: 11px 4px; border-radius: 17px; background: transparent; color: #4a5a4a; font-size: 14.5px; font-weight: 600; box-shadow: none; border: 0; white-space: nowrap; }
+.fmx .fm-tabs button.on { background: #dcf1cf; color: #1f5f2a; box-shadow: none; }
+.fmx #fm-out { background: url("/icons/farm/bgtop.jpg?v=1") top center / 100% auto no-repeat; border-radius: 22px; }
+.fmx .card { background: rgba(255, 255, 255, .80); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, .95); border-radius: 24px; box-shadow: 0 8px 22px rgba(150, 120, 200, .13); }
+.fmx .card h2 { color: #1f5f2a; -webkit-text-fill-color: #1f5f2a; background: none; }
+.fmx .fm-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.fmx .fm-plot, .fmx .fm-hen { position: relative; gap: 3px; padding: 12px 4px 10px; min-height: 132px; border-radius: 20px; background: rgba(255, 255, 255, .92); border: 1px solid #fff; box-shadow: 0 5px 14px rgba(150, 120, 200, .16); color: #2f5d2a; }
+.fmx .fm-plot b, .fmx .fm-hen b { font-size: 14.5px; font-weight: 500; color: #2f6b33; }
+.fmx .fm-plot small, .fmx .fm-hen small { font-size: 12px; color: #55627a; opacity: 1; font-variant-numeric: tabular-nums; }
+.fmx .fm-plot .fm-ic, .fmx .fm-hen .fm-ic { font-size: 46px; line-height: 1.05; }
+.fmx .fm-plot .fm-ic .fm-art, .fmx .fm-hen .fm-ic .fm-art { height: 62px; max-width: 78px; vertical-align: middle; }
+.fmx .fm-plot.empty { background: rgba(255, 255, 255, .62); border: 1.5px dashed #cdbdf2; color: #7a6fa8; box-shadow: none; }
+.fmx .fm-plot.buy { background: rgba(245, 240, 255, .8); border: 1.5px dashed #c4b5fd; box-shadow: none; }
+.fmx .fm-plot.ripe { background: #f4fde8; border: 1.5px solid #9bd66a; box-shadow: 0 0 0 4px rgba(155, 214, 106, .22), 0 5px 14px rgba(110, 170, 70, .2); }
+.fmx .fm-hen { background: rgba(255, 255, 255, .92); }
+.fmx .fm-hen.hungry { background: rgba(241, 245, 249, .92); border-color: #e2e8f0; color: #475569; }
+.fmx .fm-items button { border-radius: 20px; background: rgba(255, 255, 255, .92); border: 1px solid #fff; box-shadow: 0 5px 14px rgba(150, 120, 200, .14); color: #2f5d2a; }
+.fmx .fm-items button.vip { background: #fffbe6; border: 1px solid #fde68a; }
+.fmx .fm-items button.has { opacity: .7; }
+.fmx .fm-items .fm-ic .fm-art { height: 48px; max-width: 64px; }
+.fmx .fm-acts button, .fmx #fm-plantall { border-radius: 14px; }
+.fmx > .note { margin: 12px 4px; text-align: center; font-size: 12.5px; color: #7a6fa8; }
+.fmx-garden { margin: 0 -10px; aspect-ratio: 909 / 168; background: url("/icons/farm/garden.jpg?v=1") center / cover no-repeat; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 34%); mask-image: linear-gradient(180deg, transparent 0, #000 34%); }

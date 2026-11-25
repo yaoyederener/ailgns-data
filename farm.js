@@ -100,10 +100,12 @@
   try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
     var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
-    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">' + fmArt("barn") + '</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">' + fmArt("hen") + '</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2 id="fm-title">我的农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
+    /* 站长 2026-11-25（发来效果图）：「农场风格改成这个呀，多漂亮」→ 整页套一层 .fmx：水彩风景当顶图、淡紫粉底、白色圆角卡片、绿色字。
+       只换样子，玩法、数据、按钮都没动。顶图和底部花园是从效果图上切下来的（icons/farm/hero.jpg、garden.jpg、bgtop.jpg） */
+    A.app.innerHTML = '<div class="fmx"><section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">' + fmArt("barn") + '</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">' + fmArt("hen") + '</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2 id="fm-title">我的农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
-      '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 进入运营资金。</p>';
+      '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 进入运营资金。</p><div class="fmx-garden" aria-hidden="true"></div></div>';
     document.querySelectorAll(".fm-tabs button").forEach(function (b) {
       b.onclick = function () { tab = b.getAttribute("data-t"); document.querySelectorAll(".fm-tabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); draw(); };
     });
