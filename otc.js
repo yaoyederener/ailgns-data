@@ -31,16 +31,23 @@
     rm: { sym: "RM", chain: "anubis", chainName: "Anubis", otc: "0x0fddaa1a312699b2ae43e2b43d8f7595087e21d0", /* 站长 2026-11-25 部署，区块 19990935；代码和 gLGNS 那份逐字节一致（只换币地址），链上核过 */ token: "0x2e045e1380f5f5b6e7550328910a7377c9fce59d", dai: ANUBIS_DAI, dec: 9, pd: 2,
       pair: "0x8cbabf4e076baaad295fd32b3249e7f9d812b9c5", pairDai: 1, qdec: 6, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.8175, dexBuy: 1.003, dexName: " DEX", eg: [10, 27], third: true, full: "Rome",
       dexNote: "RM 在 DEX 卖出要扣约 18% 的税（按最近的卖单估的，可能因人而异），买入不扣。" },
+    /* fLGNS（Fun Longinus），站长 2026-11-26：「咨询的人很多，冷启动，不宣传，加上去即可」。链上核过（2026-11-26）：18 位小数，合约已验证、不是可升级合约；
+       只有「卖进它绑定的那个 DEX 池子」才扣 2.4% 的税（源码 SELL_TAX_BPS），转进别的地址（包括托管合约）不扣；约 4.35 万个持币地址。
+       参考价读 fLGNS / DAI 池子 0xb4d6…046a（DAI 在前，约 30 万 DAI 对 25.6 万 fLGNS，价约 1.18）。otc 空着 = 「即将上线」，等站长在 #/otc/deploy/flgns 部署托管合约后填上 */
+    flgns: { sym: "fLGNS", chain: "anubis", chainName: "Anubis", otc: "", token: "0xffffbe730e2cde54d8928d36f547e41deb66aaaa", dai: ANUBIS_DAI, dec: 18, pd: 4,
+      pair: "0xb4d6674f47a93b17588908aa2e7c6cb3dceb046a", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.973, dexBuy: 1.003, dexName: " DEX", eg: [100, 1.18], third: true, full: "Fun Longinus",
+      taxTxt: "2.4%", thirdWho: "不是本站发行的" /* 它和 AWAKE 官方是什么关系我没核实，所以只说这一句 */, thirdWarn: "它的规则由发行方的合约决定，本站控制不了，也不为这个币做任何担保。",
+      dexNote: "fLGNS 在 DEX 卖出要扣 2.4% 的税（合约里写的），买入不扣。" },
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
       explorer: ANUBIS_EXPLORER, gas: "DAI", eg: [1, 500] }
   };
-  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns", "lp", "rm"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
+  var MKEYS = ["ailgns", "lgns", "nft", "glgns", "plgns", "lp", "rm", "flgns"], MK_MAIN = 3; // 站长 2026-11-07：按成交量排，前 3 个常驻，其余进「全部市场」；2026-11-11 Polygon LGNS 应客户要求恢复；2026-11-19 gLGNS 应客户要求重新上架
   var RETIRED = {}; // 下架的市场（前端不显示、不接新单，只留给有老挂单的客户撤单）。gLGNS 2026-11-10 下架过，2026-11-19 站长说客户还是要，放回来了
-  var MK_NEW = { glgns: 1, lp: 1, rm: 1 }; // 市场列表里挂「新上架」的
+  var MK_NEW = { glgns: 1, lp: 1, rm: 1, flgns: 1 }; // 市场列表里挂「新上架」的
   // 市场列表里的币种图标（站长 2026-11-19：加上官方 logo）。AiLGNS / LGNS / gLGNS 取自官方区块浏览器 browser.anubispace.org 的代币图标，缩成 96 像素；
   // 卡牌没有官方图标，用 AWAKE HELIX 的标志。图片读不出来时，底下的字母还在
-  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1", rm: "icons/tokens/rm.png?v=1", lp: "icons/tokens/lp.png?v=2" /* LP：AiLGNS + LGNS 两个官方图标叠在一起，本站自己拼的 */ };
+  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1", rm: "icons/tokens/rm.png?v=1", flgns: "icons/tokens/flgns.svg?v=1" /* 官方浏览器上没有它的图标，本站画了个「f」 */, lp: "icons/tokens/lp.png?v=2" /* LP：AiLGNS + LGNS 两个官方图标叠在一起，本站自己拼的 */ };
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
@@ -422,9 +429,9 @@
   // 第三方项目的币（RM）：页面顶上的说明。只写事实，不评价项目
   function thirdCard() {
     return '<section class="card lpv"><div class="card-head"><h2>ℹ️ 关于 ' + SYM + '</h2></div>' +
-      "<p><b>" + SYM + " 在 DEX 卖出要扣约 18% 的税，在这里成交只收 1% 手续费</b>（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。</p>" +
+      "<p><b>" + SYM + " 在 DEX 卖出要扣" + (M.taxTxt || "约 18%") + " 的税，在这里成交只收 1% 手续费</b>（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。</p>" +
       '<p class="muted">这里用 DAI 结算。手里是 USDT 的，先到官方 DEX 把 USDT 换成 DAI，大约 1 比 1（2026-11-25 实测：换 1 万以内损耗不到 0.5%，一次换得越多损耗越大）。</p>' +
-      '<p class="lpv-warn">⚠️ ' + SYM + " 是第三方项目的代币，<b>不是本站发行的，也不是 AWAKE 官方的</b>。它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。本站只提供担保交易这个工具，买不买请自己判断。</p></section>";
+      '<p class="lpv-warn">⚠️ ' + SYM + " 是第三方项目的代币，<b>" + (M.thirdWho || "不是本站发行的，也不是 AWAKE 官方的") + "</b>。" + (M.thirdWarn || "它的合约可以由发行方升级、修改规则，本站控制不了，也不为这个币做任何担保。") + "本站只提供担保交易这个工具，买不买请自己判断。</p></section>";
   }
   function lpCardHtml(q) {
     /* 站长 2026-11-24：「531,176」加一句「0.0002 个约 106 DAI」，他下意识算成 531 × 0.0002 = 0.1 DAI。
