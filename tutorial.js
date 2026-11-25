@@ -72,6 +72,11 @@
   var CATS = [["otc", "🏪 本站操作"], ["off", "🌀 官网操作"]];
   function catOf(x) { return x.cat === "otc" || x.cat === "off" ? x.cat : (/涡轮|卫星池|空投|质押|LP|helix|排放|投票|挖矿|官网|螺旋/i.test(x.title || "") ? "off" : "otc"); }
   function catName(c) { return c === "off" ? CATS[1][1] : CATS[0][1]; }
+  /* 关键词（站长 2026-11-26：「太多了关键词，简单一点，比如 otc 交易、域名、预言家这样的，官网的操作不放关键词，主要是我们自己网站的」）
+     → 只给本站操作的视频出几个主题词；按标题认主题，从上往下第一个对上的算（「添加 OTC app」先算手机 App，不算 OTC 交易）。
+     没有视频的主题不出词（比如预言家的视频还没录，录好上传、标题带「预言」就自动出来）。点词跳到这个主题的第一个视频，同主题的都闪一下 */
+  var KEYS = [["📲 手机 App", /app|桌面|链接钱包|连钱包/i], ["📮 工单", /工单|客服|反馈/], ["🌐 域名", /域名/], ["🔮 预言家", /预言|预测/], ["🏪 OTC 交易", /otc|场外|盘口|买卖|交易/i]];
+  function keyOf(x) { if (catOf(x) !== "otc") return -1; for (var i = 0; i < KEYS.length; i++) if (KEYS[i][1].test(x.title || "")) return i; return -1; }
 
   // ===== 客户看的页面 =====
   function page(id) {
@@ -99,18 +104,23 @@
             return '<div class="vdg-it" id="vd-' + esc(x.id) + '"><h3 data-nobrand="1">' + n + ". " + esc(x.title) + '</h3><video controls playsinline preload="none" src="/api/tutorial?v=' + encodeURIComponent(x.id) + '"></video></div>';
           }).join("");
         });
-        var idx = '<p class="muted vdc-tip">👇 点关键词，直接跳到那个视频</p><div class="vdc-idx">' + CATS.map(function (c) {
-          return show.filter(function (x) { return catOf(x) === c[0]; }).map(function (x) { return '<button type="button" class="vdc-k vdc-' + c[0] + '" data-go="' + esc(x.id) + '" data-nobrand="1">' + num[x.id] + ". " + esc(x.title) + "</button>"; }).join("");
-        }).join("") + "</div>";
+        // 显示顺序按客户常用的来，和上面认主题的先后不一样
+        var keyIdx = [4, 2, 3, 0, 1].filter(function (i) { return show.some(function (x) { return keyOf(x) === i; }); });
+        var idx = keyIdx.length ? '<p class="muted vdc-tip">👇 点关键词，直接跳到那类视频</p><div class="vdc-idx">' + keyIdx.map(function (i) {
+          var cnt = show.filter(function (x) { return keyOf(x) === i; }).length;
+          return '<button type="button" class="vdc-k vdc-otc" data-key="' + i + '">' + KEYS[i][0] + (cnt > 1 ? "<small>" + cnt + "</small>" : "") + "</button>";
+        }).join("") + "</div>" : "";
         el.innerHTML = tabs + idx + body;
         Array.prototype.forEach.call(el.querySelectorAll(".vdc-tabs button"), function (b) { b.onclick = function () { cur = b.getAttribute("data-c"); draw(); }; });
-        Array.prototype.forEach.call(el.querySelectorAll("[data-go]"), function (b) {
+        Array.prototype.forEach.call(el.querySelectorAll("[data-key]"), function (b) {
           b.onclick = function () {
-            var it = document.getElementById("vd-" + b.getAttribute("data-go")); if (!it) return;
+            var k = Number(b.getAttribute("data-key"));
+            var its = show.filter(function (x) { return keyOf(x) === k; }).map(function (x) { return document.getElementById("vd-" + x.id); }).filter(Boolean);
+            var it = its[0]; if (!it) return;
             // 顶栏是固定的，留出它的高度，标题别被挡住
             var top = it.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 150;
             try { window.scrollTo({ top: top, behavior: "smooth" }); } catch (e) { window.scrollTo(0, top); }
-            it.classList.add("vdc-hit"); setTimeout(function () { it.classList.remove("vdc-hit"); }, 2200);
+            its.forEach(function (v) { v.classList.add("vdc-hit"); setTimeout(function () { v.classList.remove("vdc-hit"); }, 2200); });
           };
         });
         // 一次只放一个：点开新的，别的自动停
