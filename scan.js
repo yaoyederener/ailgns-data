@@ -817,35 +817,60 @@
   }
   function apprDraw(a, r, box) {
     var me = isMe(a), short = function (z) { return z.slice(0, 6) + "…" + z.slice(-4); };
-    var kind = function (x) { return FLAG[x.sp] ? 0 : (KNOWN[x.sp] || REG[x.sp]) ? 2 : 1; }; // 0 被报案 1 不认识 2 认识
+    var kind = function (x) { return (FLAG[x.sp] || FAKE[x.sp]) ? 0 : (KNOWN[x.sp] || REG[x.sp]) ? 2 : 1; }; // 0 被报案 1 不认识 2 认识
     var ls = r.list.sort(function (x, y) { return kind(x) - kind(y); });
     if (!ls.length) { box.innerHTML = '<p class="sc-apok">✅ 没查到还在生效的授权。</p>' + (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : ""); return; }
     var unk = ls.filter(function (x) { return kind(x) === 1; }).length, bad = ls.filter(function (x) { return kind(x) === 0; }).length;
-    box.innerHTML = (bad ? '<p class="sc-apdanger">🚨 有 ' + bad + " 个授权给了<b>风险合约</b>（被客户报案的地址）。请马上取消，它现在还能动你的币。</p>" : "") +
+    box.innerHTML = (bad ? '<p class="sc-apdanger">🚨 有 ' + bad + " 个授权给了<b>风险合约</b>（被客户报案的地址，或和假币有关的合约）。请马上取消，它现在还能动你的币。</p>" : "") +
       '<p class="' + (unk ? "sc-apwarn" : "sc-apok") + '">' + (unk ? "⚠️ 有 " + unk + " 个授权给了未知合约（不是本站的，也不在官方名单里）。不认识就建议取消。" : bad ? "其余的授权都是给本站或官方合约的。" : "✅ 现在生效的 " + ls.length + " 个授权，都是给本站或官方合约的，属于正常使用。") + "</p>" +
+      (me && unk + bad > 0 ? '<button type="button" class="nm-go sc-apall" id="sc-apall">🧹 一键取消不是本站、也不是官方的授权（' + (unk + bad) + ' 个）</button><p class="muted nm-st sc-aps" id="sc-apalls">钱包会弹 ' + (unk + bad) + " 次确认，每次都点确认。只花一点 Gas，本站不收费。</p>" : "") +
       ls.map(function (x, i) {
         var k = kind(x), tok = C.tokens[x.tok] || (OFFICIAL[x.tok] ? OFFICIAL[x.tok].replace(/ 代币$/, "").replace(/ 池子$/, " 的 LP") : "") || x.name || short(x.tok);
         var our = !!OURS[x.sp], off = !!OFFICIAL[x.sp];
         /* 站长 2026-11-25：「官方合约也标记一下，其它标记未知合约，风险合约要警示出来」→ 四种标签：本站（绿）/ 官方（紫）/ 未知（橙）/ 风险（红，目前 = 被客户报案的地址） */
-        var who2 = k === 0 ? '<b class="sc-aptag bad">🚨 风险合约 · 被客户报案</b>' : our ? '<b class="sc-apsafe">✅ 本站合约 · 安全</b>' + (KNOWN[x.sp] ? " " + KNOWN[x.sp] : "") : off ? '<b class="sc-aptag off">🏛 官方合约</b> ' + esc(OFFICIAL[x.sp]) : KNOWN[x.sp] ? "<b>" + KNOWN[x.sp] + "</b>" : REG[x.sp] ? "<b>已登记的合约</b>" : '<b class="sc-aptag unk">❓ 未知合约</b>';
+        var who2 = k === 0 ? '<b class="sc-aptag bad">🚨 风险合约 · ' + (FAKE[x.sp] ? "假币 / 仿冒" : "被客户报案") + "</b>" : our ? '<b class="sc-apsafe">✅ 本站合约 · 安全</b>' + (KNOWN[x.sp] ? " " + KNOWN[x.sp] : "") : off ? '<b class="sc-aptag off">🏛 官方合约</b> ' + esc(OFFICIAL[x.sp]) : KNOWN[x.sp] ? "<b>" + KNOWN[x.sp] + "</b>" : REG[x.sp] ? "<b>已登记的合约</b>" : '<b class="sc-aptag unk">❓ 未知合约</b>';
         var amt2 = x.all ? "这个合约里你所有的 NFT（域名 / 卡牌）" : x.v > (1n << 200n) ? "不限数量" : "最多 " + amt(x.v.toString(), x.dec);
         return '<div class="sc-ap' + (k === 0 ? " bad" : k === 1 ? " unk" : our ? " safe" : off ? " off" : "") + '"><div class="sc-apt"><span>能动你的 <b>' + esc(tok) + "</b></span><small>" + amt2 + '</small></div><div class="sc-apw">给了 ' + who2 + ' <span class="mono muted">' + short(x.sp) + "</span></div>" +
-          (me ? '<button type="button" class="' + (k < 2 ? "nm-go" : "ghost") + ' sc-apx" data-apx="' + i + '">取消这个授权</button><p class="muted nm-st sc-aps"></p>' : "") + "</div>";
+          (me ? '<button type="button" class="' + (k < 2 ? "nm-go" : "sc-apx2") + ' sc-apx" data-apx="' + i + '">取消这个授权</button><p class="muted nm-st sc-aps"></p>' : "") + "</div>";
       }).join("") +
       (me ? '<p class="muted">给本站、官方合约的授权是平时交易要用的，取消后下次用到时钱包会让你重新授权一次，不影响资产。</p>' : '<p class="muted">用这个钱包连接本站后，每一条后面会出现「取消这个授权」按钮。</p>') +
       (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : "");
+    /* 取消一条：用客户自己的钱包把额度改成 0（NFT 改成「不允许」） */
+    var revoke = function (x, say) {
+      var K2 = A.otcKit; if (!K2) return Promise.reject(new Error("钱包组件还没加载好，刷新再试"));
+      try { K2.useMarket("ailgns"); } catch (e) { /* 只是为了让下面在 Anubis 链上发 */ }
+      return K2.ready().then(function () {
+        if (!isMe(a)) throw new Error("现在连着的不是这个钱包，取消不了");
+        return K2.send(x.tok, x.all ? "0xa22cb465" + u256(x.sp) + u256(0) : "0x095ea7b3" + u256(x.sp) + u256(0), function (t) { say(t); }, "取消授权");
+      });
+    };
+    var rowSay = function (b) { var st = b.parentNode.querySelector(".sc-aps"); return function (t, bad) { st.textContent = t; st.className = (bad ? "nm-bad" : "muted") + " nm-st sc-aps"; }; };
     Array.prototype.forEach.call(box.querySelectorAll("[data-apx]"), function (b) {
       b.onclick = function () {
-        var x = ls[Number(b.getAttribute("data-apx"))], st = b.parentNode.querySelector(".sc-aps"), K2 = A.otcKit; if (!x || !K2 || b.disabled) return;
-        var say = function (t, bad) { st.textContent = t; st.className = (bad ? "nm-bad" : "muted") + " nm-st sc-aps"; };
+        var x = ls[Number(b.getAttribute("data-apx"))], say = rowSay(b); if (!x || b.disabled) return;
         b.disabled = true; say("正在连接钱包…");
-        try { K2.useMarket("ailgns"); } catch (e) { /* 只是为了让下面在 Anubis 链上发 */ }
-        K2.ready().then(function () {
-          if (!isMe(a)) throw new Error("现在连着的不是这个钱包，取消不了");
-          return K2.send(x.tok, x.all ? "0xa22cb465" + u256(x.sp) + u256(0) : "0x095ea7b3" + u256(x.sp) + u256(0), function (t) { say(t); }, "取消授权");
-        }).then(function () { b.hidden = true; say("✅ 已取消，这个合约动不了你的币了。"); }, function (e) { b.disabled = false; say("没取消成：" + ((e && e.message) || e), true); });
+        revoke(x, say).then(function () { b.hidden = true; x.gone = 1; say("✅ 已取消，这个合约动不了你的币了。"); }, function (e) { b.disabled = false; say("没取消成：" + ((e && e.message) || e), true); });
       };
     });
+    /* 🧹 一键取消（站长 2026-11-25：「加一个一键取消非本站合约和官方合约授权的按钮」）：把未知的、风险的一条一条发出去。
+       普通钱包没法把几笔并成一笔，所以有几个就弹几次确认；中途有一条没成就停下，已经取消的不受影响，再点一次接着做剩下的 */
+    var allBtn = document.getElementById("sc-apall"), allSt = document.getElementById("sc-apalls");
+    if (allBtn && allSt) allBtn.onclick = function () {
+      if (allBtn.disabled) return;
+      var todo = ls.map(function (x, i) { return { x: x, i: i }; }).filter(function (o) { return kind(o.x) < 2 && !o.x.gone; }), total = todo.length, done = 0;
+      var sayAll = function (t, bad) { allSt.textContent = t; allSt.className = (bad ? "nm-bad" : "muted") + " nm-st sc-aps"; };
+      if (!total) { allBtn.hidden = true; sayAll("✅ 不是本站、也不是官方的授权，已经全部取消。"); return; }
+      allBtn.disabled = true;
+      var next = function () {
+        if (!todo.length) { allBtn.hidden = true; sayAll("✅ " + done + " 个授权已经全部取消，这些合约动不了你的币了。"); return; }
+        var o = todo.shift(), rb = box.querySelector('[data-apx="' + o.i + '"]'), say = rb ? rowSay(rb) : function () {};
+        sayAll("正在取消第 " + (done + 1) + " / " + total + " 个，请在钱包里点确认…");
+        if (rb) rb.disabled = true;
+        revoke(o.x, say).then(function () { done++; o.x.gone = 1; if (rb) rb.hidden = true; say("✅ 已取消，这个合约动不了你的币了。"); next(); },
+          function (e) { if (rb) rb.disabled = false; say("没取消成：" + ((e && e.message) || e), true); allBtn.disabled = false; allBtn.textContent = "🧹 接着取消剩下的（" + (total - done) + " 个）"; sayAll("已取消 " + done + " 个，第 " + (done + 1) + " 个没成：" + ((e && e.message) || e) + "。再点一次接着做。", true); });
+      };
+      next();
+    };
   }
   function awakeCards(a) {
     return call(AWAKE, "0x70a08231" + u256(a)).then(function (h) {
