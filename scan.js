@@ -14,6 +14,8 @@
   var ZERO = "0x" + "0".repeat(40);
   // 平台自己的合约：直接显示中文名，客户一眼看懂钱去哪了
   var KNOWN = {};
+  // 🏷 身份标注（站长 2026-11-25）：给个别钱包在名字后面挂一个小牌子。不替换他自己的域名，只是跟在后面；全站凡是用 fillNames 显示名字的地方都会带上
+  var BADGE = { "0x54a5f81a97def228f2df92596e7a8d43e4f4d674": "🧑‍🌾 官方农场体验官" };
   KNOWN[ZERO] = "🆕 新注册";
   var DEAD = "0x000000000000000000000000000000000000dead"; KNOWN[DEAD] = "🔥 黑洞地址（永久销毁）";
   // 🔒 团队运营地址（站长 2026-11-07：维护团队隐私，账本里统一显示为「运营维护」，不展示明细）
@@ -347,6 +349,7 @@
       bcall(NAMES[x[0]], "0x36bf1f0c" + u256(x[1])).then(function (r) { var n = decStr(r); if (n) e.textContent = "🌐 " + n + "." + x[0]; }, function () {});
     });
     root.querySelectorAll("[data-a]").forEach(function (e) {
+      try { var bd = BADGE[e.getAttribute("data-a").toLowerCase()]; if (bd && !e.getAttribute("data-bd")) { e.setAttribute("data-bd", "1"); e.insertAdjacentHTML("afterend", ' <i class="sc-bdg">' + bd + "</i>"); } } catch (e0) { /* 牌子挂不上不影响名字 */ }
       if (KNOWN[e.getAttribute("data-a").toLowerCase()]) return;
       // 只显示名字（不再跟一个短地址：那个短地址又会被全站换名字逻辑换成名字，变成重复两次）；完整地址放在鼠标悬停提示里
       var full = e.getAttribute("data-a");
