@@ -323,6 +323,22 @@
     return nameCache[a];
   }
   // 页面里所有 data-a 的地址，查到名字就换成「名字 + 短地址」
+  // 「对方一键扫单」的行：查那笔交易是谁发的，把买家 / 卖家补上。同一笔只查一次；查不到就保持原样
+  var swpCache = {};
+  function sweepFill(root) {
+    try {
+      Array.prototype.slice.call(root.querySelectorAll(".lg-swp[data-swp]"), 0, 30).forEach(function (el) {
+        var h = el.getAttribute("data-swp"), role = el.getAttribute("data-role") || "对方";
+        el.removeAttribute("data-swp");
+        if (!/^0x[0-9a-fA-F]{64}$/.test(h)) return;
+        (swpCache[h] || (swpCache[h] = get("/transactions/" + h))).then(function (d) {
+          var f = d && d.from && d.from.hash; if (!f || !document.body.contains(el)) return;
+          el.innerHTML = "，" + role + " " + who(f.toLowerCase()) + "（一键扫单）";
+          fillNames(el);
+        }, function () { delete swpCache[h]; });
+      });
+    } catch (e) { /* 补不上就算了，不影响账本 */ }
+  }
   function fillNames(root) {
     // 域名 NFT：把「LGNS Names」换成具体是哪个名字
     root.querySelectorAll("[data-nft]").forEach(function (e) {
@@ -446,12 +462,14 @@
       var msel = (row.tr && row.tr[0] && row.tr[0].method) || "", FILLSEL = { "0x6fe4a448": 1, "0x934a9456": 1, "0xdb4361f1": 1, "0x9688b6ba": 1 };
       var viaBot = ms.some(function (m) { return C.sweep[m.other]; }), isFill = !!FILLSEL[msel] || viaBot;
       var inOtc = ms.filter(function (m) { return m.dir === "in" && C.otc[m.other]; })[0], feeTxt = inOtc && TEAM[a] ? "，另收手续费 " + fmtN(inOtc.v, inOtc.sym) : "";
-      var botTxt = function (x) { return C.sweep[x] ? (/撮合/.test(KNOWN[x] || "") ? "（自动撮合）" : "（对方一键扫单）") : ""; };
+      // 对方用「一键扫单」吃我的单：钱是扫单合约转过来的，看不出是谁（站长 2026-11-25：「扫单这边看不到买家钱包」）。
+      //   先写「对方一键扫单」，页面画完再去查这笔交易是谁发的，补成「买家 / 卖家 某某（一键扫单）」，见 sweepFill
+      var botTxt = function (x, role) { return C.sweep[x] ? (/撮合/.test(KNOWN[x] || "") ? "（自动撮合）" : '<span class="lg-swp" data-swp="' + esc(row.h || "") + '" data-role="' + role + '">（对方一键扫单）</span>') : ""; };
       var cpDai = ms.filter(function (m) { return m.dir === "in" && m.sym === "DAI" && !C.otc[m.other]; })[0];
       if (inOtc && msel === "0x34bfca5c") return { ico: "↩️", text: "<b>挂单到期</b>，自动退回 " + fmtN(inOtc.v, inOtc.sym) };
       if (isFill && daiIn && daiOut && !coinIn && !coinOut) return { ico: "🤖", text: "<b>自动撮合</b>：垫付 " + fmtN(daiOut, "DAI") + "，收回 " + fmtN(daiIn, "DAI") + (daiIn > daiOut ? "，赚 " + fmtN(daiIn - daiOut, "DAI") : "") };
-      if (isFill && coinIn && !C.otc[coinIn.other] && !coinOut) return { ico: "✅", text: "<b>买单成交</b>，买入 " + fmtN(coinIn.v, coinIn.sym) + (botTxt(coinIn.other) || "，卖家 " + who(coinIn.other)) + feeTxt };
-      if (isFill && cpDai && !daiOut) return { ico: "✅", text: "<b>卖单成交</b>，卖出收到 " + fmtN(cpDai.v, "DAI") + (botTxt(cpDai.other) || "，买家 " + who(cpDai.other)) + feeTxt };
+      if (isFill && coinIn && !C.otc[coinIn.other] && !coinOut) return { ico: "✅", text: "<b>买单成交</b>，买入 " + fmtN(coinIn.v, coinIn.sym) + (botTxt(coinIn.other, "卖家") || "，卖家 " + who(coinIn.other)) + feeTxt };
+      if (isFill && cpDai && !daiOut) return { ico: "✅", text: "<b>卖单成交</b>，卖出收到 " + fmtN(cpDai.v, "DAI") + (botTxt(cpDai.other, "买家") || "，买家 " + who(cpDai.other)) + feeTxt };
       if (inOtc && isFill && TEAM[a]) return { ico: "🪙", text: "<b>OTC 手续费收入</b> " + fmtN(inOtc.v, inOtc.sym) + "（" + esc(C.otc[inOtc.other]) + " 市场有人成交，合约自动扣的）" };
     }
     // —— 一键扫单 / 自动撮合（合约替你一次吃多张单）——
@@ -614,7 +632,7 @@
         first = false;
         var hs = document.getElementById("sc-hsum"), ht = "最近一笔 " + bj(rows[0].t); if (hs && box.id === "sc-lg" && hs.textContent !== ht) hs.textContent = ht;
         if (box.id === "sc-lg") clipLg(box);
-        fillNames(box);
+        fillNames(box); sweepFill(box);
       });
     }
     return load();
