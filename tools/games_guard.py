@@ -32,6 +32,8 @@ for row in names:
     st, path = row[0], row[-1]
     if match(path, BUILT):
         continue
+    if path == "docs/游戏自动开发/规则.md":
+        errs.append("%s：规则文件只有站长那边能改，自动开发不许动" % path); continue
     if match(path, FREE):
         if st.startswith("D"):
             continue
