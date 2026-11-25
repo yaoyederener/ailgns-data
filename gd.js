@@ -196,8 +196,8 @@
   // 机器人出牌：返回要出的牌；null = 不出
   // 2026-11-25 站长「人机不要很弱智」：加了记牌（知道自己这手是不是场上最大）、两手收尾（先出压得住的那手）、
   //   帮队友挡快走完的下家、自己是最后一道防线时肯出力、小牌不乱炸。新旧人机本机对打的胜率见提交说明。
-  var P = { dDef: 0.9, dN: 0.45, bomb: 1, sure: 1, two: 1, blk: 1, mateTake: 1 };
-  function bot(G, s) {
+  var P = { dDef: 1.0, dN: 0.6, bomb: 1, sure: 1, two: 1, blk: 1, mateTake: 1, follow: 0 }; // follow=1：队友出小牌时顺一手（站长 2026-11-25 反馈「队友压我的牌」，关掉）
+  function botH(G, s) {
     var L = G.L, hand = G.hands[s], last = G.last ? G.last.k : null, who = G.last ? G.last.who : -1, mate = (s + 2) % 4;
     var opts = gen(hand, L, last), c0 = cost(hand, L), i, o, x, y, d;
     if (!opts.length) return null;
@@ -244,13 +244,13 @@
         o = nb.length ? nb[nb.length - 1] : null;
         if (o && o.k.r >= 13) return o.cards;
       }
-      if ((last.t === "single" || last.t === "pair" || last.t === "triple") && last.r <= 10 && nm > 2) {
+      if (P.follow && (last.t === "single" || last.t === "pair" || last.t === "triple") && last.r <= 10 && nm > 2) {
         x = nb.filter(function (y) { return y.c - c0 <= -0.6 && y.k.r <= 14; });
         if (x.length) return x[0].cards;
       }
       return null;
     }
-    var urgent = G.hands[who].length <= 6, lastDef = who === (s + 1) % 4 || !nm; // lastDef：我不压，这一轮就归对手了
+    var urgent = G.hands[who].length <= 6, lastDef = who === (s + 1) % 4 || !nm || !!(G.tb[mate] && G.tb[mate].pass); // lastDef：我不压，这一轮多半就归对手了（队友已经过了 / 队友走完了 / 我是最后一个）
     if (sure.length) return hi(sure).cards;
     if (two.length && (urgent || lastDef)) return hi(two).cards;
     if (P.blk && n1 === 1 && last.t === "single" && nb.length) return nb[nb.length - 1].cards; // 下家只剩一张：出最大的单张堵住
@@ -261,6 +261,67 @@
       if (urgent || o.c <= 1.3 || (isB(last) && (bb.length >= 2 || G.hands[who].length <= 12)) || (P.bomb ? (y && bb.length >= 2) || (bb.length >= 3 && (y || lastDef)) : (last.n >= 5 && bb.length >= 2) || bb.length >= 3)) return o.cards;
     }
     return null;
+  }
+
+  // 🧠 会往后算的机器人（2026-11-25）：上面的 botH 凭经验出牌；到了中后盘（有人剩的牌不多了），再往后推演——
+  //   把自己看不见的牌（没打出来、也不在自己手里的）按另外三家剩的张数随机发很多遍，每种候选出法都让四家按经验把这一局打完，记下输赢。
+  //   只有某种出法「明显」比经验出法好（同一副牌下逐副对比，差距超过统计误差的 MC.z 倍）才改主意；看不出差别就照经验出。
+  //   不偷看别人的牌：只用「打出来过的牌 + 自己的手牌 + 各家还剩几张」。
+  //   MC.n 最多发几遍 / MC.ms 最多想多少毫秒（手机上别卡住）/ MC.k 最多比几种出法 / MC.late 场上最少的那家剩不到这么多张才开始算
+  var MC = { n: 60, ms: 150, k: 6, late: 12, z: 2.5, min: 0.15 };
+  function cloneG(G) {
+    return { lv: G.lv.slice(), cur: G.cur, L: G.L, hands: [G.hands[0].slice(), G.hands[1].slice(), G.hands[2].slice(), G.hands[3].slice()], turn: G.turn, last: G.last ? { who: G.last.who, k: G.last.k } : null,
+      tb: [null, null, null, null], out: G.out.slice(), ph: G.ph, prev: G.prev, trib: null, rd: G.rd, res: null, wind: G.wind, pl: (G.pl || []).slice() };
+  }
+  // 把这一局打完，给 me 这一队打分：赢了 +升几级，输了 -对面升几级
+  function rollout(g, me) {
+    var guard = 0, s, cs;
+    while (g.ph === "play" && guard++ < 600) {
+      s = g.turn; cs = botH(g, s);
+      if (!cs || !play(g, s, cs)) { if (g.last) pass(g, s); else play(g, s, [g.hands[s][g.hands[s].length - 1]]); }
+    }
+    return g.res ? (g.res.w === me % 2 ? 1 : -1) * g.res.up : 0;
+  }
+  function bot(G, s) {
+    var h = botH(G, s), L = G.L, hand = G.hands[s], last = G.last ? G.last.k : null, opts, i, j, o, c, cands = [], seen = {}, t0 = Date.now();
+    if (G.ph !== "play" || hand.length <= 1) return h;
+    if (Math.min(G.hands[0].length || 99, G.hands[1].length || 99, G.hands[2].length || 99, G.hands[3].length || 99) > MC.late) return h; // 开局牌多、变数大，算不准：照经验出
+    if (G.last && G.last.who === (s + 2) % 4) return h; // 桌上是队友的牌：照规矩来（基本不压队友），不靠推演改主意
+    opts = gen(hand, L, last);
+    if (!opts.length) return null;
+    if (h && cost(minus(hand, h), L) <= -100) return h; // 这手出完就走了，不用算
+    function key(cs) { return cs ? cs.slice().sort(function (a, b) { return a - b; }).join(",") : "pass"; }
+    function push(cs) { var k = key(cs); if (!seen[k] && cands.length < MC.k) { seen[k] = 1; cands.push({ cards: cs, d: 0, d2: 0 }); } }
+    push(h);
+    if (last) push(null);
+    for (i = 0; i < opts.length; i++) opts[i].c = cost(minus(hand, opts[i].cards), L);
+    var nb = opts.filter(function (y) { return !isB(y.k); }), bb = opts.filter(function (y) { return isB(y.k); });
+    nb.slice().sort(function (a, b) { return (a.c + a.k.r * 0.02) - (b.c + b.k.r * 0.02); }).slice(0, 3).forEach(function (y) { push(y.cards); });
+    if (bb.length) push(bb[0].cards);
+    if (nb.length) push(nb[nb.length - 1].cards);
+    if (cands.length < 2) return h;
+    var gone = {}, pool = [], pl = G.pl || [], n, g0, g, x, k, v0, v, sizes = [G.hands[0].length, G.hands[1].length, G.hands[2].length, G.hands[3].length], need = 0;
+    for (i = 0; i < pl.length; i++) gone[pl[i]] = 1;
+    for (i = 0; i < hand.length; i++) gone[hand[i]] = 1;
+    for (i = 0; i < 108; i++) if (!gone[i]) pool.push(i);
+    for (i = 0; i < 4; i++) if (i !== s) need += sizes[i];
+    if (pool.length !== need) return h; // 老存档没记出过的牌，对不上数：照经验出
+    function run1(c) { var g = cloneG(g0); if (c.cards) { if (!play(g, s, c.cards)) return -9; } else if (!pass(g, s)) return -9; return rollout(g, s); }
+    for (n = 0; n < MC.n; n++) {
+      if (n >= 8 && Date.now() - t0 > MC.ms) break;
+      for (i = pool.length - 1; i > 0; i--) { j = (Math.random() * (i + 1)) | 0; x = pool[i]; pool[i] = pool[j]; pool[j] = x; }
+      g0 = cloneG(G); k = 0;
+      for (i = 0; i < 4; i++) if (i !== s) { g0.hands[i] = sortH(pool.slice(k, k + sizes[i]), L); k += sizes[i]; }
+      v0 = run1(cands[0]);
+      for (j = 1; j < cands.length; j++) { v = run1(cands[j]) - v0; cands[j].d += v; cands[j].d2 += v * v; }
+    }
+    if (n < 8) return h;
+    o = null; x = 0;
+    for (j = 1; j < cands.length; j++) {
+      c = cands[j]; v = c.d / n; k = Math.sqrt(Math.max(1e-9, c.d2 / n - v * v) / n); // 平均好多少、误差多大
+      if (v > MC.min && v > MC.z * k && v > x) { x = v; o = c; }
+    }
+    return o ? o.cards : h;
   }
 
   // 还贡挑哪张：10 以下、最没用的一张（落单的小牌优先）
@@ -369,7 +430,7 @@
   }
   function pass(G, s) { if (G.ph !== "play" || G.turn !== s || !G.last) return false; G.tb[s] = { pass: 1 }; next(G, s); return true; }
 
-  var E = { kinds: kinds, beats: beats, isB: isB, gen: gen, cost: cost, bot: bot, P: P, backPick: backPick, canBack: canBack, newMatch: newMatch, startRound: startRound, giveBack: giveBack, check: check, play: play, pass: pass, pw: pw, nat: nat, suit: suit, wild: wild, isJ: isJ };
+  var E = { kinds: kinds, beats: beats, isB: isB, gen: gen, cost: cost, bot: bot, botH: botH, P: P, MC: MC, backPick: backPick, canBack: canBack, newMatch: newMatch, startRound: startRound, giveBack: giveBack, check: check, play: play, pass: pass, pw: pw, nat: nat, suit: suit, wild: wild, isJ: isJ };
   if (!W) { (typeof globalThis !== "undefined" ? globalThis : this).GD = E; return; }
   if (!A) return;
 
