@@ -9,7 +9,7 @@ import { pushInbox } from "../../lib/inbox.js";
 const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 站长站内信（谷歌社交账号钱包），和工单后台同一个
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const admOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY)); // 后台只用工单口令（站长：只留一个口令）
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, normG, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, PLAIN_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, kingOn, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, normG, allotOf, dailyPrize, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, PLAIN_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, kingOn, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -40,7 +40,7 @@ async function buildPub(kv, ctx, now) {
   const out = {
     now, round, dec: decOf(round), cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot,
-    daily: { from: DAILY_FROM, on: round >= DAILY_FROM, prize: DAILY_PRIZE, top: DAILY_TOP, cool: DAILY_COOL_DAYS, each: DAILY_PRIZE }, /* 每日前三（站长 2026-11-13 定）：each = 今晚每人能拿多少（只花当天进账） */
+    daily: { from: DAILY_FROM, on: round >= DAILY_FROM, prize: dailyPrize(round), top: DAILY_TOP, cool: DAILY_COOL_DAYS, each: dailyPrize(round) }, /* 每日前三（站长 2026-11-13 定）：each = 今晚每人能拿多少（只花当天进账） */
     count: { n: g.length, guesses: g.reduce((s, x) => s + x.ps.length, 0) },
     players: g.map((x) => ({ name: x.name, ps: x.ps.map((p) => fmtP(p[0], round)), tx: x.tx || "" })), // 本轮谁参加了、猜的价格（公开，页面按离当前价远近实时滚动）
     drawing: { anchor: (await kv.get("or:anchor:" + drawing, "json")) || null, day: drawing, dec: decOf(drawing), cutoff: cutoffAt(drawing), from: drawStart(drawing), to: drawStart(drawing) + 3600e3, res, allot: drawing < FIRST_DAY ? 0 : alDraw.allot, skip: drawing < FIRST_DAY },
@@ -55,7 +55,7 @@ async function buildPub(kv, ctx, now) {
     let ail = f.ail - owed, dai = f.dai;
     if (ail < 0) { dai = Math.max(0, Math.round((f.dai + ail * (otc.px || px.raw)) * 1e6) / 1e6); ail = 0; } /* AiLGNS 不够抵：差的部分从 DAI 里扣 */
     out.funds = { dai, ail: Math.round(ail * 1e6) / 1e6, px: px.raw, wallet: POOL, owed, wAil: f.ail, wDai: f.dai, otc };
-    if (out.daily) out.daily.each = Math.floor(Math.min(DAILY_PRIZE, Math.max(0, dai + out.funds.ail * (otc.px || px.raw)) / DAILY_TOP) * 100) / 100; /* 每日前三：奖池钱包里有多少发多少，每人最多 DAILY_PRIZE */
+    if (out.daily) out.daily.each = Math.floor(Math.min(dailyPrize(round), Math.max(0, dai + out.funds.ail * (otc.px || px.raw)) / DAILY_TOP) * 100) / 100; /* 每日前三：奖池钱包里有多少发多少，每人最多 DAILY_PRIZE */
   } catch (e) { out.funds = null; }
   // 本周贡献榜（周一起到今天，认证商家以上；按手续费占比分奖池 30%，每人封顶手续费 KING_CAP 倍；周日揭晓时结算）
   try {
