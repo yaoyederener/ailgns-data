@@ -37,7 +37,7 @@
   var GROUPS = [
     ["链上身份", "ON-CHAIN", [["#/scan", "📒 AiLGNS 账本", "wallet"], ["#/bonus", "🎁 创世域名分红 · 每日签到", "promo"], ["#/inbox", "🔔 收件箱", "bell"], ["#/genesis", "🔥 创世域名销毁进行中", "fire"], ["#/square", "🏛️ 链上广场（盖楼 · 时间胶囊 · 挂单帖）", "chat"]]],
     ["交易", "TRADE", [["#/trade", "交易所盘口（专业版）", "candle"], ["#/fast", "极速预言家（试运行）", "bolt"], ["#/usdt", "USDT 跨链桥（试运行）", "bridge"], ["#/turbine", "🌀 涡轮助手（试运行）", "bolt"], ["#/aiswap", "aiswap 兑换池（试运行）", "swap"], ["#/lp", "做市商（✅ 认证称号）", "drop"], ["#/aiswap/launch", "一键发币（试运行）", "bolt"], ["#/chart", "看盘", "candle"], ["#/cover", "互助保障（试运行）", "bolt"]]], // 站长 2026-11-11：订单查询从这组撤下（页面顶部「查我的订单」和「链上身份 → 账本」都能查）；金融类新功能都先放这组试运行，冷启动、不宣传。资金流向 2026-11-09 从菜单撤下（页面 #/flows 还在，站长：交易组留给区块链底层玩法冷启动）
-    ["销毁乐园（游戏）", "PLAY", [["#/farm", "🏡 开心农场", "fire"], ["#/mj", "🀄 血流成河麻将（试玩）", "grid"], ["#/br", "🐺 大逃杀（试运行）", "fire"], ["#/gd", "🃏 掼蛋（单机 · 联机）", "grid"]]],
+    ["销毁乐园（游戏）", "PLAY", [["#/farm", "🏡 开心农场", "fire"], ["#/mj", "🀄 血流成河麻将（试玩）", "grid"], ["#/br", "🐺 大逃杀（试运行）", "fire"], ["#/gd", "🃏 掼蛋（单机 · 联机）", "grid"], ["#/gxlight", "💡 每日熄灯（每天一题）", "grid"]]],
     ["服务", "SUPPORT", [["#/app", "📲 下载 App", "app"], ["#/feedback", "📮 问题反馈", "chat"], ["#/rpc", "🛰 备用节点", "promo"], ["#/ainews", "🤖 AI 资讯", "promo"], ["#/updates", "🆕 更新日志", "promo"], ["#group", "💬 加 OTC 交流群（二维码）", "chat"], ["#/videos", "🎬 视频教程", "promo"], ["#/custom", "私人定制 · 商户合作", "custom"]]],
   ];
   // 🎮 游戏按最近 7 天打开次数排序（站长 2026-11-08：玩得最多的放上面，顺便知道哪个最火）；接口读不到就保持默认顺序
@@ -192,10 +192,17 @@
     var trial = /试运行|试玩/.test(it[1]);
     return '<a class="dg-i' + (it[0] === cur ? " on" : "") + '" href="' + (it[0] === "#group" ? "#" : it[0]) + '"' + (it[0] === "#group" ? " data-group" : "") + (it[3] ? ' target="_blank" rel="noopener"' : "") + ' title="' + String(it[1]).replace(/"/g, "&quot;") + '"><span class="dg-t dgc-' + m[2] + '">' + gsvg(m[1]) + (m[3] ? '<em class="hot">' + m[3] + "</em>" : trial ? "<em>试</em>" : "") + "</span><b>" + m[0] + "</b></a>";
   }
+  // 站长 2026-11-26：「交易这一栏，保留盘口、极速、跨链、涡轮，其它弄成销毁乐园更多模式——客户常用的留下，没人感兴趣的放后面」
+  var TRADE_PIN = { "#/trade": 1, "#/fast": 1, "#/usdt": 1, "#/turbine": 1 }, tradeOpen = false;
   function drawGrid(cur) {
     return GROUPS.map(function (g) {
       var items = g[2], cells;
-      if (g !== GAME_GROUP) cells = items.map(function (it) { return tile(it, cur); }).join("");
+      if (g[1] === "TRADE") {
+        var tTop = items.filter(function (it) { return TRADE_PIN[it[0]]; }), tRest = items.filter(function (it) { return !TRADE_PIN[it[0]]; });
+        var tShow = tradeOpen || tRest.some(function (it) { return it[0] === cur; }); // 正在看的页面就在「更多」里：直接展开，别让人找不到自己在哪
+        cells = tTop.map(function (it) { return tile(it, cur); }).join("") + (tShow ? tRest.map(function (it) { return tile(it, cur); }).join("") : "") +
+          (tRest.length ? '<button type="button" class="dg-i dg-more" data-more="trade"><span class="dg-t dgc-n">' + gsvg("dots") + "</span><b>" + (tShow ? "收起" : "更多 " + tRest.length) + "</b></button>" : "");
+      } else if (g !== GAME_GROUP) cells = items.map(function (it) { return tile(it, cur); }).join("");
       else {
         var top = items.filter(function (it) { return PIN[it[0]]; }), rest = items.filter(function (it) { return !PIN[it[0]]; });
         cells = top.map(function (it) { return tile(it, cur); }).join("") + (moreOpen ? rest.map(function (it) { return tile(it, cur); }).join("") : "") +
@@ -221,7 +228,8 @@
     }).join("") || '<p class="dw-none">没有找到相关功能</p>';
   }
   body.onclick = function (e) {
-    if (e.target.closest("[data-more]")) { moreOpen = !moreOpen; draw(); return; }
+    var mb = e.target.closest("[data-more]");
+    if (mb) { if (mb.getAttribute("data-more") === "trade") tradeOpen = !tradeOpen; else moreOpen = !moreOpen; draw(); return; }
     var h = e.target.closest(".dw-gh");
     if (h) { var gi = h.getAttribute("data-g"); open[gi] = !open[gi]; draw(); return; }
     if (e.target.closest("a")) close();
@@ -229,7 +237,7 @@
 
   function show() {
     // 打开时分组全部收起（站长要求）：每个分组标题下面用小字列出里面有什么，一屏看到全部功能，点标题再展开
-    moreOpen = false; open = {}; // 分组默认收起（站长 2026-11-05 定），标题下有小字列出里面有什么，点标题展开
+    moreOpen = false; tradeOpen = false; open = {}; // 分组默认收起（站长 2026-11-05 定），标题下有小字列出里面有什么，点标题展开
     if (A.freshCheck) A.freshCheck(); // 点开菜单顺便查新版本，有就自动换成新版
     draw();
     wallet();
