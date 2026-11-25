@@ -5508,3 +5508,4 @@ html.lang-ko body { word-break: keep-all; }
 .sc-apx2 { border: 1.5px solid #7c3aed; border-radius: 12px; background: #ede4ff; color: #5b21b6; cursor: pointer; }
 .sc-apx2:active { background: #ddd0ff; } .sc-apx2:disabled { opacity: .55; }
 .sc-apall { width: 100%; margin: 4px 0 2px; padding: 14px 12px; font-size: 16px; font-weight: 700; }
+.sc-apx[hidden], .sc-apall[hidden] { display: none !important; }
