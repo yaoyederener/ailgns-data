@@ -407,7 +407,7 @@
       // 资格按「钱包里持有」算，两条要求高亮：至少持有 1 枚创世域名 / 至少持有 5 枚普通域名
       '<li class="or-hl-g">' + (Number(me.gh) > 0 ? "✅" : "❌") + ' <mark>至少持有 1 枚创世域名</mark>：这个钱包现在有 <b>' + Number(me.gh || 0) + "</b> 枚" + (me.ghWait ? "（另有 " + Number(me.ghWait) + " 枚是这一轮才转进来的，下一轮才算）" : "") + '。<a href="#/names/otc">去域名市场买创世域名 →</a></li>' +
       '<li>' + (Number(me.vol) >= Number(me.need) ? "✅" : "❌") + ' OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li>' +
-      '<li class="or-hl-p">' + (Number(me.ph) >= Number(me.phNeed || 5) ? "✅" : "❌") + ' <mark>至少持有 5 枚自己注册的普通域名</mark>：这个钱包现在有 <b>' + Number(me.ph || 0) + "</b> / " + Number(me.phNeed || 5) + " 枚" + (me.phWait ? "（另有 " + Number(me.phWait) + " 枚是这一轮才转进来的，下一轮才算）" : "") + (me.pb ? "（另有 " + Number(me.pb) + " 枚是买来或别人转来的，不算）" : "") + '。<a href="#/names">去批量注册普通域名（5 DAI 一个）→</a></li></ul>' +
+      '<li class="or-hl-p">' + (Number(me.ph) >= Number(me.phNeed || 5) ? "✅" : "❌") + ' <mark>至少持有 5 枚自己注册的普通域名</mark>：这个钱包现在有 <b>' + Number(me.ph || 0) + "</b> / " + Number(me.phNeed || 5) + " 枚" + (me.phWait ? "（另有 " + Number(me.phWait) + " 枚是这一轮才转进来的，下一轮才算）" : "") + (me.pb ? "（另有 " + Number(me.pb) + " 枚是买来或别人转来的，不算）" : "") + '。<a href="#/names/~daily">从这里注册普通域名（5 DAI 一个，注册费的 95% 进每日奖池）→</a></li></ul>' +
       '<p class="muted">名字要在这个钱包里才算，挂在市场里卖的不算。普通域名只认自己注册的（注册完等 1 分钟就算），买来的、别人转来的不算。创世域名买来的也算，下一轮起算。</p>';
     if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";
     if (me.lock) return '<p class="nm-bad">这个钱包本轮已经用 <b>' + esc(me.lock) + "</b> 预测过了。一个钱包每轮只认一个名字，换主名字不会多出次数。</p>";
