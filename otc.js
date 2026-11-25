@@ -36,7 +36,7 @@
        参考价读 fLGNS / DAI 池子 0xb4d6…046a（DAI 在前，约 30 万 DAI 对 25.6 万 fLGNS，价约 1.18）。托管合约 2026-11-26 已部署 */
     flgns: { sym: "fLGNS", chain: "anubis", chainName: "Anubis", otc: "0x5449ad74dd30360ee2f77e0a82a69053e3c48993", /* 站长 2026-11-26 部署（只点了一次），区块 20064973；代码和 gLGNS 那份逐字节一致（只换币地址），链上核过；节点模拟过挂单 / 撤单 / 吃单：不扣税，买家拿 99%、1% 进收款钱包 */ token: "0xffffbe730e2cde54d8928d36f547e41deb66aaaa", dai: ANUBIS_DAI, dec: 18, pd: 4,
       pair: "0xb4d6674f47a93b17588908aa2e7c6cb3dceb046a", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.973, dexBuy: 1.003, dexName: " DEX", eg: [100, 1.18], third: true, full: "Fun Longinus",
-      taxTxt: "2.4%", thirdWho: "不是本站发行的" /* 它和 AWAKE 官方是什么关系我没核实，所以只说这一句 */, thirdWarn: "它的规则由发行方的合约决定，本站控制不了，也不为这个币做任何担保。",
+      noCard: true, taxTxt: "2.4%", thirdWho: "不是本站发行的" /* 它和 AWAKE 官方是什么关系我没核实，所以只说这一句 */, thirdWarn: "它的规则由发行方的合约决定，本站控制不了，也不为这个币做任何担保。",
       dexNote: "fLGNS 在 DEX 卖出要扣 2.4% 的税（合约里写的），买入不扣。" },
     // AWAKE NFT 卡牌（Anubis 链，ERC721）：用另一份托管合约 AwakeNftEscrow（整张成交、手续费 3% 买家另付），页面在 nft.js；token 是卡牌合约
     nft: { sym: "AWAKE NFT", chain: "anubis", chainName: "Anubis", nft: true, otc: "0x8c67912b3ed44f4512c2f22b7b2263f6659396ed", token: "0x58839f46bd0E3F4494E2BEB8ca93Da9352208615", dai: ANUBIS_DAI, dec: 0, pd: 2,
@@ -428,6 +428,7 @@
   });
   // 第三方项目的币（RM）：页面顶上的说明。只写事实，不评价项目
   function thirdCard() {
+    if (M.noCard) return ""; /* 站长 2026-11-26（fLGNS）：「这个提示不用管，让客户自己定价，删掉即可」→ 这个市场不出说明卡 */
     return '<section class="card lpv"><div class="card-head"><h2>ℹ️ 关于 ' + SYM + '</h2></div>' +
       "<p><b>" + SYM + " 在 DEX 卖出要扣" + (M.taxTxt || "约 18%") + " 的税，在这里成交只收 1% 手续费</b>（由吃单的一方付）。卖家把币存进担保合约，买家付 DAI，一笔交易里完成交换；没成交随时撤单，币原样退回。</p>" +
       '<p class="muted">这里用 DAI 结算。手里是 USDT 的，先到官方 DEX 把 USDT 换成 DAI，大约 1 比 1（2026-11-25 实测：换 1 万以内损耗不到 0.5%，一次换得越多损耗越大）。</p>' +
