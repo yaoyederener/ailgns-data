@@ -544,6 +544,7 @@
       '<button type="button" class="poster-cta" data-group>加 OTC 交流群，群里找我　→</button>' +
       '<div class="poster-foot">一对一沟通 · 方案报价面议 · 交付后持续调整</div>' +
       "</div></section>" +
+      '<p class="note" style="text-align:center"><a href="#/promo">了解本站：AiLGNS OTC 介绍 · 交易就送会员 →</a></p>' + // 菜单里的「营销广告」格子并到这页来了（2026-11-25）
       '<p class="note" style="text-align:center">本站为 AWAKE HELIX 官方认证的 AiLGNS OTC 服务站。本站不会索取私钥或助记词。</p>';
   }
 
