@@ -745,7 +745,7 @@
   // 步骤目标：标题文字（跳到那一块）、"click:选择器"（替客户点那个按钮）、"#/路由"（跳页面）
   var GUIDES = {
     // 站长 2026-11-09 又加回来（小白太多，要不停教学）：四步引导放在币种标签正下方，点哪步就跳到哪步
-    otc: ['<i class="gd-xin">信</i>', "AiLGNS 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 AiLGNS", "click:[data-sw=buy]"], ["我要卖 AiLGNS", "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["我要做市", "#/lp"]]],
+    otc: ['<i class="gd-xin">信</i>', "AiLGNS 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 AiLGNS", "click:[data-sw=buy]"], ["我要卖 AiLGNS", "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["订单查询", "click:.ot-sw"]]],
     /* 站长 2026-11-12：盘口页去掉引导卡和「查我的订单」条，进来直接看盘口 */
     _tradeOff: ["📊", "交易所盘口", "订单簿 + K 线 + 一键买卖，撮合在链上合约里完成", [["买入", "sel:.tr-form"], ["看盘口", "sel:.tr-book"], ["我的委托", "sel:.tr-mine"], ["回普通版", "#/otc"]]],
     names: ["🌐", ".ailgns 域名", "注册一个属于你的名字，可以设为主号、转赠、挂单卖", [["注册新域名", ".ailgns 域名"], ["查我的域名", "查询域名"], ["买别人的域名", "域名市场"], ["卖我的域名", "click:#nm-sellgo"]]],
@@ -795,7 +795,7 @@
     // 站长 2026-11-09：LGNS / gLGNS / Polygon LGNS 市场也要同样的四步引导（「我们现在靠这俩赚钱」）；卡牌市场没有扫单，不配
     if (tab === "otc" && parts[1]) {
       var MS = { lgns: "LGNS", plgns: "LGNS（Polygon）", glgns: "gLGNS", lp: "LP", rm: "RM", flgns: "fLGNS" }, sym = MS[parts[1]]; // 2026-11-11 Polygon LGNS 恢复；2026-11-19 gLGNS 重新上架
-      g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["我要做市", "#/lp"]]] : null; // 站长 2026-11-10：和 AiLGNS 卡一致（订单查询在下面快捷条里已有）
+      g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["订单查询", "click:.ot-sw"]]] : null; // 站长 2026-11-10：和 AiLGNS 卡一致（订单查询在下面快捷条里已有）
     } else if (parts[1]) g = null;
     document.body.classList.toggle("has-guide", !!g);
     if (!g) { box.innerHTML = ""; return; }
