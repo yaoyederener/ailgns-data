@@ -639,8 +639,10 @@
           var day = el.getAttribute("data-day"), ps = el.getAttribute("data-ps").split(",");
           fetch("/api/oracle?res=" + day).then(function (r) { return r.json(); }).then(function (j) {
             if (!j.px) { el.innerHTML = ' <i class="lg-orw">⏳ 等揭晓</i>'; return; }
-            var px = j.px / 1000, best = Math.min.apply(null, ps.map(function (p) { return Math.abs(Number(p) - px); }));
-            el.innerHTML = " <b>揭晓 " + px.toFixed(3) + "</b>" + (best < 0.0005 ? ' <i class="lg-orhit">🎯 完全猜中</i>' : " · 差 " + best.toFixed(3));
+            /* 11-15 那一期起猜 4 位小数（揭晓价存成 ×10000）；这里原来一律 ÷1000，新期数就大了 10 倍（站长 2026-11-25 截图：877.8752 对 8760.374）。修：按接口给的倍数算，没给就按日期判断 */
+            var sc = j.sc || (day >= "2026-11-15" ? 10000 : 1000), dp = sc === 10000 ? 4 : 3;
+            var px = j.px / sc, best = Math.min.apply(null, ps.map(function (p) { return Math.abs(Number(p) - px); }));
+            el.innerHTML = " <b>揭晓 " + px.toFixed(dp) + "</b>" + (best < 0.5 / sc ? ' <i class="lg-orhit">🎯 完全猜中</i>' : " · 差 " + best.toFixed(dp));
           }).catch(function () { el.textContent = ""; });
         });
         first = false;
