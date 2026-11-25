@@ -1210,7 +1210,9 @@
         bc.insertAdjacentHTML("afterend", '<p class="sc-cred"><i class="cred cred' + c.lv + '">' + c.name + '</i> ' + (c.wk ? '上周本站 OTC 成交 <b>' + c.wk.vol.toLocaleString("en-US") + ' DAI</b> · ' + c.wk.n + ' 笔 · 排第 <b>' + c.wk.r + '</b>（共 ' + c.players + ' 人）' : '上周没有成交') + '<span class="muted"> · 累计 ' + c.vol.toLocaleString("en-US") + ' DAI · 牌子按上周名次评，每周一轮换，<a href="#/rank">看规则</a></span></p>');
       }).catch(function () {});
       var slot = el("sc-head-slot");
-      if (primary && !via && slot) slot.outerHTML = '<section class="card sc-head"><h2>🌐 ' + esc(primary) + ' <small class="muted">这个钱包的名字</small></h2></section>';
+      var bdg = BADGE[a] ? ' <i class="sc-bdg">' + BADGE[a] + "</i>" : ""; // 身份标注：账本顶上的大名字后面也挂上
+      if (primary && !via && slot) slot.outerHTML = '<section class="card sc-head"><h2>🌐 ' + esc(primary) + bdg + ' <small class="muted">这个钱包的名字</small></h2></section>';
+      else if (bdg && slot) slot.outerHTML = '<section class="card sc-head"><h2>' + bdg + "</h2></section>";
       else if (slot) slot.remove();
       var bc = out.querySelector(".sc-balc"); if (bc && !primary && !KNOWN[a]) bc.insertAdjacentHTML("beforeend", '<p class="muted sc-noname">这个钱包还没有名字 · <a href="#/names">花 5 DAI 起一个 →</a></p>');
       if (el("sc-who")) el("sc-who").remove();
