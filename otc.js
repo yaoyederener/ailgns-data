@@ -47,7 +47,7 @@
   var MK_NEW = { glgns: 1, lp: 1, rm: 1, flgns: 1 }; // 市场列表里挂「新上架」的
   // 市场列表里的币种图标（站长 2026-11-19：加上官方 logo）。AiLGNS / LGNS / gLGNS 取自官方区块浏览器 browser.anubispace.org 的代币图标，缩成 96 像素；
   // 卡牌没有官方图标，用 AWAKE HELIX 的标志。图片读不出来时，底下的字母还在
-  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1", rm: "icons/tokens/rm.png?v=1", flgns: "icons/tokens/flgns.svg?v=1" /* 官方浏览器上没有它的图标，本站画了个「f」 */, lp: "icons/tokens/lp.png?v=2" /* LP：AiLGNS + LGNS 两个官方图标叠在一起，本站自己拼的 */ };
+  var MK_ICON = { ailgns: "icons/tokens/ailgns.png?v=1", lgns: "icons/tokens/lgns.png?v=1", plgns: "icons/tokens/lgns.png?v=1", glgns: "icons/tokens/glgns.png?v=1", nft: "icons/helix-mark.svg?v=1", rm: "icons/tokens/rm.png?v=1", flgns: "icons/tokens/flgns.png?v=1" /* 站长 2026-11-26 发来的官方图标（官方浏览器上没有登记，原来是本站画的「f」） */, lp: "icons/tokens/lp.png?v=2" /* LP：AiLGNS + LGNS 两个官方图标叠在一起，本站自己拼的 */ };
   // 当前市场；下面的 OTC / AILGNS（挂单的币）/ DAI 等跟着切换
   var M, MK, OTC, AILGNS, DAI, SYM, TD, TUNIT, PD, EXPLORER, GAS_RESERVE, DEX_SELL, DEX_BUY, RANGE, DX;
   function useMarket(k) {
