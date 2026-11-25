@@ -198,7 +198,25 @@
       var dh = function (h) { return h >= 24 ? Math.floor(h / 24) + " 天" + (h % 24 ? " " + (h % 24) + " 小时" : "") : h + " 小时"; };
       try { /* 站长 2026-11-18 装饰：买了的摆进顶上那幅画里，每样有固定位置 */
         var dz = document.getElementById("fm-deco");
-        if (dz) dz.innerHTML = (me.decor || []).map(function (k) { return R.decor && R.decor[k] ? '<span class="fm-prop fm-deco d-' + k + '">' + R.decor[k].icon + "</span>" : ""; }).join("");
+        /* 2026-11-25 客户反馈「花 20000 买的城堡，小得看不见，能不能大气点」：城堡原来只是一个 34px 的小表情。
+           现在画成一座大城堡（自己画的矢量图：三座尖顶塔、金旗、亮灯的窗、拱门，带闪光），有城堡的农场顶上那幅画也加高一截，给它留地方 */
+        var CASTLE = '<svg class="fm-castle" viewBox="0 0 120 108" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>' +
+          '<linearGradient id="fmcW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fffdf5"/><stop offset="1" stop-color="#e6d6b8"/></linearGradient>' +
+          '<linearGradient id="fmcR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>' +
+          '<linearGradient id="fmcG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>' +
+          '<ellipse cx="60" cy="101" rx="58" ry="7" fill="#86c765"/>' +
+          '<g stroke="#a8946c" stroke-width="1.4" stroke-linejoin="round">' +
+          '<rect x="46" y="32" width="28" height="64" fill="url(#fmcW)"/><rect x="13" y="50" width="23" height="48" fill="url(#fmcW)"/><rect x="84" y="50" width="23" height="48" fill="url(#fmcW)"/>' +
+          '<path d="M30 98V60h7v6h6v-6h7v6h6v-6h8v6h6v-6h7v6h6v-6h7v38z" fill="url(#fmcW)"/></g>' +
+          '<g stroke="#4c1d95" stroke-width="1.4" stroke-linejoin="round" fill="url(#fmcR)"><path d="M41 34L60 7l19 27z"/><path d="M9 52l15.5-25L40 52z"/><path d="M80 52l15.5-25L111 52z"/></g>' +
+          '<g stroke="#8a5a12" stroke-width="1.3" stroke-linecap="round"><path d="M60 7V0M24.5 27v-6M95.5 27v-6"/></g>' +
+          '<g fill="url(#fmcG)" stroke="#b45309" stroke-width=".8" stroke-linejoin="round"><path class="fm-flag" d="M60 0l11 3-11 4z"/><path class="fm-flag" d="M24.5 21l8 2.4-8 3z"/><path class="fm-flag" d="M95.5 21l8 2.4-8 3z"/></g>' +
+          '<g fill="#fde68a" stroke="#b45309" stroke-width="1"><rect x="55.5" y="42" width="9" height="13" rx="4.5"/><rect x="20.5" y="60" width="8" height="11" rx="4"/><rect x="91.5" y="60" width="8" height="11" rx="4"/><rect x="37" y="74" width="6" height="8" rx="3"/><rect x="77" y="74" width="6" height="8" rx="3"/></g>' +
+          '<path d="M51 98V84a9 9 0 0 1 18 0v14z" fill="#8b5a2b" stroke="#5b3413" stroke-width="1.4"/><path d="M60 76v22M51 88h18" stroke="#5b3413" stroke-width="1"/><circle cx="57" cy="90" r="1.1" fill="#fde68a"/><circle cx="63" cy="90" r="1.1" fill="#fde68a"/>' +
+          '<g fill="#fff" class="fm-tw"><path d="M38 14l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z"/><path d="M86 10l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/><path d="M112 40l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></g></svg>';
+        var hasCastle = (me.decor || []).indexOf("castle") >= 0, sc = document.querySelector(".fm-scene");
+        if (sc) sc.classList.toggle("has-castle", hasCastle);
+        if (dz) dz.innerHTML = (me.decor || []).map(function (k) { return R.decor && R.decor[k] ? '<span class="fm-prop fm-deco d-' + k + '">' + (k === "castle" ? CASTLE : R.decor[k].icon) + "</span>" : ""; }).join("");
       } catch (e) { /* 装饰画不出来不影响农场 */ }
       if (seenWho !== sig.addr) { seenCoins = null; seenLv = null; seenWho = sig.addr; }
       var d0 = seenCoins == null ? 0 : me.coins - seenCoins, up = seenLv != null && lv > seenLv;
