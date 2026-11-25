@@ -1692,6 +1692,7 @@
           var tk = Math.pow(10, -PD), cx = crossText(side, num(p), xBid, xAsk, PD);
           if (side === "buy" && bfl && xAsk && xAsk <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了，没有能挂买单的价位。直接点盘口里那张卖单的「买入」就行，马上成交。";
           if (cx) { far = true; block = true; farMsg = "⛔ " + cx; }
+          try { sum.setAttribute("data-x", [xBid, xAsk, side, num(p), PD, typeof account, far].join("|")); } catch (e9) {} /* 临时排查，查完删 */
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
