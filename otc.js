@@ -29,7 +29,7 @@
        第三方项目的币，不是本站也不是 AWAKE 官方的；可升级合约，发行方随时能改规则 → 页面顶上有风险说明（third）。
        DEX 上只有 RM/USDT 池子深（约 3,700 万 U），参考价读它：USDT 是 6 位小数（qdec），USDT ≈ DAI。DEX 卖出扣约 18% 税（只看过一笔，可能因人而异）→ dexSell = 0.82 × 0.997 */
     rm: { sym: "RM", chain: "anubis", chainName: "Anubis", otc: "0x0fddaa1a312699b2ae43e2b43d8f7595087e21d0", /* 站长 2026-11-25 部署，区块 19990935；代码和 gLGNS 那份逐字节一致（只换币地址），链上核过 */ token: "0x2e045e1380f5f5b6e7550328910a7377c9fce59d", dai: ANUBIS_DAI, dec: 9, pd: 2,
-      pair: "0x8cbabf4e076baaad295fd32b3249e7f9d812b9c5", pairDai: 1, qdec: 6, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.8175, dexBuy: 1.003, dexName: " DEX", eg: [10, 27], third: true, full: "Rome",
+      pair: "0x8cbabf4e076baaad295fd32b3249e7f9d812b9c5", pairDai: 1, qdec: 6, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.8175, dexBuy: 1.003, dexName: " DEX", eg: [10, 27], third: true, noCard: true /* 站长 2026-11-26：「rm 也删掉」——说明卡不出了 */, full: "Rome",
       dexNote: "RM 在 DEX 卖出要扣约 18% 的税（按最近的卖单估的，可能因人而异），买入不扣。" },
     /* fLGNS（Fun Longinus），站长 2026-11-26：「咨询的人很多，冷启动，不宣传，加上去即可」。链上核过（2026-11-26）：18 位小数，合约已验证、不是可升级合约；
        只有「卖进它绑定的那个 DEX 池子」才扣 2.4% 的税（源码 SELL_TAX_BPS），转进别的地址（包括托管合约）不扣；约 4.35 万个持币地址。
