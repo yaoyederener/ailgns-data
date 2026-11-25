@@ -38,7 +38,9 @@ function finish(){S.done=true;if(S.mode!=="daily")return;var r=rec(),today=S.day
 r.res=r.res||{};var old=r.res[today];if(!old||S.moves<old.m)r.res[today]={m:S.moves,min:S.min,h:S.hints};var ks=Object.keys(r.res).sort();while(ks.length>30)delete r.res[ks.shift()];saveRec(r);}
 function refresh(){var cells=document.querySelectorAll(".gxl-c"),i;for(i=0;i<cells.length&&i<M;i++){cells[i].className="gxl-c"+(S.b[i]?" on":"")+(S.hint===i?" hint":"");cells[i].setAttribute("aria-label","第 "+((i/N|0)+1)+" 行第 "+(i%N+1)+" 列，"+(S.b[i]?"亮":"灭"));}
 var mv=document.getElementById("gxl-mv"),lt=document.getElementById("gxl-lt"),msg=document.getElementById("gxl-msg");if(mv)mv.textContent=S.moves;if(lt)lt.textContent=lit(S.b);if(msg)msg.innerHTML=S.done?doneH():'<p class="gxl-tip">每天一题，全站同一题，步数越少越好。用提示不扣分，但会写在分享里。</p>';}
-function say(t){var m=document.getElementById("gxl-msg");if(m)m.innerHTML='<p class="gxl-tip">'+esc(t)+"</p>";}
+function say(t){var m=document.getElementById("gxl-msg");if(!m)return;if(!S.done){m.innerHTML='<p class="gxl-tip">'+esc(t)+"</p>";return;}
+var n=document.getElementById("gxl-say");if(!n){n=document.createElement("p");n.id="gxl-say";n.className="gxl-tip";m.appendChild(n);}
+n.textContent=t;}
 function copy(t){try{if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(t).then(function(){say("已复制，去发给朋友吧 ✅");},function(){say(t);});}catch(e){}
 say(t);}
 function onClick(ev){try{var el=ev.target.closest?ev.target.closest("[data-gxl]"):null;if(!el||!document.getElementById("gxl-root")||!S)return;var a=el.getAttribute("data-gxl");if(a==="p"){if(S.done)return;var i=Number(el.getAttribute("data-i"));if(!(i>=0&&i<M))return;S.hist.push(i);S.b=press(S.b,i);S.moves++;S.hint=-1;if(solved(S.b))finish();save();refresh();}else if(a==="undo"){if(S.done||!S.hist.length)return;S.b=press(S.b,S.hist.pop());S.moves=Math.max(0,S.moves-1);S.hint=-1;save();refresh();}else if(a==="reset"){if(S.done&&S.mode==="daily")return;S.b=S.start.slice();S.moves=0;S.hist=[];S.hint=-1;save();refresh();}else if(a==="hint"){if(S.done)return;var s=solve(S.b);if(!s||!s.length)return;S.hint=s[Math.floor(flash++%s.length)];S.hints++;save();refresh();say("点亮着提示边框的那一格（已用 "+S.hints+" 次提示）");}else if(a==="free"){S=newGame("free");draw();}
@@ -47,6 +49,6 @@ else if(a==="share"){copy(shareText(S.day,S.moves,S.min,S.hints));}}catch(e){}}
 function loadDaily(){var g=newGame("daily");try{var c=JSON.parse(ls("gx:light:cur")||"null");if(c&&c.day===g.day&&c.b&&c.b.length===M&&c.hist&&c.hist.length===c.moves){g.b=c.b;g.moves=c.moves;g.hints=c.hints||0;g.done=!!c.done;g.hist=c.hist;}}catch(e){}
 return g;}
 A.pages.gxlight=function(){try{if(!bound){bound=true;document.addEventListener("click",onClick);}
-if(document.getElementById("gxl-root"))return;if(!S||S.day!==bjDay())S=loadDaily();draw();}catch(e){A.app.innerHTML='<section class="card"><p class="note">每日熄灯页面打开失败，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] gx-light.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["gxlight"]="h45bb3c91c3";
-/*v:h45bb3c91c3*/
+if(document.getElementById("gxl-root")&&!(S&&S.mode==="daily"&&S.day!==bjDay()))return;if(!S||(S.mode==="daily"&&S.day!==bjDay()))S=loadDaily();draw();}catch(e){A.app.innerHTML='<section class="card"><p class="note">每日熄灯页面打开失败，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] gx-light.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["gxlight"]="hcf34d00385";
+/*v:hcf34d00385*/

@@ -209,7 +209,13 @@
     if (mv) mv.textContent = S.moves; if (lt) lt.textContent = lit(S.b);
     if (msg) msg.innerHTML = S.done ? doneH() : '<p class="gxl-tip">每天一题，全站同一题，步数越少越好。用提示不扣分，但会写在分享里。</p>';
   }
-  function say(t) { var m = document.getElementById("gxl-msg"); if (m) m.innerHTML = '<p class="gxl-tip">' + esc(t) + "</p>"; }
+  function say(t) {
+    var m = document.getElementById("gxl-msg"); if (!m) return;
+    if (!S.done) { m.innerHTML = '<p class="gxl-tip">' + esc(t) + "</p>"; return; }
+    var n = document.getElementById("gxl-say"); // 已通关：提示追加在面板下面，不覆盖「再练一题」等按钮
+    if (!n) { n = document.createElement("p"); n.id = "gxl-say"; n.className = "gxl-tip"; m.appendChild(n); }
+    n.textContent = t;
+  }
   function copy(t) {
     try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(function () { say("已复制，去发给朋友吧 ✅"); }, function () { say(t); }); } catch (e) { /* 走下面的办法 */ }
     say(t);
@@ -253,8 +259,8 @@
   A.pages.gxlight = function () {
     try {
       if (!bound) { bound = true; document.addEventListener("click", onClick); }
-      if (document.getElementById("gxl-root")) return; // 网站后台刷新会重画当前页：别把正在玩的盘面冲掉
-      if (!S || S.day !== bjDay()) S = loadDaily();
+      if (document.getElementById("gxl-root") && !(S && S.mode === "daily" && S.day !== bjDay())) return; // 网站后台刷新会重画当前页：别把正在玩的盘面冲掉（过了 0 点的今日题除外，换新题）
+      if (!S || (S.mode === "daily" && S.day !== bjDay())) S = loadDaily();
       draw();
     } catch (e) { A.app.innerHTML = '<section class="card"><p class="note">每日熄灯页面打开失败，请刷新再试。</p></section>'; }
   };
