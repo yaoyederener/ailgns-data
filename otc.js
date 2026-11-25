@@ -82,6 +82,8 @@
      纯计算：side = "sell" / "buy"，px = 要挂的单价，bid / ask = 别人现成的最高买价 / 最低卖价（没有填 0），pd = 价格几位小数。能挂返回 ""，不能挂返回给客户看的话 */
   function crossText(side, px, bid, ask, pd) {
     px = Number(px) || 0; bid = Number(bid) || 0; ask = Number(ask) || 0;
+    // 链上的单价常常不是整的（比如 0.064251），盘口上显示成 0.0643。按「客户在盘口上看到的价」来比：不然会出现卖单 0.0643 和显示成 0.0643 的买单同价并排挂着
+    if (bid > 0) bid = Number(bid.toFixed(pd)); if (ask > 0) ask = Number(ask.toFixed(pd));
     if (!(px > 0)) return "";
     var tick = Math.pow(10, -pd), eps = tick * 1e-6, fx = function (v) { return Number(v).toFixed(pd); };
     if (side === "sell" && bid > 0 && px <= bid + eps)
@@ -1692,7 +1694,6 @@
           var tk = Math.pow(10, -PD), cx = crossText(side, num(p), xBid, xAsk, PD);
           if (side === "buy" && bfl && xAsk && xAsk <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了，没有能挂买单的价位。直接点盘口里那张卖单的「买入」就行，马上成交。";
           if (cx) { far = true; block = true; farMsg = "⛔ " + cx; }
-          try { sum.setAttribute("data-x", [xBid, xAsk, side, num(p), PD, typeof account, far].join("|")); } catch (e9) {} /* 临时排查，查完删 */
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
