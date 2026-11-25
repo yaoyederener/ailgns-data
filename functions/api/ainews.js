@@ -82,7 +82,7 @@ async function build(env, old) {
 const pub = (d) => Response.json({ at: d.at, list: d.list }, { headers: { "cache-control": "public, max-age=300" } });
 
 export async function onRequestGet(ctx) {
-  const kv = ctx.env && ctx.env.TEAM_KV, ck = new Request("https://ailgns.dev/__ainews");
+  const kv = ctx.env && ctx.env.TEAM_KV, ck = new Request("https://ailgns.dev/__ainews2");
   let old = null;
   try { old = kv && (await kv.get(KEY, "json")); } catch (e) {}
   const refresh = async () => { const d = await build(ctx.env, old); if (d && kv) await kv.put(KEY, JSON.stringify(d)).catch(() => {}); return d; };
