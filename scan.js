@@ -28,6 +28,17 @@
   var FLAG = {}, FLAG_NAME = "⚠️ 涉嫌盗号钱包";
   ["0x63bd82a6b92baaf35aa21ab9aebbc22d56656069", "0xc5e29a77f8c5d800f9ef43df137fcb54b1503b2e"].forEach(function (x) { FLAG[x] = 1; KNOWN[x] = FLAG_NAME; });
   A.FLAG = FLAG; A.FLAG_NAME = FLAG_NAME;
+  /* 🚫 假 AILGNS（站长 2026-11-25「通过这个人的地址找到假币，合约地址进行标记」，工单 #473，链上逐个核过）：
+     有人仿冒本站做了一个深色的「AiLGNS OTC 担保交易」页面，卖一个叫「新 AILGNS」的币（合约 0xdf14…，全链只有 5 个地址持有，不是真 AiLGNS 0x256e…）。
+     0xb18f… 发的币，整批转给 0x8da1…；0x8da1… 部署了下面 6 个照抄 OTC 的交易合约，买家付的 DAI 直接进 0x8da1…。只做显示上的警告，不影响别的功能。 */
+  var FAKE_TOKEN = "0xdf14564c8a4a6a55a1dc5ed0e966c414c1e22092", FAKE = {};
+  FAKE[FAKE_TOKEN] = "🚫 假 AILGNS（不是真的 AiLGNS）";
+  ["0x94ad9d377ce48ee83487cdd3f78f3e07a2b4d8f5", "0x78e126b836e40b9fb6d937629fa9ef7d78a59d48", "0xdd5e47faa3c5e54e46dbd2c2d5c4930c4f4d0a1d", "0x93f3b88539076bb8a71eb4fabdf9bdc87c01aa71",
+   "0xdc786545eabd4dd569b69f25f0d41d3bb9eda142", "0x592546753d8dcb268ffcfd6b7bcb602ebc1224cf"].forEach(function (x) { FAKE[x] = "🚫 卖假 AILGNS 的仿冒交易合约"; });
+  FAKE["0x8da1aad78fdc8348b43d64dad1b612a1f957caff"] = "🚫 卖假 AILGNS 的收款地址";
+  FAKE["0xb18f0a4d5911fc78cd6151ca014f15653ac285f1"] = "🚫 假 AILGNS 的发币地址";
+  Object.keys(FAKE).forEach(function (x) { KNOWN[x] = FAKE[x]; });
+  function fakeSym(tok, sym) { var h = tok && (tok.address_hash || tok.address || tok.hash); return String(h || "").toLowerCase() === FAKE_TOKEN ? "🚫假AILGNS" : sym; }
   KNOWN["0xdcc5354175d60ffc8364e71e792fcd66366f00fe"] = "OTC 自动撮合合约";
   KNOWN["0xf09b0cd8bd6ed6fa528284f53fc8e9df753b62de"] = "🏆 OTC 商户奖金池"; // 站长 2026-11-15：手续费周榜的奖金钱包，账本里统一叫这个名字
   KNOWN["0x6ec474047a6c12d0cab53855a990c1c8b3996c20"] = "OTC 批量扫单合约";
@@ -380,7 +391,7 @@
       var to = (r.to && r.to.hash || "").toLowerCase(), from = (r.from && r.from.hash || "").toLowerCase(), tok = (r.token && r.token.address_hash || "").toLowerCase();
       var tld = tok === NAMES.ailgns ? "ailgns" : tok === NAMES.lgns ? "lgns" : "", id = r.total && r.total.token_id;
       var card = !tld && id != null && (!r.total || r.total.value == null); // 卡牌这类 NFT 没有数量字段：一笔就是 1 张（以前显示成 0）
-      return { dir: to === a ? "in" : from === a ? "out" : "", sym: tld ? "域名" : (r.token && r.token.symbol) || "?", v: tld ? 0 : card ? 1 : Number(r.total && r.total.value || 0) / Math.pow(10, Number(r.total && r.total.decimals || 18)), card: card, vs: tld ? "" : card ? "1" : amt(r.total && r.total.value, r.total && r.total.decimals), nft: tld && id ? { tld: tld, id: id } : null, other: to === a ? from : to };
+      return { dir: to === a ? "in" : from === a ? "out" : "", sym: tld ? "域名" : fakeSym(r.token, (r.token && r.token.symbol) || "?"), v: tld ? 0 : card ? 1 : Number(r.total && r.total.value || 0) / Math.pow(10, Number(r.total && r.total.decimals || 18)), card: card, vs: tld ? "" : card ? "1" : amt(r.total && r.total.value, r.total && r.total.decimals), nft: tld && id ? { tld: tld, id: id } : null, other: to === a ? from : to };
     }).filter(function (m) { return m.dir; });
   }
   var sumOf = function (ms, dir, sym) { return ms.filter(function (m) { return m.dir === dir && (!sym || m.sym === sym) && !m.nft; }).reduce(function (t, m) { return t + m.v; }, 0); };
@@ -1141,6 +1152,7 @@
     var teamNote = TEAM[a] && !isMe(a) ? '<section class="card"><h2>🔧 运营维护地址</h2><p>这是本站<b>运营维护和市场托底</b>用的地址：服务器、节点、客服、开发等日常开支，以及在 OTC 挂买单托底、注入预测奖池的资金都从这里出。</p><p class="muted">客户的钱从不经过这里：挂单资金在 OTC 托管合约，借贷资金在借贷合约，域名在域名合约，都可以在账本里查到每一笔。</p></section>' : "";
     // 站长随后还要加一句「把 AiLGNS 拉升 100 倍」：没写。那是对币价的承诺，机器人只是跟着 DEX 价挂买单、抬不了币价，写了就是骗客户进场，涨不到还要担责；只写了做得到的「把买单价挂得更高更稳」。手续费那句按他说的删了
     // 站长 2026-11-17 深夜：说明里不要出现「抛售」两个字（哪怕是「不是抛售」），那个词本身会引起恐慌 → 改讲它做的正事：把买单价格拉高。它会把收来的币换回 DAI 这件事照实保留
+    if (FAKE[a]) teamNote = '<section class="card sc-flag"><h2>🚫 风险提示：假 AILGNS</h2><p>' + (a === FAKE_TOKEN ? '这个币叫「AILGNS / 新 AILGNS」，但它<b>不是真的 AiLGNS</b>，全链只有几个地址持有。真的 AiLGNS 合约是 0x256edb652db43e721ec6a12b6b51b6967d3bb8cb。' : '这个地址和「假 AILGNS」有关：有人仿冒本站做了一个「AiLGNS OTC 担保交易」页面，卖的是假币，买家付的 DAI 直接进了对方钱包。技术人员已经在链上逐个核对过。') + '</p><p>它不是本站的合约或钱包。请不要向它付款、不要给它授权；本站只有 ailgns.dev 这一个正式网址。</p><p class="muted">官方不会主动私聊你，不会索要助记词、私钥。</p></section>';
     if (FLAG[a]) teamNote = '<section class="card sc-flag"><h2>⚠️ 风险提示：涉嫌盗号钱包</h2><p>有客户报案：2026 年 11 月 22 日被冒充客服的骗子骗走助记词，钱包里的创世域名被转到了这个地址。技术人员已经逐笔核对过链上记录。</p><p>本站域名市场已不再展示这个地址的挂单。请不要和它交易。</p><p class="muted">官方不会主动私聊你，不会索要助记词、私钥。凡是私聊你的「客服」都是骗子。</p></section>';
     if (A.BOT && a === A.BOT && !isMe(a)) teamNote = '<section class="card"><h2>🤖 官方做市机器人</h2><p>这是团队的<b>做市机器人</b>，全天在本站 OTC 挂买单。它做的事只有一件：<b>把买单的价格拉高</b>，一直挂在紧贴官方 DEX 实际到手价的位置，让想卖 AiLGNS 的朋友随时有人接、卖得上价。</p>' +
       '<p>有它在，盘口上的最高买价比以前高出一截，而且全天不断档。</p>' +
@@ -1228,7 +1240,7 @@
       bals.forEach(function (b) {
         if (!b.token || b.token.type !== "ERC-20") return;
         var v = Number(b.value || 0) / Math.pow(10, Number(b.token.decimals || 18)); if (v < 1e-6) return;
-        if (main.indexOf(b.token.symbol) >= 0) num[b.token.symbol] = v; else others.push({ sym: b.token.symbol, v: v });
+        var fk = fakeSym(b.token, ""); if (!fk && main.indexOf(b.token.symbol) >= 0) num[b.token.symbol] = v; else others.push({ sym: fk || b.token.symbol, v: v });
       });
       var box = el("sc-bal"); if (!box) return;
       var fb = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 100 ? v.toFixed(2) : v >= 1 ? (+v.toFixed(4)).toString() : v ? (+v.toPrecision(4)).toString() : "0"; }; // 大字余额：数字别太长，手机上不换行
@@ -1277,6 +1289,7 @@
         (function () {
           var z = t.to && t.to.hash ? t.to.hash.toLowerCase() : "";
           if (!z || !t.to.is_contract) return "";
+          if (FAKE[z]) return '<p class="sc-unk bad">🚨 <b>假币 / 仿冒合约</b>：这笔交易的对象和「假 AILGNS」有关（不是本站的合约，卖的也不是真的 AiLGNS）。请不要再向它付款；给过它授权的，请到钱包页的「授权检查」里取消。</p>';
           if (FLAG[z]) return '<p class="sc-unk bad">🚨 <b>风险合约</b>：这笔交易的对象是被客户报案的地址，请不要再和它打交道；给过它授权的，请到钱包页的「授权检查」里取消。</p>';
           if (OFFICIAL[z]) return '<p class="sc-unk ok">🏛 这是<b>官方合约</b>（在官方网站公布的合约名单里）。</p>';
           if (KNOWN[z] || REG[z]) return "";
@@ -1284,7 +1297,7 @@
         })() +
         (tt.length ? '<h3 class="lg-h3">🔁 这笔交易里币的流向</h3><div class="lg-flow">' + tt.map(function (x) {
           var tok = (x.token && x.token.address_hash || "").toLowerCase(), tld = tok === NAMES.ailgns ? "ailgns" : tok === NAMES.lgns ? "lgns" : "", id = x.total && x.total.token_id;
-          var v = tld && id ? '<b data-nft="' + tld + ":" + id + '">🌐 域名</b>' : "<b>" + (id != null && (x.total || {}).value == null ? "1 张" : amt(x.total && x.total.value, x.total && x.total.decimals)) + " " + esc(x.token && x.token.symbol || "") + (id != null && (x.total || {}).value == null ? "（#" + esc(String(id)) + "）" : "") + "</b>";
+          var v = tld && id ? '<b data-nft="' + tld + ":" + id + '">🌐 域名</b>' : "<b>" + (id != null && (x.total || {}).value == null ? "1 张" : amt(x.total && x.total.value, x.total && x.total.decimals)) + " " + esc(fakeSym(x.token, x.token && x.token.symbol || "")) + (id != null && (x.total || {}).value == null ? "（#" + esc(String(id)) + "）" : "") + "</b>";
           var f =(x.from && x.from.hash || "").toLowerCase(), g = (x.to && x.to.hash || "").toLowerCase();
           var nm = function (z) { return /^0x0+$/.test(z) ? "<b>🆕 新铸造</b>" : KNOWN[z] ? '<b class="sc-kn">' + KNOWN[z] + "</b>" : who(z); };
           return "<div>" + nm(f) + ' <span class="lg-arr">→</span> ' + nm(g) + "：" + v + "</div>";

@@ -1,0 +1,8 @@
+{
+"🚫 防骗提醒：有人仿冒本站做了一个深色的「AiLGNS OTC 担保交易」页面，卖一个叫「新 AILGNS」的假币，已有客户付了 DAI 买到假币。本站只有 ailgns.dev 这一个正式网址（页面是浅紫色）；真的 AiLGNS 合约是 0x256edb652db43e721ec6a12b6b51b6967d3bb8cb。账本里已经把这个假币和相关地址标成红色警告。": "🚫 Scam warning: someone has built a dark-themed copy of this site (titled “AiLGNS OTC” escrow trading) that sells a fake token labeled “new AILGNS”. A customer has already paid DAI and received the fake token. This site's only official address is ailgns.dev (light purple pages); the real AiLGNS contract is 0x256edb652db43e721ec6a12b6b51b6967d3bb8cb. The ledger now shows the fake token and related addresses with a red warning.",
+"🚫 假 AILGNS（不是真的 AiLGNS）": "🚫 Fake AILGNS (not the real AiLGNS)",
+"🚫 卖假 AILGNS 的仿冒交易合约": "🚫 Copycat trading contract selling fake AILGNS",
+"🚫 卖假 AILGNS 的收款地址": "🚫 Receiving address for fake AILGNS sales",
+"🚫 假 AILGNS 的发币地址": "🚫 Issuer of the fake AILGNS",
+"🚫 风险提示：假 AILGNS": "🚫 Risk warning: fake AILGNS"
+}
