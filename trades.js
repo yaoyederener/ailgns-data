@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   var A = window.AIL;
-  var MK = { ailgns: "AiLGNS", lgns: "LGNS · Anubis", plgns: "LGNS · Polygon", glgns: "gLGNS", lp: "LP", rm: "RM", nft: "AWAKE NFT" };
+  var MK = { ailgns: "AiLGNS", lgns: "LGNS · Anubis", plgns: "LGNS · Polygon", glgns: "gLGNS", lp: "LP", rm: "RM", flgns: "fLGNS", nft: "AWAKE NFT" };
   var TX = { plgns: "https://polygonscan.com/tx/" };
   function row(t, addr) {
     var mine = t.taker === addr, side = mine ? (t.makerSide === "卖" ? "买入" : "卖出") : (t.makerSide === "卖" ? "卖出" : "买入"); // 我是吃单人就和挂单方向相反
@@ -12,7 +12,7 @@
       '<td data-l="对手方" class="l mono">' + A.short(other) + '</td><td data-l="角色" class="l">' + (mine ? "吃单" : "挂单") + '</td><td data-l="交易"><a target="_blank" rel="noopener" href="' + tx + '">查看 ↗</a></td></tr>';
   }
   // 这个地址还在挂着的单（没成交就不会出现在成交记录里，客户容易以为"没查到"）
-  var OPEN_MKTS = [["ailgns", "AiLGNS", 18, 7], ["lgns", "LGNS · Anubis", 9, 7], ["plgns", "LGNS · Polygon", 9, 7], ["glgns", "gLGNS", 18, 7], ["lp", "LP", 18, 7], ["rm", "RM", 9, 7], ["nft", "AWAKE NFT", 0, 6]];
+  var OPEN_MKTS = [["ailgns", "AiLGNS", 18, 7], ["lgns", "LGNS · Anubis", 9, 7], ["plgns", "LGNS · Polygon", 9, 7], ["glgns", "gLGNS", 18, 7], ["lp", "LP", 18, 7], ["rm", "RM", 9, 7], ["flgns", "fLGNS", 18, 7], ["nft", "AWAKE NFT", 0, 6]];
   function openOrders(addr) {
     var now = Date.now() / 1000;
     return Promise.all(OPEN_MKTS.map(function (m) {
