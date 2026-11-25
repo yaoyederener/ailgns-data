@@ -577,7 +577,7 @@
   var LAZY = (function () {
     var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"],
       games: ["farm", "br"],
-      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly", "usdt", "gale", "cover", "videos", "chart"] };
+      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly", "usdt", "gale", "cover", "videos", "chart", "rpc"] };
     Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
     m.oracle = ["kchart", "oracle"]; m.trade = ["kchart", "trade"]; m.chart = ["kchart", "misc"]; // K 线组件两页共用，单独一个小包
     return m;
