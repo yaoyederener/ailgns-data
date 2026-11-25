@@ -362,17 +362,12 @@
   // LP 参考价说明卡：一个大数 + 怎么算出来的（默认折叠）。读不到就老实说读不到
   function lpCard() {
     setTimeout(lpCardFill, 0);
-    return '<section class="card lpv"><div class="card-head"><h2>💧 1 个 LP 大约值多少</h2></div><div id="lpv-box">' + (lpQ ? lpCardHtml(lpQ) : '<p class="muted">正在读链上数据…</p>') + "</div></section>";
+    /* 站长 2026-11-26：「这里优化下，缩短点，只留下 lp 值多少钱 + 一键取回我的 lp」→ 两张卡并成一张：参考价 + 取回按钮。
+       对照表、「这个数怎么算的」、拆不开的提醒、「LP 怎么卖」三步都拿掉了；取回要扣 5% 那句话还在——点按钮后的确认那一步里 */
+    return '<section class="card lpv"><div class="card-head"><h2>💧 1 个 LP 大约值多少</h2></div><div id="lpv-box">' + (lpQ ? lpCardHtml(lpQ) : '<p class="muted">正在读链上数据…</p>') + '</div><div class="lpv-rd" id="lpv-rd">' + lpRdHtml() + "</div></section>";
   }
   // 怎么把 LP 拿出来卖（站长 2026-11-24：引导客户）。LP 平时押在官方页面里，要先退出来才在钱包里
-  function lpSteps() {
-    return '<section class="card lpv"><div class="card-head"><h2>📖 LP 怎么卖</h2></div><ol class="lpv-steps">' +
-      "<li><b>先把 LP 取回钱包。</b>点下面的按钮就行，不用去官方网站。官方会扣 5%，剩下 95% 的 LP 回到你钱包（拿回来的还是 LP，不是币）。</li>" +
-      "<li><b>回到这一页挂卖单。</b>填数量和单价，LP 存进本站的担保合约，有人买了 DAI 直接到你钱包。没人买随时撤单，LP 原样退回。</li>" +
-      "<li><b>想买 LP 的</b>：直接点卖单成交，或者挂买单等人卖给你。买到的 LP 可以拿去官方页面质押，领每日 AiLGNS 奖励。</li></ol>" +
-      '<div class="lpv-rd" id="lpv-rd">' + lpRdHtml() + "</div>" +
-      '<p class="muted">成交手续费 1%，由吃单的一方付。退出质押那 5% 是官方扣的，本站不收。</p></section>';
-  }
+  function lpSteps() { return ""; } // 2026-11-26 并进上面那张卡了
   /* ⚡ 一键取回 LP（站长 2026-11-24：「把 lp 赎回取回做一个高亮的按钮，让客户可以一键赎回」）。
      LP 平时押在官方的 LP 管理合约里。这里用客户自己的钱包直接调官方合约的取回（和官方页面「移除流动性」是同一个调用，链上模拟过），
      本站不经手：95% 的 LP 回客户钱包，5% 官方永久留下。分两下点：第一下读出押了多少、把后果说清楚，第二下才发交易。
@@ -438,17 +433,7 @@
     /* 站长 2026-11-24：「531,176」加一句「0.0002 个约 106 DAI」，他下意识算成 531 × 0.0002 = 0.1 DAI。
        改成：大数用「万」写（53.12 万，不会把逗号看成小数点）；举例换成三档对照表，手里有多少一眼对上 */
     var wan = q.px >= 10000 ? A.fmt(q.px / 10000, 2) + " 万" : A.fmt(q.px, 0);
-    var row = function (n) { return "<tr><td>" + n + " 个 LP</td><td>≈ <b>" + A.fmt(q.px * n, n < 0.001 ? 2 : 0) + " DAI</b></td></tr>"; };
-    return '<div class="lpv-big"><b class="num">' + wan + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>' +
-      '<p class="muted">1 个 LP 很值钱，大家手里一般只有零点零零几个。对照下面看你的值多少：</p>' +
-      '<table class="lpv-eg"><tbody>' + row(0.0001) + row(0.001) + row(0.01) + "</tbody></table>" +
-      '<details class="lpv-how"><summary>这个数怎么算的</summary><ol>' +
-      "<li>1 个 LP 里面含 <b>" + A.fmt(q.ail, 2) + "</b> 枚 AiLGNS + <b>" + A.fmt(q.lgns, 0) + "</b> 枚 LGNS（按池子现在的存量和 LP 总数算）。</li>" +
-      "<li>AiLGNS 按去官方 DEX 卖出到手价 " + A.fmt(q.pAil, 2) + " DAI 算 → " + A.fmt(q.vAil, 0) + " DAI。</li>" +
-      "<li>LGNS 按去 DEX 卖出到手价 " + A.fmt(q.pLgns, 4) + " DAI 算（已扣现在实测的卖出税 " + (q.tax * 100).toFixed(1) + "%）→ " + A.fmt(q.vLgns, 0) + " DAI。</li>" +
-      "<li>两项相加 = " + A.fmt(q.px, 0) + " DAI。</li></ol>" +
-      '<p class="muted">官方页面的算法不扣卖出税，数会比这个高。这里按「真能拿到手」算，宁可少算不多算。</p></details>' +
-      '<p class="lpv-warn">⚠️ 目前官方不让把 LP 拆成币，LP 只能拿去官方质押领每日奖励，或者转给别人。所以参考价只是参考，实际能卖多少看买家愿意出多少。</p>';
+    return '<div class="lpv-big"><b class="num">' + wan + '</b><small>DAI / 1 个 LP（参考价，会随行情变）</small></div>';
   }
   function lpCardFill() {
     lpQuote().then(function (q) {
