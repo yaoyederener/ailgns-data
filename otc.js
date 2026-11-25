@@ -33,8 +33,8 @@
       dexNote: "RM 在 DEX 卖出要扣约 18% 的税（按最近的卖单估的，可能因人而异），买入不扣。" },
     /* fLGNS（Fun Longinus），站长 2026-11-26：「咨询的人很多，冷启动，不宣传，加上去即可」。链上核过（2026-11-26）：18 位小数，合约已验证、不是可升级合约；
        只有「卖进它绑定的那个 DEX 池子」才扣 2.4% 的税（源码 SELL_TAX_BPS），转进别的地址（包括托管合约）不扣；约 4.35 万个持币地址。
-       参考价读 fLGNS / DAI 池子 0xb4d6…046a（DAI 在前，约 30 万 DAI 对 25.6 万 fLGNS，价约 1.18）。otc 空着 = 「即将上线」，等站长在 #/otc/deploy/flgns 部署托管合约后填上 */
-    flgns: { sym: "fLGNS", chain: "anubis", chainName: "Anubis", otc: "", token: "0xffffbe730e2cde54d8928d36f547e41deb66aaaa", dai: ANUBIS_DAI, dec: 18, pd: 4,
+       参考价读 fLGNS / DAI 池子 0xb4d6…046a（DAI 在前，约 30 万 DAI 对 25.6 万 fLGNS，价约 1.18）。托管合约 2026-11-26 已部署 */
+    flgns: { sym: "fLGNS", chain: "anubis", chainName: "Anubis", otc: "0x5449ad74dd30360ee2f77e0a82a69053e3c48993", /* 站长 2026-11-26 部署（只点了一次），区块 20064973；代码和 gLGNS 那份逐字节一致（只换币地址），链上核过；节点模拟过挂单 / 撤单 / 吃单：不扣税，买家拿 99%、1% 进收款钱包 */ token: "0xffffbe730e2cde54d8928d36f547e41deb66aaaa", dai: ANUBIS_DAI, dec: 18, pd: 4,
       pair: "0xb4d6674f47a93b17588908aa2e7c6cb3dceb046a", pairDai: 0, explorer: ANUBIS_EXPLORER, gas: "DAI", dexSell: 0.973, dexBuy: 1.003, dexName: " DEX", eg: [100, 1.18], third: true, full: "Fun Longinus",
       taxTxt: "2.4%", thirdWho: "不是本站发行的" /* 它和 AWAKE 官方是什么关系我没核实，所以只说这一句 */, thirdWarn: "它的规则由发行方的合约决定，本站控制不了，也不为这个币做任何担保。",
       dexNote: "fLGNS 在 DEX 卖出要扣 2.4% 的税（合约里写的），买入不扣。" },
