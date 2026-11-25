@@ -821,7 +821,7 @@
       var pairs = {};
       [[r[0].logs, false], [r[1].logs, true]].forEach(function (g) {
         g[0].forEach(function (l) {
-          var tp = l.topics || []; if (tp.length !== 3 || !tp[2]) return; // 4 个主题的是单个 NFT 的授权，不是额度，不列
+          var tp = (l.topics || []).filter(Boolean); if (tp.length !== 3) return; /* 接口会用 null 把主题补满 4 格，先去掉空的 */ // 4 个主题的是单个 NFT 的授权，不是额度，不列
           var tok = String(l.address || "").toLowerCase(), sp = "0x" + String(tp[2]).slice(-40).toLowerCase(), k = tok + sp + (g[1] ? "a" : "");
           if (!tok || /^0x0+$/.test(sp) || pairs[k]) return;
           pairs[k] = { tok: tok, sp: sp, all: g[1], name: "" };
