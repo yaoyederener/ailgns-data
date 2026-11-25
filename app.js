@@ -2,6 +2,36 @@
 (function () {
   "use strict";
 
+  // 🛡 域名自检（站长 2026-11-25：「骗子拿我的网站骗人」→ 先做这条）：整套代码被人原样搬到别的网址上运行时，整页盖一个红色警告，并悄悄把那个网址报回本站。
+  //   拦不住肯花时间删掉这段的人，只防「原样搬走」的。自己的 6 个域名、Pages 预览地址、本机开发地址放行。出任何错都不影响页面。
+  try {
+    (function () {
+      var h = String(location.hostname || "").toLowerCase();
+      var mine = /^(.+\.)?(ailgns\.dev|ailgnsotc\.(com|net|org|cc|xyz)|ailgns-data\.pages\.dev)$/.test(h);
+      var local = h === "" || h === "localhost" || h === "127.0.0.1" || h === "[::1]" || /\.(localhost|test)$/.test(h);
+      if (mine || local) return;
+      try { var b = JSON.stringify({ p: "host-check", m: "仿冒域名：" + location.protocol + "//" + location.host, ua: navigator.userAgent, v: "" }); if (!(navigator.sendBeacon && navigator.sendBeacon("https://ailgns.dev/api/err", b))) fetch("https://ailgns.dev/api/err", { method: "POST", body: b, mode: "no-cors", keepalive: true }).catch(function () {}); } catch (e) {}
+      var show = function () {
+        try {
+          if (document.getElementById("ail-fake-host")) return;
+          var d = document.createElement("div"); d.id = "ail-fake-host";
+          d.style.cssText = "position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483647;background:#fff5f5;color:#7f1d1d;display:flex;align-items:center;justify-content:center;padding:24px;font:16px/1.7 -apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',sans-serif;overflow:auto";
+          var box = document.createElement("div"); box.style.cssText = "max-width:420px;text-align:center";
+          var add = function (tag, text, css) { var e = document.createElement(tag); e.textContent = text; if (css) e.style.cssText = css; box.appendChild(e); return e; };
+          add("div", "⚠️", "font-size:56px;line-height:1.2");
+          add("h1", "这不是 AiLGNS OTC 官方网站", "font-size:22px;margin:10px 0;color:#b91c1c");
+          add("p", "你现在打开的网址是 " + h + "，它不是官方网址。请不要在这里连接钱包、授权或付款。", "margin:8px 0;word-break:break-all");
+          add("p", "官方网址只有：ailgns.dev", "margin:8px 0;font-weight:700");
+          var a = add("a", "去官方网站 ailgns.dev", "display:inline-block;margin:14px 0 10px;padding:12px 22px;border-radius:999px;background:#7c3aed;color:#fff;font-weight:700;text-decoration:none"); a.href = "https://ailgns.dev/"; a.rel = "noopener";
+          add("p", "This is NOT the official AiLGNS OTC site. Do not connect your wallet, approve or pay here. Official site: ailgns.dev", "margin:8px 0;font-size:13px;color:#991b1b");
+          d.appendChild(box); (document.body || document.documentElement).appendChild(d);
+        } catch (e) {}
+      };
+      if (document.body) show(); else document.addEventListener("DOMContentLoaded", show);
+      setInterval(show, 3000); // 被别的脚本删掉了就再盖回来
+    })();
+  } catch (e) {}
+
   // 苹果 Safari 不认 user-scalable=no：这里拦住双指缩放和双击放大，页面固定不缩放（站长要求）
   document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
   document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, { passive: false });
