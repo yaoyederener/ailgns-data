@@ -9,5 +9,8 @@
 "最新": "Latest",
 "更新于": "Updated",
 "暂时没有读到资讯，过一会儿再来看。": "No news loaded right now. Please check back later.",
-"🤖 新增「AI 资讯」页（☰ 更多 → 服务）：每小时自动更新国外媒体和官方的 AI 新闻标题，顶部轮播最新几条，点标题去原文看。标题来自第三方，不代表本站观点，不构成投资建议。": "🤖 New “AI News” page (☰ More → Support): AI headlines from international media and official blogs, refreshed every hour, with the latest ones rotating at the top. Tap a headline to read the original. Headlines come from third parties, do not represent this site's views and are not investment advice."
+"🤖 新增「AI 资讯」页（☰ 更多 → 服务）：每小时自动更新国外媒体和官方的 AI 新闻标题，顶部轮播最新几条，点标题去原文看。标题来自第三方，不代表本站观点，不构成投资建议。": "🤖 New “AI News” page (☰ More → Support): AI headlines from international media and official blogs, refreshed every hour, with the latest ones rotating at the top. Tap a headline to read the original. Headlines come from third parties, do not represent this site's views and are not investment advice.",
+"每小时自动更新一次，只看标题就行。 ": "Updated automatically every hour — headlines only. ",
+"资讯标题来自国外第三方媒体，中文标题是机器翻译的，可能不准。不代表本站观点，不构成投资建议。": "Headlines come from third-party media. They do not represent this site's views and are not investment advice.",
+"📰 AI 资讯改成只看标题：点了不再跳到外面的网站，英文原标题那一行也去掉了，页面更清爽。": "📰 AI News now shows headlines only: tapping no longer opens outside websites, and the extra original-title line is gone for a cleaner page."
 }
