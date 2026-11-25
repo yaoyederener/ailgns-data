@@ -1012,22 +1012,33 @@
       var n = d.n, left = GENESIS - n, pct = Math.max(n / GENESIS * 100, 0.6), changed = gcLast >= 0 && n > gcLast;
       if (left <= 0 && TLD === "ailgns") { // 创世卖完了：分红计划开启
         var pv = typeof d.pool === "number" ? d.pool : 0;
-        b.innerHTML = '<div class="gc gc-bn">' +
-          '<div class="gc-top"><span class="gc-tag">🎁 创世域名 · 分红计划开启</span><span class="gc-live"><i></i>链上实时</span></div>' +
-          '<div class="gc-cd"><small>10,000 个创世域名已全部注册完 · 分红奖池累计金额</small><div class="gc-pool"><b>' + pv.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '</b><em>DAI</em></div>' +
-          "<small>" + (GEN_POOL ? '奖池的钱在链上，随时可查 · <a href="#/scan/' + GEN_POOL + '">看奖池钱包 →</a>' : "奖池钱包地址即将公布，钱到账后这里实时显示") + "</small></div>" +
-          '<div class="gc-bar"><i style="width:100%"></i></div>' +
-          '<div class="gc-num"><div><small>创世域名</small><b>10,000 个已售完</b></div><div><small>分红对象</small><b>创世域名持有人</b></div><div><small>现在想要创世域名</small><b class="gc-me">去域名市场买</b></div></div>' +
-          '<ul class="gc-pts"><li>🎁 <b>分红计划已开启</b>：奖池的钱只分给持有创世域名的人</li><li>💰 <b>奖池金额链上可查</b>：页面读的是奖池钱包的链上余额，不是手填的数</li><li>📜 <b>怎么分、哪天分</b>：以公告为准，规则可能调整</li><li>💎 <b>创世域名只有 1 万个，已经卖完</b>：想要只能去域名市场向别人买</li></ul>' +
-          // 站长 2026-11-21：卖完后这里一直停在 #10000，「最新注册的域名不显示」→ 改成显示最新注册的名字（普通域名也算，标「普通域名」；创世的带编号）。接口没给 newest 时照旧显示最后几个创世
+        /* 站长 2026-11-26：「普通域名销量下滑，这里重新设计下，引导客户注册普通域名，普通域名的好处？否则游戏玩不下去」
+           → 这张卡从「创世分红」改成「注册一个自己的名字」：先说价钱，再用六格讲清楚有名字能干什么（每一条都是站里真有的规则，从代码核过），
+             一个大按钮直接跳到下面的搜索框。创世分红奖池缩成最底下一行，点了去分红页。样式前缀 gcn- */
+        var tile = function (ic, t, x) { return '<div class="gcn-t"><i>' + ic + "</i><b>" + t + "</b><small>" + x + "</small></div>"; };
+        b.innerHTML = '<div class="gcn">' +
+          '<div class="gcn-top"><span class="gcn-tag">🌐 .ailgns 域名</span><span class="gc-live"><i></i>链上实时</span></div>' +
+          '<h3 class="gcn-h">注册一个自己的名字</h3>' +
+          '<p class="gcn-sub">一串 0x 开头的地址谁也记不住。换成一个名字，全站都认它。</p>' +
+          '<div class="gcn-price"><b>5</b><em>DAI / 年起</em><small>中文 3 个字起、英文 5 位起都是这个价</small></div>' +
+          '<div class="gcn-grid">' +
+          tile("🏡", "玩农场要它", "开心农场要先有主名字才能玩、才能上榜") +
+          tile("🔮", "每日预言家的资格", "设好主名字，再持有 5 个自己注册的普通域名") +
+          tile("⚡", "极速预言家的票", "批量注册时，每注册 1 个域名就是 1 张票") +
+          tile("🏆", "上荣耀榜", "有本站域名的钱包才会出现在榜上") +
+          tile("📒", "全站显示你的名字", "账本、挂单、榜单里显示名字，不是一串地址") +
+          tile("🤝", "是你自己的", "名字在你钱包里，可以转给别人，也可以挂到域名市场") +
+          "</div>" +
+          '<button type="button" class="gcn-go" id="gc-go">✍️ 现在注册一个 →</button>' +
+          '<p class="gcn-how">注册后点进名字，选「设为我的主名字」，上面这些就都能用了。</p>' +
           (function () {
             var rs = d.newest && d.newest.length ? d.newest : d.recent, isNew = rs === d.newest;
             if (!rs.length) return "";
-            return '<div class="gc-recent' + (gcOpen ? " open" : "") + '"><small>' + (isNew ? "最新注册：" : "最后注册的几个：") + "</small>" + rs.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>" + (r.no ? "#" + r.no : "普通域名") + " · " + ago(r.ago) + "</em></span>"; }).join("") +
+            return '<div class="gcn-recent' + (gcOpen ? " open" : "") + '"><small>' + (isNew ? "刚刚有人注册：" : "最后注册的几个：") + "</small>" + rs.map(function (r) { return "<span>" + esc(r.nm) + "." + TLD + " <em>" + ago(r.ago) + "</em></span>"; }).join("") +
               (rs.length > 3 ? '<button type="button" class="gc-more">' + (gcOpen ? "收起 ▴" : "展开全部 " + rs.length + " 个 ▾") + "</button>" : "") + "</div>";
           })() +
-          '<button type="button" class="gc-go" id="gc-go">🎁 看分红计划 →</button></div>';
-        document.getElementById("gc-go").onclick = function () { location.hash = "#/bonus"; };
+          '<a class="gcn-bonus" href="#/bonus"><span>🎁 创世域名分红奖池</span><b>' + pv.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DAI</b><em>看分红计划 →</em></a></div>';
+        document.getElementById("gc-go").onclick = function () { var i2 = document.getElementById("nm-q"); if (i2) { i2.scrollIntoView({ block: "center", behavior: "smooth" }); setTimeout(function () { try { i2.focus(); } catch (e) {} }, 350); } };
         gcLast = n;
         return;
       }
