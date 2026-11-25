@@ -5501,3 +5501,4 @@ html.lang-ko body { word-break: keep-all; }
 .ainw-it i { margin-top: 5px; }
 .ainw-it:active { background: #f3ebff; }
 .ainw-foot { margin-top: 14px; font-size: 12px; line-height: 1.6; }
+.sc-flag p { overflow-wrap: anywhere; }
