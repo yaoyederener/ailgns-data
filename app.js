@@ -764,7 +764,7 @@
     var host = document.getElementById("oq");
     if (!host) { host = document.createElement("div"); host.id = "oq"; host.className = "wrap"; var app = document.getElementById("app"); app.parentNode.insertBefore(host, app); }
     var c = OQ[tab];
-    if (/^#\/otc\/swap/.test(location.hash)) c = null; // 闪兑页不要「查我的订单」（站长 2026-11-15）
+    if (/^#\/otc\/(swap|markets)/.test(location.hash)) c = null; // 闪兑页不要「查我的订单」（站长 2026-11-15）；全部市场页也不要（站长 2026-11-26：「查我的订单去掉」）
     host.hidden = !c || !window.AIL.orderQuery;
     if (host.hidden) return;
     if (!oqCtl) oqCtl = window.AIL.orderQuery(host, c); else oqCtl.set(c);

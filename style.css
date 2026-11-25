@@ -5709,3 +5709,10 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .mkp-star.on { color: #f59e0b; }
 .mkp-a { flex: 1; min-width: 0; padding: 11px 4px; color: #2e2654; text-decoration: none; }
 @media (min-width: 900px) { .mkp { max-width: 860px; margin-left: auto; margin-right: auto; } .mkp-a { padding: 14px 6px; } }
+
+/* 账本交易页 · 相关地址（可复制） */
+.lg-addrs { display: grid; gap: 8px; margin: 6px 0 4px; }
+.lg-addrs > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #faf8ff; border: 1px solid #efeaf9; }
+.lg-addrs .lg-an { grid-column: 1 / -1; font-size: 14px; font-weight: 600; }
+.lg-addrs code { min-width: 0; font-size: 12.5px; line-height: 1.5; color: #5b5385; word-break: break-all; user-select: all; -webkit-user-select: all; }
+.lg-addrs .lg-cp { flex: none; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
