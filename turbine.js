@@ -15,6 +15,10 @@
   var A = window.AIL, K = function () { return A.otcKit; };
   var VAULT = "0x3deea5f638ca0dfb03a0873cf4c0b90ba50e1aa2", TURBINE = "0xe884a336550a4482ca6a17a3f93aa30ed4ed9bad";
   var LEDGER = "0x9e68f61e2615cc1d2c4a2d0026bfc1ebfdf68c1b";
+  // 站长 2026-11-26 转群里的反馈（「点不了领取到涡轮」「奖励显示了，可领取是零」）：大多数客户拿的是 LP 空投，不是个人排放，
+  // 原来第一步只认个人排放，有 LP 空投的人在这一页没东西可点。官方 LP 空投金库：pendingOf(钱包) = 已经记到账、现在能领的；claim() = 全部领进涡轮（之后做第二步激活）。
+  // 链上核过（2026-11-26）：官方每天给金库记一次账（最近三天是北京时间凌晨 1～4 点），claim() 把币转进涡轮并记到钱包名下。
+  var AIRDROP = "0xf0e9ec153f68bfa2fc8c76165db2b80579dcb217", CLAIM_LP = "0x4e71d92d";
   var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";
   var SEL = { pendingOf: "0xf44136a1", usable: "0x8c9a2d45", claimStatic: "0x064f3406", feeBps: "0x24a9d853", lockSeconds: "0xbfa6fddb", claimed: "0x9886c2a5", locksOf: "0xc3f9ab58", lockOf: "0x632a4861",
     rateBps: "0xbe7f8c68", open: "0x549c4627", minDai: "0xa2b7b1c5", participate: "0x845c9306", active: "0x6cf2fa36", pendingPow: "0xaa81a38f",
@@ -62,11 +66,12 @@
     return Promise.all([read(VAULT, SEL.pendingOf + u(a)), read(VAULT, SEL.usable + u(a)), read(TURBINE, SEL.claimed + u(a)), read(TURBINE, SEL.locksOf + u(a)),
       bal(DAI, a), bal(AIL, a), read(TURBINE, SEL.feeBps), read(TURBINE, SEL.lockSeconds),
       read(LEDGER, SEL.rateBps).catch(function () { return ""; }), read(LEDGER, SEL.open).catch(function () { return ""; }), read(LEDGER, SEL.minDai).catch(function () { return ""; }),
-      read(LEDGER, SEL.active + u(a)).catch(function () { return ""; }), read(LEDGER, SEL.pendingPow + u(a)).catch(function () { return ""; }), read(TURBINE, SEL.quote + u(10n ** 18n)).catch(function () { return ""; })]).then(function (r) {
+      read(LEDGER, SEL.active + u(a)).catch(function () { return ""; }), read(LEDGER, SEL.pendingPow + u(a)).catch(function () { return ""; }), read(TURBINE, SEL.quote + u(10n ** 18n)).catch(function () { return ""; }),
+      read(AIRDROP, SEL.pendingOf + u(a)).catch(function () { return ""; })]).then(function (r) {
       var pending = big(r[0]), usable = big(r[1]), n = Number(big(word(r[3], 1))), ids = [];
       for (var i = Math.max(0, n - LOCKS_MAX); i < n; i++) ids.push(big(word(r[3], 2 + i)));
       var st = { stat: pending > usable ? pending - usable : 0n, dyn: usable, wait: big(r[2]), dai: r[4], ail: r[5], feeBps: Number(big(r[6])), lockSec: Number(big(r[7])), locks: [], quote: null,
-        rate: Number(big(r[8])), open: r[9] ? big(r[9]) > 0n : null, minDai: big(r[10]), pow: big(r[11]), powWait: big(r[12]), mkt: r[13] ? big(word(r[13], 0)) : 0n }; // mkt = 涡轮按市价买 1 枚要多少 DAI
+        rate: Number(big(r[8])), open: r[9] ? big(r[9]) > 0n : null, minDai: big(r[10]), pow: big(r[11]), powWait: big(r[12]), mkt: r[13] ? big(word(r[13], 0)) : 0n, lp: r[14] ? big(r[14]) : 0n }; // mkt = 涡轮按市价买 1 枚要多少 DAI
       var jobs = ids.map(function (id) { return read(TURBINE, SEL.lockOf + u(id)).then(function (h) { return { id: id, amt: big(word(h, 1)), at: Number(big(word(h, 2))), done: big(word(h, 3)) > 0n }; }, function () { return null; }); });
       var q = st.wait > 0n ? read(TURBINE, SEL.quote + u(st.wait)).then(function (h) { return { buy: big(word(h, 0)), fee: big(word(h, 1)), total: big(word(h, 2)) }; }, function () { return null; }) : Promise.resolve(null);
       return Promise.all([Promise.all(jobs), q]).then(function (x) { st.locks = x[0].filter(function (l) { return l && !l.done; }).reverse(); st.quote = x[1]; return st; });
@@ -96,9 +101,11 @@
     if (!S) { box.innerHTML = whoBar + '<div class="tbn-sk"><i></i><i></i><i></i></div><p class="muted">' + T("正在读取你的排放和涡轮数据…") + "</p>"; wire(); return; }
     var now = Math.floor(Date.now() / 1000), open = S.locks.filter(function (l) { return l.at <= now; }), shut = S.locks.filter(function (l) { return l.at > now; });
     var openAmt = open.reduce(function (x, l) { return x + l.amt; }, 0n), F = S.fit, fee = (S.feeBps / 100) + "%", hrs = Math.round(S.lockSec / 3600);
-    var s1 = S.stat > 0n
-      ? '<p>现在可以领 <b class="tbn-n">' + f(S.stat, 6) + '</b> AiLGNS 的个人排放。</p><button type="button" class="nm-go tbn-go" data-act="claim">领取排放</button>'
-      : '<p class="muted">现在没有可领的个人排放。' + (S.wait > 0n ? "之前领的还在第二步等着激活。" : "") + "</p>";
+    var lp = typeof S.lp === "bigint" ? S.lp : 0n, s1 = "";
+    if (lp > 0n) s1 += '<p>现在可以领 <b class="tbn-n">' + f(lp, 6) + '</b> AiLGNS 的 LP 空投。</p><button type="button" class="nm-go tbn-go" data-act="claimlp">领取 LP 空投到涡轮</button>';
+    if (S.stat > 0n) s1 += '<p>现在可以领 <b class="tbn-n">' + f(S.stat, 6) + '</b> AiLGNS 的个人排放。</p><button type="button" class="nm-go tbn-go" data-act="claim">领取排放</button>';
+    if (lp <= 0n && S.stat <= 0n) s1 = '<p class="muted">现在没有可领的 LP 空投和个人排放。' + (S.wait > 0n ? "之前领的还在第二步等着激活。" : "") + '</p>' +
+      '<p class="muted tbn-sm">LP 空投由官方每天记一次账（一般在北京时间凌晨）。官方页面上显示的「奖励」要等记完账才变成可领取；今天已经领过的，要等明天。</p>';
     if (S.dyn > 0n) s1 += '<p class="muted tbn-sm">另有 ' + f(S.dyn, 6) + " AiLGNS 的社区动态排放，本页暂时领不了，请到官方页面领取。</p>";
     var s2;
     if (S.wait <= 0n) s2 = '<p class="muted">没有等着激活的排放。先做第一步。</p>';
@@ -131,7 +138,7 @@
       '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
     s5 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p>";
     box.innerHTML = whoBar + (fresh ? "" : '<p class="tbn-upd">' + T("先显示上次的数据，正在读最新的…") + "</p>") + '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
-      '<div class="tbn-steps">' + step(1, "领排放", "把产出的排放领出来", s1, S.stat <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
+      '<div class="tbn-steps">' + step(1, "领排放", "把 LP 空投、个人排放领进涡轮", s1, S.stat <= 0n && lp <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
       step(4, "卖成 DAI", "在本站 OTC 卖给现成的买单", s4, S.ail <= 0n, 1) + step(5, "复投算力", "把 DAI 投进官方算力", s5, S.dai <= 0n || S.open === false, 1) + "</div>" +
       '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
     var i4 = document.getElementById("tbn-sell"), i5 = document.getElementById("tbn-dai");
@@ -196,6 +203,7 @@
     say("正在连接钱包…");
     K().ready().then(function () {
       if (String(K().account() || "").toLowerCase() !== account) throw new Error("钱包换了账户，请刷新页面再来");
+      if (kind === "claimlp") return K().send(AIRDROP, CLAIM_LP, say, "领取 LP 空投到涡轮").then(function () { return done("✅ LP 空投领好了，接着做第二步。"); });
       if (kind === "claim") return K().send(VAULT, SEL.claimStatic + u(S.stat), say, "领取排放").then(function () { return done("✅ 排放领好了，接着做第二步。"); });
       if (kind === "unlock") {
         var now = Math.floor(Date.now() / 1000), ids = S.locks.filter(function (l) { return l.at <= now; }).map(function (l) { return l.id; });
