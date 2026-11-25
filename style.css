@@ -5413,3 +5413,21 @@ html.lang-ko body { word-break: keep-all; }
 
 /* 工单后台：中奖待认证挪到工单下面后，顶上留的一行提醒 */
 .fb-says-go { display: block; width: 100%; height: auto; padding: 8px 12px; margin: 8px 0; text-align: left; font-size: 13.5px; font-weight: 500; white-space: normal; line-height: 1.5; }
+
+/* 🏰 农场城堡（2026-11-25 客户「花 20000 买的城堡小得看不见」）：一座画出来的大城堡，站在右边山坡上；有城堡的农场，顶上那幅画加高 22px */
+.fm-scene.has-castle .fm-sky, .fm-scene.has-castle .fm-top { height: 130px; }
+.fm-scene.has-castle .fm-deco.d-castle { right: 6px; bottom: -3px; font-size: 0; width: 104px; height: 94px; filter: drop-shadow(0 4px 3px rgba(50, 40, 90, .28)); }
+.fm-castle { display: block; width: 100%; height: 100%; overflow: visible; }
+.fm-scene.has-castle .fm-prop.p5 { display: none; } /* 右边那棵松树让位给城堡 */
+.fm-scene.has-castle .fm-prop.p3 { right: 116px; }
+.fm-scene.has-castle .fm-deco.d-statue { right: 150px; }
+.fm-scene.has-castle .fm-sun { right: 118px; top: 8px; } /* 太阳挪到城堡左上方，不被塔尖挡住 */
+.fm-scene.has-castle .fm-cloud.c2 { left: 46%; }
+@media (prefers-reduced-motion: no-preference) {
+  .fm-castle .fm-tw path { animation: fm-twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .fm-castle .fm-tw path:nth-child(2) { animation-delay: .8s; }
+  .fm-castle .fm-tw path:nth-child(3) { animation-delay: 1.6s; }
+  .fm-castle .fm-flag { animation: fm-flag 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: 0 50%; }
+}
+@keyframes fm-twinkle { 0%, 100% { opacity: .15; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes fm-flag { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.78) skewY(6deg); } }
