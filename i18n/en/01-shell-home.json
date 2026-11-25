@@ -191,7 +191,7 @@
 "访问记录。": "Visit records. ",
 "为了网站安全和运营分析，本站会记录访问和连接钱包时的": "For site security and operations, this site records the ",
 "大致地区": "rough region",
-"（国家 / 省 / 城市）。不保存 IP 地址，最多保留 {0} 天，不出售、不对外提供。": " (country / province / city) of visits and wallet connections. IP addresses are not stored; records are kept for at most {0} days and are never sold or shared.",
+"（国家 / 省）和网络运营商名称。不保存 IP 地址，最多保留 {0} 天，不出售、不对外提供。": " (country / province) and network operator name of visits and wallet connections. IP addresses are not stored; records are kept for at most {0} days and are never sold or shared.",
 "风险自担。": "At your own risk. ",
 "你使用本站任何功能、连接钱包、签名或发起交易，即表示你已阅读、理解并同意本声明，": "By using any feature of this site, connecting a wallet, signing or sending a transaction, you confirm that you have read, understood and agreed to this notice and ",
 "自愿承担由此产生的全部风险和损失": "accept all resulting risks and losses of your own free will",
