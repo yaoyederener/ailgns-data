@@ -20,7 +20,7 @@
     rateBps: "0xbe7f8c68", open: "0x549c4627", minDai: "0xa2b7b1c5", participate: "0x845c9306", active: "0x6cf2fa36", pendingPow: "0xaa81a38f",
     quote: "0xed1bd76c", activate: "0xd96c5110", claimUnlocked: "0xadaace55", approve: "0x095ea7b3" };
   var SLIP_BPS = 100n, DEADLINE = 1800, LOCKS_MAX = 30; // 报价上多留 1%（市价会动）；交易 30 分钟内有效
-  var account = null, S = null, busy = false, tick = 0, pageId = 0;
+  var account = null, S = null, busy = false, tick = 0, pageId = 0, hooked = false;
   var sellStr = "", daiStr = "", sellQ = null; // 第四、五步输入框里的数（重画时不丢）；sellQ = 算好等客户确认的卖出计划
   var GAS_KEEP = 2n * 10n ** 17n; // 留 0.2 DAI 付 Gas
   var LOW_SELL = 90n; // 卖出均价不到「涡轮市场买入价」的 90% 就不让卖
@@ -38,13 +38,29 @@
     return (neg ? "-" : "") + i.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (d ? "." + d : "");
   }
   function fd(w) { return f(w, w < 10n ** 18n ? 4 : 2); } // DAI：不到 1 的显示 4 位，免得小额手续费显示成 0
-  function read(to, data) { return K().read(to, data); }
+  // 站长 2026-11-26「涡轮读取速度很慢，我要丝滑秒开」：
+  //   ① 读链攒成一批发（A.bcall：30 毫秒内的合成一次请求）。原来 14 条各发一次，浏览器对同一个网址一次只放 6 条，光排队就 1 秒多；
+  //   ② 上次读到的数据记在这台设备上，进页面先画出来，后台再读最新的（读到之前按钮先不让点，免得按旧数字发交易）；
+  //   ③ 进页面自动连钱包，不用再点「连接钱包」；可以换账号。
+  function read(to, data) { return A.bcall ? A.bcall(to, data) : K().read(to, data); }
+  function bal(token, who) { return read(token, "0x70a08231" + u(who)).then(BigInt); }
+  // 记住上次读到的数据（大数存成字符串）
+  function keep(st) { try { localStorage.setItem("tbn:S:" + account, JSON.stringify(st, function (k, v) { return typeof v === "bigint" ? "n:" + v.toString() : v; })); localStorage.setItem("tbn:last", account); } catch (e) {} }
+  function recall(a) {
+    try {
+      var st = JSON.parse(localStorage.getItem("tbn:S:" + a) || "null", function (k, v) { return typeof v === "string" && /^n:-?\d+$/.test(v) ? BigInt(v.slice(2)) : v; });
+      if (!st || typeof st.ail !== "bigint" || typeof st.dai !== "bigint" || !Array.isArray(st.locks) || typeof st.feeBps !== "number") return null;
+      return st;
+    } catch (e) { return null; }
+  }
+  var fresh = false; // 画面上的数据是不是刚从链上读的（false = 还是上次记下的，按钮先不让点）
+  function sa(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
   function left(sec) { if (sec <= 0) return T("已解锁"); var h = Math.floor(sec / 3600), m = Math.ceil((sec % 3600) / 60); if (m === 60) { h++; m = 0; } return (h ? h + " " + T("小时") + " " : "") + m + " " + T("分钟"); }
 
   function load() {
     var a = account;
     return Promise.all([read(VAULT, SEL.pendingOf + u(a)), read(VAULT, SEL.usable + u(a)), read(TURBINE, SEL.claimed + u(a)), read(TURBINE, SEL.locksOf + u(a)),
-      K().balance(DAI, a), K().balance(AIL, a), read(TURBINE, SEL.feeBps), read(TURBINE, SEL.lockSeconds),
+      bal(DAI, a), bal(AIL, a), read(TURBINE, SEL.feeBps), read(TURBINE, SEL.lockSeconds),
       read(LEDGER, SEL.rateBps).catch(function () { return ""; }), read(LEDGER, SEL.open).catch(function () { return ""; }), read(LEDGER, SEL.minDai).catch(function () { return ""; }),
       read(LEDGER, SEL.active + u(a)).catch(function () { return ""; }), read(LEDGER, SEL.pendingPow + u(a)).catch(function () { return ""; }), read(TURBINE, SEL.quote + u(10n ** 18n)).catch(function () { return ""; })]).then(function (r) {
       var pending = big(r[0]), usable = big(r[1]), n = Number(big(word(r[3], 1))), ids = [];
@@ -75,7 +91,9 @@
   function draw() {
     var box = document.getElementById("tbn-box"); if (!box) return;
     if (!account) { box.innerHTML = '<button type="button" class="nm-go tbn-go" id="tbn-conn">连接钱包</button><p class="muted nm-st" id="tbn-cst"></p>'; document.getElementById("tbn-conn").onclick = conn; return; }
-    if (!S) { box.innerHTML = '<p class="muted">正在读取你的排放和涡轮数据…</p>'; return; }
+    var whoBar = '<div class="tbn-who"><span>' + T("当前钱包") + ' <b class="mono">' + sa(account) + '</b></span><button type="button" class="link" id="tbn-sw">' + T("换账号") + '</button></div><p class="muted tbn-sm" id="tbn-who-st"></p>';
+    var wire = function () { var sw = document.getElementById("tbn-sw"); if (sw) sw.onclick = switchAcct; };
+    if (!S) { box.innerHTML = whoBar + '<div class="tbn-sk"><i></i><i></i><i></i></div><p class="muted">' + T("正在读取你的排放和涡轮数据…") + "</p>"; wire(); return; }
     var now = Math.floor(Date.now() / 1000), open = S.locks.filter(function (l) { return l.at <= now; }), shut = S.locks.filter(function (l) { return l.at > now; });
     var openAmt = open.reduce(function (x, l) { return x + l.amt; }, 0n), F = S.fit, fee = (S.feeBps / 100) + "%", hrs = Math.round(S.lockSec / 3600);
     var s1 = S.stat > 0n
@@ -112,24 +130,48 @@
       (rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的 DAI 不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "") +
       '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
     s5 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p>";
-    box.innerHTML = '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
+    box.innerHTML = whoBar + (fresh ? "" : '<p class="tbn-upd">' + T("先显示上次的数据，正在读最新的…") + "</p>") + '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
       '<div class="tbn-steps">' + step(1, "领排放", "把产出的排放领出来", s1, S.stat <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
       step(4, "卖成 DAI", "在本站 OTC 卖给现成的买单", s4, S.ail <= 0n, 1) + step(5, "复投算力", "把 DAI 投进官方算力", s5, S.dai <= 0n || S.open === false, 1) + "</div>" +
       '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
     var i4 = document.getElementById("tbn-sell"), i5 = document.getElementById("tbn-dai");
     if (i4) i4.oninput = function () { sellStr = i4.value; if (sellQ) { sellQ = null; draw(); var n4 = document.getElementById("tbn-sell"); if (n4) { n4.focus(); try { n4.setSelectionRange(n4.value.length, n4.value.length); } catch (e) {} } } };
     if (i5) i5.oninput = function () { daiStr = i5.value; };
-    Array.prototype.forEach.call(box.querySelectorAll("[data-act]"), function (b) { b.onclick = function () { act(b.getAttribute("data-act"), b); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-act]"), function (b) { b.onclick = function () { act(b.getAttribute("data-act"), b); }; if (!fresh) b.disabled = true; });
+    wire();
   }
   function say(t, bad) { var e = document.getElementById("tbn-st"); if (e) { e.textContent = t || ""; e.className = (bad ? "nm-bad" : "muted") + " nm-st"; } }
-  function refresh() { return load().then(function (st) { return fit(st).then(function (F) { st.fit = F; S = st; if (A.isCurrent(pageId)) draw(); }); }); }
+  function refresh() {
+    var who = account;
+    return load().then(function (st) { return fit(st).then(function (F) {
+      if (who !== account) return; // 读的过程中换了账号：这份不要了
+      st.fit = F; S = st; fresh = true; keep(st); if (A.isCurrent(pageId)) draw();
+    }); });
+  }
+  // 换账号：让钱包弹出选账号的窗口；有的钱包 App 不支持，就提示去钱包里切，页面会自动跟着换
+  function switchAcct() {
+    var tip = function (t) { var e = document.getElementById("tbn-who-st"); if (e) e.textContent = t; };
+    var eth = A.wallets && A.wallets.current && A.wallets.current();
+    if (!eth) return conn();
+    Promise.resolve().then(function () { return A.wallets.ask(eth, { method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] }); })
+      .then(function () { return A.wallets.ask(eth, { method: "eth_requestAccounts" }); })
+      .then(function (a) { if (a && a[0]) setAcct(String(a[0]).toLowerCase()); },
+        function () { tip("这个钱包不能在网页里换账号：请到钱包 App 里切换账号，这一页会自动跟着换。"); });
+  }
+  function setAcct(a) {
+    if (a === account) return;
+    account = a || null; busy = false; sellStr = ""; daiStr = ""; sellQ = null; fresh = false;
+    S = account ? recall(account) : null;
+    if (!A.isCurrent(pageId)) return;
+    draw(); if (account) refresh().catch(function () {});
+  }
   function conn() {
     var st = document.getElementById("tbn-cst");
     try { K().useMarket("ailgns"); } catch (e) {}
-    K().connect().then(function (a) { account = String(a || K().account() || "").toLowerCase() || null; S = null; draw(); if (account) return refresh(); }, function (e) { if (st) { st.textContent = K().niceError(e); st.className = "nm-bad nm-st"; } });
+    K().connect().then(function (a) { account = String(a || K().account() || "").toLowerCase() || null; fresh = false; S = account ? recall(account) : null; draw(); if (account) return refresh(); }, function (e) { if (st) { st.textContent = K().niceError(e); st.className = "nm-bad nm-st"; } });
   }
   function act(kind, btn) {
-    if (kind === "reload") { S = null; draw(); refresh().catch(function () { S = null; say("没读出来，再点一次「刷新数据」。", true); }); return; }
+    if (kind === "reload") { S = null; fresh = false; draw(); refresh().catch(function () { S = null; say("没读出来，再点一次「刷新数据」。", true); }); return; }
     if (kind === "sellall") { sellStr = plain(S.ail, 6); if (BigInt(K().toWei(sellStr, 18)) > S.ail) sellStr = plain(S.ail - 10n ** 12n, 6); sellQ = null; draw(); return; }
     if (kind === "daiall") { daiStr = plain(S.dai - (S.dai > 2n * 10n ** 18n ? 2n * 10n ** 18n : 0n), 2); if (BigInt(K().toWei(daiStr, 18)) > S.dai) daiStr = "0"; draw(); say(S.dai > 2n * 10n ** 18n ? "留了 2 DAI 当手续费（Anubis 链的 Gas 用的就是 DAI）。" : ""); return; }
     if (kind === "sellq") {
@@ -196,9 +238,13 @@
   }
 
   A.pages.turbine = function (id) {
-    pageId = id; clearInterval(tick); S = null; busy = false; sellStr = ""; daiStr = ""; sellQ = null;
+    pageId = id; clearInterval(tick); S = null; busy = false; sellStr = ""; daiStr = ""; sellQ = null; fresh = false;
     try { K().useMarket("ailgns"); } catch (e) {}
     account = String((K() && K().account && K().account()) || "").toLowerCase() || null;
+    var known = !!account, guess = "";
+    if (!account) { try { guess = localStorage.getItem("tbn:last") || ""; } catch (e) {} if (/^0x[0-9a-f]{40}$/.test(guess)) account = guess; } // 钱包还没回话：先按上次的账号画
+    if (account) S = recall(account);
+    if (!hooked) { hooked = true; try { A.wallets.onAccounts(function (a) { if (location.hash.indexOf("#/turbine") === 0) setAcct(a && a[0] ? String(a[0]).toLowerCase() : null); }); } catch (e) {} }
     A.app.innerHTML = '<section class="card tbn"><h2>🌀 涡轮助手 <small class="tbn-tag">试运行</small></h2>' +
       '<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四、五步是可选的：把币在本站 OTC 卖成 DAI，再投回官方算力。</p>' +
       '<div id="tbn-box"></div>' +
@@ -206,7 +252,16 @@
       "<li>手续费、锁定时间是官方定的，以官方页面为准；官方改规则时，这一页可能要等技术人员跟着更新。</li>" +
       "<li>本页只是把操作变简单，不是投资建议。要不要激活、要不要卖，请自己判断。</li></ul></div></section>";
     draw();
-    if (account) refresh().catch(function () { var b = document.getElementById("tbn-box"); if (b && A.isCurrent(id)) b.innerHTML = '<p class="nm-bad">没读出来。</p><button type="button" class="ghost tbn-go" id="tbn-again">再读一次</button>'; var g = document.getElementById("tbn-again"); if (g) g.onclick = function () { S = null; draw(); refresh().catch(function () {}); }; });
+    var failed = function () { if (S) return; var b = document.getElementById("tbn-box"); if (b && A.isCurrent(id)) b.innerHTML = '<p class="nm-bad">没读出来。</p><button type="button" class="ghost tbn-go" id="tbn-again">再读一次</button>'; var g = document.getElementById("tbn-again"); if (g) g.onclick = function () { S = null; draw(); refresh().catch(function () {}); }; };
+    if (account) refresh().catch(failed); // 数据是公开的链上数据，不用等钱包回话就能先读
+    if (!known) Promise.resolve().then(function () { return K().silentAccount(); }).then(function () {
+      if (!A.isCurrent(id)) return;
+      var real = String(K().account() || "").toLowerCase() || null;
+      if (real) { if (real !== account) setAcct(real); return; }
+      // 钱包没授权过本站：页面里有钱包（钱包 App 的浏览器 / 装了插件）就自动发起连接，不用客户再点一下；连不上就留着「连接钱包」按钮
+      if (guess) { account = null; S = null; draw(); }
+      if (window.ethereum) K().connect().then(function (a) { if (A.isCurrent(id)) setAcct(String(a || K().account() || "").toLowerCase() || null); }, function () {});
+    }, function () {});
     tick = setInterval(function () { // 倒计时每分钟走一下；到点了重画，让「领取」按钮出来
       if (!A.isCurrent(id)) { clearInterval(tick); return; }
       if (!S || busy) return; var now = Math.floor(Date.now() / 1000), due = false;
