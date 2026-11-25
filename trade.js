@@ -339,6 +339,10 @@
         // 2026-11-22：LGNS 也套上（以前这页只拦 AiLGNS，有人从这里挂出远低于底线的 LGNS 买单）。两个市场都用 otc.js 的 bidFloor，和 OTC 页、一键做市同一条线
         var bfl = 0; try { bfl = side !== "sell" && book.mkt && K().bidFloor ? K().bidFloor(book.mkt) : 0; } catch (e) { bfl = 0; }
         if (bfl && px <= bfl) throw new Error(MK === "lgns" ? "买单出价不能低于 " + f2(bfl) + " DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 2%，比这还低不让挂。请把价格调高一点" : "买单出价不能低于 " + f2(bfl) + " DAI（卖家去官方 DEX 卖的到手价）。出价比这低，卖家卖给你就吃亏，本站不让挂。请把价格调高一点");
+        // 站长 2026-11-25：不许挂穿盘口的单（和 OTC 页同一条规矩，见 otc.js crossText）。对手价取盘口里别人的单（自己的不算）
+        { var notMe = function (o) { return o.maker !== account; }, xb = book.bids.filter(notMe)[0], xs = book.asks.filter(notMe)[0], cx = "";
+          try { cx = K().crossText ? K().crossText(side === "sell" ? "sell" : "buy", px, xb ? priceOf(xb) : 0, xs ? priceOf(xs) : 0, PD) : ""; } catch (e) { cx = ""; }
+          if (cx) throw new Error(cx + "（或者把上面的「限价」切到「市价」直接成交。）"); }
         var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
         return K().balance(token, account).then(function (b) {
           if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));

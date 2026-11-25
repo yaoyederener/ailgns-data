@@ -75,6 +75,21 @@
      买单最低出价只管得住从本站页面新挂的单；绕过页面直接调合约挂的、以前挂的低价买单还会出现在盘口里等人点错。
      所以再加一道：盘口里出价比「DEX 到手价」低 5% 以上的买单，和离谱价的单一样处理（标 _far + _low）——不显示、不让成交，一键扫单 / 限价撮合 / 交易所盘口页都跳过；
      挂单人自己在「我的挂单」里照样能看到、能撤。「市场价」我取的是 DEX 到手价（和买单底线同一个基准），不是池子标价（LGNS 池子标价含 48% 左右的卖出税，没法比）。 */
+  /* 🚧 不许挂「穿过盘口」的单（站长 2026-11-25，商家反馈：买单挂到 0.0643、卖单才 0.0642，买价比卖价还高，两边都挂着不成交，越挂越卷）。
+     原因：手续费只收吃单的一方（1%），所以卖家宁可挂得比买单还低等人来吃，也不直接卖给买单。主流交易所的规矩是：这种单不让挂，直接成交。
+     现在：卖单的单价必须高于别人现成的最高买单；买单的单价必须低于别人现成的最低卖单。只拦从本站页面新挂的单，已经挂着的不动；
+     自己的单、离谱价被隐藏的单不算对手。平台不规定买卖之间要留多大差价——差价由竞争决定。
+     纯计算：side = "sell" / "buy"，px = 要挂的单价，bid / ask = 别人现成的最高买价 / 最低卖价（没有填 0），pd = 价格几位小数。能挂返回 ""，不能挂返回给客户看的话 */
+  function crossText(side, px, bid, ask, pd) {
+    px = Number(px) || 0; bid = Number(bid) || 0; ask = Number(ask) || 0;
+    if (!(px > 0)) return "";
+    var tick = Math.pow(10, -pd), eps = tick * 1e-6, fx = function (v) { return Number(v).toFixed(pd); };
+    if (side === "sell" && bid > 0 && px <= bid + eps)
+      return "现在有买单出价 " + fx(bid) + " DAI，你的卖价 " + fx(px) + " 没有比它高。这种单不用挂：直接点盘口里那张买单的「卖出」，马上成交。想挂单等人来买，请把单价填到 " + fx((Math.round(bid / tick) + 1) * tick) + " 或更高。";
+    if (side === "buy" && ask > 0 && px >= ask - eps)
+      return "现在有卖单要价 " + fx(ask) + " DAI，你的出价 " + fx(px) + " 没有比它低。这种单不用挂：直接点盘口里那张卖单的「买入」，马上成交。想挂单等人来卖，请把单价填到 " + fx((Math.round(ask / tick) - 1) * tick) + " 或更低。";
+    return "";
+  }
   var LOW_BID = 0.95;
   function lowBidCut(mkt) { return dexNet(mkt) * LOW_BID; }
   // 指导价跟真实成交走（站长要求）：/api/guide 给出最近 30 笔成交价 ÷ 当时 DEX 市价的中位数，页面乘上现在的市价
@@ -1238,7 +1253,7 @@
 
     /* 参考价（站长 2026-11-13）：不再拿 DEX 市价当基准，按本站 OTC 现在的最低卖价，让挂单的人互相比价；没有卖单用最高买价，盘口全空才退回 DEX 市价。
        只管页面上的对比和提示；「比去 DEX 吃亏」的提醒、奖池折算价、预言家揭晓价都不走这里 */
-    var otcAsk, otcBid;
+    var otcAsk, otcBid, xBid = 0, xAsk = 0; // xBid / xAsk：别人现成的最高买价 / 最低卖价（含官方做市机器人，不含自己的单和被隐藏的离谱单），「不许挂穿盘口」用
     /* 站长 2026-11-17「强行对价格保护」：AiLGNS 市场的买单出价必须高于「卖家把币拿去官方 DEX 卖、实际到手的价」（池子价 × 到手率），高一分钱也行。
        出价比这低，卖家卖给你还不如去 DEX，这种买单本站不让挂。只管新挂的单（页面上拦），已经挂着的旧单不动；LGNS 市场卖出税不固定，先不管。
        站长 11-10 定过「市场自由定价」、11-16 我劝过一次，这次是他明确要求改的 */
@@ -1264,6 +1279,7 @@
          不然客户照着指导价挂买单，会挂得比现成的卖单还贵 */
       var buysC = A.BOT ? buys.filter(function (o) { return o.maker !== A.BOT; }) : buys;
       otcAsk = sells.length ? priceOf(sells[0]) : 0; otcBid = buysC.length ? priceOf(buysC[0]) : 0;
+      { var xb0 = buys.filter(function (o) { return !o._far && o.maker !== account; })[0], xs0 = sells.filter(function (o) { return !o._far && o.maker !== account; })[0]; xBid = xb0 ? priceOf(xb0) : 0; xAsk = xs0 ? priceOf(xs0) : 0; }
       markFar(sells, buys, mkt || 0);
       var lowN = buys.filter(function (o) { return o._low; }).length; // 出价比 DEX 到手价低 5% 以上、被拦掉的买单有几张
       sells = sells.filter(notFar); buys = buys.filter(notFar); // 站长 2026-11-16：离谱价的单干脆不在盘口显示（挂单人自己在「我的挂单」里照样能看到、能撤）
@@ -1525,11 +1541,13 @@
           if (side === "sell") {
             if (otcAsk) { g1 = otcAsk; why = "和现在最低的卖单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = M.lp ? "现在没有别的卖单。这是按 LP 里面含的币折算的参考价；LP 现在拆不开，想快点卖掉可以挂低一些" : "现在没有别的卖单，按行情价挂，你就排第一"; }
+            if (g1 && xBid && g1 <= xBid + tick * 1e-6) { g1 = (Math.round(xBid / tick) + 1) * tick; why = "比现在最高的买单（" + A.fmt(xBid, PD) + "）高一档。卖价不能低于或等于现成的买单出价——那样直接卖给那张买单就行"; } // 不许挂穿盘口
           } else {
             var gfl = bidFloor(mkt), gmin = gfl ? (Math.floor(gfl / tick) + 1) * tick : 0;
             if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = MK === "lgns" ? "比本站买单最低出价（约 " + A.fmt(gfl, PD) + "）高一点；这条线是「卖家去 DEX 卖的到手价」再低 2%，比它低不让挂" : "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
             else if (otcBid) { g1 = otcBid; why = "和其他客户最高的买单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk - tick : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
+            if (g1 && g1 !== Infinity && xAsk && g1 >= xAsk - tick * 1e-6) { g1 = (Math.round(xAsk / tick) - 1) * tick; why = "比现在最低的卖单（" + A.fmt(xAsk, PD) + "）低一档。出价不能高于或等于现成的卖单要价——那样直接买那张卖单就行"; } // 不许挂穿盘口
           }
           if (!(g1 > 0) || g1 === Infinity) { el.hidden = true; return; }
           var gs = g1.toFixed(PD);
@@ -1670,6 +1688,11 @@
         var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" + (block ? "【这个价不能挂】链上成交撤不回来，请把单价改到市价附近再发布。" : "") : "";
         var bfl = side === "buy" ? bidFloor(mkt) : 0;
         if (bfl && num(p) <= bfl) { far = true; block = true; farMsg = "⛔ " + bidFloorMsg(bfl); } // 买单出价不高于 DEX 到手价：不让挂
+        { // 不许挂穿盘口的单（见 crossText）。买单还有一种情况：最低的卖单已经不高于买单底线，这时没有能挂买单的价位了，直接告诉他去买那张卖单
+          var tk = Math.pow(10, -PD), cx = crossText(side, num(p), xBid, xAsk, PD);
+          if (side === "buy" && bfl && xAsk && xAsk <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了，没有能挂买单的价位。直接点盘口里那张卖单的「买入」就行，马上成交。";
+          if (cx) { far = true; block = true; farMsg = "⛔ " + cx; }
+        }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
           (diff === null ? "" : '　<span class="' + (diff >= 0 ? "up" : "down") + '">比' + oref.n + ' ' + (diff >= 0 ? "高 " : "低 ") + Math.abs(diff).toFixed(2) + "%" + (side === "sell" && diff < 0 && otcAsk && !far ? "，挂出去排第一" : "") + "</span>") +
           (far ? '<div class="otc-far">' + farMsg + "</div>" : (r && verdict ? '<br><span class="down">' + verdict + "</span>" : ""));
@@ -2382,7 +2405,8 @@
     cancelMany: cancelMany, // 账本「一键批量撤单」用
     bidFloor: bidFloor, lowBidCut: lowBidCut, loadTax: loadTax, // 一键做市铺买单也守「买单最低出价」（站长 2026-11-21）
     deboxCard: deboxCard, // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
-    lpQuote: lpQuote // 看盘页（chart.js）显示 LP 参考价
+    lpQuote: lpQuote, // 看盘页（chart.js）显示 LP 参考价
+    crossText: crossText // 交易所盘口页的限价单也守「不许挂穿盘口」
   };
   A.pages.otc = function (id) {
     // #/otc · #/otc/lgns · #/otc/plgns · #/otc/glgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
