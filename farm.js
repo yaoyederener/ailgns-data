@@ -99,7 +99,7 @@
   var onAcc = null;
   try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
-    var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
+    var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "", needName = ""; /* needName：后台说「要先有主名字」时的那句话 */
     /* 站长 2026-11-25（发来效果图）：「农场风格改成这个呀，多漂亮」→ 整页套一层 .fmx：水彩风景当顶图、淡紫粉底、白色圆角卡片、绿色字。
        只换样子，玩法、数据、按钮都没动。顶图和底部花园是从效果图上切下来的（icons/farm/hero.jpg、garden.jpg、bgtop.jpg） */
     A.app.innerHTML = '<div class="fmx"><section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">' + fmArt("barn") + '</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">' + fmArt("hen") + '</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2 id="fm-title">我的农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
@@ -139,8 +139,8 @@
       var b = { a: a, addr: sig.addr, day: sig.day, sig: sig.sig };
       Object.keys(extra || {}).forEach(function (k) { b[k] = extra[k]; });
       return fetch("/api/farm", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then(function (r) { return r.json(); }).then(function (j) {
-        if (j.error) { if (/签名/.test(j.error)) { setSig(null); sig = null; } throw new Error(j.error); }
-        me = j.me; skew = j.me.now - Math.floor(Date.now() / 1000);
+        if (j.error) { if (/签名/.test(j.error)) { setSig(null); sig = null; } if (/主名字/.test(j.error)) needName = j.error; throw new Error(j.error); }
+        needName = ""; me = j.me; skew = j.me.now - Math.floor(Date.now() / 1000);
         if (j.msg && !quiet) toast(j.msg);
         return j;
       });
@@ -363,8 +363,15 @@
     function draw() {
       if (!A.isCurrent(rid)) return;
       stat();
+      if (sig && needName) { /* 站长 2026-11-25：绑定主域名才能玩。金币和地都还在，设好回来点一下就进 */
+        out.innerHTML = '<section class="card fm-login fm-need"><div class="fm-big"><span>🌐</span></div><p><b>先要有一个 .ailgns 主名字</b></p><p>' + needName.replace(/[<>&]/g, "") + '</p>' +
+          '<div class="fm-acts"><button type="button" id="fm-goname">去注册 / 设主名字</button><button type="button" class="ghost" id="fm-retry">我设好了，再试一次</button></div></section>';
+        document.getElementById("fm-goname").onclick = function () { location.hash = "#/names"; };
+        document.getElementById("fm-retry").onclick = function () { post("me").then(draw, function (e) { toast(e.message, true); draw(); }); };
+        return;
+      }
       if (!sig) {
-        out.innerHTML = '<section class="card fm-login"><div class="fm-big"><span>🧑‍🌾</span><span>🐔</span><span>🥬</span></div><p>用钱包签个名就能进农场，<b>不是转账、不花 Gas</b>，7 天内不用再签。</p><p class="muted">新农场送 200 金币和 6 块地。</p><button type="button" id="fm-login">🔑 签名进入农场</button></section>';
+        out.innerHTML = '<section class="card fm-login"><div class="fm-big"><span>🧑‍🌾</span><span>🐔</span><span>🥬</span></div><p>用钱包签个名就能进农场，<b>不是转账、不花 Gas</b>，7 天内不用再签。</p><p>要先有 <b>.ailgns 主名字</b>才能玩、才能上榜（到「域名」页注册一个，再设为主名字）。</p><p class="muted">新农场送 200 金币和 6 块地。</p><button type="button" id="fm-login">🔑 签名进入农场</button></section>';
         document.getElementById("fm-login").onclick = login;
         return;
       }
