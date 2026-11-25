@@ -1061,7 +1061,8 @@ return next();}).then(function(){if(!m.restGive)return;return send(OTC,SEL.creat
 function calc(){match();var q=qtyWei(),p=toWei(price.value);if(!q||!p){sum.textContent="填好数量和单价后显示总额";return null;}
 var total=(q*p)/TUNIT;var r2=oref?num(p)/oref.p:null,diff=r2?(r2-1)*100:null;var r=mkt?num(p)/mkt:null,verdict="";if(M.lp)verdict="";else if(r&&M.flat){if(side==="sell"&&r<DEX_SELL)verdict="⚠️ 低于"+DX+" 卖出到手价（约 "+A.fmt(mkt*DEX_SELL,PD)+"），你会少拿 DAI";if(side==="buy"&&r>DEX_BUY)verdict="⚠️ 高于"+DX+" 买入价（约 "+A.fmt(mkt*DEX_BUY,PD)+"），你会多花 DAI";}else if(r){if(side==="sell")verdict=r<DEX_SELL?"⚠️ 低于"+DX+" 卖出到手价（约 "+A.fmt(mkt*DEX_SELL,PD)+"），你会少拿 DAI":"";else verdict=r>DEX_BUY?"⚠️ 高于"+DX+" 买入价（约 "+A.fmt(mkt*DEX_BUY,PD)+"），你会多花 DAI":"";}
 var far=r2?(side==="sell"?r2<=(M.lp?0.15:0.5):r2>=2):false;var block=far&&(side==="buy"?true:(otcBid?num(p)<=otcBid*0.5:true));var farMsg=far?"⛔ 你填的单价 "+A.fmt(num(p),PD)+" 比现在的"+oref.n+"（约 "+A.fmt(oref.p,PD)+"）"+(side==="sell"?"低 ":"高 ")+Math.abs(diff).toFixed(0)+"%，差了一倍以上。是不是"+(side==="sell"?"少写":"多写")+"了一个零？挂出去会被别人马上"+(side==="sell"?"低价买走":"高价卖给你")+"。"+(block?"【这个价不能挂】链上成交撤不回来，请把单价改到市价附近再发布。":""):"";var bfl=side==="buy"?bidFloor(mkt):0;if(bfl&&num(p)<=bfl){far=true;block=true;farMsg="⛔ "+bidFloorMsg(bfl);}
-{var tk=Math.pow(10,-PD),cx=crossText(side,num(p),xBid,xAsk,PD);if(side==="buy"&&bfl&&xAsk&&xAsk<=(Math.floor(bfl/tk)+1)*tk+tk*1e-6)cx="现在最低的卖单要价 "+A.fmt(xAsk,PD)+" DAI，已经不比买单最低出价高了，没有能挂买单的价位。直接点盘口里那张卖单的「买入」就行，马上成交。";if(cx){far=true;block=true;farMsg="⛔ "+cx;}}
+{var tk=Math.pow(10,-PD),cx=crossText(side,num(p),xBid,xAsk,PD);if(side==="buy"&&bfl&&xAsk&&xAsk<=(Math.floor(bfl/tk)+1)*tk+tk*1e-6)cx="现在最低的卖单要价 "+A.fmt(xAsk,PD)+" DAI，已经不比买单最低出价高了，没有能挂买单的价位。直接点盘口里那张卖单的「买入」就行，马上成交。";if(cx){far=true;block=true;farMsg="⛔ "+cx;}
+try{sum.setAttribute("data-x",[xBid,xAsk,side,num(p),PD,typeof account,far].join("|"));}catch(e9){}}
 sum.innerHTML=(side==="sell"?"存入 <b>"+tShow(q)+" "+SYM+"</b>，全部成交后收到 <b>"+show(total,2)+" DAI</b>":"存入 <b>"+show(total,2)+" DAI</b>，全部成交后收到 <b>"+tShow(q)+" "+SYM+"</b>")+
 (diff===null?"":'　<span class="'+(diff>=0?"up":"down")+'">比'+oref.n+' '+(diff>=0?"高 ":"低 ")+Math.abs(diff).toFixed(2)+"%"+(side==="sell"&&diff<0&&otcAsk&&!far?"，挂出去排第一":"")+"</span>")+
 (far?'<div class="otc-far">'+farMsg+"</div>":(r&&verdict?'<br><span class="down">'+verdict+"</span>":""));return{q:q,total:total,far:far,farMsg:farMsg,block:block};}
@@ -1193,5 +1194,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="hae7b9af9e8";
-/*v:hae7b9af9e8*/
+;window.AIL_CORE="hce9c2ff071";
+/*v:hce9c2ff071*/
