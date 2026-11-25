@@ -635,10 +635,11 @@
     return '<nav class="mkt-tabs mkt4" aria-label="选择交易币种">' + main.map(tab).join("") + '<a href="#/otc/swap" class="mkt-swap' + (swapOn ? " on" : "") + '"><i class="mkt-hot">新</i><b>⚡ 闪兑</b><small>AiLGNS ⇄ LGNS</small></a></nav>' +
       // 站长 2026-11-19：点 gLGNS / Polygon LGNS 要和点 AiLGNS 一样「跳过去」。以前选了「更多」里的币，这张列表会一直摊开压在盘口上面，看着像没跳。
       // 现在选完就收起，这一行变成一个高亮的小牌子写着「正在看：哪个币」，下面直接就是它的盘口；想换币再点这一行
-      (rest.length ? '<details class="mkt-more' + (restOn ? " on" : "") + '" id="mkl"><summary>' +
-        (restOn ? '<span class="mkt-cur">' + (MK_ICON[MK] ? '<img src="' + MK_ICON[MK] + '" alt="">' : "") + "<b>正在看：" + M.sym + "</b><small>" + (M.full ? M.full + " · " : "") + M.chainName + " 链</small></span><span>换币种</span>"
-          : "更多币种（共 " + MKEYS.length + " 个 · " + rest.map(function (k) { return MARKETS[k].sym + (MARKETS[k].chain === "polygon" ? " · Polygon" : ""); }).join("、") + "）") +
-        "</summary>" + marketList(swapOn) + "</details>" : "");
+      /* 站长 2026-11-26：「我要上架 n 个币种，以后做成大型交易所的那种」→ 这一行不再原地展开，点了进独立的「全部市场」页（#/otc/markets） */
+      (rest.length ? '<a class="mkt-more mkt-all' + (restOn ? " on" : "") + '" href="#/otc/markets">' +
+        (restOn ? '<span class="mkt-cur">' + (MK_ICON[MK] ? '<img src="' + MK_ICON[MK] + '" alt="">' : "") + "<b>正在看：" + M.sym + "</b><small>" + (M.full ? M.full + " · " : "") + M.chainName + " 链</small></span><span>换币种 ›</span>"
+          : "<span>📊 全部市场（共 " + MKEYS.length + " 个）</span><small>" + rest.slice(0, 4).map(function (k) { return MARKETS[k].sym; }).join("、") + (rest.length > 4 ? " …" : "") + "</small><em>›</em>") +
+        "</a>" : "");
   }
   // 📊 全部市场（站长 2026-11-19：点开「更多」做成交易所形式，以后币种会越来越多）：搜索 + 按链筛 + 每个币一行（最新成交价、24 小时成交额），点一行进它的盘口。
   // 行情来自 /api/markets（服务器缓存 1 分钟）；读不到就只显示名字，不影响切换。新上一个币：MARKETS 加一项、MKEYS 加名字、/api/markets 的 KEYS 加名字
@@ -673,6 +674,7 @@
     fetch("/api/markets").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       if (!j || !j.m) return;
       mklData = j.m; var box = document.getElementById("mkl-rows"); if (box) box.innerHTML = mklRows(location.hash.indexOf("#/otc/swap") === 0);
+      var box2 = document.getElementById("mkp-rows"); if (box2) box2.innerHTML = mkpRows();
     }).catch(function () { mklAt = 0; });
   }
   // 列表在页面顶部那一条里，会被重画：点击、输入都挂在 document 上，只挂一次
@@ -686,6 +688,74 @@
     if (!e.target || e.target.id !== "mkl-q") return;
     mklQ = e.target.value.trim(); var box = document.getElementById("mkl-rows"); if (box) box.innerHTML = mklRows(location.hash.indexOf("#/otc/swap") === 0);
   });
+
+  /* 📊 全部市场页（#/otc/markets，站长 2026-11-26：「上架 n 个币种，以后做成大型交易所的那种，现在更多页面怎么布局」→ 照主流交易所的行情页做）
+     · 顶上搜索（币名 / 合约地址）；页签：⭐ 自选 / 全部 / 🆕 新上架 / 卡牌；表头点一下排序（币种 / 最新价 / 24 小时成交），默认成交多的在前
+     · 每行左边一颗星：点了收进「自选」（只记在这台设备上，otc:fav）；点一行进这个币的盘口
+     · 数据和原来的列表共用 /api/markets（mklData），读不到就只显示名字。样式前缀 mkp- */
+  var mkpTab = "all", mkpQ = "", mkpSort = "vol", mkpDir = -1, mkpFav = null;
+  function mkpFavs() {
+    if (mkpFav) return mkpFav;
+    try { mkpFav = JSON.parse(localStorage.getItem("otc:fav") || "[]"); } catch (e) { mkpFav = []; }
+    if (!Array.isArray(mkpFav)) mkpFav = [];
+    return mkpFav;
+  }
+  function mkpRows() {
+    var d = mklData || {}, q = mkpQ.toLowerCase(), fav = mkpFavs();
+    var keys = MKEYS.filter(function (k) {
+      var m = MARKETS[k];
+      if (mkpTab === "fav" && fav.indexOf(k) < 0) return false;
+      if (mkpTab === "new" && !MK_NEW[k]) return false;
+      if (mkpTab === "nft" && !m.nft) return false;
+      return !q || (m.sym + " " + (m.full || "") + " " + m.chainName + " " + k + " " + (m.token || "")).toLowerCase().indexOf(q) >= 0;
+    });
+    var val = function (k) { var x = d[k] || {}; return mkpSort === "px" ? (x.px || 0) : mkpSort === "name" ? 0 : (x.vol || 0); };
+    keys.sort(function (a, b) {
+      if (mkpSort === "name") return mkpDir * MARKETS[a].sym.toLowerCase().localeCompare(MARKETS[b].sym.toLowerCase());
+      return mkpDir * (val(a) - val(b)) || MKEYS.indexOf(a) - MKEYS.indexOf(b);
+    });
+    if (!keys.length) return '<p class="mkl-none">' + (mkpTab === "fav" && !q ? "还没有自选。点币种左边的 ☆ 就能收进来。" : "没有找到这个币种。想上新币可以点右下角「客服」留言。") + "</p>";
+    return keys.map(function (k) {
+      var m = MARKETS[k], x = d[k], on = fav.indexOf(k) >= 0;
+      return '<div class="mkp-r"><button type="button" class="mkp-star' + (on ? " on" : "") + '" data-mkpfav="' + k + '" aria-label="' + (on ? "取消自选" : "加入自选") + '">' + (on ? "★" : "☆") + "</button>" +
+        '<a class="mkp-a" href="#/otc' + (k === "ailgns" ? "" : "/" + k) + '"><span class="mkl-c"><i class="mkl-av' + (m.nft ? " n" : m.chain === "polygon" ? " p" : "") + '">' + (m.nft ? "卡" : mklEsc(m.sym.slice(0, 2))) + (MK_ICON[k] ? '<img src="' + MK_ICON[k] + '" alt=""' + (m.nft ? ' class="fit"' : "") + ">" : "") + "</i><span><b>" + mklEsc(m.sym) + (MK_NEW[k] ? '<em class="mkl-new">新上架</em>' : "") + "</b><small>" + (m.full ? mklEsc(m.full) + " · " : "") + mklEsc(m.chainName) + " 链" + (m.nft ? " · 卡牌" : "") + "</small></span></span>" +
+        '<span class="mkl-p">' + (x && x.px > 0 ? mklPx(x.px, m.pd) : "<small>暂无成交</small>") + '</span><span class="mkl-v">' + (x && x.vol > 0 ? mklVol(x.vol) + (x.more ? "+" : "") : "<small>—</small>") + "</span></a></div>";
+    }).join("");
+  }
+  function mkpHead() {
+    var h = function (k, n) { return '<button type="button" data-mkpsort="' + k + '"' + (mkpSort === k ? ' class="on"' : "") + ">" + n + (mkpSort === k ? (mkpDir < 0 ? " ↓" : " ↑") : "") + "</button>"; };
+    return h("name", "币种") + h("px", "最新价 DAI") + h("vol", "24 小时成交");
+  }
+  function mkpPaint() {
+    var r = document.getElementById("mkp-rows"), h = document.getElementById("mkp-h"), t = document.getElementById("mkp-tabs");
+    if (r) r.innerHTML = mkpRows();
+    if (h) h.innerHTML = mkpHead();
+    if (t) [].forEach.call(t.children, function (c) { c.className = c.getAttribute("data-mkptab") === mkpTab ? "on" : ""; });
+  }
+  function renderMarkets(id) {
+    var tab = function (k, n) { return '<button type="button" data-mkptab="' + k + '"' + (mkpTab === k ? ' class="on"' : "") + ">" + n + "</button>"; };
+    A.app.innerHTML = '<section class="card mkp"><div class="mkp-top"><a class="mkp-back" href="#/otc">‹ 返回</a><h2>全部市场</h2><span class="muted">共 ' + MKEYS.length + " 个</span></div>" +
+      '<input class="mkl-q" id="mkp-q" placeholder="🔍 搜币种名，或粘贴合约地址" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + mklEsc(mkpQ) + '">' +
+      '<div class="mkp-tabs" id="mkp-tabs">' + tab("fav", "⭐ 自选") + tab("all", "全部") + tab("new", "🆕 新上架") + tab("nft", "卡牌") + "</div>" +
+      '<div class="mkp-h" id="mkp-h">' + mkpHead() + '</div><div id="mkp-rows">' + mkpRows() + "</div>" +
+      '<p class="mkl-tip">点一行进入这个币的盘口；点表头可以换排序。成交额带「+」= 实际比这个数还多。自选只记在这台设备上。</p></section>';
+    mklAt = 0; mklLoad();
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var f = t.closest("[data-mkpfav]");
+    if (f) {
+      e.preventDefault();
+      var k = f.getAttribute("data-mkpfav"), fav = mkpFavs(), i = fav.indexOf(k);
+      if (i >= 0) fav.splice(i, 1); else fav.push(k);
+      try { localStorage.setItem("otc:fav", JSON.stringify(fav.slice(0, 200))); } catch (er) { /* 存不上就只在这次打开里有效 */ }
+      mkpPaint(); return;
+    }
+    var tb = t.closest("[data-mkptab]"); if (tb) { mkpTab = tb.getAttribute("data-mkptab"); mkpPaint(); return; }
+    var so = t.closest("[data-mkpsort]");
+    if (so) { var k2 = so.getAttribute("data-mkpsort"); if (mkpSort === k2) mkpDir = -mkpDir; else { mkpSort = k2; mkpDir = k2 === "name" ? 1 : -1; } mkpPaint(); }
+  });
+  document.addEventListener("input", function (e) { if (e.target && e.target.id === "mkp-q") { mkpQ = e.target.value.trim(); var r = document.getElementById("mkp-rows"); if (r) r.innerHTML = mkpRows(); } });
 
   // 按 DAI 金额从最优价开始吃，吃到 target（DAI，BigInt）为止；返回每张单吃多少 + 合计
   // 买入（扫卖单）：amount = 拿走的币，pay = 付的 DAI；卖出（扫买单）：amount = 拿走的 DAI，pay = 付的币
@@ -1169,6 +1239,7 @@
   function renderOtc(id, sub) {
     var app = A.app;
     if (sub === "deploy") return renderDeploy(id);
+    if (sub === "markets") return renderMarkets(id);
     if (sub === "split") return renderSplit(id);
     if (sub === "swap") return renderSwap();
     if (M.nft) return A.nft.render(id, sub); // 卡牌市场：nft.js 负责
