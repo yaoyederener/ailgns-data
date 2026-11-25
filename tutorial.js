@@ -67,6 +67,12 @@
   // 体积提醒：录屏教程每分钟 10MB 以内就很清楚了；超过这个客户打开会慢（不拦，只提醒）
   function heavy(size, secs) { return secs > 5 && size / secs > 10 * 1048576 / 60 * 1.5; }
 
+  // 分类（站长 2026-11-26：「做一个简单的分类，有的是我们 otc 的操作，有的是官网的操作」）
+  // 后台没选分类的，按标题猜：提到涡轮 / 卫星池 / 空投 / 质押 / LP / Helix / 排放 / 投票 / 挖矿 / 官网 的算官网操作，其余算本站操作
+  var CATS = [["otc", "🏪 本站操作"], ["off", "🌀 官网操作"]];
+  function catOf(x) { return x.cat === "otc" || x.cat === "off" ? x.cat : (/涡轮|卫星池|空投|质押|LP|helix|排放|投票|挖矿|官网|螺旋/i.test(x.title || "") ? "off" : "otc"); }
+  function catName(c) { return c === "off" ? CATS[1][1] : CATS[0][1]; }
+
   // ===== 客户看的页面 =====
   function page(id) {
     if ((location.hash.split("/")[2] || "") === "admin") return admin(id);
@@ -75,12 +81,43 @@
       if (!A.isCurrent(id)) return;
       var el = document.getElementById("vdg-list"), list = (d && d.list) || [];
       if (!el) return;
-      el.innerHTML = list.length ? list.map(function (x, i) {
-        return '<div class="vdg-it"><h3>' + (i + 1) + ". " + esc(x.title) + '</h3><video controls playsinline preload="none" src="/api/tutorial?v=' + encodeURIComponent(x.id) + '"></video></div>';
-      }).join("") : '<p class="muted">教程视频正在录制，过几天再来看。着急的话点「📮 问题反馈」，客服教你。</p>';
-      // 一次只放一个：点开新的，别的自动停
-      var vs = el.querySelectorAll("video");
-      Array.prototype.forEach.call(vs, function (v) { v.addEventListener("play", function () { Array.prototype.forEach.call(vs, function (o) { if (o !== v) { try { o.pause(); } catch (e) { /* 停不了就算了 */ } } }); }); });
+      if (!list.length) { el.innerHTML = '<p class="muted">教程视频正在录制，过几天再来看。着急的话点「📮 问题反馈」，客服教你。</p>'; return; }
+      /* 站长 2026-11-26：「增加一些关键词，可直接点进进入，然后做一个简单的分类」
+         → 顶上三个页签（全部 / 本站操作 / 官网操作）+ 一排关键词（就是每个视频的标题），点一下直接跳到那个视频；下面的视频按分类分成两组 */
+      var cur = "";
+      function draw() {
+        var show = list.filter(function (x) { return !cur || catOf(x) === cur; }), n = 0;
+        var tabs = '<div class="vdc-tabs">' + [["", "全部"]].concat(CATS).map(function (c) {
+          var cnt = list.filter(function (x) { return !c[0] || catOf(x) === c[0]; }).length;
+          return '<button type="button" data-c="' + c[0] + '"' + (cur === c[0] ? ' class="on"' : "") + ">" + c[1] + "<small>" + cnt + "</small></button>";
+        }).join("") + "</div>";
+        var num = {}, body = "";
+        CATS.forEach(function (c) {
+          var g = show.filter(function (x) { return catOf(x) === c[0]; }); if (!g.length) return;
+          body += '<h3 class="vdc-g">' + c[1] + "<small>" + g.length + "</small></h3>" + g.map(function (x) {
+            num[x.id] = ++n;
+            return '<div class="vdg-it" id="vd-' + esc(x.id) + '"><h3 data-nobrand="1">' + n + ". " + esc(x.title) + '</h3><video controls playsinline preload="none" src="/api/tutorial?v=' + encodeURIComponent(x.id) + '"></video></div>';
+          }).join("");
+        });
+        var idx = '<p class="muted vdc-tip">👇 点关键词，直接跳到那个视频</p><div class="vdc-idx">' + CATS.map(function (c) {
+          return show.filter(function (x) { return catOf(x) === c[0]; }).map(function (x) { return '<button type="button" class="vdc-k vdc-' + c[0] + '" data-go="' + esc(x.id) + '" data-nobrand="1">' + num[x.id] + ". " + esc(x.title) + "</button>"; }).join("");
+        }).join("") + "</div>";
+        el.innerHTML = tabs + idx + body;
+        Array.prototype.forEach.call(el.querySelectorAll(".vdc-tabs button"), function (b) { b.onclick = function () { cur = b.getAttribute("data-c"); draw(); }; });
+        Array.prototype.forEach.call(el.querySelectorAll("[data-go]"), function (b) {
+          b.onclick = function () {
+            var it = document.getElementById("vd-" + b.getAttribute("data-go")); if (!it) return;
+            // 顶栏是固定的，留出它的高度，标题别被挡住
+            var top = it.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 150;
+            try { window.scrollTo({ top: top, behavior: "smooth" }); } catch (e) { window.scrollTo(0, top); }
+            it.classList.add("vdc-hit"); setTimeout(function () { it.classList.remove("vdc-hit"); }, 2200);
+          };
+        });
+        // 一次只放一个：点开新的，别的自动停
+        var vs = el.querySelectorAll("video");
+        Array.prototype.forEach.call(vs, function (v) { v.addEventListener("play", function () { Array.prototype.forEach.call(vs, function (o) { if (o !== v) { try { o.pause(); } catch (e) { /* 停不了就算了 */ } } }); }); });
+      }
+      draw();
     }).catch(function () { var el = document.getElementById("vdg-list"); if (el) el.innerHTML = '<p class="muted">没读出来，请刷新再试。</p>'; });
   }
 
@@ -99,12 +136,15 @@
     A.app.innerHTML = '<section class="card vdg"><div class="card-head"><h2>🎬 视频教程后台</h2><a href="#/videos">看客户页面 →</a></div>' +
       '<p class="muted">传上去客户马上就能在「视频教程」里看到。视频最大 200MB，用手机录屏的 mp4 / mov 就行。</p>' +
       '<div class="vdg-form"><input type="text" id="vdg-t" maxlength="40" placeholder="标题，例如：怎么买 AiLGNS">' +
+      '<div class="vdc-pick" id="vdg-c" data-c="otc"><span class="muted">这是哪一类：</span><button type="button" class="on" data-c="otc">🏪 本站操作</button><button type="button" data-c="off">🌀 官网操作</button></div>' +
       '<input type="file" id="vdg-f" accept="video/*" hidden><button type="button" class="ghost" id="vdg-pick">🎬 选视频</button><div class="muted" id="vdg-fn">还没选视频</div>' +
       '<button type="button" class="nm-go" id="vdg-up">上传</button><p class="muted" id="vdg-st"></p></div></section>' +
       '<section class="card vdg"><h2>已有的教程</h2><div id="vdg-adm"><p class="muted">读取中…</p></div></section>';
     var fi = document.getElementById("vdg-f"), st = document.getElementById("vdg-st"), busy = false;
     function say(t, bad) { st.textContent = t; st.className = bad ? "nm-bad" : "muted"; }
     document.getElementById("vdg-pick").onclick = function () { fi.click(); };
+    var cb = document.getElementById("vdg-c");
+    Array.prototype.forEach.call(cb.querySelectorAll("button"), function (b) { b.onclick = function () { cb.setAttribute("data-c", b.getAttribute("data-c")); Array.prototype.forEach.call(cb.querySelectorAll("button"), function (o) { o.className = o === b ? "on" : ""; }); }; });
     fi.onchange = function () {
       var f = fi.files && fi.files[0], fn = document.getElementById("vdg-fn");
       fn.textContent = f ? f.name + "（" + mb(f.size) + "）" : "还没选视频";
@@ -123,7 +163,7 @@
       busy = true; say("准备上传…");
       fastStart(f).then(function (fsr) {
         f = fsr.blob; // 目录挪到了前面的版本（没法挪就是原文件）；大小不变
-        return api({ action: "new", title: title, size: f.size, type: f.type });
+        return api({ action: "new", title: title, size: f.size, type: f.type, cat: cb.getAttribute("data-c") });
       }).then(function (j) {
         if (j.error) throw new Error(j.error);
         var i = 0, n = j.n, tries = 0;
@@ -154,9 +194,9 @@
         if (d.error) { try { localStorage.removeItem("fbKey"); } catch (x) { /* 忽略 */ } return login(id, "口令失效或不对，请重新输入"); }
         var el = document.getElementById("vdg-adm"), list = d.list || []; if (!el) return;
         el.innerHTML = list.length ? list.map(function (x, i) {
-          return '<div class="vdg-row" data-id="' + esc(x.id) + '"><div class="vdg-rt"><b>' + (i + 1) + ". " + esc(x.title) + "</b><small class=\"muted\">" + mb(x.size) + (x.ok ? "" : " · ⚠️ 没传完，客户看不到，请删掉重传") + "</small></div>" +
+          return '<div class="vdg-row" data-id="' + esc(x.id) + '"><div class="vdg-rt"><b>' + (i + 1) + ". " + esc(x.title) + "</b><small class=\"muted\">" + catName(catOf(x)) + " · " + mb(x.size) + (x.ok ? "" : " · ⚠️ 没传完，客户看不到，请删掉重传") + "</small></div>" +
             '<div class="vdg-btns"><button type="button" class="ghost" data-a="up"' + (i ? "" : " disabled") + '>上移</button><button type="button" class="ghost" data-a="down"' + (i < list.length - 1 ? "" : " disabled") + '>下移</button>' +
-            '<button type="button" class="ghost" data-a="name">改标题</button><button type="button" class="ghost vdg-del" data-a="del">删除</button></div></div>';
+            '<button type="button" class="ghost" data-a="name">改标题</button><button type="button" class="ghost" data-a="cat" data-to="' + (catOf(x) === "off" ? "otc" : "off") + '">改成' + catName(catOf(x) === "off" ? "otc" : "off").replace(/^\S+\s/, "") + '</button><button type="button" class="ghost vdg-del" data-a="del">删除</button></div></div>';
         }).join("") : '<p class="muted">还没有教程，在上面传第一个。</p>';
         Array.prototype.forEach.call(el.querySelectorAll("button[data-a]"), function (b) {
           b.onclick = function () {
@@ -170,7 +210,8 @@
               tb.innerHTML = '<input type="text" maxlength="40" value="' + esc(old) + '"><button type="button" class="ghost">保存</button>';
               tb.querySelector("button").onclick = function () { var nv = tb.querySelector("input").value.trim(); if (!nv) return; api({ action: "set", id: vid, title: nv }).then(load, load); };
               return;
-            } else job = api({ action: "set", id: vid, move: a === "up" ? -1 : 1 });
+            } else if (a === "cat") job = api({ action: "set", id: vid, cat: b.getAttribute("data-to") });
+            else job = api({ action: "set", id: vid, move: a === "up" ? -1 : 1 });
             job.then(load, load);
           };
         });

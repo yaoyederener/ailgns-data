@@ -13,7 +13,8 @@ const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i;
 const json = (o, s, h) => Response.json(o, { status: s || 200, headers: Object.assign({ "cache-control": "no-store" }, h || {}) });
 const keyOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY));
 const getList = async (kv) => (await kv.get("tv:list", "json")) || [];
-const pub = (x) => ({ id: x.id, title: x.title, size: x.size, t: x.t, ok: !!x.ok });
+const CAT = (c) => (c === "otc" || c === "off" ? c : "");
+const pub = (x) => ({ id: x.id, title: x.title, size: x.size, t: x.t, ok: !!x.ok, cat: CAT(x.cat) });
 
 function stream(ctx, kv, x) {
   const total = Number(x.size) || 0, type = x.type || "video/mp4";
@@ -94,7 +95,7 @@ export async function onRequestPost(ctx) {
     if (!(size > 0) || !Number.isInteger(size)) return json({ error: "视频是空的，请重新选一次" }, 400);
     if (size > TOTAL) return json({ error: "视频太大了（最多 200MB）。请录短一点，或者用手机自带的「录屏」" }, 400);
     if (list.length >= MAX_ITEMS) return json({ error: "教程已经有 " + MAX_ITEMS + " 条了，请先删掉旧的" }, 400);
-    const x = { id: Date.now().toString(36), title, size, type, n: Math.ceil(size / PART), t: Date.now(), ok: false };
+    const x = { id: Date.now().toString(36), title, size, type, n: Math.ceil(size / PART), t: Date.now(), ok: false, cat: CAT(b.cat) };
     list.unshift(x);
     await save();
     return json({ ok: true, id: x.id, n: x.n, part: PART });
@@ -103,6 +104,7 @@ export async function onRequestPost(ctx) {
   if (at < 0) return json({ error: "没有这条教程" }, 404);
   if (b.action === "set") {
     if (typeof b.title === "string" && b.title.trim()) list[at].title = b.title.trim().slice(0, 40);
+    if (CAT(b.cat)) list[at].cat = CAT(b.cat);
     const to = at + (b.move === -1 ? -1 : b.move === 1 ? 1 : 0);
     if (to !== at && to >= 0 && to < list.length) { const y = list[at]; list[at] = list[to]; list[to] = y; }
     await save();

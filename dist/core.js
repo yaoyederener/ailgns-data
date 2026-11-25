@@ -1,6 +1,6 @@
-window.AIL_NIGHT="dist/night.css?v=h7e5ccc80b7";
-window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h4b82435b08","ko":"dist/lang-ko.js?v=h55a19198d3"};
-window.AIL_BUNDLES={"names":"dist/names.js?v=h984c871796","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=he21831d02e","trade":"dist/trade.js?v=hd83c503646","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=h9a2771500a","aiswap":"dist/aiswap.js?v=h9fbd9d597d","feedback":"dist/feedback.js?v=h28112e8c8f","games":"dist/games.js?v=h139add866c","mj":"dist/mj.js?v=hc48ff62250","gd":"dist/gd.js?v=hdfd7ca82c7","misc":"dist/misc.js?v=h185d5be025"};
+window.AIL_NIGHT="dist/night.css?v=ha2015a2ad1";
+window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h6045f9a39d","ko":"dist/lang-ko.js?v=h0ff3036e1a"};
+window.AIL_BUNDLES={"names":"dist/names.js?v=h984c871796","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=he21831d02e","trade":"dist/trade.js?v=hd83c503646","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=h9a2771500a","aiswap":"dist/aiswap.js?v=h9fbd9d597d","feedback":"dist/feedback.js?v=h28112e8c8f","games":"dist/games.js?v=h139add866c","mj":"dist/mj.js?v=hc48ff62250","gd":"dist/gd.js?v=hdfd7ca82c7","misc":"dist/misc.js?v=h049931757a"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function load(){if(link||!window.AIL_NIGHT)return;link=document.createElement("link");link.rel="stylesheet";link.id="ntm-css";link.href=window.AIL_NIGHT;document.head.appendChild(link);}
@@ -1215,5 +1215,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="haba257cb05";
-/*v:haba257cb05*/
+;window.AIL_CORE="hd649ab5d7d";
+/*v:hd649ab5d7d*/

@@ -5716,3 +5716,20 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .lg-addrs .lg-an { grid-column: 1 / -1; font-size: 14px; font-weight: 600; }
 .lg-addrs code { min-width: 0; font-size: 12.5px; line-height: 1.5; color: #5b5385; word-break: break-all; user-select: all; -webkit-user-select: all; }
 .lg-addrs .lg-cp { flex: none; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+
+/* 视频教程 · 分类页签 + 关键词目录 */
+.vdc-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 6px; }
+.vdc-tabs button { padding: 10px 4px; border-radius: 12px; border: 1px solid #e3d9ff; background: #fff; color: #5b5385; font-size: 14.5px; font-weight: 600; white-space: nowrap; }
+.vdc-tabs button small { margin-left: 5px; font-weight: 500; opacity: .7; }
+.vdc-tabs button.on { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+.vdc-tip { margin: 10px 0 6px; font-size: 13.5px; }
+.vdc-idx { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px; border-radius: 14px; background: #faf8ff; border: 1px solid #efeaf9; }
+.vdc-k { max-width: 100%; padding: 7px 11px; border-radius: 999px; border: 1px solid #ddd2ff; background: #fff; color: #4b3fa0; font-size: 13.5px; line-height: 1.35; text-align: left; }
+.vdc-k.vdc-off { border-color: #bfe3d6; color: #1f6f57; background: #f4fbf8; }
+.vdc-g { display: flex; align-items: center; gap: 8px; margin: 22px 0 4px; padding: 9px 12px; border-radius: 12px; background: #f3efff; font-size: 16px; color: #4b3fa0; }
+.vdc-g small { padding: 1px 8px; border-radius: 999px; background: #fff; font-size: 12.5px; font-weight: 600; }
+.vdg-it { scroll-margin-top: 150px; border-radius: 14px; transition: box-shadow .3s; }
+.vdg-it.vdc-hit { box-shadow: 0 0 0 3px #b9a6ff; }
+.vdc-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.vdc-pick button { padding: 8px 12px; border-radius: 10px; border: 1px solid #e3d9ff; background: #fff; color: #5b5385; font-size: 14px; }
+.vdc-pick button.on { background: #7c5cff; border-color: #7c5cff; color: #fff; }
