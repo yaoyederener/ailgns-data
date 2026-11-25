@@ -1,0 +1,12 @@
+{
+"🌐 规则调整：开心农场和荣耀榜现在只认你自己注册的 .ailgns 名字（和每日预言家同一个算法）——名字要是注册到你这个钱包名下的才算，从域名市场买来的、别人转来的普通域名不算；创世域名不受影响，持有就算。农场里原来的金币、地和鸡都保留，自己注册一个名字并设为主名字就能回来。": "🌐 Rule change: Happy Farm and the Honor Board now only count .ailgns names you registered yourself (the same method as the Daily Oracle) — the name must have been registered to your wallet; regular names bought on the name market or transferred to you do not count. Genesis names are unaffected: holding one counts. Your farm's coins, plots and hens are kept; register a name yourself and set it as primary to return.",
+"要有自己注册的主名字，才能玩、才能上榜": "You need a primary name you registered yourself to play and to appear on the boards",
+"手里有自己注册的域名，才会出现在榜上": "You appear on the board only if you hold a name you registered yourself",
+"☝️ 农场、预言家、荣耀榜": "☝️ The farm, the Oracle and the Honor Board ",
+"只认你自己注册的名字": "only count names you registered yourself",
+"。从域名市场买来的、别人转来的普通域名不算（创世域名除外）。": ". Regular names bought on the name market or transferred to you do not count (Genesis names excepted).",
+"农场只认你自己注册的主名字": "The farm only counts a primary name you registered yourself",
+"要有": "You need ",
+"自己注册的 .ailgns 主名字": "a .ailgns primary name you registered yourself",
+"才能玩、才能上榜（到「域名」页注册一个，再设为主名字；买来的普通域名不算）。": " to play and to appear on the boards (register one on the Names page and set it as primary; bought regular names do not count)."
+}
