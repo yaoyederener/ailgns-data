@@ -364,14 +364,14 @@
       if (!A.isCurrent(rid)) return;
       stat();
       if (sig && needName) { /* 站长 2026-11-25：绑定主域名才能玩。金币和地都还在，设好回来点一下就进 */
-        out.innerHTML = '<section class="card fm-login fm-need"><div class="fm-big"><span>🌐</span></div><p><b>先要有一个 .ailgns 主名字</b></p><p>' + needName.replace(/[<>&]/g, "") + '</p>' +
+        out.innerHTML = '<section class="card fm-login fm-need"><div class="fm-big"><span>🌐</span></div><p><b>农场只认你自己注册的主名字</b></p><p>' + needName.replace(/[<>&]/g, "") + '</p>' +
           '<div class="fm-acts"><button type="button" id="fm-goname">去注册 / 设主名字</button><button type="button" class="ghost" id="fm-retry">我设好了，再试一次</button></div></section>';
         document.getElementById("fm-goname").onclick = function () { location.hash = "#/names"; };
         document.getElementById("fm-retry").onclick = function () { post("me").then(draw, function (e) { toast(e.message, true); draw(); }); };
         return;
       }
       if (!sig) {
-        out.innerHTML = '<section class="card fm-login"><div class="fm-big"><span>🧑‍🌾</span><span>🐔</span><span>🥬</span></div><p>用钱包签个名就能进农场，<b>不是转账、不花 Gas</b>，7 天内不用再签。</p><p>要先有 <b>.ailgns 主名字</b>才能玩、才能上榜（到「域名」页注册一个，再设为主名字）。</p><p class="muted">新农场送 200 金币和 6 块地。</p><button type="button" id="fm-login">🔑 签名进入农场</button></section>';
+        out.innerHTML = '<section class="card fm-login"><div class="fm-big"><span>🧑‍🌾</span><span>🐔</span><span>🥬</span></div><p>用钱包签个名就能进农场，<b>不是转账、不花 Gas</b>，7 天内不用再签。</p><p>要有<b>自己注册的 .ailgns 主名字</b>才能玩、才能上榜（到「域名」页注册一个，再设为主名字；买来的普通域名不算）。</p><p class="muted">新农场送 200 金币和 6 块地。</p><button type="button" id="fm-login">🔑 签名进入农场</button></section>';
         document.getElementById("fm-login").onclick = login;
         return;
       }

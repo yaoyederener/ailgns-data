@@ -2,7 +2,7 @@
 // GET ?board=total|month [&me=0x…] → { board, ym, end, top: [{ a, vol, n, tier }]（前 50）, me?: { rank, vol, gap, tier, tierGap, nextTier }, hof }
 // GET ?ticker=1 → { badges: { 地址: 总榜名次 }, top3, mtop3, ev, ym, end }  全站徽章 + 顶部播报用
 import { nmTop as nmTopOf } from "../../lib/nmtop.js";
-import { heldNow, domainFlags } from "../../lib/oracle.js";
+import { heldNow, ownFlagsOf } from "../../lib/oracle.js";
 import { loadTotal, loadMonth, ranked, tierOf, TIERS, ymOf, nextMonthStart, hallOfFame, rankEvents, nameMap, namedOk } from "../../lib/honor.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
@@ -15,7 +15,7 @@ export async function onRequestGet(ctx) {
   const [total, month] = await Promise.all([loadTotal(kv), loadMonth(kv, ym)]);
   // 上榜必须有本站域名（站长 2026-11-20）：先按成交排好，再把钱包里没有域名的拿掉
   const rawT = ranked(total), rawM = ranked(month), me = (u.searchParams.get("me") || "").toLowerCase();
-  const nm = await nameMap(kv, Array.from(new Set(rawT.concat(rawM).map(([a]) => a))), domainFlags, isAddr(me) ? [me] : []), ok = namedOk(nm);
+  const nm = await nameMap(kv, Array.from(new Set(rawT.concat(rawM).map(([a]) => a))), ownFlagsOf(kv), isAddr(me) ? [me] : []), ok = namedOk(nm);
   const allT = rawT.filter(([a]) => ok(a)), allM = rawM.filter(([a]) => ok(a));
   const ev = await rankEvents(kv, ym, allM, ok);
   const row = ([a, v], i) => ({ a, vol: Math.round(v[0]), n: v[1], tier: tierOf(i + 1) });
@@ -32,7 +32,7 @@ export async function onRequestGet(ctx) {
   }
 
   const board = u.searchParams.get("board") === "month" ? "month" : "total", all = board === "month" ? allM : allT;
-  const out = { board, ym, end, top: all.slice(0, 50).map(row), hof: await hallOfFame(kv, ym, async (list) => { const m2 = await nameMap(kv, list.slice(0, 60).map(([a]) => a), domainFlags), k2 = namedOk(m2); return list.filter(([a]) => k2(a)); }), ev, mil: allT.filter(([, v]) => v[0] >= 1e6).map(([a, v]) => ({ a, vol: Math.round(v[0]) })) };
+  const out = { board, ym, end, top: all.slice(0, 50).map(row), hof: await hallOfFame(kv, ym, async (list) => { const m2 = await nameMap(kv, list.slice(0, 60).map(([a]) => a), ownFlagsOf(kv)), k2 = namedOk(m2); return list.filter(([a]) => k2(a)); }), ev, mil: allT.filter(([, v]) => v[0] >= 1e6).map(([a, v]) => ({ a, vol: Math.round(v[0]) })) };
   if (isAddr(me)) {
     const raw = (board === "month" ? rawM : rawT).find(([a]) => a === me), noName = !!raw && !ok(me); /* 有成交但钱包里没有域名：不上榜，页面提示去注册 */
     const i = all.findIndex(([a]) => a === me), vol = i < 0 ? (raw ? raw[1][0] : 0) : all[i][1][0], rank = i + 1;
