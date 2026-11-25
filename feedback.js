@@ -474,7 +474,7 @@
         if (tp) {
           var wait = L.filter(function (x) { return x.has && !x.ok; }).length;
           tp.innerHTML = L.length ? '<button type="button" class="ghost fb-says-go">🏆 中奖待认证 ' + L.length + " 笔" + (wait ? "，其中 <b>" + wait + " 笔已上传、等你通过</b>" : "") + " · 在工单下面 ↓</button>" : "";
-          var gb = tp.querySelector(".fb-says-go"); if (gb) gb.onclick = function () { try { sb.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { sb.scrollIntoView(); } };
+          var gb = tp.querySelector(".fb-says-go"); if (gb) gb.onclick = function () { try { window.scrollTo(0, Math.max(0, sb.getBoundingClientRect().top + window.pageYOffset - 70)); } catch (e) { sb.scrollIntoView(); } }; // 直接跳过去：平滑滚动在有的环境里不动
         }
         if (!L.length) { sb.innerHTML = ""; return; }
         sb.innerHTML = '<div class="fb-say"><b>🏆 中奖待认证 · 预言家 / 周榜（' + L.length + ' 笔）</b><small>中奖人在群里说一声并上传截图 / 视频 → 你点开看一眼 → 点「通过」→ 机器人自动发奖。不点就不发。</small>' + L.map(function (x, i) {
