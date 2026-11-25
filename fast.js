@@ -114,7 +114,7 @@
         : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "") + (v2 ? ' <a class="fx-more" href="#/names/batch">＋ 买更多票</a>' : "")
         : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
         : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
-      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : "") +
+      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : v2 ? '<a class="fx-go fx-go2" href="#/names/batch">🎟 注册域名买极速票（批量注册，至少 2 个）→</a>' : "") + /* 站长 2026-11-25：极速预言家一个注册入口，一直都在 */
       '<p class="fx-h">' + (data.multi ? "① 选数字（可以多选 0-9）" : "① 选一个数字") + '</p><div class="fx-grid">' + grid + "</div>" +
       (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字，押 1 倍 = " + picks.length + " 张票。开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 " + wf() + "。" : "") + "</p>" : "") +
       '<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +

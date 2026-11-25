@@ -340,7 +340,7 @@
       });
     }, function () { return false; });
   }
-  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, account: function () { return account; }, NAMES: function () { return NAMES; },
+  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, srcDaily: function () { return SRC_DAILY; }, account: function () { return account; }, NAMES: function () { return NAMES; },
     tx: tx, DAI: DAI, owned: ownedList, // 销毁页（genesis.js）用：列出钱包里的创世名
     idOf: function (label) { return call(SEL.idOf + str(label)).then(function (r) { return word(r, 0); }); }, // 大奖一键注册并销毁：名字 → tokenId（64 位 hex）
     allowance: function (token, spender) { return call2(token, SEL.allowance + A.pad(account) + A.pad(spender)).then(BigInt); },
@@ -383,7 +383,8 @@
     if (q === "otc" || q === "mine") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
     // 每日预言家入口：#/names/~daily 进来 → 记住「这次是从每日预言家来注册的」，之后在域名页里搜名字、付款都带记号；回到光秃秃的 #/names（点顶部「域名」）就退出
     try {
-      if (q === "~daily") { sessionStorage.setItem("nm:src", "daily"); q = ""; }
+      if (wantBatch) sessionStorage.removeItem("nm:src"); // 批量注册是极速预言家通道：不带每日预言家的记号
+      if (q === "~daily") { sessionStorage.setItem("nm:src", "daily"); sessionStorage.setItem("nm:one", "1"); q = ""; }
       else if (/^#\/names\/?$/.test(location.hash)) sessionStorage.removeItem("nm:src");
       SRC_DAILY = sessionStorage.getItem("nm:src") === "daily";
     } catch (e0) { SRC_DAILY = q === "~daily"; if (q === "~daily") q = ""; }
@@ -392,7 +393,7 @@
     q = q.replace(/\.(ailgns|lgns)$/, "");
     if (TLD !== "ailgns") SRC_DAILY = false;
     A.app.innerHTML =
-      (SRC_DAILY ? '<section class="card nm-src"><b>🔮 你是从「每日预言家」进来注册的</b><p>在这一页注册 .ailgns 域名，注册费的 <b>95% 进每日预言家奖池</b>。要用 <b>DAI 或 AiLGNS</b> 付才算，用 LGNS 付的不进奖池。</p><p class="muted">这样注册的域名不算极速预言家的票；批量注册是极速预言家的通道，不在这里。</p><a href="#/names" class="nm-src-x">只想买名字、不参加预测 → 改为普通注册</a></section>' : "") +
+      (SRC_DAILY ? '<section class="card nm-src"><b>🔮 你是从「每日预言家」进来注册的</b><p>在这一页注册 .ailgns 域名，注册费的 <b>95% 进每日预言家奖池</b>。要用 <b>DAI 或 AiLGNS</b> 付才算，用 LGNS 付的不进奖池。</p><p class="muted">这样注册的域名不算极速预言家的票；批量注册是极速预言家的通道，不在这里。</p><button type="button" class="nm-one" id="nm-one"><b>🎲 帮我挑名字</b><span>随机 / 自己填 / AI 起名 · 5 DAI 一个</span></button><a href="#/names" class="nm-src-x">只想买名字、不参加预测 → 改为普通注册</a></section>' : "") +
       '<section class="card nm-hero"><h2>🌐 .ailgns 域名</h2>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
@@ -400,7 +401,7 @@
       // 💰 价格紧跟搜索栏、高亮（站长 2026-11-12：很多人找不到价格）；搜出结果时结果在上、价格在下；付款方式和规则折叠在价格下面
       '<div id="nm-r"></div><div class="nm-pbox"><p class="nm-pbt">💰 注册价格<small>每年 · 按名字长度</small></p><div class="nm-price nm-pc"><div><b>英文 3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>英文 4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>英文 5 位+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div><div><b>中文 2 字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>中文 3 字+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
       '<details class="nm-pdet"><summary>用什么付、注册规则</summary><p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p><ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></details></div>' +
-      '<p class="nm-batchrow"><button type="button" class="link nm-bb" id="nm-batch"><b>📦 批量注册普通域名</b><span>5 DAI 一个 · 2 个起</span><i class="nm-bb-2"><i class="nm-bb-g"><i class="e">🎟</i><i class="t">每注册 1 个</i><i class="v">送 5 张极速预言票</i></i><i class="nm-bb-g"><i class="e">🔮</i><i class="t">手里有 5 个 + 主名字</i><i class="v">能玩每日预言家</i></i></i><em>随机 / 挑号码 / AI 起名 / 自己填 →</em></button></p><p class="nm-onerow"><button type="button" class="nm-one" id="nm-one"><b>🔮 只注册 1 个</b><span>5 DAI · 注册费 70% 进每日预言家奖池</span><em>不送极速票 · 点这里随机挑一个 →</em></button></p><div id="nm-genc"></div></section>' +
+      '<div id="nm-genc"></div></section>' +
       '<div id="nm-burnc"></div>' +
       '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><button type="button" class="nm-myw" id="nm-myw">👛 查我的钱包</button></div>' +
       '<form class="nm-search" id="nm-myf"><input id="nm-mya" placeholder="输入 0x 钱包地址，或者域名（如 发财.ailgns）" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">查询</button></form>' +
@@ -412,11 +413,15 @@
       '<section class="card" id="nm-ord"><div class="card-head"><h2>🧾 域名订单查询</h2><span class="muted">在挂的单 + 买入 / 卖出记录，链上可查</span></div>' +
       '<div class="nm-rk"><input id="nm-oa" placeholder="填钱包地址 0x…，查挂单和成交" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="button" id="nm-ob">查询</button></div><div id="nm-olo"></div><div id="nm-ol"></div></section>';
     document.getElementById("nm-t").value = TLD;
-    var nbb = document.getElementById("nm-batch"); if (nbb) nbb.onclick = function () { if (A.namesBatch) A.namesBatch.open(); };
-    var nob = document.getElementById("nm-one"); if (nob) nob.onclick = function () { if (A.namesBatch) A.namesBatch.open({ one: true }); }; /* 🔮 只注册 1 个（站长 2026-11-24）：注册费 70% 进每日预言家奖池 */
+
+    /* 🔮 每日预言家入口（站长 2026-11-25：「普通域名一个注册入口，极速预言一个注册入口，每日预言家一个注册入口」）：
+       域名页只管普通注册（上面的搜索框）；极速预言家从它自己的页面「去买票」进来（#/names/batch）；每日预言家从预言家页进来（#/names/~daily）——
+       进来后顶上有提示条，自动打开挑名字的窗口，注册交易带记号（注册费 95% 进每日奖池、不算极速票） */
+    var nob = document.getElementById("nm-one"); if (nob) nob.onclick = function () { if (A.namesBatch) A.namesBatch.open({ one: true }); };
+    try { if (SRC_DAILY && sessionStorage.getItem("nm:one")) { sessionStorage.removeItem("nm:one"); setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-one")) A.namesBatch.open({ one: true }); } catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e3) { /* 忽略 */ }
     try { var ssB = false; try { ssB = !!sessionStorage.getItem("nm:batch"); if (ssB) sessionStorage.removeItem("nm:batch"); } catch (e0) { /* 读不了标记就只看网址 */ }
       if (wantBatch) { try { history.replaceState(null, "", "#/names"); } catch (e1) { /* 改不了网址不影响打开 */ } }
-      if (wantBatch || ssB) { setTimeout(function () { try { if (A.namesBatch && document.getElementById("nm-batch")) A.namesBatch.open({ tickets: true }); } /* 从「去买票」/ #/names/batch 进来：极简买票窗口；域名页的「📦 批量注册」按钮还是完整版 */ catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
+      if (wantBatch || ssB) { setTimeout(function () { try { if (A.namesBatch) A.namesBatch.open({ tickets: true }); } /* 从「去买票」/ #/names/batch 进来：极简买票窗口；域名页的「📦 批量注册」按钮还是完整版 */ catch (e2) { /* 打不开就让客户自己点 */ } }, 400); } } catch (e) { /* 从极速预言家「去买票」过来：自动打开批量注册；读不了标记就算了 */ }
     var tl = document.querySelector(".nm-tld"); if (tl) tl.textContent = "." + TLD;
     var f = document.getElementById("nm-f"), inp = document.getElementById("nm-q"), out = document.getElementById("nm-r");
     f.onsubmit = function (e) {
