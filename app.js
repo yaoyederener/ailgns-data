@@ -554,7 +554,7 @@
 
   // ---------- 路由 ----------
   // 每个页面在浏览器标签和分享时显示的标题
-  var PAGE_TITLES = { videos: "🎬 视频教程", cover: "🛡 互助保障（试运行）", gale: "⚡ 秒到跨链（第三方 GaleBridge）", funds: "📊 官方资金池", weekly: "🏆 OTC 手续费周榜（试运行）", mj: "🀄 血流成河麻将（试玩）", fast: "⚡ 极速预言家（试运行）", bonus: "🎁 创世域名分红 · 每日签到", aiswap: "🔁 aiswap 兑换池", usdt: "USDT 跨链桥 · Polygon ⇄ Anubis（试运行）", todo: "📝 待办（内部）", genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市商 · 认证称号", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
+  var PAGE_TITLES = { gxlight: "💡 每日熄灯", videos: "🎬 视频教程", cover: "🛡 互助保障（试运行）", gale: "⚡ 秒到跨链（第三方 GaleBridge）", funds: "📊 官方资金池", weekly: "🏆 OTC 手续费周榜（试运行）", mj: "🀄 血流成河麻将（试玩）", fast: "⚡ 极速预言家（试运行）", bonus: "🎁 创世域名分红 · 每日签到", aiswap: "🔁 aiswap 兑换池", usdt: "USDT 跨链桥 · Polygon ⇄ Anubis（试运行）", todo: "📝 待办（内部）", genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市商 · 认证称号", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
     team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 账本", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场", br: "🐺 大逃杀（试运行）"
   };
@@ -600,13 +600,13 @@
   }
   // 桌面图标（PWA）里没有钱包，主站交易做不了：从图标打开时直接进 App 壳页（网址墙 + 钱包直达 + 联系方式）；地址里带 full=1 才留在主站看
   (function () { try { var sa = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone; if (sa && !/[?&]full=1/.test(location.search + location.hash) && !sessionStorage.getItem("full")) location.replace("/app"); if (/[?&]full=1/.test(location.search + location.hash)) sessionStorage.setItem("full", "1"); } catch (e) {} })();
-  var GAMES = { farm: 1, br: 1, gd: 1 };
+  var GAMES = { farm: 1, br: 1, gd: 1, gxlight: 1 };
   // 🧹 2026-11-23 站长：「删除这些玩的少的游戏」→ 销毁乐园大厅和 9 个小游戏下架（一周加起来不到 350 次打开）。老链接、收藏夹点进来一律转去开心农场。
   //    代码文件 pixel.js / games.js 和接口 /api/pixel、/api/game 留着没删（数据也在），要恢复：把它们加回 tools/build.py 的 games 包和 index.src.html，再把这里和 menu.js 的入口加回来
   var GONE = { play: 1, pixel: 1, g2048: 1, snake: 1, tetris: 1, flappy: 1, mines: 1, brick: 1, merge: 1, pet: 1 };
   // 路由 → 要先加载的包（顺序加载；没打包的开发环境 window.AIL_BUNDLES 不存在，所有脚本照旧一次全载）
   var LAZY = (function () {
-    var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"],
+    var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"], gxlight: ["gxlight"],
       games: ["farm", "br"],
       misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly", "usdt", "gale", "cover", "videos", "chart", "rpc", "ainews", "turbine"] };
     Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
