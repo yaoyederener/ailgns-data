@@ -1372,11 +1372,37 @@
           var nm = function (z) { return /^0x0+$/.test(z) ? "<b>🆕 新铸造</b>" : KNOWN[z] ? '<b class="sc-kn">' + KNOWN[z] + "</b>" : who(z); };
           return "<div>" + nm(f) + ' <span class="lg-arr">→</span> ' + nm(g) + "：" + v + "</div>";
         }).join("") + "</div>" : "") +
+        /* 站长 2026-11-26：「转出地址最好显示域名名称，另外对方可以手动复制地址」→ 把这笔交易涉及的地址列出来：名字（有就显示）+ 完整地址 + 复制按钮 */
+        (function () {
+          var seen = {}, list = [];
+          [a].concat(tt.map(function (x) { return (x.from && x.from.hash || "").toLowerCase(); }), tt.map(function (x) { return (x.to && x.to.hash || "").toLowerCase(); })).forEach(function (z) { if (/^0x[0-9a-f]{40}$/.test(z) && !/^0x0+$/.test(z) && !seen[z]) { seen[z] = 1; list.push(z); } });
+          if (!list.length) return "";
+          return '<h3 class="lg-h3">📋 相关地址</h3><div class="lg-addrs">' + list.map(function (z) {
+            return '<div><span class="lg-an">' + (KNOWN[z] ? '<b class="sc-kn">' + KNOWN[z] + "</b>" : who(z)) + '</span><code>' + z + '</code><button type="button" class="ghost lg-cp" data-cp="' + z + '">复制</button></div>';
+          }).join("") + "</div>";
+        })() +
         '<p class="muted lg-raw">交易编号 <span class="mono">' + h + '</span> · <a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上原始记录 ↗</a></p></section>' +
         '<p class="muted" style="text-align:center"><a href="#/scan/' + a + '">← 回到 ' + (KNOWN[a] || "这个钱包") + ' 的账本</a></p>';
       fillNames(out);
+      // 预言家奖池发出去的奖：中奖人领奖时把名字烧掉了，钱包里已经没有名字可显示 → 从发奖记录里按这笔交易找到他中奖用的名字，标在地址上
+      if (a === PRIZE_POOL) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
+        var p = ((j && j.pays) || []).filter(function (x) { return String(x.tx || "").toLowerCase() === String(h).toLowerCase(); })[0];
+        if (!p || !p.name || !p.a) return;
+        setTimeout(function () { // 等上面换名字的那一轮先跑完：钱包自己有名字的不动
+          Array.prototype.forEach.call(out.querySelectorAll('.lg-who[data-a="' + String(p.a).toLowerCase() + '"]'), function (e) { if (/^0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}$/.test(e.textContent.trim())) { e.textContent = p.name + "（中奖用的名字）"; e.title = p.a; } });
+        }, 900);
+      }).catch(function () {});
     });
   }
+  var PRIZE_POOL = "0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4";
+  // 点「复制」：把完整地址放进剪贴板；钱包浏览器不给用剪贴板时退回老办法，再不行就提示长按
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest("[data-cp]"); if (!b) return;
+    var text = b.getAttribute("data-cp"), old = b.textContent;
+    var done = function () { b.textContent = "✅ 已复制"; setTimeout(function () { b.textContent = old; }, 1800); };
+    var legacy = function () { try { var x = document.createElement("textarea"); x.value = text; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0"; document.body.appendChild(x); x.select(); x.setSelectionRange(0, 999); var ok = document.execCommand("copy"); document.body.removeChild(x); if (ok) done(); else b.textContent = "请长按地址复制"; } catch (er) { b.textContent = "请长按地址复制"; } };
+    try { navigator.clipboard.writeText(text).then(done, legacy); } catch (er) { legacy(); }
+  });
 
   // 全站：页面上出现的短地址（0x1234…abcd），只要这个地址设了主名字，就换成域名显示
   var SKIP = { INPUT: 1, TEXTAREA: 1, SCRIPT: 1, STYLE: 1 }, SHORT_RE = /0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}/g, timer = 0;

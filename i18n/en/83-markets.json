@@ -1,0 +1,12 @@
+{
+"📊 新增「全部市场」页：OTC 页点「全部市场」进去，可以搜币名或合约地址，按最新价、24 小时成交排序，点 ☆ 把常看的币收进「自选」，点一行进这个币的盘口。原来的「更多币种」改成了这个入口。": "📊 New “All markets” page: tap “All markets” on the OTC page to search by token name or contract address, sort by latest price or 24h volume, tap ☆ to add tokens to your Favorites, and tap a row to open that token's order book. The old “More tokens” list has become this entry.",
+"全部市场": "All markets",
+"‹ 返回": "‹ Back",
+"⭐ 自选": "⭐ Favorites",
+"🆕 新上架": "🆕 New",
+"最新价 DAI": "Last price DAI",
+"24 小时成交": "24h volume",
+"点一行进入这个币的盘口；点表头可以换排序。成交额带「+」= 实际比这个数还多。自选只记在这台设备上。": "Tap a row to open that token's order book; tap a column header to change the sort. A “+” after the volume means the real figure is higher. Favorites are saved on this device only.",
+"还没有自选。点币种左边的 ☆ 就能收进来。": "No favorites yet. Tap the ☆ next to a token to add it.",
+"换币种 ›": "Switch token ›"
+}
