@@ -124,7 +124,7 @@
       if (j.me.held < 0) throw new Error("暂时没读到你的域名，过一分钟再点");
       if (j.me.held === 0) { say("这个钱包里没有创世域名。刚买的等 1 分钟再点；挂在市场里卖的不算。", true); return null; }
       if (j.me.signed) { say("今天已经签过了，明天再来。"); return null; }
-      if (j.me.ok === false) { say("签到要持有至少 " + n(j.me.ailNeed) + " 枚 AiLGNS，或者至少 " + n(j.me.lgnsNeed) + " 枚 LGNS（质押在官方流动性池里的 LP 也算）。现在算到 AiLGNS " + ailFmt(j.me.ail) + " 枚、LGNS " + n(Math.floor(Number(j.me.lgns) || 0)) + " 枚，还不够。", true); return null; }
+      if (j.me.ok === false) { say("签到要持有至少 " + n(j.me.ailNeed) + " 枚 AiLGNS，或者至少 " + n(j.me.lgnsNeed) + " 枚 LGNS（官方质押里的 LGNS、质押在官方流动性池里的 LP 也算）。现在算到 AiLGNS " + ailFmt(j.me.ail) + " 枚、LGNS " + n(Math.floor(Number(j.me.lgns) || 0)) + " 枚，还不够。", true); return null; }
       var mn = j.me.main || ""; // 有主钱包在作保：签名文字里带上主钱包地址
       say("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");
       return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(mn ? signTextM(j.day, account, mn) : signText(j.day, account)), account] }).then(function (sig) {
@@ -198,7 +198,7 @@
       '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/' + POOL + '">随时可查</a>。</p></section>' +
       '<section class="card bn"><h2>🏆 签到排行榜</h2><div id="bn-rk"></div><p class="note">每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。</p></section>' +
       '<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
-      "<li><b>谁能领：有创世域名，并持有 1 枚 AiLGNS 或 1 万枚 LGNS</b><span>钱包里至少有 1 枚创世域名；另外还要持有至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。质押在官方流动性池里的 LP 也算，按里面实际含的 AiLGNS 和 LGNS 折算。1 枚创世域名签到一天记 1 票，创世域名越多票越多；持仓够门槛就行，多了不加票。</span></li>" +
+      "<li><b>谁能领：有创世域名，并持有 1 枚 AiLGNS 或 1 万枚 LGNS</b><span>钱包里至少有 1 枚创世域名；另外还要持有至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。官方质押里的 LGNS 也算；质押在官方流动性池里的 LP 也算，按里面实际含的 AiLGNS 和 LGNS 折算。1 枚创世域名签到一天记 1 票，创世域名越多票越多；持仓够门槛就行，多了不加票。</span></li>" +
       "<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>" +
       "<li><b>怎么抽：奖池满 " + n(GOAL) + " DAI，分成 " + n(WIN) + " 份，两种抽法</b><span>奖池每累计满 " + n(GOAL) + " DAI 抽一次，分成 " + n(WIN) + " 份。① 按票抽 " + n(WIN_T) + " 份：从这一轮所有的票里随机抽 " + n(WIN_T) + " 张，票越多越容易中，票多的钱包可以中好几份。② 阳光普照 " + n(WIN_W) + " 份：从这一轮签到过的钱包里随机抽 " + n(WIN_W) + " 个，每个钱包机会一样，不看票多票少；按票已经中了的钱包不再参加这一步。抽完开始下一轮，票从头算。</span></li>" +
       "<li><b>发什么：AiLGNS</b><span>每一份是奖池的 " + n(WIN) + " 分之一（约 " + n(GOAL / WIN) + " DAI）。发 AiLGNS，直接打到钱包。</span></li>" +
@@ -207,7 +207,7 @@
       '<section class="card bn"><h2>常见问题</h2>' +
       "<details><summary>签到要花钱吗？</summary><p>不花钱。签到只是在钱包里签个名，不转账、不用 Gas。任何让你转账才能签到的都是骗子。</p></details>" +
       "<details><summary>挂在市场上卖的创世域名算票吗？</summary><p>不算。挂单的名字存在市场里，不在你钱包里。撤单拿回钱包就算。已销毁的也不算。</p></details>" +
-      "<details><summary>AiLGNS / LGNS 要放在哪？不够怎么办？</summary><p>至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。算的是：签到钱包里的余额，加上质押在官方流动性池里的 LP（按里面实际含的币折算）。挂在 OTC 卖单里的、押在借贷里的不算。不够可以去 <a href=\"#/otc\">OTC</a> 买。之前已经签到的票照旧保留。</p></details>" +
+      "<details><summary>AiLGNS / LGNS 要放在哪？不够怎么办？</summary><p>至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。算的是：签到钱包里的余额，加上官方质押里的 LGNS（长期质押、即时质押、折扣质押等都算），再加上质押在官方流动性池里的 LP（按里面实际含的币折算）。挂在 OTC 卖单里的、押在借贷里的不算。不够可以去 <a href=\"#/otc\">OTC</a> 买。之前已经签到的票照旧保留。</p></details>" +
       "<details><summary>创世域名在小号里，币在主钱包里，怎么办？</summary><p>让主钱包给小号「作保」：先用主钱包打开这页，在签到按钮下面「让主钱包作保」里填小号地址、签一次名（免费，不转账）；再换回小号签到。以后门槛按小号和主钱包的持仓合起来算，票和奖都记在小号上。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p></details>" +
       "<details><summary>刚买的创世域名签不了？</summary><p>等 1 分钟再点。网站要等链上记录同步过来才认得出。</p></details>" +
       "<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>" +

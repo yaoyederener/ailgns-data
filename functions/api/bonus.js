@@ -28,6 +28,12 @@ export const AIL_MIN = 1, LGNS_MIN = 10000;
 const AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", LGNS = "0x4d1d808a081fdac440703b3765fc61f8028c06b8";
 // 官方 LP 质押（awakehelix.io 流动性页）：只有 AiLGNS/LGNS 这个池有质押，LP 押在 GAUGE_LP_MANAGER 里，每个人押了多少读 lpOf(池子, 钱包)（2026-11-21 链上核过）
 const LP_PAIR = "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2", LP_MGR = "0x5ddc8a13eabda89593beb885ab8b2afda26a3587";
+// 官方质押里的 LGNS 也算（站长 2026-11-25「算吧」：客户质押了 1 万多枚 LGNS，钱包里是空的，签不了到）。
+// 官方一共六个质押合约，各自记自己的账，每个都用 getDepositorBalance(钱包) 读这个人押着多少 LGNS（9 位小数）。2026-11-25 用真实钱包逐个核过，六个都读得出。
+// gLGNS、ILO 共建、IDO 认购不在这里面，不算。
+const STK = ["0x88ea98af226cd4402a3873400308a4d78784ece6", "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", "0xf7788f5a5cbbafac4120c63c79dcd9f1931c7824",
+  "0x5584cdeb1369673c91c6ad7ebea0ce7cb630ce60", "0x1e5feec473f7f445fc7f5feec0beabb2270b0b4e", "0xf190ab12b73bfe1b626379af96e8f1859ec91f20"]; // 360 天 / 600 天 / 即时 / 折扣 / 活跃积分 / 债券
+const PER = 3 + STK.length; // 每个钱包问几次：balanceOf ×2、lpOf、六个质押
 const isAddr = (x) => /^0x[0-9a-f]{40}$/.test(x);
 const p64 = (a) => a.slice(2).padStart(64, "0");
 // 纯计算：balanceOf 的返回值（18 位小数）→ 枚数，保留 6 位小数（往下取，不四舍五入，0.9999999 不能算成 1）
@@ -46,8 +52,9 @@ export function lpMicro(lpHex, supHex, res, t0) {
 export function holdSum(r, n) {
   let ail = 0, lgns = 0;
   for (let i = 0; i < n; i++) {
-    const lp = lpMicro(r[3 + i * 3 + 2], r[2], r[1], r[0]);
-    ail += ailMicro(r[3 + i * 3]) + lp.ail; lgns += lgnsMicro(r[3 + i * 3 + 1]) + lp.lgns;
+    const o = 3 + i * PER, lp = lpMicro(r[o + 2], r[2], r[1], r[0]);
+    ail += ailMicro(r[o]) + lp.ail; lgns += lgnsMicro(r[o + 1]) + lp.lgns;
+    for (let k = 0; k < STK.length; k++) lgns += lgnsMicro(r[o + 3 + k]); // 官方质押里的 LGNS
   }
   return { ail: ail / 1e6, lgns: lgns / 1e6 };
 }
@@ -55,7 +62,7 @@ export const holdOk = (h) => !!h && (h.ail >= AIL_MIN || h.lgns >= LGNS_MIN);
 // 读这几个钱包的持仓（钱包里的 AiLGNS、LGNS + 押在官方池里的 LP 折算）。一次批量请求；读不到返回 null（绝不当成 0）
 async function holdOf(addrs) {
   const calls = [[LP_PAIR, "0x0dfe1681"], [LP_PAIR, "0x0902f1ac"], [LP_PAIR, "0x18160ddd"]]; // token0 / getReserves / totalSupply
-  addrs.forEach((a) => calls.push([AIL, "0x70a08231" + p64(a)], [LGNS, "0x70a08231" + p64(a)], [LP_MGR, "0x963fdeb3" + p64(LP_PAIR) + p64(a)])); // balanceOf ×2、lpOf(池子, 钱包)
+  addrs.forEach((a) => { calls.push([AIL, "0x70a08231" + p64(a)], [LGNS, "0x70a08231" + p64(a)], [LP_MGR, "0x963fdeb3" + p64(LP_PAIR) + p64(a)]); STK.forEach((c) => calls.push([c, "0xb79215d6" + p64(a)])); }); // balanceOf ×2、lpOf(池子, 钱包)、六个质押的 getDepositorBalance(钱包)
   const body = JSON.stringify(calls.map((c, i) => ({ jsonrpc: "2.0", id: i, method: "eth_call", params: [{ to: c[0], data: c[1] }, "latest"] })));
   for (let k = 0; k < RPCS.length * 2; k++) {
     try {
@@ -225,7 +232,7 @@ export async function onRequestPost(ctx) {
       if (okM && !m) return json({ error: "主钱包 " + sh(mq) + " 现在没有给这个小号作保。请先用主钱包打开这页，点「主钱包签名作保」。" }, 400);
       const hold = await holdOf(m ? [a, m] : [a]);
       if (!hold) return json({ error: "暂时没读到你的持仓，过一会儿再点" }, 503);
-      if (!holdOk(hold)) return json({ error: "签到要持有至少 " + AIL_MIN + " 枚 AiLGNS，或者至少 " + LGNS_MIN + " 枚 LGNS（质押在官方流动性池里的 LP 也算）。现在算到 AiLGNS " + hold.ail + " 枚、LGNS " + hold.lgns + " 枚，还不够。" }, 400);
+      if (!holdOk(hold)) return json({ error: "签到要持有至少 " + AIL_MIN + " 枚 AiLGNS，或者至少 " + LGNS_MIN + " 枚 LGNS（官方质押里的 LGNS、质押在官方流动性池里的 LP 也算）。现在算到 AiLGNS " + hold.ail + " 枚、LGNS " + hold.lgns + " 枚，还不够。" }, 400);
     }
     const r = addDay(before, day, held);
     if (r.fresh) await kv.put(key, JSON.stringify(r.rec), { metadata: r.meta });
