@@ -51,18 +51,38 @@ for(t=3;t<=14;t++){rr=t-2===1?14:t-2;if(cn[rr]===2&&cn[t-1]===2&&cn[t]===2){cn[r
 for(t=2;t<=14;t++){rr=t-1===1?14:t-1;if(cn[rr]===3&&cn[t]===3){cn[rr]=cn[t]=0;v+=0.9;}}
 for(r=2;r<=14;r++){n=cn[r];if(!n)continue;p=r===L?15:r;k=p===15?0.5:p===14?0.75:1+(14-p)*0.012+(n===1?0.15:0);v+=k;if(n===3)T++;else if(n===2)pc.push(k);}
 pc.sort(function(a,b){return b-a;});for(i=0;i<T&&i<pc.length;i++)v-=pc[i]*0.9;return v+nw*0.1;}
-function bot(G,s){var L=G.L,hand=G.hands[s],last=G.last?G.last.k:null,who=G.last?G.last.who:-1,mate=(s+2)%4;var opts=gen(hand,L,last),c0=cost(hand,L),i,o,x,d;if(!opts.length)return null;for(i=0;i<opts.length;i++){o=opts[i];o.c=cost(minus(hand,o.cards),L);if(o.c<=-100)return o.cards;}
-var n1=G.hands[(s+1)%4].length,n2=G.hands[(s+3)%4].length,nm=G.hands[mate].length,danger=Math.min(n1||99,n2||99);var nb=opts.filter(function(y){return!isB(y.k);}),bb=opts.filter(function(y){return isB(y.k);});function pick(list,f){var b=null,bv=1e9,j,v;for(j=0;j<list.length;j++){v=f(list[j]);if(v<bv){bv=v;b=list[j];}}return b;}
-if(!last){if(!nb.length)return bb[0].cards;var pool=nb;if(nm===1){x=nb.filter(function(y){return y.k.t==="single";});if(x.length&&x[0].k.r<14)return x[0].cards;}
+function unseen(G,s){var L=G.L,cnt=[],w=2,i,c,p,pl=G.pl||[],h=G.hands[s];for(p=2;p<=15;p++)cnt[p]=8;cnt[L]=0;cnt[16]=2;cnt[17]=2;cnt[15]=6;function take(x){if(wild(x,L))w--;else cnt[pw(x,L)]--;}
+for(i=0;i<pl.length;i++)take(pl[i]);for(i=0;i<h.length;i++)take(h[i]);return{cnt:cnt,w:Math.max(0,w)};}
+var P={dDef:1.0,dN:0.6,bomb:1,sure:1,two:1,blk:1,mateTake:1,follow:0};function botH(G,s){var L=G.L,hand=G.hands[s],last=G.last?G.last.k:null,who=G.last?G.last.who:-1,mate=(s+2)%4;var opts=gen(hand,L,last),c0=cost(hand,L),i,o,x,y,d;if(!opts.length)return null;for(i=0;i<opts.length;i++){o=opts[i];o.c=cost(minus(hand,o.cards),L);if(o.c<=-100)return o.cards;}
+var n1=G.hands[(s+1)%4].length,n2=G.hands[(s+3)%4].length,nm=G.hands[mate].length,danger=Math.min(n1||99,n2||99),maxOpp=Math.max(n1,n2);var nb=opts.filter(function(y){return!isB(y.k);}),bb=opts.filter(function(y){return isB(y.k);});var U=unseen(G,s);function pick(list,f){var b=null,bv=1e9,j,v;for(j=0;j<list.length;j++){v=f(list[j]);if(v<bv){bv=v;b=list[j];}}return b;}
+function top(o){var k=o.k,need,p;if(isB(k))return false;if(maxOpp<k.n)return true;if(k.t!=="single"&&k.t!=="pair"&&k.t!=="triple"&&k.t!=="full")return false;need=k.t==="single"?1:k.t==="pair"?2:3;for(p=k.r+1;p<=17;p++){if(!U.cnt[p])continue;if(need===1)return false;if(p>=16){if(need===2&&U.cnt[p]>=2)return false;continue;}
+if(U.cnt[p]+U.w>=need)return false;}
+return need===1?!(U.w&&k.r<15):true;}
+function oneLeft(o){var rest=minus(hand,o.cards);return rest.length<=10&&kinds(rest,L).length>0;}
+function strong(o){return(isB(o.k)?1000+bs(o.k):0)+(top(o)?500:0)+(o.k.n>=5?30:0)+o.k.r;}
+function hi(list){return pick(list,function(y){return-strong(y);});}
+var two=P.two?opts.filter(oneLeft):[],sure=P.sure?two.filter(function(y){return isB(y.k)||top(y);}):[];if(!last){if(sure.length)return hi(sure).cards;if(!nb.length)return bb[0].cards;var pool=nb;if(nm===1){x=nb.filter(function(y){return y.k.t==="single";});if(x.length&&x[0].k.r<14)return x[0].cards;}
 if(nm===2){x=nb.filter(function(y){return y.k.t==="pair";});if(x.length&&x[0].k.r<12)return x[0].cards;}
-if(danger===1){x=nb.filter(function(y){return y.k.t!=="single";});if(x.length)pool=x;else return nb[nb.length-1].cards;}
+if(two.length)return hi(two).cards;if(danger===1){x=nb.filter(function(y){return y.k.t!=="single";});if(x.length)pool=x;else return nb[nb.length-1].cards;}
 else if(danger===2){x=nb.filter(function(y){return y.k.t!=="pair";});if(x.length)pool=x;}
 return pick(pool,function(y){return y.c+y.k.r*0.02-y.k.n*0.04;}).cards;}
-if(who===mate){if((last.t==="single"||last.t==="pair"||last.t==="triple")&&last.r<=10&&nm>2){x=nb.filter(function(y){return y.c-c0<=-0.6&&y.k.r<=14;});if(x.length)return x[0].cards;}
+if(who===mate){x=sure.filter(function(y){return!isB(y.k);});if(P.mateTake&&x.length&&nm>1)return hi(x).cards;if(P.blk&&n1&&nm>1&&last.r<=11&&((last.t==="single"&&n1<=2)||(last.t==="pair"&&n1===2))){o=nb.length?nb[nb.length-1]:null;if(o&&o.k.r>=13)return o.cards;}
+if(P.follow&&(last.t==="single"||last.t==="pair"||last.t==="triple")&&last.r<=10&&nm>2){x=nb.filter(function(y){return y.c-c0<=-0.6&&y.k.r<=14;});if(x.length)return x[0].cards;}
 return null;}
-var urgent=G.hands[who].length<=6;o=pick(nb,function(y){return y.c+y.k.r*0.02;});if(o){d=o.c-c0;if(d<=0.35||urgent||(d<=1.2&&danger<=10))return o.cards;}
-if(bb.length){o=bb[0];if(urgent||o.c<=1.3||(isB(last)&&(bb.length>=2||G.hands[who].length<=12))||(last.n>=5&&bb.length>=2)||bb.length>=3)return o.cards;}
+var urgent=G.hands[who].length<=6,lastDef=who===(s+1)%4||!nm||!!(G.tb[mate]&&G.tb[mate].pass);if(sure.length)return hi(sure).cards;if(two.length&&(urgent||lastDef))return hi(two).cards;if(P.blk&&n1===1&&last.t==="single"&&nb.length)return nb[nb.length-1].cards;o=pick(nb,function(y){return y.c+y.k.r*0.02;});if(o){d=o.c-c0;if(d<=(lastDef?P.dDef:P.dN)||urgent||(d<=1.2&&danger<=10))return o.cards;}
+if(bb.length){o=bb[0];y=last.n>=5||last.r>=14||isB(last);if(urgent||o.c<=1.3||(isB(last)&&(bb.length>=2||G.hands[who].length<=12))||(P.bomb?(y&&bb.length>=2)||(bb.length>=3&&(y||lastDef)):(last.n>=5&&bb.length>=2)||bb.length>=3))return o.cards;}
 return null;}
+var MC={n:60,ms:150,k:6,late:12,z:2.5,min:0.15};function cloneG(G){return{lv:G.lv.slice(),cur:G.cur,L:G.L,hands:[G.hands[0].slice(),G.hands[1].slice(),G.hands[2].slice(),G.hands[3].slice()],turn:G.turn,last:G.last?{who:G.last.who,k:G.last.k}:null,tb:[null,null,null,null],out:G.out.slice(),ph:G.ph,prev:G.prev,trib:null,rd:G.rd,res:null,wind:G.wind,pl:(G.pl||[]).slice()};}
+function rollout(g,me){var guard=0,s,cs;while(g.ph==="play"&&guard++<600){s=g.turn;cs=botH(g,s);if(!cs||!play(g,s,cs)){if(g.last)pass(g,s);else play(g,s,[g.hands[s][g.hands[s].length-1]]);}}
+return g.res?(g.res.w===me%2?1:-1)*g.res.up:0;}
+function bot(G,s){var h=botH(G,s),L=G.L,hand=G.hands[s],last=G.last?G.last.k:null,opts,i,j,o,c,cands=[],seen={},t0=Date.now();if(G.ph!=="play"||hand.length<=1)return h;if(Math.min(G.hands[0].length||99,G.hands[1].length||99,G.hands[2].length||99,G.hands[3].length||99)>MC.late)return h;if(G.last&&G.last.who===(s+2)%4)return h;opts=gen(hand,L,last);if(!opts.length)return null;if(h&&cost(minus(hand,h),L)<=-100)return h;function key(cs){return cs?cs.slice().sort(function(a,b){return a-b;}).join(","):"pass";}
+function push(cs){var k=key(cs);if(!seen[k]&&cands.length<MC.k){seen[k]=1;cands.push({cards:cs,d:0,d2:0});}}
+push(h);if(last)push(null);for(i=0;i<opts.length;i++)opts[i].c=cost(minus(hand,opts[i].cards),L);var nb=opts.filter(function(y){return!isB(y.k);}),bb=opts.filter(function(y){return isB(y.k);});nb.slice().sort(function(a,b){return(a.c+a.k.r*0.02)-(b.c+b.k.r*0.02);}).slice(0,3).forEach(function(y){push(y.cards);});if(bb.length)push(bb[0].cards);if(nb.length)push(nb[nb.length-1].cards);if(cands.length<2)return h;var gone={},pool=[],pl=G.pl||[],n,g0,g,x,k,v0,v,sizes=[G.hands[0].length,G.hands[1].length,G.hands[2].length,G.hands[3].length],need=0;for(i=0;i<pl.length;i++)gone[pl[i]]=1;for(i=0;i<hand.length;i++)gone[hand[i]]=1;for(i=0;i<108;i++)if(!gone[i])pool.push(i);for(i=0;i<4;i++)if(i!==s)need+=sizes[i];if(pool.length!==need)return h;function run1(c){var g=cloneG(g0);if(c.cards){if(!play(g,s,c.cards))return-9;}else if(!pass(g,s))return-9;return rollout(g,s);}
+for(n=0;n<MC.n;n++){if(n>=8&&Date.now()-t0>MC.ms)break;for(i=pool.length-1;i>0;i--){j=(Math.random()*(i+1))|0;x=pool[i];pool[i]=pool[j];pool[j]=x;}
+g0=cloneG(G);k=0;for(i=0;i<4;i++)if(i!==s){g0.hands[i]=sortH(pool.slice(k,k+sizes[i]),L);k+=sizes[i];}
+v0=run1(cands[0]);for(j=1;j<cands.length;j++){v=run1(cands[j])-v0;cands[j].d+=v;cands[j].d2+=v*v;}}
+if(n<8)return h;o=null;x=0;for(j=1;j<cands.length;j++){c=cands[j];v=c.d/n;k=Math.sqrt(Math.max(1e-9,c.d2/n-v*v)/n);if(v>MC.min&&v>MC.z*k&&v>x){x=v;o=c;}}
+return o?o.cards:h;}
 function backPick(hand,L){var cnt={},i,p,best=-1,bv=1e9,v;for(i=0;i<hand.length;i++){p=pw(hand[i],L);cnt[p]=(cnt[p]||0)+1;}
 for(i=0;i<hand.length;i++){if(wild(hand[i],L))continue;p=pw(hand[i],L);v=p+(cnt[p]===1?0:cnt[p]===2?20:40)+(p>10?100:0);if(v<bv){bv=v;best=hand[i];}}
 return best;}
@@ -75,7 +95,7 @@ function tribute(G){var o=G.prev,L=G.L,items=[],a,b,ca,cb,anti=false;if(o[0]%2==
 for(a=0;a<items.length;a++)move(G,items[a].f,items[a].t,items[a].c);G.trib={items:items,anti:anti,lead:anti?o[0]:items[0].f,i:0};G.turn=G.trib.lead;G.ph=items.length?"trib":"play";}
 function giveBack(G,c){var T=G.trib,it;if(G.ph!=="trib"||!T)return false;it=T.items[T.i];if(!canBack(G.hands[it.t],c,G.L))return false;move(G,it.t,it.f,c);it.b=c;T.i++;if(T.i>=T.items.length)G.ph="play";return true;}
 function startRound(G,rnd){var d=[],i,j,x;for(i=0;i<108;i++)d.push(i);for(i=107;i>0;i--){j=(rnd()*(i+1))|0;x=d[i];d[i]=d[j];d[j]=x;}
-G.rd++;G.L=G.cur<0?2:G.lv[G.cur];G.hands=[[],[],[],[]];for(i=0;i<108;i++)G.hands[i%4].push(d[i]);for(i=0;i<4;i++)sortH(G.hands[i],G.L);G.out=[];G.last=null;G.tb=[null,null,null,null];G.res=null;G.wind=-1;G.trib=null;if(!G.prev){G.turn=(rnd()*4)|0;G.ph="play";return;}
+G.rd++;G.L=G.cur<0?2:G.lv[G.cur];G.hands=[[],[],[],[]];for(i=0;i<108;i++)G.hands[i%4].push(d[i]);for(i=0;i<4;i++)sortH(G.hands[i],G.L);G.out=[];G.last=null;G.tb=[null,null,null,null];G.res=null;G.wind=-1;G.trib=null;G.pl=[];if(!G.prev){G.turn=(rnd()*4)|0;G.ph="play";return;}
 tribute(G);}
 function settle(G){var o=G.out,w=o[0]%2,pos=o.indexOf((o[0]+2)%4),up=pos===1?3:pos===2?2:1,from=G.lv[w],win=false;if(G.cur===w&&G.L===14&&up>=2)win=true;else G.lv[w]=Math.min(14,from+up);G.res={o:o.slice(),w:w,up:up,from:from,to:G.lv[w],win:win,L:G.L};G.cur=w;G.prev=o.slice();G.ph=win?"over":"done";}
 function next(G,s){var i,c,m;for(i=1;i<=4;i++){c=(s+i)%4;if(c===G.last.who){G.last=null;if(G.hands[c].length){G.turn=c;return;}
@@ -85,10 +105,10 @@ return;}
 if(G.hands[c].length){G.turn=c;return;}}}
 function check(G,s,cards){var h=G.hands[s],i,ks,m={};if(G.ph!=="play"||G.turn!==s||!cards||!cards.length)return null;for(i=0;i<cards.length;i++){if(h.indexOf(cards[i])<0||m[cards[i]])return null;m[cards[i]]=1;}
 ks=kinds(cards,G.L);for(i=0;i<ks.length;i++)if(!G.last||beats(ks[i],G.last.k))return ks[i];return null;}
-function play(G,s,cards){var h=G.hands[s],k=check(G,s,cards),rest;if(!k)return null;if(!G.last)G.tb=[null,null,null,null];G.hands[s]=minus(h,cards);G.wind=-1;G.last={who:s,k:k};G.tb[s]={cards:cards.slice(),k:k};if(!G.hands[s].length){G.out.push(s);if((G.out.length===2&&G.out[0]%2===G.out[1]%2)||G.out.length===3){rest=[0,1,2,3].filter(function(x){return G.out.indexOf(x)<0;}).sort(function(a,b){return G.hands[a].length-G.hands[b].length;});G.out=G.out.concat(rest);settle(G);return k;}}
+function play(G,s,cards){var h=G.hands[s],k=check(G,s,cards),rest;if(!k)return null;if(!G.last)G.tb=[null,null,null,null];G.hands[s]=minus(h,cards);G.wind=-1;G.last={who:s,k:k};G.tb[s]={cards:cards.slice(),k:k};G.pl=(G.pl||[]).concat(cards);if(!G.hands[s].length){G.out.push(s);if((G.out.length===2&&G.out[0]%2===G.out[1]%2)||G.out.length===3){rest=[0,1,2,3].filter(function(x){return G.out.indexOf(x)<0;}).sort(function(a,b){return G.hands[a].length-G.hands[b].length;});G.out=G.out.concat(rest);settle(G);return k;}}
 next(G,s);return k;}
 function pass(G,s){if(G.ph!=="play"||G.turn!==s||!G.last)return false;G.tb[s]={pass:1};next(G,s);return true;}
-var E={kinds:kinds,beats:beats,isB:isB,gen:gen,cost:cost,bot:bot,backPick:backPick,canBack:canBack,newMatch:newMatch,startRound:startRound,giveBack:giveBack,check:check,play:play,pass:pass,pw:pw,nat:nat,suit:suit,wild:wild,isJ:isJ};if(!W){(typeof globalThis!=="undefined"?globalThis:this).GD=E;return;}
+var E={kinds:kinds,beats:beats,isB:isB,gen:gen,cost:cost,bot:bot,botH:botH,P:P,MC:MC,backPick:backPick,canBack:canBack,newMatch:newMatch,startRound:startRound,giveBack:giveBack,check:check,play:play,pass:pass,pw:pw,nat:nat,suit:suit,wild:wild,isJ:isJ};if(!W){(typeof globalThis!=="undefined"?globalThis:this).GD=E;return;}
 if(!A)return;var G=null,sel={},hints=null,hi=0,tm=0,bound=false,drag=null,toastT=0,toastTxt="",toastEnd=0,just=-1,showRule=false,resetArm=false,ST={};var ON=null,MYQ=null,BUY=null,CARDS=null,OPEN=null,SID="",SAY="",doneQid=0,cdTimer=0,busy=false;var NAMES=["你","下家","对家","上家"],FACE=["🧑","🐯","🐼","🦊"],PLACE=["头游","二游","三游","末游"],MEDAL=["🥇","🥈","🥉","🐢"];var KN={single:"单张",pair:"对子",triple:"三张",full:"三带二",straight:"顺子",tube:"三连对",plate:"钢板",bomb:"炸弹",sf:"同花顺",king:"天王炸"};function ls(k){try{return localStorage.getItem(k)||"";}catch(e){return"";}}
 function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function save(){lsSet("gd:g",G?JSON.stringify(G):"");}
@@ -218,5 +238,5 @@ return false;}
 A.pages.gd=function(){try{if(!bound){bound=true;document.addEventListener("click",onClick);document.addEventListener("pointerdown",onDown);document.addEventListener("pointermove",onMove);document.addEventListener("pointerup",onUp);document.addEventListener("pointercancel",onUp);W.addEventListener("resize",function(){try{layHand();}catch(e){}});}
 var m=/^#\/?gd\/(\d{6})/.exec(location.hash);if(m){try{history.replaceState(null,"","#/gd");}catch(e2){}if(!ON||ON.room!==m[1]){lobby();join(m[1]);}return;}
 if(document.getElementById("gdn-root"))return;lobby();}catch(e){A.app.innerHTML='<section class="card"><p class="note">掼蛋页面打开失败，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] gd.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["gd"]="h0de6573220";
-/*v:h0de6573220*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["gd"]="hdfd7ca82c7";
+/*v:hdfd7ca82c7*/
