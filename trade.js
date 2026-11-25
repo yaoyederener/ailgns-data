@@ -304,9 +304,20 @@
     document.querySelectorAll(".tr2-pm").forEach(function (b) {
       b.onclick = function () { var p = document.getElementById("tr-p"), step = Math.pow(10, -PD), v = (Number(p.value) || book.mkt || 0) + Number(b.getAttribute("data-step")) * step; if (v > 0) { p.value = v.toFixed(PD); recalc("p"); } };
     });
-    // 手机底部固定买 / 卖：切方向并滚到下单框
+    // 手机底部固定买 / 卖。站长 2026-11-25（客户录屏）：「点右下角的卖出没有反应，要点卖出 AiLGNS 才行」——
+    //   以前这两个按钮只是切方向、滚到下单框，还会把客户填好的价格清掉；客户已经填好单子再点它，看起来就是没反应。
+    //   现在：方向已经对、数量也填了 → 直接下单（和上面的大按钮是同一个动作，照样要钱包确认）；
+    //         方向对但没填数量 → 滚到下单框、光标放进数量；方向不对 → 切过去（这时才重置价格）。
     document.querySelectorAll(".tr2-bar button").forEach(function (b) {
-      b.onclick = function () { var tb = document.querySelector('#tr2-tabs button[data-pane="trade"]'); if (tb && !tb.classList.contains("on")) tb.click(); setSide(b.getAttribute("data-bar")); document.getElementById("tr-p").value = ""; setDefaultPrice(); var f = document.querySelector(".tr2-form"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" }); };
+      b.onclick = function () {
+        var want = b.getAttribute("data-bar"), tb = document.querySelector('#tr2-tabs button[data-pane="trade"]'), onTrade = !tb || tb.classList.contains("on");
+        var am = document.getElementById("tr-a"), filled = am && Number(am.value) > 0, go = document.getElementById("tr-go");
+        if (onTrade && side === want && filled && go && !go.disabled) { submit(); return; }
+        if (!onTrade) tb.click();
+        if (side !== want) { setSide(want); document.getElementById("tr-p").value = ""; setDefaultPrice(); }
+        var f = document.querySelector(".tr2-form"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" });
+        if (am && !filled) { try { am.focus({ preventScroll: true }); } catch (e) { /* 老浏览器不支持就不聚焦 */ } }
+      };
     });
   }
   function connectBtn() { return K().connect().then(function (a) { account = a; afterConnect(); }, function (e) { A.errTip(K().niceError(e), document.getElementById("tr-conn")); }); }
