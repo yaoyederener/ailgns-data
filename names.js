@@ -361,11 +361,17 @@
     return say;
   }
   function call2(to, data) { return W.rpcOn("anubis", "eth_call", [{ to: to, data: data }, "latest"]); }
+  /* 🏷 注册入口标记（站长 2026-11-25：「想玩每日预测就从每日预言家的界面注册，奖金分别进不同的奖池」）。
+     链上本来分不出客户是从哪个页面注册的。办法：从每日预言家页进来注册时，在注册交易的数据最后多带 8 个字节的记号（AILDAILY）。
+     合约不看多出来的这几个字节（2026-11-25 在链上模拟过，带不带结果一样），注册照常；转钱的机器人和极速预言家的记票程序认这个记号：
+     带记号的注册费 95% 进每日预言家奖池，并且不算极速预言家的票。记号和生效区块在 lib/fast.js（DAILY_TAG / DAILY_TAG_GATE）和 monita/fast_oracle.py 里，三处要一致。
+     用 LGNS 付的不带记号（LGNS 付的域名费本来就不进每日奖池）。只对 .ailgns 有效。 */
+  var DAILY_TAG = "41494c4441494c59", SRC_DAILY = false;
   function register(label, years, k, say, to) { // to：帮别人注册时填对方地址，名字直接归对方
     tipN = 0; tipAt = Date.now(); tipTotal = k === "LGNS" ? 3 : 2;
     say("⏳ 正在连接钱包…");
     return connect().then(function () { say("⏳ 正在查余额和价格，马上弹出钱包…"); return prepay(yearPrice(label) * years, k, say); }).then(function (p) {
-      var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label);
+      var who = to || account, data = SEL.register + u256(0xa0) + A.pad(who) + u256(years) + p + str(label) + (SRC_DAILY && k !== "LGNS" && TLD === "ailgns" ? DAILY_TAG : "");
       return tx(NAMES, data, say, "💰 付注册费：注册 " + label + "." + TLD + (to ? " 给 " + to.slice(0, 6) + "…" + to.slice(-4) : " 给你自己的地址") + "。请在钱包确认").then(function (h) { if (k === "LGNS") tuClear(); return h; });
     });
   }
@@ -375,10 +381,18 @@
     var wantBatch = /^#\/names\/batch$/.test(location.hash); /* ailgns.dev/#/names/batch = 直接打开批量注册（极速预言家「去买票」、客服给客户的网址都用它；不靠浏览器记标记，新标签页打开也行） */
     var q = wantBatch ? "" : decodeURIComponent((location.hash.split("/")[2] || "").split("?")[0]).toLowerCase(), m = q.match(/\.(ailgns|lgns)$/); // ?pri=1 是预言家页跳过来设主名字的标记
     if (q === "otc" || q === "mine") q = ""; // #/names/otc 是菜单「域名 OTC」，不是搜「otc」这个名字
+    // 每日预言家入口：#/names/~daily 进来 → 记住「这次是从每日预言家来注册的」，之后在域名页里搜名字、付款都带记号；回到光秃秃的 #/names（点顶部「域名」）就退出
+    try {
+      if (q === "~daily") { sessionStorage.setItem("nm:src", "daily"); q = ""; }
+      else if (/^#\/names\/?$/.test(location.hash)) sessionStorage.removeItem("nm:src");
+      SRC_DAILY = sessionStorage.getItem("nm:src") === "daily";
+    } catch (e0) { SRC_DAILY = q === "~daily"; if (q === "~daily") q = ""; }
     TLD = m ? m[1] : "ailgns";
     NAMES = CONTRACTS[TLD]; window.__nmTLD = TLD;
     q = q.replace(/\.(ailgns|lgns)$/, "");
+    if (TLD !== "ailgns") SRC_DAILY = false;
     A.app.innerHTML =
+      (SRC_DAILY ? '<section class="card nm-src"><b>🔮 你是从「每日预言家」进来注册的</b><p>在这一页注册 .ailgns 域名，注册费的 <b>95% 进每日预言家奖池</b>。要用 <b>DAI 或 AiLGNS</b> 付才算，用 LGNS 付的不进奖池。</p><p class="muted">这样注册的域名不算极速预言家的票；批量注册是极速预言家的通道，不在这里。</p><a href="#/names" class="nm-src-x">只想买名字、不参加预测 → 改为普通注册</a></section>' : "") +
       '<section class="card nm-hero"><h2>🌐 .ailgns 域名</h2>' +
       '<ol class="nm-steps" id="nm-steps"><li data-s="1"><b>1</b>注册名字</li><li data-s="2"><b>2</b>设为主名字</li><li data-s="3"><b>3</b>OTC 出售</li></ol>' +
       '<p class="nm-hint" id="nm-hint">👇 输入你想要的名字，下面马上显示能不能注册</p>' +
