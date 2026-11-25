@@ -791,7 +791,55 @@
       apprScan(a).then(function (r) { btn.hidden = true; apprDraw(a, r, box); }, function () { btn.disabled = false; btn.textContent = "没查出来，再点一次"; });
     };
   }
+  /* 提速（站长 2026-11-25「查授权有点慢，优化一下」）：原来要翻这个钱包发出的操作，一页一页排队翻最多 6 页，每页 1 秒多。
+     现在直接问浏览器接口要「这个钱包的授权记录」（代币的 Approval、NFT 的 ApprovalForAll 两种事件，按钱包地址过滤），两个请求同时发，各不到半秒，
+     而且是全部历史，不再只看最近 300 笔。剩余额度和小数位用批量读链一次读完。接口没回来就退回老办法（apprScanOld） */
+  var AP_T20 = "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925", AP_TALL = "0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31", AP_LOGMAX = 1000;
+  function apprLogs(a, topic0) {
+    var out = [], rounds = 0;
+    function go(from) {
+      return viaProxy("/api?module=logs&action=getLogs&fromBlock=" + from + "&toBlock=latest&topic0=" + topic0 + "&topic1=0x" + u256(a) + "&topic0_1_opr=and").then(function (j) {
+        var r = j && j.result;
+        if (!Array.isArray(r)) { if (j && /No (logs|records) found/i.test(String(j.message || ""))) return false; throw new Error("logs"); }
+        out = out.concat(r); rounds++;
+        if (r.length >= AP_LOGMAX && rounds < 4) { var last = Number(BigInt(r[r.length - 1].blockNumber)); if (last > from) return go(last); } // 一次最多给 1000 条：从最后一条的区块接着要
+        return r.length >= AP_LOGMAX;
+      });
+    }
+    return go(0).then(function (more) { return { logs: out, more: more }; });
+  }
+  function apprRead(a, list, more) {
+    return Promise.all(list.map(function (x) {
+      var q = x.all ? bcall(x.tok, "0xe985e9c5" + u256(a) + u256(x.sp)) : bcall(x.tok, "0xdd62ed3e" + u256(a) + u256(x.sp));
+      var dec = x.all ? Promise.resolve(0) : bcall(x.tok, "0x313ce567").then(function (h) { var n = Number(BigInt(h)); return n >= 0 && n <= 36 ? n : 18; }, function () { return 18; });
+      var nm = x.name || C.tokens[x.tok] || OFFICIAL[x.tok] ? Promise.resolve(x.name) : bcall(x.tok, "0x95d89b41").then(function (h) { return String(decStr(h) || "").slice(0, 16); }, function () { return ""; }); // 不认识的币：读它自己报的符号
+      return Promise.all([q, dec, nm]).then(function (r) { x.v = r[0] && r[0].length >= 66 ? BigInt(r[0]) : null; x.dec = r[1]; x.name = r[2] || x.name; return x; }, function () { x.v = null; return x; });
+    })).then(function (ls) { return { list: ls.filter(function (x) { return x.v !== null && x.v > 0n; }), more: more }; });
+  }
   function apprScan(a) {
+    return Promise.all([apprLogs(a, AP_T20), apprLogs(a, AP_TALL)]).then(function (r) {
+      var pairs = {};
+      [[r[0].logs, false], [r[1].logs, true]].forEach(function (g) {
+        g[0].forEach(function (l) {
+          var tp = l.topics || []; if (tp.length !== 3 || !tp[2]) return; // 4 个主题的是单个 NFT 的授权，不是额度，不列
+          var tok = String(l.address || "").toLowerCase(), sp = "0x" + String(tp[2]).slice(-40).toLowerCase(), k = tok + sp + (g[1] ? "a" : "");
+          if (!tok || /^0x0+$/.test(sp) || pairs[k]) return;
+          pairs[k] = { tok: tok, sp: sp, all: g[1], name: "" };
+        });
+      });
+      var capped = r[0].more || r[1].more;
+      return apprRead(a, Object.keys(pairs).map(function (k) { return pairs[k]; }), capped ? "logs" : false).then(function (res) {
+        if (!capped) return res;
+        // 记录太多、没要全（给的是最早的那些）：把最近 300 笔操作里的授权也并进来，新做的授权不能漏
+        return apprScanOld(a).then(function (o) {
+          var have = {}; res.list.forEach(function (x) { have[x.tok + x.sp + (x.all ? "a" : "")] = 1; });
+          o.list.forEach(function (x) { var k = x.tok + x.sp + (x.all ? "a" : ""); if (!have[k]) { have[k] = 1; res.list.push(x); } });
+          return res;
+        }, function () { return res; });
+      });
+    }).catch(function () { return apprScanOld(a); });
+  }
+  function apprScanOld(a) {
     var pairs = {}, pages = 0;
     function page(q) {
       return get("/addresses/" + a + "/transactions?filter=from" + q).then(function (d) {
@@ -808,20 +856,13 @@
         return !!np;
       });
     }
-    return page("").then(function (more) {
-      var list = Object.keys(pairs).map(function (k) { return pairs[k]; });
-      return Promise.all(list.map(function (x) {
-        var q = x.all ? call(x.tok, "0xe985e9c5" + u256(a) + u256(x.sp)) : call(x.tok, "0xdd62ed3e" + u256(a) + u256(x.sp));
-        var dec = x.all ? Promise.resolve(0) : call(x.tok, "0x313ce567").then(function (h) { var n = Number(BigInt(h)); return n >= 0 && n <= 36 ? n : 18; }, function () { return 18; });
-        return Promise.all([q, dec]).then(function (r) { x.v = r[0] && r[0].length >= 66 ? BigInt(r[0]) : null; x.dec = r[1]; return x; }, function () { x.v = null; return x; });
-      })).then(function (ls) { return { list: ls.filter(function (x) { return x.v !== null && x.v > 0n; }), more: more }; });
-    });
+    return page("").then(function (more) { return apprRead(a, Object.keys(pairs).map(function (k) { return pairs[k]; }), more); });
   }
   function apprDraw(a, r, box) {
     var me = isMe(a), short = function (z) { return z.slice(0, 6) + "…" + z.slice(-4); };
     var kind = function (x) { return (FLAG[x.sp] || FAKE[x.sp]) ? 0 : (KNOWN[x.sp] || REG[x.sp]) ? 2 : 1; }; // 0 被报案 1 不认识 2 认识
     var ls = r.list.sort(function (x, y) { return kind(x) - kind(y); });
-    if (!ls.length) { box.innerHTML = '<p class="sc-apok">✅ 没查到还在生效的授权。</p>' + (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : ""); return; }
+    if (!ls.length) { box.innerHTML = '<p class="sc-apok">✅ 没查到还在生效的授权。</p>' + (r.more ? '<p class="muted">' + (r.more === "logs" ? "这个钱包的授权记录太多，只查了最早的几千条，更晚做的可能没列全。" : "只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。") + "</p>" : ""); return; }
     var unk = ls.filter(function (x) { return kind(x) === 1; }).length, bad = ls.filter(function (x) { return kind(x) === 0; }).length;
     box.innerHTML = (bad ? '<p class="sc-apdanger">🚨 有 ' + bad + " 个授权给了<b>风险合约</b>（被客户报案的地址，或和假币有关的合约）。请马上取消，它现在还能动你的币。</p>" : "") +
       '<p class="' + (unk ? "sc-apwarn" : "sc-apok") + '">' + (unk ? "⚠️ 有 " + unk + " 个授权给了未知合约（不是本站的，也不在官方名单里）。不认识就建议取消。" : bad ? "其余的授权都是给本站或官方合约的。" : "✅ 现在生效的 " + ls.length + " 个授权，都是给本站或官方合约的，属于正常使用。") + "</p>" +
@@ -836,7 +877,7 @@
           (me ? '<button type="button" class="' + (k < 2 ? "nm-go" : "sc-apx2") + ' sc-apx" data-apx="' + i + '">取消这个授权</button><p class="muted nm-st sc-aps"></p>' : "") + "</div>";
       }).join("") +
       (me ? '<p class="muted">给本站、官方合约的授权是平时交易要用的，取消后下次用到时钱包会让你重新授权一次，不影响资产。</p>' : '<p class="muted">用这个钱包连接本站后，每一条后面会出现「取消这个授权」按钮。</p>') +
-      (r.more ? '<p class="muted">只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。</p>' : "");
+      (r.more ? '<p class="muted">' + (r.more === "logs" ? "这个钱包的授权记录太多，只查了最早的几千条，更晚做的可能没列全。" : "只查了这个钱包最近 300 笔操作，更早做的授权这里看不到。") + "</p>" : "");
     /* 取消一条：用客户自己的钱包把额度改成 0（NFT 改成「不允许」） */
     var revoke = function (x, say) {
       var K2 = A.otcKit; if (!K2) return Promise.reject(new Error("钱包组件还没加载好，刷新再试"));
