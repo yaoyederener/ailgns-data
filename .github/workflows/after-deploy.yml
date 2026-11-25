@@ -120,7 +120,9 @@ jobs:
           echo "::error title=已自动退回::$NAME 已退回到 ${BEFORE:0:7}（版本 $OLD）。原因：$WHY。站上确认换回旧版本：$([ "$BACK" = 1 ] && echo 是 || echo 还没看到)"
 
       - name: 提醒站长
-        if: always() && env.MODE == 'live' && (steps.wait.outputs.ok == '0' || steps.walk.outputs.fail == '1' || steps.walk.outputs.broken == '1' || steps.watch.outputs.fail == '1')
+        # 2026-11-25：被新的一次推送顶掉（取消）的体检不发提醒。以前会误报「体检不通过，原因：（空）」——
+        #   取消时「等新版本上线」那一步还没跑完，它的结果是空的，而空 == '0' 在这里会被当成真；新的那次推送自己会体检，不用这次来报
+        if: ${{ !cancelled() && env.MODE == 'live' && (steps.wait.outputs.ok == '0' || steps.walk.outputs.fail == '1' || steps.walk.outputs.broken == '1' || steps.watch.outputs.fail == '1') }}
         env:
           ROLLED: ${{ steps.back.outputs.rolled }}
           CONFIRMED: ${{ steps.back.outputs.confirmed }}
