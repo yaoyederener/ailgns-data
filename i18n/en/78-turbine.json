@@ -31,5 +31,7 @@
 "本页只是把操作变简单，不是投资建议。要不要激活、要不要卖，请自己判断。": "This page only makes the steps easier; it is not investment advice. Whether to activate or sell is your own decision.",
 "已解锁": "Unlocked",
 "还要": "In",
-"🌀 新增「涡轮助手」（试运行，☰ 更多 → 交易）：把官方的「领排放 → 涡轮激活 → 24 小时后领取」放到一页，按第一、二、三步点；第四、五步可选：把 AiLGNS 在本站 OTC 卖成 DAI、再把 DAI 投进官方算力。调用的是官方合约，本站不经手；只有第四步在 OTC 成交时照常收 1% 手续费。手续费、锁定时间以官方为准。": "🌀 New “Turbine Helper” (trial, ☰ More → Trade): the official “claim emission → activate Turbine → claim after 24 hours” flow on one page, in steps 1, 2, 3. Steps 4 and 5 are optional: sell AiLGNS for DAI on this site's OTC, then put the DAI into official Power. It calls the official contracts and this site never holds your funds; only step 4, which trades on the OTC, pays the usual 1% fee. Fees and lock time follow the official rules."
+"🌀 新增「涡轮助手」（试运行，☰ 更多 → 交易）：把官方的「领排放 → 涡轮激活 → 24 小时后领取」放到一页，按第一、二、三步点；第四、五步可选：把 AiLGNS 在本站 OTC 卖成 DAI、再把 DAI 投进官方算力。调用的是官方合约，本站不经手；只有第四步在 OTC 成交时照常收 1% 手续费。手续费、锁定时间以官方为准。": "🌀 New “Turbine Helper” (trial, ☰ More → Trade): the official “claim emission → activate Turbine → claim after 24 hours” flow on one page, in steps 1, 2, 3. Steps 4 and 5 are optional: sell AiLGNS for DAI on this site's OTC, then put the DAI into official Power. It calls the official contracts and this site never holds your funds; only step 4, which trades on the OTC, pays the usual 1% fee. Fees and lock time follow the official rules.",
+"涡轮助手": "Turbine",
+"一页五步": "5 steps"
 }
