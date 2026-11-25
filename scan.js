@@ -11,6 +11,144 @@
     "0xd868a84f": "注册域名", "0x26e43e37": "续费域名", "0x38e74feb": "设主名字", "0xeba36dbd": "改指向", "0xa9059cbb": "转账", "0x095ea7b3": "授权",
     "0x23b872dd": "转移", "0xca690ea2": "挂单卖", "0xd6febde8": "买", "0x40e58ee5": "撤单"
   };
+  /* ❌ 失败的交易：把原因翻成大白话（站长待办 2026-11-26「客户看到『失败』不知道为什么」）
+     官方浏览器大多不给失败原因（revert_reason 是空的），所以自己查：用「这笔交易前一个区块」的链上状态把同一笔交易再模拟一遍（eth_call），
+     合约会报出同样的错误码（比如 CLOSED），再查下面这张表翻成中文。表里的错误码来自本站全部合约（contracts/*.sol）+ DEX 池子 / 代币常见的报错。
+     模拟出来没报错（多半是同一个区块里别人先动了），或者节点查不到，就照实说「查不出具体原因」，不瞎猜 */
+  var WHY = {
+    CLOSED: "这张单已经成交完或被挂单人撤掉了，你晚了一步",
+    EXPIRED: "已经过期了（单子到期，或者交易等太久超时）",
+    EXPIRED_OR_NONE: "这个域名已经过期或不存在",
+    NO_ORDER: "找不到这张单",
+    BAD_AMOUNT: "数量不对：比这张单剩下的还多，或者是 0",
+    PRICE_CHANGED: "价格变了：提交时的价格和成交时对不上，为了保护你自动取消了，刷新后按新价格再来",
+    NOT_MAKER: "只有挂单的人自己才能撤这张单",
+    OWN_ORDER: "不能买自己挂的单",
+    OWN_LOAN: "不能接自己发的借贷单",
+    NOT_OPEN: "这张借贷单已经被别人接走或撤掉了",
+    NOT_ACTIVE: "这笔借款已经还清或已经结束了",
+    NOT_DUE: "还没到期，现在还不能执行",
+    NOT_OFFER: "这张单的类型不对（不是放贷单）",
+    NOT_REQUEST: "这张单的类型不对（不是借款单）",
+    NOT_SELL_ORDER: "这张单不是卖单",
+    NOT_BID: "这张单不是买单",
+    NO_LOAN: "找不到这笔借贷",
+    TAKEN: "这个名字已经被别人注册了",
+    BAD_NAME: "名字格式不对（只能用规定的字符和长度）",
+    BAD_YEARS: "年数不对（超出能注册 / 续费的年限）",
+    NOT_RENEWABLE: "这个域名已经过了宽限期或不存在，不能续费",
+    TOO_LONG: "续费年数太多，超过了上限",
+    NOT_OWNER: "你不是这个的主人，不能操作",
+    NOT_YOURS: "这个域名现在不归你，或者已经过期",
+    NOT_ALLOWED: "没有权限做这个操作",
+    WRONG_FROM: "转出的地址不对（它已经不在这个钱包里了）",
+    UNSAFE_RECEIVER: "收的那个合约不能接收域名",
+    NONE: "这个域名不存在",
+    PAY_FAILED: "付款没成功：钱包里的币不够，或者给合约的授权额度不够",
+    NO_PRICE: "读不到这个币的价格（池子是空的）",
+    BAD_TOKEN: "不支持用这个币",
+    ZERO_AMOUNT: "数量是 0",
+    ZERO_PRICE: "价格是 0",
+    BAD_DURATION: "挂单时长不对（太短或太长）",
+    BAD_TERM: "借款期限不对（太短或太长）",
+    REPAY_LT_PRINCIPAL: "还款金额不能比借款少",
+    TOO_MANY_ORDERS: "一次处理的单子太多了",
+    BAD_ORDERS: "一次选的单子太多或数据对不上",
+    NOTHING_FILLED: "一张都没买到：选中的单子都已经被别人买走或撤掉了",
+    GOT_TOO_LITTLE: "价格变动，买到的数量比你设的最低数量还少，自动取消了",
+    BOUGHT_TOO_LITTLE: "价格变动，买到的太少，自动取消了",
+    NFT_NOT_RECEIVED: "NFT 没有转进来",
+    TRANSFER_MISMATCH: "币转过去的数量对不上（这个币转账会扣税或有限制，本站合约不接这种币）",
+    PULL_MISMATCH: "币转进来的数量对不上（这个币转账会扣税或有限制）",
+    TOKEN_TRANSFER_FAILED: "转币失败：钱包里的币不够，或者给合约的授权额度不够",
+    TOKEN_CALL_FAILED: "转币失败：钱包里的币不够，或者给合约的授权额度不够",
+    TRANSFER_FAILED: "转币失败（这个币有转账限制或要扣税，或者余额不够）",
+    TRANSFER_FROM_FAILED: "转币失败：钱包里的币不够，或者给合约的授权额度不够",
+    INSUFFICIENT_OUTPUT_AMOUNT: "价格变动太大：按你设的滑点换不到那么多，自动取消了（可以把滑点调高一点再试）",
+    INSUFFICIENT_INPUT_AMOUNT: "没有先把币打进池子就去换（一般是机器人或脚本的操作）",
+    INSUFFICIENT_LIQUIDITY: "池子里的币不够换",
+    INSUFFICIENT_A_AMOUNT: "价格变动，加流动性的数量对不上，自动取消了",
+    INSUFFICIENT_B_AMOUNT: "价格变动，加流动性的数量对不上，自动取消了",
+    K: "价格变动或这个币转账扣税，池子算出来的数对不上",
+    LOCKED: "池子正忙（同一时刻有别的操作），请再试一次",
+    REENTRANT: "合约正忙（同一时刻有别的操作），请再试一次",
+    BALANCE: "余额不够",
+    ALLOWANCE: "授权额度不够：要先在钱包里点「授权」再操作",
+    "transfer amount exceeds balance": "钱包里的币不够",
+    "insufficient-balance": "钱包里的币不够",
+    "insufficient balance": "钱包里的币不够",
+    "insufficient allowance": "授权额度不够：要先在钱包里点「授权」再操作",
+    "insufficient-allowance": "授权额度不够：要先在钱包里点「授权」再操作",
+    "transfer amount exceeds allowance": "授权额度不够：要先在钱包里点「授权」再操作",
+    "transfers closed": "这个 NFT 现在不能转",
+    "mounted, transfer locked": "这个 NFT 正在使用中（已挂载），暂时不能转",
+    "not owner": "你不是这个 NFT 的主人",
+    "not approved": "这个 NFT 没有授权给合约"
+  };
+  // OpenZeppelin 5 的自定义错误（4 字节编号）、Solidity 内部错误
+  var WHY_SEL = { "0xe450d38c": "钱包里的币不够", "0xfb8f41b2": "授权额度不够：要先在钱包里点「授权」再操作", "0xec442f05": "收款地址不对", "0x96c6fd1e": "付款地址不对", "0x7e273289": "这个 NFT 不存在", "0x64283d7b": "你不是这个 NFT 的主人", "0x177e802f": "这个 NFT 没有授权给合约" };
+  var PANIC = { 1: "合约内部检查没通过", 17: "合约计算出错（数字超出范围）", 18: "合约计算出错（除以 0）", 50: "合约读数据越界" };
+  // 失败那一行要说清楚「想做什么」：METHODS 之外再补几个本站页面常用的操作（只在失败那一行用）
+  var TRIED = { "0x9128a740": "OTC 挂单", "0x6fe4a448": "OTC 买 / 卖（吃单）", "0x992001bd": "发放贷单", "0x2fedd319": "发借款单", "0x4fd9efc4": "接借贷单", "0x371fd8e6": "还款",
+    "0x25e2ba9e": "NFT 挂买单", "0xf4b7d249": "NFT 卖给买单", "0x022c0d9f": "在池子里换币", "0x38ed1739": "在 DEX 换币", "0x5c11d795": "在 DEX 换币", "0x8803dbee": "在 DEX 换币",
+    "0xe8e33700": "加流动性", "0xbaa2abde": "撤流动性", "0xbc25cf77": "从池子取多余的币" };
+  function failed(t) { // 官方浏览器：status = ok / error；result 在内部交易还没索引完时是 awaiting_internal_transactions（不代表失败）
+    if (!t) return false;
+    if (t.status) return t.status === "error";
+    return !!t.result && !/^(success|pending|awaiting_internal_transactions)$/.test(t.result);
+  }
+  function hexStr(h) { try { var b = h.match(/../g).map(function (x) { return parseInt(x, 16); }); return new TextDecoder().decode(new Uint8Array(b)); } catch (e) { return ""; } }
+  function decodeRevert(data) { // 合约退回的原始数据 → 错误码文字（解不出返回 ""）
+    data = String(data || "").toLowerCase();
+    if (data.slice(0, 10) === "0x08c379a0" && data.length >= 138) { var n = parseInt(data.slice(74, 138), 16); return hexStr(data.slice(138, 138 + n * 2)); }
+    if (data.slice(0, 10) === "0x4e487b71") return "PANIC:" + parseInt(data.slice(10, 74), 16);
+    if (/^0x[0-9a-f]{8}/.test(data) && WHY_SEL[data.slice(0, 10)]) return "SEL:" + data.slice(0, 10);
+    return "";
+  }
+  function plainWhy(code) { // 错误码 → 大白话；对不上的原样带上英文，方便客服查
+    if (!code) return "";
+    if (code.indexOf("PANIC:") === 0) return PANIC[+code.slice(6)] || "合约内部出错";
+    if (code.indexOf("SEL:") === 0) return WHY_SEL[code.slice(4)];
+    var c = code.trim(), tail = c.split(":").pop().trim(), low = c.toLowerCase();
+    if (WHY[c]) return WHY[c];
+    if (WHY[tail]) return WHY[tail]; // UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT、ERC721: not owner 这类带前缀的
+    for (var k in WHY) if (/[a-z]/.test(k) && low.indexOf(k) >= 0) return WHY[k]; // ERC20: transfer amount exceeds balance、Dai/insufficient-balance
+    return "合约拒绝了这笔操作（合约给的原因：" + c.slice(0, 60) + "）"; // 纯文字，显示时再转义
+  }
+  var whyCache = {};
+  function whyFail(t) { // 一笔失败的交易 → Promise<一句大白话>
+    var h = t && t.hash; if (!h) return Promise.resolve("");
+    if (whyCache[h]) return whyCache[h];
+    var gasOut = Number(t.gas_used) > 0 && Number(t.gas_limit) > 0 && Number(t.gas_used) >= Number(t.gas_limit) * 0.97;
+    var gasTxt = "Gas 上限设得太低，没跑完就用光了。下次别改钱包里的 Gas 设置，用默认的再试";
+    var rr = t.revert_reason, given = "";
+    if (rr && typeof rr === "object") given = rr.raw ? decodeRevert(rr.raw) : ((rr.parameters || []).filter(function (p) { return p && p.name === "reason"; })[0] || {}).value || "";
+    else if (typeof rr === "string") given = /^0x/.test(rr) ? decodeRevert(rr) : rr;
+    var p;
+    if (given) p = Promise.resolve(plainWhy(given));
+    else if (/out of gas/i.test(t.result || "") || gasOut) p = Promise.resolve(gasTxt);
+    else if (!t.to || !t.to.hash || !t.block_number) p = Promise.resolve("");
+    else p = A.rpc("eth_call", [{ from: t.from && t.from.hash, to: t.to.hash, data: t.raw_input || "0x", value: "0x" + BigInt(t.value || 0).toString(16), gas: "0x" + Number(t.gas_limit || 3e6).toString(16) }, "0x" + (Number(t.block_number) - 1).toString(16)])
+      .then(function () { return "具体原因查不出来（多半是同一时刻有人先操作了，比如单子刚被别人买走）"; }, function (e) {
+        var code = decodeRevert(e && e.data) || decodeRevert(((e && e.message) || "").match(/0x[0-9a-fA-F]{8,}/) ? e.message.match(/0x[0-9a-fA-F]{8,}/)[0] : "");
+        if (!code && e && /execution reverted: ([^:]+)/.test(e.message || "")) code = (e.message.match(/execution reverted: ([^:]+)/) || [])[1];
+        if (code && /^0x$/i.test(code.trim())) code = "";
+        return code ? plainWhy(code) : (e && e.code === 3 ? "合约拒绝了这笔操作，但没有给出原因" : "");
+      });
+    whyCache[h] = p.then(function (s) { return s || "具体原因查不出来"; }, function () { return "具体原因查不出来"; });
+    return whyCache[h];
+  }
+  function gasFeeTxt(t) { var f = t && t.fee && Number(t.fee.value) / 1e18; return f > 0 ? "，只扣了" + (f < 0.001 ? "不到 0.001" : " " + f.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")) + " DAI 的 Gas 费" : ""; }
+  // 账本列表里失败的那几行：画完以后再一条条去查原因（失败的交易很少，挨个查就行）
+  function whyFill(box, txs) {
+    var q = Array.prototype.slice.call(box.querySelectorAll(".lg-why[data-h]:not([data-done])"));
+    (function next() {
+      var el = q.shift(); if (!el) return;
+      el.setAttribute("data-done", "1");
+      var t = txs[el.getAttribute("data-h")]; if (!t) { el.textContent = ""; return next(); }
+      whyFail(t).then(function (s) { el.textContent = "原因：" + s; next(); });
+    })();
+  }
   var ZERO = "0x" + "0".repeat(40);
   // 平台自己的合约：直接显示中文名，客户一眼看懂钱去哪了
   var KNOWN = {};
@@ -427,7 +565,7 @@
   function translate(a, row) {
     var r = translate0(a, row);
     if (!r || !TEAM[a] || isMe(a)) return r;
-    var t = row.tx, ok = !t || t.result === "success"; if (!ok) return r;
+    var t = row.tx; if (failed(t)) return r;
     var ms = moves(a, row.tr), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "";
     var outs = ms.filter(function (m) { return m.dir === "out" && !m.nft; }), ins = ms.filter(function (m) { return m.dir === "in" && !m.nft; });
     var nat = t && Number(t.value) > 0 && ((t.from && t.from.hash) || "").toLowerCase() === a ? Number(t.value) / 1e18 : 0; // 原生 DAI 直接转账
@@ -458,11 +596,11 @@
     return { ico: "🔧", text: "<b>运营维护支出</b> " + list + "（服务器、节点、客服等日常维护）" };
   }
   function translate0(a, row) {
-    var t = row.tx, ms = moves(a, row.tr), sel = t && (t.raw_input || "").slice(0, 10), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "", ok = !t || t.result === "success";
+    var t = row.tx, ms = moves(a, row.tr), sel = t && (t.raw_input || "").slice(0, 10), to = t && t.to && t.to.hash ? t.to.hash.toLowerCase() : "", ok = !failed(t);
     var nftIn = ms.filter(function (m) { return m.nft && m.dir === "in"; })[0], nftOut = ms.filter(function (m) { return m.nft && m.dir === "out"; })[0];
     var daiIn = sumOf(ms, "in", "DAI"), daiOut = sumOf(ms, "out", "DAI");
     var coinIn = ms.filter(function (m) { return m.dir === "in" && !m.nft && m.sym !== "DAI"; })[0], coinOut = ms.filter(function (m) { return m.dir === "out" && !m.nft && m.sym !== "DAI"; })[0];
-    if (t && !ok) return { ico: "❌", text: "操作没成功（链上已回滚，没扣钱）" + (METHODS[sel] ? "：" + METHODS[sel] : "") };
+    if (t && !ok) return { ico: "❌", text: (METHODS[sel] || TRIED[sel] ? "<b>" + (METHODS[sel] || TRIED[sel]) + "</b>没成功" : "这笔操作<b>没成功</b>") + "（币没动" + gasFeeTxt(t) + "）" + (t.hash ? '<br><span class="lg-why" data-h="' + esc(t.hash) + '">原因：查询中…</span>' : "") };
     // 🔮 预言家存证：客户自己写上链的预测 / 奖池钱包封卷后写的全期指纹
     var rawIn = t && t.raw_input && t.raw_input.length > 2 ? (function () { try { return decodeURIComponent(t.raw_input.slice(2).replace(/(..)/g, "%$1")); } catch (e) { return ""; } })() : "";
     var gm = rawIn.indexOf(GUESS_PREFIX) === 0 ? rawIn.slice(GUESS_PREFIX.length).match(/^(\d{4}-\d{2}-\d{2}):([\d.,]+)/) : null;
@@ -615,7 +753,7 @@
   }
   // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
   function ledger(a, box) {
-    var nextTx = null, nextTt = null, first = true, seen = {}, rows = [];
+    var nextTx = null, nextTt = null, first = true, seen = {}, rows = [], txs = {};
     function qs(n) { return n ? "?" + Object.keys(n).map(function (k) { return k + "=" + encodeURIComponent(n[k]); }).join("&") : ""; }
     function load() {
       var more = box.querySelector(".sc-more"); if (more) more.textContent = "读取中…";
@@ -625,7 +763,7 @@
         nextTx = x[0].next_page_params || null; nextTt = x[1].next_page_params || null;
         var byH = {};
         (x[1].items || []).forEach(function (r) { (byH[r.transaction_hash] = byH[r.transaction_hash] || []).push(r); });
-        (x[0].items || []).forEach(function (t) { if (seen[t.hash]) return; seen[t.hash] = 1; rows.push({ t: t.timestamp, h: t.hash, tx: t, tr: byH[t.hash] || [] }); delete byH[t.hash]; });
+        (x[0].items || []).forEach(function (t) { if (seen[t.hash]) return; seen[t.hash] = 1; txs[t.hash] = t; rows.push({ t: t.timestamp, h: t.hash, tx: t, tr: byH[t.hash] || [] }); delete byH[t.hash]; });
         Object.keys(byH).forEach(function (h) { if (seen[h]) return; seen[h] = 1; rows.push({ t: byH[h][0].timestamp, h: h, tx: null, tr: byH[h] }); });
         rows.sort(function (p, q) { return new Date(q.t) - new Date(p.t); });
         if (!rows.length) { box.innerHTML = '<p class="muted">这个地址还没有和本站有关的记录</p>'; return; }
@@ -649,7 +787,7 @@
         first = false;
         var hs = document.getElementById("sc-hsum"), ht = "最近一笔 " + bj(rows[0].t); if (hs && box.id === "sc-lg" && hs.textContent !== ht) hs.textContent = ht;
         if (box.id === "sc-lg") clipLg(box);
-        fillNames(box); sweepFill(box);
+        fillNames(box); sweepFill(box); whyFill(box, txs);
       });
     }
     return load();
@@ -1353,7 +1491,7 @@
       var t = x[0], tt = x[1].items || [], a = (t.from && t.from.hash || "").toLowerCase(), r = translate(a, { tx: t, tr: tt, h: h, t: t.timestamp });
       out.innerHTML = '<section class="card"><div class="card-head"><h2>🧾 这笔交易</h2></div>' +
         '<div class="lg-one"><span class="lg-ico">' + r.ico + '</span><div>' + r.text + "</div></div>" +
-        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="nm-bad">❌ 失败，没扣钱</b>') + "</dd><dt>链上 Gas 费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd>" +
+        '<dl class="nm-dl"><dt>谁操作的</dt><dd>' + who(a) + "</dd><dt>时间</dt><dd>" + bj(t.timestamp) + "（北京时间）</dd><dt>状态</dt><dd>" + (!failed(t) ? (t.status === "ok" || t.result === "success" ? '<b class="nm-ok">✅ 成功</b>' : '<b class="muted">⏳ 确认中</b>') : '<b class="nm-bad">❌ 失败</b>（币没动' + gasFeeTxt(t) + '）<div class="sc-why" id="sc-why">为什么：查询中…</div>') + "</dd><dt>链上 Gas 费</dt><dd>" + amt(t.fee && t.fee.value, 18) + " DAI</dd>" +
         (t.to && t.to.hash ? "<dt>对象</dt><dd>" + (KNOWN[t.to.hash.toLowerCase()] ? '<b class="sc-kn">' + KNOWN[t.to.hash.toLowerCase()] + "</b>" : who(t.to.hash)) + "</dd>" : "") + "</dl>" +
         /* 站长 2026-11-25：交互的合约不是本站的、也不在官方名单里，要提醒。只说「不认识」，不说它一定有问题（我们没法替客户判断）；被报案的地址另有红字 */
         (function () {
@@ -1384,6 +1522,7 @@
         '<p class="muted lg-raw">交易编号 <span class="mono">' + h + '</span> · <a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上原始记录 ↗</a></p></section>' +
         '<p class="muted" style="text-align:center"><a href="#/scan/' + a + '">← 回到 ' + (KNOWN[a] || "这个钱包") + ' 的账本</a></p>';
       fillNames(out);
+      if (failed(t)) whyFail(t).then(function (s) { var w = document.getElementById("sc-why"); if (w) w.innerHTML = "为什么：<b>" + esc(s) + "</b>"; out.querySelectorAll(".lg-why").forEach(function (e) { e.remove(); }); }); // 上面那句已经写了失败，原因放在「状态」那一格
       // 预言家奖池发出去的奖：中奖人领奖时把名字烧掉了，钱包里已经没有名字可显示 → 从发奖记录里按这笔交易找到他中奖用的名字，标在地址上
       if (a === PRIZE_POOL) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
         var p = ((j && j.pays) || []).filter(function (x) { return String(x.tx || "").toLowerCase() === String(h).toLowerCase(); })[0];

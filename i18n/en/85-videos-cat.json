@@ -8,5 +8,6 @@
 "📲 手机 App": "📲 Phone app",
 "📮 工单": "📮 Tickets",
 "🔮 预言家": "🔮 Oracle",
-"🏪 OTC 交易": "🏪 OTC trading"
+"🏪 OTC 交易": "🏪 OTC trading",
+"📒 账本里失败的交易会写清楚原因了：比如「这张单已经成交完或被挂单人撤掉了，你晚了一步」「授权额度不够」「价格变了，自动取消了」。也写明失败时币没动，只扣了一点 Gas 费。": "📒 Failed transactions in the ledger now say why they failed — for example “this order was already filled or cancelled, you were a step too late”, “not enough allowance”, or “the price changed, so it was cancelled automatically”. It also makes clear that when a transaction fails your coins don't move; only a little gas fee is charged."
 }
