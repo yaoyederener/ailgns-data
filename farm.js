@@ -2,6 +2,7 @@
 // 进农场要用钱包签一条文字确认身份（不是交易、不花 Gas），7 天内不用再签；规则和数据在后台 /api/farm（lib/farm.js）
 (function () {
   "use strict";
+  function fmArt(k, cls) { return '<img class="fm-art' + (cls ? " " + cls : "") + '" src="icons/farm/' + k + '.png?v=1" alt="" decoding="async">'; } // 站长手绘素材切出来的图标
 
   var A = window.AIL, W = A.wallet;
   function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
@@ -99,7 +100,7 @@
   try { A.wallets.onAccounts(function (a) { try { if (onAcc) onAcc(a); } catch (e) { /* 提醒出不来不影响农场 */ } }); } catch (e) { /* 老版本钱包模块没有这个入口 */ }
   function page(rid) {
     var R = null, me = null, sig = getSig(), skew = 0, tab = "farm", timer = null, burned = 0, seenCoins = null, seenLv = null, seenWho = "", walletNow = "";
-    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">🏡</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">🐔</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2 id="fm-title">我的农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
+    A.app.innerHTML = '<section class="fm-scene"><div class="fm-sky" aria-hidden="true"><i class="fm-sun"></i><i class="fm-cloud c1"></i><i class="fm-cloud c2"></i><i class="fm-hill h1"></i><i class="fm-hill h2"></i><span class="fm-prop p1">' + fmArt("barn") + '</span><span class="fm-prop p2">🌳</span><span class="fm-prop p3">🌻</span><span class="fm-prop p4">' + fmArt("hen") + '</span><span class="fm-prop p5">🌲</span><span id="fm-deco"></span></div><div class="fm-top"><h2 id="fm-title">我的农场</h2><span>种菜 · 养鸡 · 偷菜</span></div><div id="fm-stat"></div></section>' +
       '<div class="seg fm-tabs"><button data-t="farm" class="on">🌾 我的农场</button><button data-t="friends">🕵️ 去偷菜</button><button data-t="top">🏆 金币榜</button></div>' +
       '<div id="fm-out"><section class="card"><p class="muted">读取中…</p></section></div><div class="fm-toast" id="fm-toast" hidden></div><div class="modal" id="fm-modal" hidden></div>' +
       '<p class="note">金币只能在农场里花，换不回币，没有奖金奖品。充值的 LGNS 进入运营资金。</p>';
@@ -200,23 +201,9 @@
         var dz = document.getElementById("fm-deco");
         /* 2026-11-25 客户反馈「花 20000 买的城堡，小得看不见，能不能大气点」：城堡原来只是一个 34px 的小表情。
            现在画成一座大城堡（自己画的矢量图：三座尖顶塔、金旗、亮灯的窗、拱门，带闪光），有城堡的农场顶上那幅画也加高一截，给它留地方 */
-        var CASTLE = '<svg class="fm-castle" viewBox="0 0 120 108" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>' +
-          '<linearGradient id="fmcW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fffdf5"/><stop offset="1" stop-color="#e6d6b8"/></linearGradient>' +
-          '<linearGradient id="fmcR" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset=".55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#5b21b6"/></linearGradient>' +
-          '<linearGradient id="fmcG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs>' +
-          '<ellipse cx="60" cy="101" rx="58" ry="7" fill="#86c765"/>' +
-          '<g stroke="#a8946c" stroke-width="1.4" stroke-linejoin="round">' +
-          '<rect x="46" y="32" width="28" height="64" fill="url(#fmcW)"/><rect x="13" y="50" width="23" height="48" fill="url(#fmcW)"/><rect x="84" y="50" width="23" height="48" fill="url(#fmcW)"/>' +
-          '<path d="M30 98V60h7v6h6v-6h7v6h6v-6h8v6h6v-6h7v6h6v-6h7v38z" fill="url(#fmcW)"/></g>' +
-          '<g stroke="#4c1d95" stroke-width="1.4" stroke-linejoin="round" fill="url(#fmcR)"><path d="M41 34L60 7l19 27z"/><path d="M9 52l15.5-25L40 52z"/><path d="M80 52l15.5-25L111 52z"/></g>' +
-          '<g stroke="#8a5a12" stroke-width="1.3" stroke-linecap="round"><path d="M60 7V0M24.5 27v-6M95.5 27v-6"/></g>' +
-          '<g fill="url(#fmcG)" stroke="#b45309" stroke-width=".8" stroke-linejoin="round"><path class="fm-flag" d="M60 0l11 3-11 4z"/><path class="fm-flag" d="M24.5 21l8 2.4-8 3z"/><path class="fm-flag" d="M95.5 21l8 2.4-8 3z"/></g>' +
-          '<g fill="#fde68a" stroke="#b45309" stroke-width="1"><rect x="55.5" y="42" width="9" height="13" rx="4.5"/><rect x="20.5" y="60" width="8" height="11" rx="4"/><rect x="91.5" y="60" width="8" height="11" rx="4"/><rect x="37" y="74" width="6" height="8" rx="3"/><rect x="77" y="74" width="6" height="8" rx="3"/></g>' +
-          '<path d="M51 98V84a9 9 0 0 1 18 0v14z" fill="#8b5a2b" stroke="#5b3413" stroke-width="1.4"/><path d="M60 76v22M51 88h18" stroke="#5b3413" stroke-width="1"/><circle cx="57" cy="90" r="1.1" fill="#fde68a"/><circle cx="63" cy="90" r="1.1" fill="#fde68a"/>' +
-          '<g fill="#fff" class="fm-tw"><path d="M38 14l1.2 3 3 1.2-3 1.2-1.2 3-1.2-3-3-1.2 3-1.2z"/><path d="M86 10l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9z"/><path d="M112 40l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></g></svg>';
         var hasCastle = (me.decor || []).indexOf("castle") >= 0, sc = document.querySelector(".fm-scene");
         if (sc) sc.classList.toggle("has-castle", hasCastle);
-        if (dz) dz.innerHTML = (me.decor || []).map(function (k) { return R.decor && R.decor[k] ? '<span class="fm-prop fm-deco d-' + k + '">' + (k === "castle" ? CASTLE : R.decor[k].icon) + "</span>" : ""; }).join("");
+        if (dz) dz.innerHTML = (me.decor || []).map(function (k) { return R.decor && R.decor[k] ? '<span class="fm-prop fm-deco d-' + k + '">' + (k === "rainbow" ? R.decor[k].icon : fmArt(k)) + "</span>" : ""; }).join("");
       } catch (e) { /* 装饰画不出来不影响农场 */ }
       if (seenWho !== sig.addr) { seenCoins = null; seenLv = null; seenWho = sig.addr; }
       var d0 = seenCoins == null ? 0 : me.coins - seenCoins, up = seenLv != null && lv > seenLv;
@@ -249,7 +236,10 @@
       '<g fill="#ffd43b" stroke="#d9960a" stroke-width=".9"><circle cx="11.5" cy="13" r="3.2"/><circle cx="23.5" cy="10.5" r="3.2"/><circle cx="18" cy="18.5" r="3.4"/><circle cx="8.8" cy="20.5" r="2.6"/><circle cx="27.2" cy="20" r="2.6"/></g>' +
       '<g fill="#d9960a"><rect x="10.7" y="12.2" width="1.6" height="1.6"/><rect x="22.7" y="9.7" width="1.6" height="1.6"/><rect x="17.1" y="17.6" width="1.8" height="1.8"/></g>' +
       '<path d="M29.5 5.500l.700 1.800 1.800.700-1.800.700-.700 1.800-.700-1.800-1.800-.700 1.800-.700z" fill="#fff3b0"/></svg>';
-    function cropIc(c) { return c && c.art === "tree" ? FMZ_TREE : c && c.cut ? FMZ_CHIVE : c.icon; }
+    /* 🎨 站长 2026-11-25「农场用我这个元素更新一下」：站长给的两张手绘素材图切成了 28 个透明图标（icons/farm/），农场里的表情符号换成它们。
+       图标的大小跟着所在位置的字号走（.fm-art 高 1.15em），所以原来各处的排版不用改。图标读不出来时退回原来的表情符号 */
+    var CROP_ART = { "🥬": "cabbage", "🥕": "carrot", "🌽": "corn", "🍅": "tomato", "🍉": "melon", "🍓": "berry", "🍍": "pineapple", "🥭": "mango", "🎃": "pumpkin" };
+    function cropIc(c) { var k = c && (c.art === "tree" ? "moneytree" : c.cut ? "chive" : CROP_ART[c.icon]); return k ? fmArt(k) : c && c.art === "tree" ? FMZ_TREE : c && c.cut ? FMZ_CHIVE : c.icon; }
     /* 🏡 工单 #380：顶上不写「开心农场」，写「某某的农场」，用钱包的主名字（去掉 .ailgns）；没有主名字就写「我的农场」。名字长就缩小一号，出错不影响农场 */
     function fmTitle() {
       try {
@@ -275,7 +265,7 @@
         var selfAt = p.t + c.grow + (R.chiveSelf || 86400);
         if (c.cut && s <= 0 && t < selfAt) return '<button type="button" class="fm-plot cutme" data-cutme="' + selfAt + '"><em class="fm-tip cut">割</em><span class="fm-ic">' + cropIc(c) + "</span><b>" + c.name + "</b><small>等别人来割</small></button>";
         if (s <= 0) ripe++;
-        return '<div class="fm-plot' + (s <= 0 ? " ripe" : " grow") + '">' + (s <= 0 ? '<em class="fm-tip">收</em><i class="fm-spark">✨</i>' : "") + '<span class="fm-ic' + (s > 0 && (pr >= 0.67 || (c.cut && pr >= 0.34)) ? " young" : "") + '">' + (s <= 0 || pr >= 0.67 ? cropIc(c) : pr < 0.34 ? "🌱" : c.cut ? FMZ_CHIVE : "🌿") + "</span><b>" + c.name + (p.stolen ? '<em class="fm-st">被偷 ' + (p.stolen % 1 ? Math.round(p.stolen / c.yield * 100) + "%" : p.stolen) + "</em>" : "") + "</b>" +
+        return '<div class="fm-plot' + (s <= 0 ? " ripe" : " grow") + '">' + (s <= 0 ? '<em class="fm-tip">收</em><i class="fm-spark">✨</i>' : "") + '<span class="fm-ic' + (s > 0 && (pr >= 0.67 || (c.cut && pr >= 0.34)) ? " young" : "") + '">' + (s <= 0 || pr >= 0.67 ? cropIc(c) : pr < 0.34 ? "🌱" : c.cut ? fmArt("chive") : "🌿") + "</span><b>" + c.name + (p.stolen ? '<em class="fm-st">被偷 ' + (p.stolen % 1 ? Math.round(p.stolen / c.yield * 100) + "%" : p.stolen) + "</em>" : "") + "</b>" +
           '<small data-ripe="' + (p.t + c.grow) + '">' + left(s) + "</small>" + (s > 0 ? '<i class="fm-bar"><i style="width:' + (pr * 100).toFixed(0) + '%"></i></i><button type="button" class="fm-boost" data-boost="' + i + '">⚡ ' + boostCost(s, R.boost) + "</button>" : "") + "</div>";
       }).join("");
       var more = me.plots.length < 6 + R.plots.length ? '<button type="button" class="fm-plot buy" id="fm-buyplot"><span class="fm-ic fm-plus">＋</span><b>开垦新地</b><small>' + R.plots[me.plots.length - 6] + " 金币</small></button>" : "";
@@ -283,7 +273,7 @@
       var hens = me.hens.map(function (h) {
         eggs += h.eggs;
         var full = h.fed > t;
-        return '<div class="fm-hen' + (full ? "" : " hungry") + (h.g ? " gold" : "") + '"><span class="fm-ic">' + (full ? (h.g ? "🐓" : "🐔") : "😵") + "</span><b>" + (h.eggs ? (h.g ? "🟡" : "🥚").repeat(h.eggs) : "还没下蛋") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才下蛋") + "</small></div>";
+        return '<div class="fm-hen' + (full ? "" : " hungry") + (h.g ? " gold" : "") + '"><span class="fm-ic">' + (full ? fmArt(h.g ? "goldhen" : "hen") : "😵") + "</span><b>" + (h.eggs ? (h.g ? "🟡" : fmArt("egg", "sm")).repeat(h.eggs) : "还没下蛋") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才下蛋") + "</small></div>";
       }).join("");
       var hungry = me.hens.filter(function (h) { return h.fed - t < 16 * 3600; }).length;
       /* 站长 2026-11-18 奶牛：牛棚排在鸡舍下面，玩法和鸡一样（喂 → 产奶 → 挤奶卖钱） */
@@ -292,7 +282,7 @@
         var cows = cowList.map(function (h) {
           milks += h.eggs;
           var full = h.fed > t;
-          return '<div class="fm-hen cow' + (full ? "" : " hungry") + '"><span class="fm-ic">' + (full ? "🐄" : "😵") + "</span><b>" + (h.eggs ? "🥛".repeat(h.eggs) : "还没产奶") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才产奶") + "</small></div>";
+          return '<div class="fm-hen cow' + (full ? "" : " hungry") + '"><span class="fm-ic">' + (full ? fmArt("cow") : "😵") + "</span><b>" + (h.eggs ? fmArt("milk", "sm").repeat(h.eggs) : "还没产奶") + "</b><small>" + (full ? "吃饱还剩 " + left(h.fed - t) : "饿了，喂了才产奶") + "</small></div>";
         }).join("");
         var cowHungry = cowList.filter(function (h) { return h.fed - t < K.maxFed - K.feedTime; }).length;
         barn = '<section class="card fm-coop fm-barn"><div class="card-head"><h2>🐄 牛棚</h2><span class="muted">每 ' + K.milkTime / 3600 + " 小时产 1 瓶奶，奶 " + K.milk + " 金币</span></div>" +
@@ -310,16 +300,16 @@
         (me.hens.length ? '<button type="button" class="ghost" id="fm-feed"' + (hungry ? "" : " disabled") + ">喂鸡（" + H.feed + " 金币/只）</button>" : "") +
         (me.hens.filter(function (h) { return !h.g; }).length < H.max ? '<button type="button" class="ghost" id="fm-hen">买鸡（' + H.price + " 金币）</button>" : "") + "</div></section>" + barn +
         '<section class="card fm-shop"><div class="card-head"><h2>🏪 道具商店</h2></div><div class="fm-items">' +
-        '<button type="button" id="fm-dog"><span class="fm-ic">🐕</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
-        (R.cop ? '<button type="button" id="fm-cop"><span class="fm-ic">👮</span><b>警察</b><small>' + R.cop.price + " 金币 · " + R.cop.days + " 天</small><em>看家最牢：来偷的被抓就一颗也偷不走，还罚 " + R.cop.fine + " 金币给你" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次拦不住" + (R.cop.take ? "，但每块地最多被偷走 " + R.cop.take + "%" : "") : "") + "。别人看不到你家有警察</em></button>" : "") +
-        '<button type="button" id="fm-ghen"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🐓</span><b>金鸡</b><small>' + R.goldHen.price + " 金币 · 最多 " + R.goldHen.max + " 只</small><em>" + (me.paid ? "金蛋每个 " + R.goldHen.egg + " 金币，是普通蛋的 3 倍多" : "👑 充值玩家专属：金蛋每个 " + R.goldHen.egg + " 金币") + "</em></button>" +
+        '<button type="button" id="fm-dog"><span class="fm-ic">' + fmArt("dog") + '</span><b>看门狗</b><small>' + R.dog.price + " 金币 · " + R.dog.days + " 天</small><em>来偷的一半会被咬，赔你 " + R.dog.bite + " 金币；没被咬也最多偷走一半。别人看不到你家有狗</em></button>" +
+        (R.cop ? '<button type="button" id="fm-cop"><span class="fm-ic">' + fmArt("cop") + '</span><b>警察</b><small>' + R.cop.price + " 金币 · " + R.cop.days + " 天</small><em>看家最牢：来偷的被抓就一颗也偷不走，还罚 " + R.cop.fine + " 金币给你" + (R.cop.nap ? "；警察有 " + R.cop.nap + "% 的机会在打瞌睡，那一次拦不住" + (R.cop.take ? "，但每块地最多被偷走 " + R.cop.take + "%" : "") : "") + "。别人看不到你家有警察</em></button>" : "") +
+        '<button type="button" id="fm-ghen"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">' + fmArt("goldhen") + '</span><b>金鸡</b><small>' + R.goldHen.price + " 金币 · 最多 " + R.goldHen.max + " 只</small><em>" + (me.paid ? "金蛋每个 " + R.goldHen.egg + " 金币，是普通蛋的 3 倍多" : "👑 充值玩家专属：金蛋每个 " + R.goldHen.egg + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pump"' + (me.paid ? "" : ' class="vip"') + '><span class="fm-ic">🎃</span><b>黄金南瓜</b><small>种子 ' + R.crops.pumpkin.seed + " · 24 小时</small><em>" + (me.paid ? "一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币，到空地里种" : "👑 充值玩家专属：一块地卖 " + R.crops.pumpkin.yield * R.crops.pumpkin.price + " 金币") + "</em></button>" +
         '<button type="button" id="fm-pay2"><span class="fm-ic"><i class="fm-coin"></i></span><b>充值金币</b><small>1 LGNS = 100 金币</small><em>' + (me.paid ? "档位越大送得越多" : "🔥 首充金币翻倍，每日签到变 " + R.dailyVip) + "</em></button>" +
         "</div></section>" +
         (R.decor ? '<section class="card fm-shop fm-decos"><div class="card-head"><h2>🎀 农场装饰</h2><span class="muted">只为好看 · 买了永久有</span></div><div class="fm-items">' +
           Object.keys(R.decor).map(function (k) {
             var d = R.decor[k], has = (me.decor || []).indexOf(k) >= 0;
-            return '<button type="button" data-decor="' + k + '"' + (has ? ' disabled class="has"' : "") + '><span class="fm-ic">' + d.icon + "</span><b>" + d.name + "</b><small>" + (has ? "✅ 已拥有" : A.fmt(d.price) + " 金币") + "</small></button>";
+            return '<button type="button" data-decor="' + k + '"' + (has ? ' disabled class="has"' : "") + '><span class="fm-ic">' + fmArt(k) + "</span><b>" + d.name + "</b><small>" + (has ? "✅ 已拥有" : A.fmt(d.price) + " 金币") + "</small></button>";
           }).join("") + '</div><p class="note">装饰没有别的作用，就是好看：摆在你农场顶上那幅画里，好友列表和金币榜上你的名字后面也会显示。</p></section>' : "") +
         (me.log.length ? '<section class="card"><div class="card-head"><h2>📜 农场动态</h2></div><ul class="fm-log">' + me.log.slice(0, 10).map(function (l) {
           return "<li><small>" + new Date(l.t * 1000).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "</small> " + logText(l) + "</li>";
