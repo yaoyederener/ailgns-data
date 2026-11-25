@@ -5733,3 +5733,7 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .vdc-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
 .vdc-pick button { padding: 8px 12px; border-radius: 10px; border: 1px solid #e3d9ff; background: #fff; color: #5b5385; font-size: 14px; }
 .vdc-pick button.on { background: #7c5cff; border-color: #7c5cff; color: #fff; }
+
+/* 待办页（合并了网站优化）：底下的资料折叠 */
+.td-ref { margin-top: 18px; padding: 10px 12px; border-radius: 12px; background: #faf8ff; border: 1px solid #efeaf9; }
+.td-ref summary { cursor: pointer; font-weight: 600; color: #5b5385; }
