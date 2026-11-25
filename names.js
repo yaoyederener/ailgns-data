@@ -1015,14 +1015,15 @@
         /* 站长 2026-11-26：「普通域名销量下滑，这里重新设计下，引导客户注册普通域名，普通域名的好处？否则游戏玩不下去」
            → 这张卡从「创世分红」改成「注册一个自己的名字」：先说价钱，再用六格讲清楚有名字能干什么（每一条都是站里真有的规则，从代码核过），
              一个大按钮直接跳到下面的搜索框。创世分红奖池缩成最底下一行，点了去分红页。样式前缀 gcn- */
-        var tile = function (ic, t, x) { return '<div class="gcn-t"><i>' + ic + "</i><b>" + t + "</b><small>" + x + "</small></div>"; };
+        var tile = function (ic, t, x, tag) { return '<div class="gcn-t"><i>' + ic + '</i><div><b>' + t + (tag ? '<em>' + tag + "</em>" : "") + "</b><small>" + x + "</small></div></div>"; }; /* 2026-11-26 二改：图标放进彩色圆角块，标题旁可带小标 */
         b.innerHTML = '<div class="gcn">' +
           '<div class="gcn-top"><span class="gcn-tag">🌐 .ailgns 域名</span><span class="gc-live"><i></i>链上实时</span></div>' +
-          '<h3 class="gcn-h">注册一个自己的名字</h3>' +
-          '<p class="gcn-sub">一串 0x 开头的地址谁也记不住。换成一个名字，全站都认它。</p>' +
-          '<div class="gcn-price"><b>5</b><em>DAI / 年起</em><small>中文 3 个字起、英文 5 位起都是这个价</small></div>' +
+          '<div class="gcn-head"><div><h3 class="gcn-h">注册一个自己的名字</h3>' +
+          '<p class="gcn-sub">一串 0x 开头的地址谁也记不住。换成一个名字，全站都认它。</p></div>' +
+          '<div class="gcn-price"><b>5</b><em>DAI / 年起</em><small>中文 3 个字起、英文 5 位起都是这个价</small></div></div>' +
+          '<p class="gcn-cap">有了名字，能做这些</p>' +
           '<div class="gcn-grid">' +
-          tile("🏡", "玩农场要它", "开心农场要先有主名字才能玩、才能上榜") +
+          tile("🏡", "玩农场要它", "开心农场要先有主名字才能玩、才能上榜", "必需") +
           tile("🔮", "每日预言家的资格", "设好主名字，再持有 5 个自己注册的普通域名") +
           tile("⚡", "极速预言家的票", "批量注册时，每注册 1 个域名就是 1 张票") +
           tile("🏆", "上荣耀榜", "有本站域名的钱包才会出现在榜上") +

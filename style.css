@@ -5650,3 +5650,34 @@ html.lang-ko body { word-break: keep-all; }
 .gcn-bonus b { margin-left: auto; color: #6d28d9; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gcn-bonus em { font-style: normal; color: #8a82a8; white-space: nowrap; }
 @media (min-width: 760px) { .gcn-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* 域名页「注册一个自己的名字」卡 · 二改（站长 2026-11-26：「好处再优化一下，做的精美一点」）：图标进彩色圆角块、每格左图右字、电脑上标题和价钱并排 */
+.gcn-head { display: grid; gap: 12px; margin-top: 14px; }
+.gcn-head .gcn-h { margin-top: 0; }
+.gcn-head .gcn-price { margin: 0; }
+.gcn-cap { margin: 16px 2px 8px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #7a6fa8; }
+.gcn-cap::before { content: ""; display: inline-block; width: 18px; height: 3px; margin-right: 8px; border-radius: 99px; background: linear-gradient(90deg, #8b5cf6, #3b82f6); vertical-align: middle; }
+.gcn-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.gcn-t { display: flex; align-items: flex-start; gap: 12px; padding: 12px 13px; border-radius: 18px; background: #fff; border: 1px solid #ece4fb; box-shadow: 0 3px 10px rgba(124, 58, 237, .05); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.gcn-t i { flex: none; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0; border-radius: 14px; font-size: 23px; background: linear-gradient(135deg, #ede4ff, #dbe7ff); }
+.gcn-t:nth-child(1) i { background: linear-gradient(135deg, #dcfce7, #d1fae5); }
+.gcn-t:nth-child(2) i { background: linear-gradient(135deg, #f3e8ff, #e9d5ff); }
+.gcn-t:nth-child(3) i { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+.gcn-t:nth-child(4) i { background: linear-gradient(135deg, #ffedd5, #fed7aa); }
+.gcn-t:nth-child(5) i { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
+.gcn-t:nth-child(6) i { background: linear-gradient(135deg, #fce7f3, #fbcfe8); }
+.gcn-t > div { min-width: 0; }
+.gcn-t b { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 15.5px; line-height: 1.35; color: #2e2654; }
+.gcn-t b em { font-style: normal; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; color: #15803d; background: #dcfce7; }
+.gcn-t small { margin-top: 3px; font-size: 13px; line-height: 1.55; color: #6b6390; }
+@media (hover: hover) { .gcn-t:hover { transform: translateY(-2px); border-color: #cdbdf5; box-shadow: 0 10px 22px rgba(124, 58, 237, .12); } }
+@media (min-width: 560px) { .gcn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 900px) {
+  .gcn { padding: 24px 24px 18px; }
+  .gcn-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; }
+  .gcn-h { font-size: 30px; }
+  .gcn-head .gcn-price { min-width: 280px; }
+  .gcn-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .gcn-t { padding: 16px; }
+  .gcn-go { max-width: 420px; margin-left: auto; margin-right: auto; }
+}
