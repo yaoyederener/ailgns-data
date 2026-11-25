@@ -5617,3 +5617,6 @@ html.lang-ko body { word-break: keep-all; }
 .fmx .fm-acts button, .fmx .fm-all, .fmx #fm-login, .fmx #fm-harvest, .fmx .fm-field .card-head #fm-plantall { color: #fff; background: linear-gradient(180deg, #6fcf7a, #3fa34d); box-shadow: 0 4px 0 #2f8a3c, 0 6px 14px rgba(63, 163, 77, .25); }
 .fmx .fm-acts button.ghost { background: #fff; color: #1f5f2a; box-shadow: inset 0 0 0 1.5px #bfe3b3, 0 3px 0 #cfe8c4; }
 .fmx .fm-acts button:disabled, .fmx #fm-harvest:disabled, .fmx .fm-all:disabled { background: #eef1f4; color: #9aa6b2; box-shadow: inset 0 0 0 1.5px #dfe5ea; }
+.fmx .fm-plot.ripe { animation: fmx-ripe 1.8s ease-in-out infinite; }
+@keyframes fmx-ripe { 0%, 100% { box-shadow: 0 0 0 3px rgba(155, 214, 106, .20), 0 5px 14px rgba(110, 170, 70, .18); } 50% { box-shadow: 0 0 0 6px rgba(155, 214, 106, .30), 0 5px 14px rgba(110, 170, 70, .22); } }
+@media (prefers-reduced-motion: reduce) { .fmx .fm-plot.ripe { animation: none; } }
