@@ -1,4 +1,4 @@
-window.AIL_NIGHT="dist/night.css?v=hb3f28630cf";
+window.AIL_NIGHT="dist/night.css?v=ha904c38def";
 window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=hf2551179c8","ko":"dist/lang-ko.js?v=h1842f8e36d"};
 window.AIL_BUNDLES={"names":"dist/names.js?v=hfbed4f2e50","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=he21831d02e","trade":"dist/trade.js?v=hd83c503646","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=h9a2771500a","aiswap":"dist/aiswap.js?v=h9fbd9d597d","feedback":"dist/feedback.js?v=h1fed17c995","games":"dist/games.js?v=h3c520d4cee","mj":"dist/mj.js?v=hc48ff62250","gd":"dist/gd.js?v=hdfd7ca82c7","misc":"dist/misc.js?v=h646f2efd81"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
@@ -1205,5 +1205,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h5a4225cc35";
-/*v:h5a4225cc35*/
+;window.AIL_CORE="hd8674a25f1";
+/*v:hd8674a25f1*/
