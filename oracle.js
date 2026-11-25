@@ -879,5 +879,21 @@
       } catch (e) { /* 重读失败不影响页面，手动刷新照旧能用 */ }
     });
   } catch (e) { /* 老版本钱包模块没有这个入口 */ }
+  /* 站长 2026-11-25：每日预言家的注册就在预言家页里做，不跳到域名页。点「注册域名参加预测」或资格说明里的注册链接 → 先把域名那一包加载好，
+     标上「每日预言家入口」（注册交易带记号，注册费 95% 进每日奖池），原地弹出挑名字的窗口。加载不了才照旧跳过去 */
+  if (!window.__orRegBound) {
+    window.__orRegBound = true;
+    document.addEventListener("click", function (e) {
+      try {
+        var a = e.target && e.target.closest ? e.target.closest('a[href="#/names/~daily"]') : null;
+        if (!a || location.hash.indexOf("#/oracle") !== 0 || !A.useBundle) return;
+        e.preventDefault();
+        A.useBundle("names").then(function () {
+          if (!A.nm || !A.nm.setDaily || !A.namesBatch) { location.hash = "#/names/~daily"; return; }
+          A.nm.setDaily(true); A.namesBatch.open({ one: true, stay: true });
+        }, function () { location.hash = "#/names/~daily"; });
+      } catch (x) { /* 出错就让链接照常跳转 */ }
+    });
+  }
   A.pages.oracle = page;
 })();

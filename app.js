@@ -608,6 +608,7 @@
     var order = ["kchart", "names", "oracle", "trade", "lend", "lp", "aiswap", "misc", "feedback", "games"], i = 0;
     (function next() { if (i >= order.length) return; var k = order[i++]; loadBundle(k).catch(function () {}).then(function () { setTimeout(next, 400); }); })();
   }
+  A.useBundle = function (k) { return loadBundle(k); }; // 别的页面要用某一包里的功能（比如在预言家页直接弹出注册窗口）
   function loadBundle(k) {
     if (bundles[k]) return bundles[k];
     var url = window.AIL_BUNDLES && window.AIL_BUNDLES[k];
