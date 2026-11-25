@@ -1190,12 +1190,13 @@
       if (gk) fetch("/api/geo?key=" + encodeURIComponent(gk) + "&a=" + a).then(function (r) { return r.json(); }).then(function (g) {
         if (!g || g.error || !out.isConnected || !out.firstElementChild) return;
         var CN = { CN: "中国大陆", HK: "香港", TW: "台湾", MO: "澳门", US: "美国", CA: "加拿大", JP: "日本", KR: "韩国", SG: "新加坡", MY: "马来西亚", TH: "泰国", VN: "越南", AU: "澳大利亚", GB: "英国", DE: "德国", FR: "法国", AE: "阿联酋", KH: "柬埔寨", PH: "菲律宾", ID: "印尼" };
+        var NET = function (n) { return /chinanet|china telecom/i.test(n) ? "中国电信" : /china mobile|cmnet/i.test(n) ? "中国移动" : /unicom/i.test(n) ? "中国联通" : /broadnet|broadcasting/i.test(n) ? "中国广电" : n; };
         var bjt = function (t) { var d = new Date(t + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
         var l = g.list || [], el = document.createElement("section");
         el.className = "card sc-geo";
         el.innerHTML = '<div class="card-head"><h2>📍 连接地区</h2><span class="muted">只有站长看得到 · 留 30 天</span></div>' +
-          (l.length ? l.map(function (x) { return '<div class="sc-pay"><div><b>' + esc((CN[x.c] || x.c) + (x.r ? " · " + x.r : "") + (x.city ? " · " + x.city : "")) + '</b></div><div class="sc-payr"><small class="muted">' + (x.t0 && x.t - x.t0 > 3600e3 ? bjt(x.t0) + " 起，最近 " : "") + bjt(x.t) + "（北京时间）</small></div></div>"; }).join("") : '<p class="muted">最近 30 天，没有人带着这个地址打开过本站（或者是在这个功能上线之前）。</p>') +
-          '<p class="muted" style="font-size:12.5px">只到城市，不存 IP。只能说明有人带着这个地址从那里打开过网站，不能证明就是钱包主人；对方开 VPN 时位置不准。只当参考。</p>';
+          (l.length ? l.map(function (x) { return '<div class="sc-pay"><div><b>' + esc((CN[x.c] || x.c) + (x.r ? " · " + x.r : "")) + '</b>' + (x.dc ? '<br><small style="color:#b45309">⚠️ 疑似 VPN / 机房，位置不可信</small>' : "") + (x.net ? '<br><small class="muted">网络：' + esc(NET(x.net)) + "</small>" : "") + '</div><div class="sc-payr"><small class="muted">' + (x.t0 && x.t - x.t0 > 3600e3 ? bjt(x.t0) + " 起，最近 " : "") + bjt(x.t) + "（北京时间）</small></div></div>"; }).join("") : '<p class="muted">最近 30 天，没有人带着这个地址打开过本站（或者是在这个功能上线之前）。</p>') +
+          '<p class="muted" style="font-size:12.5px">只到省，不存 IP。位置是按上网出口猜的：手机流量的出口可能在别的省，开 VPN 的显示的是机房位置。只能说明有人带着这个地址从那里打开过网站，不能证明就是钱包主人。只当参考。</p>';
         out.insertBefore(el, out.firstElementChild.nextSibling);
       }).catch(function () {});
     } catch (e) {}
