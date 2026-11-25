@@ -5421,8 +5421,6 @@ html.lang-ko body { word-break: keep-all; }
 .fm-scene.has-castle .fm-prop.p5 { display: none; } /* 右边那棵松树让位给城堡 */
 .fm-scene.has-castle .fm-prop.p3 { right: 116px; }
 .fm-scene.has-castle .fm-deco.d-statue { right: 150px; }
-.fm-scene.has-castle .fm-sun { right: 118px; top: 8px; } /* 太阳挪到城堡左上方，不被塔尖挡住 */
-.fm-scene.has-castle .fm-cloud.c2 { left: 46%; }
 @media (prefers-reduced-motion: no-preference) {
   .fm-castle .fm-tw path { animation: fm-twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
   .fm-castle .fm-tw path:nth-child(2) { animation-delay: .8s; }
