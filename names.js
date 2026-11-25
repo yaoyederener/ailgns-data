@@ -340,7 +340,7 @@
       });
     }, function () { return false; });
   }
-  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, srcDaily: function () { return SRC_DAILY; }, account: function () { return account; }, NAMES: function () { return NAMES; },
+  A.nm = { yearPrice: yearPrice, valid: valid, connect: connect, prepay: prepay, register: register, regData: regData, sendCalls: sendCalls, srcDaily: function () { return SRC_DAILY; }, setDaily: function (v) { SRC_DAILY = !!v; }, account: function () { return account; }, NAMES: function () { return NAMES; },
     tx: tx, DAI: DAI, owned: ownedList, // 销毁页（genesis.js）用：列出钱包里的创世名
     idOf: function (label) { return call(SEL.idOf + str(label)).then(function (r) { return word(r, 0); }); }, // 大奖一键注册并销毁：名字 → tokenId（64 位 hex）
     allowance: function (token, spender) { return call2(token, SEL.allowance + A.pad(account) + A.pad(spender)).then(BigInt); },

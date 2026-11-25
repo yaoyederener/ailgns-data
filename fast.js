@@ -264,5 +264,20 @@
     tick = setInterval(function () { if (!el("fx-main")) { clearInterval(tick); return; } try { clock(); } catch (e) {} }, 1000);
     poll = setInterval(function () { if (!el("fx-main")) { clearInterval(poll); return; } if (!document.hidden && !busy) load(); if (!document.hidden) px(); }, 10000);
   }
+  /* 站长 2026-11-25：极速预言家的注册（买票）就在极速页里做，不跳到域名页 */
+  if (!window.__fxRegBound) {
+    window.__fxRegBound = true;
+    document.addEventListener("click", function (e) {
+      try {
+        var a = e.target && e.target.closest ? e.target.closest('a[href="#/names/batch"]') : null;
+        if (!a || location.hash.indexOf("#/fast") !== 0 || !A.useBundle) return;
+        e.preventDefault();
+        A.useBundle("names").then(function () {
+          if (!A.nm || !A.nm.setDaily || !A.namesBatch) { location.hash = "#/names/batch"; return; }
+          A.nm.setDaily(false); A.namesBatch.open({ tickets: true, stay: true });
+        }, function () { location.hash = "#/names/batch"; });
+      } catch (x) { /* 出错就让链接照常跳转 */ }
+    });
+  }
   A.pages.fast = function () { try { render(); } catch (e) { A.app.innerHTML = '<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>'; } };
 })();
