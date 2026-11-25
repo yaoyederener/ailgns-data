@@ -86,7 +86,7 @@ export async function onRequestGet(ctx) {
     if (/^0x[0-9a-f]{40}$/.test(qa)) pf.mine = (await kv.get("or:gtx:" + day + ":" + qa, "json")) || null; // 查看者自己的链上存证（时间、预测价、交易）
     return json(pf);
   }
-  if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
+  if (u.searchParams.get("res")) { const r = await kv.get("or:res:" + String(u.searchParams.get("res")).slice(0, 10), "json"); return Response.json(r ? { day: r.day, px: r.px, sc: r.sc || (String(r.day) >= "2026-11-15" ? 10000 : 1000) } : { day: null }, { headers: { "cache-control": "public, max-age=60" } }); }
   if (u.searchParams.get("pay")) {
     if (!ctx.env.BACKUP_KEY || u.searchParams.get("key") !== ctx.env.BACKUP_KEY) return new Response("forbidden", { status: 403 });
     ctx.waitUntil(kv.put("kp:at", String(Date.now()), { expirationTtl: 7 * 86400 }).catch(() => {})); // 🤝 合伙人面板用的机器人心跳
