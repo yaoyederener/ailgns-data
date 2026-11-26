@@ -73,19 +73,26 @@
     calc();
   }
   var data = null, side = { side: "both" }, midTouched = false; // midTouched：客户自己改过中间价就不再自动覆盖
+  /* 🛑 2026-11-26 事故（站长转来：0x30ea…202a「100 DAI 买了 0.1 个 LGNS」）：客户先开了 AiLGNS 的做市页，马上点到 LGNS。
+     AiLGNS 那一页的数据回来得晚，下面的判断写的是 A.isCurrent(rid)——rid 是「现在这一页」的编号，所以晚到的旧数据也被当成这一页的，
+     把 AiLGNS 的中间价（848）填进了 LGNS 的中间价，连「差一倍不让挂」用的参考价也一起被换成 848，于是没拦住；
+     买单按 845 DAI 一枚挂到 LGNS 市场，同一个区块就被抢单机器人卖给了他 0.118 枚 LGNS，100 DAI 没了。
+     改法：① 每次读数据都记住「是哪一页、哪个市场发出去的」，回来时对不上就丢掉；② 发单前再从链上现读一次这个市场的价格，对不上或读不到都不发（见 place）。 */
   function load() {
-    fetch("/api/book?m=" + MK).then(function (r) { return r.json(); }).then(function (j) {
+    var id0 = rid, mk0 = MK, fresh = function () { return id0 === rid && mk0 === MK && A.isCurrent(id0); };
+    fetch("/api/book?m=" + mk0).then(function (r) { return r.json(); }).then(function (j) {
+      if (!fresh()) return;
       if (j.reserves) { var w = j.reserves.slice(2).match(/.{64}/g); mkt = (Number(BigInt("0x" + w[1])) / 1e18) / (Number(BigInt("0x" + w[0])) / Math.pow(10, TD)); }
       var mi = document.getElementById("lp-mid"); if (mi && !mi.value && !midTouched && mkt && !(side && side.mid)) { mi.value = mkt.toFixed(PD); preview(); } // 没有 OTC 中间价时才用 DEX 价兜底
       hint();
     }).catch(function () {});
     return fetch(lpq(account ? "&a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) {
-      if (!A.isCurrent(rid)) return;
+      if (!fresh()) return;
       data = j; if (j.rules) R = j.rules; if (j.side) side = j.side;
       // 默认中间价用 OTC 自己的买一卖一中间价（DEX 价常高 3% 以上，照它铺买单会被人立刻高价卖给你）
       var mi = document.getElementById("lp-mid"); if (mi && !midTouched && side.mid) mi.value = side.mid.toFixed(PD);
       hint(); sideLine(); sidePoll(); board("today"); if (j.me) me(j.me); preview();
-    }).catch(function () { var s = document.getElementById("lp-side"); if (s) s.textContent = "盘口供需暂时读不到，一键做市按双边铺。"; });
+    }).catch(function () { if (!fresh()) return; var s = document.getElementById("lp-side"); if (s) s.textContent = "盘口供需暂时读不到，一键做市按双边铺。"; });
   }
   function hint() { var el = document.getElementById("lp-hint"); if (!el) return; el.textContent = (side.mid ? "OTC 盘口中间价 " + f(side.mid, PD) : "") + (mkt ? (side.mid ? " · " : "") + "DEX 现价 " + f(mkt, PD) : ""); }
   // 顶部大字：现在缺哪边、做市商优先挂哪边
@@ -104,10 +111,10 @@
   var sideTimer = 0;
   function sidePoll() {
     clearInterval(sideTimer);
-    sideTimer = setInterval(function () {
-      if (!A.isCurrent(rid)) return clearInterval(sideTimer);
+    var id0 = rid, mk0 = MK, tm = sideTimer = setInterval(function () {
+      if (id0 !== rid || mk0 !== MK || !A.isCurrent(id0)) return clearInterval(tm);
       if (document.hidden) return;
-      fetch(lpq()).then(function (r) { return r.json(); }).then(function (j) { if (A.isCurrent(rid) && j && j.side) { side = j.side; sideLine(); var n = document.querySelector(".lp-need"); if (n) n.innerHTML = needText(); } }).catch(function () {});
+      fetch(lpq()).then(function (r) { return r.json(); }).then(function (j) { if (id0 === rid && mk0 === MK && A.isCurrent(id0) && j && j.side) { side = j.side; sideLine(); var n = document.querySelector(".lp-need"); if (n) n.innerHTML = needText(); } }).catch(function () {});
     }, 30000);
   }
   function needText() {
@@ -226,7 +233,16 @@
       else { var c2 = toWei((r.dai / r.px).toFixed(6), TD), d2 = toWei((Number(c2) / Math.pow(10, TD) * r.px).toFixed(6), 18); sellCoin += c2; calls.push({ to: OTC, data: SEL.create + u256(1) + u256(c2) + u256(d2) + u256(p.dur), tag: "卖单 " + f(r.px, PD) }); }
     });
     go.disabled = true;
+    var id0 = rid, mk0 = MK, otc0 = OTC;
     K().ready().then(function () {
+      // 发单前最后一道闸：市场没被别的页面换掉；链上现读这个市场的 DEX 价，中间价和它差一倍以上、或者读不到价，都不发
+      at = "核对市价";
+      if (id0 !== rid || mk0 !== MK || String(K().M().otc).toLowerCase() !== String(otc0).toLowerCase()) throw new Error("页面已经换了市场，这一批没有发出去。请回到要做市的那个币的页面重新点。");
+      return K().marketPrice().then(function (px) { return px; }, function () { return 0; });
+    }).then(function (px) {
+      if (!(px > 0)) throw new Error("现在读不到 " + SYM + " 的链上市价，没法核对你的中间价，这一批先不发（没有扣任何钱）。请过一会儿再点。");
+      if (String(K().M().otc).toLowerCase() !== String(otc0).toLowerCase()) throw new Error("页面已经换了市场，这一批没有发出去。请重新点。");
+      if (p.mid >= px * 2 || p.mid <= px * 0.5) throw new Error("中间价 " + f(p.mid, PD) + " 和 " + SYM + " 现在的链上市价（约 " + f(px, PD) + "）差了一倍以上，这一批没有发出去（没有扣任何钱）。请到「高级设置」把中间价改到市价附近再点。");
       account = K().account(); after(); at = "读钱包余额";
       return Promise.all([K().balance(DAI, account), K().balance(TOKEN, account)]);
     }).then(function (b) {
