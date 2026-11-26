@@ -182,7 +182,19 @@ def gen_faq():
     if out != old: write("lib/faq.js", out)
     print("faq ok: %d 条标准答案 → lib/faq.js" % len(re.findall(r"^  \{ k: ", body, re.M)))
 
+def need_static():
+    """页面里按固定路径引用的文件必须真的在仓库里（2026-11-26：vendor/qrcode 被误删 5 天没人发现，二维码一直出不来）。"""
+    import re, os, glob
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    miss = []
+    for f in glob.glob(os.path.join(root, "*.js")):
+        for m in re.finditer(r'"(vendor/[A-Za-z0-9._-]+)(?:\?v=[A-Za-z0-9]+)?"', open(f, encoding="utf-8").read()):
+            if not os.path.exists(os.path.join(root, m.group(1))): miss.append("%s 引用了不存在的 %s" % (os.path.basename(f), m.group(1)))
+    if miss: raise SystemExit("打包停止：" + "；".join(sorted(set(miss))))
+
+
 def main():
+    need_static()
     syntax_check()
     registry_check()
     gen_rules()
