@@ -172,14 +172,14 @@
     var g = grade(S.moves, S.min), r = rec(), today = bjDay();
     var line = g === 3 ? "🎉 刚好最少步数！" : g === 2 ? "👍 很接近最少步数" : "✅ 通关了，下次试试更少的步数";
     var share = S.mode === "daily" ? '<button type="button" class="gxl-b pri" data-gxl="share">📋 复制成绩，发给朋友比</button>' : "";
-    return '<div class="gxl-done"><b>' + line + "</b><p>" + S.moves + " 步（最少 " + S.min + " 步）" + (S.hints ? " · 用了 " + S.hints + " 次提示" : "") + "</p>" +
-      (S.mode === "daily" ? "<p>连续 " + streakNow(r, today) + " 天 · 最长 " + (r.best || 0) + " 天 · 明天 0 点（北京时间）出新题</p>" : "") + share +
+    return '<div class="gxl-done"><b>' + line + "</b><p><span>步数：</span>" + S.moves + " · <span>最少：</span>" + S.min + (S.hints ? " · <span>提示：</span>" + S.hints : "") + "</p>" +
+      (S.mode === "daily" ? "<p><span>连续：</span>" + streakNow(r, today) + " <span>天</span> · <span>最长：</span>" + (r.best || 0) + " <span>天</span> · <span>明天 0 点（北京时间）出新题</span></p>" : "") + share +
       '<button type="button" class="gxl-b" data-gxl="free">🎲 再练一题</button></div>';
   }
   function draw() {
-    var r = rec(), today = bjDay(), tag = S.mode === "daily" ? "今日题 " + S.day.slice(5) : "自由练习";
+    var r = rec(), today = bjDay(), tag = S.mode === "daily" ? "<span>今日题：</span>" + S.day.slice(5) : "<span>自由练习</span>";
     A.app.innerHTML = '<section class="gxl" id="gxl-root"><div class="gxl-hero"><h2>💡 每日熄灯</h2><p>点一格，它和上下左右一起翻面；把所有灯点灭。</p></div>' +
-      '<div class="gxl-bar"><span>' + tag + '</span><span>步数 <b id="gxl-mv">' + S.moves + "</b></span><span>还亮 <b id=\"gxl-lt\">" + lit(S.b) + "</b></span><span>🔥 连续 " + streakNow(r, today) + " 天</span></div>" +
+      '<div class="gxl-bar"><span>' + tag + '</span><span><span>步数：</span><b id="gxl-mv">' + S.moves + "</b></span><span><span>还亮：</span><b id=\"gxl-lt\">" + lit(S.b) + "</b></span><span>🔥 <span>连续：</span>" + streakNow(r, today) + " <span>天</span></span></div>" +
       boardH() + '<div class="gxl-tools">' +
       '<button type="button" class="gxl-b" data-gxl="undo">↩ 撤销</button><button type="button" class="gxl-b" data-gxl="reset">🔄 重来</button>' +
       '<button type="button" class="gxl-b" data-gxl="hint">💡 提示</button>' + (S.mode === "daily" ? '<button type="button" class="gxl-b" data-gxl="free">🎲 练习</button>' : '<button type="button" class="gxl-b" data-gxl="daily">📅 今日题</button>') + "</div>" +

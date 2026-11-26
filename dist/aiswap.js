@@ -1,105 +1,515 @@
-try{(function(){"use strict";var A=window.AIL,K=function(){return A.otcKit;};var SEL={approve:"0x095ea7b3",balanceOf:"0x70a08231",getReserves:"0x0902f1ac",symbol:"0x95d89b41",decimals:"0x313ce567",totalSupply:"0x18160ddd",swapFee:"0x5c11d795",addLiq:"0xe8e33700",removeLiq:"0xbaa2abde",getPair:"0xe6a43905"};var MAX_UINT=(1n<<256n)-1n,ZERO="0x0000000000000000000000000000000000000000";function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
-function u256(v){return BigInt(v).toString(16).padStart(64,"0");}
-function addrWord(a){return String(a).toLowerCase().replace("0x","").padStart(64,"0");}
-function word(hex,i){return BigInt("0x"+(String(hex||"0x").slice(2+i*64,2+(i+1)*64)||"0"));}
-function toWei(s,d){s=String(s||"0").trim();if(!/^\d*(\.\d*)?$/.test(s)||s===""||s===".")return 0n;var p=s.split("."),a=p[0]||"0",b=(p[1]||"").slice(0,d).padEnd(d,"0");return BigInt(a)*10n**BigInt(d)+BigInt(b||"0");}
-function num(wei,d){return Number(wei)/Math.pow(10,d);}
-function f(v,d){if(!isFinite(v))return"—";if(d===undefined)d=v>=1000?2:v>=1?4:6;return Number(v).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:d});}
-function low(a){return String(a||"").toLowerCase();}
-function g(id){return document.getElementById(id);}
-function deadline(){return Math.floor(Date.now()/1000)+((cfg&&cfg.deadlineMin)||20)*60;}
-var cfg=null,pools=[],account=null,rid=0,tab="swap",tokens=[],slip=1,custom={};var S={from:"",to:"",amt:""},L={a:"",b:"",amtA:"",amtB:""};function load(){return fetch("/api/aiswap").then(function(r){return r.json();}).then(function(j){cfg=j.cfg||null;pools=(j.pools||[]).map(function(p){p.r0=BigInt(p.r0||0);p.r1=BigInt(p.r1||0);p.lp=BigInt(p.lp||0);p.pair=low(p.pair);p.t0.addr=low(p.t0.addr);p.t1.addr=low(p.t1.addr);return p;}).filter(function(p){return!cfg||(p.t0.addr!==low(cfg.dai)&&p.t1.addr!==low(cfg.dai));});tokens=[];var seen={};function addTok(t){if(!t||!t.addr)return;var k=low(t.addr);if(seen[k]||(cfg&&k===low(cfg.dai)))return;seen[k]=1;tokens.push({sym:t.sym,addr:k,dec:t.dec});}
-(cfg&&cfg.tokens||[]).forEach(addTok);pools.forEach(function(p){addTok(p.t0);addTok(p.t1);});Object.keys(custom).forEach(function(k){addTok(custom[k]);});if(cfg&&cfg.slippage&&cfg.slippage.indexOf(slip)<0)slip=cfg.slippage[1]||cfg.slippage[0];if(!S.from&&tokens[0])S.from=tokens[0].addr;if(!S.to&&tokens[1])S.to=tokens[1].addr;if(!L.a&&tokens[1])L.a=tokens[1].addr;if(!L.b&&tokens[0])L.b=tokens[0].addr;});}
-function tok(a){a=low(a);for(var i=0;i<tokens.length;i++)if(tokens[i].addr===a)return tokens[i];return null;}
-function poolOf(a,b){a=low(a);b=low(b);for(var i=0;i<pools.length;i++){var p=pools[i];if((p.t0.addr===a&&p.t1.addr===b)||(p.t0.addr===b&&p.t1.addr===a))return p;}return null;}
-function reservesFor(p,from){return p.t0.addr===low(from)?[p.r0,p.r1]:[p.r1,p.r0];}
-var liveAt={};function refreshReserves(p){if(liveAt[p.pair]&&Date.now()-liveAt[p.pair]<10000)return Promise.resolve(p);return A.call(p.pair,SEL.getReserves).then(function(h){p.r0=word(h,0);p.r1=word(h,1);liveAt[p.pair]=Date.now();return p;},function(){return p;});}
-function pathFor(from,to){from=low(from);to=low(to);if(!from||!to||from===to)return null;if(poolOf(from,to))return[from,to];var q=low(cfg.quote);if(from!==q&&to!==q&&poolOf(from,q)&&poolOf(q,to))return[from,q,to];return null;}
-function amountOut(amtIn,rIn,rOut){if(amtIn<=0n||rIn<=0n||rOut<=0n)return 0n;var w=amtIn*9975n;return w*rOut/(rIn*10000n+w);}
-function quote(path,amtIn){var amts=[amtIn],impact=0;for(var i=0;i<path.length-1;i++){var p=poolOf(path[i],path[i+1]);if(!p)return null;var rs=reservesFor(p,path[i]),out=amountOut(amts[i],rs[0],rs[1]);var spot=Number(rs[1])/Number(rs[0]),eff=Number(amts[i])*0.9975;if(eff>0&&spot>0)impact+=1-(Number(out)/eff)/spot;amts.push(out);}
-return{amts:amts,out:amts[amts.length-1],impact:impact};}
-function page(id){rid=id;try{if(K()&&K().M&&K().M().chain!=="anubis")K().useMarket("ailgns");}catch(e){}
-A.app.innerHTML='<section class="card"><p class="muted">⏳ 读取池子…</p></section>';if(/^#\/aiswap\/deploy/i.test(location.hash)){load().then(renderDeploy,renderDeploy);return;}
-if(/^#\/aiswap\/launch/i.test(location.hash)){load().then(lchPage,lchPage);return;}
-load().then(function(){if(!A.isCurrent(rid))return;render();},function(){if(!A.isCurrent(rid))return;cfg=null;render();});}
-function hero(tag){return'<section class="card lp-hero as-hero"><div class="lp-ht"><h2>🔁 aiswap 兑换池 <span class="lp-tag">'+tag+'</span></h2>'+'<p>本站自己的「自动兑换池」，专门做<b>新币 / AiLGNS</b>：买卖发射台发出来的新币，<b>点一下马上成交</b>，不用等人接单。合约是 <b>PancakeSwap V2 原版，一行没改</b>，没有管理员，谁都动不了池子里的币。<b>AiLGNS 和 DAI 之间的买卖请去 <a href="#/otc">OTC 担保交易</a></b>（0 滑点、1%），这里不做。</p></div>'+'<div class="lp-kpi"><div><small>每笔手续费</small><b>0.25%</b><span>0.17% 归放币的人 · 0.08% 归平台</span></div><div><small>新币报价</small><b>AiLGNS</b><span>换 DAI 去 OTC</span></div><div><small>你的币</small><b>自己管</b><span>只在你钱包和池子合约里</span></div></div></section>';}
-var RULES='<section class="card lp-rules as-rules"><h2>📜 规则一页纸</h2><ol>'+'<li><b>兑换</b>：随行就市、马上成交；大单会有滑点，页面先算好「最少到手」，低于它交易自动失败、钱原路不动。小额急用选这里，大额不急去 <a href="#/otc">OTC 担保交易</a>（0 滑点、1%）。</li>'+'<li><b>手续费 0.25%</b>：0.17% 留在池子里归所有放币的人（LP），0.08% 归平台付服务器和开发。加 / 撤流动性不收费。</li>'+'<li><b>新币一律用 AiLGNS 报价，aiswap 不做 AiLGNS / DAI</b>：新币池子都是「新币 / AiLGNS」。手里是 DAI？先去 <a href="#/otc">OTC 担保交易</a> 换成 AiLGNS 再来；卖掉新币拿到 AiLGNS，想变现也回 OTC 换成 DAI（0 滑点、1%）。</li>'+'<li><b>做 LP 怎么赚</b>：你放 1,000 DAI + 等值 AiLGNS 占池子 10%，当天池子成交 5 万 DAI，LP 手续费 85 DAI 里你分 8.5。成交越多、份额越大赚越多。</li>'+'<li><b>做 LP 会亏吗？会（无常损失）</b>：哪个币涨了，池子就自动卖掉它一部分换成另一个币。放进去时 1 AiLGNS = 1 DAI 各放 1,000；AiLGNS 涨到 4 DAI 时不放池子值 5,000，放了池子撤出来约 4,000，少赚的 1,000 就是无常损失。来回波动越大少赚越多，涨回去就没了。手续费能补一部分。<b>适合两个币都愿意长期拿、想吃手续费的人；觉得某个币要大涨就别放池子。</b></li>'+'<li><b>不保本</b>：涨跌和无常损失自己承担，平台不参与盈亏、不做投资建议。新币谁都能发，平台不背书。</li>'+'<li><b>你的币平台碰不到</b>：撤流动性随时、不用申请。一切链上可查：<a href="#/scan">账本</a>。</li></ol></section>';function render(){if(!cfg||!cfg.ready)return soon();A.app.innerHTML=hero("试运行")+'<a class="lch-entry" href="#/aiswap/launch"><b>🚀 一键发币</b><span>有创世域名就能发自己的币 →</span></a>'+'<div class="seg as-seg"><button type="button" data-t="swap"'+(tab==="swap"?' class="on"':"")+'>🔁 兑换</button><button type="button" data-t="liq"'+(tab==="liq"?' class="on"':"")+'>💧 流动性</button><button type="button" data-t="pools"'+(tab==="pools"?' class="on"':"")+'>🏊 池子</button></div>'+'<div id="as-body"></div>'+RULES;document.querySelectorAll(".as-seg button").forEach(function(b){b.onclick=function(){tab=b.getAttribute("data-t");render();};});(tab==="swap"?renderSwap:tab==="liq"?renderLiq:renderPools)();K().silentAccount().then(function(){account=K().account();if(account)after();});}
-function soon(){A.app.innerHTML=hero("测试网部署中")+'<section class="card as-soon"><h2>🧪 合约部署中</h2>'+'<p>aiswap 用的是 PancakeSwap V2 原版合约（全球用了好几年、几千亿成交量验证过），我们一行不改地部署到 Anubis 链上，先彩排、再主网小额验收、验收通过才开放。</p>'+'<ol class="as-steps"><li class="done">✅ 方案、费率、报价币已定（2026-11-11）</li><li class="now">🧪 合约部署 + 小额验收中</li><li>⏳ 开放兑换 / 加撤流动性 / 池子列表</li><li>⏳ 发射台：持有 1 枚创世 .ailgns 域名才能发币</li></ol>'+'<p class="muted">开放时间会在收件箱和交流群通知。现在买卖 AiLGNS 请用 <a href="#/otc">OTC 担保交易</a>。</p></section>'+RULES;}
-function connBtn(id){return'<button type="button" class="ghost" id="'+id+'">'+(account?A.short(account):"连接钱包")+"</button>";}
-function after(){document.querySelectorAll(".as-conn").forEach(function(b){b.textContent=A.short(account);});if(tab==="swap")swapBal();if(tab==="liq")myLiq();}
-function bindConn(id){var b=g(id);if(!b)return;b.classList.add("as-conn");b.onclick=function(){K().connect().then(function(a){account=a;after();},function(e){A.errTip(K().niceError(e),b);});};}
-function tokSelect(id,val,exclude){return'<select id="'+id+'">'+tokens.filter(function(t){return t.addr!==low(exclude);}).map(function(t){return'<option value="'+t.addr+'"'+(t.addr===low(val)?" selected":"")+">"+esc(t.sym)+"</option>";}).join("")+'<option value="_custom">其它代币（粘地址）…</option></select>';}
-function customTok(sel,done){var q="粘贴代币合约地址（0x 开头 42 位）";(A.askText?A.askText(q,""):Promise.resolve(prompt(q))).then(function(a){customTok2(sel,done,a);});}
-function customTok2(sel,done,a){if(!a){sel.value=sel.getAttribute("data-prev")||"";return;}
-a=low(a.trim());if(!A.isAddr(a)){A.errTip("地址格式不对",sel);sel.value=sel.getAttribute("data-prev")||"";return;}
-if(a===low(cfg.dai)){A.errTip("AiLGNS 和 DAI 的买卖请去 OTC 担保交易，aiswap 只做新币 / AiLGNS",sel);sel.value=sel.getAttribute("data-prev")||"";return;}
-Promise.all([A.call(a,SEL.symbol),A.call(a,SEL.decimals)]).then(function(r){var n=Number(word(r[0],1)),hex=r[0].slice(2+128,2+128+n*2),sym="";try{sym=decodeURIComponent(hex.replace(/(..)/g,"%$1"));}catch(e){sym=a.slice(0,6);}
-custom[a]={sym:sym||a.slice(0,8),addr:a,dec:Number(word(r[1],0))||18};if(!tok(a))tokens.push(custom[a]);done(a);},function(){A.errTip("读不到这个代币，确认它在 Anubis 链上",sel);sel.value=sel.getAttribute("data-prev")||"";});}
-function onTokChange(sel,set){sel.setAttribute("data-prev",sel.value==="_custom"?sel.getAttribute("data-prev"):sel.value);sel.onchange=function(){if(sel.value==="_custom")customTok(sel,set);else set(sel.value);};}
-function pick(not){for(var i=0;i<tokens.length;i++)if(tokens[i].addr!==low(not))return tokens[i].addr;return"";}
-function renderSwap(){var body=g("as-body");if(!body)return;if(!tok(S.from))S.from=pick(S.to);if(!tok(S.to))S.to=pick(S.from);body.innerHTML='<section class="card as-box"><div class="card-head"><h2>🔁 兑换</h2>'+connBtn("as-sc")+'</div>'+'<div class="as-row"><label>付出<span class="muted" id="as-bal-from"></span></label><div class="as-in">'+tokSelect("as-from",S.from,S.to)+'<input id="as-amt" inputmode="decimal" placeholder="0.0" value="'+esc(S.amt)+'"><button type="button" class="as-max" id="as-max">最大</button></div></div>'+'<div class="as-flip"><button type="button" id="as-flip" title="反向">⇅</button></div>'+'<div class="as-row"><label>得到<span class="muted" id="as-bal-to"></span></label><div class="as-in">'+tokSelect("as-to",S.to,S.from)+'<input id="as-out" readonly placeholder="0.0"></div></div>'+'<div class="as-detail" id="as-detail"></div>'+'<div class="as-slip">滑点 <span class="seg lp-seg">'+(cfg.slippage||[0.5,1,3]).map(function(s){return'<button type="button" data-s="'+s+'"'+(s===slip?' class="on"':"")+">"+s+"%</button>";}).join("")+'</span> <small class="muted">价格比报价差超过这个数，交易自动失败、钱不动</small></div>'+'<p class="muted nm-st" id="as-st"></p><button type="button" class="nm-go" id="as-go">兑换</button></section>';bindConn("as-sc");onTokChange(g("as-from"),function(v){S.from=v;if(S.to===v)S.to="";renderSwap();});onTokChange(g("as-to"),function(v){S.to=v;if(S.from===v)S.from="";renderSwap();});g("as-amt").oninput=function(){S.amt=this.value;quoteSwap();};g("as-flip").onclick=function(){var t=S.from;S.from=S.to;S.to=t;S.amt="";renderSwap();};g("as-max").onclick=function(){var t=tok(S.from);if(!bal[S.from]||!t)return;var v=bal[S.from];if(low(S.from)===low(cfg.dai))v=v>10n**17n?v-10n**17n:0n;S.amt=(num(v,t.dec)).toString();g("as-amt").value=S.amt;quoteSwap();};document.querySelectorAll(".as-slip button").forEach(function(b){b.onclick=function(){slip=Number(b.getAttribute("data-s"));document.querySelectorAll(".as-slip button").forEach(function(x){x.classList.toggle("on",x===b);});quoteSwap();};});g("as-go").onclick=doSwap;quoteSwap();if(account)swapBal();}
-var bal={};function swapBal(){if(!account)return;[S.from,S.to].forEach(function(a,i){var t=tok(a);if(!t)return;K().balance(a,account).then(function(b){bal[a]=b;var el=g(i?"as-bal-to":"as-bal-from");if(el)el.textContent=" 余额 "+f(num(b,t.dec));},function(){});});}
-var lastQ=null;function quoteSwap(){var out=g("as-out"),det=g("as-detail");if(!out)return;var tf=tok(S.from),tt=tok(S.to);lastQ=null;if(!tf||!tt){out.value="";det.innerHTML=tokens.length<2?'<p class="muted">还没有新币池子。发射台开放后，新币都会以「新币 / AiLGNS」出现在这里；AiLGNS 和 DAI 的买卖请去 <a href="#/otc">OTC 担保交易</a>。</p>':"";return;}
-var path=pathFor(S.from,S.to);if(!path){out.value="";det.innerHTML='<p class="nm-bad">这两个币之间还没有池子（也没法经 AiLGNS 中转）。去「流动性」开第一个池子，或者先换成 AiLGNS。</p>';return;}
-var amtIn=toWei(S.amt,tf.dec);if(amtIn<=0n){out.value="";var p0=poolOf(path[0],path[1]),rs0=reservesFor(p0,path[0]);det.innerHTML='<p class="muted">池子现价：1 '+esc(tf.sym)+' ≈ '+f(Number(rs0[1])/Math.pow(10,tok(path[1]).dec)/(Number(rs0[0])/Math.pow(10,tf.dec)))+' '+esc(tok(path[1]).sym)+(path.length>2?"（先换成 AiLGNS 再换目标币）":"")+'</p>';return;}
-Promise.all(path.slice(0,-1).map(function(a,i){return refreshReserves(poolOf(a,path[i+1]));})).then(function(){if(g("as-amt")&&toWei(g("as-amt").value,tf.dec)!==amtIn)return;var q=quote(path,amtIn);if(!q||q.out<=0n){out.value="";det.innerHTML='<p class="nm-bad">池子太浅，换不出来</p>';return;}
-var minOut=q.out*BigInt(Math.round((100-slip)*100))/10000n,price=num(q.out,tt.dec)/num(amtIn,tf.dec),fee=num(amtIn,tf.dec)*0.0025;lastQ={path:path,amtIn:amtIn,out:q.out,minOut:minOut};out.value=f(num(q.out,tt.dec));det.innerHTML='<div><span>价格</span><b>1 '+esc(tf.sym)+' ≈ '+f(price)+' '+esc(tt.sym)+'</b></div>'+'<div><span>最少到手</span><b>'+f(num(minOut,tt.dec))+' '+esc(tt.sym)+'</b></div>'+'<div><span>价格影响</span><b class="'+(q.impact>0.05?"nm-bad":q.impact>0.01?"as-warn":"")+'">'+(q.impact*100).toFixed(2)+'%'+(q.impact>0.05?" · 池子浅，建议分几笔":"")+'</b></div>'+'<div><span>手续费 0.25%</span><b>'+f(fee)+' '+esc(tf.sym)+'</b></div>'+'<div><span>路径</span><b>'+path.map(function(a){return esc(tok(a).sym);}).join(" → ")+'</b></div>';});}
-function ensureAllowance(token,amount,say,name,spender){return K().allowance(token,account,spender).then(function(al){if(al>=amount)return;return K().send(token,SEL.approve+u256(spender)+u256(MAX_UINT),say,"授权 "+name+" 给兑换合约（只需一次）");});}
-function encAddrArray(arr,offsetWords){return u256(arr.length)+arr.map(addrWord).join("");}
-function doSwap(){var go=g("as-go"),st=g("as-st"),say=function(t){if(st)st.textContent=t;};var tf=tok(S.from),tt=tok(S.to);if(!tf||!tt)return A.errTip("先选两个币",go);if(!lastQ)return A.errTip("先填数量，等报价出来",go);var q=lastQ,R=cfg.contracts.router;go.disabled=true;K().ready().then(function(){account=K().account();after();return K().balance(S.from,account);}).then(function(b){if(b<q.amtIn)throw new Error(tf.sym+" 不够：要 "+f(num(q.amtIn,tf.dec))+"，你有 "+f(num(b,tf.dec)));return ensureAllowance(S.from,q.amtIn,say,tf.sym,R);}).then(function(){var data=SEL.swapFee+u256(q.amtIn)+u256(q.minOut)+u256(5*32)+addrWord(account)+u256(deadline())+encAddrArray(q.path);return K().send(R,data,say,"兑换");}).then(function(rc){go.disabled=false;st.innerHTML="✅ 换好了，"+esc(tt.sym)+" 已到钱包。"+(rc&&rc.transactionHash?' <a href="#/scan/'+rc.transactionHash+'">看账本</a>':"");S.amt="";g("as-amt").value="";liveAt={};load().then(function(){if(tab==="swap")renderSwap();});}).catch(function(e){go.disabled=false;say("");A.errTip(K().niceError(e),go);});}
-function renderLiq(){var body=g("as-body");if(!body)return;if(!tok(L.a))L.a=pick(L.b);if(!tok(L.b))L.b=pick(L.a);body.innerHTML='<section class="card as-box"><div class="card-head"><h2>💧 加流动性</h2>'+connBtn("as-lc")+'</div>'+'<p class="muted">两种币按池子现价各放一半，拿到「份额凭证」；别人每兑换一次你分 0.17% 里的一份；随时全部撤出。</p>'+'<div class="as-row"><label>币 A<span class="muted" id="as-bal-a"></span></label><div class="as-in">'+tokSelect("as-ta",L.a,L.b)+'<input id="as-amta" inputmode="decimal" placeholder="0.0" value="'+esc(L.amtA)+'"></div></div>'+'<div class="as-row"><label>币 B<span class="muted" id="as-bal-b"></span></label><div class="as-in">'+tokSelect("as-tb",L.b,L.a)+'<input id="as-amtb" inputmode="decimal" placeholder="0.0" value="'+esc(L.amtB)+'"></div></div>'+'<div class="as-detail" id="as-ldetail"></div><p class="muted nm-st" id="as-lst"></p><button type="button" class="nm-go" id="as-lgo">加流动性</button>'+'<p class="muted lp-note">⚠️ 做 LP 有「无常损失」：哪个币涨了池子会自动卖掉它一部分。适合两个币都愿意长期拿的人，不保本。规则见页面底部。</p></section>'+'<section class="card"><div class="card-head"><h2>📒 我的份额</h2><span class="muted">撤出随时、不用申请</span></div><div id="as-mine"><p class="muted">连接钱包后显示你在每个池子里的份额</p></div></section>';bindConn("as-lc");onTokChange(g("as-ta"),function(v){L.a=v;if(L.b===v)L.b="";L.amtA=L.amtB="";renderLiq();});onTokChange(g("as-tb"),function(v){L.b=v;if(L.a===v)L.a="";L.amtA=L.amtB="";renderLiq();});g("as-amta").oninput=function(){L.amtA=this.value;liqCalc("a");};g("as-amtb").oninput=function(){L.amtB=this.value;liqCalc("b");};g("as-lgo").onclick=doAdd;liqCalc();if(account)myLiq();}
-function liqCalc(which){var ta=tok(L.a),tb=tok(L.b),det=g("as-ldetail");if(!ta||!tb||!det)return;var p=poolOf(L.a,L.b);if(!p){det.innerHTML='<p class="as-warn">这个池子还没有人开：你放进去的两个数量之比就是<b>开盘价</b>，请按市价算好再放。第一笔会自动创建池子。</p>';return;}
-var rs=reservesFor(p,L.a),rA=num(rs[0],ta.dec),rB=num(rs[1],tb.dec),price=rB/rA;if(which==="a"&&L.amtA){L.amtB=(Number(L.amtA)*price).toFixed(Math.min(6,tb.dec));g("as-amtb").value=L.amtB;}
-if(which==="b"&&L.amtB){L.amtA=(Number(L.amtB)/price).toFixed(Math.min(6,ta.dec));g("as-amta").value=L.amtA;}
-var a=Number(L.amtA)||0,share=a>0?a/(rA+a):0;det.innerHTML='<div><span>池子现价</span><b>1 '+esc(ta.sym)+' = '+f(price)+' '+esc(tb.sym)+'</b></div><div><span>池子里现有</span><b>'+f(rA,2)+' '+esc(ta.sym)+' + '+f(rB,2)+' '+esc(tb.sym)+'</b></div>'+(a>0?'<div><span>放进去后你占</span><b>'+(share*100).toFixed(3)+'%</b></div>':"");}
-function doAdd(){var go=g("as-lgo"),st=g("as-lst"),say=function(t){if(st)st.textContent=t;};var ta=tok(L.a),tb=tok(L.b);if(!ta||!tb)return A.errTip("先选两个币",go);var aA=toWei(L.amtA,ta.dec),aB=toWei(L.amtB,tb.dec);if(aA<=0n||aB<=0n)return A.errTip("两个数量都要填",go);var R=cfg.contracts.router,bps=BigInt(Math.round((100-slip)*100)),minA=aA*bps/10000n,minB=aB*bps/10000n;go.disabled=true;K().ready().then(function(){account=K().account();after();return Promise.all([K().balance(L.a,account),K().balance(L.b,account)]);}).then(function(b){if(b[0]<aA)throw new Error(ta.sym+" 不够：要 "+f(num(aA,ta.dec))+"，你有 "+f(num(b[0],ta.dec)));if(b[1]<aB)throw new Error(tb.sym+" 不够：要 "+f(num(aB,tb.dec))+"，你有 "+f(num(b[1],tb.dec)));return ensureAllowance(L.a,aA,say,ta.sym,R);}).then(function(){return ensureAllowance(L.b,aB,say,tb.sym,R);}).then(function(){var data=SEL.addLiq+addrWord(L.a)+addrWord(L.b)+u256(aA)+u256(aB)+u256(minA)+u256(minB)+addrWord(account)+u256(deadline());return K().send(R,data,say,"加流动性");}).then(function(rc){go.disabled=false;st.innerHTML="✅ 放进去了，份额凭证已到钱包。"+(rc&&rc.transactionHash?' <a href="#/scan/'+rc.transactionHash+'">看账本</a>':"");L.amtA=L.amtB="";liveAt={};load().then(function(){if(tab==="liq")renderLiq();});}).catch(function(e){go.disabled=false;say("");A.errTip(K().niceError(e),go);});}
-function myLiq(){var el=g("as-mine");if(!el||!account)return;if(!pools.length){el.innerHTML='<p class="muted">还没有池子。</p>';return;}
-el.innerHTML='<p class="muted">读取中…</p>';Promise.all(pools.map(function(p){return K().balance(p.pair,account).then(function(b){return{p:p,b:b};},function(){return{p:p,b:0n};});})).then(function(rows){rows=rows.filter(function(r){return r.b>0n;});if(!rows.length){el.innerHTML='<p class="muted">你还没有放币到任何池子。上面选两个币、填数量就能开始。</p>';return;}
-el.innerHTML=rows.map(function(r,i){var p=r.p,share=p.lp>0n?Number(r.b*1000000n/p.lp)/10000:0,a0=p.lp>0n?num(p.r0*r.b/p.lp,p.t0.dec):0,a1=p.lp>0n?num(p.r1*r.b/p.lp,p.t1.dec):0;return'<div class="as-pos" data-i="'+i+'"><div class="as-pos-h"><b>'+esc(p.t0.sym)+' / '+esc(p.t1.sym)+'</b><span>占池子 '+share.toFixed(3)+'%</span></div>'+'<div class="muted">≈ '+f(a0)+' '+esc(p.t0.sym)+' + '+f(a1)+' '+esc(p.t1.sym)+'</div>'+'<div class="as-pos-b"><span class="seg lp-seg"><button type="button" data-pc="25">撤 25%</button><button type="button" data-pc="50">撤 50%</button><button type="button" data-pc="100" class="on">全部撤出</button></span><p class="muted nm-st"></p></div></div>';}).join("");el.querySelectorAll(".as-pos").forEach(function(box){var r=rows[Number(box.getAttribute("data-i"))];box.querySelectorAll("button").forEach(function(b){b.onclick=function(){doRemove(r.p,r.b*BigInt(b.getAttribute("data-pc"))/100n,box,b);};});});});}
-function doRemove(p,liq,box,btn){var st=box.querySelector(".nm-st"),say=function(t){st.textContent=t;},R=cfg.contracts.router;if(liq<=0n)return;var bps=BigInt(Math.round((100-slip)*100)),min0=p.lp>0n?p.r0*liq/p.lp*bps/10000n:0n,min1=p.lp>0n?p.r1*liq/p.lp*bps/10000n:0n;btn.disabled=true;K().ready().then(function(){return ensureAllowance(p.pair,liq,say,"份额凭证",R);}).then(function(){var data=SEL.removeLiq+addrWord(p.t0.addr)+addrWord(p.t1.addr)+u256(liq)+u256(min0)+u256(min1)+addrWord(account)+u256(deadline());return K().send(R,data,say,"撤流动性");}).then(function(rc){btn.disabled=false;st.innerHTML="✅ 两种币已回到钱包。"+(rc&&rc.transactionHash?' <a href="#/scan/'+rc.transactionHash+'">看账本</a>':"");liveAt={};load().then(function(){if(tab==="liq")myLiq();});}).catch(function(e){btn.disabled=false;say("");A.errTip(K().niceError(e),btn);});}
-function renderPools(){var body=g("as-body");if(!body)return;if(!pools.length){body.innerHTML='<section class="card"><h2>🏊 池子</h2><p class="muted">还没有池子。第一个去「流动性」放币的人就是开池人。</p></section>';return;}
-var dai=low(cfg.dai),q=low(cfg.quote);body.innerHTML='<section class="card"><div class="card-head"><h2>🏊 池子</h2><span class="muted">手续费都是 0.25%</span></div><table class="as-pools"><thead><tr><th>池子</th><th>价格</th><th>池子里有</th><th>24h 成交</th><th></th></tr></thead><tbody>'+
-pools.map(function(p,i){var base=p.t1.addr===dai||(p.t1.addr===q&&p.t0.addr!==dai)?1:0,other=1-base;var rb=base?p.res1:p.res0,ro=base?p.res0:p.res1,tb=base?p.t1:p.t0,to=base?p.t0:p.t1,vol=base?p.vol1:p.vol0;return'<tr><td data-l="池子"><b>'+esc(p.t0.sym)+' / '+esc(p.t1.sym)+'</b></td><td data-l="价格">1 '+esc(to.sym)+' = '+f(ro>0?rb/ro:0)+' '+esc(tb.sym)+'</td>'+'<td data-l="池子里有">'+f(p.res0,2)+' '+esc(p.t0.sym)+'<br>'+f(p.res1,2)+' '+esc(p.t1.sym)+'</td><td data-l="24h 成交">'+f(vol,2)+' '+esc(tb.sym)+'<br><small class="muted">'+p.swaps+' 笔</small></td>'+'<td><button type="button" class="ghost as-trade" data-i="'+i+'">去兑换</button></td></tr>';}).join("")+'</tbody></table><p class="muted" style="margin-top:8px">池子地址可在 <a href="#/scan">账本</a> 里查；数据每分钟更新一次。</p></section>';body.querySelectorAll(".as-trade").forEach(function(b){b.onclick=function(){var p=pools[Number(b.getAttribute("data-i"))];S.from=p.t1.addr===dai||p.t1.addr===q?p.t1.addr:p.t0.addr;S.to=S.from===p.t0.addr?p.t1.addr:p.t0.addr;S.amt="";tab="swap";render();};});}
-var LCH_KEY="launch-v1",lch={},lchInfo=null,lchBusy=false;try{lch=JSON.parse(localStorage.getItem(LCH_KEY)||"{}")||{};}catch(e){lch={};}
-function lchSave(){try{localStorage.setItem(LCH_KEY,JSON.stringify(lch));}catch(e){}}
-function lchNum(s){return String(s==null?"":s).replace(/[,，\s]/g,"");}
-function lchStr(t){var b=new TextEncoder().encode(t),h="";for(var i=0;i<b.length;i++)h+=b[i].toString(16).padStart(2,"0");return u256(b.length)+h.padEnd(Math.ceil(h.length/64)*64,"0");}
-function lchMetaErr(name,sym){name=String(name||"").trim();sym=String(sym||"").trim();if(!name)return"请填币的名字";if(Array.from(name).length>24)return"名字最多 24 个字";if(!/^[A-Za-z0-9一-鿿 ._-]+$/.test(name))return"名字只能用汉字、字母、数字、空格和 . _ -";if(!sym)return"请填币的代号";if(!/^[A-Za-z0-9一-鿿]{2,10}$/.test(sym))return"代号要 2–10 个字，只能用字母、数字、汉字";if(/lgns/i.test(sym)||/lgns/i.test(name)||["dai","usdt","usdc","usd","a","eth","weth","btc","wbtc","bnb","sol","okb","anubis","aiswap","otc","cake","lp"].indexOf(sym.toLowerCase())>=0)return"这个名字或代号和已有的币太像，不能用（防冒充）";if(lchInfo&&(lchInfo.list||[]).some(function(x){return low(x.sym)===low(sym)&&low(x.token)!==low(lch.token);}))return"代号「"+sym+"」已经有人用了，请换一个";return"";}
-function lchSupErr(v){v=lchNum(v);if(!/^\d+$/.test(v))return"总量请填整数";var n=BigInt(v);if(n<10000n)return"总量最少 1 万";if(n>10n**15n)return"总量最多 1,000 万亿";return"";}
-function lchRules(){return(lchInfo&&lchInfo.rules)||(cfg&&cfg.launch)||{feeAil:1,minLiqAil:1,needGenesis:1};}
-function lchStepNow(){return!lch.token?1:!lch.liqTx?(lch.okTok&&lch.okQ?3:2):!lch.feeTx?4:!lch.done?5:6;}
-function lchPage(){if(!A.isCurrent(rid))return;A.app.innerHTML='<section class="card"><p class="muted">⏳ 读取发币规则…</p></section>';K().silentAccount().then(function(){account=K().account();},function(){}).then(function(){return fetch("/api/launch"+(account?"?a="+account:"")).then(function(r){return r.json();});}).then(function(j){lchInfo=j;},function(){lchInfo=null;}).then(function(){if(A.isCurrent(rid))lchRender();});}
-function lchRender(){var R=lchRules(),open=!!(lchInfo&&lchInfo.open),now=lchStepNow(),locked=!!lch.token,pct=lch.pct||100;var gen=lchInfo&&lchInfo.me?lchInfo.me.gen:null;var stp=function(k,title,body){return'<li class="'+(now>k?"done":now===k?"now":"")+'"><i>第 '+k+" 步</i><b>"+title+"</b><em>"+(now>k?"✅ 已完成":now===k?"👉 现在做这一步":"⏳ 还没做")+"</em><span>"+body+"</span></li>";};A.app.innerHTML='<section class="card lp-hero as-hero lch-hero"><div class="lp-ht"><h2>🚀 一键发币 <span class="lp-tag">试运行</span></h2>'+"<p>有自己社群的团队长，几分钟就能发一个自己的币，直接在 aiswap 开卖。币是<b>标准代币</b>：总量固定、不能增发、没有管理员、没有交易税，发出去以后谁也改不了。</p></div>"+'<div class="lp-kpi"><div><small>要持有</small><b>'+R.needGenesis+" 枚创世域名</b><span>在发币的钱包里</span></div><div><small>发币费</small><b>"+R.feeAil+" 枚 AiLGNS</b><span>上榜前交</span></div><div><small>首笔流动性</small><b>大于 "+R.minLiqAil+" 枚 AiLGNS</b><span>放进去就销毁</span></div></div></section>"+'<section class="card lch-warn"><b>⚠️ 发币前请看清楚</b><ul><li>平台只提供工具，<b>不为任何币背书</b>，不保证任何币的价格。</li><li>放进池子的流动性会<b>当场销毁</b>，包括你自己在内，谁也撤不回来。</li><li>你自己留了多少币，会在币的页面上<b>公开显示</b>，买的人都看得见。</li><li>不要向别人承诺收益；发币、卖币是否合规由发币人自己负责。</li></ul></section>'+'<section class="card as-box lch-form"><div class="card-head"><h2>① 填资料</h2>'+connBtn("lch-conn")+"</div>"+
-(account?'<p class="lch-gen '+(gen>0?"ok":gen===0?"bad":"")+'">'+(gen>0?"✅ 这个钱包里有 "+gen+" 枚创世域名，可以发币":gen===0?'❌ 这个钱包里没有创世域名，不能发币。<a href="#/names">去域名市场买一个 →</a>':"创世域名持有情况暂时查不到，登记上榜时会再核对")+"</p>":'<p class="lch-gen">先连接钱包，看看有没有发币资格</p>')+'<div class="as-row"><label>币的名字 <span>最多 24 个字</span></label><input id="lch-name" maxlength="24" placeholder="例如：团队长的币" value="'+esc(lch.name||"")+'"'+(locked?" disabled":"")+"></div>"+'<div class="as-row"><label>代号 <span>2–10 个字，字母 / 数字 / 汉字</span></label><input id="lch-sym" maxlength="10" placeholder="例如：TDZ" autocapitalize="characters" value="'+esc(lch.sym||"")+'"'+(locked?" disabled":"")+"></div>"+'<div class="as-row"><label>总量 <span>固定，发了就不能再加</span></label><input id="lch-sup" inputmode="numeric" placeholder="例如：100000000" value="'+esc(lch.supply||"")+'"'+(locked?" disabled":"")+">"+
-(locked?"":'<div class="lch-q"><button type="button" data-sup="100000000">1 亿</button><button type="button" data-sup="1000000000">10 亿</button><button type="button" data-sup="10000000000">100 亿</button></div>')+"</div>"+'<div class="as-row"><label>放多少进池子 <span>剩下的留在你钱包</span></label><div class="seg lch-pct">'+[100,80,50].map(function(x){return'<button type="button" data-pct="'+x+'"'+(pct===x?' class="on"':"")+(lch.liqTx?" disabled":"")+">"+x+"%</button>";}).join("")+"</div></div>"+'<div class="as-row"><label>配多少 AiLGNS <span>必须大于 '+R.minLiqAil+" 枚</span></label><input id=\"lch-qa\" inputmode=\"decimal\" placeholder=\"例如：1.5\" value=\""+esc(lch.q||"")+'"'+(lch.liqTx?" disabled":"")+"></div>"+'<div class="lch-sum" id="lch-sum"></div></section>'+'<section class="card lch-steps"><h2>② 照着做，一共 5 步</h2><p class="muted">每一步钱包会弹出来让你确认一次。做到哪一步会记在这台手机上，中途断了再点按钮接着做，不会重复扣钱。</p><ol>'+
-stp(1,"发币","在你自己的钱包里创建这个币，全部代币先到你钱包。只花一点 Gas。"+(lch.token?'<br><span class="mono">'+esc(lch.token)+'</span> <a href="#/scan/'+esc(lch.token)+'">看账本</a>':""))+
-stp(2,"授权","允许兑换合约把新币和 AiLGNS 放进池子。确认 2 次，不扣钱。")+
-stp(3,"建池子，加流动性并销毁","新币和 AiLGNS 一起放进池子，流动性凭证直接进黑洞，谁也撤不走。")+
-stp(4,"交发币费","从你钱包转 "+R.feeAil+" 枚 AiLGNS 到平台收款钱包。")+
-stp(5,"登记上榜","网站核对链上记录，通过后你的币出现在下面的榜单和 aiswap 里。不花钱。")+"</ol>"+
-(lch.done?'<p class="lch-ok">🎉 你的币已经上榜。</p><div class="lch-btns"><button type="button" class="nm-go" id="lch-trade">去 aiswap 看我的币</button><button type="button" class="ghost" id="lch-new">再发一个</button></div>':!open?'<p class="lch-soon">🧪 标准代币合约还在核对中，发币暂时没开放。开放时间会在收件箱和交流群通知。</p>':'<button type="button" class="nm-go lch-go" id="lch-go">'+(now===1?"🚀 开始发币":"👉 接着做第 "+now+" 步")+"</button>"+(locked?"":""))+'<p class="muted nm-st" id="lch-st"></p>'+
-(locked&&!lch.done?'<p class="muted lch-reset"><a href="javascript:void(0)" id="lch-reset">放弃这一个，重新填（已经发出去的币和交易不受影响，花掉的 Gas 不退）</a></p>':"")+"</section>"+'<section class="card lch-list"><h2>🪙 已经发的币</h2><p class="muted">平台只提供工具，不为任何币背书。新币风险极高，价格可能归零，买之前先看「发币人持仓」。</p><div id="lch-list"></div></section>';bindConn("lch-conn");var save=function(){["name","sym"].forEach(function(k){var e=g("lch-"+k);if(e&&!e.disabled)lch[k]=e.value.trim();});var su=g("lch-sup");if(su&&!su.disabled)lch.supply=lchNum(su.value);var qa=g("lch-qa");if(qa&&!qa.disabled)lch.q=qa.value.trim();lchSave();lchSum();};["lch-name","lch-sym","lch-sup","lch-qa"].forEach(function(id){var e=g(id);if(e)e.oninput=save;});A.app.querySelectorAll("[data-sup]").forEach(function(b){b.onclick=function(){g("lch-sup").value=b.getAttribute("data-sup");save();};});A.app.querySelectorAll("[data-pct]").forEach(function(b){b.onclick=function(){if(b.disabled)return;lch.pct=Number(b.getAttribute("data-pct"));lchSave();A.app.querySelectorAll("[data-pct]").forEach(function(x){x.classList.toggle("on",x===b);});lchSum();};});var go=g("lch-go");if(go)go.onclick=lchGo;var rs=g("lch-reset");if(rs)rs.onclick=function(){if((A.sure2||confirm)("放弃这一个，重新填？已经发出去的币和交易不受影响，花掉的 Gas 不退。")){lch={};lchSave();lchRender();}};var nw=g("lch-new");if(nw)nw.onclick=function(){lch={};lchSave();lchRender();};var tr=g("lch-trade");if(tr)tr.onclick=function(){lchTrade(lch.token);};lchSum();lchList();}
-function lchTrade(token){S.from=low(cfg.quote);S.to=low(token);S.amt="";tab="swap";location.hash="#/aiswap";}
-function lchSum(){var box=g("lch-sum");if(!box)return;var R=lchRules(),sup=Number(lchNum(lch.supply)||0),pct=lch.pct||100,q=Number(lch.q||0),inPool=sup*pct/100;if(!(sup>0)||!(q>0)){box.innerHTML='<p class="muted">填好总量和 AiLGNS 数量，这里会算出开盘价和要准备多少。</p>';return;}
-box.innerHTML="<p><span>开盘价</span><b>1 "+esc(lch.sym||"新币")+" = "+f(q/inPool,10).replace(/0+$/,"").replace(/\.$/,"")+" AiLGNS</b></p>"+"<p><span>放进池子</span><b>"+f(inPool,0)+" 个币 + "+f(q,4)+" AiLGNS</b></p>"+'<p><span>你自己留</span><b class="'+(pct<100?"lch-keep":"")+'">'+(100-pct)+"%（会公开显示）</b></p>"+"<p><span>一共要准备</span><b>"+f(q+R.feeAil,4)+" AiLGNS + 少量 DAI 付 Gas</b></p>"+
-(q>R.minLiqAil?"":'<p class="lch-bad">配的 AiLGNS 必须大于 '+R.minLiqAil+" 枚</p>");}
-function lchList(){var box=g("lch-list");if(!box)return;var L=(lchInfo&&lchInfo.list)||[];if(!L.length){box.innerHTML='<p class="muted">'+(lchInfo&&lchInfo.noKv?"预览站没有存储，看不到榜单。":"还没有人发币，你可以做第一个。")+"</p>";return;}
-box.innerHTML=L.map(function(x,i){return'<div class="lch-coin"><div class="lch-ch"><b>'+esc(x.sym)+"</b><span>"+esc(x.name)+'</span><button type="button" class="act-btn btn-buy" data-lt="'+i+'">去买卖</button></div>'+"<p><span>发币人</span><b>"+(A.nameTag?A.nameTag(x.creator):A.short(x.creator))+"</b></p>"+'<p><span>发币人持仓</span><b class="'+(x.keep>20?"lch-keep":"")+'">'+(x.keep==null?"读取中":x.keep+"%")+"</b></p>"+"<p><span>池子里</span><b>"+(x.q==null?"读取中":f(x.q,4)+" AiLGNS（已销毁，撤不走）")+"</b></p>"+"<p><span>现价</span><b>"+(x.px?"1 "+esc(x.sym)+" = "+f(x.px,10).replace(/0+$/,"").replace(/\.$/,"")+" AiLGNS":"—")+"</b></p>"+"<p><span>总量</span><b>"+f(Number(x.supply),0)+"</b></p>"+'<p class="lch-ca"><span class="mono">'+esc(x.token)+'</span> <a href="#/scan/'+esc(x.token)+'">看账本</a></p></div>';}).join("");box.querySelectorAll("[data-lt]").forEach(function(b){b.onclick=function(){lchTrade(L[Number(b.getAttribute("data-lt"))].token);};});}
-function lchGo(){if(lchBusy)return;var go=g("lch-go"),st=g("lch-st"),say=function(t){var e=g("lch-st");if(e)e.textContent=t;},R=lchRules();var name=String(lch.name||"").trim(),sym=String(lch.sym||"").trim(),supS=lchNum(lch.supply),pct=lch.pct||100;var e1=lchMetaErr(name,sym)||lchSupErr(supS);if(e1)return A.errTip(e1,go);var supply=BigInt(supS)*10n**18n,aTok=supply*BigInt(pct)/100n,aQ=toWei(lch.q,18),fee=BigInt(R.feeAil)*10n**18n;if(aQ<=BigInt(R.minLiqAil)*10n**18n)return A.errTip("配的 AiLGNS 必须大于 "+R.minLiqAil+" 枚",go);var Q=low(cfg.quote),RT=cfg.contracts.router,DEADA="0x000000000000000000000000000000000000dead";if(!lch.token&&!(A.sure2||confirm)("确定发币「"+sym+"」吗？\n\n① 总量 "+f(Number(supS),0)+" 个，发了就不能改\n② 放进池子的 "+f(num(aQ,18),4)+" 枚 AiLGNS 和新币会当场销毁凭证，谁也撤不回来\n③ 发币费 "+R.feeAil+" 枚 AiLGNS 交了不退\n④ 你自己留 "+(100-pct)+"%，会公开显示"))return;lchBusy=true;go.disabled=true;var fail=function(e){lchBusy=false;say("");lchRender();var b=g("lch-go");A.errTip(K().niceError(e),b||A.app);};K().ready().then(function(){account=K().account();after();if(lch.by&&lch.by!==account)throw new Error("这一单是用另一个钱包 "+A.short(lch.by)+" 开始的，请换回那个钱包接着做");say("正在核对资格和余额…");return Promise.all([fetch("/api/launch?a="+account).then(function(r){return r.json();}).catch(function(){return null;}),K().balance(Q,account)]);}).then(function(r){if(r[0])lchInfo=r[0];var gen=r[0]&&r[0].me?r[0].me.gen:null;if(gen===0)throw new Error("这个钱包里没有创世域名，不能发币。先去域名市场买一个创世域名");var e2=lchMetaErr(name,sym);if(e2&&!lch.token)throw new Error(e2);var need=(lch.liqTx?0n:aQ)+(lch.feeTx?0n:fee);if(r[1]<need)throw new Error("AiLGNS 不够：还要 "+f(num(need,18),4)+" 枚（流动性 + 发币费），你有 "+f(num(r[1],18),4)+" 枚。先去 OTC 买够再来");if(lch.token)return;var n1=lchStr(name),n2=lchStr(sym),args=u256(96)+u256(96+n1.length/2)+u256(supply)+n1+n2;return deployRaw("LaunchToken",args,say).then(function(addr){lch.token=addr;lch.by=account;lch.name=name;lch.sym=sym;lch.supply=supS;lchSave();});}).then(function(){if(lch.liqTx)return;return ensureAllowance(lch.token,aTok,say,sym,RT).then(function(){lch.okTok=1;lchSave();return ensureAllowance(Q,aQ,say,"AiLGNS",RT);}).then(function(){lch.okQ=1;lchSave();var data=SEL.addLiq+addrWord(lch.token)+addrWord(Q)+u256(aTok)+u256(aQ)+u256(aTok)+u256(aQ)+addrWord(DEADA)+u256(deadline());return K().send(RT,data,say,"建池子，加流动性并销毁凭证");}).then(function(rc){lch.liqTx=(rc&&rc.transactionHash)||"ok";lchSave();});}).then(function(){if(lch.feeTx)return;return K().send(Q,"0xa9059cbb"+addrWord(cfg.feeTo)+u256(fee),say,"交发币费 "+R.feeAil+" 枚 AiLGNS").then(function(rc){if(!rc||!rc.transactionHash)throw new Error("发币费交易没拿到交易号，请到账本里确认后再点一次");lch.feeTx=rc.transactionHash;lchSave();});}).then(function(){say("正在登记上榜，网站在核对链上记录…");return fetch("/api/launch",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:lch.token,deployTx:lch.deployTx||"",feeTx:lch.feeTx})}).then(function(r){return r.json();});}).then(function(j){if(!j||!j.ok)throw new Error((j&&j.error)||"登记没成功，请过一会儿再点一次（不会多收费）");lch.done=1;lchSave();lchBusy=false;return fetch("/api/launch?a="+account).then(function(r){return r.json();}).then(function(x){lchInfo=x;},function(){}).then(lchRender);}).catch(fail);}
-var DEP_KEY="aiswap-deploy-v1",dep={};try{dep=JSON.parse(localStorage.getItem(DEP_KEY)||"{}")||{};}catch(e){dep={};}
-function saveDep(){try{localStorage.setItem(DEP_KEY,JSON.stringify(dep));}catch(e){}}
-function renderDeploy(){if(!A.isCurrent(rid))return;var feeTo=cfg&&cfg.feeTo,wantHash=cfg&&cfg.initCodeHash;function row(n,title,done,body){return'<li class="'+(done?"done":"")+'"><b>'+n+'. '+title+'</b>'+(done?' ✅':'')+'<div class="as-dep-body">'+body+'</div></li>';}
-function addrLine(a){return a?'<div class="mono as-dep-addr">'+esc(a)+' <a href="#/scan/'+esc(a)+'">账本</a></div>':"";}
-A.app.innerHTML='<section class="card as-box as-dep"><div class="card-head"><h2>🛠 aiswap 合约部署（站长内部）</h2>'+connBtn("as-dc")+'</div>'+'<p class="muted">按顺序点，每一步在钱包里确认一次。用的是 BSC 主网 PancakeSwap V2 / 以太坊 WETH9 <b>链上原样字节码</b>，部署出来逐字节一致。<b>连接的钱包 = 工厂管理员（feeToSetter）</b>，请确认连的是对的钱包。进度存在本浏览器里，刷新不丢。</p>'+
-(!cfg?'<p class="nm-bad">读不到 /api/aiswap 配置，刷新再试。</p>':"")+'<ol class="as-steps">'+
-row(1,"部署 WETH9（包装 Gas 币）",dep.weth,addrLine(dep.weth)+(dep.weth?"":'<button type="button" class="nm-go" data-dep="weth">部署 WETH9</button>'))+
-row(2,"部署 PancakeFactory（管理员 = 当前钱包）",dep.factory,addrLine(dep.factory)+(dep.factory?"":'<button type="button" class="nm-go" data-dep="factory"'+(dep.weth?"":" disabled")+'>部署 Factory</button>'))+
-row(3,"部署 PancakeRouter（参数 = Factory + WETH9）",dep.router,addrLine(dep.router)+(dep.router?"":'<button type="button" class="nm-go" data-dep="router"'+(dep.factory&&dep.weth?"":" disabled")+'>部署 Router</button>'))+
-row(4,"核对 INIT_CODE_PAIR_HASH",dep.hashOk,'<div class="muted">应等于 <span class="mono">'+esc(wantHash||"?")+'</span></div>'+(dep.hashOk?'<div class="mono as-dep-addr">'+esc(dep.hash)+'</div>':'<button type="button" class="nm-go" data-dep="hash"'+(dep.factory?"":" disabled")+'>读取并核对</button>'))+
-row(5,"打开平台费：setFeeTo → 收款钱包",dep.feeToOk,'<div class="muted">收款地址 <span class="mono">'+esc(feeTo||"?")+'</span></div>'+(dep.feeToOk?"":'<button type="button" class="nm-go" data-dep="feeto"'+(dep.hashOk?"":" disabled")+'>设置并确认</button>'))+'</ol><p class="muted nm-st" id="as-dst"></p>'+
-(dep.router&&dep.feeToOk?'<div class="as-dep-done"><b>全部完成。把下面三行发给开发填进 lib/aiswap.js：</b><pre class="mono">weth: "'+esc(dep.weth)+'",\nfactory: "'+esc(dep.factory)+'",\nrouter: "'+esc(dep.router)+'"</pre></div>':"")+'<p class="muted"><a href="javascript:void(0)" id="as-dreset">清除本机进度（只清记录，不影响链上）</a></p></section>';bindConn("as-dc");A.app.querySelectorAll("[data-dep]").forEach(function(b){b.onclick=function(){depStep(b.getAttribute("data-dep"),b);};});var rs=g("as-dreset");if(rs)rs.onclick=function(){if((A.sure||confirm)("清除本机记录？链上合约不受影响。")){dep={};saveDep();renderDeploy();}};K().silentAccount().then(function(){account=K().account();if(account)after();});}
-function deployRaw(file,args,say){return fetch("/docs/aiswap/contracts/"+file+".bytecode.txt").then(function(r){if(!r.ok)throw new Error("读不到字节码文件 "+file);return r.text();}).then(function(hex){hex=hex.trim();if(!/^0x[0-9a-f]+$/i.test(hex)||hex.length<2000)throw new Error("字节码文件内容不对："+file);var data=hex+(typeof args==="string"?args:(args||[]).map(addrWord).join(""));return K().ready().then(function(){account=K().account();after();say("正在估算 Gas…");return A.rpc("eth_estimateGas",[{from:account,data:data}]).then(function(gas){return"0x"+(BigInt(gas)*12n/10n).toString(16);},function(e){throw new Error("估算 Gas 失败："+((e&&e.message)||e));});}).then(function(gas){say("请在钱包确认「部署 "+file+"」（Gas 约 "+(Number(BigInt(gas))*12e-9).toFixed(3)+" DAI）");return A.wallets.ask(A.wallet.get(),{method:"eth_sendTransaction",params:[{from:account,data:data,gas:gas}]});}).then(function(hash){say("已提交 "+String(hash).slice(0,14)+"…，等待链上确认…");return A.wallet.waitOn("anubis",hash).then(function(rc){if(!rc||!rc.contractAddress)throw new Error("交易成功但没拿到合约地址，去账本看 "+hash);if(file==="LaunchToken"){lch.deployTx=hash;lchSave();}return rc.contractAddress.toLowerCase();});});});}
-function depStep(k,btn){var st=g("as-dst"),say=function(t){if(st)st.textContent=t;};btn.disabled=true;var p;if(k==="weth")p=deployRaw("WETH9",[],say).then(function(a){dep.weth=a;});else if(k==="factory")p=K().ready().then(function(){account=K().account();return deployRaw("PancakeFactory",[account],say);}).then(function(a){dep.factory=a;dep.feeToSetter=account;});else if(k==="router")p=deployRaw("PancakeRouter",[dep.factory,dep.weth],say).then(function(a){dep.router=a;});else if(k==="hash")p=A.call(dep.factory,"0x5855a25a").then(function(h){dep.hash=String(h).toLowerCase();if(dep.hash!==String(cfg.initCodeHash).toLowerCase())throw new Error("❌ hash 不一致："+dep.hash+"。不要继续，把这行发给开发。");dep.hashOk=true;});else if(k==="feeto")p=K().ready().then(function(){account=K().account();return K().send(dep.factory,"0xf46901ed"+addrWord(cfg.feeTo),say,"设置平台费收款地址");}).then(function(){return A.call(dep.factory,"0x017e7e58");}).then(function(h){var got="0x"+String(h).slice(-40).toLowerCase();if(got!==low(cfg.feeTo))throw new Error("feeTo 读回来是 "+got+"，和收款地址不一致");dep.feeToOk=true;});else return;p.then(function(){saveDep();say("");renderDeploy();}).catch(function(e){btn.disabled=false;say("");A.errTip(K().niceError(e),btn);});}
-A.pages.aiswap=page;})();}catch(e){console.error('[bundle] aiswap.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["aiswap"]="hec95b0c54e";
-/*v:hec95b0c54e*/
+try{
+// 🔁 aiswap 页 #/aiswap（站长 2026-11-11 定：本站自己的 DEX，合约 = PancakeSwap V2 原版一行不改）
+// 三块：兑换（DAI / AiLGNS / 新币，自动走 DAI→AiLGNS→新币 两跳）、流动性（加 / 撤、我的份额）、池子列表（储备、24h 成交、费率）
+// 合约地址在 lib/aiswap.js，通过 /api/aiswap 读；没填地址时整页只显示「部署中」占位，不报错
+(function () {
+  "use strict";
+  var A = window.AIL, K = function () { return A.otcKit; };
+  var SEL = { approve: "0x095ea7b3", balanceOf: "0x70a08231", getReserves: "0x0902f1ac", symbol: "0x95d89b41", decimals: "0x313ce567", totalSupply: "0x18160ddd",
+    swapFee: "0x5c11d795" /* swapExactTokensForTokensSupportingFeeOnTransferTokens：普通币和带税的币都能用 */,
+    addLiq: "0xe8e33700", removeLiq: "0xbaa2abde", getPair: "0xe6a43905" };
+  var MAX_UINT = (1n << 256n) - 1n, ZERO = "0x0000000000000000000000000000000000000000";
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
+  function addrWord(a) { return String(a).toLowerCase().replace("0x", "").padStart(64, "0"); }
+  function word(hex, i) { return BigInt("0x" + (String(hex || "0x").slice(2 + i * 64, 2 + (i + 1) * 64) || "0")); }
+  function toWei(s, d) { s = String(s || "0").trim(); if (!/^\d*(\.\d*)?$/.test(s) || s === "" || s === ".") return 0n; var p = s.split("."), a = p[0] || "0", b = (p[1] || "").slice(0, d).padEnd(d, "0"); return BigInt(a) * 10n ** BigInt(d) + BigInt(b || "0"); }
+  function num(wei, d) { return Number(wei) / Math.pow(10, d); }
+  function f(v, d) { if (!isFinite(v)) return "—"; if (d === undefined) d = v >= 1000 ? 2 : v >= 1 ? 4 : 6; return Number(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: d }); }
+  function low(a) { return String(a || "").toLowerCase(); }
+  function g(id) { return document.getElementById(id); }
+  function deadline() { return Math.floor(Date.now() / 1000) + ((cfg && cfg.deadlineMin) || 20) * 60; }
+
+  var cfg = null, pools = [], account = null, rid = 0, tab = "swap", tokens = [], slip = 1, custom = {};
+  var S = { from: "", to: "", amt: "" }, L = { a: "", b: "", amtA: "", amtB: "" };
+
+  // ---------- 数据 ----------
+  function load() {
+    return fetch("/api/aiswap").then(function (r) { return r.json(); }).then(function (j) {
+      cfg = j.cfg || null; pools = (j.pools || []).map(function (p) { p.r0 = BigInt(p.r0 || 0); p.r1 = BigInt(p.r1 || 0); p.lp = BigInt(p.lp || 0); p.pair = low(p.pair); p.t0.addr = low(p.t0.addr); p.t1.addr = low(p.t1.addr); return p; }).filter(function (p) { return !cfg || (p.t0.addr !== low(cfg.dai) && p.t1.addr !== low(cfg.dai)); }); /* 地址统一小写再比对；含 DAI 的池子不显示（站长 2026-11-09：AiLGNS↔DAI 走 OTC） */
+      tokens = []; var seen = {};
+      function addTok(t) { if (!t || !t.addr) return; var k = low(t.addr); if (seen[k] || (cfg && k === low(cfg.dai))) return; seen[k] = 1; tokens.push({ sym: t.sym, addr: k, dec: t.dec }); }
+      (cfg && cfg.tokens || []).forEach(addTok); pools.forEach(function (p) { addTok(p.t0); addTok(p.t1); }); Object.keys(custom).forEach(function (k) { addTok(custom[k]); });
+      if (cfg && cfg.slippage && cfg.slippage.indexOf(slip) < 0) slip = cfg.slippage[1] || cfg.slippage[0];
+      if (!S.from && tokens[0]) S.from = tokens[0].addr; if (!S.to && tokens[1]) S.to = tokens[1].addr;
+      if (!L.a && tokens[1]) L.a = tokens[1].addr; if (!L.b && tokens[0]) L.b = tokens[0].addr;
+    });
+  }
+  function tok(a) { a = low(a); for (var i = 0; i < tokens.length; i++) if (tokens[i].addr === a) return tokens[i]; return null; }
+  function poolOf(a, b) { a = low(a); b = low(b); for (var i = 0; i < pools.length; i++) { var p = pools[i]; if ((p.t0.addr === a && p.t1.addr === b) || (p.t0.addr === b && p.t1.addr === a)) return p; } return null; }
+  // 池子里 from→to 的储备（按方向排好）
+  function reservesFor(p, from) { return p.t0.addr === low(from) ? [p.r0, p.r1] : [p.r1, p.r0]; }
+  var liveAt = {};
+  function refreshReserves(p) { // 报价前读一次链上最新储备（10 秒内不重复读）
+    if (liveAt[p.pair] && Date.now() - liveAt[p.pair] < 10000) return Promise.resolve(p);
+    return A.call(p.pair, SEL.getReserves).then(function (h) { p.r0 = word(h, 0); p.r1 = word(h, 1); liveAt[p.pair] = Date.now(); return p; }, function () { return p; });
+  }
+  // 路径：有直接池子就直连；没有就走报价币 AiLGNS 两跳
+  function pathFor(from, to) {
+    from = low(from); to = low(to); if (!from || !to || from === to) return null;
+    if (poolOf(from, to)) return [from, to];
+    var q = low(cfg.quote); if (from !== q && to !== q && poolOf(from, q) && poolOf(q, to)) return [from, q, to];
+    return null;
+  }
+  // PancakeLibrary.getAmountOut 原公式：手续费 0.25%（9975 / 10000）
+  function amountOut(amtIn, rIn, rOut) { if (amtIn <= 0n || rIn <= 0n || rOut <= 0n) return 0n; var w = amtIn * 9975n; return w * rOut / (rIn * 10000n + w); }
+  function quote(path, amtIn) {
+    var amts = [amtIn], impact = 0;
+    for (var i = 0; i < path.length - 1; i++) {
+      var p = poolOf(path[i], path[i + 1]); if (!p) return null;
+      var rs = reservesFor(p, path[i]), out = amountOut(amts[i], rs[0], rs[1]);
+      // 价格影响：扣掉手续费后，实际成交价比池子现价差多少
+      var spot = Number(rs[1]) / Number(rs[0]), eff = Number(amts[i]) * 0.9975; if (eff > 0 && spot > 0) impact += 1 - (Number(out) / eff) / spot;
+      amts.push(out);
+    }
+    return { amts: amts, out: amts[amts.length - 1], impact: impact };
+  }
+
+  // ---------- 页面 ----------
+  function page(id) {
+    rid = id;
+    try { if (K() && K().M && K().M().chain !== "anubis") K().useMarket("ailgns"); } catch (e) { /* 钱包工具没就绪也不影响看页面 */ }
+    A.app.innerHTML = '<section class="card"><p class="muted">⏳ 读取池子…</p></section>';
+    if (/^#\/aiswap\/deploy/i.test(location.hash)) { load().then(renderDeploy, renderDeploy); return; } /* 站长内部：合约部署页 */
+    if (/^#\/aiswap\/launch/i.test(location.hash)) { load().then(lchPage, lchPage); return; } /* 🚀 一键发币 */
+    load().then(function () { if (!A.isCurrent(rid)) return; render(); }, function () {
+      if (!A.isCurrent(rid)) return; cfg = null; render();
+    });
+  }
+  function hero(tag) {
+    return '<section class="card lp-hero as-hero"><div class="lp-ht"><h2>🔁 aiswap 兑换池 <span class="lp-tag">' + tag + '</span></h2>' +
+      '<p>本站自己的「自动兑换池」，专门做<b>新币 / AiLGNS</b>：买卖发射台发出来的新币，<b>点一下马上成交</b>，不用等人接单。合约是 <b>PancakeSwap V2 原版，一行没改</b>，没有管理员，谁都动不了池子里的币。<b>AiLGNS 和 DAI 之间的买卖请去 <a href="#/otc">OTC 担保交易</a></b>（0 滑点、1%），这里不做。</p></div>' +
+      '<div class="lp-kpi"><div><small>每笔手续费</small><b>0.25%</b><span>0.17% 归放币的人 · 0.08% 归平台</span></div><div><small>新币报价</small><b>AiLGNS</b><span>换 DAI 去 OTC</span></div><div><small>你的币</small><b>自己管</b><span>只在你钱包和池子合约里</span></div></div></section>';
+  }
+  var RULES = '<section class="card lp-rules as-rules"><h2>📜 规则一页纸</h2><ol>' +
+    '<li><b>兑换</b>：随行就市、马上成交；大单会有滑点，页面先算好「最少到手」，低于它交易自动失败、钱原路不动。小额急用选这里，大额不急去 <a href="#/otc">OTC 担保交易</a>（0 滑点、1%）。</li>' +
+    '<li><b>手续费 0.25%</b>：0.17% 留在池子里归所有放币的人（LP），0.08% 归平台付服务器和开发。加 / 撤流动性不收费。</li>' +
+    '<li><b>新币一律用 AiLGNS 报价，aiswap 不做 AiLGNS / DAI</b>：新币池子都是「新币 / AiLGNS」。手里是 DAI？先去 <a href="#/otc">OTC 担保交易</a> 换成 AiLGNS 再来；卖掉新币拿到 AiLGNS，想变现也回 OTC 换成 DAI（0 滑点、1%）。</li>' +
+    '<li><b>做 LP 怎么赚</b>：你放 1,000 DAI + 等值 AiLGNS 占池子 10%，当天池子成交 5 万 DAI，LP 手续费 85 DAI 里你分 8.5。成交越多、份额越大赚越多。</li>' +
+    '<li><b>做 LP 会亏吗？会（无常损失）</b>：哪个币涨了，池子就自动卖掉它一部分换成另一个币。放进去时 1 AiLGNS = 1 DAI 各放 1,000；AiLGNS 涨到 4 DAI 时不放池子值 5,000，放了池子撤出来约 4,000，少赚的 1,000 就是无常损失。来回波动越大少赚越多，涨回去就没了。手续费能补一部分。<b>适合两个币都愿意长期拿、想吃手续费的人；觉得某个币要大涨就别放池子。</b></li>' +
+    '<li><b>不保本</b>：涨跌和无常损失自己承担，平台不参与盈亏、不做投资建议。新币谁都能发，平台不背书。</li>' +
+    '<li><b>你的币平台碰不到</b>：撤流动性随时、不用申请。一切链上可查：<a href="#/scan">账本</a>。</li></ol></section>';
+  function render() {
+    if (!cfg || !cfg.ready) return soon();
+    A.app.innerHTML = hero("试运行") +
+      '<a class="lch-entry" href="#/aiswap/launch"><b>🚀 一键发币</b><span>有创世域名就能发自己的币 →</span></a>' +
+      '<div class="seg as-seg"><button type="button" data-t="swap"' + (tab === "swap" ? ' class="on"' : "") + '>🔁 兑换</button><button type="button" data-t="liq"' + (tab === "liq" ? ' class="on"' : "") + '>💧 流动性</button><button type="button" data-t="pools"' + (tab === "pools" ? ' class="on"' : "") + '>🏊 池子</button></div>' +
+      '<div id="as-body"></div>' + RULES;
+    document.querySelectorAll(".as-seg button").forEach(function (b) { b.onclick = function () { tab = b.getAttribute("data-t"); render(); }; });
+    (tab === "swap" ? renderSwap : tab === "liq" ? renderLiq : renderPools)();
+    K().silentAccount().then(function () { account = K().account(); if (account) after(); });
+  }
+  // 地址没填：占位页（不报错）
+  function soon() {
+    A.app.innerHTML = hero("测试网部署中") +
+      '<section class="card as-soon"><h2>🧪 合约部署中</h2>' +
+      '<p>aiswap 用的是 PancakeSwap V2 原版合约（全球用了好几年、几千亿成交量验证过），我们一行不改地部署到 Anubis 链上，先彩排、再主网小额验收、验收通过才开放。</p>' +
+      '<ol class="as-steps"><li class="done">✅ 方案、费率、报价币已定（2026-11-11）</li><li class="now">🧪 合约部署 + 小额验收中</li><li>⏳ 开放兑换 / 加撤流动性 / 池子列表</li><li>⏳ 发射台：持有 1 枚创世 .ailgns 域名才能发币</li></ol>' +
+      '<p class="muted">开放时间会在收件箱和交流群通知。现在买卖 AiLGNS 请用 <a href="#/otc">OTC 担保交易</a>。</p></section>' + RULES;
+  }
+  function connBtn(id) { return '<button type="button" class="ghost" id="' + id + '">' + (account ? A.short(account) : "连接钱包") + "</button>"; }
+  function after() { document.querySelectorAll(".as-conn").forEach(function (b) { b.textContent = A.short(account); }); if (tab === "swap") swapBal(); if (tab === "liq") myLiq(); }
+  function bindConn(id) { var b = g(id); if (!b) return; b.classList.add("as-conn"); b.onclick = function () { K().connect().then(function (a) { account = a; after(); }, function (e) { A.errTip(K().niceError(e), b); }); }; }
+  function tokSelect(id, val, exclude) {
+    return '<select id="' + id + '">' + tokens.filter(function (t) { return t.addr !== low(exclude); }).map(function (t) { return '<option value="' + t.addr + '"' + (t.addr === low(val) ? " selected" : "") + ">" + esc(t.sym) + "</option>"; }).join("") + '<option value="_custom">其它代币（粘地址）…</option></select>';
+  }
+  // 「其它代币」：粘合约地址，读 symbol / decimals 加进列表
+  function customTok(sel, done) {
+    var q = "粘贴代币合约地址（0x 开头 42 位）";
+    (A.askText ? A.askText(q, "") : Promise.resolve(prompt(q))).then(function (a) { customTok2(sel, done, a); }); /* Bitget 等钱包不弹输入框：改走页面内输入框 */
+  }
+  function customTok2(sel, done, a) {
+    if (!a) { sel.value = sel.getAttribute("data-prev") || ""; return; }
+    a = low(a.trim()); if (!A.isAddr(a)) { A.errTip("地址格式不对", sel); sel.value = sel.getAttribute("data-prev") || ""; return; }
+    if (a === low(cfg.dai)) { A.errTip("AiLGNS 和 DAI 的买卖请去 OTC 担保交易，aiswap 只做新币 / AiLGNS", sel); sel.value = sel.getAttribute("data-prev") || ""; return; }
+    Promise.all([A.call(a, SEL.symbol), A.call(a, SEL.decimals)]).then(function (r) {
+      var n = Number(word(r[0], 1)), hex = r[0].slice(2 + 128, 2 + 128 + n * 2), sym = ""; try { sym = decodeURIComponent(hex.replace(/(..)/g, "%$1")); } catch (e) { sym = a.slice(0, 6); }
+      custom[a] = { sym: sym || a.slice(0, 8), addr: a, dec: Number(word(r[1], 0)) || 18 }; if (!tok(a)) tokens.push(custom[a]); done(a);
+    }, function () { A.errTip("读不到这个代币，确认它在 Anubis 链上", sel); sel.value = sel.getAttribute("data-prev") || ""; });
+  }
+  function onTokChange(sel, set) { sel.setAttribute("data-prev", sel.value === "_custom" ? sel.getAttribute("data-prev") : sel.value); sel.onchange = function () { if (sel.value === "_custom") customTok(sel, set); else set(sel.value); }; }
+
+  // ---------- 兑换 ----------
+  function pick(not) { for (var i = 0; i < tokens.length; i++) if (tokens[i].addr !== low(not)) return tokens[i].addr; return ""; }
+  function renderSwap() {
+    var body = g("as-body"); if (!body) return;
+    if (!tok(S.from)) S.from = pick(S.to); if (!tok(S.to)) S.to = pick(S.from);
+    body.innerHTML = '<section class="card as-box"><div class="card-head"><h2>🔁 兑换</h2>' + connBtn("as-sc") + '</div>' +
+      '<div class="as-row"><label>付出<span class="muted" id="as-bal-from"></span></label><div class="as-in">' + tokSelect("as-from", S.from, S.to) + '<input id="as-amt" inputmode="decimal" placeholder="0.0" value="' + esc(S.amt) + '"><button type="button" class="as-max" id="as-max">最大</button></div></div>' +
+      '<div class="as-flip"><button type="button" id="as-flip" title="反向">⇅</button></div>' +
+      '<div class="as-row"><label>得到<span class="muted" id="as-bal-to"></span></label><div class="as-in">' + tokSelect("as-to", S.to, S.from) + '<input id="as-out" readonly placeholder="0.0"></div></div>' +
+      '<div class="as-detail" id="as-detail"></div>' +
+      '<div class="as-slip">滑点 <span class="seg lp-seg">' + (cfg.slippage || [0.5, 1, 3]).map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === slip ? ' class="on"' : "") + ">" + s + "%</button>"; }).join("") + '</span> <small class="muted">价格比报价差超过这个数，交易自动失败、钱不动</small></div>' +
+      '<p class="muted nm-st" id="as-st"></p><button type="button" class="nm-go" id="as-go">兑换</button></section>';
+    bindConn("as-sc");
+    onTokChange(g("as-from"), function (v) { S.from = v; if (S.to === v) S.to = ""; renderSwap(); });
+    onTokChange(g("as-to"), function (v) { S.to = v; if (S.from === v) S.from = ""; renderSwap(); });
+    g("as-amt").oninput = function () { S.amt = this.value; quoteSwap(); };
+    g("as-flip").onclick = function () { var t = S.from; S.from = S.to; S.to = t; S.amt = ""; renderSwap(); };
+    g("as-max").onclick = function () { var t = tok(S.from); if (!bal[S.from] || !t) return; var v = bal[S.from]; if (low(S.from) === low(cfg.dai)) v = v > 10n ** 17n ? v - 10n ** 17n : 0n; /* DAI 留 0.1 当 Gas */ S.amt = (num(v, t.dec)).toString(); g("as-amt").value = S.amt; quoteSwap(); };
+    document.querySelectorAll(".as-slip button").forEach(function (b) { b.onclick = function () { slip = Number(b.getAttribute("data-s")); document.querySelectorAll(".as-slip button").forEach(function (x) { x.classList.toggle("on", x === b); }); quoteSwap(); }; });
+    g("as-go").onclick = doSwap;
+    quoteSwap(); if (account) swapBal();
+  }
+  var bal = {};
+  function swapBal() {
+    if (!account) return;
+    [S.from, S.to].forEach(function (a, i) { var t = tok(a); if (!t) return; K().balance(a, account).then(function (b) { bal[a] = b; var el = g(i ? "as-bal-to" : "as-bal-from"); if (el) el.textContent = " 余额 " + f(num(b, t.dec)); }, function () {}); });
+  }
+  var lastQ = null;
+  function quoteSwap() {
+    var out = g("as-out"), det = g("as-detail"); if (!out) return;
+    var tf = tok(S.from), tt = tok(S.to); lastQ = null;
+    if (!tf || !tt) { out.value = ""; det.innerHTML = tokens.length < 2 ? '<p class="muted">还没有新币池子。发射台开放后，新币都会以「新币 / AiLGNS」出现在这里；AiLGNS 和 DAI 的买卖请去 <a href="#/otc">OTC 担保交易</a>。</p>' : ""; return; }
+    var path = pathFor(S.from, S.to);
+    if (!path) { out.value = ""; det.innerHTML = '<p class="nm-bad">这两个币之间还没有池子（也没法经 AiLGNS 中转）。去「流动性」开第一个池子，或者先换成 AiLGNS。</p>'; return; }
+    var amtIn = toWei(S.amt, tf.dec);
+    if (amtIn <= 0n) { out.value = ""; var p0 = poolOf(path[0], path[1]), rs0 = reservesFor(p0, path[0]); det.innerHTML = '<p class="muted">池子现价：1 ' + esc(tf.sym) + ' ≈ ' + f(Number(rs0[1]) / Math.pow(10, tok(path[1]).dec) / (Number(rs0[0]) / Math.pow(10, tf.dec))) + ' ' + esc(tok(path[1]).sym) + (path.length > 2 ? "（先换成 AiLGNS 再换目标币）" : "") + '</p>'; return; }
+    Promise.all(path.slice(0, -1).map(function (a, i) { return refreshReserves(poolOf(a, path[i + 1])); })).then(function () {
+      if (g("as-amt") && toWei(g("as-amt").value, tf.dec) !== amtIn) return; // 用户又改了
+      var q = quote(path, amtIn); if (!q || q.out <= 0n) { out.value = ""; det.innerHTML = '<p class="nm-bad">池子太浅，换不出来</p>'; return; }
+      var minOut = q.out * BigInt(Math.round((100 - slip) * 100)) / 10000n, price = num(q.out, tt.dec) / num(amtIn, tf.dec), fee = num(amtIn, tf.dec) * 0.0025;
+      lastQ = { path: path, amtIn: amtIn, out: q.out, minOut: minOut };
+      out.value = f(num(q.out, tt.dec));
+      det.innerHTML = '<div><span>价格</span><b>1 ' + esc(tf.sym) + ' ≈ ' + f(price) + ' ' + esc(tt.sym) + '</b></div>' +
+        '<div><span>最少到手</span><b>' + f(num(minOut, tt.dec)) + ' ' + esc(tt.sym) + '</b></div>' +
+        '<div><span>价格影响</span><b class="' + (q.impact > 0.05 ? "nm-bad" : q.impact > 0.01 ? "as-warn" : "") + '">' + (q.impact * 100).toFixed(2) + '%' + (q.impact > 0.05 ? " · 池子浅，建议分几笔" : "") + '</b></div>' +
+        '<div><span>手续费 0.25%</span><b>' + f(fee) + ' ' + esc(tf.sym) + '</b></div>' +
+        '<div><span>路径</span><b>' + path.map(function (a) { return esc(tok(a).sym); }).join(" → ") + '</b></div>';
+    });
+  }
+  function ensureAllowance(token, amount, say, name, spender) {
+    return K().allowance(token, account, spender).then(function (al) { if (al >= amount) return; return K().send(token, SEL.approve + u256(spender) + u256(MAX_UINT), say, "授权 " + name + " 给兑换合约（只需一次）"); });
+  }
+  function encAddrArray(arr, offsetWords) { /* 动态数组：偏移在外面写，这里给 长度 + 元素 */ return u256(arr.length) + arr.map(addrWord).join(""); }
+  function doSwap() {
+    var go = g("as-go"), st = g("as-st"), say = function (t) { if (st) st.textContent = t; };
+    var tf = tok(S.from), tt = tok(S.to); if (!tf || !tt) return A.errTip("先选两个币", go);
+    if (!lastQ) return A.errTip("先填数量，等报价出来", go);
+    var q = lastQ, R = cfg.contracts.router;
+    go.disabled = true;
+    K().ready().then(function () { account = K().account(); after(); return K().balance(S.from, account); })
+      .then(function (b) { if (b < q.amtIn) throw new Error(tf.sym + " 不够：要 " + f(num(q.amtIn, tf.dec)) + "，你有 " + f(num(b, tf.dec))); return ensureAllowance(S.from, q.amtIn, say, tf.sym, R); })
+      .then(function () {
+        // swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, amountOutMin, path, to, deadline)
+        var data = SEL.swapFee + u256(q.amtIn) + u256(q.minOut) + u256(5 * 32) + addrWord(account) + u256(deadline()) + encAddrArray(q.path);
+        return K().send(R, data, say, "兑换");
+      })
+      .then(function (rc) { go.disabled = false; st.innerHTML = "✅ 换好了，" + esc(tt.sym) + " 已到钱包。" + (rc && rc.transactionHash ? ' <a href="#/scan/' + rc.transactionHash + '">看账本</a>' : ""); S.amt = ""; g("as-amt").value = ""; liveAt = {}; load().then(function () { if (tab === "swap") renderSwap(); }); })
+      .catch(function (e) { go.disabled = false; say(""); A.errTip(K().niceError(e), go); });
+  }
+
+  // ---------- 流动性 ----------
+  function renderLiq() {
+    var body = g("as-body"); if (!body) return;
+    if (!tok(L.a)) L.a = pick(L.b); if (!tok(L.b)) L.b = pick(L.a);
+    body.innerHTML = '<section class="card as-box"><div class="card-head"><h2>💧 加流动性</h2>' + connBtn("as-lc") + '</div>' +
+      '<p class="muted">两种币按池子现价各放一半，拿到「份额凭证」；别人每兑换一次你分 0.17% 里的一份；随时全部撤出。</p>' +
+      '<div class="as-row"><label>币 A<span class="muted" id="as-bal-a"></span></label><div class="as-in">' + tokSelect("as-ta", L.a, L.b) + '<input id="as-amta" inputmode="decimal" placeholder="0.0" value="' + esc(L.amtA) + '"></div></div>' +
+      '<div class="as-row"><label>币 B<span class="muted" id="as-bal-b"></span></label><div class="as-in">' + tokSelect("as-tb", L.b, L.a) + '<input id="as-amtb" inputmode="decimal" placeholder="0.0" value="' + esc(L.amtB) + '"></div></div>' +
+      '<div class="as-detail" id="as-ldetail"></div><p class="muted nm-st" id="as-lst"></p><button type="button" class="nm-go" id="as-lgo">加流动性</button>' +
+      '<p class="muted lp-note">⚠️ 做 LP 有「无常损失」：哪个币涨了池子会自动卖掉它一部分。适合两个币都愿意长期拿的人，不保本。规则见页面底部。</p></section>' +
+      '<section class="card"><div class="card-head"><h2>📒 我的份额</h2><span class="muted">撤出随时、不用申请</span></div><div id="as-mine"><p class="muted">连接钱包后显示你在每个池子里的份额</p></div></section>';
+    bindConn("as-lc");
+    onTokChange(g("as-ta"), function (v) { L.a = v; if (L.b === v) L.b = ""; L.amtA = L.amtB = ""; renderLiq(); });
+    onTokChange(g("as-tb"), function (v) { L.b = v; if (L.a === v) L.a = ""; L.amtA = L.amtB = ""; renderLiq(); });
+    g("as-amta").oninput = function () { L.amtA = this.value; liqCalc("a"); };
+    g("as-amtb").oninput = function () { L.amtB = this.value; liqCalc("b"); };
+    g("as-lgo").onclick = doAdd;
+    liqCalc(); if (account) myLiq();
+  }
+  function liqCalc(which) {
+    var ta = tok(L.a), tb = tok(L.b), det = g("as-ldetail"); if (!ta || !tb || !det) return;
+    var p = poolOf(L.a, L.b);
+    if (!p) { det.innerHTML = '<p class="as-warn">这个池子还没有人开：你放进去的两个数量之比就是<b>开盘价</b>，请按市价算好再放。第一笔会自动创建池子。</p>'; return; }
+    var rs = reservesFor(p, L.a), rA = num(rs[0], ta.dec), rB = num(rs[1], tb.dec), price = rB / rA;
+    if (which === "a" && L.amtA) { L.amtB = (Number(L.amtA) * price).toFixed(Math.min(6, tb.dec)); g("as-amtb").value = L.amtB; }
+    if (which === "b" && L.amtB) { L.amtA = (Number(L.amtB) / price).toFixed(Math.min(6, ta.dec)); g("as-amta").value = L.amtA; }
+    var a = Number(L.amtA) || 0, share = a > 0 ? a / (rA + a) : 0;
+    det.innerHTML = '<div><span>池子现价</span><b>1 ' + esc(ta.sym) + ' = ' + f(price) + ' ' + esc(tb.sym) + '</b></div><div><span>池子里现有</span><b>' + f(rA, 2) + ' ' + esc(ta.sym) + ' + ' + f(rB, 2) + ' ' + esc(tb.sym) + '</b></div>' + (a > 0 ? '<div><span>放进去后你占</span><b>' + (share * 100).toFixed(3) + '%</b></div>' : "");
+  }
+  function doAdd() {
+    var go = g("as-lgo"), st = g("as-lst"), say = function (t) { if (st) st.textContent = t; };
+    var ta = tok(L.a), tb = tok(L.b); if (!ta || !tb) return A.errTip("先选两个币", go);
+    var aA = toWei(L.amtA, ta.dec), aB = toWei(L.amtB, tb.dec); if (aA <= 0n || aB <= 0n) return A.errTip("两个数量都要填", go);
+    var R = cfg.contracts.router, bps = BigInt(Math.round((100 - slip) * 100)), minA = aA * bps / 10000n, minB = aB * bps / 10000n;
+    go.disabled = true;
+    K().ready().then(function () { account = K().account(); after(); return Promise.all([K().balance(L.a, account), K().balance(L.b, account)]); })
+      .then(function (b) {
+        if (b[0] < aA) throw new Error(ta.sym + " 不够：要 " + f(num(aA, ta.dec)) + "，你有 " + f(num(b[0], ta.dec)));
+        if (b[1] < aB) throw new Error(tb.sym + " 不够：要 " + f(num(aB, tb.dec)) + "，你有 " + f(num(b[1], tb.dec)));
+        return ensureAllowance(L.a, aA, say, ta.sym, R);
+      }).then(function () { return ensureAllowance(L.b, aB, say, tb.sym, R); })
+      .then(function () {
+        // addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, to, deadline)
+        var data = SEL.addLiq + addrWord(L.a) + addrWord(L.b) + u256(aA) + u256(aB) + u256(minA) + u256(minB) + addrWord(account) + u256(deadline());
+        return K().send(R, data, say, "加流动性");
+      })
+      .then(function (rc) { go.disabled = false; st.innerHTML = "✅ 放进去了，份额凭证已到钱包。" + (rc && rc.transactionHash ? ' <a href="#/scan/' + rc.transactionHash + '">看账本</a>' : ""); L.amtA = L.amtB = ""; liveAt = {}; load().then(function () { if (tab === "liq") renderLiq(); }); })
+      .catch(function (e) { go.disabled = false; say(""); A.errTip(K().niceError(e), go); });
+  }
+  function myLiq() {
+    var el = g("as-mine"); if (!el || !account) return;
+    if (!pools.length) { el.innerHTML = '<p class="muted">还没有池子。</p>'; return; }
+    el.innerHTML = '<p class="muted">读取中…</p>';
+    Promise.all(pools.map(function (p) { return K().balance(p.pair, account).then(function (b) { return { p: p, b: b }; }, function () { return { p: p, b: 0n }; }); })).then(function (rows) {
+      rows = rows.filter(function (r) { return r.b > 0n; });
+      if (!rows.length) { el.innerHTML = '<p class="muted">你还没有放币到任何池子。上面选两个币、填数量就能开始。</p>'; return; }
+      el.innerHTML = rows.map(function (r, i) {
+        var p = r.p, share = p.lp > 0n ? Number(r.b * 1000000n / p.lp) / 10000 : 0, a0 = p.lp > 0n ? num(p.r0 * r.b / p.lp, p.t0.dec) : 0, a1 = p.lp > 0n ? num(p.r1 * r.b / p.lp, p.t1.dec) : 0;
+        return '<div class="as-pos" data-i="' + i + '"><div class="as-pos-h"><b>' + esc(p.t0.sym) + ' / ' + esc(p.t1.sym) + '</b><span>占池子 ' + share.toFixed(3) + '%</span></div>' +
+          '<div class="muted">≈ ' + f(a0) + ' ' + esc(p.t0.sym) + ' + ' + f(a1) + ' ' + esc(p.t1.sym) + '</div>' +
+          '<div class="as-pos-b"><span class="seg lp-seg"><button type="button" data-pc="25">撤 25%</button><button type="button" data-pc="50">撤 50%</button><button type="button" data-pc="100" class="on">全部撤出</button></span><p class="muted nm-st"></p></div></div>';
+      }).join("");
+      el.querySelectorAll(".as-pos").forEach(function (box) {
+        var r = rows[Number(box.getAttribute("data-i"))];
+        box.querySelectorAll("button").forEach(function (b) { b.onclick = function () { doRemove(r.p, r.b * BigInt(b.getAttribute("data-pc")) / 100n, box, b); }; });
+      });
+    });
+  }
+  function doRemove(p, liq, box, btn) {
+    var st = box.querySelector(".nm-st"), say = function (t) { st.textContent = t; }, R = cfg.contracts.router;
+    if (liq <= 0n) return;
+    var bps = BigInt(Math.round((100 - slip) * 100)), min0 = p.lp > 0n ? p.r0 * liq / p.lp * bps / 10000n : 0n, min1 = p.lp > 0n ? p.r1 * liq / p.lp * bps / 10000n : 0n;
+    btn.disabled = true;
+    K().ready().then(function () { return ensureAllowance(p.pair, liq, say, "份额凭证", R); })
+      .then(function () {
+        // removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline)
+        var data = SEL.removeLiq + addrWord(p.t0.addr) + addrWord(p.t1.addr) + u256(liq) + u256(min0) + u256(min1) + addrWord(account) + u256(deadline());
+        return K().send(R, data, say, "撤流动性");
+      })
+      .then(function (rc) { btn.disabled = false; st.innerHTML = "✅ 两种币已回到钱包。" + (rc && rc.transactionHash ? ' <a href="#/scan/' + rc.transactionHash + '">看账本</a>' : ""); liveAt = {}; load().then(function () { if (tab === "liq") myLiq(); }); })
+      .catch(function (e) { btn.disabled = false; say(""); A.errTip(K().niceError(e), btn); });
+  }
+
+  // ---------- 池子列表 ----------
+  function renderPools() {
+    var body = g("as-body"); if (!body) return;
+    if (!pools.length) { body.innerHTML = '<section class="card"><h2>🏊 池子</h2><p class="muted">还没有池子。第一个去「流动性」放币的人就是开池人。</p></section>'; return; }
+    var dai = low(cfg.dai), q = low(cfg.quote);
+    body.innerHTML = '<section class="card"><div class="card-head"><h2>🏊 池子</h2><span class="muted">手续费都是 0.25%</span></div><table class="as-pools"><thead><tr><th>池子</th><th>价格</th><th>池子里有</th><th>24h 成交</th><th></th></tr></thead><tbody>' +
+      pools.map(function (p, i) {
+        // 价格：有 DAI 按 DAI 标，否则按 AiLGNS 标
+        var base = p.t1.addr === dai || (p.t1.addr === q && p.t0.addr !== dai) ? 1 : 0, other = 1 - base;
+        var rb = base ? p.res1 : p.res0, ro = base ? p.res0 : p.res1, tb = base ? p.t1 : p.t0, to = base ? p.t0 : p.t1, vol = base ? p.vol1 : p.vol0;
+        return '<tr><td data-l="池子"><b>' + esc(p.t0.sym) + ' / ' + esc(p.t1.sym) + '</b></td><td data-l="价格">1 ' + esc(to.sym) + ' = ' + f(ro > 0 ? rb / ro : 0) + ' ' + esc(tb.sym) + '</td>' +
+          '<td data-l="池子里有">' + f(p.res0, 2) + ' ' + esc(p.t0.sym) + '<br>' + f(p.res1, 2) + ' ' + esc(p.t1.sym) + '</td><td data-l="24h 成交">' + f(vol, 2) + ' ' + esc(tb.sym) + '<br><small class="muted">' + p.swaps + ' 笔</small></td>' +
+          '<td><button type="button" class="ghost as-trade" data-i="' + i + '">去兑换</button></td></tr>';
+      }).join("") + '</tbody></table><p class="muted" style="margin-top:8px">池子地址可在 <a href="#/scan">账本</a> 里查；数据每分钟更新一次。</p></section>';
+    body.querySelectorAll(".as-trade").forEach(function (b) { b.onclick = function () { var p = pools[Number(b.getAttribute("data-i"))]; S.from = p.t1.addr === dai || p.t1.addr === q ? p.t1.addr : p.t0.addr; S.to = S.from === p.t0.addr ? p.t1.addr : p.t0.addr; S.amt = ""; tab = "swap"; render(); }; });
+  }
+
+
+  // ---------- 🚀 一键发币 #/aiswap/launch（站长 2026-11-23 定）----------
+  // 规则：持有 1 枚创世 .ailgns；发币费 1 整枚 AiLGNS；用 AiLGNS 做交易对；首笔流动性大于 1 枚 AiLGNS，凭证直接进黑洞（销毁）。
+  // 没有新合约：币 = docs/aiswap/contracts/LaunchToken（OpenZeppelin 标准代币，固定总量），客户自己钱包部署；池子 = 现成的 aiswap。
+  // 五步一条龙，做到哪一步存在本机（刷新、断网都能接着做）：① 发币 ② 授权 ③ 建池加流动性并销毁 ④ 交发币费 ⑤ 登记上榜
+  var LCH_KEY = "launch-v1", lch = {}, lchInfo = null, lchBusy = false;
+  try { lch = JSON.parse(localStorage.getItem(LCH_KEY) || "{}") || {}; } catch (e) { lch = {}; }
+  function lchSave() { try { localStorage.setItem(LCH_KEY, JSON.stringify(lch)); } catch (e) { /* 存不了就只在内存里 */ } }
+  function lchNum(s) { return String(s == null ? "" : s).replace(/[,，\s]/g, ""); }
+  function lchStr(t) { var b = new TextEncoder().encode(t), h = ""; for (var i = 0; i < b.length; i++) h += b[i].toString(16).padStart(2, "0"); return u256(b.length) + h.padEnd(Math.ceil(h.length / 64) * 64, "0"); }
+  // 和 lib/launch.js checkMeta / checkSupply 同一套规矩（页面先拦一遍，接口登记时再核一遍）
+  function lchMetaErr(name, sym) {
+    name = String(name || "").trim(); sym = String(sym || "").trim();
+    if (!name) return "请填币的名字";
+    if (Array.from(name).length > 24) return "名字最多 24 个字";
+    if (!/^[A-Za-z0-9一-鿿 ._-]+$/.test(name)) return "名字只能用汉字、字母、数字、空格和 . _ -";
+    if (!sym) return "请填币的代号";
+    if (!/^[A-Za-z0-9一-鿿]{2,10}$/.test(sym)) return "代号要 2–10 个字，只能用字母、数字、汉字";
+    if (/lgns/i.test(sym) || /lgns/i.test(name) || ["dai", "usdt", "usdc", "usd", "a", "eth", "weth", "btc", "wbtc", "bnb", "sol", "okb", "anubis", "aiswap", "otc", "cake", "lp"].indexOf(sym.toLowerCase()) >= 0) return "这个名字或代号和已有的币太像，不能用（防冒充）";
+    if (lchInfo && (lchInfo.list || []).some(function (x) { return low(x.sym) === low(sym) && low(x.token) !== low(lch.token); })) return "代号「" + sym + "」已经有人用了，请换一个";
+    return "";
+  }
+  function lchSupErr(v) { v = lchNum(v); if (!/^\d+$/.test(v)) return "总量请填整数"; var n = BigInt(v); if (n < 10000n) return "总量最少 1 万"; if (n > 10n ** 15n) return "总量最多 1,000 万亿"; return ""; }
+  function lchRules() { return (lchInfo && lchInfo.rules) || (cfg && cfg.launch) || { feeAil: 1, minLiqAil: 1, needGenesis: 1 }; }
+  function lchStepNow() { return !lch.token ? 1 : !lch.liqTx ? (lch.okTok && lch.okQ ? 3 : 2) : !lch.feeTx ? 4 : !lch.done ? 5 : 6; }
+  function lchPage() {
+    if (!A.isCurrent(rid)) return;
+    A.app.innerHTML = '<section class="card"><p class="muted">⏳ 读取发币规则…</p></section>';
+    K().silentAccount().then(function () { account = K().account(); }, function () {}).then(function () {
+      return fetch("/api/launch" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); });
+    }).then(function (j) { lchInfo = j; }, function () { lchInfo = null; }).then(function () { if (A.isCurrent(rid)) lchRender(); });
+  }
+  function lchRender() {
+    var R = lchRules(), open = !!(lchInfo && lchInfo.open), now = lchStepNow(), locked = !!lch.token, pct = lch.pct || 100;
+    var gen = lchInfo && lchInfo.me ? lchInfo.me.gen : null;
+    var stp = function (k, title, body) { return '<li class="' + (now > k ? "done" : now === k ? "now" : "") + '"><i>第 ' + k + " 步</i><b>" + title + "</b><em>" + (now > k ? "✅ 已完成" : now === k ? "👉 现在做这一步" : "⏳ 还没做") + "</em><span>" + body + "</span></li>"; };
+    A.app.innerHTML =
+      '<section class="card lp-hero as-hero lch-hero"><div class="lp-ht"><h2>🚀 一键发币 <span class="lp-tag">试运行</span></h2>' +
+      "<p>有自己社群的团队长，几分钟就能发一个自己的币，直接在 aiswap 开卖。币是<b>标准代币</b>：总量固定、不能增发、没有管理员、没有交易税，发出去以后谁也改不了。</p></div>" +
+      '<div class="lp-kpi"><div><small>要持有</small><b>' + R.needGenesis + " 枚创世域名</b><span>在发币的钱包里</span></div><div><small>发币费</small><b>" + R.feeAil + " 枚 AiLGNS</b><span>上榜前交</span></div><div><small>首笔流动性</small><b>大于 " + R.minLiqAil + " 枚 AiLGNS</b><span>放进去就销毁</span></div></div></section>" +
+      '<section class="card lch-warn"><b>⚠️ 发币前请看清楚</b><ul><li>平台只提供工具，<b>不为任何币背书</b>，不保证任何币的价格。</li><li>放进池子的流动性会<b>当场销毁</b>，包括你自己在内，谁也撤不回来。</li><li>你自己留了多少币，会在币的页面上<b>公开显示</b>，买的人都看得见。</li><li>不要向别人承诺收益；发币、卖币是否合规由发币人自己负责。</li></ul></section>' +
+      '<section class="card as-box lch-form"><div class="card-head"><h2>① 填资料</h2>' + connBtn("lch-conn") + "</div>" +
+      (account ? '<p class="lch-gen ' + (gen > 0 ? "ok" : gen === 0 ? "bad" : "") + '">' + (gen > 0 ? "✅ 这个钱包里有 " + gen + " 枚创世域名，可以发币" : gen === 0 ? '❌ 这个钱包里没有创世域名，不能发币。<a href="#/names">去域名市场买一个 →</a>' : "创世域名持有情况暂时查不到，登记上榜时会再核对") + "</p>" : '<p class="lch-gen">先连接钱包，看看有没有发币资格</p>') +
+      '<div class="as-row"><label>币的名字 <span>最多 24 个字</span></label><input id="lch-name" maxlength="24" placeholder="例如：团队长的币" value="' + esc(lch.name || "") + '"' + (locked ? " disabled" : "") + "></div>" +
+      '<div class="as-row"><label>代号 <span>2–10 个字，字母 / 数字 / 汉字</span></label><input id="lch-sym" maxlength="10" placeholder="例如：TDZ" autocapitalize="characters" value="' + esc(lch.sym || "") + '"' + (locked ? " disabled" : "") + "></div>" +
+      '<div class="as-row"><label>总量 <span>固定，发了就不能再加</span></label><input id="lch-sup" inputmode="numeric" placeholder="例如：100000000" value="' + esc(lch.supply || "") + '"' + (locked ? " disabled" : "") + ">" +
+      (locked ? "" : '<div class="lch-q"><button type="button" data-sup="100000000">1 亿</button><button type="button" data-sup="1000000000">10 亿</button><button type="button" data-sup="10000000000">100 亿</button></div>') + "</div>" +
+      '<div class="as-row"><label>放多少进池子 <span>剩下的留在你钱包</span></label><div class="seg lch-pct">' + [100, 80, 50].map(function (x) { return '<button type="button" data-pct="' + x + '"' + (pct === x ? ' class="on"' : "") + (lch.liqTx ? " disabled" : "") + ">" + x + "%</button>"; }).join("") + "</div></div>" +
+      '<div class="as-row"><label>配多少 AiLGNS <span>必须大于 ' + R.minLiqAil + " 枚</span></label><input id=\"lch-qa\" inputmode=\"decimal\" placeholder=\"例如：1.5\" value=\"" + esc(lch.q || "") + '"' + (lch.liqTx ? " disabled" : "") + "></div>" +
+      '<div class="lch-sum" id="lch-sum"></div></section>' +
+      '<section class="card lch-steps"><h2>② 照着做，一共 5 步</h2><p class="muted">每一步钱包会弹出来让你确认一次。做到哪一步会记在这台手机上，中途断了再点按钮接着做，不会重复扣钱。</p><ol>' +
+      stp(1, "发币", "在你自己的钱包里创建这个币，全部代币先到你钱包。只花一点 Gas。" + (lch.token ? '<br><span class="mono">' + esc(lch.token) + '</span> <a href="#/scan/' + esc(lch.token) + '">看账本</a>' : "")) +
+      stp(2, "授权", "允许兑换合约把新币和 AiLGNS 放进池子。确认 2 次，不扣钱。") +
+      stp(3, "建池子，加流动性并销毁", "新币和 AiLGNS 一起放进池子，流动性凭证直接进黑洞，谁也撤不走。") +
+      stp(4, "交发币费", "从你钱包转 " + R.feeAil + " 枚 AiLGNS 到平台收款钱包。") +
+      stp(5, "登记上榜", "网站核对链上记录，通过后你的币出现在下面的榜单和 aiswap 里。不花钱。") + "</ol>" +
+      (lch.done ? '<p class="lch-ok">🎉 你的币已经上榜。</p><div class="lch-btns"><button type="button" class="nm-go" id="lch-trade">去 aiswap 看我的币</button><button type="button" class="ghost" id="lch-new">再发一个</button></div>'
+        : !open ? '<p class="lch-soon">🧪 标准代币合约还在核对中，发币暂时没开放。开放时间会在收件箱和交流群通知。</p>'
+        : '<button type="button" class="nm-go lch-go" id="lch-go">' + (now === 1 ? "🚀 开始发币" : "👉 接着做第 " + now + " 步") + "</button>" + (locked ? "" : "")) +
+      '<p class="muted nm-st" id="lch-st"></p>' +
+      (locked && !lch.done ? '<p class="muted lch-reset"><a href="javascript:void(0)" id="lch-reset">放弃这一个，重新填（已经发出去的币和交易不受影响，花掉的 Gas 不退）</a></p>' : "") + "</section>" +
+      '<section class="card lch-list"><h2>🪙 已经发的币</h2><p class="muted">平台只提供工具，不为任何币背书。新币风险极高，价格可能归零，买之前先看「发币人持仓」。</p><div id="lch-list"></div></section>';
+    bindConn("lch-conn");
+    var save = function () { ["name", "sym"].forEach(function (k) { var e = g("lch-" + k); if (e && !e.disabled) lch[k] = e.value.trim(); }); var su = g("lch-sup"); if (su && !su.disabled) lch.supply = lchNum(su.value); var qa = g("lch-qa"); if (qa && !qa.disabled) lch.q = qa.value.trim(); lchSave(); lchSum(); };
+    ["lch-name", "lch-sym", "lch-sup", "lch-qa"].forEach(function (id) { var e = g(id); if (e) e.oninput = save; });
+    A.app.querySelectorAll("[data-sup]").forEach(function (b) { b.onclick = function () { g("lch-sup").value = b.getAttribute("data-sup"); save(); }; });
+    A.app.querySelectorAll("[data-pct]").forEach(function (b) { b.onclick = function () { if (b.disabled) return; lch.pct = Number(b.getAttribute("data-pct")); lchSave(); A.app.querySelectorAll("[data-pct]").forEach(function (x) { x.classList.toggle("on", x === b); }); lchSum(); }; });
+    var go = g("lch-go"); if (go) go.onclick = lchGo;
+    var rs = g("lch-reset"); if (rs) rs.onclick = function () { if ((A.sure2 || confirm)("放弃这一个，重新填？已经发出去的币和交易不受影响，花掉的 Gas 不退。")) { lch = {}; lchSave(); lchRender(); } };
+    var nw = g("lch-new"); if (nw) nw.onclick = function () { lch = {}; lchSave(); lchRender(); };
+    var tr = g("lch-trade"); if (tr) tr.onclick = function () { lchTrade(lch.token); };
+    lchSum(); lchList();
+  }
+  function lchTrade(token) { S.from = low(cfg.quote); S.to = low(token); S.amt = ""; tab = "swap"; location.hash = "#/aiswap"; }
+  function lchSum() {
+    var box = g("lch-sum"); if (!box) return;
+    var R = lchRules(), sup = Number(lchNum(lch.supply) || 0), pct = lch.pct || 100, q = Number(lch.q || 0), inPool = sup * pct / 100;
+    if (!(sup > 0) || !(q > 0)) { box.innerHTML = '<p class="muted">填好总量和 AiLGNS 数量，这里会算出开盘价和要准备多少。</p>'; return; }
+    box.innerHTML = "<p><span>开盘价</span><b>1 " + esc(lch.sym || "新币") + " = " + f(q / inPool, 10).replace(/0+$/, "").replace(/\.$/, "") + " AiLGNS</b></p>" +
+      "<p><span>放进池子</span><b>" + f(inPool, 0) + " 个币 + " + f(q, 4) + " AiLGNS</b></p>" +
+      '<p><span>你自己留</span><b class="' + (pct < 100 ? "lch-keep" : "") + '">' + (100 - pct) + "%（会公开显示）</b></p>" +
+      "<p><span>一共要准备</span><b>" + f(q + R.feeAil, 4) + " AiLGNS + 少量 DAI 付 Gas</b></p>" +
+      (q > R.minLiqAil ? "" : '<p class="lch-bad">配的 AiLGNS 必须大于 ' + R.minLiqAil + " 枚</p>");
+  }
+  function lchList() {
+    var box = g("lch-list"); if (!box) return;
+    var L = (lchInfo && lchInfo.list) || [];
+    if (!L.length) { box.innerHTML = '<p class="muted">' + (lchInfo && lchInfo.noKv ? "预览站没有存储，看不到榜单。" : "还没有人发币，你可以做第一个。") + "</p>"; return; }
+    box.innerHTML = L.map(function (x, i) {
+      return '<div class="lch-coin"><div class="lch-ch"><b>' + esc(x.sym) + "</b><span>" + esc(x.name) + '</span><button type="button" class="act-btn btn-buy" data-lt="' + i + '">去买卖</button></div>' +
+        "<p><span>发币人</span><b>" + (A.nameTag ? A.nameTag(x.creator) : A.short(x.creator)) + "</b></p>" +
+        '<p><span>发币人持仓</span><b class="' + (x.keep > 20 ? "lch-keep" : "") + '">' + (x.keep == null ? "读取中" : x.keep + "%") + "</b></p>" +
+        "<p><span>池子里</span><b>" + (x.q == null ? "读取中" : f(x.q, 4) + " AiLGNS（已销毁，撤不走）") + "</b></p>" +
+        "<p><span>现价</span><b>" + (x.px ? "1 " + esc(x.sym) + " = " + f(x.px, 10).replace(/0+$/, "").replace(/\.$/, "") + " AiLGNS" : "—") + "</b></p>" +
+        "<p><span>总量</span><b>" + f(Number(x.supply), 0) + "</b></p>" +
+        '<p class="lch-ca"><span class="mono">' + esc(x.token) + '</span> <a href="#/scan/' + esc(x.token) + '">看账本</a></p></div>';
+    }).join("");
+    box.querySelectorAll("[data-lt]").forEach(function (b) { b.onclick = function () { lchTrade(L[Number(b.getAttribute("data-lt"))].token); }; });
+  }
+  function lchGo() {
+    if (lchBusy) return;
+    var go = g("lch-go"), st = g("lch-st"), say = function (t) { var e = g("lch-st"); if (e) e.textContent = t; }, R = lchRules();
+    var name = String(lch.name || "").trim(), sym = String(lch.sym || "").trim(), supS = lchNum(lch.supply), pct = lch.pct || 100;
+    var e1 = lchMetaErr(name, sym) || lchSupErr(supS); if (e1) return A.errTip(e1, go);
+    var supply = BigInt(supS) * 10n ** 18n, aTok = supply * BigInt(pct) / 100n, aQ = toWei(lch.q, 18), fee = BigInt(R.feeAil) * 10n ** 18n;
+    if (aQ <= BigInt(R.minLiqAil) * 10n ** 18n) return A.errTip("配的 AiLGNS 必须大于 " + R.minLiqAil + " 枚", go);
+    var Q = low(cfg.quote), RT = cfg.contracts.router, DEADA = "0x000000000000000000000000000000000000dead";
+    // 开始前把三件撤不回的事说清楚（钱包不弹确认框的，要再点一次按钮才放行）
+    if (!lch.token && !(A.sure2 || confirm)("确定发币「" + sym + "」吗？\n\n① 总量 " + f(Number(supS), 0) + " 个，发了就不能改\n② 放进池子的 " + f(num(aQ, 18), 4) + " 枚 AiLGNS 和新币会当场销毁凭证，谁也撤不回来\n③ 发币费 " + R.feeAil + " 枚 AiLGNS 交了不退\n④ 你自己留 " + (100 - pct) + "%，会公开显示")) return;
+    lchBusy = true; go.disabled = true;
+    var fail = function (e) { lchBusy = false; say(""); lchRender(); var b = g("lch-go"); A.errTip(K().niceError(e), b || A.app); };
+    K().ready().then(function () {
+      account = K().account(); after();
+      if (lch.by && lch.by !== account) throw new Error("这一单是用另一个钱包 " + A.short(lch.by) + " 开始的，请换回那个钱包接着做");
+      say("正在核对资格和余额…");
+      return Promise.all([fetch("/api/launch?a=" + account).then(function (r) { return r.json(); }).catch(function () { return null; }), K().balance(Q, account)]);
+    }).then(function (r) {
+      if (r[0]) lchInfo = r[0];
+      var gen = r[0] && r[0].me ? r[0].me.gen : null;
+      if (gen === 0) throw new Error("这个钱包里没有创世域名，不能发币。先去域名市场买一个创世域名");
+      var e2 = lchMetaErr(name, sym); if (e2 && !lch.token) throw new Error(e2);
+      var need = (lch.liqTx ? 0n : aQ) + (lch.feeTx ? 0n : fee);
+      if (r[1] < need) throw new Error("AiLGNS 不够：还要 " + f(num(need, 18), 4) + " 枚（流动性 + 发币费），你有 " + f(num(r[1], 18), 4) + " 枚。先去 OTC 买够再来");
+      if (lch.token) return;
+      // ① 发币：创建合约，构造参数 = (名字, 代号, 总量)
+      var n1 = lchStr(name), n2 = lchStr(sym), args = u256(96) + u256(96 + n1.length / 2) + u256(supply) + n1 + n2;
+      return deployRaw("LaunchToken", args, say).then(function (addr) { lch.token = addr; lch.by = account; lch.name = name; lch.sym = sym; lch.supply = supS; lchSave(); });
+    }).then(function () {
+      if (lch.liqTx) return;
+      // ② 授权（新币、AiLGNS 各一次）
+      return ensureAllowance(lch.token, aTok, say, sym, RT).then(function () { lch.okTok = 1; lchSave(); return ensureAllowance(Q, aQ, say, "AiLGNS", RT); }).then(function () {
+        lch.okQ = 1; lchSave();
+        // ③ addLiquidity(新币, AiLGNS, …, to = 黑洞)：凭证直接铸给黑洞地址 = 当场销毁
+        var data = SEL.addLiq + addrWord(lch.token) + addrWord(Q) + u256(aTok) + u256(aQ) + u256(aTok) + u256(aQ) + addrWord(DEADA) + u256(deadline());
+        return K().send(RT, data, say, "建池子，加流动性并销毁凭证");
+      }).then(function (rc) { lch.liqTx = (rc && rc.transactionHash) || "ok"; lchSave(); });
+    }).then(function () {
+      if (lch.feeTx) return;
+      // ④ 发币费：AiLGNS.transfer(收款钱包, 1 枚)
+      return K().send(Q, "0xa9059cbb" + addrWord(cfg.feeTo) + u256(fee), say, "交发币费 " + R.feeAil + " 枚 AiLGNS").then(function (rc) { if (!rc || !rc.transactionHash) throw new Error("发币费交易没拿到交易号，请到账本里确认后再点一次"); lch.feeTx = rc.transactionHash; lchSave(); });
+    }).then(function () {
+      // ⑤ 登记上榜
+      say("正在登记上榜，网站在核对链上记录…");
+      return fetch("/api/launch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token: lch.token, deployTx: lch.deployTx || "", feeTx: lch.feeTx }) }).then(function (r) { return r.json(); });
+    }).then(function (j) {
+      if (!j || !j.ok) throw new Error((j && j.error) || "登记没成功，请过一会儿再点一次（不会多收费）");
+      lch.done = 1; lchSave(); lchBusy = false;
+      return fetch("/api/launch?a=" + account).then(function (r) { return r.json(); }).then(function (x) { lchInfo = x; }, function () {}).then(lchRender);
+    }).catch(fail);
+  }
+  // ---------- 站长内部：合约部署页 #/aiswap/deploy ----------
+  // 用 docs/aiswap/contracts/*.bytecode.txt（BSC / 以太坊链上原样创建字节码）直接发「创建合约」交易，和 OTC 下单一样走钱包弹窗。
+  // 2026-11-09：Remix + OKX 在 Anubis 上发不出部署交易，所以做了这个页。谁都能打开，但部署出来的只是他自己的一套合约，花他自己的 Gas，和本站无关
+  var DEP_KEY = "aiswap-deploy-v1", dep = {};
+  try { dep = JSON.parse(localStorage.getItem(DEP_KEY) || "{}") || {}; } catch (e) { dep = {}; }
+  function saveDep() { try { localStorage.setItem(DEP_KEY, JSON.stringify(dep)); } catch (e) { /* 存不了就只在内存里 */ } }
+  function renderDeploy() {
+    if (!A.isCurrent(rid)) return;
+    var feeTo = cfg && cfg.feeTo, wantHash = cfg && cfg.initCodeHash;
+    function row(n, title, done, body) { return '<li class="' + (done ? "done" : "") + '"><b>' + n + '. ' + title + '</b>' + (done ? ' ✅' : '') + '<div class="as-dep-body">' + body + '</div></li>'; }
+    function addrLine(a) { return a ? '<div class="mono as-dep-addr">' + esc(a) + ' <a href="#/scan/' + esc(a) + '">账本</a></div>' : ""; }
+    A.app.innerHTML = '<section class="card as-box as-dep"><div class="card-head"><h2>🛠 aiswap 合约部署（站长内部）</h2>' + connBtn("as-dc") + '</div>' +
+      '<p class="muted">按顺序点，每一步在钱包里确认一次。用的是 BSC 主网 PancakeSwap V2 / 以太坊 WETH9 <b>链上原样字节码</b>，部署出来逐字节一致。<b>连接的钱包 = 工厂管理员（feeToSetter）</b>，请确认连的是对的钱包。进度存在本浏览器里，刷新不丢。</p>' +
+      (!cfg ? '<p class="nm-bad">读不到 /api/aiswap 配置，刷新再试。</p>' : "") +
+      '<ol class="as-steps">' +
+      row(1, "部署 WETH9（包装 Gas 币）", dep.weth, addrLine(dep.weth) + (dep.weth ? "" : '<button type="button" class="nm-go" data-dep="weth">部署 WETH9</button>')) +
+      row(2, "部署 PancakeFactory（管理员 = 当前钱包）", dep.factory, addrLine(dep.factory) + (dep.factory ? "" : '<button type="button" class="nm-go" data-dep="factory"' + (dep.weth ? "" : " disabled") + '>部署 Factory</button>')) +
+      row(3, "部署 PancakeRouter（参数 = Factory + WETH9）", dep.router, addrLine(dep.router) + (dep.router ? "" : '<button type="button" class="nm-go" data-dep="router"' + (dep.factory && dep.weth ? "" : " disabled") + '>部署 Router</button>')) +
+      row(4, "核对 INIT_CODE_PAIR_HASH", dep.hashOk, '<div class="muted">应等于 <span class="mono">' + esc(wantHash || "?") + '</span></div>' + (dep.hashOk ? '<div class="mono as-dep-addr">' + esc(dep.hash) + '</div>' : '<button type="button" class="nm-go" data-dep="hash"' + (dep.factory ? "" : " disabled") + '>读取并核对</button>')) +
+      row(5, "打开平台费：setFeeTo → 收款钱包", dep.feeToOk, '<div class="muted">收款地址 <span class="mono">' + esc(feeTo || "?") + '</span></div>' + (dep.feeToOk ? "" : '<button type="button" class="nm-go" data-dep="feeto"' + (dep.hashOk ? "" : " disabled") + '>设置并确认</button>')) +
+      '</ol><p class="muted nm-st" id="as-dst"></p>' +
+      (dep.router && dep.feeToOk ? '<div class="as-dep-done"><b>全部完成。把下面三行发给开发填进 lib/aiswap.js：</b><pre class="mono">weth: "' + esc(dep.weth) + '",\nfactory: "' + esc(dep.factory) + '",\nrouter: "' + esc(dep.router) + '"</pre></div>' : "") +
+      '<p class="muted"><a href="javascript:void(0)" id="as-dreset">清除本机进度（只清记录，不影响链上）</a></p></section>';
+    bindConn("as-dc");
+    A.app.querySelectorAll("[data-dep]").forEach(function (b) { b.onclick = function () { depStep(b.getAttribute("data-dep"), b); }; });
+    var rs = g("as-dreset"); if (rs) rs.onclick = function () { if ((A.sure || confirm)("清除本机记录？链上合约不受影响。")) { dep = {}; saveDep(); renderDeploy(); } };
+    K().silentAccount().then(function () { account = K().account(); if (account) after(); });
+  }
+  function deployRaw(file, args, say) {
+    return fetch("/docs/aiswap/contracts/" + file + ".bytecode.txt").then(function (r) { if (!r.ok) throw new Error("读不到字节码文件 " + file); return r.text(); }).then(function (hex) {
+      hex = hex.trim(); if (!/^0x[0-9a-f]+$/i.test(hex) || hex.length < 2000) throw new Error("字节码文件内容不对：" + file);
+      var data = hex + (typeof args === "string" ? args : (args || []).map(addrWord).join(""));
+      return K().ready().then(function () {
+        account = K().account(); after(); say("正在估算 Gas…");
+        return A.rpc("eth_estimateGas", [{ from: account, data: data }]).then(function (gas) { return "0x" + (BigInt(gas) * 12n / 10n).toString(16); }, function (e) { throw new Error("估算 Gas 失败：" + ((e && e.message) || e)); });
+      }).then(function (gas) {
+        say("请在钱包确认「部署 " + file + "」（Gas 约 " + (Number(BigInt(gas)) * 12e-9).toFixed(3) + " DAI）");
+        return A.wallets.ask(A.wallet.get(), { method: "eth_sendTransaction", params: [{ from: account, data: data, gas: gas }] });
+      }).then(function (hash) {
+        say("已提交 " + String(hash).slice(0, 14) + "…，等待链上确认…");
+        return A.wallet.waitOn("anubis", hash).then(function (rc) { if (!rc || !rc.contractAddress) throw new Error("交易成功但没拿到合约地址，去账本看 " + hash); if (file === "LaunchToken") { lch.deployTx = hash; lchSave(); } return rc.contractAddress.toLowerCase(); });
+      });
+    });
+  }
+  function depStep(k, btn) {
+    var st = g("as-dst"), say = function (t) { if (st) st.textContent = t; };
+    btn.disabled = true;
+    var p;
+    if (k === "weth") p = deployRaw("WETH9", [], say).then(function (a) { dep.weth = a; });
+    else if (k === "factory") p = K().ready().then(function () { account = K().account(); return deployRaw("PancakeFactory", [account], say); }).then(function (a) { dep.factory = a; dep.feeToSetter = account; });
+    else if (k === "router") p = deployRaw("PancakeRouter", [dep.factory, dep.weth], say).then(function (a) { dep.router = a; });
+    else if (k === "hash") p = A.call(dep.factory, "0x5855a25a").then(function (h) { dep.hash = String(h).toLowerCase(); if (dep.hash !== String(cfg.initCodeHash).toLowerCase()) throw new Error("❌ hash 不一致：" + dep.hash + "。不要继续，把这行发给开发。"); dep.hashOk = true; });
+    else if (k === "feeto") p = K().ready().then(function () { account = K().account(); return K().send(dep.factory, "0xf46901ed" + addrWord(cfg.feeTo), say, "设置平台费收款地址"); })
+      .then(function () { return A.call(dep.factory, "0x017e7e58"); }).then(function (h) { var got = "0x" + String(h).slice(-40).toLowerCase(); if (got !== low(cfg.feeTo)) throw new Error("feeTo 读回来是 " + got + "，和收款地址不一致"); dep.feeToOk = true; });
+    else return;
+    p.then(function () { saveDep(); say(""); renderDeploy(); }).catch(function (e) { btn.disabled = false; say(""); A.errTip(K().niceError(e), btn); });
+  }
+
+  A.pages.aiswap = page;
+})();
+
+}catch(e){console.error('[bundle] aiswap.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["aiswap"]="h7c3f23b548";
+/*v:h7c3f23b548*/
