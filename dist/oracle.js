@@ -1,904 +1,125 @@
-try{
-// 🔮 AiLGNS 每日预言家（#/oracle）：猜今晚 AiLGNS 价格，晚上 9–10 点随机一刻的链上价格揭晓（规则见 lib/oracle.js）
-(function () {
-  "use strict";
-  var A = window.AIL, W = A.wallet;
-  var PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0", SCAN = "#/scan/";
-  var SRC = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6", KEEPER = "0x89dd06754bb239b6c4c92bc47c8fa72889084e27", DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";
-  var eth = null, account = "", pxTimer = 0, cdTimer = 0, data = null, curRid = 0;
-
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function dai(v) { return Number(v || 0).toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI"; }
-  function hm(ms) { var d = new Date(ms + 8 * 3600e3); return (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
-  function dayCn(day) { var p = day.split("-"); return Number(p[1]) + "月" + Number(p[2]) + "日"; }
-  function left(ms) { if (ms <= 0) return "0 分"; var h = Math.floor(ms / 3600e3), m = Math.floor(ms / 60e3) % 60, s = Math.floor(ms / 1000) % 60; return (h ? h + " 小时 " : "") + m + " 分 " + (h ? "" : s + " 秒"); }
-  function utf8hex(str) { var b = unescape(encodeURIComponent(str)), h = "0x"; for (var i = 0; i < b.length; i++) h += b.charCodeAt(i).toString(16).padStart(2, "0"); return h; }
-  // 签名文字必须和 functions/api/oracle.js 里的 guessText 一字不差
-  function guessText(day, ps, a) { return "AiLGNS 每日预言家\n我预测 " + day + " 晚上 9-10 点 AiLGNS 价格：\n" + ps.join(", ") + " DAI\n地址：" + a; }
-  function pxOf(r) { var w = r.slice(2), ail = BigInt("0x" + w.slice(0, 64)), d = BigInt("0x" + w.slice(64, 128)); return Number((d * 1000000n) / ail) / 1e6; }
-  // 🎚️ 猜几位小数：RD / RS = 正在收预测的这一轮，DS = 正在揭晓的那一轮（服务器给 dec）；开奖结果自带 sc，老结果没有 = 3 位
-  var RD = 3, RS = 1000, DS = 1000;
-  function setDec(d) { RD = d && d.dec === 4 ? 4 : 3; RS = RD === 4 ? 10000 : 1000; DS = d && d.drawing && d.drawing.dec === 4 ? 10000 : 1000; }
-  function scOf(x) { return (x && x.sc) || 1000; }
-  function fq(v, x) { var s = typeof x === "number" ? x : scOf(x); return (v / s).toFixed(s === 10000 ? 4 : 3); }
-  /* 「所有人的预测」里的搜名字、展开全部：以前写在标签的 oninput / onclick 里，被网站安全策略拦掉，按了没反应（2026-11-14 发现）。改成在这里统一监听 */
-  document.addEventListener("input", function (e) {
-    try {
-      var t = e.target; if (!t || !t.classList || !t.classList.contains("or-q")) return;
-      var q = t.value.trim().toLowerCase(), o = t.nextElementSibling; if (!o) return;
-      o.classList.toggle("q", !!q);
-      o.querySelectorAll("li").forEach(function (l) { l.hidden = !!q && String(l.getAttribute("data-n") || "").indexOf(q) < 0; });
-    } catch (x) { /* 搜不了不影响别的 */ }
-  });
-  document.addEventListener("click", function (e) {
-    try {
-      var b = e.target && e.target.closest ? e.target.closest(".or-more") : null; if (!b) return;
-      var o = b.previousElementSibling; if (!o) return;
-      o.classList.toggle("exp");
-      b.textContent = o.classList.contains("exp") ? "收起，只看前 10 条" : "展开全部 " + (b.getAttribute("data-n") || "") + " 条";
-    } catch (x) { /* 展不开不影响别的 */ }
-  });
-  function decNote() { return '<p class="or-chg">' + (RD === 4 ? "🎚️ 这一轮猜 <b>4 位小数</b>，例如 851.6979（猜的人多了，3 位太容易中，改 4 位奖池才能滚大）。" : "这一轮猜 <b>3 位小数</b>，例如 851.697。") + "</p>"; }
-  function decText() {
-    try {
-      [].forEach.call(document.querySelectorAll(".or-decn"), function (el) { el.textContent = RD; });
-      [].forEach.call(document.querySelectorAll(".or-decex"), function (el) { el.textContent = RD === 4 ? "830.9625" : "830.962"; });
-      [].forEach.call(document.querySelectorAll(".or-decrng"), function (el) { el.textContent = RD === 4 ? "0000–9999 共 1 万种" : "000–999 共 1000 种"; });
-    } catch (e) { /* 改不了说明文字不影响猜 */ }
-  }
-
-  function page(rid) {
-    clearInterval(pxTimer); clearInterval(cdTimer); curRid = rid; if (orLive) { orLive.stop(); orLive = null; }
-    A.app.innerHTML =
-      '<div id="or-top"></div>' +
-      '<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button><button type="button" class="ghost or-dmcs" id="or-dmcs">💬 在线客服</button></div></section>' +
-      '<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 先设主名字，再持有 1 枚创世域名、或 OTC 满 5 万、或持有 5 枚自己注册的普通域名</span></div>' +
-      '<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 8 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><a class="or-reg" href="#/names/~daily"><b>🌐 注册域名，参加每日预测</b><span>5 DAI 一个 · 注册费 95% 进每日奖池</span><span class="or-reg-s">自己注册满 5 个，再设一个主名字，就能每天免费预测</span><i>去注册 →</i></a><b>🎯 怎么玩？怎么算中奖？</b><div class="or-hwq"><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。下午 3 点前提交，晚上 9–10 点揭晓。</p><p>🥇 <b>每晚前三名</b>：谁猜的价格<b>和揭晓价差得最少</b>，谁就是前三，<b>每人 20 DAI，天天发</b>。</p><p>🔮 <b>神算子</b>：每一位都猜对，平分<b>整个大奖池</b>；没人猜中就继续滚大。</p><p>📢 为了发奖<b>公平、公正、有效</b>，规则会随时调整，以本页为准。</p></div><details class="or-hwd"><summary>👉 点开看详细规则和例子（前三名怎么算、怎么领奖）</summary><div class="or-hwg"><div><p class="or-hwt">① 猜什么</p><p>✍️ 猜<b>今晚揭晓那一刻</b> AiLGNS 的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。</p><p>⏰ 每天<b>下午 3 点</b>前提交，之后封卷不能再改；<b>晚上 9–10 点</b>之间随机一刻揭晓。</p><p>🆓 免费，钱包签个名就行，不扣钱。</p><p class="or-hwt">② 🔮 神算子大奖</p><p>价格<b>每一位都猜对</b>（小数点后 <span class="or-decn">3</span> 位一位不差，<b class="or-decrng">000–999 共 1000 种</b>可能）→ 平分<b>整个大奖池</b>。</p><p>没人完全猜中，大奖池就继续滚大，留到下一晚。</p><p class="or-hwt">③ 谁能玩</p><p><b>先设一个 .ailgns 主名字。</b>再满足其一：钱包里<b>至少持有 1 枚创世域名</b>，或者在本站 OTC <b>累计成交满 5 万 DAI</b>，或者<b>至少持有 5 枚自己注册的普通域名</b>。一个钱包每轮最多猜 5 次。</p></div><div class="or-hw3"><p class="or-hwt">④ 🥇 每晚前三名怎么算（天天发）</p><p>揭晓价出来后，把<b>每个人猜的价格和揭晓价相减，看差了多少</b>。差得最少的是第 1 名，再往后是第 2、第 3 名。猜高了、猜低了都一样，<b>只看差多少</b>。</p><div class="or-hwex"><b>举个例子</b>：今晚揭晓价是 <b>830.9625</b><span>王阿姨猜 830.9630 → 差 0.0005　🥇 第 1 名</span><span>李叔猜 830.9600 → 差 0.0025　🥈 第 2 名</span><span>张姐猜 831.0000 → 差 0.0375　🥉 第 3 名</span><span>赵哥猜 829.5000 → 差 1.4625　没进前三</span></div><p>🎁 前三名<b>每人 20 DAI</b>（发 AiLGNS），<b>不用等有人猜中大奖，每天都发</b>。</p><p>⚖️ 差得一样多：<b>谁先提交算谁的</b>。</p><p>👤 一个钱包、一个名字每晚只占一个名额：你猜了好几个价格，只拿最接近的那一个来比。</p><p>⏳ 中过一次，<b>休息 7 天</b>再参加每日前三（这 7 天照样能猜，猜中大奖照拿），名额让给下一位，让更多人有机会。</p><p>💰 奖池钱包里不够 60 DAI 的那天，三个人平分钱包里实际有的钱。</p></div><div class="or-hwf"><p class="or-hwt">⑤ 中了怎么领</p><p>中奖后 <b>3 天内</b>做完两步，机器人自动把奖发到你的钱包：<b>第 1 步</b>销毁 1 枚创世 .ailgns 域名（神算子大奖是销毁价值不低于奖金 30% 的域名）；<b>第 2 步</b>到 DeBox 的 AiLGNS 群里说一声自己中奖了。然后把<b>自己在群里的聊天记录截个图</b>，在本页最上面点「上传截图 / 视频」提交即可（不用签名）。注：3 天内没做完算放弃，钱留在奖池。</p><p class="or-hwt">⑥ 📢 规则会调整</p><p>为了让奖金发得<b>最公平、公正、有效</b>，规则会根据实际情况<b>随时调整</b>，不另行逐个通知，一律<b>以本页面当时显示的为准</b>。</p></div></div></details><small>看不懂的地方，点左下角「客服」直接问。</small></div></div>' +
-      '<div id="or-chart" class="or-kc"></div>' +
-      '<p class="or-src">数据来源：<a href="' + SCAN + 'address/' + PAIR + '" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 真实成交 K 线，最近 7 天，每 5 秒刷新</p></section>' +
-      '<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';
-    livePx(rid); chart(rid); dmInit(rid);
-    pxTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pxTimer); if (!document.hidden) livePx(rid); }, 8000); // 8 秒一次、后台标签不刷（扩容）
-    // 📈 实时排行的名单以前只在打开页面时取一次：页面一直开着的人看不到后来别人交的预测（群里 2026-11-19 反馈「离得近的反而不在榜上」）。
-    // 现在每 30 秒重取一次名单，只更新排行那一块，不重画整页（不打断正在填的价格）；后台标签不取
-    clearInterval(plTimer);
-    plTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(plTimer); if (!document.hidden) pullPlayers(rid); }, 30000);
-    var go = function () { load(rid); };
-    if (!account && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a) account = String(a).toLowerCase(); go(); }, go); else go();
-  }
-  var plTimer = null;
-  function pullPlayers(rid) {
-    if (!data) return;
-    fetch("/api/oracle", { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (d) {
-      if (!A.isCurrent(rid) || !data || !d || !Array.isArray(d.players)) return;
-      if (d.round !== data.round) return load(rid); /* 换轮了：整页重取 */
-      var rows = [];
-      d.players.forEach(function (g) { (g.ps || []).forEach(function (p) { rows.push({ name: g.name, p: p, m: Math.round(Number(p) * RS) }); }); });
-      if (!rows.length || !document.getElementById("or-live")) { if (rows.length && !liveRows.length) load(rid); return; } /* 原来一个人都没有、现在有了：整页重取才有排行这一块 */
-      data.players = d.players; liveRows = rows; liveKey = "";
-      var cnt = document.getElementById("or-lcnt"); if (cnt) cnt.textContent = d.players.length + " 人 · " + rows.length + " 个预测";
-      liveRank();
-    }).catch(function () { /* 这次没取到，30 秒后再来 */ });
-  }
-  function livePx(rid) {
-    // 现价走服务器缓存接口（边缘 5 秒一份），读不到再自己读链（扩容第一档，2026-11-08）
-    fetch("/api/px").then(function (x) { if (!x.ok) throw new Error("bad"); return x.json(); }).then(function (j) { if (!j.r) throw new Error("bad"); return j.r; }).catch(function () { return W.rpcOn("anubis", "eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "latest"]); }).then(function (r) {
-      var el = document.getElementById("or-px"); if (el && A.isCurrent(rid)) el.textContent = pxOf(r).toFixed(RD);
-      if (A.isCurrent(rid)) { livePxV = pxOf(r); liveRank(); simShow(); allResort(); }
-    }, function () {});
-  }
-  // 1 小时 K 线（最近 24 根）：读池子的 Sync 事件（每次买卖后的储备），算出每小时开高低收；Anubis 约 1 秒一块
-  var SYNC = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";
-  function pxData(d) { var w = d.slice(2); return Number(BigInt("0x" + w.slice(64, 128)) * 1000000n / BigInt("0x" + w.slice(0, 64))) / 1e6; }
-  var orLive = null, orKMode = "live";
-  function startOrLive() { var el = document.getElementById("or-chart"); if (!el || !A.liveK) return; if (orLive) orLive.stop(); orLive = A.liveK(el, { bucket: 5, span: 600, every: 3000 }); }
-  function bindKTabs(rid) {
-    document.querySelectorAll(".or-ktabs button").forEach(function (b) {
-      b.onclick = function () {
-        orKMode = b.getAttribute("data-k");
-        document.querySelectorAll(".or-ktabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
-        var tip = document.getElementById("or-ktip");
-        if (orKMode === "live") { tip.textContent = "本站 OTC 实时价（买一卖一中间价），每 3 秒刷新"; startOrLive(); }
-        else { if (orLive) { orLive.stop(); orLive = null; } tip.textContent = "DEX 1 小时线，最近 24 小时"; chartHourly(rid); }
-      };
-    });
-    if (orKMode === "live") startOrLive(); else chartHourly(rid);
-  }
-  var orK = null;
-  function chart(rid) { var el = document.getElementById("or-chart"); if (!el || !A.kchart) return; if (orK) orK.stop(); orK = A.kchart(el, { i: "15m", alive: function () { return A.isCurrent(rid); } }); }
-  // 1 小时 K 线：先画本地缓存（秒开），再读 /api/kline（服务器缓存，只补新区块）；接口失败再直接读链
-  function chartHourly(rid) {
-    var toC = function (a) { return a.map(function (x) { return { t: x[0], o: x[1], h: x[2], l: x[3], c: x[4] }; }); };
-    var el0 = document.getElementById("or-chart"), cached = null;
-    try { cached = JSON.parse(localStorage.getItem("or:k") || "null"); } catch (e) {}
-    if (el0 && cached && cached.c) drawK(el0, toC(cached.c));
-    fetch("/api/kline").then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
-      var el = document.getElementById("or-chart"); if (!el || !A.isCurrent(rid)) return;
-      if (!d.c) throw 0;
-      try { localStorage.setItem("or:k", JSON.stringify(d)); } catch (e) {}
-      drawK(el, toC(d.c));
-    }).catch(function () { chartChain(rid); });
-  }
-  function chartChain(rid) {
-    var N = 24, latest, tsL, h0, b0;
-    A.rpc("eth_getBlockByNumber", ["latest", false]).then(function (b) {
-      latest = parseInt(b.number, 16); tsL = parseInt(b.timestamp, 16);
-      h0 = Math.floor(tsL / 3600) * 3600 - (N - 1) * 3600; b0 = latest - (tsL - h0);
-      var calls = [A.rpc("eth_call", [{ to: PAIR, data: "0x0902f1ac" }, "0x" + (b0 - 1).toString(16)])];
-      for (var f = b0; f <= latest; f += 5000) calls.push(A.rpc("eth_getLogs", [{ address: PAIR, topics: [SYNC], fromBlock: "0x" + f.toString(16), toBlock: "0x" + Math.min(latest, f + 4999).toString(16) }]));
-      return Promise.all(calls);
-    }).then(function (r) {
-      var el = document.getElementById("or-chart"); if (!el || !A.isCurrent(rid)) return;
-      var last = pxOf(r[0]), c = [];
-      for (var i = 0; i < N; i++) c.push({ t: h0 + i * 3600, o: last, h: last, l: last, c: last, v: 0 });
-      var cur = last, prevDai = null;
-      [].concat.apply([], r.slice(1)).forEach(function (lg) {
-        var b = parseInt(lg.blockNumber, 16), k = Math.floor((tsL - (latest - b) - h0) / 3600);
-        var p = pxData(lg.data), dai = Number(BigInt("0x" + lg.data.slice(66, 130)) / 10n ** 16n) / 100;
-        if (k >= 0 && k < N) {
-          var x = c[k];
-          if (!x.touched) { x.o = cur; x.h = Math.max(cur, p); x.l = Math.min(cur, p); x.touched = 1; } // 开盘 = 这一小时第一笔之前的价格
-          x.h = Math.max(x.h, p); x.l = Math.min(x.l, p); x.c = p;
-          if (prevDai !== null) x.v += Math.abs(dai - prevDai);
-        }
-        cur = p; prevDai = dai;
-      });
-      // 没成交的小时：一字线，沿用上一根收盘
-      for (var j = 0; j < N; j++) if (!c[j].touched) { var pc = j ? c[j - 1].c : last; c[j].o = c[j].h = c[j].l = c[j].c = pc; }
-      drawK(el, c);
-    }, function () { var el = document.getElementById("or-chart"); if (el) el.innerHTML = '<text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取失败</text>'; });
-  }
-  var lastK = null, rzT;
-  window.addEventListener("resize", function () { clearTimeout(rzT); rzT = setTimeout(function () { var el = document.getElementById("or-chart"); if (el && lastK) drawK(el, lastK); }, 150); });
-  function drawK(el, c) {
-    lastK = c; var W0 = Math.max(240, el.clientWidth || 360), H0 = Math.max(120, el.clientHeight || 150), L = 6, R = W0 - 66, T = 10, B = H0 - 24, hi = -Infinity, lo = Infinity;
-    c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
-    var pad = (hi - lo) * 0.08 || 0.5; hi += pad; lo -= pad;
-    var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
-    for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 4) + '" y="' + (gy + 3.5).toFixed(1) + '" class="or-ct">' + gp.toFixed(3) + "</text>"; }
-    c.forEach(function (x, i) {
-      var cx = L + cw * i + cw / 2, up = x.c >= x.o, col = up ? "or-up" : "or-dn", top = y(Math.max(x.o, x.c)), bot = y(Math.min(x.o, x.c));
-      var d = new Date((x.t + 8 * 3600) * 1000), hh = String(d.getUTCHours()).padStart(2, "0") + ":00";
-      svg += "<g><title>" + (d.getUTCMonth() + 1) + "月" + d.getUTCDate() + "日 " + hh + "\n开 " + x.o.toFixed(3) + "　高 " + x.h.toFixed(3) + "\n低 " + x.l.toFixed(3) + "　收 " + x.c.toFixed(3) + "</title>" +
-        '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/>' +
-        '<rect x="' + (cx - cw * 0.32).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (cw * 0.64).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"/></g>';
-      if (i % 6 === 0) svg += '<text x="' + Math.max(cx, 18).toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
-    });
-    var lastC = c[c.length - 1];
-    svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 9).toFixed(1) + '" width="62" height="18" rx="4" class="or-lastb"/><text x="' + (R + 4) + '" y="' + (y(lastC.c) + 3.5).toFixed(1) + '" class="or-lastt">' + lastC.c.toFixed(3) + "</text>";
-    el.setAttribute("viewBox", "0 0 " + W0 + " " + H0); el.innerHTML = svg;
-  }
-
-  var retryN = 0;
-  function load(rid) {
-    return fetch("/api/oracle" + (account ? "?a=" + account : ""), { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }).then(function (d) {
-      if (!A.isCurrent(rid)) return;
-      retryN = 0; data = d; setDec(d); render(rid); decText();
-    }, function () {
-      // 网络抖一下别死在「读取失败」等人手动刷新（站长 2026-11-09 截图）：3s/6s/12s/20s… 自动重试，页面上已有内容就不清掉
-      if (!A.isCurrent(rid)) return;
-      var wait = Math.min(20000, 3000 * Math.pow(2, retryN++)), o = document.getElementById("or-out");
-      if (o && !o.querySelector(".or-pot, .or-cd, .or-res")) o.innerHTML = '<section class="card"><p class="muted">网络慢，' + Math.round(wait / 1000) + ' 秒后自动重试…</p></section>';
-      setTimeout(function () { if (A.isCurrent(rid)) load(rid); }, wait);
-    });
-  }
-
-  function render(rid) {
-    var d = data, o = document.getElementById("or-out"); if (!o) return;
-    var dr = d.drawing, res = dr.res, now = Date.now(), inWin = !dr.skip && now >= dr.from && now < dr.to + 5 * 60e3 && !res; // 第一期之前（11 月 5 日）不揭晓
-    var html = "", top = "";
-    // 超级大奖池 + 本轮奖金（放在页面最上面）
-    // 奖池按 AiLGNS 计（奖金全部发 AiLGNS）：DAI 部分按 OTC 预言机价折成 AiLGNS；旁边再标折合多少 DAI
-    var oc = (d.funds && d.funds.otc) || { px: d.funds ? d.funds.px : 0, n: 0, src: "dex" }, opx = oc.px || (d.funds ? d.funds.px : 0) || 1;
-    var potA = d.funds ? d.funds.ail + d.funds.dai / opx : 0;
-    var kres = d.kings && d.kings.budget && d.kings.budget.mode === "wallet" ? (d.kings.top || []).reduce(function (t, x) { return t + (x.amt || 0); }, 0) : 0; /* 今晚先发给贡献王的那部分，不算进大奖 */
-    if (kres > 0) potA = Math.max(0, potA - kres / opx);
-    var potV = Math.floor(potA * opx * 100) / 100; // 奖池 AiLGNS 数量 / 折合 DAI
-    var a2 = function (v) { return Math.round(v * 100); }, dai0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); };
-    var ocT = oc.at ? new Date(oc.at + 8 * 3600e3) : null, ocWhen = ocT ? (ocT.getUTCMonth() + 1) + "/" + ocT.getUTCDate() + " " + String(ocT.getUTCHours()).padStart(2, "0") + ":" + String(ocT.getUTCMinutes()).padStart(2, "0") : "";
-    var ocRule = "（只算单笔 ≥ 10 DAI 的真实成交，且不超过 DEX 现价 +50%，防小单刷价）";
-    var ocNote = oc.src === "otc24" ? "按本站 OTC 市场 <b>24 小时内真实成交最高价 " + opx.toFixed(3) + " DAI/枚</b>" + (oc.capped ? "（实际成交 " + oc.raw.toFixed(3) + "，已按 DEX +50% 封顶）" : "（" + ocWhen + " 成交）") + "折算，24 小时共 " + oc.n + " 笔 / " + (oc.vol || 0) + " DAI" + ocRule
-      : oc.src === "otclast" ? "按本站 OTC 市场 <b>最近一笔真实成交价 " + opx.toFixed(3) + " DAI/枚</b>（" + ocWhen + "）折算，24 小时内暂无新成交" + ocRule
-      : "OTC 市场暂无成交记录，暂按 DEX 现价 " + opx.toFixed(3) + " DAI/枚 折算" + ocRule;
-    var dly = d.daily;
-    var tile = function (r) { return '<b><i class="or-cnt" data-dec="2" data-to="' + a2(potA * r) + '">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ ' + dai0(potV * r) + " DAI</s>"; };
-    var n0 = function (v) { return Math.floor(v).toLocaleString("en-US", { useGrouping: false }); }, rd = dayCn(new Date(Date.parse(d.round + "T12:00:00+08:00") - 864e5 + 288e5).toISOString().slice(0, 10));
-    top += '<section class="card or-pool"><div class="or-pc">' +
-      '<div class="or-pcl"><span>🎯 本期奖池累计</span></div>' +
-      '<div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="' + a2(potA) + '">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="' + Math.floor(potV) + '">0</i><span>DAI</span></em></div>' +
-      (d.funds && d.funds.owed > 0 ? '<div class="or-powed">钱包里另有 <b>' + Number(d.funds.owed).toFixed(4) + " AiLGNS</b> 是已经中奖、等领奖的，不算进本期奖池</div>" : "") +
-      (d.funds && d.funds.wallet ? '<a class="or-pwal" href="#/scan/' + d.funds.wallet + '">🏦 查看奖池钱包 ›</a>' : "") +
-      (d.last ? "" : '<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>') +
-      (dly && dly.on ? '<div class="or-prz or-prz2">' +
-        '<div class="or-pz p3"><small><u class="or-rk">大奖 · 发完每日前三剩下的</u>🔮 神算子</small>' + tile(potV > 0 ? Math.max(0, potV - dly.each * dly.top) / potV : 0) + "</div>" +
-        '<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>' + dly.each + '</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 从奖池里出</s></div>' +
-      "</div>" : '<div class="or-prz' + (d.kings ? "" : " or-prz3") + '">' +
-        (d.kings ? '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>' + tile(0.55) + "</div>" +
-        '<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>' + tile(0.3) + "</div>" : '<div class="or-pz p3"><small><u class="or-rk">一等奖 · 85%</u>🔮 神算子</small>' + tile(0.85) + "</div>") +
-        '<div class="or-pz p1"><small><u class="or-rk">三等奖 · 10%</u>👁 天眼通</small>' + tile(0.1) + "</div>" +
-        '<div class="or-pz p2"><small><u class="or-rk">四等奖 · 5%</u>🌿 地灵通</small>' + tile(0.05) + "</div>" +
-      "</div>" + (dly ? '<p class="or-chg">📣 <b>' + dayCn(dly.from) + '起改规则</b>：贡献王已取消（本周不再结算，奖池里的钱全部留给大奖）；改成<b>每晚离揭晓价最近的 ' + dly.top + ' 个人各 ' + dly.prize + ' DAI</b>（天眼通、地灵通并进来），天天有人拿。</p>' : "")) +
-      "</div></section>";
-    // 正在揭晓 / 刚开完
-    if (inWin || (res && now - res.at < 20 * 3600e3)) html += drawCard(d);
-    // 提交预测
-    html += '<section class="card or-form"><div class="card-head"><h2>✍️ 预测 ' + dayCn(d.round) + ' 晚上揭晓价</h2><span class="muted" id="or-cd"></span></div>' + meBox(d) + "</section>" + dailyCard(d) + kingsCard(d, potV) + playersCard(d);
-    setTimeout(liveRank, 0);
-    setTimeout(function () { if (A.credFill) A.credFill(A.app); }, 0); // 🏅 贡献榜名字后面加「认证商家」等信誉标志（站长 2026-11-07）
-    setTimeout(countUp, 0);
-    // 🔗 中奖查询直达（站长 2026-11-09）：客服给的链接 ailgns.dev/#/oracle/result 打开后直接滚到「揭晓结果」卡
-    if (/^#\/oracle\/(result|win)/i.test(location.hash)) setTimeout(function () { var el = document.querySelector(".or-res"); if (el) el.scrollIntoView({ block: "start", behavior: "smooth" }); }, 80);
-    // 最近一次结果（不在上面显示时）
-    if (d.last && !(res && res.day === d.last.day && now - res.at < 20 * 3600e3)) html += resultCard(d.last, "📜 上一期结果");
-    // 预言家榜
-    if (d.board && d.board.length) html += '<section class="card"><div class="card-head"><h2>🏆 预言家榜</h2><span class="muted">大奖次数 · 最接近次数</span></div><ol class="or-board">' +
-      d.board.map(function (x) { return "<li><b>" + esc(x.name) + "</b><span>🎯 " + x.j + " 次 · 🥇 " + x.c + " 次</span></li>"; }).join("") + "</ol></section>";
-    html += rules();
-    // 🔔 最下面：关注 DeBox 机器人，揭晓结果、获奖私信、每天揭晓提醒
-    html += '<section class="card or-dbx"><div class="card-head"><h2>🔔 揭晓通知 · DeBox</h2><span class="muted">免费 · 不错过每一期</span></div>' +
-      '<p>扫码关注 DeBox 机器人，<b>每晚揭晓结果</b>、<b>获奖通知</b>、<b>每天揭晓提醒</b>第一时间推送给你。绑定钱包地址后，获奖了机器人还会单独私信你。</p><div id="dbx-slot"></div></section>';
-    o.innerHTML = html; fixHint();
-    if (A.otcKit && A.otcKit.deboxCard) A.otcKit.deboxCard(rid, { title: "关注机器人，揭晓结果 + 获奖通知 + 每日提醒", on: "揭晓结果、获奖私信、每天揭晓提醒都会推送到你的 DeBox" });
-    top += cdCard(d); // 倒计时放在奖池下面、弹幕上面
-    var tp = document.getElementById("or-top"); if (tp) tp.innerHTML = top;
-    bind(rid);
-    tick();
-    clearInterval(cdTimer); cdTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(cdTimer); tick(); }, 1000);
-  }
-  // 倒计时卡：预言截止 → 揭晓窗口（21:00–22:00 随机一刻）→ 结果公布
-  function cdCard(d) {
-    return '<section class="card or-cdc"><div class="or-cdh"><b id="or-cdph">✍️ 预言进行中</b><span id="or-cdsub"></span></div>' +
-      '<div class="or-cdbig" id="or-cdbig"><span><i>00</i><small>天</small></span><span><i>00</i><small>时</small></span><span><i>00</i><small>分</small></span><span><i>00</i><small>秒</small></span></div>' +
-      '<div class="or-cdbar"><i id="or-cdfill"></i></div>' +
-      '<ol class="or-cdst"><li id="or-cs1"><b>✍️ 预言</b><small id="or-cs1t"></small></li><li id="or-cs2"><b>🔒 封卷</b><small id="or-cs2t"></small></li><li id="or-cs3"><b>🔮 揭晓</b><small>21:00–22:00 随机一刻</small></li><li id="or-cs4"><b>🏅 放榜</b><small>22:00 后几分钟</small></li></ol>' + lastLine(d) + '</section>';
-  }
-  // 倒计时下面一行：上期揭晓价 + 最接近的前 3 名（没人猜中的日子也让大家看到谁最准）
-  function lastLine(d) {
-    var dr = d.drawing, res = dr && dr.res, list = (dr && dr.list) || [];
-    if (!dr || dr.skip || (!res && !list.length)) return "";
-    if (!res) return '<div class="or-cdlast"><b>上期 ' + dayCn(dr.day) + '</b> 已封卷，' + list.length + ' 人参加，今晚 21–22 点揭晓</div>';
-    var rows = [];
-    list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, d: Math.abs(Math.round(Number(p) * scOf(res)) - res.px) }); }); });
-    rows.sort(function (x, y) { return x.d - y.d; });
-    var top = rows.slice(0, 3).map(function (r, i) { return '<span class="or-cdl' + (r.d === 0 ? " hit" : "") + '"><em>' + ["🥇", "🥈", "🥉"][i] + '</em><u>' + esc(r.name.replace(/\.ailgns$/, "")) + "</u><b>" + r.p + "</b><small>" + (r.d === 0 ? "猜中" : "差 " + fq(r.d, res)) + "</small></span>"; }).join("");
-    var topT = "最接近的 3 位";
-    if (res.daily && res.daily.length) { /* 新规则：这里直接列当晚拿「每日前三」的人，和发奖记录对得上 */
-      topT = "🎯 每日前三 · 每人 " + res.daily[0].amt + " DAI";
-      top = res.daily.map(function (w, i) { return '<span class="or-cdl"><em>' + ["🥇", "🥈", "🥉"][i] + '</em><u>' + esc(w.name.replace(/\.ailgns$/, "")) + "</u><b>" + fq(w.p, res) + "</b><small>差 " + fq(w.diff, res) + "</small></span>"; }).join("");
-    }
-    var no = Math.round((Date.UTC(+dr.day.slice(0, 4), +dr.day.slice(5, 7) - 1, +dr.day.slice(8, 10)) - Date.UTC(2026, 10, 6)) / 864e5) + 1; // 第几期：2026-11-06 是第 1 期
-    return '<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 ' + no + ' 期（' + dayCn(dr.day) + '）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">' + fq(res.px, res) + '</b><span>DAI</span></div><div class="or-cdlm">' + (res.jackpot && res.jackpot.winners.length ? '<i class="ok">🎯 ' + res.jackpot.winners.map(function (w) { return esc(w.name); }).join("、") + ' 猜中！</i>' : '<i>没人猜中 · 奖金全部留在奖池，下一期继续</i>') + '</div>' + (top ? '<div class="or-cdlr"><div class="or-cdlt">' + topT + '</div>' + top + "</div>" : "") + payList(dr.day) + "</div>";
-  }
-  function cdTick() {
-    var big = document.getElementById("or-cdbig"); if (!big || !data) return;
-    var now = Date.now(), cut = data.cutoff, end = cut + 3600e3, open = cut - 24 * 3600e3, ph, target, sub, step;
-    // 北京时间今晚的揭晓窗口（预言轮已经切到明天时，今晚可能正在揭晓）
-    var bj = new Date(now + 8 * 3600e3), t21 = Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate(), 13), t22 = t21 + 3600e3;
-    var canDraw = !(data.drawing && data.drawing.skip); // 第一期之前的晚上不揭晓，倒计时只显示距下一期封卷
-    if (canDraw && now >= t21 && now < t22 && cut > t22) { ph = "🔮 今晚揭晓中"; target = t22; sub = "21:00–22:00 之间随机一刻的价格就是揭晓价 · 明晚的预言已经开始"; step = 3; }
-    else if (canDraw && now >= t22 && now < t22 + 15 * 60e3 && cut > t22) { ph = "🏅 正在放榜"; target = t22 + 15 * 60e3; sub = "几分钟内放榜，DeBox 会推送"; step = 4; }
-    else if (canDraw && data.drawing && data.drawing.cutoff && now >= data.drawing.cutoff && now < t21 && cut > t22) { ph = "🔒 已封卷"; target = t21; sub = dayCn(data.drawing.day) + " 已封卷，21:00–22:00 随机一刻揭晓 · 现在提交的算 " + dayCn(data.round); step = 2; } // 封卷到晚 9 点：锁定期（11-12 起下午 3 点封卷、锁 6 小时）
-    else { var ch = new Date(cut + 8 * 3600e3).getUTCHours(); ph = "✍️ 预言进行中"; target = cut; sub = dayCn(data.round) + (ch < 12 ? " 早上 " : ch < 18 ? " 下午 " : " 晚上 ") + (ch % 12 || 12) + " 点封卷，当晚 9–10 点随机一刻揭晓"; step = 1; } // 封卷钟点按接口给的实际时间显示（11-10 前晚 9 点、11-10/11 早 9 点、11-12 起下午 3 点）
-    var ms = Math.max(0, target - now), dd = Math.floor(ms / 864e5), hh = Math.floor(ms % 864e5 / 36e5), mm = Math.floor(ms % 36e5 / 6e4), ss = Math.floor(ms % 6e4 / 1e3);
-    var is = big.querySelectorAll("i"), v = [dd, hh, mm, ss];
-    for (var k = 0; k < 4; k++) { var t = String(v[k]).padStart(2, "0"); if (is[k].textContent !== t) { is[k].textContent = t; is[k].classList.remove("tk"); void is[k].offsetWidth; is[k].classList.add("tk"); } }
-    big.firstChild.style.display = dd ? "" : "none";
-    big.classList.toggle("hot", step === 1 && ms < 3600e3);
-    document.getElementById("or-cdph").textContent = ph + ({ 1: " · 距封卷", 2: " · 距揭晓", 3: " · 距放榜" }[step] || "");
-    document.getElementById("or-cdsub").textContent = sub;
-    var a = step === 1 ? open : step === 2 ? data.drawing.cutoff : t21, b = step === 1 ? cut : target;
-    document.getElementById("or-cdfill").style.width = Math.min(100, Math.max(2, (now - a) / (b - a) * 100)) + "%";
-    var hm = function (x) { var z = new Date(x + 8 * 3600e3); return (z.getUTCMonth() + 1) + "/" + z.getUTCDate() + " " + String(z.getUTCHours()).padStart(2, "0") + ":" + String(z.getUTCMinutes()).padStart(2, "0"); };
-    document.getElementById("or-cs1t").textContent = "现在 · 免费参与";
-    document.getElementById("or-cs2t").textContent = hm(step === 2 ? data.drawing.cutoff : cut);
-    for (var j = 1; j <= 4; j++) { var li = document.getElementById("or-cs" + j); li.className = j < step ? "done" : j === step ? "on" : ""; }
-  }
-  function tick() {
-    cdTick();
-    var el = document.getElementById("or-cd"); if (!el || !data) return;
-    var ms = data.cutoff - Date.now();
-    if (ms <= 0) { clearInterval(cdTimer); if (A.isCurrent(curRid)) setTimeout(function () { load(curRid); }, 3000); return; }
-    el.textContent = "距离本轮锁定还有 " + left(ms);
-  }
-
-  // 奖金池里实际有多少币：DAI、AiLGNS（按现价折算）、LGNS（不留 LGNS：用 LGNS 付的部分按价值记成「待留」，等 DAI / AiLGNS 进来再留）
-  function funds(f, pool) {
-    if (!f) return "";
-    var ailV = f.ail * f.px, tot = f.dai + ailV;
-    return '<div class="or-funds"><span>💵 DAI <b>' + f.dai.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + "</b></span>" +
-      "<span>🪙 AiLGNS <b>" + f.ail.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 4 }) + "</b> <small>≈ " + ailV.toFixed(2) + " DAI</small></span>" +
-      '<span class="or-tot">已到位 <b>' + tot.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 2 }) + " DAI</b></span>" +
-      '<small class="or-fnote">奖池数字就是奖池钱包里的实际余额（AiLGNS 按现价折算），有多少发多少，获奖自动发到你的钱包；奖池的钱由团队注入，每一笔在链上都查得到。</small></div>';
-  }
-  // 注册了域名却没设主名字的客户：直接告诉他名字在、差一步，一键跳到名字页去设（最常见的「不能参加」原因）
-  function fixHint() {
-    var box = document.getElementById("or-fix"), a = account; if (!box || !a) return;
-    fetch("/api/name-paid?a=" + a).then(function (r) { return r.json(); }).then(function (j) {
-      if (!document.body.contains(box) || account !== a) return;
-      var L = (j.list || []).filter(function (x) { return x.kind === "reg" && x.t === "ailgns" && x.owner === a && x.primary !== x.label; });
-      if (!L.length) return;
-      var full = L[0].label + ".ailgns";
-      box.hidden = false;
-      box.innerHTML = '<div class="or-fixc"><b>⚠️ 你已经注册了 ' + esc(full) + (L.length > 1 ? " 等 " + L.length + " 个名字" : "") + '，只差一步：设为主名字</b><small>名字在你钱包里，但钱包还没「认」它，所以提示没有资格。设一下就能参加，免费，只付一点 Gas。</small>' +
-        '<a class="nm-go" href="#/names/' + encodeURIComponent(full) + '?pri=1">👉 去设为主名字（点进去按蓝色按钮）</a></div>';
-    }, function () {});
-  }
-  // 📣 先宣告再发奖（站长 2026-11-14 定）：中奖人烧完名字，还要到 DeBox 社区发帖宣告，把帖子链接交上来，团队认证后机器人才发奖
-  var DEBOX_GROUP = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
-  function sayText(id, url, a) { return "AiLGNS 每日预言家 · 领奖宣告\n奖项编号：" + id + "\n我在 DeBox 社区的宣告帖：" + url + "\n地址：" + a; } // 和 lib/oracle.js 的 sayText 一字不差
-  // 截图先压小：最长边 1400、JPEG 0.75（手机截图几 MB → 200KB 左右），和工单截图同一个办法
-  function sayShrink(file) {
-    return new Promise(function (ok, bad) {
-      var r = new FileReader();
-      r.onload = function () {
-        var im = new Image();
-        im.onload = function () {
-          var k = Math.min(1, 1400 / Math.max(im.width, im.height)), c = document.createElement("canvas");
-          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
-          var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
-          ok(c.toDataURL("image/jpeg", 0.75));
-        };
-        im.onerror = function () { bad(new Error("这张图片打不开，请换一张")); }; im.src = r.result;
-      };
-      r.onerror = function () { bad(new Error("这张图片读不出来，请换一张")); };
-      r.readAsDataURL(file);
-    });
-  }
-  function sayLog(x, ev, info) { try { fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, keepalive: true, body: JSON.stringify({ action: "log", a: account, id: x.id, ev: ev, info: String(info || "").slice(0, 160) }) }).catch(function () {}); } catch (e) { /* 留痕失败不影响上传 */ } }
-  function sayBox(me) {
-    var KN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
-    var L = (me && me.sayDue) || [];
-    // 站长 2026-11-17 深夜：很多骗子冒充客服「指导领奖」。领奖卡最上面先放一块醒目的防骗提醒：全程自助，没有人工环节
-    var SCAM = "<div class=\"scam-warn\"><b>🚨 警惕骗子：领奖全程在这个网页上自助完成，不需要任何「客服」帮忙</b><ul><li>官方<b>不会私聊你</b>，更不会「指导你领奖」。你在群里说完中奖，马上来私聊你的，就是骗子。</li><li><b>绝不要</b>把助记词、私钥告诉任何人；不要屏幕共享、不要装对方发来的软件。</li><li>领奖<b>不用先转账</b>，没有手续费、保证金、税、「解冻费」。让你先打钱的，就是骗子。</li><li>只认 <b>ailgns.dev</b> 这个网址。别人发来的链接、二维码、「领奖页面」一律不要点、不要授权。</li></ul><small>奖金由机器人自动发到中奖的钱包，没有任何人工环节需要你配合。</small></div>";
-    return (L.length ? SCAM : "") + L.map(function (x, i) {
-      var burnOk = (x.bn || 0) >= (x.need || 1), big = (x.need || 1) > 1;
-      // 站长 2026-11-23：「很多人烧了域名没有宣传，把步骤标清楚，第一步，第二步，第三步」→ 三步各一块，写明现在该做哪一步，按钮放在那一步里面
-      var has = x.url || x.shots || x.video, what = (x.shots ? x.shots + " 张截图" : "") + (x.shots && x.video ? " + " : "") + (x.video ? "视频" : "") || (x.url ? "帖子链接" : "");
-      var said = !!(has || x.ok), cur = !burnOk ? 1 : !said ? 2 : 3; // 现在该做哪一步
-      var stp = function (k, title, done, body) {
-        return '<div class="or-stp' + (done ? " done" : k === cur ? " now" : "") + '"><div class="or-stp-h"><i>' + ["第一步", "第二步", "第三步"][k - 1] + "</i><b>" + title + "</b><em>" + (done ? "✅ 已完成" : k === 3 ? (cur === 3 ? "⏳ 不用操作，等着就行" : "前两步做完自动发") : k === cur ? "👉 现在做这一步" : "⏳ 还没做") + "</em></div>" + body + "</div>";
-      };
-      var b1 = burnOk ? "<p>名字已烧够" + (big ? "（" + x.need + " 个）" : "") + "。</p>"
-        : "<p>" + (big ? "要销毁 " + x.need + " 个 .ailgns 名字，已烧 " + (x.bn || 0) + " 个。" : "销毁 1 枚创世 .ailgns 名字。") + '</p><a class="nm-go or-stp-go" href="#/genesis">🔥 去销毁名字</a><p class="or-stp-tip">烧完一定要回到这一页，接着做第二步。</p>';
-      var up = x.ok ? "" : '<label class="nm-go or-say-up"><input type="file" class="or-say-f" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
-        '<p class="or-say-st" data-i="' + i + '"></p>' +
-        '<p class="or-stp-tip">点上面的按钮，从相册选就行：截图最多 3 张；视频 20 秒以内（最大 20MB）。不用签名、不花钱。</p>';
-      var b2 = x.ok && !has ? "<p>团队已在群里看到你。</p>"
-        : has ? "<p>凭证已交（" + what + "）。" + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "") + "</p>" + up
-        : '<ul class="or-stp-l"><li>打开 DeBox 的 AiLGNS 群，说一声自己中奖了（写上你的名字、哪一期、中了多少）。</li><li>把你发的那条消息截个图，或者录一小段视频。</li><li>回到这一页，点下面的按钮上传。</li></ul>' +
-          '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' + up;
-      var b3 = "<p>" + (x.ok ? "团队已认证" + (burnOk ? "，机器人几分钟内把奖发到这个钱包。" : "，名字烧够后机器人自动发奖。") : has ? "等团队看一眼凭证（一般当天），看过后机器人自动把 AiLGNS 发到这个钱包。" : "前两步做完、团队看过后，机器人自动把 AiLGNS 发到这个钱包。") + "</p>";
-      return '<div class="or-say"><b>🏆 你中了 ' + dayCn(x.day) + " 的" + (KN[x.kind] || "奖") + "：" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS（≈ " + dai(x.amt) + "）" : dai(x.amt)) + "</b>" +
-        "<small>领奖一共三步，三步都做完才发奖。只烧名字、不到群里说一声并上传截图，领不到奖。</small>" +
-        (cur === 2 ? '<p class="or-stp-warn">⚠️ 你已经烧了名字，但还没上传截图 / 视频，奖还发不了。请做下面的第二步。</p>' : "") +
-        stp(1, "销毁名字", burnOk, b1) + stp(2, "到群里说一声，上传截图", said, b2) + stp(3, "等机器人发奖", false, b3) +
-        '<p class="or-stp-why">为什么要在群里说一声：让大家看得见中奖的是真人，防作弊。</p></div>';
-    }).join("");
-  }
-  function meBox(d) {
-    var me = d.me;
-    if (account === SRC) return ownerBox();
-    return sayBox(me) + meBox0(d) + histBox(d);
-  }
-  /* 📋 我的预测记录：这一轮 + 今晚揭晓那一轮 + 往前几轮，一眼看到自己每一轮填的是多少（客户 2026-11-14：封卷后找不到下午填的） */
-  function histBox(d) {
-    var me = d.me; if (!account || !me || me.err) return "";
-    var rows = [];
-    if (me.ps && me.ps.length) rows.push({ day: d.round, ps: me.ps, st: "✍️ 还没封卷 · " + dayCn(d.round) + "晚上揭晓" });
-    (me.hist || []).forEach(function (h) {
-      var st;
-      if (h.px) { var diff = Math.min.apply(null, h.ps.map(function (p) { return Math.abs(Number(p) - Number(h.px)); })); st = "揭晓价 <b>" + esc(h.px) + "</b> · 差 " + diff.toFixed(String(h.px).split(".")[1] ? String(h.px).split(".")[1].length : 3); }
-      else st = "🔒 已封卷 · " + dayCn(h.day) + "晚上 9–10 点揭晓";
-      rows.push({ day: h.day, ps: h.ps, st: st });
-    });
-    if (!rows.length) return '<div class="orh-box"><p class="orh-t">📋 我的预测记录</p><p class="muted orh-none">最近几轮你还没有提交过预测。</p></div>';
-    return '<div class="orh-box"><p class="orh-t">📋 我的预测记录<small>最近几轮</small></p>' + rows.map(function (r) {
-      return '<div class="orh-row"><span class="orh-d">' + dayCn(r.day) + '</span><b class="orh-p">' + r.ps.map(esc).join("、") + '</b><em class="orh-s">' + r.st + "</em></div>";
-    }).join("") + "</div>";
-  }
-  function meBox0(d) {
-    var me = d.me;
-    if (!account) return '<p>参加资格：<b>先设一个 .ailgns 主名字</b>，再满足其一：① <b>至少持有 1 枚 🌟 创世域名</b> ② <b>OTC 累计成交满 5 万 DAI</b> ③ <b>至少持有 5 枚自己注册的普通域名</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';
-    if (!me || me.err) return '<p class="muted">' + esc((me && me.err) || "读取中…") + "</p>";
-    if (me.cool) return '<p>🎉 恭喜 <b>' + esc(me.name || A.short(account)) + '</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，设好主名字，<a href="#/names/otc">持有 1 枚没中过奖的 🌟 创世域名</a>，或者<a href="#/names">持有 5 枚自己注册的普通域名</a>，就能再参加。</p>';
-    if (!me.ok) return (me.name ? "" : '<div id="or-fix" hidden></div>') + '<p>钱包 <span class="mono">' + A.short(account) + '</span> 还没有参加资格。</p>' +
-      // 站长 2026-11-21：「所有都要设置主域名才能玩」→ 分两步写：第 1 步必须有主名字；第 2 步三条里满足一条。已经满足的打 ✅
-      '<p class="or-step"><b>第 1 步（必须）</b>：设一个 .ailgns 主名字</p><ul class="or-req"><li class="or-hl-n">' + (me.name ? "✅ 主名字已设：<b>" + esc(me.name) + "</b>" : '❌ <mark>还没有设主名字</mark>。<a href="#/names">去域名页，点进你的名字 →「设为我的主名字」（不花钱，只付一点 Gas）→</a>') + '</li></ul>' +
-      '<p class="or-step"><b>第 2 步（满足其一）</b></p><ul class="or-req">' +
-      // 资格按「钱包里持有」算，两条要求高亮：至少持有 1 枚创世域名 / 至少持有 5 枚普通域名
-      '<li class="or-hl-g">' + (Number(me.gh) > 0 ? "✅" : "❌") + ' <mark>至少持有 1 枚创世域名</mark>：这个钱包现在有 <b>' + Number(me.gh || 0) + "</b> 枚" + (me.ghWait ? "（另有 " + Number(me.ghWait) + " 枚是这一轮才转进来的，下一轮才算）" : "") + '。<a href="#/names/otc">去域名市场买创世域名 →</a></li>' +
-      '<li>' + (Number(me.vol) >= Number(me.need) ? "✅" : "❌") + ' OTC 累计成交 <b>' + Number(me.vol || 0).toLocaleString("en-US", { useGrouping: false }) + "</b> / " + Number(me.need).toLocaleString("en-US", { useGrouping: false }) + ' DAI：<a href="#/otc">去 OTC 交易 →</a></li>' +
-      '<li class="or-hl-p">' + (Number(me.ph) >= Number(me.phNeed || 5) ? "✅" : "❌") + ' <mark>至少持有 5 枚自己注册的普通域名</mark>：这个钱包现在有 <b>' + Number(me.ph || 0) + "</b> / " + Number(me.phNeed || 5) + " 枚" + (me.phWait ? "（另有 " + Number(me.phWait) + " 枚是这一轮才转进来的，下一轮才算）" : "") + (me.pb ? "（另有 " + Number(me.pb) + " 枚是买来或别人转来的，不算）" : "") + '。<a href="#/names/~daily">从这里注册普通域名（5 DAI 一个，注册费的 95% 进每日奖池）→</a></li></ul>' +
-      '<p class="muted">名字要在这个钱包里才算，挂在市场里卖的不算。普通域名只认自己注册的（注册完等 1 分钟就算），买来的、别人转来的不算。创世域名买来的也算，下一轮起算。</p>';
-    if (me.taken) return '<p class="nm-bad">' + esc(me.name) + " 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";
-    if (me.lock) return '<p class="nm-bad">这个钱包本轮已经用 <b>' + esc(me.lock) + "</b> 预测过了。一个钱包每轮只认一个名字，换主名字不会多出次数。</p>";
-    if (me.hold) return '<p class="nm-bad">' + esc(me.name) + " 是本轮开放后才转进这个钱包的，要等<b>下一轮</b>才能用它预测（刚注册的名字不受此限）。</p>";
-    var rest = me.n - me.used;
-    return '<p>你好，<b>' + esc(me.name || A.short(account)) + "</b>" + (me.gno ? ' <i class="or-gb">🌟 创世 #' + me.gno + "</i>" : me.vol >= me.need ? ' <i class="or-gb">💎 OTC 成交 ' + Number(me.vol).toLocaleString("en-US", { useGrouping: false }) + " DAI</i>" : "") + "！本轮你有 <b>" + me.n + "</b> 次预测机会（" + esc(me.tier) + (me.name ? "域名 " : " ") + me.base + " 次" + (me.bonus ? " + 今天 OTC 成交满 50 DAI 加 1 次" : "") + "），已用 <b>" + me.used + "</b> 次。</p>" +
-      (me.ps.length ? '<p class="or-mine">我的预测：' + me.ps.map(function (p) { return "<b>" + p + "</b>"; }).join("、") + "</p>" + (me.chain ? '<p class="or-chain on">🔗 ' + A.timeBJ(me.chain.at) + ' 已写进链上存证 · <a href="#/scan/' + me.chain.tx + '">在账本里看 ›</a></p>' : '<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把这些预测补写到链上（约 0.001 DAI）</button></p>') : "") +
-      decNote() + (rest > 0 ? '<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="填 1 个价格，例如 ' + (RD === 4 ? "831.4625" : "831.462") + '" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔗 上链预测</button></div>' +
-        '<p class="muted">还能预测 ' + rest + ' 次；有几次就填几个价格，用空格或逗号隔开。预测直接写进链上（给自己发一笔 0 元转账，Gas 约 0.001 DAI），<b>本站不收任何费用</b>，谁都能查、改不了。<a href="#" id="or-sig">钱包没 DAI 付 Gas？用签名方式</a></p>' :
-        '<p class="muted">本轮次数已用完' + (me.bonus ? "" : "；今天在 OTC 成交一笔满 50 DAI，可以再加 1 次") + "。</p>") +
-      (me.ps.length ? '<button type="button" class="nm-sw" id="or-poster">📸 生成晒单海报</button>' : "") +
-      '<p class="muted or-st" id="or-st"></p><div id="or-img"></div>';
-  }
-
-  // 站长（收款钱包）：给触发钱包授权 DAI 发奖额度。触发钱包只能在这个额度内把奖金发给获奖的人
-  function ownerBox() {
-    setTimeout(function () {
-      [[DAI, "or-allow", " DAI"], [AIL, "or-allow2", " AiLGNS"]].forEach(function (t) {
-        W.rpcOn("anubis", "eth_call", [{ to: t[0], data: "0xdd62ed3e" + SRC.slice(2).padStart(64, "0") + KEEPER.slice(2).padStart(64, "0") }, "latest"]).then(function (r) {
-          var el = document.getElementById(t[1]); if (el) el.textContent = (Number(BigInt(r) / 10n ** 14n) / 10000).toLocaleString("en-US", { useGrouping: false }) + t[2];
-        }, function () {});
-      });
-    }, 0);
-    return '<p>👑 站长钱包不参加预测。这里设置<b>自动发奖额度</b>：收款钱包授权触发钱包 ' + A.short(KEEPER) + ' 最多转出多少 DAI 发奖金（只能发给获奖的人，额度用完再授权）。</p>' +
-      '<p>奖金先用 DAI 发，DAI 不够用 AiLGNS（按现价折算），所以两种都要授权。当前额度：<b id="or-allow">读取中…</b> · <b id="or-allow2">读取中…</b></p>' +
-      '<div class="or-in"><input id="or-amt" inputmode="decimal" value="1000"><button type="button" class="nm-go or-approve" data-t="DAI">授权 DAI 额度</button></div>' +
-      '<div class="or-in"><input id="or-amt2" inputmode="decimal" value="5"><button type="button" class="nm-go or-approve" data-t="AIL">授权 AiLGNS 额度</button></div><p class="muted or-st" id="or-st"></p>';
-  }
-  function drawCard(d) {
-    var dr = d.drawing, res = dr.res;
-    var list = dr.list || [];
-    if (res && !res.closest && !res.nearInfo && list.length) { var nr = null; list.forEach(function (g) { g.ps.forEach(function (p) { var d = Math.abs(Math.round(Number(p) * scOf(res)) - res.px); if (!nr || d < nr.diff) nr = { name: g.name, p: p, diff: d }; }); }); res.nearInfo = nr; }
-    if (res) return resultCard(res, "🎉 " + dayCn(res.day) + " 揭晓结果") + (list.length ? '<section class="card">' + proofBar(dr) + allGuess(list, res.px, dr) + "</section>" : "");
-    drRows = []; list.forEach(function (g) { (g.ps || []).forEach(function (p) { drRows.push({ name: g.name, p: p, m: Math.round(Number(p) * DS) }); }); });
-    drDaily = !!(d.daily && dr.day >= d.daily.from); drKings = drDaily ? [] : (d.kings && d.kings.top) || []; drPot = (dr.allot || 0) + ((d.pool && d.pool.pool) || 0);
-    return '<section class="card or-draw"><div class="card-head"><h2>🎲 ' + dayCn(dr.day) + ' 正在揭晓</h2><span class="muted">晚上 9:00–10:00 随机一刻 · 10:05 前公布</span></div>' +
-      "<p>本轮已锁定，共 <b>" + list.length + "</b> 人参与。揭晓价 = 9–10 点之间随机一刻的链上价格，由 10 点整那个区块的哈希决定，谁都没法提前知道。</p>" +
-      '<div class="or-sim" id="or-sim"><p class="muted">按当前价格模拟中…</p></div>' +
-      (list.length ? proofBar(dr) + allGuess(list, 0, dr) : "") + "</section>";
-  }
-  // 🔗 链上存证说明条 + 弹窗
-  function proofBar(dr) {
-    var an = dr.anchor;
-    return '<div class="or-proof' + (an ? " on" : "") + '"><span class="or-pf-i">🔗</span><div><b>' + (an ? "本期全部预测已写入链上，任何人可查、不可篡改" : "封卷后本期全部预测将打包写入链上，不可篡改") + "</b><small>" + (an ? "交易 " + an.tx.slice(0, 10) + "… · 指纹 " + an.hash.slice(0, 12) + "… · " + an.n + " 人 " + an.guesses + " 个预测" : "每个预测都有钱包签名；21:00 封卷后奖池钱包发一笔 0 元交易，把全部预测的 SHA-256 指纹永久记在链上") + '</small></div><button type="button" class="ghost or-pf-btn" data-day="' + dr.day + '">' + (an ? "查看 / 验证" : "怎么验证") + "</button></div>";
-  }
-  function proofModal(day) {
-    var box = document.createElement("div"); box.className = "modal"; box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔗 预测上链存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><p class="muted">读取中…</p></div>';
-    document.body.appendChild(box); box.addEventListener("click", function (e) { if (e.target === box || e.target.closest("[data-close]")) box.remove(); });
-    fetch("/api/oracle?proof=" + day + (account ? "&a=" + account : "")).then(function (r) { return r.json(); }).then(function (p) {
-      var an = p.anchor, bx = box.querySelector(".modal-box"), mi = p.mine;
-      var mine = mi ? '<div class="or-pf-me"><b>🔮 你的链上存证</b><p>你在 <b>' + A.timeBJ(mi.at) + '</b> 预测 <b>' + dayCn(day) + ' 期</b>揭晓价 <b class="or-pf-px">' + esc(String(mi.ps).split(",").join(" / ")) + ' DAI</b>，<b class="ok">✅ 已上链</b></p><a class="nm-go" href="#/scan/' + mi.tx + '">在账本里看链上证据 ›</a><small class="muted">交易 ' + mi.tx.slice(0, 10) + '…' + mi.tx.slice(-6) + '，是你自己钱包发出的 0 元交易，任何人可查、改不了</small></div>' : "";
-      var dl = "data:application/json;charset=utf-8," + encodeURIComponent(p.canon);
-      bx.innerHTML = '<div class="card-head"><h2>🔗 ' + dayCn(day) + ' 预测存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>' +
-        mine + '<div class="or-pf-big' + (an ? " on" : "") + '">' + (an ? "✅ 已写入链上 · 不可篡改" : "⏳ 封卷后写入链上") + "</div>" +
-        '<p><b>' + p.n + " 人 · " + p.guesses + ' 个预测</b></p>' +
-        '<p class="or-pf-k">本期指纹（SHA-256）<br><span class="mono">' + p.hash + "</span></p>" +
-        (an ? '<p class="or-pf-k">链上交易<br><a class="mono" href="#/scan/' + an.tx + '">' + an.tx + '</a><br><small class="muted">交易 data 里写的是 ailgns-oracle:' + day + ":" + an.hash.slice(0, 16) + "…，由奖池钱包发出，" + A.timeBJ(an.at) + ' 上链</small></p>' : '<p class="muted">每个预测提交时都经钱包签名；今晚 21:00 封卷后，奖池钱包会把上面这个指纹写进链上，之后这里显示交易哈希。</p>') +
-        '<ol class="steps or-pf-steps"><li><a href="' + dl + '" download="ailgns-oracle-' + day + '.json">下载本期预测清单（JSON）</a></li><li>用任何工具算它的 SHA-256（电脑终端：<span class="mono">shasum -a 256 文件名</span>）</li><li>和上面的指纹、链上交易里的指纹对比——一致就说明名单没被改过一个字</li></ol>' +
-        '<p class="muted">清单包含每个名字、钱包、预测价和提交时间，和页面显示一致。</p>';
-    }).catch(function () { box.querySelector("p").textContent = "读取失败，请稍后再试"; });
-  }
-  document.addEventListener("click", function (e) { var b = e.target.closest(".or-pf-btn"); if (b) proofModal(b.getAttribute("data-day")); });
-  // 所有人的预测（完整价格，3 位小数）；揭晓后按离揭晓价远近排，最接近的在前
-  // 🎲 「如果此刻揭晓」：按当前链上价实时模拟谁会中奖（神算子/天眼通/地灵通候选）+ 贡献王（OTC 大户）候选，每 5 秒跟价滚；引导去 OTC 交易
-  var drRows = [], drKings = [], drPot = 0, simKey = "", drDaily = false;
-  function simShow() {
-    var el = document.getElementById("or-sim"); if (!el || !drRows.length || !livePxV) return;
-    var m = Math.round(livePxV * DS), rows = drRows.slice().sort(function (a, b) { return Math.abs(a.m - m) - Math.abs(b.m - m); }), top = rows.slice(0, 3);
-    if (drDaily) { var seen = {}; top = rows.filter(function (r) { if (seen[r.name]) return false; seen[r.name] = 1; return true; }).slice(0, 3); } /* 每日前三：一个名字只占一个名额 */
-    var key = top.map(function (r) { return r.name + r.p; }).join("|") + "|" + m, moved = simKey && key !== simKey; simKey = key;
-    var hit = top[0] && top[0].m === m;
-    var tags = drDaily ? [[hit ? "🔮 神算子！" : "🥇 今晚第 1 近", ""], ["🥈 今晚第 2 近", ""], ["🥉 今晚第 3 近", ""]] : [["🔮 神算子候选", "最接近"], ["👁 天眼通候选", "第二"], ["🌿 地灵通候选", "第三"]];
-    el.innerHTML = '<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>' + livePxV.toFixed(DS === 10000 ? 4 : 3) + '</b> DAI<i class="or-dot"></i></span></div>' +
-      '<div class="or-simg">' + top.map(function (r, i) { var d = Math.abs(r.m - m); return '<div class="or-simc r' + (i + 1) + (moved ? " moved" : "") + (i === 0 && hit ? " hit" : "") + '"><small>' + tags[i][0] + '</small><b>' + esc(r.name) + '</b><em>预测 ' + r.p + (d === 0 ? " · 🎯 完全猜中！" : " · 差 " + fq(d, DS)) + "</em></div>"; }).join("") + "</div>" +
-      (drKings.length ? '<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 领奖先烧 1 枚创世名 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>' + drKings.map(function (k, i) { return '<span class="or-simkr">' + ["🥇", "🥈", "🥉"][i] + " " + esc(k.name) + ' <small>手续费 ' + dai(k.fee) + "</small></span>"; }).join("") + "</div>" : "") +
-      (drDaily ? '<p class="muted or-simd">🎯 揭晓时离得最近的 3 个人各拿每日奖（每日奖冷却中的顺延给下一位）</p>' : (drKings.length ? '<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>' : ""));
-    // 名单里把当前最接近的 3 个点亮
-    var names = {}; top.forEach(function (r, i) { names[r.name + ":" + r.p] = i + 1; });
-    document.querySelectorAll(".or-all li[data-k]").forEach(function (li) { var r = names[li.getAttribute("data-k")]; li.className = (r ? "hot h" + r : "") + (li.hasAttribute("data-me") ? " me" : ""); });
-  }
-  function allGuess(list, px, dr) {
-    var rows = [];
-    var myName = (data && data.me && data.me.name ? String(data.me.name) : "").toLowerCase(), cur = px || Math.round(livePxV * DS);
-    list.forEach(function (g) { g.ps.forEach(function (p) { rows.push({ name: g.name, p: p, tx: g.tx || "", me: myName && g.name.toLowerCase() === myName, d: cur ? Math.abs(Math.round(Number(p) * DS) - cur) : 0 }); }); });
-    if (cur) rows.sort(function (a, b) { return a.d - b.d; });
-    return '<details class="or-all"' + (px ? "" : ' open data-live="1"') + '><summary>📜 所有人的预测（' + list.length + " 人 · " + rows.length + " 个价格）" + (px ? "，按离揭晓价远近排" : "，离当前价最近的在最上面，实时变") + '</summary><input class="or-q" placeholder="🔍 搜名字"><ol>' +
-      rows.map(function (r) { return '<li data-n="' + esc(r.name.toLowerCase()) + '" data-k="' + esc(r.name + ":" + r.p) + '" data-p="' + r.p + '"' + (r.me ? ' data-me="1" class="me"' : "") + '><b>' + esc(r.name) + '</b>：<b class="or-px">' + r.p + " DAI</b>" + (cur ? ' <small class="muted or-d">差 ' + fq(r.d, DS) + "</small>" : "") + (r.tx ? ' <a class="or-pf-btn" href="#/scan/' + r.tx + '" title="在本站账本里验证这条预测的链上交易">🔗 链上证据</a>' : dr ? ' <button type="button" class="link or-pf-btn" data-day="' + dr.day + '" title="这条预测的链上存证">' + (dr.anchor ? "🔗 链上存证" : "🔗 存证") + "</button>" : "") + "</li>"; }).join("") + "</ol>" + (rows.length > 10 ? '<button type="button" class="ghost or-more" data-n="' + rows.length + '">展开全部 ' + rows.length + ' 条</button>' : "") + "</details>";
-  }
-  // 开放期间：价格每次变动就把列表按离当前价远近重排（最接近的滚到最上面），并刷新「差」
-  function allResort() {
-    var ol = document.querySelector('.or-all[data-live] ol'); if (!ol || !livePxV) return;
-    var lis = [].slice.call(ol.children), k = Math.round(livePxV * DS);
-    lis.forEach(function (li) { li._d = Math.abs(Math.round(Number(li.getAttribute("data-p")) * DS) - k); var d = li.querySelector(".or-d"); if (!d) { d = document.createElement("small"); d.className = "muted or-d"; li.querySelector(".or-px").insertAdjacentElement("afterend", d); } d.textContent = " 差 " + fq(li._d, DS); });
-    lis.sort(function (a, b) { return a._d - b._d; }).forEach(function (li) { ol.appendChild(li); });
-  }
-  // 📈 本轮实时排行：域名 + 预测价，按离当前链上价远近排，每 5 秒跟着价格刷新；人多时自动滚动
-  var livePxV = 0, liveRows = [], liveKey = "", liveAll = false;
-  // 现价旁边：如果按当前价揭晓，最能获奖的前 3 名（同时显示，价格每 5 秒变一次就跟着重排，名次变了闪一下）
-  var leadRows = [], leadKey = "";
-  function leadShow() {
-    var el = document.getElementById("or-lead");
-    if (!el || !leadRows.length) return;
-    var top = leadRows.slice(0, 3), key = top.map(function (r) { return r.name + r.p; }).join("|"), moved = leadKey && key !== leadKey;
-    leadKey = key;
-    el.innerHTML = '<div class="or-lh"><b>🏆 如果现在揭晓</b><span>最接近的 3 位</span></div>' + top.map(function (r, i) {
-      return '<div class="or-ldr r' + (i + 1) + (moved ? " moved" : "") + '"><i>' + (i + 1) + '</i><div class="or-ln"><b>' + esc(r.name) + '</b><small>预测 ' + r.p + '</small></div><em>差 ' + r.d + "</em></div>";
-    }).join("");
-  }
-
-  // 本周期贡献榜：奖池 30% 给 OTC 手续费前 3 名
-  /* 🎯 每日前三（站长 2026-11-13 定）：开始前是预告，开始后显示今晚每人多少、我是不是在冷却 */
-  function dailyCard(d) {
-    var y = d.daily; if (!y) return "";
-    var me = d.me, low = y.on && y.each < y.prize;
-    return '<section class="card or-daily"><div class="card-head"><h2>🎯 每日前三</h2><span class="muted">' + (y.on ? "今晚每人 " + dai(y.each) : dayCn(y.from) + "开始") + "</span></div>" +
-      '<p>每晚揭晓后，<b>离揭晓价最近的 ' + y.top + " 个人各拿 " + y.prize + " DAI</b>（发 AiLGNS），不用等有人猜中大奖，天天发。</p>" +
-      (low ? '<p class="muted">奖池里现在不够 ' + (y.prize * y.top) + " DAI，三个人平分奖池里的钱，每人 " + dai(y.each) + "。</p>" : "") +
-      (me && me.dcool ? '<p class="or-chg">⏳ 你最近中过每日奖，冷却到 <b>' + dayCn(me.dcool) + "</b>。这几天照样能猜，完全猜中的大奖照拿。</p>" : "") +
-      '<ul class="or-dl"><li>💰 钱从<b>奖池钱包</b>里出；奖池不够时，三个人平分奖池里的钱。发完剩下的才是大奖。</li><li>🔥 领奖先在 3 天内销毁 1 枚创世名，过期算放弃。</li><li>⏳ 中一次休息 ' + y.cool + " 天（只停每日奖），名额顺延给下一位。</li><li>🙅 一个名字、一个钱包每晚只占一个名额；一样近，先提交的得。</li></ul></section>";
-  }
-  function kingsCard(d, potV) {
-    var k = d.kings; if (!k) return "";
-    var b = k.budget, inflowMode = b && b.mode === "inflow", walletMode = b && b.mode === "wallet", total = b ? b.total : Math.floor(potV * k.share * 100) / 100, me = d.me && d.me.king, cap = k.cap || 3;
-    var rows = k.top.map(function (x, i) { return '<li><span>' + ["🥇", "🥈", "🥉"][i] + ' <b data-a="' + esc(x.a || "") + '">' + esc(x.name) + "</b> 付手续费 " + dai(x.fee) + (x.share ? ' <small class="muted">占 ' + Math.round(x.share * 100) + "%" + (x.demoted ? " · 上周第一，连庄按第二算" : "") + "</small>" : "") + "</span><b>" + dai(x.amt != null ? x.amt : 0) + "</b></li>"; }).join("");
-    return '<section class="card"><div class="card-head"><h2>💰 本周贡献榜</h2><span class="muted">' + dayCn(k.cyc) + " 起 · 周日揭晓时结算</span></div>" +
-      (d.daily ? '<p class="or-chg">📣 <b>这是贡献王最后一期</b>：本周日晚照常结算发奖，' + dayCn(d.daily.from) + "起取消，改成「🎯 每日前三」。</p>" : "") +
-      (rows ? '<ol class="or-board">' + rows + "</ol>" : '<p class="muted">本周还没有认证商家成交，第一笔就是第一名。</p>') +
-      '<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = ' + (walletMode ? '<b>奖池钱包里现在实际有的钱</b>（约 ' + dai(total) + '）。按原来的算法是 ' + dai(b.want || 0) + '，但本周大奖两次被猜中，奖池已经清空发给了中奖人，钱包里没有这么多，所以<b>有多少发多少</b>；今晚奖池钱包里的钱先发贡献王，' : inflowMode ? '<b>本周新进奖池的钱的 ' + Math.round((b.rate || 0.15) * 100) + '%</b>（本周已进 ' + dai(b.base) + '，可分 ' + dai(total) + '；大奖池本身只进不出，只在有人猜中大奖时清空）' : '奖池 30%（现在约 ' + dai(total) + '；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）') + '按三人手续费占比分，<b>每人最多拿回自己手续费的 ' + cap + ' 倍</b>，多的留在奖池。<b>⚠️ 钱包必须绑定域名（设为主名字）才能拿贡献王奖励</b>，没绑的自动跳过、名额顺延。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。' + (me ? " 你本周排第 <b>" + me.rank + "</b>，已付 " + dai(me.fee) + "。" : (d.me && d.me.a ? " 你本周还没有成交。" : "")) + '</p>' +
-      '<p class="muted or-rulenote">📐 规则会随数据不断优化，以页面公布为准。</p></section>';
-  }
-  function playersCard(d) {
-    liveRows = []; liveKey = "";
-    (d.players || []).forEach(function (g) { (g.ps || []).forEach(function (p) { liveRows.push({ name: g.name, p: p, m: Math.round(Number(p) * RS) }); }); });
-    if (!liveRows.length) return "";
-    return '<section class="card or-live"><div class="card-head"><h2>📈 ' + dayCn(d.round) + ' 实时排行</h2><span class="muted" id="or-lcnt">' + (d.players || []).length + " 人 · " + liveRows.length + ' 个预测</span></div>' +
-      '<p class="muted">按离<b>当前链上价</b>最近排序，价格每 8 秒刷新、名单每 30 秒刷新（别人新交的预测最多 1 分钟内上榜）；最终以当晚 9–10 点随机一刻的价格揭晓。</p><div id="or-live"></div></section>';
-  }
-  // 奖池数字滚动增加：从上次看到的数（第一次从 0）滚到现在的数
-  var cntSeen = {};
-  function countUp() {
-    document.querySelectorAll(".or-cnt").forEach(function (el, k) {
-      var to = Number(el.getAttribute("data-to")) || 0, from = cntSeen[k] != null ? cntSeen[k] : 0, t0 = performance.now(), dur = from ? 900 : 1800;
-      var dec = Number(el.getAttribute("data-dec")) || 0, fmt = function (v) { return dec ? (v / Math.pow(10, dec)).toFixed(dec) : v.toLocaleString("en-US", { useGrouping: false }); };
-      cntSeen[k] = to;
-      if (from === to) { el.textContent = fmt(to); return; }
-      (function step(t) {
-        var x = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - x, 3);
-        el.textContent = fmt(Math.floor(from + (to - from) * e));
-        if (x < 1 && el.isConnected) requestAnimationFrame(step);
-      })(t0);
-    });
-  }
-  function liveRank() {
-    var box = document.getElementById("or-live");
-    if (!box || !liveRows.length || !livePxV) return;
-    var m = Math.round(livePxV * RS);
-    var rows = liveRows.slice().sort(function (a, b) { return Math.abs(a.m - m) - Math.abs(b.m - m); });
-    var key = m + ":" + rows.map(function (r) { return r.name + r.p; }).join("|");
-    leadRows = rows.slice(0, 5).map(function (r) { return { name: r.name, p: r.p, d: fq(Math.abs(r.m - m), RS) }; });
-    leadShow();
-    if (key === liveKey) return;
-    liveKey = key;
-    var li = function (r, i) { return '<li' + (i < 3 ? ' class="top"' : "") + '><span class="or-lr">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="or-lp"><small>预测价格</small>' + r.p + '</span><span class="or-lc"><small>差</small>' + fq(Math.abs(r.m - m), RS) + "</span></li>"; };
-    // 不滚动：上面高亮当前价，下面列最接近的 10 个，点「看全部」展开
-    box.innerHTML = '<div class="or-lnow"><small>当前价格</small><b>' + livePxV.toFixed(RD) + '</b><span>DAI</span></div>' +
-      '<div class="or-lwin"><ol>' + rows.slice(0, liveAll ? rows.length : 10).map(li).join("") + "</ol></div>" +
-      (rows.length > 10 ? '<button type="button" class="nm-more" id="or-lall">' + (liveAll ? "收起 ▲" : "看全部 " + rows.length + " 个 ▼") + "</button>" : "");
-    var la = document.getElementById("or-lall");
-    if (la) la.onclick = function () { liveAll = !liveAll; liveKey = ""; liveRank(); };
-  }
-  function resultCard(r, title) {
-    // 奖池现在实际有多少：奖池钱包余额（AiLGNS 按现价折算），不用应得账
-    var fd = data && data.funds, fpx = fd ? ((fd.otc && fd.otc.px) || fd.px || 1) : 1, curPotV = fd ? Math.floor((fd.dai + fd.ail * fpx) * 100) / 100 : 0;
-    var px = fq(r.px, r), jw = r.jackpot.winners, c = r.closest;
-    return '<section class="card or-res"><div class="card-head"><h2>' + title + '</h2><span class="muted">' + dayCn(r.day) + "</span></div>" +
-      '<div class="or-rpx"><small>揭晓价</small><b>' + px + '</b><span>DAI</span></div>' +
-      '<p class="or-proof">揭晓时刻 ' + hm(r.blockTime * 1000) + ' · <span>区块 #' + r.block + "</span>（由 #" + r.b1 + " 的哈希在 #" + r.b0 + "–#" + (r.b1 - 1) + " 中随机选出）· 链上原价 " + r.pxRaw.toFixed(6) + "</p>" +
-      (jw.length ? '<p class="or-win">🎯 <b>超级大奖池 ' + dai(r.jackpot.pool) + "</b> 被 " + jw.map(function (w) { return "<b>" + esc(w.name) + "</b>"; }).join("、") + " 猜中！" + (jw.length > 1 ? "每人 " + dai(r.jackpot.each) : "独得") + "</p>" :
-        '<p>🎯 没人猜中 ' + px + "，奖金全部留在奖池，下一期继续！奖池现在实际有 <b>" + dai(curPotV) + "</b>（按奖池钱包余额）。</p>") +
-      (c ? '<p class="or-win">🥇 天眼通（最接近）：<b>' + esc(c.name) + "</b> 预测 " + fq(c.p, r) + "，只差 " + fq(c.diff, r) + "，得 " + dai(c.amt) + "</p>" : r.nearInfo && !(r.daily && r.daily.length) ? '<p class="muted">离得最近的是 <b>' + esc(r.nearInfo.name) + "</b> 预测 " + r.nearInfo.p + "，差 " + fq(r.nearInfo.diff, r) + "。" + (r.dailyRule ? "" : "没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。") + "</p>" : r.n ? "" : '<p class="muted">这一期没人参加。</p>') +
-      (r.daily && r.daily.length ? '<p class="or-win">🎯 每日前三（离揭晓价最近）：' + r.daily.map(function (w, i) { return ["🥇", "🥈", "🥉"][i] + " <b>" + esc(w.name) + "</b> 预测 " + fq(w.p, r) + "，差 " + fq(w.diff, r) + "，得 " + (w.ail ? Number(w.ail).toFixed(4) + " AiLGNS（≈ " + dai(w.amt) + "）" : dai(w.amt)); }).join("；") + "</p>" : r.dailyRule && r.n ? '<p class="muted">今天奖池没有新进账，每日前三这一期不发。</p>' : "") +
-      (r.second ? '<p class="or-win">🥈 地灵通（次接近）：<b>' + esc(r.second.name) + "</b> 预测 " + fq(r.second.p, r) + "，差 " + fq(r.second.diff, r) + "，得 " + dai(r.second.amt) + "</p>" : "") +
-      (r.kings && r.kings.length ? '<p class="or-win">🏆 本周贡献王（' + dayCn(r.cyc) + " 起 OTC 手续费前 " + r.kings.length + " 名）：" + r.kings.map(function (k, i) { return "<b>" + esc(k.name) + "</b> 付手续费 " + dai(k.fee) + "，得 " + (k.ail ? Number(k.ail).toFixed(4) + " AiLGNS（≈ " + dai(k.amt) + "）" : dai(k.amt)); }).join("；") + "</p>" : "") +
-      payList(r.day) +
-      '<p class="muted">共 ' + r.n + " 人、" + r.guesses + " 个预测 · 奖金由系统自动发到获奖钱包</p></section>";
-  }
-  // 站长 2026-11-08：发奖记录公开——谁、什么奖、实发多少 AiLGNS、点开就是本站中文账本里的那笔转账
-  function bjShort(ms) { var d = new Date(ms + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + d.getUTCDate() + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
-  function payList(day) {
-    var KN = { king: "🏆 贡献王", closest: "🥇 天眼通", second: "🥈 地灵通", jackpot: "🎯 神算子", daily: "🎯 每日前三" };
-    var l = ((data && data.pays) || []).filter(function (x) { return x.day === day; });
-    if (!l.length) return "";
-    // 站长 2026-11-09：电脑端对齐成表格（奖项 | 获奖人 | 实发 | 状态），手机端还是一行行卡片（表头只在电脑端显示）
-    return '<div class="or-pays"><b>💸 发奖记录（链上可查）</b><div class="or-pay or-ph"><span>奖项</span><span>获奖人</span><span class="or-pa">实发 AiLGNS（≈ DAI）</span><span>状态 / 转账</span></div>' + l.map(function (x) {
-      // 2026-11-09 起先烧才发：wait = 等中奖人销毁创世名（3 天内），forfeit = 逾期没烧放弃，ready = 已烧等机器人转账
-      var big = (x.need || 1) > 1, burnt = big ? "🔥 已烧 " + x.need + " 个名字" : (x.burn ? "🔥 已烧创世 #" + x.burn : "");
-      var tail = x.tx ? '<a href="#/scan/' + esc(x.tx) + '">查看转账 →</a>' + (burnt ? "<small>" + burnt + "</small>" : "")
-        : x.st === "forfeit" ? '<small class="or-pay-no">❌ 3 天内没销毁' + (big ? "够名字" : "创世名") + '，放弃，奖金留在奖池</small>'
-        : x.st === "say" ? "<small>📣 " + (burnt ? burnt + "，" : "") + "等中奖人到群里说一声并上传截图 / 视频</small>"
-        : x.st === "review" ? (x.say ? '<a href="' + esc(x.say) + '" target="_blank" rel="noopener">🔎 已宣告，团队认证中 · 看帖子 ↗</a>' : "<small>🔎 截图 / 视频已交，团队认证中</small>")
-        : x.st === "wait" ? '<a href="#/genesis">⏳ ' + (big ? "等中奖人注册并销毁名字 " + (x.bn || 0) + "/" + x.need + " 个" : "等中奖人销毁 1 枚创世名") + "（" + (x.due ? "截止 " + bjShort(x.due) : "3 天内") + "）→</a>"
-        : '<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">' + (burnt ? burnt + "，等机器人转账" : "奖池转出记录") + " →</a>";
-      return '<div class="or-pay"><span class="or-pk">' + (KN[x.kind] || x.kind) + '</span><span class="or-pn"><b>' + esc(x.name) + '</b></span><span class="or-pa">' + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS" : dai(x.amt)) + '<small> ≈ ' + dai(x.amt) + '</small></span><span class="or-pt">' + tail + "</span></div>";
-    }).join("") + "</div>";
-  }
-  function rules() {
-    return '<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>' +
-      "<li><b>谁能玩</b>（满足其一）：① 钱包里至少持有 1 枚 🌟 创世域名（全站付费注册的前 1 万个）② OTC 累计成交满 5 万 DAI ③ 钱包里至少持有 5 枚自己注册的普通域名（买来的、别人转来的不算，2026-11-23 起）。不管走哪一条，都要先设一个 .ailgns 主名字。名字要在钱包里才算，挂在市场里卖的不算；创世域名买来的、别人转来的下一轮才算。免费参与，只需钱包签名。</li>" +
-      "<li><b>猜什么</b>：猜揭晓价。<b>📣 11 月 15 日那一轮起精确到小数点后 4 位</b>，例如 827.3546（11 月 14 日那一轮和以前是 3 位）。原因：猜的人多了，11 月 13 日、14 日连续两晚 3 位小数被猜中，大奖池攒不起来；改 4 位难 10 倍，奖池才能滚大。11 月 15 日这一轮在改之前已经提交的 3 位预测照常有效，按末位补 0 计入（例如 854.686 算 854.6860）。以后人数再涨还会升到 5 位，升档都会提前在这里公告。</li>" +
-      "<li><b>📣 创世域名已全部注册完（2026-11-21）</b>：都要先设一个 .ailgns 主名字。然后钱包里至少持有 1 枚创世域名就能玩；没有创世域名的，至少持有 5 枚自己注册的普通域名也能玩；OTC 满 5 万的资格照旧。每天几次按主名字的档位算。以前公告的「任何 .ailgns 主名字都能玩」不再执行，以这一条为准。中奖领钱要先烧 1 枚创世名。</li>" +
-      "<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>" +
-      "<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（上一期封卷前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>" +
-      "<li><b>随时能猜</b>：<b>下午 3 点封卷</b>（11 月 12 日起；11 月 10–11 日是早上 9 点）。下午 3 点前提交的参加当晚揭晓；下午 3 点到晚上 9 点是锁定期（6 小时），这段时间提交的算第二天。</li>" +
-      "<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>" +
-      "<li><b>奖金</b>：奖池的钱由<b>团队注入</b>（2026-11-15 起不再按域名收入自动划转），进了奖池的 DAI 会买成 AiLGNS；页面大字显示的就是奖池钱包的实际余额，有多少发多少。🔮 <b>神算子</b>（价格每一位都猜中）平分大奖池；没人猜中，大奖池继续滚大。</li>" +
-      "<li><b>🎯 每日前三</b>（2026-11-16 起）：每晚揭晓后，除神算子外<b>离揭晓价最近的 3 个人各拿 20 DAI</b>（发 AiLGNS），天天发。钱从<b>奖池钱包</b>里出，奖池不够 60 DAI 就三人平分奖池里的钱；发完剩下的才是大奖。一个名字、一个钱包每晚只占一个名额，一样近先提交的得。中一次休息 7 天（只停每日奖，照样能猜大奖），名额顺延。原来的天眼通、地灵通并进每日前三。</li>" +
-      "<li><b>💰 贡献王（已取消）</b>：原定 2026-11-15 发最后一期，现已取消，本周不再结算；奖池里的钱全部留给大奖。11-15 这一期有人猜中大奖的话，天眼通 10%、地灵通 5% 照老规则发，其余归神算子。</li>" +
-      "<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>" +
-      "<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>" +
-      "<li><b>📣 领奖要到社区宣告</b>（2026-11-13 那一期起，所有奖项）：名字烧够以后，中奖的人还要<b>到 DeBox 的 AiLGNS 群里说一声自己中奖了</b>，截个图或录一小段视频，在本页最上面上传（不用签名、不花钱）。团队看过后机器人才发奖。目的：让社区看得见中奖的是真人，防作弊、防质疑。不宣告就一直不发，奖金留在奖池钱包里。</li>" +
-      "<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>" +
-      "<li><b>大奖每个名字、每个钱包只能中一次</b>：拿到神算子（以及老规则下的天眼通、地灵通）后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。<b>每日前三不拉黑</b>，只休息 7 天。</li>" +
-      "<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>" +
-      '<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';
-  }
-
-  // 💬 弹幕：每 15 秒拉一次，3 条跑道从右往左一直飘；新发的优先飘
-  var dmList = [], dmQ = [], dmI = 0, dmSeen = {}, dmLane = 0;
-  function dmText(txt, ts, a) { return "AiLGNS 弹幕\n" + txt + "\n时间：" + ts + "\n地址：" + a; }
-  function dmFetch() {
-    return fetch("/api/danmaku?r=" + Date.now()).then(function (r) { return r.json(); }).then(function (j) {
-      var fresh = false;
-      (j.list || []).forEach(function (m) { if (!dmSeen[m.id]) { dmSeen[m.id] = 1; dmAdd(m); fresh = true; } });
-      if (fresh || !dmFetched) dmI = 0; // 有人发新弹幕：从头滚一遍
-      dmFetched = true;
-      var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = dmList.length ? "" : "💬 本期还没有弹幕，来发第一条吧！（每期揭晓后重新开始）";
-    }, function () {});
-  }
-  var dmFetched = false;
-  function dmAdd(m) { // 每人只留最新一条；新的排前面（最近发的先飞）
-    dmList = dmList.filter(function (x) { return x.name !== m.name; }); dmList.unshift(m); dmList.sort(function (x, y) { return (y.t || 0) - (x.t || 0); });
-    if (dmList.length > 60) dmList.shift();
-  }
-  function dmFly(m, mine) {
-    var sky = document.getElementById("or-dmsky"); if (!sky) return;
-    var el = document.createElement("div");
-    el.className = "or-dmi" + (mine ? " mine" : "");
-    el.style.top = (6 + (dmLane++ % 4) * 24) + "px";
-    el.innerHTML = "<b>" + esc(m.name) + "</b>：" + esc(m.txt);
-    el.style.animationDuration = (5.5 + Math.random() * 2).toFixed(1) + "s"; // 快一点：6 秒左右飞完
-    el.addEventListener("animationend", function () { el.remove(); });
-    sky.appendChild(el);
-  }
-  function dmInit(rid) {
-    dmFetched = false; dmSeen = {}; dmList = []; dmQ = [];
-    dmFetch();
-    var idle = 0;
-    var tick = setInterval(function () {
-      if (!A.isCurrent(rid) || !document.getElementById("or-dmsky")) return clearInterval(tick);
-      if (dmI < dmList.length) { dmFly(dmList[dmI++], false); idle = 0; } // 密集：每 0.45 秒一条，4 条车道，一轮很快看完
-      else if (++idle > 44) { dmI = 0; idle = 0; } // 滚完一轮歇 20 秒再来一轮
-    }, 450);
-    var pull = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(pull); dmFetch(); }, 15000);
-    var inp = document.getElementById("or-dmt"), btn = document.getElementById("or-dmgo"), cs = document.getElementById("or-dmcs");
-    if (cs) cs.onclick = function () { if (A.chatOpen) A.chatOpen("预言家怎么玩？"); };
-    if (!btn) return;
-    var send = function () {
-      var txt = inp.value.replace(/\s+/g, " ").trim();
-      if (!txt) return A.errTip("先写点内容", btn);
-      btn.disabled = true;
-      var ts = Date.now();
-      (eth ? Promise.resolve() : connect()).then(function () {
-        return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(dmText(txt, ts, account)), account] });
-      }).then(function (sig) {
-        return fetch("/api/danmaku", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: account, txt: txt, ts: ts, sig: sig }) }).then(function (r) { return r.json(); });
-      }).then(function (j) {
-        btn.disabled = false;
-        if (j.error) throw new Error(j.error);
-        inp.value = ""; dmSeen[j.it.id] = 1; dmAdd(j.it); dmI = 0;
-        var tip = document.querySelector(".or-dmtip"); if (tip) tip.textContent = "";
-      }).catch(function (e) { btn.disabled = false; A.errTip(e.message || String(e), btn); });
-    };
-    btn.onclick = send;
-    inp.onkeydown = function (e) { if (e.key === "Enter") send(); };
-  }
-  function connect() {
-    return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return account; });
-  }
-  function bind(rid) {
-    // 📷 领奖凭证：选截图（最多 3 张，先压小）或一段视频（最多 20MB）→ 直接上传，不用签名（站长 2026-11-16：要方便）
-    document.querySelectorAll(".or-say-f").forEach(function (fi) {
-      // 🛡 2026-11-20 加固（工单 #327：客户说「发截图没反应」，服务器上一条都没收到，查不出卡在哪）：
-      //   ① 一点上传就先在按钮下面写一句话——选完回来这里没变化 = 这个钱包 App 没把图片交给网页，告诉他别反复试、怎么办；
-      //   ② 钱包 App 不告诉网页文件类型（type 是空的）时，按文件名认；认不出就当图片试，打不开会明说；
-      //   ③ 读图 / 上传都有时限，不会一直停在「正在处理」；④ 每一步往服务器留一条痕（sayLog），下次有人说传不上能查到卡在哪一步、用的什么钱包 App
-      var idx = fi.getAttribute("data-i");
-      var cur = function () { return ((data && data.me && data.me.sayDue) || [])[Number(idx)]; };
-      var say = function (t, bad) { var stEl = document.querySelector('.or-say-st[data-i="' + idx + '"]'); if (stEl) { stEl.textContent = t; stEl.className = "or-say-st" + (bad ? " bad" : t && bad === 0 ? " tip" : ""); } };
-      var HELP2 = "在 DeBox 群里说一声自己中奖了，团队看到会手动通过。", HELP = "不用反复试：" + HELP2;
-      fi.onclick = function () { var x = cur(); if (x && account) { say("选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。" + HELP, 0); sayLog(x, "open", ""); } };
-      fi.onchange = function () {
-        var x = cur();
-        var files = [].slice.call(fi.files || []);
-        var isImg = function (f) { return /^image\//.test(f.type) || (!f.type && /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name || "")); };
-        var isVid = function (f) { return /^video\//.test(f.type) || (!f.type && /\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name || "")); };
-        var imgs = files.filter(isImg).slice(0, 3), vid = files.filter(isVid)[0];
-        if (!imgs.length && !vid) imgs = files.filter(function (f) { return !f.type; }).slice(0, 3); // 钱包 App 没说这是什么文件：当图片试一下，打不开下面会明说
-        var done = function () { try { fi.value = ""; } catch (e) { /* 清不掉也不要紧 */ } }; // 传完再清（有的钱包 App 一清，刚选的文件就读不出来了）；清了才能再选同一张
-        if (!x || !account) { done(); return say("请先连接中奖的那个钱包，再上传", true); }
-        sayLog(x, "files", files.length + "个:" + files.slice(0, 4).map(function (f) { return (f.type || "?") + "/" + Math.round(f.size / 1024) + "K"; }).join(","));
-        if (!imgs.length && !vid) { done(); return say(files.length ? "选的不是图片或视频，请再选一次" : "没选到图片或视频，请再选一次；还不行就" + HELP2, true); }
-        if (vid && vid.size > 20 * 1024 * 1024) { done(); return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true); }
-        var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
-        var within = function (p, ms, msg) { return new Promise(function (ok, bad) { var t = setTimeout(function () { bad(new Error(msg)); }, ms); p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); bad(e); }); }); };
-        var step = Promise.resolve(), lastSt = "";
-        if (imgs.length) step = step.then(function () { say("收到 " + imgs.length + " 张截图，正在处理…"); return within(Promise.all(imgs.map(sayShrink)), 30000, "图片处理不动（可能太大了），请换成手机截图再试"); })
-          .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return within(fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: account, id: x.id, imgs: us }) }).then(jsonOf), 90000, "传了一分半钟还没传完，网络太慢，请换个网络再试"); })
-          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
-        if (vid) step = step.then(function () { return imgs.length ? new Promise(function (ok) { setTimeout(ok, 9000); say("截图已交，马上接着上传视频，请别关页面…"); }) : null; })
-          .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return within(fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + account, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf), 240000, "视频传了 4 分钟还没传完，网络太慢。请改传截图"); })
-          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
-        step.then(function () { done(); sayLog(x, "ok", lastSt); say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。名字烧够以后机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); setTimeout(function () { load(rid); }, 1200); },
-          function (e) { done(); var m = (e && e.message) || "网络不好，请再试一次"; sayLog(x, "fail", m); say("没交上：" + m + "。再试一次；还不行就" + HELP2, true); });
-      };
-    });
-    var c = document.getElementById("or-conn");
-    if (c) c.onclick = function () { connect().then(function () { load(rid); }, function (e) { A.errTip(e.message || String(e), c); }); };
-    var go = document.getElementById("or-go"), st = document.getElementById("or-st");
-    if (go) go.onclick = function () {
-      // 客户常把小数点打成逗号 / 中文句号 / 全角，或者中间带空格（831，462、831。462、８３１．４６２、831 .462）：只有一个数的样子就当成一个价格
-      var v0 = document.getElementById("or-p").value.replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 65248); }).replace(/[。．]/g, ".").trim();
-      var one = v0.match(new RegExp("^(\\d{1,7})\\s*[.,，、]\\s*(\\d{1," + RD + "})$"));
-      if (one) v0 = one[1] + "." + one[2];
-      var raw = v0.split(/[\s,，、]+/).filter(function (x) { return x; });
-      if (!raw.length || raw.some(function (x) { return !new RegExp("^\\d{1,7}(\\.\\d{1," + RD + "})?$").test(x); })) return A.errTip("价格格式不对，例如 " + (RD === 4 ? "827.3546" : "827.354") + "（最多 " + RD + " 位小数）", go);
-      raw = raw.map(function (x) { return Number(x).toFixed(RD); }).filter(function (x, i, z) { return z.indexOf(x) === i; }); // 重复的价格只算一次
-      var left = data.me ? data.me.n - data.me.used : 0;
-      if (raw.length > left) return A.errTip("你本轮只剩 " + left + " 次预测机会，但我们读到了 " + raw.length + " 个价格：" + raw.join("、") + "。\n一次只填 1 个价格，小数点用英文点，例如 831.462（还没扣次数）", go);
-      var day = data.round;
-      // 站长 2026-11-07：预测直接写上链（给自己发一笔 0 元转账，文字放交易里，只花约 0.001 DAI 的 Gas），链上永久留存、谁都能查；本站不收任何费用
-      /* 2026-11-17 客户「11岁潮平安」反复「转账失败（交易被链上拒绝）」：他的钱包被钱包 App 升级成了「智能账户」（EIP-7702，地址上挂了一段合约代码）。
-         给自己发一笔带文字的交易，会被那段代码当成调用、直接拒绝，白花 Gas 还提交不上。所以上链之前先看地址上有没有代码，有就自动改用签名提交（一样算数、不花 Gas） */
-      var viaSig = false;
-      var smart = function () { return W.rpcOn("anubis", "eth_getCode", [account, "latest"]).then(function (c) { return !!c && c !== "0x" && c.length > 2; }, function () { return false; }); };
-      var chainGo = function () {
-        st.textContent = "🔒 这是一笔 0 元转账（发给自己），预测写在交易里，只花约 0.001 DAI 的 Gas，本站不收费。请在钱包确认";
-        var txt = "ailgns-oracle-guess:" + day + ":" + raw.join(","), hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
-        return (eth ? Promise.resolve() : connect()).then(smart).then(function (isSmart) {
-          if (!isSmart) return chainSend(hex);
-          viaSig = true;
-          st.textContent = "你的钱包是「智能账户」，没法把预测写到链上，已自动改用签名方式提交（一样算数、不花 Gas）…";
-          return sigGo();
-        });
-      };
-      var chainSend = function (hex) {
-        return Promise.resolve().then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
-          .then(function () { return W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(function (b) { return BigInt(b); }, function () { return -1n; }); }) /* 读不到就不拦 */
-          .then(function (bal) { if (bal >= 0n && bal < 2000000000000000n) throw new Error("这个钱包里没有 DAI 付 Gas。提交预测要发一笔 0 元交易，Gas 约 0.001 DAI（Anubis 链的 Gas 就是 DAI）。先往这个钱包转一点 DAI（0.1 就够用很久），再回来点提交。"); })
-          .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
-          .then(function (hash) { st.textContent = "已上链，等待确认…"; return (A.wallet && A.wallet.waitOn ? A.wallet.waitOn("anubis", hash) : Promise.resolve()).then(function () { return hash; }); })
-          .then(function (hash) { st.textContent = "链上已确认，正在登记…"; return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "chain", tx: hash }) }).then(function (x) { return x.json(); }); });
-      };
-      var sigGo = function () {
-        st.textContent = "请在钱包里签名（只是签名，不扣钱、不花 Gas）…";
-        return (eth ? Promise.resolve() : connect()).then(function () {
-          return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(guessText(day, raw, account)), account] });
-        }).then(function (sig) {
-          st.textContent = "正在提交…";
-          return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: account, ps: raw, day: day, sig: sig }) }).then(function (x) { return x.json(); });
-        });
-      };
-      /* 上链没发出去（钱包没 DAI 付 Gas，或钱包拦下 / 点了取消）：原地给一个大按钮，同一个价格改用签名提交，不花 Gas（2026-11-14 站长点头先出预览） */
-      var NOSEND = /没有 DAI 付 Gas|user reject|user denied|rejected|\bcancel|取消|拒绝|拒絕|(^|[^0-9a-fx])4001([^0-9a-f]|$)|insufficient funds|gas/i;
-      var run = function (bySig) {
-        go.disabled = true;
-        (bySig ? sigGo() : chainGo()).then(function (j) {
-          go.disabled = false;
-          if (j.error) throw new Error(j.error);
-          st.textContent = "✅ 已提交" + (bySig || viaSig ? "（签名方式，不上链）" : "并写入链上") + "！" + dayCn(j.round) + " 晚上 9–10 点揭晓，10:05 前公布。";
-          load(rid);
-        }).catch(function (e) {
-          var m = (e && e.message) || String(e);
-          go.disabled = false; st.textContent = "";
-          A.errTip(m, go);
-          if (bySig || !NOSEND.test(m)) return;
-          st.innerHTML = '没有 DAI 付 Gas 也能参加：<button type="button" class="nm-go or-sig2" id="or-sig2">✍️ 改用签名提交 ' + raw.join("、") + '（不花 Gas）</button><small class="or-sig2n">只是签个名，不扣钱；和上链预测一样算数，只是不写到链上。</small>';
-          var b2 = document.getElementById("or-sig2"); if (b2) b2.onclick = function () { b2.disabled = true; run(true); };
-        });
-      };
-      run(!!window.__orSig);
-    };
-    var sg = document.getElementById("or-sig"); if (sg) sg.onclick = function (e) { e.preventDefault(); window.__orSig = !window.__orSig; sg.textContent = window.__orSig ? "已切换为签名提交（不上链）· 改回上链" : "钱包没 DAI 付 Gas？用签名方式"; var g = document.getElementById("or-go"); if (g) g.textContent = window.__orSig ? "✍️ 签名预测" : "🔗 上链预测"; };
-    var oc = document.getElementById("or-chain");
-    if (oc) oc.onclick = function () {
-      var ps = (data.me && data.me.ps || []).join(","), day = data.round; if (!ps) return;
-      oc.disabled = true; st.textContent = "🔒 这是一笔 0 元转账（发给自己），文字放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认";
-      var txt = "ailgns-oracle-guess:" + day + ":" + ps, hex = "0x" + Array.from(new TextEncoder().encode(txt)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
-      (eth ? Promise.resolve() : connect()).then(function () { return W.rpcOn("anubis", "eth_getCode", [account, "latest"]).then(function (c) { if (c && c.length > 2) throw new Error("你的钱包是「智能账户」，没法给自己发带文字的交易，所以写不了链上存证。不影响：你用签名提交的预测已经登记，一样算数、一样参加开奖"); }, function (e) { if (/智能账户/.test(e && e.message || "")) throw e; }); })
-        .then(function () { return A.wallet && A.wallet.switchTo ? A.wallet.switchTo(eth, "anubis") : null; })
-        .then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: account, value: "0x0", data: hex }] }); })
-        .then(function (hash) { st.textContent = "已提交，等待链上确认…"; return (A.wallet && A.wallet.waitOn ? A.wallet.waitOn("anubis", hash) : Promise.resolve()).then(function () { return hash; }); })
-        .then(function (hash) { return fetch("/api/oracle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "chain", tx: hash }) }).then(function (r) { return r.json(); }).then(function (j) { if (j.error) throw new Error(j.error); return hash; }); })
-        .then(function (hash) { st.textContent = "✅ 已写进链上，永久可查"; oc.outerHTML = '<span class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/' + hash + '">在账本里看 ›</a></span>'; })
-        .catch(function (e) { oc.disabled = false; st.textContent = ""; A.errTip(e && (e.message || e.reason) || String(e), oc); });
-    };
-    document.querySelectorAll(".or-approve").forEach(function (ap) { ap.onclick = function () {
-      var isA = ap.getAttribute("data-t") === "AIL", v = Number(document.getElementById(isA ? "or-amt2" : "or-amt").value);
-      if (!(v >= 0 && v <= 100000)) return A.errTip("额度填 0 到 100000 之间（填 0 = 取消授权）", ap);
-      var amt = BigInt(Math.round(v * 10000)) * 10n ** 14n;
-      ap.disabled = true; st.textContent = "请在钱包确认授权…";
-      (eth ? Promise.resolve() : connect()).then(function () { return W.switchTo(eth, "anubis"); }).then(function () {
-        return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [{ from: account, to: isA ? AIL : DAI, data: "0x095ea7b3" + KEEPER.slice(2).padStart(64, "0") + amt.toString(16).padStart(64, "0") }] });
-      }).then(function (h) { st.textContent = "已提交，等待确认…"; return W.waitOn("anubis", h); }).then(function () { ap.disabled = false; st.textContent = "✅ 授权成功"; load(rid); },
-        function (e) { ap.disabled = false; st.textContent = ""; A.errTip(e.message || String(e), ap); });
-    }; });
-    var pb = document.getElementById("or-poster");
-    if (pb) pb.onclick = function () { poster(); };
-  }
-
-  // 晒单海报（2026-11-07 站长定：狂拽酷炫版）：深紫夜空 + 霓虹大数字 + 金色奖池条；长按保存发到群里（不带邀请链接）
-  function rr(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
-  function poster() {
-    var me = data.me, cv = document.createElement("canvas"), W = 1080, H = 1440, x = cv.getContext("2d");
-    cv.width = W; cv.height = H;
-    var g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, "#1a0b3d"); g.addColorStop(.55, "#2b1263"); g.addColorStop(1, "#0b0620");
-    x.fillStyle = g; x.fillRect(0, 0, W, H);
-    [[180, 220, 420, "#7c5cff"], [920, 380, 360, "#ff4fd8"], [540, 1260, 520, "#2fd4ff"]].forEach(function (o) {
-      var r = x.createRadialGradient(o[0], o[1], 0, o[0], o[1], o[2]); r.addColorStop(0, o[3] + "88"); r.addColorStop(1, o[3] + "00"); x.fillStyle = r; x.fillRect(0, 0, W, H);
-    });
-    x.strokeStyle = "rgba(255,255,255,.06)"; x.lineWidth = 2;
-    for (var i = 0; i <= W; i += 90) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, H); x.stroke(); }
-    for (var j = 0; j <= H; j += 90) { x.beginPath(); x.moveTo(0, j); x.lineTo(W, j); x.stroke(); }
-    x.save(); x.globalAlpha = .18; x.fillStyle = "#ffffff"; x.beginPath(); x.moveTo(0, 300); x.lineTo(W, 120); x.lineTo(W, 190); x.lineTo(0, 370); x.closePath(); x.fill(); x.restore();
-    x.textAlign = "center";
-    x.font = "bold 44px sans-serif"; x.fillStyle = "#c9b8ff"; try { x.letterSpacing = "6px"; } catch (e) {} x.fillText("A i L G N S  ·  每 日 预 言 家", W / 2, 120); try { x.letterSpacing = "0px"; } catch (e) {}
-    x.font = "900 150px sans-serif"; x.shadowColor = "#ff4fd8"; x.shadowBlur = 40; x.fillStyle = "#ffffff"; x.fillText("我预言", W / 2, 320); x.shadowBlur = 0;
-    var nm = me.name || A.short(account); x.font = "bold 56px sans-serif"; var tw = Math.min(W - 80, x.measureText(nm).width + 120);
-    var cg = x.createLinearGradient(W / 2 - tw / 2, 0, W / 2 + tw / 2, 0); cg.addColorStop(0, "#7c5cff"); cg.addColorStop(1, "#ff4fd8");
-    x.fillStyle = cg; rr(x, W / 2 - tw / 2, 380, tw, 96, 48); x.fill();
-    x.fillStyle = "#fff"; x.fillText(nm, W / 2, 446);
-    x.font = "40px sans-serif"; x.fillStyle = "#b9a9ff"; x.fillText(dayCn(data.round) + " 晚上揭晓" + (livePxV ? " · 现价 " + A.fmt(livePxV, 2) : ""), W / 2, 560);
-    var ps = me.ps.slice(0, 3), y0 = 700;
-    ps.forEach(function (p, k) {
-      var yy = y0 + k * 160, fs = k === 0 ? 170 : 120;
-      x.font = "900 " + fs + "px sans-serif";
-      x.shadowColor = k === 0 ? "#2fd4ff" : "#7c5cff"; x.shadowBlur = k === 0 ? 50 : 25;
-      var ng = x.createLinearGradient(0, yy - fs, 0, yy); ng.addColorStop(0, "#ffffff"); ng.addColorStop(1, k === 0 ? "#7ff0ff" : "#cdbcff");
-      x.fillStyle = ng; x.fillText(String(p), W / 2, yy);
-    });
-    x.shadowBlur = 0;
-    var by = 1180; x.fillStyle = "rgba(0,0,0,.35)"; rr(x, 90, by - 70, W - 180, 150, 30); x.fill();
-    x.strokeStyle = "#ffd36a"; x.lineWidth = 4; rr(x, 90, by - 70, W - 180, 150, 30); x.stroke();
-    x.font = "bold 40px sans-serif"; x.fillStyle = "#ffd36a"; x.fillText("🏆 超级大奖池", W / 2, by - 12);
-    x.font = "900 80px sans-serif"; x.shadowColor = "#ffd36a"; x.shadowBlur = 30; x.fillStyle = "#fff1c2"; x.fillText(Number(data.pool || 0).toLocaleString("en-US", { maximumFractionDigits: 0 }) + " DAI", W / 2, by + 62); x.shadowBlur = 0;
-    x.font = "bold 44px sans-serif"; x.fillStyle = "#ffffff"; x.fillText("敢来比吗？", W / 2, 1340);
-    x.font = "36px sans-serif"; x.fillStyle = "#c9b8ff"; x.fillText("ailgns.dev  ·  免费参与 · 猜中平分大奖", W / 2, 1400);
-    var url = cv.toDataURL("image/png"), box = document.getElementById("or-img");
-    if (box) box.innerHTML = '<p class="muted">长按图片保存，发到群里晒一晒 👇</p><img class="or-poster" src="' + url + '" alt="晒单海报">';
-  }
-
-  // 工单 #444：在钱包里换了账户，预测页还停在上一个钱包，要手动刷新才换 → 钱包一换就自动重读（只在预测页开着时重画）
-  try {
-    A.wallets.onAccounts(function (a) {
-      try {
-        var na = a && a[0] ? String(a[0]).toLowerCase() : "";
-        if (na === account) return;
-        account = na;
-        if (curRid && A.isCurrent(curRid) && document.getElementById("or-out")) load(curRid);
-      } catch (e) { /* 重读失败不影响页面，手动刷新照旧能用 */ }
-    });
-  } catch (e) { /* 老版本钱包模块没有这个入口 */ }
-  /* 站长 2026-11-25：每日预言家的注册就在预言家页里做，不跳到域名页。点「注册域名参加预测」或资格说明里的注册链接 → 先把域名那一包加载好，
-     标上「每日预言家入口」（注册交易带记号，注册费 95% 进每日奖池），原地弹出挑名字的窗口。加载不了才照旧跳过去 */
-  if (!window.__orRegBound) {
-    window.__orRegBound = true;
-    document.addEventListener("click", function (e) {
-      try {
-        var a = e.target && e.target.closest ? e.target.closest('a[href="#/names/~daily"]') : null;
-        if (!a || location.hash.indexOf("#/oracle") !== 0 || !A.useBundle) return;
-        e.preventDefault();
-        A.useBundle("names").then(function () {
-          if (!A.nm || !A.nm.setDaily || !A.namesBatch) { location.hash = "#/names/~daily"; return; }
-          A.nm.setDaily(true); A.namesBatch.open({ one: true, stay: true });
-        }, function () { location.hash = "#/names/~daily"; });
-      } catch (x) { /* 出错就让链接照常跳转 */ }
-    });
-  }
-  A.pages.oracle = page;
-})();
-
-}catch(e){console.error('[bundle] oracle.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["oracle"]="hb8b0b5ab9c";
-/*v:hb8b0b5ab9c*/
+try{(function(){"use strict";var A=window.AIL,W=A.wallet;var PAIR="0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0",SCAN="#/scan/";var SRC="0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6",KEEPER="0x89dd06754bb239b6c4c92bc47c8fa72889084e27",DAI="0x83fd06f0846d9d90b3016bf670efe2e0b11cde14",AIL="0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";var eth=null,account="",pxTimer=0,cdTimer=0,data=null,curRid=0;function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function dai(v){return Number(v||0).toLocaleString("en-US",{useGrouping:false,maximumFractionDigits:2})+" DAI";}
+function hm(ms){var d=new Date(ms+8*3600e3);return(d.getUTCMonth()+1)+"月"+d.getUTCDate()+"日 "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}
+function dayCn(day){var p=day.split("-");return Number(p[1])+"月"+Number(p[2])+"日";}
+function left(ms){if(ms<=0)return"0 分";var h=Math.floor(ms/3600e3),m=Math.floor(ms/60e3)%60,s=Math.floor(ms/1000)%60;return(h?h+" 小时 ":"")+m+" 分 "+(h?"":s+" 秒");}
+function utf8hex(str){var b=unescape(encodeURIComponent(str)),h="0x";for(var i=0;i<b.length;i++)h+=b.charCodeAt(i).toString(16).padStart(2,"0");return h;}
+function guessText(day,ps,a){return"AiLGNS 每日预言家\n我预测 "+day+" 晚上 9-10 点 AiLGNS 价格：\n"+ps.join(", ")+" DAI\n地址："+a;}
+function pxOf(r){var w=r.slice(2),ail=BigInt("0x"+w.slice(0,64)),d=BigInt("0x"+w.slice(64,128));return Number((d*1000000n)/ail)/1e6;}
+var RD=3,RS=1000,DS=1000;function setDec(d){RD=d&&d.dec===4?4:3;RS=RD===4?10000:1000;DS=d&&d.drawing&&d.drawing.dec===4?10000:1000;}
+function scOf(x){return(x&&x.sc)||1000;}
+function fq(v,x){var s=typeof x==="number"?x:scOf(x);return(v/s).toFixed(s===10000?4:3);}
+document.addEventListener("input",function(e){try{var t=e.target;if(!t||!t.classList||!t.classList.contains("or-q"))return;var q=t.value.trim().toLowerCase(),o=t.nextElementSibling;if(!o)return;o.classList.toggle("q",!!q);o.querySelectorAll("li").forEach(function(l){l.hidden=!!q&&String(l.getAttribute("data-n")||"").indexOf(q)<0;});}catch(x){}});document.addEventListener("click",function(e){try{var b=e.target&&e.target.closest?e.target.closest(".or-more"):null;if(!b)return;var o=b.previousElementSibling;if(!o)return;o.classList.toggle("exp");b.textContent=o.classList.contains("exp")?"收起，只看前 10 条":"展开全部 "+(b.getAttribute("data-n")||"")+" 条";}catch(x){}});function decNote(){return'<p class="or-chg">'+(RD===4?"🎚️ 这一轮猜 <b>4 位小数</b>，例如 851.6979（猜的人多了，3 位太容易中，改 4 位奖池才能滚大）。":"这一轮猜 <b>3 位小数</b>，例如 851.697。")+"</p>";}
+function decText(){try{[].forEach.call(document.querySelectorAll(".or-decn"),function(el){el.textContent=RD;});[].forEach.call(document.querySelectorAll(".or-decex"),function(el){el.textContent=RD===4?"830.9625":"830.962";});[].forEach.call(document.querySelectorAll(".or-decrng"),function(el){el.textContent=RD===4?"0000–9999 共 1 万种":"000–999 共 1000 种";});}catch(e){}}
+function page(rid){clearInterval(pxTimer);clearInterval(cdTimer);curRid=rid;if(orLive){orLive.stop();orLive=null;}
+A.app.innerHTML='<div id="or-top"></div>'+'<section class="card or-dm"><div class="or-dmsky" id="or-dmsky"><span class="or-dmtip">💬 弹幕加载中…</span></div><div class="or-dmin"><input id="or-dmt" maxlength="30" placeholder="说点什么吧（30 字内，不花钱）" autocomplete="off"><button type="button" class="nm-go" id="or-dmgo">发弹幕</button><button type="button" class="ghost or-dmcs" id="or-dmcs">💬 在线客服</button></div></section>'+'<section class="card or-hero"><div class="or-h"><h2>🔮 AiLGNS 每日预言家</h2><span class="muted">免费参与 · 先设主名字，再持有 1 枚创世域名、或 OTC 满 5 万、或持有 5 枚自己注册的普通域名</span></div>'+'<div class="or-px2"><div class="or-pxl"><small>AiLGNS 现价（链上实时）</small><div><b id="or-px">读取中…</b><span>DAI</span></div><small class="or-pxs">每 8 秒更新 · 晚上 9–10 点随机一刻揭晓</small></div><div class="or-lead" id="or-lead"></div><div class="or-how"><a class="or-reg" href="#/names/~daily"><b>🌐 注册域名，参加每日预测</b><span>5 DAI 一个 · 注册费 95% 进每日奖池</span><span class="or-reg-s">自己注册满 5 个，再设一个主名字，就能每天免费预测</span><i>去注册 →</i></a><b>🎯 怎么玩？怎么算中奖？</b><div class="or-hwq"><p>✍️ 猜<b>今晚揭晓那一刻</b>的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。下午 3 点前提交，晚上 9–10 点揭晓。</p><p>🥇 <b>每晚前三名</b>：谁猜的价格<b>和揭晓价差得最少</b>，谁就是前三，<b>每人 20 DAI，天天发</b>。</p><p>🔮 <b>神算子</b>：每一位都猜对，平分<b>整个大奖池</b>；没人猜中就继续滚大。</p><p>📢 为了发奖<b>公平、公正、有效</b>，规则会随时调整，以本页为准。</p></div><details class="or-hwd"><summary>👉 点开看详细规则和例子（前三名怎么算、怎么领奖）</summary><div class="or-hwg"><div><p class="or-hwt">① 猜什么</p><p>✍️ 猜<b>今晚揭晓那一刻</b> AiLGNS 的价格，写到<b>小数点后 <span class="or-decn">3</span> 位</b>，例如 <b class="or-decex">830.962</b>。</p><p>⏰ 每天<b>下午 3 点</b>前提交，之后封卷不能再改；<b>晚上 9–10 点</b>之间随机一刻揭晓。</p><p>🆓 免费，钱包签个名就行，不扣钱。</p><p class="or-hwt">② 🔮 神算子大奖</p><p>价格<b>每一位都猜对</b>（小数点后 <span class="or-decn">3</span> 位一位不差，<b class="or-decrng">000–999 共 1000 种</b>可能）→ 平分<b>整个大奖池</b>。</p><p>没人完全猜中，大奖池就继续滚大，留到下一晚。</p><p class="or-hwt">③ 谁能玩</p><p><b>先设一个 .ailgns 主名字。</b>再满足其一：钱包里<b>至少持有 1 枚创世域名</b>，或者在本站 OTC <b>累计成交满 5 万 DAI</b>，或者<b>至少持有 5 枚自己注册的普通域名</b>。一个钱包每轮最多猜 5 次。</p></div><div class="or-hw3"><p class="or-hwt">④ 🥇 每晚前三名怎么算（天天发）</p><p>揭晓价出来后，把<b>每个人猜的价格和揭晓价相减，看差了多少</b>。差得最少的是第 1 名，再往后是第 2、第 3 名。猜高了、猜低了都一样，<b>只看差多少</b>。</p><div class="or-hwex"><b>举个例子</b>：今晚揭晓价是 <b>830.9625</b><span>王阿姨猜 830.9630 → 差 0.0005　🥇 第 1 名</span><span>李叔猜 830.9600 → 差 0.0025　🥈 第 2 名</span><span>张姐猜 831.0000 → 差 0.0375　🥉 第 3 名</span><span>赵哥猜 829.5000 → 差 1.4625　没进前三</span></div><p>🎁 前三名<b>每人 20 DAI</b>（发 AiLGNS），<b>不用等有人猜中大奖，每天都发</b>。</p><p>⚖️ 差得一样多：<b>谁先提交算谁的</b>。</p><p>👤 一个钱包、一个名字每晚只占一个名额：你猜了好几个价格，只拿最接近的那一个来比。</p><p>⏳ 中过一次，<b>休息 7 天</b>再参加每日前三（这 7 天照样能猜，猜中大奖照拿），名额让给下一位，让更多人有机会。</p><p>💰 奖池钱包里不够 60 DAI 的那天，三个人平分钱包里实际有的钱。</p></div><div class="or-hwf"><p class="or-hwt">⑤ 中了怎么领</p><p>中奖后 <b>3 天内</b>做完两步，机器人自动把奖发到你的钱包：<b>第 1 步</b>销毁 1 枚创世 .ailgns 域名（神算子大奖是销毁价值不低于奖金 30% 的域名）；<b>第 2 步</b>到 DeBox 的 AiLGNS 群里说一声自己中奖了。然后把<b>自己在群里的聊天记录截个图</b>，在本页最上面点「上传截图 / 视频」提交即可（不用签名）。注：3 天内没做完算放弃，钱留在奖池。</p><p class="or-hwt">⑥ 📢 规则会调整</p><p>为了让奖金发得<b>最公平、公正、有效</b>，规则会根据实际情况<b>随时调整</b>，不另行逐个通知，一律<b>以本页面当时显示的为准</b>。</p></div></div></details><small>看不懂的地方，点左下角「客服」直接问。</small></div></div>'+'<div id="or-chart" class="or-kc"></div>'+'<p class="or-src">数据来源：<a href="'+SCAN+'address/'+PAIR+'" target="_blank" rel="noopener">AiLGNS/DAI 交易池 0x0a1C…caf0（Anubis 链）↗</a> · 真实成交 K 线，最近 7 天，每 5 秒刷新</p></section>'+'<div id="or-out"><section class="card"><p class="muted">读取中…</p></section></div>';livePx(rid);chart(rid);dmInit(rid);pxTimer=setInterval(function(){if(!A.isCurrent(rid))return clearInterval(pxTimer);if(!document.hidden)livePx(rid);},8000);clearInterval(plTimer);plTimer=setInterval(function(){if(!A.isCurrent(rid))return clearInterval(plTimer);if(!document.hidden)pullPlayers(rid);},30000);var go=function(){load(rid);};if(!account&&A.wallets&&A.wallets.silent)A.wallets.silent().then(function(a){if(a)account=String(a).toLowerCase();go();},go);else go();}
+var plTimer=null;function pullPlayers(rid){if(!data)return;fetch("/api/oracle",{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("bad");return r.json();}).then(function(d){if(!A.isCurrent(rid)||!data||!d||!Array.isArray(d.players))return;if(d.round!==data.round)return load(rid);var rows=[];d.players.forEach(function(g){(g.ps||[]).forEach(function(p){rows.push({name:g.name,p:p,m:Math.round(Number(p)*RS)});});});if(!rows.length||!document.getElementById("or-live")){if(rows.length&&!liveRows.length)load(rid);return;}
+data.players=d.players;liveRows=rows;liveKey="";var cnt=document.getElementById("or-lcnt");if(cnt)cnt.textContent=d.players.length+" 人 · "+rows.length+" 个预测";liveRank();}).catch(function(){});}
+function livePx(rid){fetch("/api/px").then(function(x){if(!x.ok)throw new Error("bad");return x.json();}).then(function(j){if(!j.r)throw new Error("bad");return j.r;}).catch(function(){return W.rpcOn("anubis","eth_call",[{to:PAIR,data:"0x0902f1ac"},"latest"]);}).then(function(r){var el=document.getElementById("or-px");if(el&&A.isCurrent(rid))el.textContent=pxOf(r).toFixed(RD);if(A.isCurrent(rid)){livePxV=pxOf(r);liveRank();simShow();allResort();}},function(){});}
+var SYNC="0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1";function pxData(d){var w=d.slice(2);return Number(BigInt("0x"+w.slice(64,128))*1000000n/BigInt("0x"+w.slice(0,64)))/1e6;}
+var orLive=null,orKMode="live";function startOrLive(){var el=document.getElementById("or-chart");if(!el||!A.liveK)return;if(orLive)orLive.stop();orLive=A.liveK(el,{bucket:5,span:600,every:3000});}
+function bindKTabs(rid){document.querySelectorAll(".or-ktabs button").forEach(function(b){b.onclick=function(){orKMode=b.getAttribute("data-k");document.querySelectorAll(".or-ktabs button").forEach(function(x){x.classList.toggle("on",x===b);});var tip=document.getElementById("or-ktip");if(orKMode==="live"){tip.textContent="本站 OTC 实时价（买一卖一中间价），每 3 秒刷新";startOrLive();}
+else{if(orLive){orLive.stop();orLive=null;}tip.textContent="DEX 1 小时线，最近 24 小时";chartHourly(rid);}};});if(orKMode==="live")startOrLive();else chartHourly(rid);}
+var orK=null;function chart(rid){var el=document.getElementById("or-chart");if(!el||!A.kchart)return;if(orK)orK.stop();orK=A.kchart(el,{i:"15m",alive:function(){return A.isCurrent(rid);}});}
+function chartHourly(rid){var toC=function(a){return a.map(function(x){return{t:x[0],o:x[1],h:x[2],l:x[3],c:x[4]};});};var el0=document.getElementById("or-chart"),cached=null;try{cached=JSON.parse(localStorage.getItem("or:k")||"null");}catch(e){}
+if(el0&&cached&&cached.c)drawK(el0,toC(cached.c));fetch("/api/kline").then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(d){var el=document.getElementById("or-chart");if(!el||!A.isCurrent(rid))return;if(!d.c)throw 0;try{localStorage.setItem("or:k",JSON.stringify(d));}catch(e){}
+drawK(el,toC(d.c));}).catch(function(){chartChain(rid);});}
+function chartChain(rid){var N=24,latest,tsL,h0,b0;A.rpc("eth_getBlockByNumber",["latest",false]).then(function(b){latest=parseInt(b.number,16);tsL=parseInt(b.timestamp,16);h0=Math.floor(tsL/3600)*3600-(N-1)*3600;b0=latest-(tsL-h0);var calls=[A.rpc("eth_call",[{to:PAIR,data:"0x0902f1ac"},"0x"+(b0-1).toString(16)])];for(var f=b0;f<=latest;f+=5000)calls.push(A.rpc("eth_getLogs",[{address:PAIR,topics:[SYNC],fromBlock:"0x"+f.toString(16),toBlock:"0x"+Math.min(latest,f+4999).toString(16)}]));return Promise.all(calls);}).then(function(r){var el=document.getElementById("or-chart");if(!el||!A.isCurrent(rid))return;var last=pxOf(r[0]),c=[];for(var i=0;i<N;i++)c.push({t:h0+i*3600,o:last,h:last,l:last,c:last,v:0});var cur=last,prevDai=null;[].concat.apply([],r.slice(1)).forEach(function(lg){var b=parseInt(lg.blockNumber,16),k=Math.floor((tsL-(latest-b)-h0)/3600);var p=pxData(lg.data),dai=Number(BigInt("0x"+lg.data.slice(66,130))/10n**16n)/100;if(k>=0&&k<N){var x=c[k];if(!x.touched){x.o=cur;x.h=Math.max(cur,p);x.l=Math.min(cur,p);x.touched=1;}
+x.h=Math.max(x.h,p);x.l=Math.min(x.l,p);x.c=p;if(prevDai!==null)x.v+=Math.abs(dai-prevDai);}
+cur=p;prevDai=dai;});for(var j=0;j<N;j++)if(!c[j].touched){var pc=j?c[j-1].c:last;c[j].o=c[j].h=c[j].l=c[j].c=pc;}
+drawK(el,c);},function(){var el=document.getElementById("or-chart");if(el)el.innerHTML='<text x="180" y="75" text-anchor="middle" class="or-ct">K 线读取失败</text>';});}
+var lastK=null,rzT;window.addEventListener("resize",function(){clearTimeout(rzT);rzT=setTimeout(function(){var el=document.getElementById("or-chart");if(el&&lastK)drawK(el,lastK);},150);});function drawK(el,c){lastK=c;var W0=Math.max(240,el.clientWidth||360),H0=Math.max(120,el.clientHeight||150),L=6,R=W0-66,T=10,B=H0-24,hi=-Infinity,lo=Infinity;c.forEach(function(x){hi=Math.max(hi,x.h);lo=Math.min(lo,x.l);});var pad=(hi-lo)*0.08||0.5;hi+=pad;lo-=pad;var y=function(p){return T+(hi-p)/(hi-lo)*(B-T);},cw=(R-L)/c.length,svg="";for(var g=0;g<=4;g++){var gp=lo+(hi-lo)*g/4,gy=y(gp);svg+='<line x1="'+L+'" x2="'+R+'" y1="'+gy.toFixed(1)+'" y2="'+gy.toFixed(1)+'" class="or-grid"/><text x="'+(R+4)+'" y="'+(gy+3.5).toFixed(1)+'" class="or-ct">'+gp.toFixed(3)+"</text>";}
+c.forEach(function(x,i){var cx=L+cw*i+cw/2,up=x.c>=x.o,col=up?"or-up":"or-dn",top=y(Math.max(x.o,x.c)),bot=y(Math.min(x.o,x.c));var d=new Date((x.t+8*3600)*1000),hh=String(d.getUTCHours()).padStart(2,"0")+":00";svg+="<g><title>"+(d.getUTCMonth()+1)+"月"+d.getUTCDate()+"日 "+hh+"\n开 "+x.o.toFixed(3)+"　高 "+x.h.toFixed(3)+"\n低 "+x.l.toFixed(3)+"　收 "+x.c.toFixed(3)+"</title>"+'<line x1="'+cx.toFixed(1)+'" x2="'+cx.toFixed(1)+'" y1="'+y(x.h).toFixed(1)+'" y2="'+y(x.l).toFixed(1)+'" class="'+col+'"/>'+'<rect x="'+(cx-cw*0.32).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+(cw*0.64).toFixed(1)+'" height="'+Math.max(1,bot-top).toFixed(1)+'" class="'+col+'"/></g>';if(i%6===0)svg+='<text x="'+Math.max(cx,18).toFixed(1)+'" y="'+(H0-7)+'" text-anchor="middle" class="or-ct">'+hh+"</text>";});var lastC=c[c.length-1];svg+='<line x1="'+L+'" x2="'+R+'" y1="'+y(lastC.c).toFixed(1)+'" y2="'+y(lastC.c).toFixed(1)+'" class="or-lastl"/><rect x="'+(R+1)+'" y="'+(y(lastC.c)-9).toFixed(1)+'" width="62" height="18" rx="4" class="or-lastb"/><text x="'+(R+4)+'" y="'+(y(lastC.c)+3.5).toFixed(1)+'" class="or-lastt">'+lastC.c.toFixed(3)+"</text>";el.setAttribute("viewBox","0 0 "+W0+" "+H0);el.innerHTML=svg;}
+var retryN=0;function load(rid){return fetch("/api/oracle"+(account?"?a="+account:""),{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json();}).then(function(d){if(!A.isCurrent(rid))return;retryN=0;data=d;setDec(d);render(rid);decText();},function(){if(!A.isCurrent(rid))return;var wait=Math.min(20000,3000*Math.pow(2,retryN++)),o=document.getElementById("or-out");if(o&&!o.querySelector(".or-pot, .or-cd, .or-res"))o.innerHTML='<section class="card"><p class="muted">网络慢，'+Math.round(wait/1000)+' 秒后自动重试…</p></section>';setTimeout(function(){if(A.isCurrent(rid))load(rid);},wait);});}
+function render(rid){var d=data,o=document.getElementById("or-out");if(!o)return;var dr=d.drawing,res=dr.res,now=Date.now(),inWin=!dr.skip&&now>=dr.from&&now<dr.to+5*60e3&&!res;var html="",top="";var oc=(d.funds&&d.funds.otc)||{px:d.funds?d.funds.px:0,n:0,src:"dex"},opx=oc.px||(d.funds?d.funds.px:0)||1;var potA=d.funds?d.funds.ail+d.funds.dai/opx:0;var kres=d.kings&&d.kings.budget&&d.kings.budget.mode==="wallet"?(d.kings.top||[]).reduce(function(t,x){return t+(x.amt||0);},0):0;if(kres>0)potA=Math.max(0,potA-kres/opx);var potV=Math.floor(potA*opx*100)/100;var a2=function(v){return Math.round(v*100);},dai0=function(v){return Math.floor(v).toLocaleString("en-US",{useGrouping:false});};var ocT=oc.at?new Date(oc.at+8*3600e3):null,ocWhen=ocT?(ocT.getUTCMonth()+1)+"/"+ocT.getUTCDate()+" "+String(ocT.getUTCHours()).padStart(2,"0")+":"+String(ocT.getUTCMinutes()).padStart(2,"0"):"";var ocRule="（只算单笔 ≥ 10 DAI 的真实成交，且不超过 DEX 现价 +50%，防小单刷价）";var ocNote=oc.src==="otc24"?"按本站 OTC 市场 <b>24 小时内真实成交最高价 "+opx.toFixed(3)+" DAI/枚</b>"+(oc.capped?"（实际成交 "+oc.raw.toFixed(3)+"，已按 DEX +50% 封顶）":"（"+ocWhen+" 成交）")+"折算，24 小时共 "+oc.n+" 笔 / "+(oc.vol||0)+" DAI"+ocRule:oc.src==="otclast"?"按本站 OTC 市场 <b>最近一笔真实成交价 "+opx.toFixed(3)+" DAI/枚</b>（"+ocWhen+"）折算，24 小时内暂无新成交"+ocRule:"OTC 市场暂无成交记录，暂按 DEX 现价 "+opx.toFixed(3)+" DAI/枚 折算"+ocRule;var dly=d.daily;var tile=function(r){return'<b><i class="or-cnt" data-dec="2" data-to="'+a2(potA*r)+'">0</i><em>AiLGNS</em></b><s class="or-pzd">≈ '+dai0(potV*r)+" DAI</s>";};var n0=function(v){return Math.floor(v).toLocaleString("en-US",{useGrouping:false});},rd=dayCn(new Date(Date.parse(d.round+"T12:00:00+08:00")-864e5+288e5).toISOString().slice(0,10));top+='<section class="card or-pool"><div class="or-pc">'+'<div class="or-pcl"><span>🎯 本期奖池累计</span></div>'+'<div class="or-pbig"><em><i class="or-cnt" data-dec="2" data-to="'+a2(potA)+'">0</i><span>AiLGNS</span></em><u>≈</u><em class="or-pdai"><i class="or-cnt" data-to="'+Math.floor(potV)+'">0</i><span>DAI</span></em></div>'+
+(d.funds&&d.funds.owed>0?'<div class="or-powed">钱包里另有 <b>'+Number(d.funds.owed).toFixed(4)+" AiLGNS</b> 是已经中奖、等领奖的，不算进本期奖池</div>":"")+
+(d.funds&&d.funds.wallet?'<a class="or-pwal" href="#/scan/'+d.funds.wallet+'">🏦 查看奖池钱包 ›</a>':"")+
+(d.last?"":'<div class="or-pdate">🎁 第一期 11 月 6 日晚 9–10 点揭晓</div>')+
+(dly&&dly.on?'<div class="or-prz or-prz2">'+'<div class="or-pz p3"><small><u class="or-rk">大奖 · 发完每日前三剩下的</u>🔮 神算子</small>'+tile(potV>0?Math.max(0,potV-dly.each*dly.top)/potV:0)+"</div>"+'<div class="or-pz p1"><small><u class="or-rk">每晚 · 前 3 名</u>🎯 每日前三</small><b><i>'+dly.each+'</i><em>DAI / 人</em></b><s class="or-pzd">发 AiLGNS · 从奖池里出</s></div>'+"</div>":'<div class="or-prz'+(d.kings?"":" or-prz3")+'">'+
+(d.kings?'<div class="or-pz p3"><small><u class="or-rk">一等奖 · 55%</u>🔮 神算子</small>'+tile(0.55)+"</div>"+'<div class="or-pz p4"><small><u class="or-rk">周榜 · 30%</u>💰 贡献王</small>'+tile(0.3)+"</div>":'<div class="or-pz p3"><small><u class="or-rk">一等奖 · 85%</u>🔮 神算子</small>'+tile(0.85)+"</div>")+'<div class="or-pz p1"><small><u class="or-rk">三等奖 · 10%</u>👁 天眼通</small>'+tile(0.1)+"</div>"+'<div class="or-pz p2"><small><u class="or-rk">四等奖 · 5%</u>🌿 地灵通</small>'+tile(0.05)+"</div>"+"</div>"+(dly?'<p class="or-chg">📣 <b>'+dayCn(dly.from)+'起改规则</b>：贡献王已取消（本周不再结算，奖池里的钱全部留给大奖）；改成<b>每晚离揭晓价最近的 '+dly.top+' 个人各 '+dly.prize+' DAI</b>（天眼通、地灵通并进来），天天有人拿。</p>':""))+"</div></section>";if(inWin||(res&&now-res.at<20*3600e3))html+=drawCard(d);html+='<section class="card or-form"><div class="card-head"><h2>✍️ 预测 '+dayCn(d.round)+' 晚上揭晓价</h2><span class="muted" id="or-cd"></span></div>'+meBox(d)+"</section>"+dailyCard(d)+kingsCard(d,potV)+playersCard(d);setTimeout(liveRank,0);setTimeout(function(){if(A.credFill)A.credFill(A.app);},0);setTimeout(countUp,0);if(/^#\/oracle\/(result|win)/i.test(location.hash))setTimeout(function(){var el=document.querySelector(".or-res");if(el)el.scrollIntoView({block:"start",behavior:"smooth"});},80);if(d.last&&!(res&&res.day===d.last.day&&now-res.at<20*3600e3))html+=resultCard(d.last,"📜 上一期结果");if(d.board&&d.board.length)html+='<section class="card"><div class="card-head"><h2>🏆 预言家榜</h2><span class="muted">大奖次数 · 最接近次数</span></div><ol class="or-board">'+
+d.board.map(function(x){return"<li><b>"+esc(x.name)+"</b><span>🎯 "+x.j+" 次 · 🥇 "+x.c+" 次</span></li>";}).join("")+"</ol></section>";html+=rules();html+='<section class="card or-dbx"><div class="card-head"><h2>🔔 揭晓通知 · DeBox</h2><span class="muted">免费 · 不错过每一期</span></div>'+'<p>扫码关注 DeBox 机器人，<b>每晚揭晓结果</b>、<b>获奖通知</b>、<b>每天揭晓提醒</b>第一时间推送给你。绑定钱包地址后，获奖了机器人还会单独私信你。</p><div id="dbx-slot"></div></section>';o.innerHTML=html;fixHint();if(A.otcKit&&A.otcKit.deboxCard)A.otcKit.deboxCard(rid,{title:"关注机器人，揭晓结果 + 获奖通知 + 每日提醒",on:"揭晓结果、获奖私信、每天揭晓提醒都会推送到你的 DeBox"});top+=cdCard(d);var tp=document.getElementById("or-top");if(tp)tp.innerHTML=top;bind(rid);tick();clearInterval(cdTimer);cdTimer=setInterval(function(){if(!A.isCurrent(rid))return clearInterval(cdTimer);tick();},1000);}
+function cdCard(d){return'<section class="card or-cdc"><div class="or-cdh"><b id="or-cdph">✍️ 预言进行中</b><span id="or-cdsub"></span></div>'+'<div class="or-cdbig" id="or-cdbig"><span><i>00</i><small>天</small></span><span><i>00</i><small>时</small></span><span><i>00</i><small>分</small></span><span><i>00</i><small>秒</small></span></div>'+'<div class="or-cdbar"><i id="or-cdfill"></i></div>'+'<ol class="or-cdst"><li id="or-cs1"><b>✍️ 预言</b><small id="or-cs1t"></small></li><li id="or-cs2"><b>🔒 封卷</b><small id="or-cs2t"></small></li><li id="or-cs3"><b>🔮 揭晓</b><small>21:00–22:00 随机一刻</small></li><li id="or-cs4"><b>🏅 放榜</b><small>22:00 后几分钟</small></li></ol>'+lastLine(d)+'</section>';}
+function lastLine(d){var dr=d.drawing,res=dr&&dr.res,list=(dr&&dr.list)||[];if(!dr||dr.skip||(!res&&!list.length))return"";if(!res)return'<div class="or-cdlast"><b>上期 '+dayCn(dr.day)+'</b> 已封卷，'+list.length+' 人参加，今晚 21–22 点揭晓</div>';var rows=[];list.forEach(function(g){g.ps.forEach(function(p){rows.push({name:g.name,p:p,d:Math.abs(Math.round(Number(p)*scOf(res))-res.px)});});});rows.sort(function(x,y){return x.d-y.d;});var top=rows.slice(0,3).map(function(r,i){return'<span class="or-cdl'+(r.d===0?" hit":"")+'"><em>'+["🥇","🥈","🥉"][i]+'</em><u>'+esc(r.name.replace(/\.ailgns$/,""))+"</u><b>"+r.p+"</b><small>"+(r.d===0?"猜中":"差 "+fq(r.d,res))+"</small></span>";}).join("");var topT="最接近的 3 位";if(res.daily&&res.daily.length){topT="🎯 每日前三 · 每人 "+res.daily[0].amt+" DAI";top=res.daily.map(function(w,i){return'<span class="or-cdl"><em>'+["🥇","🥈","🥉"][i]+'</em><u>'+esc(w.name.replace(/\.ailgns$/,""))+"</u><b>"+fq(w.p,res)+"</b><small>差 "+fq(w.diff,res)+"</small></span>";}).join("");}
+var no=Math.round((Date.UTC(+dr.day.slice(0,4),+dr.day.slice(5,7)-1,+dr.day.slice(8,10))-Date.UTC(2026,10,6))/864e5)+1;return'<div class="or-cdlast"><div class="or-cdlh">🏁 上期结果 · 第 '+no+' 期（'+dayCn(dr.day)+'）</div><div class="or-cdlp"><small>揭晓价</small><b class="or-cdpx">'+fq(res.px,res)+'</b><span>DAI</span></div><div class="or-cdlm">'+(res.jackpot&&res.jackpot.winners.length?'<i class="ok">🎯 '+res.jackpot.winners.map(function(w){return esc(w.name);}).join("、")+' 猜中！</i>':'<i>没人猜中 · 奖金全部留在奖池，下一期继续</i>')+'</div>'+(top?'<div class="or-cdlr"><div class="or-cdlt">'+topT+'</div>'+top+"</div>":"")+payList(dr.day)+"</div>";}
+function cdTick(){var big=document.getElementById("or-cdbig");if(!big||!data)return;var now=Date.now(),cut=data.cutoff,end=cut+3600e3,open=cut-24*3600e3,ph,target,sub,step;var bj=new Date(now+8*3600e3),t21=Date.UTC(bj.getUTCFullYear(),bj.getUTCMonth(),bj.getUTCDate(),13),t22=t21+3600e3;var canDraw=!(data.drawing&&data.drawing.skip);if(canDraw&&now>=t21&&now<t22&&cut>t22){ph="🔮 今晚揭晓中";target=t22;sub="21:00–22:00 之间随机一刻的价格就是揭晓价 · 明晚的预言已经开始";step=3;}
+else if(canDraw&&now>=t22&&now<t22+15*60e3&&cut>t22){ph="🏅 正在放榜";target=t22+15*60e3;sub="几分钟内放榜，DeBox 会推送";step=4;}
+else if(canDraw&&data.drawing&&data.drawing.cutoff&&now>=data.drawing.cutoff&&now<t21&&cut>t22){ph="🔒 已封卷";target=t21;sub=dayCn(data.drawing.day)+" 已封卷，21:00–22:00 随机一刻揭晓 · 现在提交的算 "+dayCn(data.round);step=2;}
+else{var ch=new Date(cut+8*3600e3).getUTCHours();ph="✍️ 预言进行中";target=cut;sub=dayCn(data.round)+(ch<12?" 早上 ":ch<18?" 下午 ":" 晚上 ")+(ch%12||12)+" 点封卷，当晚 9–10 点随机一刻揭晓";step=1;}
+var ms=Math.max(0,target-now),dd=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5),mm=Math.floor(ms%36e5/6e4),ss=Math.floor(ms%6e4/1e3);var is=big.querySelectorAll("i"),v=[dd,hh,mm,ss];for(var k=0;k<4;k++){var t=String(v[k]).padStart(2,"0");if(is[k].textContent!==t){is[k].textContent=t;is[k].classList.remove("tk");void is[k].offsetWidth;is[k].classList.add("tk");}}
+big.firstChild.style.display=dd?"":"none";big.classList.toggle("hot",step===1&&ms<3600e3);document.getElementById("or-cdph").textContent=ph+({1:" · 距封卷",2:" · 距揭晓",3:" · 距放榜"}[step]||"");document.getElementById("or-cdsub").textContent=sub;var a=step===1?open:step===2?data.drawing.cutoff:t21,b=step===1?cut:target;document.getElementById("or-cdfill").style.width=Math.min(100,Math.max(2,(now-a)/(b-a)*100))+"%";var hm=function(x){var z=new Date(x+8*3600e3);return(z.getUTCMonth()+1)+"/"+z.getUTCDate()+" "+String(z.getUTCHours()).padStart(2,"0")+":"+String(z.getUTCMinutes()).padStart(2,"0");};document.getElementById("or-cs1t").textContent="现在 · 免费参与";document.getElementById("or-cs2t").textContent=hm(step===2?data.drawing.cutoff:cut);for(var j=1;j<=4;j++){var li=document.getElementById("or-cs"+j);li.className=j<step?"done":j===step?"on":"";}}
+function tick(){cdTick();var el=document.getElementById("or-cd");if(!el||!data)return;var ms=data.cutoff-Date.now();if(ms<=0){clearInterval(cdTimer);if(A.isCurrent(curRid))setTimeout(function(){load(curRid);},3000);return;}
+el.textContent="距离本轮锁定还有 "+left(ms);}
+function funds(f,pool){if(!f)return"";var ailV=f.ail*f.px,tot=f.dai+ailV;return'<div class="or-funds"><span>💵 DAI <b>'+f.dai.toLocaleString("en-US",{useGrouping:false,maximumFractionDigits:2})+"</b></span>"+"<span>🪙 AiLGNS <b>"+f.ail.toLocaleString("en-US",{useGrouping:false,maximumFractionDigits:4})+"</b> <small>≈ "+ailV.toFixed(2)+" DAI</small></span>"+'<span class="or-tot">已到位 <b>'+tot.toLocaleString("en-US",{useGrouping:false,maximumFractionDigits:2})+" DAI</b></span>"+'<small class="or-fnote">奖池数字就是奖池钱包里的实际余额（AiLGNS 按现价折算），有多少发多少，获奖自动发到你的钱包；奖池的钱由团队注入，每一笔在链上都查得到。</small></div>';}
+function fixHint(){var box=document.getElementById("or-fix"),a=account;if(!box||!a)return;fetch("/api/name-paid?a="+a).then(function(r){return r.json();}).then(function(j){if(!document.body.contains(box)||account!==a)return;var L=(j.list||[]).filter(function(x){return x.kind==="reg"&&x.t==="ailgns"&&x.owner===a&&x.primary!==x.label;});if(!L.length)return;var full=L[0].label+".ailgns";box.hidden=false;box.innerHTML='<div class="or-fixc"><b>⚠️ 你已经注册了 '+esc(full)+(L.length>1?" 等 "+L.length+" 个名字":"")+'，只差一步：设为主名字</b><small>名字在你钱包里，但钱包还没「认」它，所以提示没有资格。设一下就能参加，免费，只付一点 Gas。</small>'+'<a class="nm-go" href="#/names/'+encodeURIComponent(full)+'?pri=1">👉 去设为主名字（点进去按蓝色按钮）</a></div>';},function(){});}
+var DEBOX_GROUP="https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";function sayText(id,url,a){return"AiLGNS 每日预言家 · 领奖宣告\n奖项编号："+id+"\n我在 DeBox 社区的宣告帖："+url+"\n地址："+a;}
+function sayShrink(file){return new Promise(function(ok,bad){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var k=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",0.75));};im.onerror=function(){bad(new Error("这张图片打不开，请换一张"));};im.src=r.result;};r.onerror=function(){bad(new Error("这张图片读不出来，请换一张"));};r.readAsDataURL(file);});}
+function sayLog(x,ev,info){try{fetch("/api/oracle-proof",{method:"POST",headers:{"content-type":"application/json"},keepalive:true,body:JSON.stringify({action:"log",a:account,id:x.id,ev:ev,info:String(info||"").slice(0,160)})}).catch(function(){});}catch(e){}}
+function sayBox(me){var KN={king:"贡献王",closest:"天眼通",second:"地灵通",jackpot:"神算子大奖",daily:"每日前三"};var L=(me&&me.sayDue)||[];var SCAM="<div class=\"scam-warn\"><b>🚨 警惕骗子：领奖全程在这个网页上自助完成，不需要任何「客服」帮忙</b><ul><li>官方<b>不会私聊你</b>，更不会「指导你领奖」。你在群里说完中奖，马上来私聊你的，就是骗子。</li><li><b>绝不要</b>把助记词、私钥告诉任何人；不要屏幕共享、不要装对方发来的软件。</li><li>领奖<b>不用先转账</b>，没有手续费、保证金、税、「解冻费」。让你先打钱的，就是骗子。</li><li>只认 <b>ailgns.dev</b> 这个网址。别人发来的链接、二维码、「领奖页面」一律不要点、不要授权。</li></ul><small>奖金由机器人自动发到中奖的钱包，没有任何人工环节需要你配合。</small></div>";return(L.length?SCAM:"")+L.map(function(x,i){var burnOk=(x.bn||0)>=(x.need||1),big=(x.need||1)>1;var has=x.url||x.shots||x.video,what=(x.shots?x.shots+" 张截图":"")+(x.shots&&x.video?" + ":"")+(x.video?"视频":"")||(x.url?"帖子链接":"");var said=!!(has||x.ok),cur=!burnOk?1:!said?2:3;var stp=function(k,title,done,body){return'<div class="or-stp'+(done?" done":k===cur?" now":"")+'"><div class="or-stp-h"><i>'+["第一步","第二步","第三步"][k-1]+"</i><b>"+title+"</b><em>"+(done?"✅ 已完成":k===3?(cur===3?"⏳ 不用操作，等着就行":"前两步做完自动发"):k===cur?"👉 现在做这一步":"⏳ 还没做")+"</em></div>"+body+"</div>";};var b1=burnOk?"<p>名字已烧够"+(big?"（"+x.need+" 个）":"")+"。</p>":"<p>"+(big?"要销毁 "+x.need+" 个 .ailgns 名字，已烧 "+(x.bn||0)+" 个。":"销毁 1 枚创世 .ailgns 名字。")+'</p><a class="nm-go or-stp-go" href="#/genesis">🔥 去销毁名字</a><p class="or-stp-tip">烧完一定要回到这一页，接着做第二步。</p>';var up=x.ok?"":'<label class="nm-go or-say-up"><input type="file" class="or-say-f" data-i="'+i+'" accept="image/*,video/*" multiple hidden>'+(has?"🔁 重新上传截图 / 视频":"📷 上传截图 / 视频")+"</label>"+'<p class="or-say-st" data-i="'+i+'"></p>'+'<p class="or-stp-tip">点上面的按钮，从相册选就行：截图最多 3 张；视频 20 秒以内（最大 20MB）。不用签名、不花钱。</p>';var b2=x.ok&&!has?"<p>团队已在群里看到你。</p>":has?"<p>凭证已交（"+what+"）。"+(x.url?' <a href="'+esc(x.url)+'" target="_blank" rel="noopener">看帖子 ↗</a>':"")+"</p>"+up:'<ul class="or-stp-l"><li>打开 DeBox 的 AiLGNS 群，说一声自己中奖了（写上你的名字、哪一期、中了多少）。</li><li>把你发的那条消息截个图，或者录一小段视频。</li><li>回到这一页，点下面的按钮上传。</li></ul>'+'<a class="or-say-g" href="'+DEBOX_GROUP+'" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>'+up;var b3="<p>"+(x.ok?"团队已认证"+(burnOk?"，机器人几分钟内把奖发到这个钱包。":"，名字烧够后机器人自动发奖。"):has?"等团队看一眼凭证（一般当天），看过后机器人自动把 AiLGNS 发到这个钱包。":"前两步做完、团队看过后，机器人自动把 AiLGNS 发到这个钱包。")+"</p>";return'<div class="or-say"><b>🏆 你中了 '+dayCn(x.day)+" 的"+(KN[x.kind]||"奖")+"："+(x.ail?Number(x.ail).toFixed(4)+" AiLGNS（≈ "+dai(x.amt)+"）":dai(x.amt))+"</b>"+"<small>领奖一共三步，三步都做完才发奖。只烧名字、不到群里说一声并上传截图，领不到奖。</small>"+
+(cur===2?'<p class="or-stp-warn">⚠️ 你已经烧了名字，但还没上传截图 / 视频，奖还发不了。请做下面的第二步。</p>':"")+
+stp(1,"销毁名字",burnOk,b1)+stp(2,"到群里说一声，上传截图",said,b2)+stp(3,"等机器人发奖",false,b3)+'<p class="or-stp-why">为什么要在群里说一声：让大家看得见中奖的是真人，防作弊。</p></div>';}).join("");}
+function meBox(d){var me=d.me;if(account===SRC)return ownerBox();return sayBox(me)+meBox0(d)+histBox(d);}
+function histBox(d){var me=d.me;if(!account||!me||me.err)return"";var rows=[];if(me.ps&&me.ps.length)rows.push({day:d.round,ps:me.ps,st:"✍️ 还没封卷 · "+dayCn(d.round)+"晚上揭晓"});(me.hist||[]).forEach(function(h){var st;if(h.px){var diff=Math.min.apply(null,h.ps.map(function(p){return Math.abs(Number(p)-Number(h.px));}));st="揭晓价 <b>"+esc(h.px)+"</b> · 差 "+diff.toFixed(String(h.px).split(".")[1]?String(h.px).split(".")[1].length:3);}
+else st="🔒 已封卷 · "+dayCn(h.day)+"晚上 9–10 点揭晓";rows.push({day:h.day,ps:h.ps,st:st});});if(!rows.length)return'<div class="orh-box"><p class="orh-t">📋 我的预测记录</p><p class="muted orh-none">最近几轮你还没有提交过预测。</p></div>';return'<div class="orh-box"><p class="orh-t">📋 我的预测记录<small>最近几轮</small></p>'+rows.map(function(r){return'<div class="orh-row"><span class="orh-d">'+dayCn(r.day)+'</span><b class="orh-p">'+r.ps.map(esc).join("、")+'</b><em class="orh-s">'+r.st+"</em></div>";}).join("")+"</div>";}
+function meBox0(d){var me=d.me;if(!account)return'<p>参加资格：<b>先设一个 .ailgns 主名字</b>，再满足其一：① <b>至少持有 1 枚 🌟 创世域名</b> ② <b>OTC 累计成交满 5 万 DAI</b> ③ <b>至少持有 5 枚自己注册的普通域名</b>。免费预测。</p><button type="button" class="nm-go" id="or-conn">🔗 连接钱包参加</button>';if(!me||me.err)return'<p class="muted">'+esc((me&&me.err)||"读取中…")+"</p>";if(me.cool)return'<p>🎉 恭喜 <b>'+esc(me.name||A.short(account))+'</b> 中过奖！每个名字、每个钱包<b>只能中一次奖</b>，把机会留给更多人。</p><p class="muted">想继续玩：用一个<b>新钱包</b>，设好主名字，<a href="#/names/otc">持有 1 枚没中过奖的 🌟 创世域名</a>，或者<a href="#/names">持有 5 枚自己注册的普通域名</a>，就能再参加。</p>';if(!me.ok)return(me.name?"":'<div id="or-fix" hidden></div>')+'<p>钱包 <span class="mono">'+A.short(account)+'</span> 还没有参加资格。</p>'+'<p class="or-step"><b>第 1 步（必须）</b>：设一个 .ailgns 主名字</p><ul class="or-req"><li class="or-hl-n">'+(me.name?"✅ 主名字已设：<b>"+esc(me.name)+"</b>":'❌ <mark>还没有设主名字</mark>。<a href="#/names">去域名页，点进你的名字 →「设为我的主名字」（不花钱，只付一点 Gas）→</a>')+'</li></ul>'+'<p class="or-step"><b>第 2 步（满足其一）</b></p><ul class="or-req">'+'<li class="or-hl-g">'+(Number(me.gh)>0?"✅":"❌")+' <mark>至少持有 1 枚创世域名</mark>：这个钱包现在有 <b>'+Number(me.gh||0)+"</b> 枚"+(me.ghWait?"（另有 "+Number(me.ghWait)+" 枚是这一轮才转进来的，下一轮才算）":"")+'。<a href="#/names/otc">去域名市场买创世域名 →</a></li>'+'<li>'+(Number(me.vol)>=Number(me.need)?"✅":"❌")+' OTC 累计成交 <b>'+Number(me.vol||0).toLocaleString("en-US",{useGrouping:false})+"</b> / "+Number(me.need).toLocaleString("en-US",{useGrouping:false})+' DAI：<a href="#/otc">去 OTC 交易 →</a></li>'+'<li class="or-hl-p">'+(Number(me.ph)>=Number(me.phNeed||5)?"✅":"❌")+' <mark>至少持有 5 枚自己注册的普通域名</mark>：这个钱包现在有 <b>'+Number(me.ph||0)+"</b> / "+Number(me.phNeed||5)+" 枚"+(me.phWait?"（另有 "+Number(me.phWait)+" 枚是这一轮才转进来的，下一轮才算）":"")+(me.pb?"（另有 "+Number(me.pb)+" 枚是买来或别人转来的，不算）":"")+'。<a href="#/names/~daily">从这里注册普通域名（5 DAI 一个，注册费的 95% 进每日奖池）→</a></li></ul>'+'<p class="muted">名字要在这个钱包里才算，挂在市场里卖的不算。普通域名只认自己注册的（注册完等 1 分钟就算），买来的、别人转来的不算。创世域名买来的也算，下一轮起算。</p>';if(me.taken)return'<p class="nm-bad">'+esc(me.name)+" 这一轮已经由别的钱包预测过了，一个名字每轮只能用一次。</p>";if(me.lock)return'<p class="nm-bad">这个钱包本轮已经用 <b>'+esc(me.lock)+"</b> 预测过了。一个钱包每轮只认一个名字，换主名字不会多出次数。</p>";if(me.hold)return'<p class="nm-bad">'+esc(me.name)+" 是本轮开放后才转进这个钱包的，要等<b>下一轮</b>才能用它预测（刚注册的名字不受此限）。</p>";var rest=me.n-me.used;return'<p>你好，<b>'+esc(me.name||A.short(account))+"</b>"+(me.gno?' <i class="or-gb">🌟 创世 #'+me.gno+"</i>":me.vol>=me.need?' <i class="or-gb">💎 OTC 成交 '+Number(me.vol).toLocaleString("en-US",{useGrouping:false})+" DAI</i>":"")+"！本轮你有 <b>"+me.n+"</b> 次预测机会（"+esc(me.tier)+(me.name?"域名 ":" ")+me.base+" 次"+(me.bonus?" + 今天 OTC 成交满 50 DAI 加 1 次":"")+"），已用 <b>"+me.used+"</b> 次。</p>"+
+(me.ps.length?'<p class="or-mine">我的预测：'+me.ps.map(function(p){return"<b>"+p+"</b>";}).join("、")+"</p>"+(me.chain?'<p class="or-chain on">🔗 '+A.timeBJ(me.chain.at)+' 已写进链上存证 · <a href="#/scan/'+me.chain.tx+'">在账本里看 ›</a></p>':'<p class="or-chain"><button type="button" class="nm-sw" id="or-chain">🔗 把这些预测补写到链上（约 0.001 DAI）</button></p>'):"")+
+decNote()+(rest>0?'<div class="or-in"><input id="or-p" inputmode="decimal" placeholder="填 1 个价格，例如 '+(RD===4?"831.4625":"831.462")+'" autocomplete="off"><button type="button" class="nm-go" id="or-go">🔗 上链预测</button></div>'+'<p class="muted">还能预测 '+rest+' 次；有几次就填几个价格，用空格或逗号隔开。预测直接写进链上（给自己发一笔 0 元转账，Gas 约 0.001 DAI），<b>本站不收任何费用</b>，谁都能查、改不了。<a href="#" id="or-sig">钱包没 DAI 付 Gas？用签名方式</a></p>':'<p class="muted">本轮次数已用完'+(me.bonus?"":"；今天在 OTC 成交一笔满 50 DAI，可以再加 1 次")+"。</p>")+
+(me.ps.length?'<button type="button" class="nm-sw" id="or-poster">📸 生成晒单海报</button>':"")+'<p class="muted or-st" id="or-st"></p><div id="or-img"></div>';}
+function ownerBox(){setTimeout(function(){[[DAI,"or-allow"," DAI"],[AIL,"or-allow2"," AiLGNS"]].forEach(function(t){W.rpcOn("anubis","eth_call",[{to:t[0],data:"0xdd62ed3e"+SRC.slice(2).padStart(64,"0")+KEEPER.slice(2).padStart(64,"0")},"latest"]).then(function(r){var el=document.getElementById(t[1]);if(el)el.textContent=(Number(BigInt(r)/10n**14n)/10000).toLocaleString("en-US",{useGrouping:false})+t[2];},function(){});});},0);return'<p>👑 站长钱包不参加预测。这里设置<b>自动发奖额度</b>：收款钱包授权触发钱包 '+A.short(KEEPER)+' 最多转出多少 DAI 发奖金（只能发给获奖的人，额度用完再授权）。</p>'+'<p>奖金先用 DAI 发，DAI 不够用 AiLGNS（按现价折算），所以两种都要授权。当前额度：<b id="or-allow">读取中…</b> · <b id="or-allow2">读取中…</b></p>'+'<div class="or-in"><input id="or-amt" inputmode="decimal" value="1000"><button type="button" class="nm-go or-approve" data-t="DAI">授权 DAI 额度</button></div>'+'<div class="or-in"><input id="or-amt2" inputmode="decimal" value="5"><button type="button" class="nm-go or-approve" data-t="AIL">授权 AiLGNS 额度</button></div><p class="muted or-st" id="or-st"></p>';}
+function drawCard(d){var dr=d.drawing,res=dr.res;var list=dr.list||[];if(res&&!res.closest&&!res.nearInfo&&list.length){var nr=null;list.forEach(function(g){g.ps.forEach(function(p){var d=Math.abs(Math.round(Number(p)*scOf(res))-res.px);if(!nr||d<nr.diff)nr={name:g.name,p:p,diff:d};});});res.nearInfo=nr;}
+if(res)return resultCard(res,"🎉 "+dayCn(res.day)+" 揭晓结果")+(list.length?'<section class="card">'+proofBar(dr)+allGuess(list,res.px,dr)+"</section>":"");drRows=[];list.forEach(function(g){(g.ps||[]).forEach(function(p){drRows.push({name:g.name,p:p,m:Math.round(Number(p)*DS)});});});drDaily=!!(d.daily&&dr.day>=d.daily.from);drKings=drDaily?[]:(d.kings&&d.kings.top)||[];drPot=(dr.allot||0)+((d.pool&&d.pool.pool)||0);return'<section class="card or-draw"><div class="card-head"><h2>🎲 '+dayCn(dr.day)+' 正在揭晓</h2><span class="muted">晚上 9:00–10:00 随机一刻 · 10:05 前公布</span></div>'+"<p>本轮已锁定，共 <b>"+list.length+"</b> 人参与。揭晓价 = 9–10 点之间随机一刻的链上价格，由 10 点整那个区块的哈希决定，谁都没法提前知道。</p>"+'<div class="or-sim" id="or-sim"><p class="muted">按当前价格模拟中…</p></div>'+
+(list.length?proofBar(dr)+allGuess(list,0,dr):"")+"</section>";}
+function proofBar(dr){var an=dr.anchor;return'<div class="or-proof'+(an?" on":"")+'"><span class="or-pf-i">🔗</span><div><b>'+(an?"本期全部预测已写入链上，任何人可查、不可篡改":"封卷后本期全部预测将打包写入链上，不可篡改")+"</b><small>"+(an?"交易 "+an.tx.slice(0,10)+"… · 指纹 "+an.hash.slice(0,12)+"… · "+an.n+" 人 "+an.guesses+" 个预测":"每个预测都有钱包签名；21:00 封卷后奖池钱包发一笔 0 元交易，把全部预测的 SHA-256 指纹永久记在链上")+'</small></div><button type="button" class="ghost or-pf-btn" data-day="'+dr.day+'">'+(an?"查看 / 验证":"怎么验证")+"</button></div>";}
+function proofModal(day){var box=document.createElement("div");box.className="modal";box.innerHTML='<div class="modal-box"><div class="card-head"><h2>🔗 预测上链存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><p class="muted">读取中…</p></div>';document.body.appendChild(box);box.addEventListener("click",function(e){if(e.target===box||e.target.closest("[data-close]"))box.remove();});fetch("/api/oracle?proof="+day+(account?"&a="+account:"")).then(function(r){return r.json();}).then(function(p){var an=p.anchor,bx=box.querySelector(".modal-box"),mi=p.mine;var mine=mi?'<div class="or-pf-me"><b>🔮 你的链上存证</b><p>你在 <b>'+A.timeBJ(mi.at)+'</b> 预测 <b>'+dayCn(day)+' 期</b>揭晓价 <b class="or-pf-px">'+esc(String(mi.ps).split(",").join(" / "))+' DAI</b>，<b class="ok">✅ 已上链</b></p><a class="nm-go" href="#/scan/'+mi.tx+'">在账本里看链上证据 ›</a><small class="muted">交易 '+mi.tx.slice(0,10)+'…'+mi.tx.slice(-6)+'，是你自己钱包发出的 0 元交易，任何人可查、改不了</small></div>':"";var dl="data:application/json;charset=utf-8,"+encodeURIComponent(p.canon);bx.innerHTML='<div class="card-head"><h2>🔗 '+dayCn(day)+' 预测存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div>'+
+mine+'<div class="or-pf-big'+(an?" on":"")+'">'+(an?"✅ 已写入链上 · 不可篡改":"⏳ 封卷后写入链上")+"</div>"+'<p><b>'+p.n+" 人 · "+p.guesses+' 个预测</b></p>'+'<p class="or-pf-k">本期指纹（SHA-256）<br><span class="mono">'+p.hash+"</span></p>"+
+(an?'<p class="or-pf-k">链上交易<br><a class="mono" href="#/scan/'+an.tx+'">'+an.tx+'</a><br><small class="muted">交易 data 里写的是 ailgns-oracle:'+day+":"+an.hash.slice(0,16)+"…，由奖池钱包发出，"+A.timeBJ(an.at)+' 上链</small></p>':'<p class="muted">每个预测提交时都经钱包签名；今晚 21:00 封卷后，奖池钱包会把上面这个指纹写进链上，之后这里显示交易哈希。</p>')+'<ol class="steps or-pf-steps"><li><a href="'+dl+'" download="ailgns-oracle-'+day+'.json">下载本期预测清单（JSON）</a></li><li>用任何工具算它的 SHA-256（电脑终端：<span class="mono">shasum -a 256 文件名</span>）</li><li>和上面的指纹、链上交易里的指纹对比——一致就说明名单没被改过一个字</li></ol>'+'<p class="muted">清单包含每个名字、钱包、预测价和提交时间，和页面显示一致。</p>';}).catch(function(){box.querySelector("p").textContent="读取失败，请稍后再试";});}
+document.addEventListener("click",function(e){var b=e.target.closest(".or-pf-btn");if(b)proofModal(b.getAttribute("data-day"));});var drRows=[],drKings=[],drPot=0,simKey="",drDaily=false;function simShow(){var el=document.getElementById("or-sim");if(!el||!drRows.length||!livePxV)return;var m=Math.round(livePxV*DS),rows=drRows.slice().sort(function(a,b){return Math.abs(a.m-m)-Math.abs(b.m-m);}),top=rows.slice(0,3);if(drDaily){var seen={};top=rows.filter(function(r){if(seen[r.name])return false;seen[r.name]=1;return true;}).slice(0,3);}
+var key=top.map(function(r){return r.name+r.p;}).join("|")+"|"+m,moved=simKey&&key!==simKey;simKey=key;var hit=top[0]&&top[0].m===m;var tags=drDaily?[[hit?"🔮 神算子！":"🥇 今晚第 1 近",""],["🥈 今晚第 2 近",""],["🥉 今晚第 3 近",""]]:[["🔮 神算子候选","最接近"],["👁 天眼通候选","第二"],["🌿 地灵通候选","第三"]];el.innerHTML='<div class="or-simh"><b>🎲 如果此刻揭晓</b><span class="or-simpx">当前价 <b>'+livePxV.toFixed(DS===10000?4:3)+'</b> DAI<i class="or-dot"></i></span></div>'+'<div class="or-simg">'+top.map(function(r,i){var d=Math.abs(r.m-m);return'<div class="or-simc r'+(i+1)+(moved?" moved":"")+(i===0&&hit?" hit":"")+'"><small>'+tags[i][0]+'</small><b>'+esc(r.name)+'</b><em>预测 '+r.p+(d===0?" · 🎯 完全猜中！":" · 差 "+fq(d,DS))+"</em></div>";}).join("")+"</div>"+
+(drKings.length?'<div class="or-simk"><div class="or-simkh"><b>💰 本周贡献王候选</b><span>周日结算 · 领奖先烧 1 枚创世名 · 奖池 30% 按手续费占比分 · 每人封顶 3 倍 · 须绑定域名</span></div>'+drKings.map(function(k,i){return'<span class="or-simkr">'+["🥇","🥈","🥉"][i]+" "+esc(k.name)+' <small>手续费 '+dai(k.fee)+"</small></span>";}).join("")+"</div>":"")+
+(drDaily?'<p class="muted or-simd">🎯 揭晓时离得最近的 3 个人各拿每日奖（每日奖冷却中的顺延给下一位）</p>':(drKings.length?'<a class="or-simcta" href="#/otc">💡 想上贡献榜？去 OTC 吃一单，手续费 1% 直接计入 · 去交易 →</a>':""));var names={};top.forEach(function(r,i){names[r.name+":"+r.p]=i+1;});document.querySelectorAll(".or-all li[data-k]").forEach(function(li){var r=names[li.getAttribute("data-k")];li.className=(r?"hot h"+r:"")+(li.hasAttribute("data-me")?" me":"");});}
+function allGuess(list,px,dr){var rows=[];var myName=(data&&data.me&&data.me.name?String(data.me.name):"").toLowerCase(),cur=px||Math.round(livePxV*DS);list.forEach(function(g){g.ps.forEach(function(p){rows.push({name:g.name,p:p,tx:g.tx||"",me:myName&&g.name.toLowerCase()===myName,d:cur?Math.abs(Math.round(Number(p)*DS)-cur):0});});});if(cur)rows.sort(function(a,b){return a.d-b.d;});return'<details class="or-all"'+(px?"":' open data-live="1"')+'><summary>📜 所有人的预测（'+list.length+" 人 · "+rows.length+" 个价格）"+(px?"，按离揭晓价远近排":"，离当前价最近的在最上面，实时变")+'</summary><input class="or-q" placeholder="🔍 搜名字"><ol>'+
+rows.map(function(r){return'<li data-n="'+esc(r.name.toLowerCase())+'" data-k="'+esc(r.name+":"+r.p)+'" data-p="'+r.p+'"'+(r.me?' data-me="1" class="me"':"")+'><b>'+esc(r.name)+'</b>：<b class="or-px">'+r.p+" DAI</b>"+(cur?' <small class="muted or-d">差 '+fq(r.d,DS)+"</small>":"")+(r.tx?' <a class="or-pf-btn" href="#/scan/'+r.tx+'" title="在本站账本里验证这条预测的链上交易">🔗 链上证据</a>':dr?' <button type="button" class="link or-pf-btn" data-day="'+dr.day+'" title="这条预测的链上存证">'+(dr.anchor?"🔗 链上存证":"🔗 存证")+"</button>":"")+"</li>";}).join("")+"</ol>"+(rows.length>10?'<button type="button" class="ghost or-more" data-n="'+rows.length+'">展开全部 '+rows.length+' 条</button>':"")+"</details>";}
+function allResort(){var ol=document.querySelector('.or-all[data-live] ol');if(!ol||!livePxV)return;var lis=[].slice.call(ol.children),k=Math.round(livePxV*DS);lis.forEach(function(li){li._d=Math.abs(Math.round(Number(li.getAttribute("data-p"))*DS)-k);var d=li.querySelector(".or-d");if(!d){d=document.createElement("small");d.className="muted or-d";li.querySelector(".or-px").insertAdjacentElement("afterend",d);}d.textContent=" 差 "+fq(li._d,DS);});lis.sort(function(a,b){return a._d-b._d;}).forEach(function(li){ol.appendChild(li);});}
+var livePxV=0,liveRows=[],liveKey="",liveAll=false;var leadRows=[],leadKey="";function leadShow(){var el=document.getElementById("or-lead");if(!el||!leadRows.length)return;var top=leadRows.slice(0,3),key=top.map(function(r){return r.name+r.p;}).join("|"),moved=leadKey&&key!==leadKey;leadKey=key;el.innerHTML='<div class="or-lh"><b>🏆 如果现在揭晓</b><span>最接近的 3 位</span></div>'+top.map(function(r,i){return'<div class="or-ldr r'+(i+1)+(moved?" moved":"")+'"><i>'+(i+1)+'</i><div class="or-ln"><b>'+esc(r.name)+'</b><small>预测 '+r.p+'</small></div><em>差 '+r.d+"</em></div>";}).join("");}
+function dailyCard(d){var y=d.daily;if(!y)return"";var me=d.me,low=y.on&&y.each<y.prize;return'<section class="card or-daily"><div class="card-head"><h2>🎯 每日前三</h2><span class="muted">'+(y.on?"今晚每人 "+dai(y.each):dayCn(y.from)+"开始")+"</span></div>"+'<p>每晚揭晓后，<b>离揭晓价最近的 '+y.top+" 个人各拿 "+y.prize+" DAI</b>（发 AiLGNS），不用等有人猜中大奖，天天发。</p>"+
+(low?'<p class="muted">奖池里现在不够 '+(y.prize*y.top)+" DAI，三个人平分奖池里的钱，每人 "+dai(y.each)+"。</p>":"")+
+(me&&me.dcool?'<p class="or-chg">⏳ 你最近中过每日奖，冷却到 <b>'+dayCn(me.dcool)+"</b>。这几天照样能猜，完全猜中的大奖照拿。</p>":"")+'<ul class="or-dl"><li>💰 钱从<b>奖池钱包</b>里出；奖池不够时，三个人平分奖池里的钱。发完剩下的才是大奖。</li><li>🔥 领奖先在 3 天内销毁 1 枚创世名，过期算放弃。</li><li>⏳ 中一次休息 '+y.cool+" 天（只停每日奖），名额顺延给下一位。</li><li>🙅 一个名字、一个钱包每晚只占一个名额；一样近，先提交的得。</li></ul></section>";}
+function kingsCard(d,potV){var k=d.kings;if(!k)return"";var b=k.budget,inflowMode=b&&b.mode==="inflow",walletMode=b&&b.mode==="wallet",total=b?b.total:Math.floor(potV*k.share*100)/100,me=d.me&&d.me.king,cap=k.cap||3;var rows=k.top.map(function(x,i){return'<li><span>'+["🥇","🥈","🥉"][i]+' <b data-a="'+esc(x.a||"")+'">'+esc(x.name)+"</b> 付手续费 "+dai(x.fee)+(x.share?' <small class="muted">占 '+Math.round(x.share*100)+"%"+(x.demoted?" · 上周第一，连庄按第二算":"")+"</small>":"")+"</span><b>"+dai(x.amt!=null?x.amt:0)+"</b></li>";}).join("");return'<section class="card"><div class="card-head"><h2>💰 本周贡献榜</h2><span class="muted">'+dayCn(k.cyc)+" 起 · 周日揭晓时结算</span></div>"+
+(d.daily?'<p class="or-chg">📣 <b>这是贡献王最后一期</b>：本周日晚照常结算发奖，'+dayCn(d.daily.from)+"起取消，改成「🎯 每日前三」。</p>":"")+
+(rows?'<ol class="or-board">'+rows+"</ol>":'<p class="muted">本周还没有认证商家成交，第一笔就是第一名。</p>')+'<p class="muted">每周一到周日，本站 OTC 吃单付的手续费（成交额 1%，卡牌 3%）累计前 3 名，<b>周日晚揭晓时直接发</b>，不用等有人猜中大奖。奖金 = '+(walletMode?'<b>奖池钱包里现在实际有的钱</b>（约 '+dai(total)+'）。按原来的算法是 '+dai(b.want||0)+'，但本周大奖两次被猜中，奖池已经清空发给了中奖人，钱包里没有这么多，所以<b>有多少发多少</b>；今晚奖池钱包里的钱先发贡献王，':inflowMode?'<b>本周新进奖池的钱的 '+Math.round((b.rate||0.15)*100)+'%</b>（本周已进 '+dai(b.base)+'，可分 '+dai(total)+'；大奖池本身只进不出，只在有人猜中大奖时清空）':'奖池 30%（现在约 '+dai(total)+'；11 月 10 日起改为本周新进奖池的钱的 15%，大奖池只进不出）')+'按三人手续费占比分，<b>每人最多拿回自己手续费的 '+cap+' 倍</b>，多的留在奖池。<b>⚠️ 钱包必须绑定域名（设为主名字）才能拿贡献王奖励</b>，没绑的自动跳过、名额顺延。✔ 认证商家（累计成交 1 万 DAI 且 20 笔）以上才进榜；上周第一名本周最多算第二（连庄不连第一）；进榜的名字挂「🏆 本周贡献王」标志 7 天。'+(me?" 你本周排第 <b>"+me.rank+"</b>，已付 "+dai(me.fee)+"。":(d.me&&d.me.a?" 你本周还没有成交。":""))+'</p>'+'<p class="muted or-rulenote">📐 规则会随数据不断优化，以页面公布为准。</p></section>';}
+function playersCard(d){liveRows=[];liveKey="";(d.players||[]).forEach(function(g){(g.ps||[]).forEach(function(p){liveRows.push({name:g.name,p:p,m:Math.round(Number(p)*RS)});});});if(!liveRows.length)return"";return'<section class="card or-live"><div class="card-head"><h2>📈 '+dayCn(d.round)+' 实时排行</h2><span class="muted" id="or-lcnt">'+(d.players||[]).length+" 人 · "+liveRows.length+' 个预测</span></div>'+'<p class="muted">按离<b>当前链上价</b>最近排序，价格每 8 秒刷新、名单每 30 秒刷新（别人新交的预测最多 1 分钟内上榜）；最终以当晚 9–10 点随机一刻的价格揭晓。</p><div id="or-live"></div></section>';}
+var cntSeen={};function countUp(){document.querySelectorAll(".or-cnt").forEach(function(el,k){var to=Number(el.getAttribute("data-to"))||0,from=cntSeen[k]!=null?cntSeen[k]:0,t0=performance.now(),dur=from?900:1800;var dec=Number(el.getAttribute("data-dec"))||0,fmt=function(v){return dec?(v/Math.pow(10,dec)).toFixed(dec):v.toLocaleString("en-US",{useGrouping:false});};cntSeen[k]=to;if(from===to){el.textContent=fmt(to);return;}
+(function step(t){var x=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-x,3);el.textContent=fmt(Math.floor(from+(to-from)*e));if(x<1&&el.isConnected)requestAnimationFrame(step);})(t0);});}
+function liveRank(){var box=document.getElementById("or-live");if(!box||!liveRows.length||!livePxV)return;var m=Math.round(livePxV*RS);var rows=liveRows.slice().sort(function(a,b){return Math.abs(a.m-m)-Math.abs(b.m-m);});var key=m+":"+rows.map(function(r){return r.name+r.p;}).join("|");leadRows=rows.slice(0,5).map(function(r){return{name:r.name,p:r.p,d:fq(Math.abs(r.m-m),RS)};});leadShow();if(key===liveKey)return;liveKey=key;var li=function(r,i){return'<li'+(i<3?' class="top"':"")+'><span class="or-lr">'+(i+1)+'</span><b>'+esc(r.name)+'</b><span class="or-lp"><small>预测价格</small>'+r.p+'</span><span class="or-lc"><small>差</small>'+fq(Math.abs(r.m-m),RS)+"</span></li>";};box.innerHTML='<div class="or-lnow"><small>当前价格</small><b>'+livePxV.toFixed(RD)+'</b><span>DAI</span></div>'+'<div class="or-lwin"><ol>'+rows.slice(0,liveAll?rows.length:10).map(li).join("")+"</ol></div>"+
+(rows.length>10?'<button type="button" class="nm-more" id="or-lall">'+(liveAll?"收起 ▲":"看全部 "+rows.length+" 个 ▼")+"</button>":"");var la=document.getElementById("or-lall");if(la)la.onclick=function(){liveAll=!liveAll;liveKey="";liveRank();};}
+function resultCard(r,title){var fd=data&&data.funds,fpx=fd?((fd.otc&&fd.otc.px)||fd.px||1):1,curPotV=fd?Math.floor((fd.dai+fd.ail*fpx)*100)/100:0;var px=fq(r.px,r),jw=r.jackpot.winners,c=r.closest;return'<section class="card or-res"><div class="card-head"><h2>'+title+'</h2><span class="muted">'+dayCn(r.day)+"</span></div>"+'<div class="or-rpx"><small>揭晓价</small><b>'+px+'</b><span>DAI</span></div>'+'<p class="or-proof">揭晓时刻 '+hm(r.blockTime*1000)+' · <span>区块 #'+r.block+"</span>（由 #"+r.b1+" 的哈希在 #"+r.b0+"–#"+(r.b1-1)+" 中随机选出）· 链上原价 "+r.pxRaw.toFixed(6)+"</p>"+
+(jw.length?'<p class="or-win">🎯 <b>超级大奖池 '+dai(r.jackpot.pool)+"</b> 被 "+jw.map(function(w){return"<b>"+esc(w.name)+"</b>";}).join("、")+" 猜中！"+(jw.length>1?"每人 "+dai(r.jackpot.each):"独得")+"</p>":'<p>🎯 没人猜中 '+px+"，奖金全部留在奖池，下一期继续！奖池现在实际有 <b>"+dai(curPotV)+"</b>（按奖池钱包余额）。</p>")+
+(c?'<p class="or-win">🥇 天眼通（最接近）：<b>'+esc(c.name)+"</b> 预测 "+fq(c.p,r)+"，只差 "+fq(c.diff,r)+"，得 "+dai(c.amt)+"</p>":r.nearInfo&&!(r.daily&&r.daily.length)?'<p class="muted">离得最近的是 <b>'+esc(r.nearInfo.name)+"</b> 预测 "+r.nearInfo.p+"，差 "+fq(r.nearInfo.diff,r)+"。"+(r.dailyRule?"":"没人完全猜中的日子，天眼通 / 地灵通也不发，奖金全部留在奖池滚大。")+"</p>":r.n?"":'<p class="muted">这一期没人参加。</p>')+
+(r.daily&&r.daily.length?'<p class="or-win">🎯 每日前三（离揭晓价最近）：'+r.daily.map(function(w,i){return["🥇","🥈","🥉"][i]+" <b>"+esc(w.name)+"</b> 预测 "+fq(w.p,r)+"，差 "+fq(w.diff,r)+"，得 "+(w.ail?Number(w.ail).toFixed(4)+" AiLGNS（≈ "+dai(w.amt)+"）":dai(w.amt));}).join("；")+"</p>":r.dailyRule&&r.n?'<p class="muted">今天奖池没有新进账，每日前三这一期不发。</p>':"")+
+(r.second?'<p class="or-win">🥈 地灵通（次接近）：<b>'+esc(r.second.name)+"</b> 预测 "+fq(r.second.p,r)+"，差 "+fq(r.second.diff,r)+"，得 "+dai(r.second.amt)+"</p>":"")+
+(r.kings&&r.kings.length?'<p class="or-win">🏆 本周贡献王（'+dayCn(r.cyc)+" 起 OTC 手续费前 "+r.kings.length+" 名）："+r.kings.map(function(k,i){return"<b>"+esc(k.name)+"</b> 付手续费 "+dai(k.fee)+"，得 "+(k.ail?Number(k.ail).toFixed(4)+" AiLGNS（≈ "+dai(k.amt)+"）":dai(k.amt));}).join("；")+"</p>":"")+
+payList(r.day)+'<p class="muted">共 '+r.n+" 人、"+r.guesses+" 个预测 · 奖金由系统自动发到获奖钱包</p></section>";}
+function bjShort(ms){var d=new Date(ms+8*3600e3);return(d.getUTCMonth()+1)+"/"+d.getUTCDate()+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}
+function payList(day){var KN={king:"🏆 贡献王",closest:"🥇 天眼通",second:"🥈 地灵通",jackpot:"🎯 神算子",daily:"🎯 每日前三"};var l=((data&&data.pays)||[]).filter(function(x){return x.day===day;});if(!l.length)return"";return'<div class="or-pays"><b>💸 发奖记录（链上可查）</b><div class="or-pay or-ph"><span>奖项</span><span>获奖人</span><span class="or-pa">实发 AiLGNS（≈ DAI）</span><span>状态 / 转账</span></div>'+l.map(function(x){var big=(x.need||1)>1,burnt=big?"🔥 已烧 "+x.need+" 个名字":(x.burn?"🔥 已烧创世 #"+x.burn:"");var tail=x.tx?'<a href="#/scan/'+esc(x.tx)+'">查看转账 →</a>'+(burnt?"<small>"+burnt+"</small>":""):x.st==="forfeit"?'<small class="or-pay-no">❌ 3 天内没销毁'+(big?"够名字":"创世名")+'，放弃，奖金留在奖池</small>':x.st==="say"?"<small>📣 "+(burnt?burnt+"，":"")+"等中奖人到群里说一声并上传截图 / 视频</small>":x.st==="review"?(x.say?'<a href="'+esc(x.say)+'" target="_blank" rel="noopener">🔎 已宣告，团队认证中 · 看帖子 ↗</a>':"<small>🔎 截图 / 视频已交，团队认证中</small>"):x.st==="wait"?'<a href="#/genesis">⏳ '+(big?"等中奖人注册并销毁名字 "+(x.bn||0)+"/"+x.need+" 个":"等中奖人销毁 1 枚创世名")+"（"+(x.due?"截止 "+bjShort(x.due):"3 天内")+"）→</a>":'<a href="#/scan/0xd69fd045e23c8a45c6b3f6b9a4ef66592d51dba4">'+(burnt?burnt+"，等机器人转账":"奖池转出记录")+" →</a>";return'<div class="or-pay"><span class="or-pk">'+(KN[x.kind]||x.kind)+'</span><span class="or-pn"><b>'+esc(x.name)+'</b></span><span class="or-pa">'+(x.ail?Number(x.ail).toFixed(4)+" AiLGNS":dai(x.amt))+'<small> ≈ '+dai(x.amt)+'</small></span><span class="or-pt">'+tail+"</span></div>";}).join("")+"</div>";}
+function rules(){return'<details class="card or-rules"><summary>📜 玩法规则（点开看）</summary><ol>'+"<li><b>谁能玩</b>（满足其一）：① 钱包里至少持有 1 枚 🌟 创世域名（全站付费注册的前 1 万个）② OTC 累计成交满 5 万 DAI ③ 钱包里至少持有 5 枚自己注册的普通域名（买来的、别人转来的不算，2026-11-23 起）。不管走哪一条，都要先设一个 .ailgns 主名字。名字要在钱包里才算，挂在市场里卖的不算；创世域名买来的、别人转来的下一轮才算。免费参与，只需钱包签名。</li>"+"<li><b>猜什么</b>：猜揭晓价。<b>📣 11 月 15 日那一轮起精确到小数点后 4 位</b>，例如 827.3546（11 月 14 日那一轮和以前是 3 位）。原因：猜的人多了，11 月 13 日、14 日连续两晚 3 位小数被猜中，大奖池攒不起来；改 4 位难 10 倍，奖池才能滚大。11 月 15 日这一轮在改之前已经提交的 3 位预测照常有效，按末位补 0 计入（例如 854.686 算 854.6860）。以后人数再涨还会升到 5 位，升档都会提前在这里公告。</li>"+"<li><b>📣 创世域名已全部注册完（2026-11-21）</b>：都要先设一个 .ailgns 主名字。然后钱包里至少持有 1 枚创世域名就能玩；没有创世域名的，至少持有 5 枚自己注册的普通域名也能玩；OTC 满 5 万的资格照旧。每天几次按主名字的档位算。以前公告的「任何 .ailgns 主名字都能玩」不再执行，以这一条为准。中奖领钱要先烧 1 枚创世名。</li>"+"<li><b>几次机会</b>：按主名字档位：普通 1 次、中文 2 字 2 次、英文 4 位 3 次、英文 3 位 5 次；当天在 OTC 成交一笔满 50 DAI 再加 1 次。一个名字每轮只能用一次。</li>"+"<li><b>防刷规则</b>：一个钱包每轮<b>只认一个名字</b>，换主名字不会多出次数；名字必须在<b>本轮开放前</b>（上一期封卷前）就在你钱包里，转进来、买来的要等下一轮，<b>刚注册的马上能玩</b>；单钱包每轮<b>最多 5 次</b>。</li>"+"<li><b>随时能猜</b>：<b>下午 3 点封卷</b>（11 月 12 日起；11 月 10–11 日是早上 9 点）。下午 3 点前提交的参加当晚揭晓；下午 3 点到晚上 9 点是锁定期（6 小时），这段时间提交的算第二天。</li>"+"<li><b>怎么揭晓</b>：晚上 9:00–10:00 之间随机一刻的链上价格就是揭晓价；是哪一刻由 10 点整那个区块的哈希决定，谁都没法提前知道。10:05 前公布。</li>"+"<li><b>奖金</b>：奖池的钱由<b>团队注入</b>（2026-11-15 起不再按域名收入自动划转），进了奖池的 DAI 会买成 AiLGNS；页面大字显示的就是奖池钱包的实际余额，有多少发多少。🔮 <b>神算子</b>（价格每一位都猜中）平分大奖池；没人猜中，大奖池继续滚大。</li>"+"<li><b>🎯 每日前三</b>（2026-11-16 起）：每晚揭晓后，除神算子外<b>离揭晓价最近的 3 个人各拿 20 DAI</b>（发 AiLGNS），天天发。钱从<b>奖池钱包</b>里出，奖池不够 60 DAI 就三人平分奖池里的钱；发完剩下的才是大奖。一个名字、一个钱包每晚只占一个名额，一样近先提交的得。中一次休息 7 天（只停每日奖，照样能猜大奖），名额顺延。原来的天眼通、地灵通并进每日前三。</li>"+"<li><b>💰 贡献王（已取消）</b>：原定 2026-11-15 发最后一期，现已取消，本周不再结算；奖池里的钱全部留给大奖。11-15 这一期有人猜中大奖的话，天眼通 10%、地灵通 5% 照老规则发，其余归神算子。</li>"+"<li><b>奖池怎么折算</b>：预言机来自本站 OTC 市场，按 24 小时内真实成交最高价折算（只算单笔 ≥ 10 DAI 的成交，且不超过 DEX 现价 +50%，防小单刷价）。</li>"+"<li><b>领奖要先烧名字</b>（2026-11-09 起）：每日前三、天眼通、地灵通、贡献王中奖后 3 天内到「🔥 创世域名销毁进行中」页（域名页注册卡下方）销毁 1 枚创世 .ailgns 名，烧自己的或去市场买一枚都行，一枚只抵一次。<b>神算子大奖</b>（2026-11-10 起）要<b>注册并销毁价值 ≥ 奖金 30% 的 .ailgns 名字</b>（按 5 DAI/个向上取整，任何名字都算，页面有一键工具一次搞定）。机器人核对链上记录后才发奖，3 天不烧够视为放弃，奖金留在奖池；烧过的名字永久不算创世。</li>"+"<li><b>📣 领奖要到社区宣告</b>（2026-11-13 那一期起，所有奖项）：名字烧够以后，中奖的人还要<b>到 DeBox 的 AiLGNS 群里说一声自己中奖了</b>，截个图或录一小段视频，在本页最上面上传（不用签名、不花钱）。团队看过后机器人才发奖。目的：让社区看得见中奖的是真人，防作弊、防质疑。不宣告就一直不发，奖金留在奖池钱包里。</li>"+"<li><b>奖金只发 AiLGNS</b>：奖池钱包（页面有地址，链上可查）里的 DAI 累计满 100 就自动在本站 OTC 买成 AiLGNS；揭晓时按 OTC 预言机价把各奖项折成 AiLGNS 数量，从奖池钱包直接转给获奖人，不发 DAI。</li>"+"<li><b>大奖每个名字、每个钱包只能中一次</b>：拿到神算子（以及老规则下的天眼通、地灵通）后，这个名字和这个钱包都不能再参加了；想继续玩，用新钱包买一个新的 🌟 创世 .ailgns 域名设为主名字。<b>每日前三不拉黑</b>，只休息 7 天。</li>"+"<li><b>公开透明</b>：揭晓区块、时间、价格全部公开，可以在 anubisscan 上核对。站长钱包不参加。</li>"+'<li class="muted">仅供娱乐，不构成任何投资建议。</li></ol></details>';}
+var dmList=[],dmQ=[],dmI=0,dmSeen={},dmLane=0;function dmText(txt,ts,a){return"AiLGNS 弹幕\n"+txt+"\n时间："+ts+"\n地址："+a;}
+function dmFetch(){return fetch("/api/danmaku?r="+Date.now()).then(function(r){return r.json();}).then(function(j){var fresh=false;(j.list||[]).forEach(function(m){if(!dmSeen[m.id]){dmSeen[m.id]=1;dmAdd(m);fresh=true;}});if(fresh||!dmFetched)dmI=0;dmFetched=true;var tip=document.querySelector(".or-dmtip");if(tip)tip.textContent=dmList.length?"":"💬 本期还没有弹幕，来发第一条吧！（每期揭晓后重新开始）";},function(){});}
+var dmFetched=false;function dmAdd(m){dmList=dmList.filter(function(x){return x.name!==m.name;});dmList.unshift(m);dmList.sort(function(x,y){return(y.t||0)-(x.t||0);});if(dmList.length>60)dmList.shift();}
+function dmFly(m,mine){var sky=document.getElementById("or-dmsky");if(!sky)return;var el=document.createElement("div");el.className="or-dmi"+(mine?" mine":"");el.style.top=(6+(dmLane++%4)*24)+"px";el.innerHTML="<b>"+esc(m.name)+"</b>："+esc(m.txt);el.style.animationDuration=(5.5+Math.random()*2).toFixed(1)+"s";el.addEventListener("animationend",function(){el.remove();});sky.appendChild(el);}
+function dmInit(rid){dmFetched=false;dmSeen={};dmList=[];dmQ=[];dmFetch();var idle=0;var tick=setInterval(function(){if(!A.isCurrent(rid)||!document.getElementById("or-dmsky"))return clearInterval(tick);if(dmI<dmList.length){dmFly(dmList[dmI++],false);idle=0;}
+else if(++idle>44){dmI=0;idle=0;}},450);var pull=setInterval(function(){if(!A.isCurrent(rid))return clearInterval(pull);dmFetch();},15000);var inp=document.getElementById("or-dmt"),btn=document.getElementById("or-dmgo"),cs=document.getElementById("or-dmcs");if(cs)cs.onclick=function(){if(A.chatOpen)A.chatOpen("预言家怎么玩？");};if(!btn)return;var send=function(){var txt=inp.value.replace(/\s+/g," ").trim();if(!txt)return A.errTip("先写点内容",btn);btn.disabled=true;var ts=Date.now();(eth?Promise.resolve():connect()).then(function(){return A.wallets.ask(eth,{method:"personal_sign",params:[utf8hex(dmText(txt,ts,account)),account]});}).then(function(sig){return fetch("/api/danmaku",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({a:account,txt:txt,ts:ts,sig:sig})}).then(function(r){return r.json();});}).then(function(j){btn.disabled=false;if(j.error)throw new Error(j.error);inp.value="";dmSeen[j.it.id]=1;dmAdd(j.it);dmI=0;var tip=document.querySelector(".or-dmtip");if(tip)tip.textContent="";}).catch(function(e){btn.disabled=false;A.errTip(e.message||String(e),btn);});};btn.onclick=send;inp.onkeydown=function(e){if(e.key==="Enter")send();};}
+function connect(){return A.wallets.choose().then(function(p){eth=p;return A.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){account=String(a[0]).toLowerCase();return account;});}
+function bind(rid){document.querySelectorAll(".or-say-f").forEach(function(fi){var idx=fi.getAttribute("data-i");var cur=function(){return((data&&data.me&&data.me.sayDue)||[])[Number(idx)];};var say=function(t,bad){var stEl=document.querySelector('.or-say-st[data-i="'+idx+'"]');if(stEl){stEl.textContent=t;stEl.className="or-say-st"+(bad?" bad":t&&bad===0?" tip":"");}};var HELP2="在 DeBox 群里说一声自己中奖了，团队看到会手动通过。",HELP="不用反复试："+HELP2;fi.onclick=function(){var x=cur();if(x&&account){say("选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。"+HELP,0);sayLog(x,"open","");}};fi.onchange=function(){var x=cur();var files=[].slice.call(fi.files||[]);var isImg=function(f){return/^image\//.test(f.type)||(!f.type&&/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name||""));};var isVid=function(f){return/^video\//.test(f.type)||(!f.type&&/\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name||""));};var imgs=files.filter(isImg).slice(0,3),vid=files.filter(isVid)[0];if(!imgs.length&&!vid)imgs=files.filter(function(f){return!f.type;}).slice(0,3);var done=function(){try{fi.value="";}catch(e){}};if(!x||!account){done();return say("请先连接中奖的那个钱包，再上传",true);}
+sayLog(x,"files",files.length+"个:"+files.slice(0,4).map(function(f){return(f.type||"?")+"/"+Math.round(f.size/1024)+"K";}).join(","));if(!imgs.length&&!vid){done();return say(files.length?"选的不是图片或视频，请再选一次":"没选到图片或视频，请再选一次；还不行就"+HELP2,true);}
+if(vid&&vid.size>20*1024*1024){done();return say("这段视频有 "+Math.round(vid.size/1048576)+"MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图",true);}
+var jsonOf=function(r){return r.json().catch(function(){return{error:"服务器没回正常的数据，请过几秒再试"};});};var within=function(p,ms,msg){return new Promise(function(ok,bad){var t=setTimeout(function(){bad(new Error(msg));},ms);p.then(function(v){clearTimeout(t);ok(v);},function(e){clearTimeout(t);bad(e);});});};var step=Promise.resolve(),lastSt="";if(imgs.length)step=step.then(function(){say("收到 "+imgs.length+" 张截图，正在处理…");return within(Promise.all(imgs.map(sayShrink)),30000,"图片处理不动（可能太大了），请换成手机截图再试");}).then(function(us){say("正在上传 "+us.length+" 张截图，请别关页面…");return within(fetch("/api/oracle-proof",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"shots",a:account,id:x.id,imgs:us})}).then(jsonOf),90000,"传了一分半钟还没传完，网络太慢，请换个网络再试");}).then(function(j){if(j.error)throw new Error(j.error);lastSt=j.st;});if(vid)step=step.then(function(){return imgs.length?new Promise(function(ok){setTimeout(ok,9000);say("截图已交，马上接着上传视频，请别关页面…");}):null;}).then(function(){say("正在上传视频（"+Math.max(1,Math.round(vid.size/1048576))+"MB），网慢要等一会儿，请别关页面…");return within(fetch("/api/oracle-proof?video=1&id="+encodeURIComponent(x.id)+"&a="+account,{method:"POST",headers:{"content-type":vid.type||"video/mp4"},body:vid}).then(jsonOf),240000,"视频传了 4 分钟还没传完，网络太慢。请改传截图");}).then(function(j){if(j.error)throw new Error(j.error);lastSt=j.st;});step.then(function(){done();sayLog(x,"ok",lastSt);say(lastSt==="ready"?"✅ 交上去了，已自动通过，机器人几分钟内发奖":lastSt==="wait"?"✅ 交上去了。名字烧够以后机器人自动发奖":"✅ 交上去了，等团队看一眼（一般当天）");setTimeout(function(){load(rid);},1200);},function(e){done();var m=(e&&e.message)||"网络不好，请再试一次";sayLog(x,"fail",m);say("没交上："+m+"。再试一次；还不行就"+HELP2,true);});};});var c=document.getElementById("or-conn");if(c)c.onclick=function(){connect().then(function(){load(rid);},function(e){A.errTip(e.message||String(e),c);});};var go=document.getElementById("or-go"),st=document.getElementById("or-st");if(go)go.onclick=function(){var v0=document.getElementById("or-p").value.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-65248);}).replace(/[。．]/g,".").trim();var one=v0.match(new RegExp("^(\\d{1,7})\\s*[.,，、]\\s*(\\d{1,"+RD+"})$"));if(one)v0=one[1]+"."+one[2];var raw=v0.split(/[\s,，、]+/).filter(function(x){return x;});if(!raw.length||raw.some(function(x){return!new RegExp("^\\d{1,7}(\\.\\d{1,"+RD+"})?$").test(x);}))return A.errTip("价格格式不对，例如 "+(RD===4?"827.3546":"827.354")+"（最多 "+RD+" 位小数）",go);raw=raw.map(function(x){return Number(x).toFixed(RD);}).filter(function(x,i,z){return z.indexOf(x)===i;});var left=data.me?data.me.n-data.me.used:0;if(raw.length>left)return A.errTip("你本轮只剩 "+left+" 次预测机会，但我们读到了 "+raw.length+" 个价格："+raw.join("、")+"。\n一次只填 1 个价格，小数点用英文点，例如 831.462（还没扣次数）",go);var day=data.round;var viaSig=false;var smart=function(){return W.rpcOn("anubis","eth_getCode",[account,"latest"]).then(function(c){return!!c&&c!=="0x"&&c.length>2;},function(){return false;});};var chainGo=function(){st.textContent="🔒 这是一笔 0 元转账（发给自己），预测写在交易里，只花约 0.001 DAI 的 Gas，本站不收费。请在钱包确认";var txt="ailgns-oracle-guess:"+day+":"+raw.join(","),hex="0x"+Array.from(new TextEncoder().encode(txt)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");return(eth?Promise.resolve():connect()).then(smart).then(function(isSmart){if(!isSmart)return chainSend(hex);viaSig=true;st.textContent="你的钱包是「智能账户」，没法把预测写到链上，已自动改用签名方式提交（一样算数、不花 Gas）…";return sigGo();});};var chainSend=function(hex){return Promise.resolve().then(function(){return A.wallet&&A.wallet.switchTo?A.wallet.switchTo(eth,"anubis"):null;}).then(function(){return W.rpcOn("anubis","eth_getBalance",[account,"latest"]).then(function(b){return BigInt(b);},function(){return-1n;});}).then(function(bal){if(bal>=0n&&bal<2000000000000000n)throw new Error("这个钱包里没有 DAI 付 Gas。提交预测要发一笔 0 元交易，Gas 约 0.001 DAI（Anubis 链的 Gas 就是 DAI）。先往这个钱包转一点 DAI（0.1 就够用很久），再回来点提交。");}).then(function(){return A.wallets.ask(eth,{method:"eth_sendTransaction",params:[{from:account,to:account,value:"0x0",data:hex}]});}).then(function(hash){st.textContent="已上链，等待确认…";return(A.wallet&&A.wallet.waitOn?A.wallet.waitOn("anubis",hash):Promise.resolve()).then(function(){return hash;});}).then(function(hash){st.textContent="链上已确认，正在登记…";return fetch("/api/oracle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"chain",tx:hash})}).then(function(x){return x.json();});});};var sigGo=function(){st.textContent="请在钱包里签名（只是签名，不扣钱、不花 Gas）…";return(eth?Promise.resolve():connect()).then(function(){return A.wallets.ask(eth,{method:"personal_sign",params:[utf8hex(guessText(day,raw,account)),account]});}).then(function(sig){st.textContent="正在提交…";return fetch("/api/oracle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({a:account,ps:raw,day:day,sig:sig})}).then(function(x){return x.json();});});};var NOSEND=/没有 DAI 付 Gas|user reject|user denied|rejected|\bcancel|取消|拒绝|拒絕|(^|[^0-9a-fx])4001([^0-9a-f]|$)|insufficient funds|gas/i;var run=function(bySig){go.disabled=true;(bySig?sigGo():chainGo()).then(function(j){go.disabled=false;if(j.error)throw new Error(j.error);st.textContent="✅ 已提交"+(bySig||viaSig?"（签名方式，不上链）":"并写入链上")+"！"+dayCn(j.round)+" 晚上 9–10 点揭晓，10:05 前公布。";load(rid);}).catch(function(e){var m=(e&&e.message)||String(e);go.disabled=false;st.textContent="";A.errTip(m,go);if(bySig||!NOSEND.test(m))return;st.innerHTML='没有 DAI 付 Gas 也能参加：<button type="button" class="nm-go or-sig2" id="or-sig2">✍️ 改用签名提交 '+raw.join("、")+'（不花 Gas）</button><small class="or-sig2n">只是签个名，不扣钱；和上链预测一样算数，只是不写到链上。</small>';var b2=document.getElementById("or-sig2");if(b2)b2.onclick=function(){b2.disabled=true;run(true);};});};run(!!window.__orSig);};var sg=document.getElementById("or-sig");if(sg)sg.onclick=function(e){e.preventDefault();window.__orSig=!window.__orSig;sg.textContent=window.__orSig?"已切换为签名提交（不上链）· 改回上链":"钱包没 DAI 付 Gas？用签名方式";var g=document.getElementById("or-go");if(g)g.textContent=window.__orSig?"✍️ 签名预测":"🔗 上链预测";};var oc=document.getElementById("or-chain");if(oc)oc.onclick=function(){var ps=(data.me&&data.me.ps||[]).join(","),day=data.round;if(!ps)return;oc.disabled=true;st.textContent="🔒 这是一笔 0 元转账（发给自己），文字放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认";var txt="ailgns-oracle-guess:"+day+":"+ps,hex="0x"+Array.from(new TextEncoder().encode(txt)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");(eth?Promise.resolve():connect()).then(function(){return W.rpcOn("anubis","eth_getCode",[account,"latest"]).then(function(c){if(c&&c.length>2)throw new Error("你的钱包是「智能账户」，没法给自己发带文字的交易，所以写不了链上存证。不影响：你用签名提交的预测已经登记，一样算数、一样参加开奖");},function(e){if(/智能账户/.test(e&&e.message||""))throw e;});}).then(function(){return A.wallet&&A.wallet.switchTo?A.wallet.switchTo(eth,"anubis"):null;}).then(function(){return A.wallets.ask(eth,{method:"eth_sendTransaction",params:[{from:account,to:account,value:"0x0",data:hex}]});}).then(function(hash){st.textContent="已提交，等待链上确认…";return(A.wallet&&A.wallet.waitOn?A.wallet.waitOn("anubis",hash):Promise.resolve()).then(function(){return hash;});}).then(function(hash){return fetch("/api/oracle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"chain",tx:hash})}).then(function(r){return r.json();}).then(function(j){if(j.error)throw new Error(j.error);return hash;});}).then(function(hash){st.textContent="✅ 已写进链上，永久可查";oc.outerHTML='<span class="or-chain on">🔗 已写进链上存证 · <a href="#/scan/'+hash+'">在账本里看 ›</a></span>';}).catch(function(e){oc.disabled=false;st.textContent="";A.errTip(e&&(e.message||e.reason)||String(e),oc);});};document.querySelectorAll(".or-approve").forEach(function(ap){ap.onclick=function(){var isA=ap.getAttribute("data-t")==="AIL",v=Number(document.getElementById(isA?"or-amt2":"or-amt").value);if(!(v>=0&&v<=100000))return A.errTip("额度填 0 到 100000 之间（填 0 = 取消授权）",ap);var amt=BigInt(Math.round(v*10000))*10n**14n;ap.disabled=true;st.textContent="请在钱包确认授权…";(eth?Promise.resolve():connect()).then(function(){return W.switchTo(eth,"anubis");}).then(function(){return A.wallets.ask(eth,{method:"eth_sendTransaction",params:[{from:account,to:isA?AIL:DAI,data:"0x095ea7b3"+KEEPER.slice(2).padStart(64,"0")+amt.toString(16).padStart(64,"0")}]});}).then(function(h){st.textContent="已提交，等待确认…";return W.waitOn("anubis",h);}).then(function(){ap.disabled=false;st.textContent="✅ 授权成功";load(rid);},function(e){ap.disabled=false;st.textContent="";A.errTip(e.message||String(e),ap);});};});var pb=document.getElementById("or-poster");if(pb)pb.onclick=function(){poster();};}
+function rr(x,X,Y,W,H,r){x.beginPath();x.moveTo(X+r,Y);x.arcTo(X+W,Y,X+W,Y+H,r);x.arcTo(X+W,Y+H,X,Y+H,r);x.arcTo(X,Y+H,X,Y,r);x.arcTo(X,Y,X+W,Y,r);x.closePath();}
+function poster(){var me=data.me,cv=document.createElement("canvas"),W=1080,H=1440,x=cv.getContext("2d");cv.width=W;cv.height=H;var g=x.createLinearGradient(0,0,W,H);g.addColorStop(0,"#1a0b3d");g.addColorStop(.55,"#2b1263");g.addColorStop(1,"#0b0620");x.fillStyle=g;x.fillRect(0,0,W,H);[[180,220,420,"#7c5cff"],[920,380,360,"#ff4fd8"],[540,1260,520,"#2fd4ff"]].forEach(function(o){var r=x.createRadialGradient(o[0],o[1],0,o[0],o[1],o[2]);r.addColorStop(0,o[3]+"88");r.addColorStop(1,o[3]+"00");x.fillStyle=r;x.fillRect(0,0,W,H);});x.strokeStyle="rgba(255,255,255,.06)";x.lineWidth=2;for(var i=0;i<=W;i+=90){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke();}
+for(var j=0;j<=H;j+=90){x.beginPath();x.moveTo(0,j);x.lineTo(W,j);x.stroke();}
+x.save();x.globalAlpha=.18;x.fillStyle="#ffffff";x.beginPath();x.moveTo(0,300);x.lineTo(W,120);x.lineTo(W,190);x.lineTo(0,370);x.closePath();x.fill();x.restore();x.textAlign="center";x.font="bold 44px sans-serif";x.fillStyle="#c9b8ff";try{x.letterSpacing="6px";}catch(e){}x.fillText("A i L G N S  ·  每 日 预 言 家",W/2,120);try{x.letterSpacing="0px";}catch(e){}
+x.font="900 150px sans-serif";x.shadowColor="#ff4fd8";x.shadowBlur=40;x.fillStyle="#ffffff";x.fillText("我预言",W/2,320);x.shadowBlur=0;var nm=me.name||A.short(account);x.font="bold 56px sans-serif";var tw=Math.min(W-80,x.measureText(nm).width+120);var cg=x.createLinearGradient(W/2-tw/2,0,W/2+tw/2,0);cg.addColorStop(0,"#7c5cff");cg.addColorStop(1,"#ff4fd8");x.fillStyle=cg;rr(x,W/2-tw/2,380,tw,96,48);x.fill();x.fillStyle="#fff";x.fillText(nm,W/2,446);x.font="40px sans-serif";x.fillStyle="#b9a9ff";x.fillText(dayCn(data.round)+" 晚上揭晓"+(livePxV?" · 现价 "+A.fmt(livePxV,2):""),W/2,560);var ps=me.ps.slice(0,3),y0=700;ps.forEach(function(p,k){var yy=y0+k*160,fs=k===0?170:120;x.font="900 "+fs+"px sans-serif";x.shadowColor=k===0?"#2fd4ff":"#7c5cff";x.shadowBlur=k===0?50:25;var ng=x.createLinearGradient(0,yy-fs,0,yy);ng.addColorStop(0,"#ffffff");ng.addColorStop(1,k===0?"#7ff0ff":"#cdbcff");x.fillStyle=ng;x.fillText(String(p),W/2,yy);});x.shadowBlur=0;var by=1180;x.fillStyle="rgba(0,0,0,.35)";rr(x,90,by-70,W-180,150,30);x.fill();x.strokeStyle="#ffd36a";x.lineWidth=4;rr(x,90,by-70,W-180,150,30);x.stroke();x.font="bold 40px sans-serif";x.fillStyle="#ffd36a";x.fillText("🏆 超级大奖池",W/2,by-12);x.font="900 80px sans-serif";x.shadowColor="#ffd36a";x.shadowBlur=30;x.fillStyle="#fff1c2";x.fillText(Number(data.pool||0).toLocaleString("en-US",{maximumFractionDigits:0})+" DAI",W/2,by+62);x.shadowBlur=0;x.font="bold 44px sans-serif";x.fillStyle="#ffffff";x.fillText("敢来比吗？",W/2,1340);x.font="36px sans-serif";x.fillStyle="#c9b8ff";x.fillText("ailgns.dev  ·  免费参与 · 猜中平分大奖",W/2,1400);var url=cv.toDataURL("image/png"),box=document.getElementById("or-img");if(box)box.innerHTML='<p class="muted">长按图片保存，发到群里晒一晒 👇</p><img class="or-poster" src="'+url+'" alt="晒单海报">';}
+try{A.wallets.onAccounts(function(a){try{var na=a&&a[0]?String(a[0]).toLowerCase():"";if(na===account)return;account=na;if(curRid&&A.isCurrent(curRid)&&document.getElementById("or-out"))load(curRid);}catch(e){}});}catch(e){}
+if(!window.__orRegBound){window.__orRegBound=true;document.addEventListener("click",function(e){try{var a=e.target&&e.target.closest?e.target.closest('a[href="#/names/~daily"]'):null;if(!a||location.hash.indexOf("#/oracle")!==0||!A.useBundle)return;e.preventDefault();A.useBundle("names").then(function(){if(!A.nm||!A.nm.setDaily||!A.namesBatch){location.hash="#/names/~daily";return;}
+A.nm.setDaily(true);A.namesBatch.open({one:true,stay:true});},function(){location.hash="#/names/~daily";});}catch(x){}});}
+A.pages.oracle=page;})();}catch(e){console.error('[bundle] oracle.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["oracle"]="he21831d02e";
+/*v:he21831d02e*/

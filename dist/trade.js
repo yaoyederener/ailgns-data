@@ -1,415 +1,74 @@
-try{
-// 📊 交易所式盘口（#/trade，2026-11-05 站长定）：把本站 OTC 的链上挂单做成「订单簿 + 深度 + K 线 + 一键买卖」的交易所界面
-// 撮合还是现有 OTC 合约：限价单 = create 挂单；市价单 = 从最优价开始逐张 fill 吃单。只做前端，不碰合约。复用 otc.js 暴露的 A.otcKit
-(function () {
-  "use strict";
-  var A = window.AIL;
-  var K = function () { return A.otcKit; };
-  var SEL = { create: "0x9128a740", fill: "0x6fe4a448", cancel: "0x40e58ee5", approve: "0x095ea7b3" };
-  var MAX_UINT = (1n << 256n) - 1n, MIN_DAI = 10n ** 18n;
-  var MK = "ailgns", M, OTC, TOKEN, DAI, TD, SYM, PD;
-  // 盘口支持的币（站长 2026-11-12：LGNS 也要有盘口，#/trade/lgns）；Polygon LGNS、NFT 不做盘口
-  var TRADE_OTC = { ailgns: "0x4e730be6d46be71223ded5a32dc45799f6d4bc15", lgns: "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818" };
-  var liveCtl = null;
-  var fitH = 0, fitRO = null; // 手机：盘口跟着下单卡的高度走
-  function startLive() {
-    var el = document.getElementById("tr-k"); if (!el || !A.kchart) return;
-    if (MK !== "ailgns" && MK !== "lgns") { el.innerHTML = '<p class="muted" style="padding:32px 12px;text-align:center">' + SYM + " 的 K 线还在接入中，先看盘口和最近成交。</p>"; return; }
-    if (liveCtl) liveCtl.stop();
-    // LGNS（站长 2026-11-15）：画官方 DEX 的 LGNS/DAI 池子价，4 位小数；AiLGNS 照旧
-    liveCtl = A.kchart(el, MK === "lgns" ? { i: "5m", m: "lgns", d: 4, foot: "LGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25", alive: function () { return A.isCurrent(rid); } } : { i: "5m", alive: function () { return A.isCurrent(rid); } });
-    var kn = document.getElementById("tr-kn");
-    if (MK === "lgns" && !kn) el.insertAdjacentHTML("afterend", '<p class="note" id="tr-kn" style="margin:6px 12px 0">这条线是官方 DEX 里 LGNS 的池子价。LGNS 在 DEX 卖出要扣税，所以场外（本站盘口）的成交价会比它低，下单请看盘口。</p>');
-    else if (MK !== "lgns" && kn) kn.remove();
-  }
-
-  var book = { asks: [], bids: [], all: [], mkt: 0 }, fills = [], side = "buy", type = "limit", account = null, rid = 0, timer = 0, kcache = null;
-
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
-  function ceilDiv(a, b) { return (a + b - 1n) / b; }
-  function num(w, d) { return Number(w) / Math.pow(10, d === undefined ? 18 : d); }
-  function f(v, d) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
-  function f2(v) { return f(v, PD); }
-  function fq(v) { return Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 4 }); }
-  function toWei(s, d) { s = String(s || "0").trim(); if (!/^\d*(\.\d*)?$/.test(s) || s === "" || s === ".") return 0n; var p = s.split("."), a = p[0] || "0", b = (p[1] || "").slice(0, d).padEnd(d, "0"); return BigInt(a) * 10n ** BigInt(d) + BigInt(b || "0"); }
-  function priceOf(o) { return o.sellAilgns ? num(o.wantTotal) / num(o.giveTotal, TD) : num(o.giveTotal) / num(o.wantTotal, TD); }
-  function leftCoin(o) { return o.sellAilgns ? o.giveLeft : o.giveTotal > 0n ? o.giveLeft * o.wantTotal / o.giveTotal : 0n; } // 这张单还能成交多少币
-  function leftDai(o) { return o.sellAilgns ? (o.giveTotal > 0n ? ceilDiv(o.giveLeft * o.wantTotal, o.giveTotal) : 0n) : o.giveLeft; }
-  function bj(ts) { var d = new Date(ts * 1000 + 8 * 3600e3); return String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0") + ":" + String(d.getUTCSeconds()).padStart(2, "0"); }
-
-  function parseOrders(r, from) {
-    if (!r || r === "0x") return [];
-    var w = r.slice(2).match(/.{64}/g) || [], n = Number(BigInt("0x" + w[1])), list = [];
-    for (var i = 0; i < n; i++) {
-      var o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
-      list.push({ id: from + i, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]) });
-    }
-    return list;
-  }
-  // 2026-11-26 串价事故（见 lp.js load 上面的说明）：这一页也是「晚到的旧数据会被当成现在这一页的」。每次读都记住是哪一页、哪个市场发出去的，回来时对不上就丢掉
-  function loadBook(fresh) {
-    var id0 = rid, mk0 = MK;
-    return fetch("/api/book?m=" + mk0 + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
-      if (id0 !== rid || mk0 !== MK) throw new Error("页面已经换了市场，这一步没有做。请在现在这个币的页面重新操作");
-      var now = Date.now() / 1000, all = parseOrders(j.orders, Number(j.from || 0));
-      try { /* 工单 #282：窗口之前还有效的老单（后台放在 j.old）也算进盘口 */
-        (j.old || []).forEach(function (x) { var o = x && x.o; if (!o || o.length !== 7 || !(x.id < Number(j.from || 0))) return; all.push({ id: x.id, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]) }); });
-      } catch (e) { /* 老单读不出来不影响盘口 */ }
-      var live = all.filter(function (o) { return o.open && o.expiry > now && o.giveLeft > 0n && leftDai(o) >= MIN_DAI; });
-      var asks = live.filter(function (o) { return o.sellAilgns; }).sort(function (a, b) { return priceOf(a) - priceOf(b); });
-      var bids = live.filter(function (o) { return !o.sellAilgns; }).sort(function (a, b) { return priceOf(b) - priceOf(a); });
-      var mkt = 0;
-      if (j.reserves) { var w = j.reserves.slice(2).match(/.{64}/g); var r0 = Number(BigInt("0x" + w[0])), r1 = Number(BigInt("0x" + w[1])); mkt = M.pairDai === 1 ? (r1 / 1e18) / (r0 / Math.pow(10, TD)) : (r0 / 1e18) / (r1 / Math.pow(10, TD)); }
-      { /* 离谱价的单不显示、不撮合（站长 2026-11-16，和 otc.js 的 markFar 同一条线）：买单出价 ≤ 参考价一半、卖单要价 ≥ 参考价两倍。
-           参考价：买单比「DEX 市价、最低卖价」里低的；卖单比「DEX 市价、最高买价」里高的。挂单人自己在「我的挂单」里照样能看到、能撤 */
-        var a0 = asks.length ? priceOf(asks[0]) : 0, b0 = bids.length ? priceOf(bids[0]) : 0;
-        var lo = Math.min(mkt || Infinity, a0 || Infinity), hi = Math.max(mkt || 0, b0 || 0);
-        if (lo === Infinity) lo = b0;
-        if (!hi) hi = a0;
-        if (lo) bids = bids.filter(function (o) { return priceOf(o) > lo * 0.5; });
-        var lowCut = 0; try { lowCut = K().lowBidCut ? K().lowBidCut(mkt) : 0; } catch (e) { lowCut = 0; } // 站长 2026-11-22：出价比 DEX 到手价低 5% 以上的买单不显示、不撮合（和 otc.js markFar 同一条线）
-        if (lowCut) bids = bids.filter(function (o) { return priceOf(o) >= lowCut; });
-        if (hi) asks = asks.filter(function (o) { return priceOf(o) < hi * 2; });
-      }
-      book = { asks: asks, bids: bids, all: all, mkt: mkt };
-    });
-  }
-  function loadFills() { var id0 = rid, mk0 = MK; return fetch("/api/fills?m=" + mk0).then(function (r) { return r.json(); }).then(function (j) { if (id0 === rid && mk0 === MK) fills = j.list || []; }, function () {}); }
-
-  // 深度聚合：同一价格（保留 PD 位小数）合并
-  function agg(list, n) {
-    var m = {}, keys = [];
-    list.forEach(function (o) { var p = priceOf(o).toFixed(PD); if (!m[p]) { m[p] = { p: Number(p), coin: 0, dai: 0, ids: [] }; keys.push(p); } m[p].coin += num(leftCoin(o), TD); m[p].dai += num(leftDai(o)); m[p].ids.push(o.id); });
-    var rows = keys.map(function (k) { return m[k]; }).slice(0, n), cum = 0;
-    rows.forEach(function (r) { cum += r.coin; r.cum = cum; });
-    return rows;
-  }
-
-  // ---------- 页面 ----------
-  function page(id) {
-    rid = id; clearInterval(timer); if (liveCtl) { liveCtl.stop(); liveCtl = null; }
-    var hm = (location.hash.split("/")[2] || "").toLowerCase(); MK = TRADE_OTC[hm] ? hm : "ailgns";
-    M = A.otcKit.M(); if (M.otc !== TRADE_OTC[MK]) { K().useMarket(MK); M = K().M(); }
-    OTC = M.otc; TOKEN = M.token; DAI = M.dai; TD = M.dec; SYM = M.sym; PD = M.pd;
-    try { if (K().loadTax) K().loadTax().then(function () {}, function () {}); } catch (e) {} // LGNS 买单底线要用链上实测的卖出手续费；读不到按 50% 算
-    A.app.innerHTML =
-      '<div class="tr2">' +
-      // 顶部价格条（交易所手机版样式：币对 + 大字最新价 + 24h 数据）
-      '<section class="tr2-top"><div class="tr2-pair"><b>' + SYM + '/DAI</b><small>OTC 担保 · 吃单费 1%</small></div><div class="tr2-last" id="tr-stats"><b>—</b></div></section>' +
-      '<nav class="tr2-tabs" id="tr2-tabs"><button type="button" class="on" data-pane="trade">交易</button><button type="button" data-pane="k">K 线</button><button type="button" data-pane="fills">成交</button></nav>' +
-      // 交易面板：左下单、右盘口
-      '<div class="tr2-pane" data-pane="trade">' +
-        '<div class="tr2-main">' +
-          '<section class="tr2-form tr-form">' +
-            '<div class="tr-side tr2-side"><button type="button" class="on buy" data-side="buy">买入</button><button type="button" class="sell" data-side="sell">卖出</button></div>' +
-            '<div class="tr-type tr2-type"><button type="button" class="on" data-type="limit">限价</button><button type="button" data-type="market">市价</button></div>' +
-            '<div class="tr2-in tr2-step" id="tr-pbox"><button type="button" class="tr2-pm" data-step="-1">−</button><label><span>价格</span><input id="tr-p" inputmode="decimal" autocomplete="off"></label><button type="button" class="tr2-pm" data-step="1">+</button></div>' +
-            '<label class="tr2-in"><span>数量 (' + SYM + ')</span><input id="tr-a" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
-            '<div class="tr-pct tr2-pct"><button type="button" data-pct="25">25%</button><button type="button" data-pct="50">50%</button><button type="button" data-pct="75">75%</button><button type="button" data-pct="100">100%</button></div>' +
-            '<label class="tr2-in"><span>总额 (DAI)</span><input id="tr-t" inputmode="decimal" autocomplete="off" placeholder="0"></label>' +
-            '<div class="tr2-meta"><span class="muted" id="tr-bal"></span><input type="hidden" id="tr-dur" value="' + K().DUR_DEFAULT + '"></div><div class="tr2-durbox" id="tr-durbox"></div>' +
-            '<p class="muted tr-note" id="tr-note"></p>' +
-            '<button type="button" class="tr-go buy" id="tr-go">买入 ' + SYM + '</button><p class="muted nm-st" id="tr-st"></p>' +
-          '</section>' +
-          '<section class="tr2-book"><div class="tr2-gauge" id="tr-gauge"></div><div class="tr2-bh"><span>价格(DAI)</span><span>数量(' + SYM + ')</span></div><div id="tr-bk">读取中…</div><p class="muted tr2-mid" id="tr-mid"></p></section>' +
-        '</div>' +
-        '<section class="card tr2-orders"><div class="tr2-otabs"><button type="button" class="on" data-o="my">当前委托<i id="tr2-myn"></i></button><button type="button" data-o="fills">最近成交</button><button type="button" class="ghost tr2-conn" id="tr-conn">连接钱包</button></div>' +
-          '<div id="tr-my" class="tr2-opane">连接钱包后显示你在挂的单</div><div id="tr-tl" class="tr2-opane" hidden>读取中…</div></section>' +
-      '</div>' +
-      '<div class="tr2-pane" data-pane="k" hidden><section class="card tr-k"><div id="tr-k" class="or-kc tr-kc"></div></section></div>' +
-      '<div class="tr2-pane" data-pane="fills" hidden><section class="card"><div class="card-head"><h2>🕒 最近成交</h2><span class="muted">全站 · 北京时间</span></div><div id="tr-tl2"></div></section></div>' +
-      // 手机底部固定买卖按钮
-      '<div class="tr2-bar"><button type="button" class="buy" data-bar="buy">买入</button><button type="button" class="sell" data-bar="sell">卖出</button></div>' +
-      '</div>';
-    bind();
-    // 下单卡高度一变（切市价、连钱包、提示换行），盘口重新对齐
-    if (fitRO) { try { fitRO.disconnect(); } catch (e) {} fitRO = null; }
-    try {
-      var fmEl = document.querySelector(".tr2-form");
-      if (window.ResizeObserver && fmEl) {
-        fitRO = new ResizeObserver(function () { if (!A.isCurrent(rid) || !fmEl.isConnected) return; if (Math.abs(fmEl.offsetHeight - fitH) > 1 && document.querySelector("#tr-bk .tr2-row")) renderBook(); });
-        fitRO.observe(fmEl);
-      }
-    } catch (e) {}
-    refresh(true);
-    if (matchMedia("(min-width: 901px)").matches) startLive(); // 电脑：K 线常驻；手机：点「K 线」标签再画
-    document.querySelectorAll(".tr-ktabs button").forEach(function (b) { b.onclick = function () { document.querySelectorAll(".tr-ktabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); if (b.getAttribute("data-k") === "live") startLive(); else { if (liveCtl) { liveCtl.stop(); liveCtl = null; } document.getElementById("tr-ktip").textContent = "参考：DEX 1 小时线，最近 24 小时"; drawKline(); } }; });
-    timer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(timer); refresh(false); }, 8000);
-    K().silentAccount().then(function () { account = K().account(); if (account) afterConnect(); });
-  }
-  function refresh(first) {
-    var id0 = rid, mk0 = MK;
-    return Promise.all([loadBook(false), loadFills()]).then(function () { if (id0 !== rid || mk0 !== MK || !A.isCurrent(id0)) return; renderStats(); renderBook(); renderTrades(); if (account) renderMine(); if (first) setDefaultPrice(); updateBal(); }).catch(function () {});
-  }
-  function bestAsk() { return book.asks.length ? priceOf(book.asks[0]) : 0; }
-  function bestBid() { return book.bids.length ? priceOf(book.bids[0]) : 0; }
-  function renderStats() {
-    var last = fills[0], vol = 0, hi = 0, lo = Infinity, since = Date.now() / 1000 - 86400, first24 = null;
-    fills.forEach(function (x) { if (x.t >= since) { vol += x.dai; hi = Math.max(hi, x.px); lo = Math.min(lo, x.px); first24 = x; } });
-    var el = document.getElementById("tr-stats"); if (!el) return;
-    var px = last ? last.px : (bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : book.mkt), chg = last && first24 && first24.px ? (last.px / first24.px - 1) * 100 : 0, up = chg >= 0;
-    el.innerHTML = '<div class="tr2-px"><b class="' + (up ? "up" : "dn") + '">' + (px ? f2(px) : "—") + '</b><small>≈ DEX ' + (book.mkt ? f2(book.mkt) : "—") + ' · <span class="' + (up ? "up" : "dn") + '">' + (up ? "+" : "") + chg.toFixed(2) + "%</span></small></div>" +
-      '<div class="tr2-24"><div><small>24h 高</small><b>' + (hi ? f2(hi) : "—") + '</b></div><div><small>24h 低</small><b>' + (lo < Infinity ? f2(lo) : "—") + '</b></div><div><small>24h 量(DAI)</small><b>' + f(vol, 0) + "</b></div></div>";
-    var mid = document.getElementById("tr-mid"); if (mid) mid.textContent = "买 " + book.bids.length + " 张 · 卖 " + book.asks.length + " 张" + (bestAsk() && bestBid() && bestAsk() > bestBid() ? " · 价差 " + f2(bestAsk() - bestBid()) : "") /* 官方做市机器人的买单会高过卖单，价差为负时不显示 */;
-  }
-  // 下单卡高度变了（切限价/市价、提示换行、显示余额）就让盘口重新对齐；不靠浏览器回调，改完立刻算
-  function fitBook() { try { if (matchMedia("(min-width: 901px)").matches) return; var fm = document.querySelector(".tr2-form"); if (fm && Math.abs(fm.offsetHeight - fitH) > 1 && document.querySelector("#tr-bk .tr2-row")) renderBook(); } catch (e) {} }
-  function renderBook() {
-    var el = document.getElementById("tr-bk"); if (!el) return;
-    var N = 9, bx = el.parentNode;
-    renderGauge();
-    if (matchMedia("(min-width: 901px)").matches) { if (bx) bx.style.height = ""; }
-    else {
-      // 手机：盘口和左边下单卡一样高（站长 2026-11-12）。以下单卡高度为准，算出每边放几档（3~6 档），放不下就少显示几档
-      N = 6;
-      var fm = document.querySelector(".tr2-form"), fh = fm ? fm.offsetHeight : 0;
-      if (bx && fh > 200) {
-        var l2 = el.querySelector(".tr2-last2"), used = bx.offsetHeight - el.offsetHeight + (l2 ? l2.offsetHeight + 6 : 40);
-        N = Math.max(3, Math.min(6, Math.floor((fh - used) / 2 / 24)));
-        bx.style.height = fh + "px";
-      } else if (bx) bx.style.height = "";
-      fitH = fh;
-    }
-    // 🧊 展示层冰山（站长 2026-11-09）：某一档数量超过本侧总量 20% 的大单只露一截（本侧总量的 20% 或它自己的 30%，取大），标 🧊，点图标看真实数量；成交逻辑、合约、账本都不变，只是不让一张巨单把盘口吓歪
-    var totA = agg(book.asks, 1e9).reduce(function (s, r) { return s + r.coin; }, 0), totB = agg(book.bids, 1e9).reduce(function (s, r) { return s + r.coin; }, 0);
-    var iceberg = function (rows, total) { var cap = total * 0.2, cum = 0; return rows.map(function (r) { var o = { p: r.p, coin: r.coin, dai: r.dai, full: r.coin }; if (rows.length >= 4 && cap > 0 && r.coin > total * 0.35) o.coin = Math.max(cap, r.coin * 0.3); /* 只藏真正的巨单（超过本侧 35%） */ cum += o.coin; o.cum = cum; return o; }); };
-    var asks = iceberg(agg(book.asks, N), totA), bids = iceberg(agg(book.bids, N), totB), max = Math.max(asks.length ? asks[asks.length - 1].cum : 0, bids.length ? bids[bids.length - 1].cum : 0, 1e-9);
-    var row = function (r, cls) { var ice = r.full > r.coin + 1e-9; return '<div class="tr2-row ' + cls + (ice ? " ice" : "") + '" data-p="' + r.p + '" data-full="' + r.full + '" style="--w:' + Math.min(100, r.cum / max * 100).toFixed(1) + '%"><span>' + f2(r.p) + "</span><span>" + (ice ? '<i class="ice-tag" title="冰山单：这一档实际 ' + fq(r.full) + " " + SYM + '，点一下看全部">🧊</i>' : "") + "<em>" + fq(r.coin) + "</em></span></div>"; };
-    var last = fills[0], prev = fills[1], lcls = last && prev && last.px < prev.px ? "dn" : "up";
-    var fill = function (list, cls) { var h = list.map(function (r) { return row(r, cls); }).join(""); for (var k = list.length; k < N; k++) h += '<div class="tr2-row empty"><span>—</span><span></span></div>'; return h; };
-    var sig = JSON.stringify([asks, bids].map(function (l) { return l.map(function (r) { return [r.p, r.coin]; }); }));
-    if (el.getAttribute("data-sig") && el.getAttribute("data-sig") !== sig) { el.classList.remove("tick"); void el.offsetWidth; el.classList.add("tick"); } // 有变化：整块闪一下，像扫单
-    el.setAttribute("data-sig", sig);
-    el.innerHTML = '<div class="tr2-asks">' + fill(asks.slice().reverse(), "ask") + '</div>' +
-      '<div class="tr2-last2"><b class="' + lcls + '">' + (last ? f2(last.px) : bestAsk() && bestBid() ? f2((bestAsk() + bestBid()) / 2) : "—") + (last ? (lcls === "up" ? " ↑" : " ↓") : "") + "</b><small>≈ DEX " + (book.mkt ? f2(book.mkt) : "—") + "</small></div>" +
-      '<div class="tr2-bids">' + fill(bids, "bid") + "</div>";
-    el.querySelectorAll(".ice-tag").forEach(function (t) { t.onclick = function (e) { e.stopPropagation(); var r = t.closest(".tr2-row"), open = r.classList.toggle("ice-open"); if (open) r.querySelector("em").textContent = fq(Number(r.getAttribute("data-full"))); else renderBook(); }; }); // 点 🧊：显示真实数量，再点一次收回
-    el.querySelectorAll(".tr2-row[data-p]").forEach(function (r) { r.onclick = function () { setSide(r.classList.contains("ask") ? "buy" : "sell"); setType("limit"); document.getElementById("tr-p").value = r.getAttribute("data-p"); recalc("p"); }; });
-  }
-  // 🌡️ 供需温度计（站长 2026-11-09 点头）：只看现价 ±3% 以内的真实深度（远处的大单可能是假的），告诉客户现在缺哪一边
-  function renderGauge() {
-    var el = document.getElementById("tr-gauge"); if (!el) return;
-    var ref = bestAsk() && bestBid() ? (bestAsk() + bestBid()) / 2 : book.mkt; // 以 OTC 自己的买一卖一中间价为准（DEX 价常和 OTC 差 3% 以上，会把一边全算成 0）
-    if (!ref) { el.innerHTML = ""; return; }
-    var bd = 0, ad = 0;
-    book.bids.forEach(function (o) { if (priceOf(o) >= ref * 0.97) bd += num(leftDai(o)); });
-    book.asks.forEach(function (o) { if (priceOf(o) <= ref * 1.03) ad += num(leftDai(o)); });
-    var tot = bd + ad;
-    if (tot < 100) { el.innerHTML = '<small>现价 ±3% 内挂单很少，两边都缺流动性</small>'; return; }
-    var bp = Math.round(bd / tot * 100), ap = 100 - bp;
-    el.innerHTML = '<div class="tg-bar"><span class="tg-b" style="width:' + bp + '%">买 ' + bp + "%</span><span class=\"tg-a\">卖 " + ap + "%</span></div>"; // 站长 2026-11-12：条下面那段说明文字去掉，只留买卖比例条
-  }
-  function renderTrades() {
-    var el = document.getElementById("tr-tl"); if (!el) return;
-    var el2 = document.getElementById("tr-tl2");
-    el.innerHTML = fills.length ? '<div class="tr-th"><span>时间</span><span>价格</span><span>数量</span><span>DAI</span></div>' + fills.slice(0, 30).map(function (x, i) {
-      var prev = fills[i + 1], cls = prev && x.px < prev.px ? "dn" : "up";
-      return '<div class="tr-trow ' + cls + '"><span>' + bj(x.t) + "</span><span>" + f2(x.px) + "</span><span>" + fq(x.dai / x.px) + "</span><span>" + f(x.dai, 2) + "</span></div>";
-    }).join("") : '<p class="muted">最近还没有成交记录（从盘口上线起统计）</p>';
-    if (el2) el2.innerHTML = el.innerHTML;
-  }
-  function setDefaultPrice() { var p = document.getElementById("tr-p"); if (p && !p.value) { p.value = (side === "buy" ? bestAsk() || bestBid() || book.mkt : bestBid() || bestAsk() || book.mkt).toFixed(PD); recalc("p"); } }
-
-  // ---------- K 线（DEX 小时线，复用预言家页的画法） ----------
-  function drawKline() {
-    var el = document.getElementById("tr-k"); if (!el) return;
-    fetch("/api/kline").then(function (r) { return r.json(); }).then(function (d) {
-      if (!A.isCurrent(rid) || !d.c) return;
-      var c = d.c.map(function (x) { return { t: x[0], o: x[1], h: x[2], l: x[3], c: x[4] }; });
-      var W0 = Math.max(240, el.clientWidth || 360), H0 = Math.max(160, el.clientHeight || 200), L = 6, R = W0 - 66, T = 10, B = H0 - 24, hi = -Infinity, lo = Infinity;
-      c.forEach(function (x) { hi = Math.max(hi, x.h); lo = Math.min(lo, x.l); });
-      var pad = (hi - lo) * 0.08 || 0.5; hi += pad; lo -= pad;
-      var y = function (p) { return T + (hi - p) / (hi - lo) * (B - T); }, cw = (R - L) / c.length, svg = "";
-      for (var g = 0; g <= 4; g++) { var gp = lo + (hi - lo) * g / 4, gy = y(gp); svg += '<line x1="' + L + '" x2="' + R + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" class="or-grid"/><text x="' + (R + 6) + '" y="' + (gy + 4).toFixed(1) + '" class="or-ct">' + gp.toFixed(2) + "</text>"; }
-      c.forEach(function (x, i) {
-        var cx = L + cw * i + cw / 2, up = x.c >= x.o, col = up ? "or-up" : "or-dn", top = y(Math.max(x.o, x.c)), bot = y(Math.min(x.o, x.c));
-        var dt = new Date((x.t + 8 * 3600) * 1000), hh = String(dt.getUTCHours()).padStart(2, "0") + ":00";
-        svg += '<line x1="' + cx.toFixed(1) + '" x2="' + cx.toFixed(1) + '" y1="' + y(x.h).toFixed(1) + '" y2="' + y(x.l).toFixed(1) + '" class="' + col + '"/><rect x="' + (cx - cw * 0.32).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (cw * 0.64).toFixed(1) + '" height="' + Math.max(1, bot - top).toFixed(1) + '" class="' + col + '"/>';
-        if (i % 6 === 0) svg += '<text x="' + Math.max(cx, 18).toFixed(1) + '" y="' + (H0 - 7) + '" text-anchor="middle" class="or-ct">' + hh + "</text>";
-      });
-      var lastC = c[c.length - 1];
-      svg += '<line x1="' + L + '" x2="' + R + '" y1="' + y(lastC.c).toFixed(1) + '" y2="' + y(lastC.c).toFixed(1) + '" class="or-lastl"/><rect x="' + (R + 1) + '" y="' + (y(lastC.c) - 9).toFixed(1) + '" width="60" height="18" rx="4" class="or-lastb"/><text x="' + (R + 31) + '" y="' + (y(lastC.c) + 4).toFixed(1) + '" text-anchor="middle" class="or-lastt">' + lastC.c.toFixed(2) + "</text>";
-      el.setAttribute("viewBox", "0 0 " + W0 + " " + H0); el.innerHTML = svg;
-    }).catch(function () {});
-  }
-
-  // ---------- 下单框 ----------
-  function setSide(s) { side = s; var root = document.querySelector(".tr2"); if (root) root.setAttribute("data-side", s); document.querySelectorAll(".tr-side button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-side") === s); }); var go = document.getElementById("tr-go"); go.className = "tr-go " + s; go.textContent = (s === "buy" ? "买入 " : "卖出 ") + SYM; updateBal(); recalc("a"); }
-  function setType(t) { type = t; document.querySelectorAll(".tr-type button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-type") === t); }); document.getElementById("tr-pbox").style.display = t === "market" ? "none" : ""; document.getElementById("tr-durbox").style.display = t === "market" ? "none" : ""; recalc("a"); }
-  var bal = { dai: 0n, coin: 0n };
-  function updateBal() {
-    var el = document.getElementById("tr-bal"); if (!el) return;
-    if (!account) { el.textContent = ""; return; }
-    Promise.all([K().balance(DAI, account), K().balance(TOKEN, account)]).then(function (b) { bal = { dai: b[0], coin: b[1] }; if (el) el.textContent = "可用 " + (side === "buy" ? f(num(bal.dai), 2) + " DAI" : fq(num(bal.coin, TD)) + " " + SYM); fitBook(); }).catch(function () {});
-  }
-  // 市价：从最优价开始吃，算出能成交多少、平均价多少
-  function plan(coinWant) { // coinWant: BigInt 币数量
-    var list = side === "buy" ? book.asks : book.bids, steps = [], left = coinWant, daiSum = 0n, coinSum = 0n;
-    for (var i = 0; i < list.length && left > 0n; i++) {
-      var o = list[i], cap = leftCoin(o), take = left < cap ? left : cap; if (take <= 0n) continue;
-      var amount, pay;
-      if (o.sellAilgns) { amount = take; pay = ceilDiv(amount * o.wantTotal, o.giveTotal); daiSum += pay; coinSum += amount; } // 买：拿走币，付 DAI
-      else { amount = take * o.giveTotal / o.wantTotal; pay = ceilDiv(amount * o.wantTotal, o.giveTotal); daiSum += amount; coinSum += pay; } // 卖：拿走 DAI，付币
-      if (amount <= 0n) continue;
-      steps.push({ o: o, amount: amount, pay: pay }); left -= take;
-    }
-    return { steps: steps, dai: daiSum, coin: coinSum, short: left };
-  }
-  function recalc(from) {
-    var p = document.getElementById("tr-p"), a = document.getElementById("tr-a"), t = document.getElementById("tr-t"), note = document.getElementById("tr-note"); if (!p || !a || !t) return;
-    if (type === "limit") {
-      var px = Number(p.value) || 0;
-      if (from === "t" && px) a.value = px ? (Number(t.value) / px).toFixed(4) : ""; else if (px) t.value = (Number(a.value) * px).toFixed(2);
-      var total = Number(t.value) || 0;
-      note.innerHTML = px && book.mkt ? "比 DEX 现价" + (px >= book.mkt ? "高 " : "低 ") + Math.abs((px / book.mkt - 1) * 100).toFixed(2) + "%" + (side === "buy" && bestAsk() && px >= bestAsk() ? " · 价格已到卖一，建议用市价直接成交" : side === "sell" && bestBid() && px <= bestBid() ? " · 价格已到买一，建议用市价直接成交" : " · 挂单不收手续费，成交由对方付") : "";
-    } else {
-      var coin = toWei(a.value, TD), pl = plan(coin);
-      if (from === "t") { // 按 DAI 反推数量：粗算按最优价
-        var ref = side === "buy" ? bestAsk() : bestBid(); if (ref) { a.value = (Number(t.value) / ref).toFixed(4); coin = toWei(a.value, TD); pl = plan(coin); }
-      }
-      t.value = pl.dai > 0n ? num(pl.dai).toFixed(2) : "";
-      var avg = pl.coin > 0n ? num(pl.dai) / num(pl.coin, TD) : 0;
-      note.innerHTML = !coin ? "市价 = 从最优价开始逐张吃单，直到买够 / 卖够" : pl.steps.length ? "预计吃 " + pl.steps.length + " 张单，均价 <b>" + f2(avg) + "</b>" + (pl.short > 0n ? '，<b class="nm-bad">盘口不够，只能成交 ' + fq(num(pl.coin, TD)) + " " + SYM + "</b>" : "") + "，手续费 1% 从收到的币里扣" : '<b class="nm-bad">盘口没有可成交的单</b>';
-    }
-    fitBook();
-  }
-  function bind() {
-    document.querySelectorAll(".tr-side button").forEach(function (b) { b.onclick = function () { setSide(b.getAttribute("data-side")); document.getElementById("tr-p").value = ""; setDefaultPrice(); }; });
-    document.querySelectorAll(".tr-type button").forEach(function (b) { b.onclick = function () { setType(b.getAttribute("data-type")); }; });
-    document.getElementById("tr-p").oninput = function () { recalc("p"); };
-    document.getElementById("tr-a").oninput = function () { recalc("a"); };
-    document.getElementById("tr-t").oninput = function () { recalc("t"); };
-    document.querySelectorAll(".tr-pct button").forEach(function (b) {
-      b.onclick = function () {
-        if (!account) return connectBtn();
-        var pct = BigInt(b.getAttribute("data-pct"));
-        if (side === "sell") { document.getElementById("tr-a").value = num(bal.coin * pct / 100n, TD).toFixed(4); recalc("a"); }
-        else { document.getElementById("tr-t").value = num(bal.dai * pct / 100n).toFixed(2); recalc("t"); }
-      };
-    });
-    document.getElementById("tr-conn").onclick = connectBtn;
-    document.getElementById("tr-go").onclick = submit;
-    if (K().durSlider) K().durSlider(document.getElementById("tr-durbox"), { value: K().DUR_DEFAULT, label: "有效期", onChange: function (sec) { document.getElementById("tr-dur").value = sec ? String(sec) : ""; } });
-    // 顶级标签：交易 / K 线 / 成交
-    document.querySelectorAll("#tr2-tabs button").forEach(function (b) {
-      b.onclick = function () {
-        var p = b.getAttribute("data-pane");
-        document.querySelectorAll("#tr2-tabs button").forEach(function (x) { x.classList.toggle("on", x === b); });
-        document.querySelectorAll(".tr2-pane").forEach(function (x) { x.hidden = x.getAttribute("data-pane") !== p; });
-        if (p === "k") startLive(); else if (liveCtl && !matchMedia("(min-width: 901px)").matches) { liveCtl.stop(); liveCtl = null; }
-        if (p === "fills") renderTrades();
-      };
-    });
-    // 当前委托 / 最近成交
-    document.querySelectorAll(".tr2-otabs button[data-o]").forEach(function (b) {
-      b.onclick = function () { var o = b.getAttribute("data-o"); document.querySelectorAll(".tr2-otabs button[data-o]").forEach(function (x) { x.classList.toggle("on", x === b); }); document.getElementById("tr-my").hidden = o !== "my"; document.getElementById("tr-tl").hidden = o !== "fills"; };
-    });
-    // 价格 ± 步进
-    document.querySelectorAll(".tr2-pm").forEach(function (b) {
-      b.onclick = function () { var p = document.getElementById("tr-p"), step = Math.pow(10, -PD), v = (Number(p.value) || book.mkt || 0) + Number(b.getAttribute("data-step")) * step; if (v > 0) { p.value = v.toFixed(PD); recalc("p"); } };
-    });
-    // 手机底部固定买 / 卖。站长 2026-11-25（客户录屏）：「点右下角的卖出没有反应，要点卖出 AiLGNS 才行」——
-    //   以前这两个按钮只是切方向、滚到下单框，还会把客户填好的价格清掉；客户已经填好单子再点它，看起来就是没反应。
-    //   现在：方向已经对、数量也填了 → 直接下单（和上面的大按钮是同一个动作，照样要钱包确认）；
-    //         方向对但没填数量 → 滚到下单框、光标放进数量；方向不对 → 切过去（这时才重置价格）。
-    document.querySelectorAll(".tr2-bar button").forEach(function (b) {
-      b.onclick = function () {
-        var want = b.getAttribute("data-bar"), tb = document.querySelector('#tr2-tabs button[data-pane="trade"]'), onTrade = !tb || tb.classList.contains("on");
-        var am = document.getElementById("tr-a"), filled = am && Number(am.value) > 0, go = document.getElementById("tr-go");
-        if (onTrade && side === want && filled && go && !go.disabled) { submit(); return; }
-        if (!onTrade) tb.click();
-        if (side !== want) { setSide(want); document.getElementById("tr-p").value = ""; setDefaultPrice(); }
-        var f = document.querySelector(".tr2-form"); if (f) window.scrollTo({ top: f.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" });
-        if (am && !filled) { try { am.focus({ preventScroll: true }); } catch (e) { /* 老浏览器不支持就不聚焦 */ } }
-      };
-    });
-  }
-  function connectBtn() { return K().connect().then(function (a) { account = a; afterConnect(); }, function (e) { A.errTip(K().niceError(e), document.getElementById("tr-conn")); }); }
-  function afterConnect() { var c = document.getElementById("tr-conn"); if (c) c.textContent = A.short(account); updateBal(); renderMine(); }
-  function ensureAllowance(token, amount, say, name) {
-    return K().allowance(token, account, OTC).then(function (al) { if (al >= amount) return; return K().send(token, SEL.approve + u256(OTC) + u256(MAX_UINT), say, "授权 " + name + " 给托管合约（只需一次，以后不用再授权）"); });
-  }
-  function submit() {
-    var go = document.getElementById("tr-go"), st = document.getElementById("tr-st"), say = function (t) { st.textContent = t; };
-    var coin = toWei(document.getElementById("tr-a").value, TD);
-    if (coin <= 0n) return A.errTip("先填数量", document.getElementById("tr-a"));
-    go.disabled = true;
-    K().ready().then(function () {
-      account = K().account(); afterConnect();
-      if (type === "limit") {
-        var px = Number(document.getElementById("tr-p").value) || 0, dai = toWei((num(coin, TD) * px).toFixed(6), 18), dur = Number(document.getElementById("tr-dur").value);
-        if (!px) throw new Error("先填价格");
-        // 站长 2026-11-17：AiLGNS 的买单出价必须高于卖家去官方 DEX 卖的到手价（和 OTC 页同一条规矩）
-        // 2026-11-22：LGNS 也套上（以前这页只拦 AiLGNS，有人从这里挂出远低于底线的 LGNS 买单）。两个市场都用 otc.js 的 bidFloor，和 OTC 页、一键做市同一条线
-        var bfl = 0; try { bfl = side !== "sell" && book.mkt && K().bidFloor ? K().bidFloor(book.mkt) : 0; } catch (e) { bfl = 0; }
-        if (bfl && px <= bfl) throw new Error(MK === "lgns" ? "买单出价不能低于 " + f2(bfl) + " DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 2%，比这还低不让挂。请把价格调高一点" : "买单出价不能低于 " + f2(bfl) + " DAI（卖家去官方 DEX 卖的到手价）。出价比这低，卖家卖给你就吃亏，本站不让挂。请把价格调高一点");
-        // 站长 2026-11-25：不许挂穿盘口的单（和 OTC 页同一条规矩，见 otc.js crossText）。对手价取盘口里别人的单（自己的不算）
-        { var notMe = function (o) { return o.maker !== account; }, xb = book.bids.filter(notMe)[0], xs = book.asks.filter(notMe)[0], cx = "";
-          try { cx = K().crossText ? K().crossText(side === "sell" ? "sell" : "buy", px, xb ? priceOf(xb) : 0, xs ? priceOf(xs) : 0, PD) : ""; } catch (e) { cx = ""; }
-          if (cx) throw new Error(cx + "（或者把上面的「限价」切到「市价」直接成交。）"); }
-        var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
-        // 发单前最后一道闸（2026-11-26 串价事故后加）：市场没被别的页面换掉；链上现读这个市场的价，买价高出一倍、卖价低一半、或者读不到价，都不发
-        var otc0 = OTC;
-        return Promise.resolve().then(function () {
-          if (String(K().M().otc).toLowerCase() !== String(otc0).toLowerCase()) throw new Error("页面已经换了市场，这张单没有发出去。请回到要交易的那个币的页面重新下单");
-          return K().marketPrice().then(function (x) { return x; }, function () { return 0; });
-        }).then(function (mp) {
-          if (!(mp > 0)) throw new Error("现在读不到 " + SYM + " 的链上市价，没法核对你的价格，这张单先不发（没有扣任何钱）。请过一会儿再试");
-          var ds = Number(K().M().dexSell), lowRef = mp * (ds > 0 && ds < 1 ? ds : 1); // 下限按「DEX 卖出到手价」的一半算（LGNS 在 DEX 卖要扣约一半的税，场外价本来就低）
-          if (sell ? px <= lowRef * 0.5 : px >= mp * 2) throw new Error("你填的价格 " + f2(px) + " 和 " + SYM + " 现在的链上市价（约 " + f2(mp) + "）差了一倍以上，这张单没有发出去（没有扣任何钱）。请把价格改到市价附近");
-          return K().balance(token, account);
-        }).then(function (b) {
-          if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));
-          return ensureAllowance(token, give, say, name);
-        }).then(function () { return K().send(OTC, SEL.create + u256(sell ? 1 : 0) + u256(give) + u256(want) + u256(dur), say, "发布挂单"); })
-          .then(function () { say("✅ 挂单成功，已经在盘口上了"); });
-      }
-      // 市价：先刷新盘口，再逐张吃（每张吃之前再读一次，被人抢先就跳过）
-      return loadBook(true).then(function () {
-        var pl = plan(coin);
-        if (!pl.steps.length) throw new Error("盘口没有可成交的单");
-        var token = side === "buy" ? DAI : TOKEN, need = side === "buy" ? pl.dai : pl.coin;
-        return K().balance(token, account).then(function (b) {
-          if (b < need) throw new Error((side === "buy" ? "DAI" : SYM) + " 余额不够：需要 " + (side === "buy" ? f(num(need), 2) + " DAI" : fq(num(need, TD)) + " " + SYM));
-          return ensureAllowance(token, need, say, side === "buy" ? "DAI" : SYM);
-        }).then(function () {
-          var i = 0, done = 0;
-          function next() {
-            if (i >= pl.steps.length) return done;
-            var s = pl.steps[i++], tag = "成交第 " + i + " / " + pl.steps.length + " 张（#" + s.o.id + "）";
-            return K().read(OTC, "0x8f72fc77" + u256(s.o.id) + u256(1)).then(function (h) {
-              var o = parseOrders(h, s.o.id)[0];
-              if (!o || !o.open || o.giveLeft === 0n) return next();
-              var amount = s.amount > o.giveLeft ? o.giveLeft : s.amount, pay = ceilDiv(amount * o.wantTotal, o.giveTotal);
-              return K().send(OTC, SEL.fill + u256(o.id) + u256(amount) + u256(pay), function (t) { say(tag + "：" + t); }, "成交").then(function () { done++; return next(); });
-            });
-          }
-          return next();
-        }).then(function (n) { say(n ? "✅ 成交 " + n + " 张，币已到账（手续费 1% 已从收到的币里扣）" : "没成交：挂单刚被别人吃掉了，刷新盘口再试"); });
-      });
-    }).then(function () { go.disabled = false; document.getElementById("tr-a").value = ""; document.getElementById("tr-t").value = ""; return refresh(false); })
-      .catch(function (e) { go.disabled = false; say(""); A.errTip(K().niceError(e), go); });
-  }
-  // 我的委托：在挂的单 + 撤单
-  function renderMine() {
-    var el = document.getElementById("tr-my"); if (!el || !account) return;
-    var now = Date.now() / 1000, mine = book.all.filter(function (o) { return o.maker === account && o.open && o.giveLeft > 0n; });
-    var nb = document.getElementById("tr2-myn"); if (nb) nb.textContent = mine.length ? " " + mine.length : "";
-    el.innerHTML = mine.length ? mine.map(function (o) {
-      var sell = o.sellAilgns, p = priceOf(o);
-      return '<div class="tr-myrow"><span class="' + (sell ? "dn" : "up") + '">' + (sell ? "卖出" : "买入") + "</span><span>" + f2(p) + "</span><span>" + fq(num(leftCoin(o), TD)) + " " + SYM + "</span><span>" + f(num(leftDai(o)), 2) + ' DAI</span><span class="muted">' + (o.expiry > now ? K().left(o.expiry - now) : "已到期") + '</span><button type="button" class="ghost" data-cancel="' + o.id + '">撤单</button></div>';
-    }).join("") : '<p class="muted">没有在挂的单</p>';
-    el.querySelectorAll("[data-cancel]").forEach(function (b) {
-      b.onclick = function () {
-        var st = document.getElementById("tr-st"), say = function (t) { st.textContent = t; }; b.disabled = true;
-        K().ready().then(function () { return K().send(OTC, SEL.cancel + u256(b.getAttribute("data-cancel")), say, "撤单"); }).then(function () { say("✅ 已撤单，币已退回"); return refresh(false); }).catch(function (e) { b.disabled = false; say(""); A.errTip(K().niceError(e), b); });
-      };
-    });
-  }
-  A.pages.trade = page;
-})();
-
-}catch(e){console.error('[bundle] trade.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["trade"]="hc583b00f02";
-/*v:hc583b00f02*/
+try{(function(){"use strict";var A=window.AIL;var K=function(){return A.otcKit;};var SEL={create:"0x9128a740",fill:"0x6fe4a448",cancel:"0x40e58ee5",approve:"0x095ea7b3"};var MAX_UINT=(1n<<256n)-1n,MIN_DAI=10n**18n;var MK="ailgns",M,OTC,TOKEN,DAI,TD,SYM,PD;var TRADE_OTC={ailgns:"0x4e730be6d46be71223ded5a32dc45799f6d4bc15",lgns:"0xb6a7a3be9a17ad241665ab9bddbd9a573d488818"};var liveCtl=null;var fitH=0,fitRO=null;function startLive(){var el=document.getElementById("tr-k");if(!el||!A.kchart)return;if(MK!=="ailgns"&&MK!=="lgns"){el.innerHTML='<p class="muted" style="padding:32px 12px;text-align:center">'+SYM+" 的 K 线还在接入中，先看盘口和最近成交。</p>";return;}
+if(liveCtl)liveCtl.stop();liveCtl=A.kchart(el,MK==="lgns"?{i:"5m",m:"lgns",d:4,foot:"LGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25",alive:function(){return A.isCurrent(rid);}}:{i:"5m",alive:function(){return A.isCurrent(rid);}});var kn=document.getElementById("tr-kn");if(MK==="lgns"&&!kn)el.insertAdjacentHTML("afterend",'<p class="note" id="tr-kn" style="margin:6px 12px 0">这条线是官方 DEX 里 LGNS 的池子价。LGNS 在 DEX 卖出要扣税，所以场外（本站盘口）的成交价会比它低，下单请看盘口。</p>');else if(MK!=="lgns"&&kn)kn.remove();}
+var book={asks:[],bids:[],all:[],mkt:0},fills=[],side="buy",type="limit",account=null,rid=0,timer=0,kcache=null;function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function u256(v){return BigInt(v).toString(16).padStart(64,"0");}
+function ceilDiv(a,b){return(a+b-1n)/b;}
+function num(w,d){return Number(w)/Math.pow(10,d===undefined?18:d);}
+function f(v,d){return Number(v||0).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});}
+function f2(v){return f(v,PD);}
+function fq(v){return Number(v||0).toLocaleString("en-US",{maximumFractionDigits:4});}
+function toWei(s,d){s=String(s||"0").trim();if(!/^\d*(\.\d*)?$/.test(s)||s===""||s===".")return 0n;var p=s.split("."),a=p[0]||"0",b=(p[1]||"").slice(0,d).padEnd(d,"0");return BigInt(a)*10n**BigInt(d)+BigInt(b||"0");}
+function priceOf(o){return o.sellAilgns?num(o.wantTotal)/num(o.giveTotal,TD):num(o.giveTotal)/num(o.wantTotal,TD);}
+function leftCoin(o){return o.sellAilgns?o.giveLeft:o.giveTotal>0n?o.giveLeft*o.wantTotal/o.giveTotal:0n;}
+function leftDai(o){return o.sellAilgns?(o.giveTotal>0n?ceilDiv(o.giveLeft*o.wantTotal,o.giveTotal):0n):o.giveLeft;}
+function bj(ts){var d=new Date(ts*1000+8*3600e3);return String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0")+":"+String(d.getUTCSeconds()).padStart(2,"0");}
+function parseOrders(r,from){if(!r||r==="0x")return[];var w=r.slice(2).match(/.{64}/g)||[],n=Number(BigInt("0x"+w[1])),list=[];for(var i=0;i<n;i++){var o=w.slice(2+i*7,9+i*7);if(o.length<7)break;list.push({id:from+i,maker:"0x"+o[0].slice(24),sellAilgns:BigInt("0x"+o[1])===1n,open:BigInt("0x"+o[2])===1n,expiry:Number(BigInt("0x"+o[3])),giveTotal:BigInt("0x"+o[4]),wantTotal:BigInt("0x"+o[5]),giveLeft:BigInt("0x"+o[6])});}
+return list;}
+function loadBook(fresh){var id0=rid,mk0=MK;return fetch("/api/book?m="+mk0+(fresh?"&fresh=1":"")).then(function(r){return r.json();}).then(function(j){if(id0!==rid||mk0!==MK)throw new Error("页面已经换了市场，这一步没有做。请在现在这个币的页面重新操作");var now=Date.now()/1000,all=parseOrders(j.orders,Number(j.from||0));try{(j.old||[]).forEach(function(x){var o=x&&x.o;if(!o||o.length!==7||!(x.id<Number(j.from||0)))return;all.push({id:x.id,maker:"0x"+o[0].slice(24),sellAilgns:BigInt("0x"+o[1])===1n,open:BigInt("0x"+o[2])===1n,expiry:Number(BigInt("0x"+o[3])),giveTotal:BigInt("0x"+o[4]),wantTotal:BigInt("0x"+o[5]),giveLeft:BigInt("0x"+o[6])});});}catch(e){}
+var live=all.filter(function(o){return o.open&&o.expiry>now&&o.giveLeft>0n&&leftDai(o)>=MIN_DAI;});var asks=live.filter(function(o){return o.sellAilgns;}).sort(function(a,b){return priceOf(a)-priceOf(b);});var bids=live.filter(function(o){return!o.sellAilgns;}).sort(function(a,b){return priceOf(b)-priceOf(a);});var mkt=0;if(j.reserves){var w=j.reserves.slice(2).match(/.{64}/g);var r0=Number(BigInt("0x"+w[0])),r1=Number(BigInt("0x"+w[1]));mkt=M.pairDai===1?(r1/1e18)/(r0/Math.pow(10,TD)):(r0/1e18)/(r1/Math.pow(10,TD));}
+{var a0=asks.length?priceOf(asks[0]):0,b0=bids.length?priceOf(bids[0]):0;var lo=Math.min(mkt||Infinity,a0||Infinity),hi=Math.max(mkt||0,b0||0);if(lo===Infinity)lo=b0;if(!hi)hi=a0;if(lo)bids=bids.filter(function(o){return priceOf(o)>lo*0.5;});var lowCut=0;try{lowCut=K().lowBidCut?K().lowBidCut(mkt):0;}catch(e){lowCut=0;}
+if(lowCut)bids=bids.filter(function(o){return priceOf(o)>=lowCut;});if(hi)asks=asks.filter(function(o){return priceOf(o)<hi*2;});}
+book={asks:asks,bids:bids,all:all,mkt:mkt};});}
+function loadFills(){var id0=rid,mk0=MK;return fetch("/api/fills?m="+mk0).then(function(r){return r.json();}).then(function(j){if(id0===rid&&mk0===MK)fills=j.list||[];},function(){});}
+function agg(list,n){var m={},keys=[];list.forEach(function(o){var p=priceOf(o).toFixed(PD);if(!m[p]){m[p]={p:Number(p),coin:0,dai:0,ids:[]};keys.push(p);}m[p].coin+=num(leftCoin(o),TD);m[p].dai+=num(leftDai(o));m[p].ids.push(o.id);});var rows=keys.map(function(k){return m[k];}).slice(0,n),cum=0;rows.forEach(function(r){cum+=r.coin;r.cum=cum;});return rows;}
+function page(id){rid=id;clearInterval(timer);if(liveCtl){liveCtl.stop();liveCtl=null;}
+var hm=(location.hash.split("/")[2]||"").toLowerCase();MK=TRADE_OTC[hm]?hm:"ailgns";M=A.otcKit.M();if(M.otc!==TRADE_OTC[MK]){K().useMarket(MK);M=K().M();}
+OTC=M.otc;TOKEN=M.token;DAI=M.dai;TD=M.dec;SYM=M.sym;PD=M.pd;try{if(K().loadTax)K().loadTax().then(function(){},function(){});}catch(e){}
+A.app.innerHTML='<div class="tr2">'+'<section class="tr2-top"><div class="tr2-pair"><b>'+SYM+'/DAI</b><small>OTC 担保 · 吃单费 1%</small></div><div class="tr2-last" id="tr-stats"><b>—</b></div></section>'+'<nav class="tr2-tabs" id="tr2-tabs"><button type="button" class="on" data-pane="trade">交易</button><button type="button" data-pane="k">K 线</button><button type="button" data-pane="fills">成交</button></nav>'+'<div class="tr2-pane" data-pane="trade">'+'<div class="tr2-main">'+'<section class="tr2-form tr-form">'+'<div class="tr-side tr2-side"><button type="button" class="on buy" data-side="buy">买入</button><button type="button" class="sell" data-side="sell">卖出</button></div>'+'<div class="tr-type tr2-type"><button type="button" class="on" data-type="limit">限价</button><button type="button" data-type="market">市价</button></div>'+'<div class="tr2-in tr2-step" id="tr-pbox"><button type="button" class="tr2-pm" data-step="-1">−</button><label><span>价格</span><input id="tr-p" inputmode="decimal" autocomplete="off"></label><button type="button" class="tr2-pm" data-step="1">+</button></div>'+'<label class="tr2-in"><span>数量 ('+SYM+')</span><input id="tr-a" inputmode="decimal" autocomplete="off" placeholder="0"></label>'+'<div class="tr-pct tr2-pct"><button type="button" data-pct="25">25%</button><button type="button" data-pct="50">50%</button><button type="button" data-pct="75">75%</button><button type="button" data-pct="100">100%</button></div>'+'<label class="tr2-in"><span>总额 (DAI)</span><input id="tr-t" inputmode="decimal" autocomplete="off" placeholder="0"></label>'+'<div class="tr2-meta"><span class="muted" id="tr-bal"></span><input type="hidden" id="tr-dur" value="'+K().DUR_DEFAULT+'"></div><div class="tr2-durbox" id="tr-durbox"></div>'+'<p class="muted tr-note" id="tr-note"></p>'+'<button type="button" class="tr-go buy" id="tr-go">买入 '+SYM+'</button><p class="muted nm-st" id="tr-st"></p>'+'</section>'+'<section class="tr2-book"><div class="tr2-gauge" id="tr-gauge"></div><div class="tr2-bh"><span>价格(DAI)</span><span>数量('+SYM+')</span></div><div id="tr-bk">读取中…</div><p class="muted tr2-mid" id="tr-mid"></p></section>'+'</div>'+'<section class="card tr2-orders"><div class="tr2-otabs"><button type="button" class="on" data-o="my">当前委托<i id="tr2-myn"></i></button><button type="button" data-o="fills">最近成交</button><button type="button" class="ghost tr2-conn" id="tr-conn">连接钱包</button></div>'+'<div id="tr-my" class="tr2-opane">连接钱包后显示你在挂的单</div><div id="tr-tl" class="tr2-opane" hidden>读取中…</div></section>'+'</div>'+'<div class="tr2-pane" data-pane="k" hidden><section class="card tr-k"><div id="tr-k" class="or-kc tr-kc"></div></section></div>'+'<div class="tr2-pane" data-pane="fills" hidden><section class="card"><div class="card-head"><h2>🕒 最近成交</h2><span class="muted">全站 · 北京时间</span></div><div id="tr-tl2"></div></section></div>'+'<div class="tr2-bar"><button type="button" class="buy" data-bar="buy">买入</button><button type="button" class="sell" data-bar="sell">卖出</button></div>'+'</div>';bind();if(fitRO){try{fitRO.disconnect();}catch(e){}fitRO=null;}
+try{var fmEl=document.querySelector(".tr2-form");if(window.ResizeObserver&&fmEl){fitRO=new ResizeObserver(function(){if(!A.isCurrent(rid)||!fmEl.isConnected)return;if(Math.abs(fmEl.offsetHeight-fitH)>1&&document.querySelector("#tr-bk .tr2-row"))renderBook();});fitRO.observe(fmEl);}}catch(e){}
+refresh(true);if(matchMedia("(min-width: 901px)").matches)startLive();document.querySelectorAll(".tr-ktabs button").forEach(function(b){b.onclick=function(){document.querySelectorAll(".tr-ktabs button").forEach(function(x){x.classList.toggle("on",x===b);});if(b.getAttribute("data-k")==="live")startLive();else{if(liveCtl){liveCtl.stop();liveCtl=null;}document.getElementById("tr-ktip").textContent="参考：DEX 1 小时线，最近 24 小时";drawKline();}};});timer=setInterval(function(){if(!A.isCurrent(rid))return clearInterval(timer);refresh(false);},8000);K().silentAccount().then(function(){account=K().account();if(account)afterConnect();});}
+function refresh(first){var id0=rid,mk0=MK;return Promise.all([loadBook(false),loadFills()]).then(function(){if(id0!==rid||mk0!==MK||!A.isCurrent(id0))return;renderStats();renderBook();renderTrades();if(account)renderMine();if(first)setDefaultPrice();updateBal();}).catch(function(){});}
+function bestAsk(){return book.asks.length?priceOf(book.asks[0]):0;}
+function bestBid(){return book.bids.length?priceOf(book.bids[0]):0;}
+function renderStats(){var last=fills[0],vol=0,hi=0,lo=Infinity,since=Date.now()/1000-86400,first24=null;fills.forEach(function(x){if(x.t>=since){vol+=x.dai;hi=Math.max(hi,x.px);lo=Math.min(lo,x.px);first24=x;}});var el=document.getElementById("tr-stats");if(!el)return;var px=last?last.px:(bestAsk()&&bestBid()?(bestAsk()+bestBid())/2:book.mkt),chg=last&&first24&&first24.px?(last.px/first24.px-1)*100:0,up=chg>=0;el.innerHTML='<div class="tr2-px"><b class="'+(up?"up":"dn")+'">'+(px?f2(px):"—")+'</b><small>≈ DEX '+(book.mkt?f2(book.mkt):"—")+' · <span class="'+(up?"up":"dn")+'">'+(up?"+":"")+chg.toFixed(2)+"%</span></small></div>"+'<div class="tr2-24"><div><small>24h 高</small><b>'+(hi?f2(hi):"—")+'</b></div><div><small>24h 低</small><b>'+(lo<Infinity?f2(lo):"—")+'</b></div><div><small>24h 量(DAI)</small><b>'+f(vol,0)+"</b></div></div>";var mid=document.getElementById("tr-mid");if(mid)mid.textContent="买 "+book.bids.length+" 张 · 卖 "+book.asks.length+" 张"+(bestAsk()&&bestBid()&&bestAsk()>bestBid()?" · 价差 "+f2(bestAsk()-bestBid()):"");}
+function fitBook(){try{if(matchMedia("(min-width: 901px)").matches)return;var fm=document.querySelector(".tr2-form");if(fm&&Math.abs(fm.offsetHeight-fitH)>1&&document.querySelector("#tr-bk .tr2-row"))renderBook();}catch(e){}}
+function renderBook(){var el=document.getElementById("tr-bk");if(!el)return;var N=9,bx=el.parentNode;renderGauge();if(matchMedia("(min-width: 901px)").matches){if(bx)bx.style.height="";}
+else{N=6;var fm=document.querySelector(".tr2-form"),fh=fm?fm.offsetHeight:0;if(bx&&fh>200){var l2=el.querySelector(".tr2-last2"),used=bx.offsetHeight-el.offsetHeight+(l2?l2.offsetHeight+6:40);N=Math.max(3,Math.min(6,Math.floor((fh-used)/2/24)));bx.style.height=fh+"px";}else if(bx)bx.style.height="";fitH=fh;}
+var totA=agg(book.asks,1e9).reduce(function(s,r){return s+r.coin;},0),totB=agg(book.bids,1e9).reduce(function(s,r){return s+r.coin;},0);var iceberg=function(rows,total){var cap=total*0.2,cum=0;return rows.map(function(r){var o={p:r.p,coin:r.coin,dai:r.dai,full:r.coin};if(rows.length>=4&&cap>0&&r.coin>total*0.35)o.coin=Math.max(cap,r.coin*0.3);cum+=o.coin;o.cum=cum;return o;});};var asks=iceberg(agg(book.asks,N),totA),bids=iceberg(agg(book.bids,N),totB),max=Math.max(asks.length?asks[asks.length-1].cum:0,bids.length?bids[bids.length-1].cum:0,1e-9);var row=function(r,cls){var ice=r.full>r.coin+1e-9;return'<div class="tr2-row '+cls+(ice?" ice":"")+'" data-p="'+r.p+'" data-full="'+r.full+'" style="--w:'+Math.min(100,r.cum/max*100).toFixed(1)+'%"><span>'+f2(r.p)+"</span><span>"+(ice?'<i class="ice-tag" title="冰山单：这一档实际 '+fq(r.full)+" "+SYM+'，点一下看全部">🧊</i>':"")+"<em>"+fq(r.coin)+"</em></span></div>";};var last=fills[0],prev=fills[1],lcls=last&&prev&&last.px<prev.px?"dn":"up";var fill=function(list,cls){var h=list.map(function(r){return row(r,cls);}).join("");for(var k=list.length;k<N;k++)h+='<div class="tr2-row empty"><span>—</span><span></span></div>';return h;};var sig=JSON.stringify([asks,bids].map(function(l){return l.map(function(r){return[r.p,r.coin];});}));if(el.getAttribute("data-sig")&&el.getAttribute("data-sig")!==sig){el.classList.remove("tick");void el.offsetWidth;el.classList.add("tick");}
+el.setAttribute("data-sig",sig);el.innerHTML='<div class="tr2-asks">'+fill(asks.slice().reverse(),"ask")+'</div>'+'<div class="tr2-last2"><b class="'+lcls+'">'+(last?f2(last.px):bestAsk()&&bestBid()?f2((bestAsk()+bestBid())/2):"—")+(last?(lcls==="up"?" ↑":" ↓"):"")+"</b><small>≈ DEX "+(book.mkt?f2(book.mkt):"—")+"</small></div>"+'<div class="tr2-bids">'+fill(bids,"bid")+"</div>";el.querySelectorAll(".ice-tag").forEach(function(t){t.onclick=function(e){e.stopPropagation();var r=t.closest(".tr2-row"),open=r.classList.toggle("ice-open");if(open)r.querySelector("em").textContent=fq(Number(r.getAttribute("data-full")));else renderBook();};});el.querySelectorAll(".tr2-row[data-p]").forEach(function(r){r.onclick=function(){setSide(r.classList.contains("ask")?"buy":"sell");setType("limit");document.getElementById("tr-p").value=r.getAttribute("data-p");recalc("p");};});}
+function renderGauge(){var el=document.getElementById("tr-gauge");if(!el)return;var ref=bestAsk()&&bestBid()?(bestAsk()+bestBid())/2:book.mkt;if(!ref){el.innerHTML="";return;}
+var bd=0,ad=0;book.bids.forEach(function(o){if(priceOf(o)>=ref*0.97)bd+=num(leftDai(o));});book.asks.forEach(function(o){if(priceOf(o)<=ref*1.03)ad+=num(leftDai(o));});var tot=bd+ad;if(tot<100){el.innerHTML='<small>现价 ±3% 内挂单很少，两边都缺流动性</small>';return;}
+var bp=Math.round(bd/tot*100),ap=100-bp;el.innerHTML='<div class="tg-bar"><span class="tg-b" style="width:'+bp+'%">买 '+bp+"%</span><span class=\"tg-a\">卖 "+ap+"%</span></div>";}
+function renderTrades(){var el=document.getElementById("tr-tl");if(!el)return;var el2=document.getElementById("tr-tl2");el.innerHTML=fills.length?'<div class="tr-th"><span>时间</span><span>价格</span><span>数量</span><span>DAI</span></div>'+fills.slice(0,30).map(function(x,i){var prev=fills[i+1],cls=prev&&x.px<prev.px?"dn":"up";return'<div class="tr-trow '+cls+'"><span>'+bj(x.t)+"</span><span>"+f2(x.px)+"</span><span>"+fq(x.dai/x.px)+"</span><span>"+f(x.dai,2)+"</span></div>";}).join(""):'<p class="muted">最近还没有成交记录（从盘口上线起统计）</p>';if(el2)el2.innerHTML=el.innerHTML;}
+function setDefaultPrice(){var p=document.getElementById("tr-p");if(p&&!p.value){p.value=(side==="buy"?bestAsk()||bestBid()||book.mkt:bestBid()||bestAsk()||book.mkt).toFixed(PD);recalc("p");}}
+function drawKline(){var el=document.getElementById("tr-k");if(!el)return;fetch("/api/kline").then(function(r){return r.json();}).then(function(d){if(!A.isCurrent(rid)||!d.c)return;var c=d.c.map(function(x){return{t:x[0],o:x[1],h:x[2],l:x[3],c:x[4]};});var W0=Math.max(240,el.clientWidth||360),H0=Math.max(160,el.clientHeight||200),L=6,R=W0-66,T=10,B=H0-24,hi=-Infinity,lo=Infinity;c.forEach(function(x){hi=Math.max(hi,x.h);lo=Math.min(lo,x.l);});var pad=(hi-lo)*0.08||0.5;hi+=pad;lo-=pad;var y=function(p){return T+(hi-p)/(hi-lo)*(B-T);},cw=(R-L)/c.length,svg="";for(var g=0;g<=4;g++){var gp=lo+(hi-lo)*g/4,gy=y(gp);svg+='<line x1="'+L+'" x2="'+R+'" y1="'+gy.toFixed(1)+'" y2="'+gy.toFixed(1)+'" class="or-grid"/><text x="'+(R+6)+'" y="'+(gy+4).toFixed(1)+'" class="or-ct">'+gp.toFixed(2)+"</text>";}
+c.forEach(function(x,i){var cx=L+cw*i+cw/2,up=x.c>=x.o,col=up?"or-up":"or-dn",top=y(Math.max(x.o,x.c)),bot=y(Math.min(x.o,x.c));var dt=new Date((x.t+8*3600)*1000),hh=String(dt.getUTCHours()).padStart(2,"0")+":00";svg+='<line x1="'+cx.toFixed(1)+'" x2="'+cx.toFixed(1)+'" y1="'+y(x.h).toFixed(1)+'" y2="'+y(x.l).toFixed(1)+'" class="'+col+'"/><rect x="'+(cx-cw*0.32).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+(cw*0.64).toFixed(1)+'" height="'+Math.max(1,bot-top).toFixed(1)+'" class="'+col+'"/>';if(i%6===0)svg+='<text x="'+Math.max(cx,18).toFixed(1)+'" y="'+(H0-7)+'" text-anchor="middle" class="or-ct">'+hh+"</text>";});var lastC=c[c.length-1];svg+='<line x1="'+L+'" x2="'+R+'" y1="'+y(lastC.c).toFixed(1)+'" y2="'+y(lastC.c).toFixed(1)+'" class="or-lastl"/><rect x="'+(R+1)+'" y="'+(y(lastC.c)-9).toFixed(1)+'" width="60" height="18" rx="4" class="or-lastb"/><text x="'+(R+31)+'" y="'+(y(lastC.c)+4).toFixed(1)+'" text-anchor="middle" class="or-lastt">'+lastC.c.toFixed(2)+"</text>";el.setAttribute("viewBox","0 0 "+W0+" "+H0);el.innerHTML=svg;}).catch(function(){});}
+function setSide(s){side=s;var root=document.querySelector(".tr2");if(root)root.setAttribute("data-side",s);document.querySelectorAll(".tr-side button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-side")===s);});var go=document.getElementById("tr-go");go.className="tr-go "+s;go.textContent=(s==="buy"?"买入 ":"卖出 ")+SYM;updateBal();recalc("a");}
+function setType(t){type=t;document.querySelectorAll(".tr-type button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-type")===t);});document.getElementById("tr-pbox").style.display=t==="market"?"none":"";document.getElementById("tr-durbox").style.display=t==="market"?"none":"";recalc("a");}
+var bal={dai:0n,coin:0n};function updateBal(){var el=document.getElementById("tr-bal");if(!el)return;if(!account){el.textContent="";return;}
+Promise.all([K().balance(DAI,account),K().balance(TOKEN,account)]).then(function(b){bal={dai:b[0],coin:b[1]};if(el)el.textContent="可用 "+(side==="buy"?f(num(bal.dai),2)+" DAI":fq(num(bal.coin,TD))+" "+SYM);fitBook();}).catch(function(){});}
+function plan(coinWant){var list=side==="buy"?book.asks:book.bids,steps=[],left=coinWant,daiSum=0n,coinSum=0n;for(var i=0;i<list.length&&left>0n;i++){var o=list[i],cap=leftCoin(o),take=left<cap?left:cap;if(take<=0n)continue;var amount,pay;if(o.sellAilgns){amount=take;pay=ceilDiv(amount*o.wantTotal,o.giveTotal);daiSum+=pay;coinSum+=amount;}
+else{amount=take*o.giveTotal/o.wantTotal;pay=ceilDiv(amount*o.wantTotal,o.giveTotal);daiSum+=amount;coinSum+=pay;}
+if(amount<=0n)continue;steps.push({o:o,amount:amount,pay:pay});left-=take;}
+return{steps:steps,dai:daiSum,coin:coinSum,short:left};}
+function recalc(from){var p=document.getElementById("tr-p"),a=document.getElementById("tr-a"),t=document.getElementById("tr-t"),note=document.getElementById("tr-note");if(!p||!a||!t)return;if(type==="limit"){var px=Number(p.value)||0;if(from==="t"&&px)a.value=px?(Number(t.value)/px).toFixed(4):"";else if(px)t.value=(Number(a.value)*px).toFixed(2);var total=Number(t.value)||0;note.innerHTML=px&&book.mkt?"比 DEX 现价"+(px>=book.mkt?"高 ":"低 ")+Math.abs((px/book.mkt-1)*100).toFixed(2)+"%"+(side==="buy"&&bestAsk()&&px>=bestAsk()?" · 价格已到卖一，建议用市价直接成交":side==="sell"&&bestBid()&&px<=bestBid()?" · 价格已到买一，建议用市价直接成交":" · 挂单不收手续费，成交由对方付"):"";}else{var coin=toWei(a.value,TD),pl=plan(coin);if(from==="t"){var ref=side==="buy"?bestAsk():bestBid();if(ref){a.value=(Number(t.value)/ref).toFixed(4);coin=toWei(a.value,TD);pl=plan(coin);}}
+t.value=pl.dai>0n?num(pl.dai).toFixed(2):"";var avg=pl.coin>0n?num(pl.dai)/num(pl.coin,TD):0;note.innerHTML=!coin?"市价 = 从最优价开始逐张吃单，直到买够 / 卖够":pl.steps.length?"预计吃 "+pl.steps.length+" 张单，均价 <b>"+f2(avg)+"</b>"+(pl.short>0n?'，<b class="nm-bad">盘口不够，只能成交 '+fq(num(pl.coin,TD))+" "+SYM+"</b>":"")+"，手续费 1% 从收到的币里扣":'<b class="nm-bad">盘口没有可成交的单</b>';}
+fitBook();}
+function bind(){document.querySelectorAll(".tr-side button").forEach(function(b){b.onclick=function(){setSide(b.getAttribute("data-side"));document.getElementById("tr-p").value="";setDefaultPrice();};});document.querySelectorAll(".tr-type button").forEach(function(b){b.onclick=function(){setType(b.getAttribute("data-type"));};});document.getElementById("tr-p").oninput=function(){recalc("p");};document.getElementById("tr-a").oninput=function(){recalc("a");};document.getElementById("tr-t").oninput=function(){recalc("t");};document.querySelectorAll(".tr-pct button").forEach(function(b){b.onclick=function(){if(!account)return connectBtn();var pct=BigInt(b.getAttribute("data-pct"));if(side==="sell"){document.getElementById("tr-a").value=num(bal.coin*pct/100n,TD).toFixed(4);recalc("a");}
+else{document.getElementById("tr-t").value=num(bal.dai*pct/100n).toFixed(2);recalc("t");}};});document.getElementById("tr-conn").onclick=connectBtn;document.getElementById("tr-go").onclick=submit;if(K().durSlider)K().durSlider(document.getElementById("tr-durbox"),{value:K().DUR_DEFAULT,label:"有效期",onChange:function(sec){document.getElementById("tr-dur").value=sec?String(sec):"";}});document.querySelectorAll("#tr2-tabs button").forEach(function(b){b.onclick=function(){var p=b.getAttribute("data-pane");document.querySelectorAll("#tr2-tabs button").forEach(function(x){x.classList.toggle("on",x===b);});document.querySelectorAll(".tr2-pane").forEach(function(x){x.hidden=x.getAttribute("data-pane")!==p;});if(p==="k")startLive();else if(liveCtl&&!matchMedia("(min-width: 901px)").matches){liveCtl.stop();liveCtl=null;}
+if(p==="fills")renderTrades();};});document.querySelectorAll(".tr2-otabs button[data-o]").forEach(function(b){b.onclick=function(){var o=b.getAttribute("data-o");document.querySelectorAll(".tr2-otabs button[data-o]").forEach(function(x){x.classList.toggle("on",x===b);});document.getElementById("tr-my").hidden=o!=="my";document.getElementById("tr-tl").hidden=o!=="fills";};});document.querySelectorAll(".tr2-pm").forEach(function(b){b.onclick=function(){var p=document.getElementById("tr-p"),step=Math.pow(10,-PD),v=(Number(p.value)||book.mkt||0)+Number(b.getAttribute("data-step"))*step;if(v>0){p.value=v.toFixed(PD);recalc("p");}};});document.querySelectorAll(".tr2-bar button").forEach(function(b){b.onclick=function(){var want=b.getAttribute("data-bar"),tb=document.querySelector('#tr2-tabs button[data-pane="trade"]'),onTrade=!tb||tb.classList.contains("on");var am=document.getElementById("tr-a"),filled=am&&Number(am.value)>0,go=document.getElementById("tr-go");if(onTrade&&side===want&&filled&&go&&!go.disabled){submit();return;}
+if(!onTrade)tb.click();if(side!==want){setSide(want);document.getElementById("tr-p").value="";setDefaultPrice();}
+var f=document.querySelector(".tr2-form");if(f)window.scrollTo({top:f.getBoundingClientRect().top+window.pageYOffset-70,behavior:"smooth"});if(am&&!filled){try{am.focus({preventScroll:true});}catch(e){}}};});}
+function connectBtn(){return K().connect().then(function(a){account=a;afterConnect();},function(e){A.errTip(K().niceError(e),document.getElementById("tr-conn"));});}
+function afterConnect(){var c=document.getElementById("tr-conn");if(c)c.textContent=A.short(account);updateBal();renderMine();}
+function ensureAllowance(token,amount,say,name){return K().allowance(token,account,OTC).then(function(al){if(al>=amount)return;return K().send(token,SEL.approve+u256(OTC)+u256(MAX_UINT),say,"授权 "+name+" 给托管合约（只需一次，以后不用再授权）");});}
+function submit(){var go=document.getElementById("tr-go"),st=document.getElementById("tr-st"),say=function(t){st.textContent=t;};var coin=toWei(document.getElementById("tr-a").value,TD);if(coin<=0n)return A.errTip("先填数量",document.getElementById("tr-a"));go.disabled=true;K().ready().then(function(){account=K().account();afterConnect();if(type==="limit"){var px=Number(document.getElementById("tr-p").value)||0,dai=toWei((num(coin,TD)*px).toFixed(6),18),dur=Number(document.getElementById("tr-dur").value);if(!px)throw new Error("先填价格");var bfl=0;try{bfl=side!=="sell"&&book.mkt&&K().bidFloor?K().bidFloor(book.mkt):0;}catch(e){bfl=0;}
+if(bfl&&px<=bfl)throw new Error(MK==="lgns"?"买单出价不能低于 "+f2(bfl)+" DAI。本站买单最低出价是「卖家去 DEX 卖的到手价」再低 2%，比这还低不让挂。请把价格调高一点":"买单出价不能低于 "+f2(bfl)+" DAI（卖家去官方 DEX 卖的到手价）。出价比这低，卖家卖给你就吃亏，本站不让挂。请把价格调高一点");{var notMe=function(o){return o.maker!==account;},xb=book.bids.filter(notMe)[0],xs=book.asks.filter(notMe)[0],cx="";try{cx=K().crossText?K().crossText(side==="sell"?"sell":"buy",px,xb?priceOf(xb):0,xs?priceOf(xs):0,PD):"";}catch(e){cx="";}
+if(cx)throw new Error(cx+"（或者把上面的「限价」切到「市价」直接成交。）");}
+var sell=side==="sell",give=sell?coin:dai,want=sell?dai:coin,token=sell?TOKEN:DAI,name=sell?SYM:"DAI";var otc0=OTC;return Promise.resolve().then(function(){if(String(K().M().otc).toLowerCase()!==String(otc0).toLowerCase())throw new Error("页面已经换了市场，这张单没有发出去。请回到要交易的那个币的页面重新下单");return K().marketPrice().then(function(x){return x;},function(){return 0;});}).then(function(mp){if(!(mp>0))throw new Error("现在读不到 "+SYM+" 的链上市价，没法核对你的价格，这张单先不发（没有扣任何钱）。请过一会儿再试");var ds=Number(K().M().dexSell),lowRef=mp*(ds>0&&ds<1?ds:1);if(sell?px<=lowRef*0.5:px>=mp*2)throw new Error("你填的价格 "+f2(px)+" 和 "+SYM+" 现在的链上市价（约 "+f2(mp)+"）差了一倍以上，这张单没有发出去（没有扣任何钱）。请把价格改到市价附近");return K().balance(token,account);}).then(function(b){if(b<give)throw new Error((sell?SYM:"DAI")+" 余额不够：有 "+(sell?fq(num(b,TD)):f(num(b),2))+"，需要 "+(sell?fq(num(give,TD)):f(num(give),2)));return ensureAllowance(token,give,say,name);}).then(function(){return K().send(OTC,SEL.create+u256(sell?1:0)+u256(give)+u256(want)+u256(dur),say,"发布挂单");}).then(function(){say("✅ 挂单成功，已经在盘口上了");});}
+return loadBook(true).then(function(){var pl=plan(coin);if(!pl.steps.length)throw new Error("盘口没有可成交的单");var token=side==="buy"?DAI:TOKEN,need=side==="buy"?pl.dai:pl.coin;return K().balance(token,account).then(function(b){if(b<need)throw new Error((side==="buy"?"DAI":SYM)+" 余额不够：需要 "+(side==="buy"?f(num(need),2)+" DAI":fq(num(need,TD))+" "+SYM));return ensureAllowance(token,need,say,side==="buy"?"DAI":SYM);}).then(function(){var i=0,done=0;function next(){if(i>=pl.steps.length)return done;var s=pl.steps[i++],tag="成交第 "+i+" / "+pl.steps.length+" 张（#"+s.o.id+"）";return K().read(OTC,"0x8f72fc77"+u256(s.o.id)+u256(1)).then(function(h){var o=parseOrders(h,s.o.id)[0];if(!o||!o.open||o.giveLeft===0n)return next();var amount=s.amount>o.giveLeft?o.giveLeft:s.amount,pay=ceilDiv(amount*o.wantTotal,o.giveTotal);return K().send(OTC,SEL.fill+u256(o.id)+u256(amount)+u256(pay),function(t){say(tag+"："+t);},"成交").then(function(){done++;return next();});});}
+return next();}).then(function(n){say(n?"✅ 成交 "+n+" 张，币已到账（手续费 1% 已从收到的币里扣）":"没成交：挂单刚被别人吃掉了，刷新盘口再试");});});}).then(function(){go.disabled=false;document.getElementById("tr-a").value="";document.getElementById("tr-t").value="";return refresh(false);}).catch(function(e){go.disabled=false;say("");A.errTip(K().niceError(e),go);});}
+function renderMine(){var el=document.getElementById("tr-my");if(!el||!account)return;var now=Date.now()/1000,mine=book.all.filter(function(o){return o.maker===account&&o.open&&o.giveLeft>0n;});var nb=document.getElementById("tr2-myn");if(nb)nb.textContent=mine.length?" "+mine.length:"";el.innerHTML=mine.length?mine.map(function(o){var sell=o.sellAilgns,p=priceOf(o);return'<div class="tr-myrow"><span class="'+(sell?"dn":"up")+'">'+(sell?"卖出":"买入")+"</span><span>"+f2(p)+"</span><span>"+fq(num(leftCoin(o),TD))+" "+SYM+"</span><span>"+f(num(leftDai(o)),2)+' DAI</span><span class="muted">'+(o.expiry>now?K().left(o.expiry-now):"已到期")+'</span><button type="button" class="ghost" data-cancel="'+o.id+'">撤单</button></div>';}).join(""):'<p class="muted">没有在挂的单</p>';el.querySelectorAll("[data-cancel]").forEach(function(b){b.onclick=function(){var st=document.getElementById("tr-st"),say=function(t){st.textContent=t;};b.disabled=true;K().ready().then(function(){return K().send(OTC,SEL.cancel+u256(b.getAttribute("data-cancel")),say,"撤单");}).then(function(){say("✅ 已撤单，币已退回");return refresh(false);}).catch(function(e){b.disabled=false;say("");A.errTip(K().niceError(e),b);});};});}
+A.pages.trade=page;})();}catch(e){console.error('[bundle] trade.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["trade"]="h6d95edbdc8";
+/*v:h6d95edbdc8*/

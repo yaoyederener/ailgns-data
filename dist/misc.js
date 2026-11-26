@@ -1,3509 +1,630 @@
-try{
-// 成交查询：输入任意地址，看它在本站 OTC / 卡牌的成交记录（挂单人和吃单人都算），数据由 otc-watch 按地址记录
-(function () {
-  "use strict";
-  var A = window.AIL;
-  var MK = { ailgns: "AiLGNS", lgns: "LGNS · Anubis", plgns: "LGNS · Polygon", glgns: "gLGNS", lp: "LP", rm: "RM", flgns: "fLGNS", nft: "AWAKE NFT" };
-  var TX = { plgns: "https://polygonscan.com/tx/" };
-  function row(t, addr) {
-    var mine = t.taker === addr, side = mine ? (t.makerSide === "卖" ? "买入" : "卖出") : (t.makerSide === "卖" ? "卖出" : "买入"); // 我是吃单人就和挂单方向相反
-    var other = mine ? t.maker : t.taker, tx = (TX[t.m] || "#/scan/tx/") + t.tx;
-    return '<tr><td data-l="时间" class="l">' + A.timeBJ(t.t * 1000) + '</td><td data-l="市场" class="l">' + (MK[t.m] || t.m) + '</td><td data-l="方向" class="' + (side === "买入" ? "up" : "down") + '">' + side + "</td>" +
-      '<td data-l="数量">' + (t.nft ? "#" + t.tokenId : A.fmt(t.qty, 4) + " " + t.sym) + '</td><td data-l="单价 DAI">' + (t.nft ? "—" : A.fmt(t.price, t.m === "lgns" || t.m === "plgns" ? 4 : 2)) + '</td><td data-l="金额 DAI"><b>' + A.fmt(t.dai, 2) + "</b></td>" +
-      '<td data-l="对手方" class="l mono">' + A.short(other) + '</td><td data-l="角色" class="l">' + (mine ? "吃单" : "挂单") + '</td><td data-l="交易"><a target="_blank" rel="noopener" href="' + tx + '">查看 ↗</a></td></tr>';
-  }
-  // 这个地址还在挂着的单（没成交就不会出现在成交记录里，客户容易以为"没查到"）
-  var OPEN_MKTS = [["ailgns", "AiLGNS", 18, 7], ["lgns", "LGNS · Anubis", 9, 7], ["plgns", "LGNS · Polygon", 9, 7], ["glgns", "gLGNS", 18, 7], ["lp", "LP", 18, 7], ["rm", "RM", 9, 7], ["flgns", "fLGNS", 18, 7], ["nft", "AWAKE NFT", 0, 6]];
-  function openOrders(addr) {
-    var now = Date.now() / 1000;
-    return Promise.all(OPEN_MKTS.map(function (m) {
-      return fetch("/api/book?m=" + m[0]).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.orders || j.orders === "0x") return [];
-        var h = j.orders.slice(2), w = h.match(/.{64}/g) || [], n = parseInt(w[1], 16), W = m[3], out = [];
-        for (var i = 0; i < n; i++) {
-          var o = w.slice(2 + i * W, 2 + (i + 1) * W);
-          if (!o[0].endsWith(addr.slice(2)) || BigInt("0x" + o[2]) !== 1n || Number(BigInt("0x" + o[3])) <= now) continue; // 不是它挂的 / 已关闭 / 已过期
-          var sell = BigInt("0x" + o[1]) === 1n;
-          if (W === 6) out.push({ mk: m[1], side: sell ? "卖出" : "求购", what: sell ? "卡 #" + BigInt("0x" + o[4]) : "任意一张", dai: Number(BigInt("0x" + o[5])) / 1e18, id: j.from + i });
-          else {
-            var giveTotal = Number(BigInt("0x" + o[4])), wantTotal = Number(BigInt("0x" + o[5])), left = Number(BigInt("0x" + o[6])), gd = sell ? m[2] : 18;
-            var daiLeft = sell ? left * wantTotal / giveTotal / 1e18 : left / 1e18;
-            out.push({ mk: m[1], side: sell ? "卖出" : "买入", what: sell ? (left / Math.pow(10, gd)).toFixed(m[2] === 9 ? 2 : 4) + " " + m[1].split(" ")[0] : (left * wantTotal / giveTotal / Math.pow(10, m[2])).toFixed(m[2] === 9 ? 2 : 4) + " " + m[1].split(" ")[0], dai: daiLeft, id: j.from + i });
-          }
-        }
-        return out;
-      }).catch(function () { return []; });
-    })).then(function (lists) { return [].concat.apply([], lists); });
-  }
-  function render(id, a) {
-    var app = A.app;
-    app.innerHTML = '<h1>成交查询</h1><p class="sub sub-x">输入任意钱包地址，查它在本站 OTC（四个市场）和卡牌交易的成交记录：挂单被吃、自己吃单都算，带交易链接可核对。</p>' +
-      '<section class="card"><div class="addr-box"><input id="tr-addr" class="mono" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="' + (a || "") + '"><button id="tr-go">查询</button></div><p class="note" style="margin:8px 0 0">成交后几分钟内记录会出现在这里；累计成交和会员赠送以「会员中心」的查询为准。</p></section><div id="tr-out"></div>';
-    var inp = document.getElementById("tr-addr"), out = document.getElementById("tr-out");
-    function go() {
-      var addr = (inp.value || "").trim().toLowerCase();
-      if (!A.isAddr(addr)) { out.innerHTML = '<p class="note down">地址格式不对</p>'; return; }
-      if (location.hash !== "#/trades/" + addr) { history.replaceState(null, "", "#/trades/" + addr); }
-      out.innerHTML = '<div class="loading">正在读取成交记录…</div>';
-      A.track && A.track("q_trades");
-      Promise.all([fetch("/api/trades?addr=" + addr).then(function (r) { return r.json(); }), openOrders(addr)]).then(function (res) {
-        if (!A.isCurrent(id)) return;
-        var d = res[0], opens = res[1], list = d.trades || [];
-        var openHtml = opens.length ? '<section class="card"><div class="card-head"><h2>挂单中 <small class="muted">' + opens.length + ' 张 · 还没成交</small></h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">市场</th><th>方向</th><th>剩余</th><th>剩余金额 DAI</th><th>单号</th></tr></thead><tbody>' +
-          opens.map(function (o) { return '<tr><td data-l="市场" class="l">' + o.mk + '</td><td data-l="方向" class="' + (o.side === "买入" || o.side === "求购" ? "up" : "down") + '">' + o.side + '</td><td data-l="剩余">' + o.what + '</td><td data-l="剩余金额 DAI">' + A.fmt(o.dai, 2) + '</td><td data-l="单号">#' + o.id + "</td></tr>"; }).join("") +
-          '</tbody></table></div><p class="note">挂单成交后才会出现在下面的成交记录里。</p></section>' : "";
-        if (!list.length) { out.innerHTML = openHtml + '<section class="card"><div class="empty">这个地址在本站还没有成交记录' + (opens.length ? "（有 " + opens.length + " 张挂单还没人吃）" : "") + '</div></section>'; return; }
-        out.innerHTML = openHtml;
-        var total = list.reduce(function (s, t) { return s + (t.dai || 0); }, 0);
-        out.innerHTML += '<section class="card"><div class="card-head"><h2>成交记录 <small class="muted">' + list.length + ' 笔 · 合计 ' + A.fmt(total, 2) + ' DAI</small></h2><span class="muted mono">' + A.short(addr) + '</span></div>' +
-          '<div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">时间（北京）</th><th class="l">市场</th><th>方向</th><th>数量</th><th>单价 DAI</th><th>金额 DAI</th><th class="l">对手方</th><th class="l">角色</th><th>交易</th></tr></thead><tbody>' +
-          list.map(function (t) { return row(t, addr); }).join("") + "</tbody></table></div>" + (list.length >= 300 ? '<p class="note">只显示最近 300 笔。</p>' : "") + "</section>";
-      }).catch(function () { if (A.isCurrent(id)) out.innerHTML = '<p class="note down">读取失败，请稍后再试</p>'; });
-    }
-    document.getElementById("tr-go").onclick = go;
-    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") go(); });
-    if (a && A.isAddr(a)) go();
-  }
-  A.pages.trades = function (id, a) { location.replace("#/scan" + (a ? "/" + a : "")); }; // 成交查询并入「AiLGNS 账本」（站长 2026-11-05 定）
-})();
-
-}catch(e){console.error('[bundle] trades.js',e);}
-;
-try{
-// ⚡ EVM 套利做市商（内部页 #/arb，2026-11-05）：只给站长看，不进菜单。读 keeper 的记账文件 + 套利钱包链上余额
-(function () {
-  "use strict";
-  var A = window.AIL, W = A.wallet;
-  var ARB = "0x06cc2a46d7ad17496c2de9c61362808e06b44437", DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", PAIR = "0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0";
-  var RAW = "https://raw.githubusercontent.com/yaoyederener/monita/main/data/arb.json";
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function bal(t) { return W.rpcOn("anubis", "eth_call", [{ to: t, data: "0x70a08231" + ARB.slice(2).padStart(64, "0") }, "latest"]).then(function (r) { return Number(BigInt(r) / 10n ** 12n) / 1e6; }); }
-  function bj(ts) { var d = new Date(ts * 1000 + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
-  function page(id) {
-    A.app.innerHTML = '<section class="card"><h2>⚡ EVM 套利做市商 <small class="muted">内部测试 · 未开放</small></h2>' +
-      '<p class="muted">AiLGNS 在本站 OTC 和官方 DEX 之间的差价套利：OTC 有人贱卖 → 吃掉再去 DEX 卖；OTC 有人高价求购 → DEX 买来卖给他。两条腿几秒内完成，不持仓，只赚差价。keeper 每 5 分钟检查一次，单笔 ≤ 300 DAI，净利 ≥ 0.05 DAI 且 ≥ 0.3% 才出手。</p>' +
-      '<p>套利钱包 <a href="#/scan/' + ARB + '" class="mono">' + ARB + '</a></p><div class="sc-bal" id="arb-bal"><p class="muted">读取中…</p></div></section>' +
-      '<section class="card"><div class="card-head"><h2>📈 战绩</h2><span class="muted" id="arb-eff"></span></div><div id="arb-sum">读取中…</div></section>' +
-      '<section class="card"><h2>🧾 成交记录</h2><div class="lg-list" id="arb-log">读取中…</div></section>' +
-      '<section class="card"><h2>📐 手续费账（为什么能稳赚）</h2><table class="arb-t"><tr><th>场所</th><th>挂单（maker）</th><th>吃单（taker）</th></tr>' +
-      '<tr><td>本站 OTC</td><td><b>0</b></td><td>1%（从收到的币里扣）</td></tr><tr><td>币安现货</td><td>0.1%（VIP 更低）</td><td>0.1%</td></tr><tr><td>官方 DEX</td><td>—</td><td>买约 0.5% · 卖约 3.3%</td></tr></table>' +
-      '<ul class="muted arb-ul"><li>路径 A 触发条件：OTC 卖单价 &lt; DEX 现价 × 0.965 × 0.99 ≈ 现价的 95.5%；路径 B：OTC 买单价 &gt; DEX 现价 ÷ 0.99 ÷ 0.995 ≈ 现价的 101.5%。</li>' +
-      '<li>Anubis 链一笔 Gas 约 0.0015 DAI，一次套利 2–3 笔，所以理论最低利润只要 &gt; 0.005 DAI 就是正的；为了留余量设成 0.05 DAI。</li>' +
-      '<li>唯一风险是两腿之间几秒的价格变动，用「DEX 成交量下限 + 单笔小额」兜住；DEX 那腿失败就回滚，币留在套利钱包等下次。</li>' +
-      '<li>同一盘口里买单 ≥ 卖单的交叉机会由撮合合约另外处理（利润进回购池）。</li></ul></section>';
-    Promise.all([bal(DAI), bal(AIL)]).then(function (b) {
-      var el = document.getElementById("arb-bal"); if (!el || !A.isCurrent(id)) return;
-      el.innerHTML = "<div><span>DAI</span><b>" + b[0].toLocaleString("en-US", { maximumFractionDigits: 2 }) + "</b></div><div><span>AiLGNS</span><b>" + b[1].toLocaleString("en-US", { maximumFractionDigits: 4 }) + "</b></div>" + (b[0] < 2 ? '<p class="muted">本金不足：往套利钱包转 DAI 后 keeper 才会开始工作（建议 1,000–3,000 DAI，Gas 也是 DAI）</p>' : "");
-    });
-    fetch(RAW + "?r=" + Date.now()).then(function (r) { return r.json(); }).then(function (st) {
-      if (!A.isCurrent(id)) return;
-      var tr = st.trades || [], day = Date.now() / 1000 - 86400, td = tr.filter(function (x) { return x.t >= day; });
-      document.getElementById("arb-eff").textContent = "DEX 实测折损：卖出 " + ((1 - st.sell_eff) * 100).toFixed(2) + "% · 买入 " + ((1 - st.buy_eff) * 100).toFixed(2) + "%";
-      document.getElementById("arb-sum").innerHTML = '<div class="sc-bal"><div><span>累计净利</span><b>' + (st.pnl || 0).toFixed(4) + " DAI</b></div><div><span>累计笔数</span><b>" + tr.length + "</b></div><div><span>24 小时</span><b>" + td.reduce(function (s, x) { return s + x.profit; }, 0).toFixed(4) + " DAI / " + td.length + " 笔</b></div></div>";
-      document.getElementById("arb-log").innerHTML = tr.length ? tr.slice().reverse().slice(0, 50).map(function (x) {
-        return '<div class="lg-row"><span class="lg-ico">' + (x.path === "A" ? "🅰️" : "🅱️") + '</span><div class="lg-main"><div class="lg-txt">' + (x.path === "A" ? "OTC 买入 → DEX 卖出" : "DEX 买入 → OTC 卖出") + "，动用 " + x.size + " DAI，净赚 <b>" + x.profit.toFixed(4) + " DAI</b>（DEX " + x.dex + "）</div><small>" + bj(x.t) + " · 单 #" + x.id + "</small></div>" + (x.tx && x.tx[0] ? '<a class="lg-link" href="#/scan/' + x.tx[0] + '">详情 ›</a>' : "") + "</div>";
-      }).join("") : '<p class="muted">还没有成交。keeper 每 5 分钟扫一次，有机会就自动出手。</p>';
-    }).catch(function () { var s = document.getElementById("arb-sum"); if (s) s.innerHTML = '<p class="muted">记账文件还没生成（keeper 第一次成交后出现）</p>'; var l = document.getElementById("arb-log"); if (l) l.innerHTML = ""; });
-  }
-  A.pages.arb = page;
-})();
-
-}catch(e){console.error('[bundle] arb.js',e);}
-;
-try{
-// 🆕 更新日志 #/updates：2026-11-26 起是后台页，只有站长口令能看（站长：「更新日志放在后台，前台不要展示，骗子在模仿我们」）。
-// 内容和客服机器人喂的「最近更新」是同一份（lib/updates.js）。前台菜单入口已撤掉。
-(function () {
-  "use strict";
-  var A = window.AIL;
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  var NAV = '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb">📣 发站内信</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb on">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
-  function login(id, msg) {
-    A.app.innerHTML = '<section class="card ptn-login"><h2>🆕 更新日志（内部）</h2><p class="muted">这一页只有内部能看。输入工单后台的口令（同一个）。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
-      '<input id="up-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="up-go">进入</button></section>';
-    var go = document.getElementById("up-go"), inp = document.getElementById("up-k");
-    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("fbKey", v); } catch (e) {} page(id); };
-    inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
-  }
-  function page(id) {
-    var k = key(); if (!k) return login(id);
-    A.app.innerHTML = '<section class="card"><h2>🆕 更新日志（内部）</h2>' + NAV + '<p class="muted">网站每次上线的新功能和规则变化，新的在前。只有内部能看，客户看不到这一页。</p><div id="up-list" class="lg-list">读取中…</div></section>';
-    fetch("/api/updates", { headers: { "x-key": k } }).then(function (r) { return r.json(); }).then(function (d) {
-      if (!A.isCurrent(id)) return;
-      if (d.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(id, "口令失效或不对，请重新输入"); }
-      var el = document.getElementById("up-list"), list = d.list || [];
-      el.innerHTML = list.length ? list.map(function (u) { var m = u.t.match(/^(\S+)\s/); return '<div class="lg-row"><span class="lg-ico">' + (m ? m[1] : "✨") + '</span><div class="lg-main"><div class="lg-txt">' + esc(m ? u.t.slice(m[0].length) : u.t) + '</div><small>' + esc(u.d) + "</small></div></div>"; }).join("") : '<p class="muted">暂无</p>';
-    }).catch(function () { var el = document.getElementById("up-list"); if (el) el.textContent = "读取失败"; });
-  }
-  A.pages.updates = page;
-})();
-
-}catch(e){console.error('[bundle] updates.js',e);}
-;
-try{
-// 📋 全站订单（内部页 #/orders，不进菜单）：站长一眼看所有客户在挂的单、域名挂单、最近成交。地址自动换成域名
-(function () {
-  "use strict";
-  var A = window.AIL;
-  var MK = { ailgns: { sym: "AiLGNS", dec: 18, chain: "Anubis" }, lgns: { sym: "LGNS", dec: 9, chain: "Anubis" }, glgns: { sym: "gLGNS", dec: 18, chain: "Anubis" }, lp: { sym: "LP", dec: 18, chain: "Anubis" }, rm: { sym: "RM", dec: 9, chain: "Anubis" }, flgns: { sym: "fLGNS", dec: 18, chain: "Anubis" }, plgns: { sym: "LGNS", dec: 9, chain: "Polygon" } };
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  var big = function (x, dec) { var b = BigInt(x); return dec >= 6 ? Number(b / BigInt(10) ** BigInt(dec - 6)) / 1e6 : Number(b) / Math.pow(10, dec); };
-  var fmt = function (v, d) { return Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: d === undefined ? 2 : d }); };
-  var leftT = function (sec) { if (sec <= 0) return "已到期"; var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60); return d ? d + " 天 " + h + " 时" : h ? h + " 时 " + m + " 分" : m + " 分"; };
-  var who = function (a) { return '<a href="#/scan/' + a + '" data-a="' + a + '" class="mono">' + A.short(a) + "</a>"; };
-  function bj(ts) { var d = new Date(ts * 1000 + 8 * 3600e3); return (d.getUTCMonth() + 1) + "/" + String(d.getUTCDate()).padStart(2, "0") + " " + String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); }
-  function market(k) {
-    var m = MK[k];
-    return fetch("/api/book?m=" + k).then(function (r) { return r.json(); }).then(function (d) {
-      var w = (d.orders || "0x").slice(2).match(/.{64}/g) || [], n = w.length > 1 ? Number(BigInt("0x" + w[1])) : 0, from = Number(d.from || 0), now = Date.now() / 1000, rows = [];
-      for (var i = 0; i < n; i++) {
-        var o = w.slice(2 + i * 7, 9 + i * 7); if (o.length < 7) break;
-        var maker = "0x" + o[0].slice(24), sell = o[1].slice(-1) === "1", open = o[2].slice(-1) === "1", exp = Number(BigInt("0x" + o[3])), gT = BigInt("0x" + o[4]), wT = BigInt("0x" + o[5]), gL = BigInt("0x" + o[6]);
-        if (!open || exp <= now || gL === 0n || gT === 0n) continue;
-        var coin = sell ? big(gL, m.dec) : (wT > 0n ? big(gL * wT / gT, m.dec) : 0), dai = sell ? big(gL * wT / gT, 18) : big(gL, 18);
-        rows.push({ k: k, id: from + i, maker: maker, sell: sell, px: coin ? dai / coin : 0, coin: coin, dai: dai, exp: exp });
-      }
-      return rows;
-    }).catch(function () { return []; });
-  }
-  A.pages.orders = function (id) {
-    A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📋 全站订单 <small class="muted">内部</small></h2><span class="muted" id="od-sum">读取中…</span></div>' +
-      '<div class="od-tabs" id="od-tabs">' + Object.keys(MK).map(function (k, i) { return '<button type="button" data-k="' + k + '"' + (i ? "" : ' class="on"') + ">" + MK[k].sym + (MK[k].chain === "Polygon" ? " · Polygon" : "") + "</button>"; }).join("") + '<button type="button" data-k="names">域名挂单</button><button type="button" data-k="fills">最近成交</button></div>' +
-      '<div id="od-body">读取中…</div></section>';
-    var cache = {}, cur = "ailgns";
-    function show(k) {
-      cur = k; var body = document.getElementById("od-body"); if (!body) return;
-      document.querySelectorAll("#od-tabs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-k") === k); });
-      body.innerHTML = "读取中…";
-      var p = k === "names" ? fetch("/api/name-market").then(function (r) { return r.json(); }).then(function (d) { return { names: d.list || [] }; })
-        : k === "fills" ? fetch("/api/fills?m=ailgns").then(function (r) { return r.json(); }).then(function (d) { return { fills: d.list || [] }; })
-        : market(k).then(function (rows) { return { rows: rows }; });
-      p.then(function (d) {
-        if (!A.isCurrent(id) || cur !== k) return;
-        var now = Date.now() / 1000, html;
-        if (d.rows) {
-          var rows = d.rows.sort(function (a, b) { return a.sell - b.sell || (a.sell ? a.px - b.px : b.px - a.px); }), byMaker = {};
-          rows.forEach(function (r) { (byMaker[r.maker] = byMaker[r.maker] || []).push(r); });
-          var makers = Object.keys(byMaker).sort(function (a, b) { return byMaker[b].reduce(function (s, r) { return s + r.dai; }, 0) - byMaker[a].reduce(function (s, r) { return s + r.dai; }, 0); });
-          html = '<p class="muted">' + rows.length + " 张在挂 · " + makers.length + " 个挂单人 · 买单 " + rows.filter(function (r) { return !r.sell; }).length + " / 卖单 " + rows.filter(function (r) { return r.sell; }).length + " · 总额 " + fmt(rows.reduce(function (s, r) { return s + r.dai; }, 0), 0) + " DAI</p>" +
-            makers.map(function (mk) {
-              var L = byMaker[mk], tot = L.reduce(function (s, r) { return s + r.dai; }, 0);
-              return '<div class="od-maker"><div class="od-mh">' + who(mk) + ' <small class="muted">' + L.length + " 张 · " + fmt(tot, 0) + " DAI</small></div>" + L.map(function (r) {
-                return '<div class="od-row ' + (r.sell ? "ask" : "bid") + '"><span>' + (r.sell ? "卖出" : "买入") + "</span><span>" + fmt(r.px, 3) + "</span><span>" + fmt(r.coin, 4) + " " + MK[r.k].sym + "</span><span>" + fmt(r.dai, 0) + " DAI</span><span>#" + r.id + "</span><span>" + leftT(r.exp - now) + "</span></div>";
-              }).join("") + "</div>";
-            }).join("");
-        } else if (d.names) {
-          html = '<p class="muted">' + d.names.length + " 个域名在卖</p>" + d.names.map(function (x) { var p = big(x.price, 18); return '<div class="od-row"><span>🏷</span><span><a href="#/names/' + encodeURIComponent(x.label + "." + x.t) + '">' + esc(x.label + "." + x.t) + "</a></span><span>" + fmt(p, 0) + " DAI</span><span>" + who(x.maker) + "</span><span>#" + x.id + "</span><span>" + leftT(x.expiry - now) + "</span></div>"; }).join("");
-        } else {
-          html = '<p class="muted">AiLGNS OTC 最近 ' + d.fills.length + " 笔成交（北京时间）</p>" + d.fills.map(function (x) { return '<div class="od-row"><span>' + bj(x.t) + "</span><span>" + fmt(x.px, 3) + "</span><span>" + fmt(x.dai / x.px, 4) + " AiLGNS</span><span>" + fmt(x.dai, 2) + " DAI</span><span>#" + x.id + '</span><span><a href="#/scan/' + x.tx + '">详情</a></span></div>'; }).join("");
-        }
-        body.innerHTML = html || '<p class="muted">暂无</p>';
-        if (A.fillNames) A.fillNames(body);
-      });
-    }
-    document.getElementById("od-tabs").onclick = function (e) { var b = e.target.closest("button[data-k]"); if (b) show(b.getAttribute("data-k")); };
-    Promise.all(Object.keys(MK).map(market)).then(function (all) { var n = all.reduce(function (s, r) { return s + r.length; }, 0), el = document.getElementById("od-sum"); if (el) el.textContent = "四个市场共 " + n + " 张在挂"; });
-    show("ailgns");
-  };
-})();
-
-}catch(e){console.error('[bundle] orders.js',e);}
-;
-try{
-// 💊 站长吃药打卡页 #/med（内部，口令和工单后台同一个 fbKey）：早上 10 点后一粒、晚上 22 点后一粒；到点没点「吃了」就一直催
-(function () {
-  var A = window.AIL;
-  function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function tm(ms) { if (!ms) return ""; try { return new Intl.DateTimeFormat("zh-CN", { timeZone: "America/Vancouver", hour: "2-digit", minute: "2-digit", hour12: false }).format(ms); } catch (e) { return new Date(ms).toTimeString().slice(0, 5); } }
-  function render(id) {
-    var app = A.app, k = key();
-    if (!k) { app.innerHTML = '<section class="card"><h1>💊 吃药打卡</h1><p class="note">这页是站长自己用的。先去 <a href="#/feedback/admin">工单后台</a> 输一次口令，回来就能用。</p></section>'; return; }
-    var nav = '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb on">💊 吃药</a></div>';
-    app.innerHTML = '<section class="card"><h1>💊 吃药打卡</h1>' + nav + '<p class="sub" style="margin-top:10px">早上 10 点后一粒，晚上 22 点后一粒（温哥华时间）。到点没点「吃了」，站内信每半小时催一次。</p><div id="med-box"><p class="muted">读取中…</p></div><div id="med-hist"></div></section>';
-    fetch("/api/med?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
-      if (!A.isCurrent(id)) return;
-      if (j.error) { document.getElementById("med-box").innerHTML = '<p class="note down">' + esc(j.error) + "</p>"; return; }
-      var t = j.today || {}, cur = j.now || {};
-      function slotHtml(slot, name) {
-        var s = t[slot] || {}, on = cur.slot === slot, done = !!s.taken;
-        return '<div class="med-slot' + (done ? " ok" : on ? " due" : "") + '"><div class="med-t"><b>' + name + "</b><small>" + (done ? "✅ 已吃 " + tm(s.taken) : on ? "⏰ 到点了" + (s.nagN ? "（已提醒 " + s.nagN + " 次）" : "") : "还没到时间") + "</small></div>" +
-          (done ? '<button type="button" class="ghost" data-act="undo" data-slot="' + slot + '">点错了，撤销</button>' :
-            '<div class="med-btns"><button type="button" class="med-yes" data-act="taken" data-slot="' + slot + '">吃了 ✅</button><button type="button" class="med-no" data-act="skip" data-slot="' + slot + '">没吃，15 分钟后再催</button></div>') + "</div>";
-      }
-      document.getElementById("med-box").innerHTML = '<p class="muted">今天 ' + esc(cur.bjDay || "") + "（温哥华时间）</p>" + slotHtml("am", "🌞 早上那粒（10 点后）") + slotHtml("pm", "🌙 晚上那粒（22 点后）");
-      var days = (j.days || []).slice(1);
-      document.getElementById("med-hist").innerHTML = days.length ? '<h2 style="margin-top:14px">最近 7 天</h2><ul class="med-ul">' + days.map(function (x) { var d = x.d || {}; return "<li><span>" + esc(x.day) + "</span><em>" + (d.am && d.am.taken ? "🌞 ✅ " + tm(d.am.taken) : "🌞 ❌") + "</em><em>" + (d.pm && d.pm.taken ? "🌙 ✅ " + tm(d.pm.taken) : "🌙 ❌") + "</em></li>"; }).join("") + "</ul>" : "";
-      app.querySelectorAll("[data-act]").forEach(function (b) {
-        b.onclick = function () {
-          b.disabled = true;
-          fetch("/api/med", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: k, slot: b.getAttribute("data-slot"), action: b.getAttribute("data-act"), day: cur.day }) })
-            .then(function (r) { return r.json(); }).then(function () { render(id); }).catch(function () { b.disabled = false; });
-        };
-      });
-    }).catch(function () { if (A.isCurrent(id)) document.getElementById("med-box").innerHTML = '<p class="note down">读不到，刷新再试</p>'; });
-  }
-  A.pages.med = render;
-})();
-
-}catch(e){console.error('[bundle] med.js',e);}
-;
-try{
-var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成了 HTML
-// 🤝 合伙人面板 #/partner：独立口令（PARTNER_KEY，站长口令也能进）。四屏：风险与建议 → 钱 → 今天的生意 → 客户 → 计划
-// 数据来自 /api/partner（ops-watch 每 5 分钟算好）；只有站长口令能改分配比例和开发计划
-(function () {
-  var A = window.AIL, esc = A.esc || function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-  function key() { try { return localStorage.getItem("ptnKey") || localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  function fm(v, d) { return Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: d == null ? 2 : d }); }
-  function tm(t) { var x = new Date(t + 8 * 3600e3); return (x.getUTCMonth() + 1) + "/" + x.getUTCDate() + " " + String(x.getUTCHours()).padStart(2, "0") + ":" + String(x.getUTCMinutes()).padStart(2, "0"); }
-  function dayCn(d) { return d ? Number(d.slice(5, 7)) + "/" + Number(d.slice(8, 10)) : ""; }
-  var LV = { red: ["🔴", "马上处理"], yellow: ["🟡", "今天处理"], green: ["🟢", "知道就好"] };
-
-  // 📊 运营分配统计（2026-11-08）：比例、地址、谷歌社交账号钱包实际转过去多少
-  // 📍 所有部署地址（lib/addresses.js 登记）：名称 · 链 · 地址 · Gas / DAI / AiLGNS / LGNS · 状态；异常的排前面
-  // 站长 2026-11-11：余额从高到低排（点 Gas / DAI / AiLGNS / LGNS），「默认」= 异常在前的原顺序；刷新数据后保持选择
-  var adSort = "";
-  function sortAddr(k) {
-    var tb = document.querySelector(".ptn-addr tbody"); if (!tb) return;
-    adSort = k || "";
-    var at = function (r, n) { return parseFloat(r.getAttribute("data-" + n)); }, rows = [].slice.call(tb.children);
-    rows.sort(function (x, y) {
-      if (adSort) { var p = at(x, adSort), q = at(y, adSort), dv = (isNaN(q) ? -1 : q) - (isNaN(p) ? -1 : p); if (dv) return dv; }
-      return at(x, "i") - at(y, "i");
-    });
-    rows.forEach(function (r) { tb.appendChild(r); });
-    [].forEach.call(document.querySelectorAll("#ptn-sort button"), function (b) { b.className = (b.getAttribute("data-k") || "") === adSort ? "on" : ""; });
-  }
-  function addrTable(j) {
-    var L = j.addrs || []; if (!L.length) return "";
-    var bad = L.filter(function (d) { return d.st !== "✅"; }), good = L.filter(function (d) { return d.st === "✅"; });
-    var scan = function (d) { return d.c === "polygon" ? "https://polygonscan.com/address/" + d.a : "#/scan/" + d.a; };
-    var f4 = function (v) { return v == null ? "—" : v >= 100 ? fm(v, 0) : String(Math.round(v * 1e4) / 1e4); };
-    var dv = function (v) { return v == null ? "" : v; };
-    var row = function (d, i) {
-      return '<tr data-i="' + i + '" data-gas="' + dv(d.gas) + '" data-dai="' + dv(d.tok.DAI) + '" data-ailgns="' + dv(d.tok.AiLGNS) + '" data-lgns="' + dv(d.tok.LGNS) + '" class="' + (d.st === "✅" ? "" : "ptn-bad") + '"><td><b>' + esc(d.n) + "</b><small>" + (d.k === "contract" ? "合约" : "钱包") + " · " + (d.c === "polygon" ? "Polygon" : "Anubis") + ' · <a href="' + scan(d) + '"' + (d.c === "polygon" ? ' target="_blank" rel="noopener"' : "") + '><code>' + d.a.slice(0, 6) + "…" + d.a.slice(-4) + "</code></a>" + (d.note ? " · " + esc(d.note) : "") + "</small></td>" +
-        "<td data-l=Gas>" + f4(d.gas) + "</td><td data-l=DAI>" + f4(d.tok.DAI) + "</td><td data-l=AiLGNS>" + f4(d.tok.AiLGNS) + "</td><td data-l=LGNS>" + f4(d.tok.LGNS) + "</td><td data-l=状态>" + esc(d.st) + "</td></tr>";
-    };
-    // 站长 2026-11-09：表太长，默认折叠；有异常才默认展开
-    return '<details class="ptn-addrs"' + (bad.length ? " open" : "") + '><summary><h3 class="ad-h">📍 所有部署地址（' + L.length + " 个" + (bad.length ? " · ⚠️ " + bad.length + " 个异常" : " · ✅ 全部正常") + '）<small class="muted">' + (bad.length ? "有异常，已展开" : "点开看每个地址的余额") + "</small></h3></summary>" +
-      '<p class="muted">合约、机器人钱包、合伙人收款全在这，有异常会同时出现在上面的风险里。新部署的合约或钱包必须登记到这张表（lib/addresses.js），不然看不见。</p>' +
-      '<div class="ptn-sort" id="ptn-sort"><span>余额从高到低排：</span><button type="button" data-k="" class="on">默认</button><button type="button" data-k="gas">Gas</button><button type="button" data-k="dai">DAI</button><button type="button" data-k="ailgns">AiLGNS</button><button type="button" data-k="lgns">LGNS</button></div>' +
-      '<div class="ad-tw"><table class="ad-t ptn-t ptn-addr"><thead><tr><th>地址</th><th>Gas</th><th>DAI</th><th>AiLGNS</th><th>LGNS</th><th>状态</th></tr></thead><tbody>' + bad.concat(good).map(row).join("") + "</tbody></table></div></details>";
-  }
-  function allocHtml(j) {
-    var L = j.alloc || []; if (!L.length) return "";
-    var tot = L.reduce(function (t, y) { return t + ((y.got && y.got.ail) || 0); }, 0);
-    var lg = j.alloclog || [], tr = (j.split && j.split.transit) || {}, wait = tr.ail > 0.0001;
-    var st = (j.canWrite ? '<div class="ptn-cp"><div class="ptn-cpt">⚠️ 每次分配，先把 AiLGNS 转到这个地址</div><div class="ptn-cpa mono" id="ptn-cpa">' + esc(tr.a || "") + '</div><button type="button" class="nm-go ptn-cpb" id="ptn-cpb">📋 点击复制中转地址</button></div>' : "") +
-      '<div class="ptn-tr"><span>🔁 中转地址余额</span><b>' + (tr.ail == null ? "读取失败" : fm(tr.ail, 4) + " AiLGNS") + "</b>" + (tr.value ? '<small class="muted">≈ ' + fm(tr.value, 0) + " DAI</small>" : "") + '<a class="mono" href="#/scan/' + tr.a + '">链上记录 →</a></div><p class="muted">流程：谷歌社交账号钱包 → 转到这个中转地址 → 从中转地址按比例转到下面四个地址（只分 AiLGNS）。</p>' +
-      '<div class="ptn-ast ' + (wait ? "wait" : "done") + '">' + (wait ? "<b>⏳ 等待分配</b><span>中转地址里还有 " + fm(tr.ail, 4) + " AiLGNS 没分</span>" : "<b>✅ 已分配</b><span>中转地址已转空</span>") +
-      (j.canWrite ? '<button type="button" class="nm-go" id="ptn-adone">📣 我已分配，通知他们</button>' : "") + '<small class="muted" id="ptn-ast">' + (lg[0] ? "上次通知 " + tm(lg[0].t) + " · " + (lg[0].ail != null ? fm(lg[0].ail, 4) + " AiLGNS" : "≈ " + fm(lg[0].total, 0) + " DAI") : "") + "</small></div>";
-    var hist = lg.length ? '<details class="ptn-ahist"><summary>📜 分配记录（' + lg.length + ' 次）</summary>' + lg.slice(0, 20).map(function (x) { return "<div><b>" + tm(x.t) + "</b> 合计 " + (x.ail != null ? fm(x.ail, 4) + " AiLGNS" : "≈ " + fm(x.total, 0) + " DAI") + "<small class=\"muted\"> · " + x.parts.map(function (y) { return esc(y.n) + " " + y.p + "% " + (y.ail != null ? fm(y.ail, 4) : fm(y.amt, 0)); }).join(" / ") + "</small></div>"; }).join("") + "</details>" : "";
-    return st + hist + '<details class="ptn-ald"><summary>📊 运营分配统计（中转地址累计已转 ' + fm(tot, 4) + ' AiLGNS）</summary><div class="ptn-alloc">' + L.map(function (y) {
-      var g = y.got || {}, real = tot ? Math.round(g.ail / tot * 1000) / 10 : 0;
-      return '<div class="ptn-al"><div class="ptn-alh"><b>' + esc(y.n) + " " + y.p + '%</b><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + " →</a></div>" +
-        (g.err ? '<p class="muted">读取失败，稍后刷新</p>' : '<div class="ptn-alv"><span>已转 <b>' + fm(g.ail || 0, 4) + " AiLGNS</b></span><span>实际占比 <b" + (tot && Math.abs(real - y.p) > 5 ? ' class="warn"' : "") + ">" + real + "%</b></span><span>" + (g.n || 0) + " 笔</span></div>" +
-        '<small class="muted">≈ ' + fm(g.value || 0, 0) + " DAI（按现价）" + (g.last ? " · 最近 " + tm(g.last) : "") + "</small>" + ((g.txs || []).length ? '<details class="ptn-atxd"><summary>查看最近 ' + g.txs.length + ' 笔转账明细</summary><div class="ptn-atx">' + g.txs.map(function (x) { return '<a href="#/scan/' + x.h + '"><span>' + tm(x.t) + "</span><b>" + fm(x.v, 4) + " AiLGNS</b><small>查看转账 →</small></a>"; }).join("") + "</div></details>" : "")) + "</div>";
-    }).join("") + '<p class="muted">四个地址合计已转 <b>' + fm(tot, 4) + ' AiLGNS</b>。「实际占比」和设定比例差 5% 以上会标红。</p></div></details>';
-  }
-  function login(rid, msg) {
-    A.app.innerHTML = '<section class="card ptn-login"><h2>🤝 合伙人面板</h2><p class="muted">输入查看口令。合伙人只能看，站长口令还能改分配比例和计划。</p>' +
-      (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
-      '<input id="ptn-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="ptn-go">进入</button></section>';
-    var go = document.getElementById("ptn-go"), inp = document.getElementById("ptn-k");
-    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("ptnKey", v); } catch (e) {} load(rid); };
-    inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
-  }
-
-  // 昨日对比：今天 vs 昨天 → 「昨天 236 ↑12%」（站长 2026-11-09）
-  function vs(t, y, unit) { t = Number(t) || 0; y = Number(y) || 0; var d = y ? Math.round((t - y) / y * 100) : 0; return "昨天 " + fm(y, 0) + (unit || "") + (y ? (d > 0 ? ' <i class="up">↑' + d + "%</i>" : d < 0 ? ' <i class="down">↓' + (-d) + "%</i>" : " 持平") : ""); }
-  function tile(label, val, sub, cls) { return '<div class="ad-tile' + (cls ? " " + cls : "") + '"><small>' + label + "</small><b>" + val + "</b>" + (sub ? "<span>" + sub + "</span>" : "") + "</div>"; }
-
-  // 📈 产品使用排行（站长 2026-11-19：「每日哪款产品用的人最多，我好优化」）。放在合伙人面板：站长平时看的后台就是这一页（旧的工单后台「数据」页会自动跳到这里）：一台设备一天打开过某个产品算 1 人，只记数量不记是谁
-  var PROD_N = { otc: "OTC · AiLGNS", otclgns: "OTC · LGNS", otcglgns: "OTC · gLGNS", otcplgns: "OTC · LGNS（Polygon）", otcnft: "OTC · AWAKE NFT", otcswap: "闪兑", names: "域名", oracle: "每日预言家", lend: "借贷", member: "会员", rank: "荣耀榜",
-    scan: "账本", inbox: "收件箱", usdt: "USDT 跨链桥", gale: "秒到跨链", fast: "极速预言家", aiswap: "aiswap", lp: "做市商", trade: "交易所盘口", farm: "开心农场", mj: "麻将", gd: "掼蛋", br: "大逃杀", play: "销毁乐园（游戏厅）", pixel: "像素画", square: "链上广场",
-    genesis: "创世销毁", bonus: "创世分红签到", weekly: "手续费周榜", feedback: "问题反馈", updates: "更新日志", trades: "成交查询", wallet: "钱包快查", team: "团队查询", flows: "资金流向", growth: "团队新增业绩", tree: "团队树", upline: "查上级", custom: "私人定制", app: "下载 App", g2048: "2048", snake: "贪吃蛇", tetris: "方块", flappy: "飞鸟", mines: "扫雷", brick: "打砖块", merge: "合成", pet: "宠物" };
-  function prodHtml(rows) {
-    var col = function (r, title) {
-      var p = (r && r.prod) || {}, ks = Object.keys(p).filter(function (k) { return k.slice(0, 2) !== "zz"; }).sort(function (a, b) { return p[b] - p[a]; }), top = ks.length ? p[ks[0]] : 0;
-      return '<div class="ad-pr-c"><h4>' + title + (r && r.day ? " <small>" + r.day.slice(5) + "</small>" : "") + "</h4>" + (ks.length ? "<ol>" + ks.slice(0, 15).map(function (k, i) {
-        return '<li><span class="ad-pr-n">' + (i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1) + " " + esc(PROD_N[k] || k) + '</span><span class="ad-pr-b"><i style="width:' + Math.max(4, Math.round(p[k] / top * 100)) + '%"></i></span><b>' + p[k] + " 人</b></li>"; }).join("") + "</ol>" + (ks.length > 15 ? '<p class="muted">另有 ' + (ks.length - 15) + " 个产品人数更少，没列出</p>" : "")
-        : '<p class="muted">还没有数据</p>') + "</div>";
-    };
-    return '<h3 class="ad-h">📈 每天哪个产品用的人最多</h3><div class="ad-pr">' + col(rows[0], "今天") + col(rows[1], "昨天") + '</div><p class="muted">一台设备一天打开过某个产品算 1 人（同一个人换手机、换浏览器会算成 2 人）；只记数量，不记是谁。2026-11-19 上线后才开始记，之前的日子没有数据。今天的数每 2 分钟更新。</p>';
-  }
-  function render(rid, j) {
-    var d0 = j.rows[0] || {}, d1 = j.rows[1] || {}, d2 = j.rows[2] || {}, w7 = j.rows.slice(0, 7); // d2 = 前天（站长 2026-11-09：两天太少，看三天）
-    var sum = function (k) { return w7.reduce(function (s, r) { return s + (r[k] || 0); }, 0); };
-    // 站长 2026-11-12：「不要毛收入，要统计谷歌账户留存的真实收入，我也不作假」。成交额×1%、域名×30% 这种算出来的数全撤掉，
-    // 只写链上真转进谷歌社交账号钱包并留下来的钱（r.fl 后台逐笔扫链；r.src 外面钱包直接转来的）。三种币分开写、不折算（2026-11-11 定）
-    var TK = ["dai", "ail", "lgns"], MK = { dai: "mDai", ail: "mAil", lgns: "mLgns" }, GK = ["otc", "nm", "pool", "mem", "oth", "all"];
-    var Z = function () { return { dai: 0, ail: 0, lgns: 0 }; };
-    var tk = function (o) {
-      var a = [];
-      if (Math.abs(o.dai) >= 0.005) a.push('<b>' + fm(o.dai, Math.abs(o.dai) >= 100 ? 0 : 2) + "</b> DAI");
-      if (Math.abs(o.ail) >= 0.00005) a.push('<b>' + fm(o.ail, 4) + "</b> AiLGNS");
-      if (Math.abs(o.lgns) >= 0.5) a.push('<b>' + fm(o.lgns, 0) + "</b> LGNS");
-      return a.length ? a.join(" + ") : "<b>0</b>";
-    };
-    var parts = function (r) { // 一天的留存：OTC 手续费 + （域名钱进来 − 转给奖池）+ 会员费 + 其它
-      if (!r.fl) return null;
-      var f = r.fl, x = r.src || {}, g = function (k) { return f[k] || {}; };
-      var P = { otc: Z(), nm: Z(), pool: Z(), mem: Z(), oth: Z(), all: Z(), memN: x.memN || 0, usd: x.mem || 0, othN: (x.n || 0) + (g("oth").n || 0), k: 1 };
-      TK.forEach(function (t) {
-        P.otc[t] = g("otc")[t] || 0; P.pool[t] = g("pool")[t] || 0; P.nm[t] = (g("nm")[t] || 0) - P.pool[t];
-        P.mem[t] = x[MK[t]] || 0; P.oth[t] = (x[t] || 0) + (g("oth")[t] || 0);
-        P.all[t] = P.otc[t] + P.nm[t] + P.mem[t] + P.oth[t];
-      });
-      return P;
-    };
-    var PS = w7.map(parts), SUM = PS.reduce(function (S, P) {
-      if (!P) return S;
-      GK.forEach(function (g) { TK.forEach(function (t) { S[g][t] += P[g][t]; }); });
-      S.memN += P.memN; S.usd += P.usd; S.othN += P.othN; S.k++;
-      return S;
-    }, { otc: Z(), nm: Z(), pool: Z(), mem: Z(), oth: Z(), all: Z(), memN: 0, usd: 0, othN: 0, k: 0 });
-    var flWait = j.flLag > 3000 ? Math.ceil(j.flLag / 29400) * 5 : 0; // 后台每 5 分钟补 6 段 × 4900 块
-    /* 站长 2026-11-13：股东版——一句话 + 三小卡 + 4 列表。三种币按当天 OTC 最后成交价折成 DAI 一个数（估值，带 ≈），真实到手的三种币点开那天看 */
-    var PXN = j.pxNow || { ail: j.price || 0, lgns: 0 };
-    var conv = function (o, px) { return (o.dai || 0) + (o.ail || 0) * px.ail + (o.lgns || 0) * px.lgns; };
-    var CK = ["otc", "nm", "mem", "oth"], CN = { otc: "OTC 手续费", nm: "域名", mem: "会员", oth: "其它" };
-    var DV = w7.map(function (r, i) { /* 每天折成 DAI：合计 + 四个来源 */
-      var P = PS[i]; if (!P) return null;
-      var p = r.px || {}, px = { ail: p.ail || PXN.ail || 0, lgns: p.lgns || PXN.lgns || 0 };
-      var o = { all: conv(P.all, px), px: px, est: !r.px || !!p.e, miss: px.lgns ? 0 : P.all.lgns };
-      CK.forEach(function (k) { o[k] = conv(P[k], px); });
-      return o;
-    });
-    var W = DV.reduce(function (S, o) { if (!o) return S; S.all += o.all; S.miss += o.miss; S.k++; if (o.est) S.est = 1; CK.forEach(function (k) { S[k] += o[k]; }); return S; }, { all: 0, otc: 0, nm: 0, mem: 0, oth: 0, miss: 0, k: 0, est: 0 });
-    var ap = function (v) { return "≈ " + fm(v, 0) + " DAI"; }, estTag = '<em class="ptn-est">估</em>';
-    var arrow = function (t, y) { if (!(y > 0)) return ""; var d = Math.round((t - y) / y * 100); return d === 0 ? "，和前天差不多" : '，比前天 <i class="' + (d > 0 ? "up" : "down") + '">' + (d > 0 ? "↑" : "↓") + Math.abs(d) + "%</i>"; };
-    var hero = '<div class="ptn-hero"><small>今天到现在，真留下来的钱（三种币折成 DAI）</small><b class="big">' + (DV[0] ? ap(DV[0].all) : "—") + "</b>" +
-      "<p>昨天全天 <b>" + (DV[1] ? ap(DV[1].all) : "—") + "</b>" + (DV[1] && DV[2] ? arrow(DV[1].all, DV[2].all) : "") + "</p>" +
-      "<p>近 " + (W.k || 7) + " 天 <b>" + (W.k ? ap(W.all) : "—") + "</b></p>" +
-      (W.miss > 0.5 ? '<p class="muted">另有 ' + fm(W.miss, 0) + " LGNS 还没有成交价，没折进去</p>" : "") + "</div>";
-    var bars = function (k) { /* 7 根小柱：左边最早，最右是今天（没过完，颜色浅） */
-      var a = w7.map(function (r) { return r[k] || 0; }), mx = Math.max.apply(null, a.concat([1]));
-      return '<div class="ptn-bars">' + a.map(function (v, i) { return "<i" + (i === 0 ? ' class="now"' : "") + ' style="height:' + Math.max(4, Math.round(v / mx * 100)) + '%" title="' + dayCn(w7[i].day) + " " + fm(v, 0) + '"></i>'; }).reverse().join("") + "</div>";
-    };
-    var shareTot = CK.reduce(function (t, k) { return t + Math.max(0, W[k]); }, 0);
-    var share = shareTot > 0 ? '<div class="ptn-share">' + CK.map(function (k) { var p = Math.max(0, W[k]) / shareTot * 100; return p >= 0.5 ? '<i class="s-' + k + '" style="width:' + p.toFixed(1) + '%"></i>' : ""; }).join("") + '</div><div class="ptn-lg">' +
-      CK.map(function (k) { return '<span><i class="s-' + k + '"></i>' + CN[k] + " <b>" + Math.round(Math.max(0, W[k]) / shareTot * 100) + "%</b></span>"; }).join("") + "</div>" : '<p class="muted">正在从链上补</p>';
-    var cards = '<div class="ptn-c3"><div class="ptn-c"><small>钱从哪来（近 ' + (W.k || 7) + " 天留存）</small>" + share + "</div>" +
-      '<div class="ptn-c"><small>生意大不大 · OTC 成交额</small><b>' + fm(d0.fillDai, 0) + " <span>DAI 今天</span></b>" + bars("fillDai") + "<small>昨天 " + fm(d1.fillDai, 0) + "</small></div>" +
-      '<div class="ptn-c"><small>人多不多 · 第一次来的人</small><b>' + fm(d0.v1, 0) + " <span>人 今天</span></b>" + bars("v1") + "<small>昨天 " + fm(d1.v1, 0) + " 人</small></div></div>";
-    var row = function (lab, val) { return "<p><span>" + lab + "</span><span>" + val + "</span></p>"; };
-    var detail = function (P, o, fills, nmN, extra) { /* 点开一天：真实到手的三种币 + 明细 */
-      if (!P) return '<div class="ptn-dd">' + row("留存", "正在从链上补") + extra + "</div>";
-      return '<div class="ptn-dd">' +
-        row("OTC 手续费", tk(P.otc) + "<small>" + (fills || 0) + " 笔成交</small>") +
-        row("域名留存", tk(P.nm) + "<small>卖 " + (nmN || 0) + " 个 · 已转奖池 " + fm(P.pool.dai, 0) + " DAI</small>") +
-        row("会员费", tk(P.mem) + (P.memN ? "<small>" + P.memN + " 笔 · 合 " + fm(P.usd, 0) + " 美元</small>" : "")) +
-        row("其它", tk(P.oth) + (P.othN ? "<small>" + P.othN + " 笔</small>" : "")) +
-        row("真实到手合计", tk(P.all)) +
-        (o ? row("折算用的价", "1 AiLGNS ≈ " + fm(o.px.ail, 0) + " DAI" + (o.px.lgns ? " · 1 LGNS ≈ " + fm(o.px.lgns, 4) + " DAI" : " · LGNS 暂无成交价") + "<small>" + (o.est ? "没存到当天的价，按后来的价估算" : "当天 OTC 最后一笔成交价") + "</small>") : "") +
-        extra + "</div>";
-    };
-    var pkOf = function (r, i) { return r.pk || (i === 0 && j.traffic ? j.traffic.peak : 0) || 0; };
-    var list = '<div class="ptn-l"><div class="ptn-lh"><span>日期</span><span>留存 ≈DAI</span><span>OTC 成交额</span><span>来访人</span></div>' +
-      w7.map(function (r, i) {
-        var o = DV[i], wk = r.day ? "周" + "日一二三四五六".charAt(new Date(r.day + "T00:00:00Z").getUTCDay()) : "", pk = pkOf(r, i);
-        return '<details class="ptn-day' + (i === 0 ? " now" : "") + '"><summary><span>' + (i === 0 ? "今天 " : i === 1 ? "昨天 " : "") + dayCn(r.day) + (i > 1 ? " <small>" + wk + "</small>" : "") + '</span><span class="m">' + (o ? fm(o.all, 0) + (o.est ? estTag : "") : "—") + "</span><span>" + fm(r.fillDai, 0) + "</span><span>" + fm(r.v1, 0) + "</span></summary>" +
-          detail(PS[i], o, r.fills, r.nmN, row("来访", fm(r.v, 0) + " 次打开 · App 装机 " + (r.an || 0) + " 台" + (pk ? " · 在线峰值 " + pk + " 人" : ""))) + "</details>";
-      }).join("") +
-      '<details class="ptn-day sum"><summary><span>近 7 天' + (SUM.k && SUM.k < w7.length ? " <small>留存 " + SUM.k + " 天</small>" : "") + '</span><span class="m">' + (W.k ? fm(W.all, 0) + (W.est ? estTag : "") : "—") + "</span><span>" + fm(sum("fillDai"), 0) + "</span><span>" + fm(sum("v1"), 0) + "</span></summary>" +
-      detail(SUM.k ? SUM : null, null, sum("fills"), sum("nmN"), row("来访", fm(sum("v"), 0) + " 次打开 · App 装机 " + sum("an") + " 台 · 在线最高 " + w7.reduce(function (m, r, i) { return Math.max(m, pkOf(r, i)); }, 0) + " 人")) + "</details></div>";
-    var biz = '<h3 class="ad-h">📊 股东面板（近 7 天）</h3>' + hero + cards + list + prodHtml(j.rows || []) +
-      '<p class="muted ptn-dn">👆 点某一天，看那天真实收到的三种币和明细。今天还没过完。' + (W.est ? "带「估」的日子没存到当天的价，是按后来的价估的。" : "") + "</p>" +
-      (flWait ? '<p class="muted ptn-dn">⏳ 前几天的数正在从链上一笔一笔补，大约 ' + flWait + " 分钟补齐，没补到的日子先显示「—」。</p>" : "") +
-      '<details class="ptn-how"><summary>这些数怎么算的</summary><p class="muted ptn-dn">留存 = 真留在谷歌社交账号钱包里的钱，从链上一笔一笔数出来，不是算出来的毛收入。为了一眼看懂，把收到的 DAI、AiLGNS、LGNS 按当天 OTC 最后一笔成交价折成 DAI 一个数（带 ≈ 的都是折算，是估值，不是真换成了 DAI）；真实收到的三种币各多少，点开那一天看。当天的价存下来以后不再变，过去的日子不会跟着币价动。OTC 手续费 = 每笔成交时托管合约转进钱包的手续费（买卖两边收的币不一样，所以有 DAI、AiLGNS、LGNS）。域名留存 = 域名的钱转进钱包的数，减掉转给预言家奖池 / 极速资金池的数（那是客户的奖金，不是我们的）。会员费 = 会员页开通 / 升级实际收到的币。其它 = 外面的钱包直接转进来的钱（游戏充值等）和像素墙收入。不算收入的：自己挂单的本金进出、自己换币、撤单退回、自己钱包之间互转。给客户的退款、分出去和提走的钱没有从这里减。来访人 = 第一次打开网站的人。</p></details>';
-    var b = j.bal.src;
-    /* 💼 分配比例：现在待分配多少、每人按比例应分多少（一行一个人） */
-    var ratio = '<h3 class="ad-h">💼 分配比例</h3><div class="ptn-l">' +
-      '<div class="ptn-rr top"><span><b>现在待分配</b><small>谷歌社交账号钱包里的 AiLGNS + DAI</small></span><span class="m">≈ ' + fm(j.split.total, 0) + " DAI<small>折 " + (j.price ? fm(j.split.total / j.price, 4) : "—") + " AiLGNS</small></span></div>" +
-      (j.split.parts || []).map(function (y) { return '<div class="ptn-rr"><span><b>' + esc(y.n) + " " + y.p + '%</b><small><a class="mono" href="#/scan/' + y.a + '">' + y.a.slice(0, 6) + "…" + y.a.slice(-4) + '</a></small></span><span class="m">≈ ' + fm(y.amt, 0) + " DAI<small>" + fm(y.ail || 0, 4) + " AiLGNS</small></span></div>"; }).join("") +
-      '</div><p class="muted ptn-dn">待分配里有 AiLGNS ' + fm(b.ail, 4) + " + DAI " + fm(b.dai + b.pdai, 0) + "（Anubis " + fm(b.dai, 0) + " + Polygon " + fm(b.pdai, 0) + "），按现价 " + fm(j.price, 0) + " 折算，LGNS 不算在内。" + (j.split.basis === "transit" ? "中转地址里有币，上面每人应分的数按中转地址余额算。" : "") + "分的时候只分 AiLGNS。</p>";
-    // 🏆 奖池需转多少钱（只给站长口令看）：数字由 lib/partner.js poolNeed 算
-    // 💰 资金一览（站长 2026-11-17）：三个奖池各要不要补、补多少，做市机器人钱包今天赚 / 亏多少。数字由 lib/partner.js fundsView 算，只给站长口令看
-    var fundsH = "";
-    if (j.canWrite && j.funds && j.funds.length) {
-      fundsH = '<h3 class="ad-h">💰 资金一览 · 哪个池子要补钱</h3><div class="ptn-fd">' + j.funds.map(function (f) {
-        var bad = f.need > 0 || /⚠️/.test(f.st || "");
-        var big = f.bal == null ? "读不到" : fm(f.bal, 2);
-        var chip = f.need > 0 ? '<span class="ptn-fdc bad">要补 ' + fm(f.need, 0) + " DAI</span>" : f.need === 0 ? '<span class="ptn-fdc ok">✅ 不用补</span>' : "";
-        if (f.k === "gen" && f.left != null) chip = f.left > 0 ? '<span class="ptn-fdc bad">离发放还差 ' + fm(f.left, 0) + " DAI</span>" : '<span class="ptn-fdc ok">✅ 满了，可以发放</span>'; /* 创世分红奖池：满 500 发一次，不是「必须补」 */
-        var day = f.k === "mm" && f.delta != null ? '<div class="ptn-fdd">今天 <b class="' + (f.delta >= 0 ? "up" : "down") + '">' + (f.delta >= 0 ? "+" : "") + fm(f.delta, 2) + " DAI</b>" + (f.pc != null ? " · 昨天（" + esc(f.pd || "") + "）收在 " + fm(f.pc, 2) : "") + "</div>" : "";
-        return '<div class="ptn-fdr' + (bad ? " bad" : "") + '"><div class="ptn-fdh"><b>' + esc(f.n) + "</b>" + chip + '</div><div class="ptn-fdb"><b>' + big + "</b><small>" + esc(f.unit || "DAI") + "</small></div>" + day +
-          '<p class="ptn-fds">' + esc(f.st || "") + "</p>" + (f.led ? '<p class="ptn-fdl">' + esc(f.led) + "</p>" : "") + '<p class="muted ptn-fdt">' + esc(f.tip || "") + "</p>" +
-          '<div class="ptn-fda"><a class="mono" href="#/scan/' + f.a + '">' + f.a.slice(0, 8) + "…" + f.a.slice(-6) + ' ›</a><button type="button" class="ghost" data-fdcp="' + f.a + '">📋 复制地址</button></div></div>';
-      }).join("") + '</div><p class="muted ptn-dn">每 5 分钟更新。只是提醒，不会自动动任何钱；往哪个池子补，点「复制地址」到钱包里转 DAI（Anubis 链）。</p>';
-    }
-    var nd = j.need, needH = "";
-    if (j.canWrite && nd) {
-      var ailEq = nd.price ? nd.left / nd.price : 0;
-      needH = '<h3 class="ad-h">🏆 奖池需转多少钱 <a class="ptn-ndl" href="#/scan/' + nd.a + '">看奖池钱包 ›</a></h3><div class="ptn-need">' +
-        (nd.bot ? '<div class="ptn-ndv">' + (nd.left > 0 ? "还需转 <b>" + fm(nd.left, 2) + "</b> DAI" : "✅ 现在不用转") + "</div>" +
-          (nd.left > 0 ? '<p class="muted ptn-dn">转 DAI 或 AiLGNS 都行；全用 AiLGNS 的话约 ' + fm(ailEq, 4) + " 枚（现价 " + fm(nd.price, 0) + "）。</p>" : (nd.over > 0 ? '<p class="muted ptn-dn">已经比规则多转了 ' + fm(nd.over, 2) + " DAI。</p>" : "")) +
-          '<div class="ptn-rr"><span><b>按规则应进奖池</b><small>11-15 02:35 机器人停止自动转之后累计：DAI、AiLGNS 付的域名费 × 70%</small></span><span class="m">' + fm(nd.dueDai, 2) + " DAI<small>+ " + fm(nd.dueAil, 4) + " AiLGNS</small></span></div>" +
-          '<div class="ptn-rr"><span><b>这之后已转进奖池</b><small>只算从谷歌社交账号钱包转过去的</small></span><span class="m">' + fm(nd.inDai, 2) + " DAI<small>+ " + fm(nd.inAil, 4) + " AiLGNS</small></span></div>"
-          + (nd.othDai > 0 || nd.othAil > 0 ? '<div class="ptn-rr"><span><b>其它自家钱包转进奖池的</b><small>比如极速资金池转来的；没有抵扣上面的数，要不要抵你自己定</small></span><span class="m">' + fm(nd.othDai, 2) + " DAI<small>+ " + fm(nd.othAil, 4) + " AiLGNS</small></span></div>" : "")
-          + (nd.ins && nd.ins.length ? '<details class="ptn-ndd"><summary>最近转进奖池的几笔</summary>' + nd.ins.map(function (x) { return '<div class="ptn-rr"><span><b>' + esc(x.n || "") + "</b><small>" + (x.mine ? "已抵扣" : "没抵扣") + ' · <a href="#/scan/' + x.tx + '">看这笔 ›</a></small></span><span class="m">' + fm(x.v, x.tok === "dai" ? 2 : 4) + " " + (x.tok === "dai" ? "DAI" : "AiLGNS") + "</span></div>"; }).join("") + "</details>" : "")
-          : '<p class="nm-bad">机器人账本这会儿读不到，「还需转」先不显示，过 5 分钟再看。</p>') +
-        (nd.lag > 6000 ? '<p class="muted ptn-dn">⏳ 已转进奖池的记录还在补扫（差 ' + fm(nd.lag, 0) + " 个区块），数字可能偏大，等几分钟。</p>" : "") +
-        '<div class="ptn-cp ptn-ndc"><div class="ptn-cpt">奖池钱包地址（Anubis 链）</div><div class="ptn-cpa mono" id="ptn-nda">' + esc(nd.a) + '</div><button type="button" class="nm-go ptn-cpb" id="ptn-ndb">📋 点击复制奖池地址</button></div>' +
-        '<p class="muted ptn-dn">只算每日预言家奖池，极速资金池不在这里。LGNS 付的域名费不计入。转完约 5 分钟后这里自动扣掉。</p></div>';
-    }
-    var h = '<section class="card ptn-top"><div class="card-head"><h2>🤝 合伙人面板</h2><span class="muted">' + tm(j.at) + " 更新 · 每 5 分钟</span></div>" +
-      // 风险与建议移到「网站优化」页（#/ops），这里不再重复
-      /* 站长 2026-11-13：股东面板放最上面，其次分配比例；其余按「钱 → 客户 → 游戏 → 计划 → 地址」往下排，站长的后台入口放最后 */
-      biz +
-      ratio +
-      allocHtml(j) +
-      fundsH + needH +
-      '<h3 class="ad-h">💰 其它余额（现在钱包里有的，不是收入）</h3><div class="ad-tiles">' +
-      tile("奖池（客户的奖金，是负债）", "≈ " + fm(j.pool.value, 0) + " DAI", fm(j.pool.ail, 2) + " AiLGNS + " + fm(j.pool.dai, 0) + " DAI") +
-      (j.bal.fast ? tile("⚡ 极速资金池（暂停进账，留给极速预言家）", "≈ " + fm(j.bal.fast.dai + j.bal.fast.ail * j.price, 0) + " DAI", fm(j.bal.fast.ail, 2) + " AiLGNS + " + fm(j.bal.fast.dai, 0) + " DAI") : "") +
-      tile("钱包里的 LGNS（没算进待分配）", fm(b.lgns, 0) + " + " + fm(b.plgns, 0), "Anubis + Polygon") +
-      tile("触发钱包 Gas", fm(j.bal.keeper.dai, 1) + " DAI", j.bal.keeper.dai < 8 ? "⚠️ 低于 8 机器人会停" : "够用", j.bal.keeper.dai < 8 ? "warn" : "") +
-      "</div>" +
-      '<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">' +
-      tile("同时在线（5 分钟内打开）", (j.traffic ? j.traffic.now : 0) + " 人", "今天峰值 " + (j.traffic ? j.traffic.peak + "（" + j.traffic.peakAt + "）" : "—") + (j.traffic && j.traffic.peakY != null ? " · 昨天 " + j.traffic.peakY + "（" + j.traffic.peakYAt + "）" : "") + (j.traffic && j.traffic.peakY2 ? " · 前天 " + j.traffic.peakY2 + "（" + j.traffic.peakY2At + "）" : "") + " · 容量约 " + (j.cap ? j.cap.conc : "—"), j.traffic && j.cap && j.traffic.now >= j.cap.conc * 0.5 ? "warn" : "") +
-      tile("今日访客", fm(d0.v, 0) + " 次", vs(d0.v, d1.v, " 次") + " · 前天 " + fm(d2.v, 0) + " 次 · 首次 " + (d0.v1 || 0) + " 人（昨天 " + (d1.v1 || 0) + " · 前天 " + (d2.v1 || 0) + "）") +
-      tile("App 装机", "今天 " + (d0.an || 0) + " 台", vs(d0.an, d1.an, " 台") + " · 前天 " + (d2.an || 0) + " 台 · 累计 " + j.installs + " 台") +
-      tile("工单", "今天 " + j.tk.today + " 张", (j.tk.yest != null ? vs(j.tk.today, j.tk.yest, " 张") + (j.tk.yest2 != null ? " · 前天 " + j.tk.yest2 + " 张" : "") + " · " : "") + (j.tk.open ? "⚠️ " + j.tk.open + " 张没回，最久等了 " + j.tk.oldestH + " 小时" : "全部回完") + (j.tk.avgH ? " · 平均 " + j.tk.avgH + " 小时回复" : ""), j.tk.open && j.tk.oldestH >= 2 ? "warn" : "") +
-      "</div>" +
-      (j.tk.latest.length ? '<div class="ptn-tk">' + j.tk.latest.map(function (t) { return '<div><span class="muted">' + tm(t.t) + "</span> " + (t.done ? "✅" : "⏳") + " " + esc(t.txt) + "</div>"; }).join("") + '<p class="muted">详细回复在 <a href="#/feedback/admin">工单后台</a>（需要站长口令）</p></div>' : "") +
-      '<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>' +
-      // 5. 计划
-      '<h3 class="ad-h">🗺️ 开发计划</h3><div class="ptn-plan" id="ptn-plan">' + (j.plan.length ? j.plan.map(function (p, i) { return "<label" + (p.done ? ' class="done"' : "") + '><input type="checkbox" data-i="' + i + '"' + (p.done ? " checked" : "") + (j.canWrite ? "" : " disabled") + "> " + esc(p.t) + "</label>"; }).join("") : '<p class="muted">还没写计划' + (j.canWrite ? "，站长在下面加" : "") + "</p>") + "</div>" +
-      (j.canWrite ? '<p class="ptn-cfg"><input id="ptn-plan-new" placeholder="加一条计划，回车保存" style="width:100%"></p>' : "") +
-      '<div id="ptn-upd" class="ptn-upd"></div>' +
-      addrTable(j) +
-      (j.canWrite ? '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' : "") +
-      '<p class="muted ptn-note">' + esc(j.note) + "</p></section>";
-    A.app.innerHTML = h;
-    fetch("/api/updates", { headers: { "x-key": (function () { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } })() } }).then(function (r) { return r.json(); }).then(function (u) {
-      var el = document.getElementById("ptn-upd"); if (!el || !A.isCurrent(rid) || !u || !u.list) return; // 不是站长口令就不显示这一块
-      el.innerHTML = '<h3 class="ad-h">🆕 最近上线</h3>' + (u.list || []).slice(0, 7).map(function (x) { return '<div><span class="muted">' + esc(x.d.slice(5)) + "</span> " + esc(x.t.slice(0, 70)) + (x.t.length > 70 ? "…" : "") + "</div>"; }).join("");
-    }).catch(function () {});
-    if (!j.canWrite) return;
-    function post(body, st) {
-      body.key = key();
-      return fetch("/api/partner", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (r) { if (r.error) throw new Error(r.error); if (st) st.textContent = " ✅ 已保存"; load(rid); }, function (e) { if (st) st.textContent = " ❌ " + (e.message || e); });
-    }
-    document.querySelectorAll("[data-fdcp]").forEach(function (b) {
-      b.onclick = function () {
-        var v = b.getAttribute("data-fdcp"), ok = function () { b.textContent = "✅ 已复制"; setTimeout(function () { b.textContent = "📋 复制地址"; }, 2500); };
-        try { navigator.clipboard.writeText(v).then(ok, function () { prompt("长按复制：", v); }); } catch (e) { prompt("长按复制：", v); }
-      };
-    });
-    var ndb = document.getElementById("ptn-ndb");
-    if (ndb) ndb.onclick = function () {
-      var v = document.getElementById("ptn-nda").textContent, ok = function () { ndb.textContent = "✅ 已复制，去钱包粘贴"; setTimeout(function () { ndb.textContent = "📋 点击复制奖池地址"; }, 2500); };
-      try { navigator.clipboard.writeText(v).then(ok, function () { prompt("长按复制：", v); }); } catch (e) { prompt("长按复制：", v); }
-    };
-    var cpb = document.getElementById("ptn-cpb");
-    if (cpb) cpb.onclick = function () {
-      var v = document.getElementById("ptn-cpa").textContent, ok = function () { cpb.textContent = "✅ 已复制，去钱包粘贴"; setTimeout(function () { cpb.textContent = "📋 点击复制中转地址"; }, 2500); };
-      try { navigator.clipboard.writeText(v).then(ok, function () { prompt("长按复制：", v); }); } catch (e) { prompt("长按复制：", v); }
-    };
-    var so = document.getElementById("ptn-sort");
-    if (so) { so.onclick = function (e) { var b = e.target && e.target.closest ? e.target.closest("button") : null; if (b) sortAddr(b.getAttribute("data-k")); }; if (adSort) sortAddr(adSort); }
-    var ad = document.getElementById("ptn-adone");
-    if (ad) ad.onclick = function () {
-      var t = (j.split.parts || []).map(function (y) { return y.n + " " + y.p + "% ≈ " + fm(y.amt, 0) + " DAI"; }).join("\n");
-      if (!confirm("确定已经按比例转完了？\n" + t + "\n\n确定后会给四个地址各发一条站内信通知。")) return;
-      ad.disabled = true; post({ action: "allocDone" }, document.getElementById("ptn-ast"));
-    };
-    var cs = document.getElementById("ptn-cfg-save");
-    if (cs) cs.onclick = function () { post({ cfg: { tech: Number(document.getElementById("ptn-tech").value) } }, document.getElementById("ptn-cfg-st")); };
-    var plan = j.plan.slice();
-    document.querySelectorAll("#ptn-plan input[data-i]").forEach(function (c) { c.onchange = function () { plan[+c.getAttribute("data-i")].done = c.checked; post({ plan: plan }); }; });
-    var pn = document.getElementById("ptn-plan-new");
-    if (pn) pn.onkeydown = function (e) { if (e.key === "Enter" && pn.value.trim()) { plan.push({ t: pn.value.trim(), done: false }); post({ plan: plan }); } };
-  }
-
-  function load(rid) {
-    var k = key(); if (!k) return login(rid);
-    A.app.innerHTML = '<section class="card"><p class="muted">读取中…</p></section>';
-    var GN = { play: "销毁乐园", farm: "开心农场", pixel: "LGNS 像素墙", g2048: "2048", snake: "贪吃蛇", tetris: "俄罗斯方块", flappy: "飞翔小鸟", mines: "扫雷", brick: "打砖块", merge: "DNA 合成", pet: "HELIX 宠物" };
-    function gamesLine() {
-      fetch("/api/games-top").then(function (r) { return r.json(); }).then(function (j) {
-        var el = document.getElementById("ptn-games"); if (!el) return;
-        var rows = Object.keys(j.counts || {}).map(function (k) { return [GN[k] || k, j.counts[k]]; }).sort(function (a, b) { return b[1] - a[1]; });
-        el.innerHTML = rows.length ? rows.map(function (r, i) { return (i < 3 ? ["🥇", "🥈", "🥉"][i] : "·") + " <b>" + esc(r[0]) + "</b> " + r[1] + " 次"; }).join("　") : "还没有数据（从今天开始统计）";
-      }).catch(function () {});
-    }
-    fetch("/api/partner?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (j) {
-      if (!A.isCurrent(rid)) return;
-      if (j.error) { if (/口令/.test(j.error)) { try { localStorage.removeItem("ptnKey"); } catch (e) {} return login(rid, j.error); } A.app.innerHTML = '<section class="card"><p class="nm-bad">' + esc(j.error) + "</p></section>"; return; }
-      render(rid, j);
-      gamesLine();
-    }, function (e) { if (A.isCurrent(rid)) A.app.innerHTML = '<section class="card"><p class="nm-bad">读取失败：' + esc(e.message || e) + "</p></section>"; });
-  }
-  A.pages.partner = function (rid) { load(rid); };
-})();
-
-}catch(e){console.error('[bundle] partner.js',e);}
-;
-try{
-// 📝 待办页 #/todo（内部，和工单后台同一个口令；2026-11-26 起「网站优化」#/ops 合并进来）+ 📣 发站内信 #/notify
-(function () {
-  var A = window.AIL;
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  function tm(t) { var x = new Date(t + 8 * 3600e3); return (x.getUTCMonth() + 1) + "/" + x.getUTCDate() + " " + String(x.getUTCHours()).padStart(2, "0") + ":" + String(x.getUTCMinutes()).padStart(2, "0"); }
-  var LV = { red: "🔴", yellow: "🟡", green: "🟢" };
-  function login(rid, msg) {
-    A.app.innerHTML = '<section class="card ptn-login"><h2>' + (location.hash.indexOf("#/notify") === 0 ? "📣 发站内信" : "📝 待办") + '</h2><p class="muted">和工单后台同一个口令。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
-      '<input id="ops-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="ops-go">进入</button></section>';
-    var go = document.getElementById("ops-go"), inp = document.getElementById("ops-k");
-    go.onclick = function () { var v = inp.value.trim(); if (!v) return; try { localStorage.setItem("fbKey", v); } catch (e) {} if (location.hash.indexOf("#/notify") === 0) A.pages.notify(rid); else A.pages.todo(rid); };
-    inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
-  }
-  function nav(cur) {
-    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/todo" class="ad-nb' + (cur === "todo" ? " on" : "") + '">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
-  }
-  // 站长 2026-11-12：「弄个动态的滚动页，把紧急、重要的推送放前面滚动」→ 导航下面一条滚动条：红的在前、黄的在后，4 秒换一条，点一下跳到下面的详情
-  function hot(j) { var rs = j.risks || []; return rs.filter(function (r) { return r.level === "red"; }).concat(rs.filter(function (r) { return r.level === "yellow"; })); }
-  function roll(j) {
-    var hs = hot(j);
-    if (!hs.length) return '<div class="ops-roll ok"><div class="ops-ri"><b>🟢 现在没有紧急的事</b><span>下面的清单有空再看</span></div></div>';
-    return '<div class="ops-roll" id="ops-roll"><div class="ops-rt" id="ops-rt">' + hs.concat(hs.length > 1 ? [hs[0]] : []).map(function (r) {
-      return '<div class="ops-ri ' + r.level + '"><b>' + LV[r.level] + " " + (r.level === "red" ? "紧急" : "重要") + "：" + esc(r.title) + "</b><span>👉 " + esc(r.todo) + "</span></div>";
-    }).join("") + '</div><i class="ops-rn" id="ops-rn">1/' + hs.length + "</i></div>";
-  }
-  function rollGo(n) {
-    try {
-      var box = document.getElementById("ops-roll"), t = document.getElementById("ops-rt"), num = document.getElementById("ops-rn");
-      if (!box || !t) return;
-      box.onclick = function () { var x = document.getElementById("ops-now"); if (x) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
-      if (n < 2) return;
-      var i = 0, hold = false;
-      box.onmouseenter = box.ontouchstart = function () { hold = true; };
-      box.onmouseleave = box.ontouchend = function () { hold = false; };
-      var iv = setInterval(function () {
-        try {
-          if (!document.body.contains(box)) { clearInterval(iv); return; }
-          if (hold || document.hidden) return;
-          i++; t.style.transition = "transform .45s ease"; t.style.transform = "translateY(-" + (i * 54) + "px)";
-          if (num) num.textContent = ((i % n) + 1) + "/" + n;
-          if (i === n) setTimeout(function () { i = 0; t.style.transition = "none"; t.style.transform = "translateY(0)"; }, 500);
-        } catch (e) { clearInterval(iv); }
-      }, 4000);
-    } catch (e) {}
-  }
-  function li(items, f) { return '<ul class="ops-ul">' + items.map(f).join("") + "</ul>"; }
-  // 站长 2026-11-26：「把网站优化和待办合并成一个」→ 原来「网站优化」页里的长资料（最坏情况 / 安全维护 / 定的方案 / 学习清单）收成一段，折叠放在待办页最底下
-  function refDoc(j) {
-    if (!j || !j.worst) return "";
-    return '<details class="td-ref"><summary>📚 资料（最坏情况 / 安全维护 / 定的方案 / 学习清单），有空再看</summary>' +
-      '<h3 class="ad-h">☠️ 最坏情况与防护（按损失从大到小）</h3>' + li(j.worst, function (w) { return "<li><b>" + esc(w.t) + '</b><div class="ops-k">会丢什么</div><p>' + esc(w.lose) + '</p><div class="ops-k">怎么防</div><p>' + esc(w.guard) + "</p>" + (w.done ? '<div class="ops-k ok">✅ 已经做了</div><p>' + esc(w.done) + "</p>" : "") + (w.next ? '<div class="ops-k go">🔧 继续优化</div><p>' + esc(w.next) + "</p>" : "") + "</li>"; }) +
-      '<h3 class="ad-h">🔐 网站怎么维护保证安全</h3><h4 class="ops-h4">每天</h4>' + li(j.security.daily, function (x) { return "<li><b>" + esc(x.t) + "</b><p>" + esc(x.d) + "</p></li>"; }) +
-      '<h4 class="ops-h4">每周</h4>' + li(j.security.weekly, function (x) { return "<li><b>" + esc(x.t) + "</b><p>" + esc(x.d) + "</p></li>"; }) +
-      '<h4 class="ops-h4">永远不做</h4>' + li(j.security.never, function (x) { return "<li><b>" + esc(x.t) + "</b><p>" + esc(x.d) + "</p></li>"; }) +
-      '<h3 class="ad-h">📜 你定的方案（新的在前）</h3>' + li(j.decisions || [], function (x) { return '<li><span class="muted">' + esc(x.d) + "</span> " + esc(x.t) + "</li>"; }) +
-      '<h3 class="ad-h">📚 学习清单</h3>' + li(j.learn || [], function (x) { return "<li><b>" + esc(x.t) + '</b><div class="ops-k">为什么</div><p>' + esc(x.why) + '</p><div class="ops-k">怎么练</div><p>' + esc(x.how) + "</p></li>"; }) +
-      "</details>";
-  }
-  // 📝 站长待办（2026-11-10 站长：「很多想一半没有执行，在这里提醒我继续优化」）：清单在 lib/todo.js 由开发维护；勾「做完了」存服务器
-  var TD_ST = { "动手": ["🔴 要你亲自动手", "td-do"], "拍板": ["🟣 等你拍板", "td-pick"], "半成": ["🟠 想了一半没做", "td-half"], "长期": ["🔵 长期 / 基础设施", "td-long"], "跟进": ["🟢 开发在查在盯", "td-follow"] };
-  A.pages.todo = function (rid) {
-    var k = key(); if (!k) return login(rid);
-    A.app.innerHTML = '<section class="card"><p class="muted">读取中…</p></section>';
-    // 风险和资料来自原「网站优化」的接口；它读不出来不影响待办清单
-    var opsP = fetch("/api/ops?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }).then(function (o) { return o && !o.error ? o : {}; }, function () { return {}; });
-    Promise.all([fetch("/api/todo?key=" + encodeURIComponent(k)).then(function (r) { return r.json(); }), opsP]).then(function (both) {
-      var j = both[0], o = both[1];
-      if (!A.isCurrent(rid)) return;
-      if (j.error) { if (/口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, j.error); } A.app.innerHTML = '<section class="card"><p class="nm-bad">' + esc(j.error) + "</p></section>"; return; }
-      var done = j.done || {}, items = j.items || [], open = items.filter(function (x) { return !done[x.id]; }), closed = items.filter(function (x) { return done[x.id] && Date.now() - done[x.id] < 7 * 86400e3; });
-      var risks = hot(o); // 红的在前、黄的在后
-      // 滚动条：紧急风险 → 重要风险 → 要你动手的 → 其余高优先的
-      var rollList = risks.concat(open.filter(function (x) { return x.st === "动手"; }).concat(open.filter(function (x) { return x.st !== "动手" && x.pri === "高"; })).map(function (x) { return { level: "yellow", title: x.t, todo: x.next }; }));
-      var card = function (x) {
-        var dn = !!done[x.id];
-        return '<li class="td-it' + (dn ? " done" : "") + ' pri-' + (x.pri === "高" ? "h" : x.pri === "中" ? "m" : "l") + '"><div class="td-h"><b>' + (dn ? "✅ " : "") + esc(x.t) + '</b><span class="td-pri">' + esc(x.pri) + "</span></div>" +
-          '<p class="td-why">' + esc(x.why) + '</p><p class="td-next">👉 ' + esc(x.next) + '</p>' +
-          '<div class="td-f"><small class="muted">' + esc(x.d) + (dn ? " · 做完于 " + tm(done[x.id]) : "") + '</small><button type="button" class="td-tg" data-id="' + esc(x.id) + '" data-done="' + (dn ? "0" : "1") + '">' + (dn ? "恢复" : "做完了 ✓") + "</button></div></li>";
-      };
-      var groups = Object.keys(TD_ST).map(function (st) { var l = open.filter(function (x) { return x.st === st; }); return l.length ? '<h3 class="ad-h">' + TD_ST[st][0] + "（" + l.length + "）</h3>" + li(l, card) : ""; }).join("");
-      A.app.innerHTML = '<section class="card ops"><div class="card-head"><h2>📝 待办</h2><span class="muted">清单更新于 ' + esc(j.updated) + "</span></div>" + nav("todo") + roll({ risks: rollList }) +
-        '<p class="muted ptn-note">上面滚动的是紧急、重要的事。做完一项点「做完了 ✓」，它就从清单里消失。</p>' +
-        '<div id="ops-now">' + (risks.length ? '<h3 class="ad-h">🚦 现在的风险（' + risks.length + "）" + (o.risksAt ? '<small class="muted"> ' + tm(o.risksAt) + " 算的</small>" : "") + '</h3><div class="ptn-risks">' + risks.map(function (r) {
-          return '<div class="ptn-risk ' + r.level + '"><div class="ptn-rh">' + LV[r.level] + " <b>" + esc(r.title) + "</b><i>" + esc(r.who) + "</i></div><p>" + esc(r.why) + '</p><p class="ptn-todo">👉 ' + esc(r.todo) + "</p></div>";
-        }).join("") + "</div>" : "") + "</div>" +
-        (open.length ? groups : '<p class="muted">全部做完了 🎉</p>') +
-        (closed.length ? '<details class="td-done"><summary>刚做完的（' + closed.length + '），点错了可以在这里恢复</summary>' + li(closed, card) + "</details>" : "") +
-        refDoc(o) +
-        '<p class="muted ptn-note">清单由开发维护：你每说一个新想法、每定一条规则都会加进来；做完的直接删掉。</p></section>';
-      rollGo(rollList.length);
-      A.app.querySelectorAll(".td-tg").forEach(function (b) {
-        b.onclick = function () {
-          b.disabled = true;
-          fetch("/api/todo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: k, id: b.getAttribute("data-id"), done: b.getAttribute("data-done") === "1" }) })
-            .then(function (r) { return r.json(); }).then(function (r2) { if (r2.error) { A.errTip(r2.error, b); b.disabled = false; return; } A.pages.todo(rid); }, function () { b.disabled = false; });
-        };
-      });
-    }, function (e) { if (A.isCurrent(rid)) A.app.innerHTML = '<section class="card"><p class="nm-bad">读取失败：' + esc(e.message || e) + "</p></section>"; });
-  };
-  A.pages.ops = A.pages.todo; // 旧网址 #/ops 也进合并后的待办页
-  // 📣 站长给指定地址发站内信（2026-11-08）
-  function tm2(t) { var d = new Date(t + 8 * 3600e3); return d.toISOString().slice(5, 16).replace("T", " "); }
-  function logHtml(log) {
-    if (!log || !log.length) return '<p class="muted">还没发过</p>';
-    return log.map(function (x) { return '<div class="ntf-log"><small class="muted">' + tm2(x.t) + " · 发给 " + x.to.length + " 个地址</small><p>" + esc(x.msg) + '</p><small class="mono muted">' + x.to.map(function (a) { return a.slice(0, 6) + "…" + a.slice(-4); }).join("、") + "</small></div>"; }).join("");
-  }
-  A.pages.notify = function (rid) {
-    var k = key(); if (!k) return login(rid);
-    A.app.innerHTML = '<section class="card ops"><div class="card-head"><h2>📣 发站内信</h2><span class="muted">只有站长能用</span></div>' + nav("notify") +
-      '<label class="ntf-l">发给谁（钱包地址，一行一个，最多 50 个）</label><textarea id="ntf-to" rows="4" placeholder="0x…&#10;0x…"></textarea>' +
-      '<button type="button" class="link" id="ntf-all">＋ 填入「全部 OTC 商户」（✔ 认证商家及以上，按本周名单）</button>' +
-      '<label class="ntf-l">内容（1200 字以内）</label><textarea id="ntf-msg" rows="5" maxlength="1200" placeholder="比如：恭喜你获得本周贡献王，奖金已发到你的钱包，请查收 💜"></textarea>' +
-      '<label class="ntf-l">点开跳到哪一页（可不填）</label><input id="ntf-link" placeholder="#/oracle">' +
-      '<button type="button" class="nm-go" id="ntf-go">发送</button><p id="ntf-st" class="muted"></p>' +
-      '<h3 class="ad-h">🗂 发送记录</h3><div id="ntf-log"><p class="muted">读取中…</p></div>' +
-      '<p class="muted ptn-note">对方会在「📬 收件箱」看到，标题是「📣 站长通知」；开了通知的手机、电脑会弹提醒。</p></section>';
-    var post = function (o) { o.key = k; return fetch("/api/inbox", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(o) }).then(function (r) { return r.json(); }); };
-    post({ action: "adminlog" }).then(function (j) {
-      if (!A.isCurrent(rid)) return;
-      if (j.error && /口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, j.error); }
-      document.getElementById("ntf-log").innerHTML = j.error ? '<p class="nm-bad">' + esc(j.error) + "</p>" : logHtml(j.log);
-    }, function () {});
-    document.getElementById("ntf-all").onclick = function () { var t = document.getElementById("ntf-to"); if (!/@商户/.test(t.value)) t.value = "@商户" + (t.value.trim() ? "\n" + t.value.trim() : ""); };
-    document.getElementById("ntf-go").onclick = function () {
-      var b = this, st = document.getElementById("ntf-st"), to = document.getElementById("ntf-to").value, msg = document.getElementById("ntf-msg").value.trim(), link = document.getElementById("ntf-link").value.trim();
-      var n = (to.toLowerCase().match(/0x[0-9a-f]{40}/g) || []).length, all = /@商户/.test(to);
-      if (!n && !all) { st.textContent = "❌ 没找到有效地址"; return; }
-      if (msg.length < 2) { st.textContent = "❌ 内容太短"; return; }
-      if (!confirm(all ? "确定发给全部 OTC 商户" + (n ? "（再加 " + n + " 个地址）" : "") + "？" : "确定发给 " + n + " 个地址？")) return;
-      b.disabled = true; st.textContent = "发送中…";
-      post({ action: "admin", to: to, msg: msg, link: link }).then(function (j) {
-        b.disabled = false;
-        if (j.error) { st.textContent = "❌ " + j.error; return; }
-        st.textContent = "✅ 已发给 " + j.n + " 个地址"; document.getElementById("ntf-msg").value = "";
-        document.getElementById("ntf-log").innerHTML = logHtml(j.log);
-      }, function (e) { b.disabled = false; st.textContent = "❌ 发送失败：" + (e.message || e); });
-    };
-  };
-})();
-
-}catch(e){console.error('[bundle] ops.js',e);}
-;
-try{
-// 🏛️ 链上广场 #/square（2026-11-07）：盖楼 · 时间胶囊 / 立字据 · 帖子带按钮（挂单帖一键去成交、预言帖一键去预测）
-// 发帖 = 一笔 0 元交易到广场地址，JSON 放 data 里（前缀 ailgns-post:），只花约 0.001 DAI Gas；只有设了 .ailgns 主名字的钱包能发。读帖不用钱包。
-(function () {
-  var A = window.AIL, W = A.wallet;
-  var SQUARE = "0x0000000000000000000000000000000000a11905"; // 广场地址（收 0 元交易，只是个「公告栏」，没有私钥、没有钱）
-  var PREFIX = "ailgns-post:", MAX = 300;
-  var NAMES = { ailgns: "0xbc408e9d7350967e7247c917a086cb4ece0ed988", lgns: "0x93af23fe74e5180f54f0996fa6bb6c157775f7f3" }, SEL_NAMEOF = "0xf5c57382";
-  var MK = { ailgns: "AiLGNS", lgns: "LGNS", glgns: "gLGNS", plgns: "LGNS（Polygon）", lp: "LP", rm: "RM", flgns: "fLGNS", nft: "AWAKE NFT" };
-  var CONTACT = /https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|xyz|io|app|cc|top|vip|cn|me|link|site|online|shop|pro)\b|t\.me|微信|微信号|vx|wx|weixin|wechat|qq|扣扣|电报|telegram|tg|飞机|whatsapp|line\b|手机号|电话|加我|加一下|私聊|私信我|联系方式|联系我|\d{11}/i;
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function tm(t) { var x = new Date(t + 8 * 3600e3); return (x.getUTCMonth() + 1) + "/" + x.getUTCDate() + " " + String(x.getUTCHours()).padStart(2, "0") + ":" + String(x.getUTCMinutes()).padStart(2, "0"); }
-  function ago(t) { var s = Math.max(0, (Date.now() - t) / 1000); return s < 60 ? "刚刚" : s < 3600 ? Math.floor(s / 60) + " 分钟前" : s < 86400 ? Math.floor(s / 3600) + " 小时前" : Math.floor(s / 86400) + " 天前"; }
-  function left(t) { var s = Math.max(0, (t - Date.now()) / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + " 天 " + h + " 小时" : h ? h + " 小时 " + m + " 分" : m + " 分钟"; }
-  function enc(obj) { return "0x" + Array.prototype.map.call(new TextEncoder().encode(PREFIX + JSON.stringify(obj)), function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
-  function decStr(hex) { var w = hex.slice(2), off = parseInt(w.slice(0, 64), 16) * 2, len = parseInt(w.slice(off, off + 64), 16); return new TextDecoder().decode(new Uint8Array((w.slice(off + 64, off + 64 + len * 2).match(/../g) || []).map(function (x) { return parseInt(x, 16); }))); }
-  function nameOf(a) {
-    return Promise.all(Object.keys(NAMES).map(function (t) { return A.call(NAMES[t], SEL_NAMEOF + A.pad(a)).then(function (r) { var s = decStr(r); return s ? s + "." + t : ""; }, function () { return ""; }); })).then(function (r) { return r.filter(Boolean)[0] || ""; });
-  }
-  function nameHtml(p) { return '<a class="sq-name" href="#/scan/' + p.from + '">' + esc(p.name || A.short(p.from)) + "</a>"; }
-  function body(p) {
-    if (p.locked) return '<div class="sq-lock">🔒 时间胶囊 · ' + tm(p.at) + " 揭晓（还有 " + left(p.at) + "）</div>";
-    var h = '<div class="sq-txt">' + esc(p.t).replace(/\n/g, "<br>") + "</div>", btn = "";
-    if (p.o) btn += '<a class="sq-btn" href="#/otc' + (p.o.m === "ailgns" ? "" : "/" + p.o.m) + '">💱 去买这张单（' + esc(MK[p.o.m] || p.o.m) + " 市场 #" + p.o.id + "）→</a>";
-    if (p.k === "pred") btn += '<a class="sq-btn" href="#/oracle">🔮 我也预测 →</a>';
-    if (p.k === "iou") h = '<div class="sq-iou">📜 立字据 · 永久刻在链上</div>' + h;
-    if (p.at && !p.locked) h = '<div class="sq-iou">⏰ 时间胶囊 · ' + tm(p.at) + " 揭晓</div>" + h;
-    return h + (btn ? '<div class="sq-btns">' + btn + "</div>" : "");
-  }
-  function rootCard(p) {
-    return '<a class="sq-card" href="#/square/' + p.tx + '"><div class="sq-h">' + nameHtml(p) + '<small>' + ago(p.time) + "</small></div>" + body(p) +
-      '<div class="sq-f"><span>💬 ' + (p.n || 0) + " 层</span><span>" + (p.n ? "最新 " + ago(p.last || p.time) + " · " : "") + "点开盖楼 →</span></div></a>";
-  }
-  function floorCard(p, i) {
-    var tag = i === 1 ? "楼主" : i === 2 ? "沙发" : i === 3 ? "板凳" : i + " 楼";
-    return '<div class="sq-floor"><div class="sq-h"><b class="sq-no">#' + i + " " + tag + "</b>" + nameHtml(p) + "<small>" + tm(p.time) + '</small><a class="sq-tx" href="#/scan/' + p.tx + '" title="链上证据">🔗</a></div>' + body(p) + "</div>";
-  }
-  function composer(re) {
-    return '<section class="card sq-compose"><div class="card-head"><h2>' + (re ? "💬 盖一层" : "✍️ 发一帖") + '</h2><span class="muted">只花约 0.001 DAI Gas · 永久上链</span></div>' +
-      (re ? "" : '<div class="sq-kinds"><button type="button" class="on" data-k="">普通</button><button type="button" data-k="cap">🔒 时间胶囊</button><button type="button" data-k="iou">📜 立字据</button><button type="button" data-k="order">📌 挂单帖</button><button type="button" data-k="pred">🔮 预言帖</button></div>') +
-      '<textarea id="sq-t" maxlength="' + MAX + '" rows="3" placeholder="写点什么（' + MAX + ' 字以内）。不能有网址和联系方式，所有交流只在链上。"></textarea>' +
-      '<div id="sq-opt" class="sq-opt" hidden></div>' +
-      '<div class="sq-cf"><span class="muted" id="sq-n">0 / ' + MAX + '</span><button type="button" class="nm-go" id="sq-go">' + (re ? "盖楼（钱包确认一次）" : "发布（钱包确认一次）") + '</button></div><p class="note" id="sq-st"></p></section>';
-  }
-  var kind = "";
-  function optHtml(k) {
-    var d = new Date(Date.now() + 365 * 86400e3), iso = d.toISOString().slice(0, 10);
-    if (k === "cap") return '<label>🔒 到这一天才揭晓：<input type="date" id="sq-at" value="' + iso + '"></label><small>到期前本站只显示「🔒 时间胶囊」。写给未来的自己、一年后的预言、给某人的话。链上原文懂技术的人能提前解出来，所以别写秘密。</small>';
-    if (k === "order") return '<label>📌 市场 <select id="sq-m">' + Object.keys(MK).map(function (m) { return '<option value="' + m + '">' + MK[m] + "</option>"; }).join("") + '</select> 单号 <input id="sq-id" type="number" min="0" placeholder="例如 1234" style="width:100px"></label><small>单号在 OTC 页「我的挂单」里看（# 后面的数字）。帖子下面会出现「去买这张单」按钮，别人一点就到你的单。</small>';
-    if (k === "iou") return '<small>📜 立字据模板已填进正文：改成你们的内容。双方名字和时间永久刻在链上，谁都改不了。</small>';
-    if (k === "pred") return '<small>🔮 预言帖：写你对今晚揭晓价的看法，帖子下面会有「我也预测」按钮带大家去预言家页。</small>';
-    return "";
-  }
-  function bindComposer(rid, re, onDone) {
-    var ta = document.getElementById("sq-t"), n = document.getElementById("sq-n"), go = document.getElementById("sq-go"), st = document.getElementById("sq-st"), opt = document.getElementById("sq-opt");
-    if (!ta) return;
-    ta.oninput = function () { n.textContent = Array.from(ta.value).length + " / " + MAX; };
-    document.querySelectorAll(".sq-kinds button").forEach(function (b) {
-      b.onclick = function () {
-        kind = b.getAttribute("data-k"); document.querySelectorAll(".sq-kinds button").forEach(function (x) { x.classList.toggle("on", x === b); });
-        opt.innerHTML = optHtml(kind); opt.hidden = !opt.innerHTML;
-        if (kind === "iou" && !ta.value) { ta.value = "我 ___ 承诺：___。期限：___。违约则：___。"; ta.oninput(); }
-      };
-    });
-    function say(t, bad) { st.className = "note" + (bad ? " down" : ""); st.textContent = t; if (bad) A.errTip(t, go); }
-    go.onclick = function () {
-      var txt = ta.value.trim();
-      if (!txt) return say("先写点什么", true);
-      if (Array.from(txt).length > MAX) return say("最多 " + MAX + " 字", true);
-      if (CONTACT.test(txt)) return say("🛡️ 帖子里不能有网址或联系方式（微信、QQ、电报、手机号等）。所有交流只在链上进行，骗子才会让你加联系方式。", true);
-      var obj = { t: txt };
-      if (re) obj.re = re;
-      else {
-        if (kind === "cap") { var at = document.getElementById("sq-at"), ts = at && at.value ? new Date(at.value + "T21:00:00+08:00").getTime() : 0; if (!ts || ts < Date.now()) return say("揭晓日期要在今天之后", true); obj.at = ts; }
-        if (kind === "order") { var m = document.getElementById("sq-m").value, id = Number(document.getElementById("sq-id").value); if (!(id >= 0) || document.getElementById("sq-id").value === "") return say("填一下挂单的单号", true); obj.o = { m: m, id: id }; }
-        if (kind === "pred" || kind === "iou") obj.k = kind;
-      }
-      go.disabled = true;
-      var acct;
-      A.otcKit.connect().then(function (acc) {
-        acct = acc; say("检查发帖资格…");
-        return nameOf(acct);
-      }).then(function (nm) {
-        if (!nm) throw new Error("只有注册了 .ailgns 域名并设为主名字的钱包才能发帖。去「域名」页注册一个（最低 5 DAI），设为主名字后再来");
-        say("🔒 这是一笔 0 元转账，内容放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认");
-        return A.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [{ from: acct, to: SQUARE, value: "0x0", data: enc(obj) }] });
-      }).then(function (hash) {
-        say("已提交，等待链上确认…");
-        return W.waitOn("anubis", hash).then(function () { return hash; });
-      }).then(function (hash) {
-        say("链上已确认，正在收进广场…");
-        return fetch("/api/square", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: hash }) }).then(function (r) { return r.json(); });
-      }).then(function (r) {
-        if (r.error) throw new Error(r.error);
-        say("✅ 已上链"); ta.value = ""; n.textContent = "0 / " + MAX; go.disabled = false;
-        onDone(r.item);
-      }).catch(function (e) { go.disabled = false; say(A.otcKit.niceError ? A.otcKit.niceError(e) : (e.message || String(e)), true); });
-    };
-  }
-  function head() {
-    return '<section class="card sq-head"><h1>🏛️ 链上广场</h1><p class="sub">有 .ailgns 名字的人才能发言，每句话都是一笔链上交易：发了就删不掉、改不了，谁说的永远查得到。<b>看帖不用钱包。</b></p>' +
-      '<div class="sq-rules"><span>🧱 盖楼</span><span>🔒 时间胶囊</span><span>📜 立字据</span><span>📌 挂单帖一键去成交</span><span>🔮 预言帖</span></div></section>';
-  }
-  function list(rid) {
-    A.app.innerHTML = head() + composer(null) + '<div id="sq-list"><p class="muted">读取中…</p></div>';
-    kind = ""; bindComposer(rid, null, function () { list(rid); });
-    fetch("/api/square?list=1").then(function (r) { return r.json(); }).then(function (j) {
-      if (!A.isCurrent(rid)) return;
-      var box = document.getElementById("sq-list"), l = j.list || [];
-      box.innerHTML = l.length ? '<h3 class="sq-h3">最新 · 共 ' + (j.total || l.length) + " 帖</h3>" + l.map(rootCard).join("") : '<section class="card"><p class="muted">广场还空着。第一帖会永远是第一帖，要不要留给你？</p></section>';
-    }).catch(function () { var box = document.getElementById("sq-list"); if (box) box.innerHTML = '<p class="muted">读取失败，稍后再试</p>'; });
-  }
-  function thread(rid, tx) {
-    A.app.innerHTML = '<p class="sq-back"><a href="#/square">← 回广场</a></p><div id="sq-th"><p class="muted">读取中…</p></div>';
-    fetch("/api/square?p=" + tx).then(function (r) { return r.json(); }).then(function (j) {
-      if (!A.isCurrent(rid)) return;
-      var box = document.getElementById("sq-th");
-      if (j.error) { box.innerHTML = '<section class="card"><p class="nm-bad">' + esc(j.error) + "</p></section>"; return; }
-      var floors = [j.root].concat(j.replies || []);
-      box.innerHTML = '<section class="card sq-thread">' + floors.map(function (p, i) { return floorCard(p, i + 1); }).join("") + "</section>" + composer(tx);
-      bindComposer(rid, tx, function (item) { var th = document.querySelector(".sq-thread"); if (th) th.insertAdjacentHTML("beforeend", floorCard(item, floors.length + 1)); floors.push(item); });
-    }).catch(function () { var box = document.getElementById("sq-th"); if (box) box.innerHTML = '<p class="muted">读取失败，稍后再试</p>'; });
-  }
-  A.pages.square = function (rid) {
-    var tx = (location.hash.split("/")[2] || "").toLowerCase();
-    if (/^0x[0-9a-f]{64}$/.test(tx)) thread(rid, tx); else list(rid);
-  };
-})();
-
-}catch(e){console.error('[bundle] square.js',e);}
-;
-try{
-// 🎁 创世域名分红 · 每日签到页 #/bonus（站长 2026-11-21 定的五条：创世域名持有人 / 每日签到 / 奖池累计满 500 DAI 发一次 / 发 AiLGNS / 钱来自普通域名销售收入）
-// 2026-11-21 站长补充：满 500 DAI 时「按票数随机抽 50 人」。
-// 2026-11-23 站长要「大户拿得多、小户也雨露均沾」→ 50 份分两种抽法：WIN_T 份按票抽（票多中得多）+ WIN_W 份按钱包抽（每个签到钱包机会一样；按票已中的不再参加）。
-// 2026-11-21 站长再定：「票多的占优势」→ 抽的是票不是钱包：从这一轮所有的票里抽 50 张，每张分一份（奖池的 1/50），同一个钱包可以中多张；总票数不到 50 张就每张都中、按票平分。
-// （原来写的「一个钱包一轮最多中一次、中签的平分」会让大户拆钱包，已作废。）
-// 这页做两件事：① 显示奖池现在多少、离 500 DAI 还差多少；② 让持有创世域名的钱包每天签到一次（钱包免费签名，不上链、不花钱）。
-// 奖池金额来自 /api/name-genesis 的 pool（奖池钱包的链上余额）；签到记账在 /api/bonus。这页不转账、不调合约。发放还没做。
-(function () {
-  var A = window.AIL, GOAL = 500, WIN = 50, WIN_T = 30, WIN_W = 20, POOL = "0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2", timer = 0, eth = null, account = "", info = null, busy = false, pool = null;
-  function n(v) { return Number(v || 0).toLocaleString("en-US"); }
-  function n2(v) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function el(id) { return document.getElementById(id); }
-  function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
-  function utf8hex(str) { var b = unescape(encodeURIComponent(str)), h = "0x"; for (var i = 0; i < b.length; i++) h += b.charCodeAt(i).toString(16).padStart(2, "0"); return h; }
-  // 签名文字必须和 functions/api/bonus.js 里的 signText 一字不差
-  function signText(day, a) { return "AiLGNS 创世域名分红 · 每日签到\n日期：" + day + "\n钱包：" + a + "\n只是签名，不花钱、不转账。"; }
-  // 2026-11-21 夜 站长改门槛：AiLGNS ≥ 1 枚 或 LGNS ≥ 1 万枚（质押在官方池里的 LP 也算）；创世域名在小号里的，让主钱包签一次名「作保」。
-  // 下面两段文字必须和 functions/api/bonus.js 里的 signTextM / bindText 一字不差
-  function signTextM(day, a, m) { return "AiLGNS 创世域名分红 · 每日签到\n日期：" + day + "\n钱包：" + a + "\n主钱包：" + m + "\n只是签名，不花钱、不转账。"; }
-  function bindText(main, sub, ts) { return "AiLGNS 创世域名分红 · 主钱包作保\n主钱包：" + main + "\n小号：" + sub + "\n时间：" + ts + "\n只是签名，不花钱、不转账。让这个小号用我的持仓过签到门槛。"; }
-  function isAddr(x) { return /^0x[0-9a-f]{40}$/.test(x); }
-  // 小号这边记着的主钱包地址：只存在这台设备的浏览器里（服务器不存，主钱包是谁由小号自己的签到签名说了算）
-  function mainOf(a) { try { var m = String(localStorage.getItem("bn:main:" + a) || "").toLowerCase(); return isAddr(m) && m !== a ? m : ""; } catch (e) { return ""; } }
-  function setMain(a, m) { try { if (m) localStorage.setItem("bn:main:" + a, m); else localStorage.removeItem("bn:main:" + a); } catch (e) {} }
-  function sayB(t, bad) { var s = el("bn-b-st"); if (!s) return; s.textContent = t || ""; s.hidden = !t; s.className = "bn-st" + (bad ? " bad" : ""); }
-  function say(t, bad) { var s = el("bn-st"); if (!s) return; s.textContent = t || ""; s.hidden = !t; s.className = "bn-st" + (bad ? " bad" : ""); }
-
-  function paintPool() {
-    if (!el("bn-pool")) return;
-    var goal = Number(info && info.goal) || GOAL, has = pool === null ? null : Number(pool) || 0;
-    el("bn-pool").textContent = has === null ? "…" : n2(has);
-    el("bn-fill").style.width = Math.max(2, Math.min(100, Math.round((has || 0) / goal * 1000) / 10)) + "%";
-    el("bn-need").textContent = has === null ? "读取中…" : has >= goal ? "奖池已满 " + n(goal) + " DAI，等待发放" : "还差 " + n2(goal - has) + " DAI 就发放";
-    var all = info && info.all;
-    el("bn-all").textContent = all ? "第 " + n(info.round) + " 轮 · 已有 " + n(all.w) + " 个钱包签到，今天 " + n(all.today) + " 个" : "";
-  }
-  function paintMe() {
-    var box = el("bn-me"), btn = el("bn-sign"); if (!box || !btn) return;
-    var me = info && info.me;
-    btn.disabled = busy;
-    if (!account) { box.hidden = true; btn.textContent = "连接钱包签到"; return; }
-    box.hidden = false;
-    if (!me) { box.textContent = "钱包 " + short(account) + "：签到数据读取中…"; btn.textContent = "✍️ 今日签到（免费）"; return; }
-    if (me.held < 0) { box.textContent = "钱包 " + short(account) + "：暂时没读到你的域名，过一分钟再来。"; btn.textContent = "✍️ 今日签到（免费）"; return; }
-    if (me.held === 0) {
-      box.innerHTML = "钱包 " + short(account) + " 里没有创世域名，有 1 枚就能签到。" + (me.days > 0 ? "（本轮已签 " + n(me.days) + " 天）" : "");
-      btn.textContent = "去域名市场买创世域名 →"; return;
-    }
-    var lack = !me.signed && me.ok === false; // 持仓不够门槛：创世域名有了，AiLGNS / LGNS 都不够
-    var got = "AiLGNS <b>" + ailFmt(me.ail) + "</b> 枚、LGNS <b>" + n(Math.floor(Number(me.lgns) || 0)) + "</b> 枚";
-    box.innerHTML = "钱包 " + short(account) + " 有 <b>" + n(me.held) + "</b> 枚创世域名，签到一天记 <b>" + n(me.held) + "</b> 票。" +
-      (me.days > 0 ? "<br>本轮已签 <b>" + n(me.days) + "</b> 天，共 <b>" + n(me.tickets) + "</b> 票。" : "") +
-      (lack ? '<br><span class="bn-lack">持仓还不够签到：现在算到 ' + got + "。要至少 " + n(me.ailNeed) + " 枚 AiLGNS，或至少 " + n(me.lgnsNeed) + " 枚 LGNS（质押的 LP 也算）。持仓在别的钱包？看下面「让主钱包作保」。</span>"
-        : me.ok === true && !me.signed ? "<br>持仓够了：" + got + (me.main ? '，含主钱包 <b class="mono">' + short(me.main) + "</b> 的持仓。可以签到了。" : "。可以签到了。") : "") +
-      (me.mainBad ? '<br><span class="bn-lack">你填的主钱包 <b class="mono">' + short(me.mainBad) + "</b> 现在没有给这个小号作保。请先用主钱包做下面第一步。</span>" : "") +
-      (me.back ? '<br>这个钱包正在给小号 <b class="mono">' + short(me.back.s) + "</b> 作保。" : "");
-    if (me.signed) { btn.textContent = "✅ 今天已签到，明天再来"; btn.disabled = true; }
-    else if (lack) btn.textContent = "去 OTC 买 AiLGNS →";
-    else btn.textContent = "✍️ 今日签到（免费）";
-    try { var bm = el("bn-b-main"); if (bm && !bm.value && document.activeElement !== bm) bm.value = mainOf(account); } catch (e) {}
-  }
-  function ailFmt(v) { v = Number(v) || 0; return v >= 100 ? n(Math.floor(v)) : String(Math.floor(v * 10000) / 10000); } // 往下取，0.99996 不能显示成 1
-  function paint() { try { paintPool(); paintMe(); } catch (e) {} }
-
-  // 🏆 签到排行榜（站长 2026-11-21：「弄一个签到排行榜，把签到的创世域名都列出来」）：这一轮按票数排，每个钱包下面列出它现在手里的创世域名。
-  // 先给上次存的，再去拿新的（接口那头缓存 60 秒）。手机先看前 10 个钱包、每个钱包先看 3 个名字，其余点开再看
-  var rk = null, rkAll = false, rkOpen = {};
-  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function paintRank() {
-    var box = el("bn-rk"); if (!box) return;
-    if (!rk) { box.innerHTML = '<p class="muted">读取中…</p>'; return; }
-    var list = rk.list || [];
-    if (!list.length) { box.innerHTML = '<p class="muted">这一轮还没有人签到。你来当第一个。</p>'; return; }
-    var show = rkAll ? list.length : Math.min(10, list.length);
-    box.innerHTML = '<p class="bn-rk-top">第 ' + n(rk.round) + " 轮 · 共 " + n(rk.w) + ' 个钱包签到 · 按票数排</p><ol class="bn-rk-l">' + list.slice(0, show).map(function (r, i) {
-      var g = r.g || [], open = !!rkOpen[r.a], cut = open ? g.length : Math.min(3, g.length), me = account && r.a === account;
-      var who = me ? '<b class="bn-rk-me">我</b>' : (A.nameTag ? A.nameTag(r.a) : short(r.a));
-      return '<li class="bn-rk-i' + (me ? " me" : "") + '"><div class="bn-rk-h"><i class="bn-rk-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><span class="bn-rk-w mono">' + who + '</span><b class="bn-rk-t">' + n(r.t) + " 票</b></div>" +
-        '<p class="bn-rk-s">签到 ' + n(r.n) + " 天 · " + (r.td ? "今天已签" : "今天还没签") + (r.gn >= 0 ? " · 现在有 " + n(r.gn) + " 枚创世域名" : "") + "</p>" +
-        (g.length ? '<p class="bn-rk-g">' + g.slice(0, cut).map(function (x) { return '<a href="#/names/' + encodeURIComponent(x[1] + ".ailgns") + '">🌟 ' + esc(x[1]) + ".ailgns <small>#" + x[0] + "</small></a>"; }).join("") +
-          (g.length > 3 ? '<button type="button" class="bn-rk-more" data-rk="' + r.a + '">' + (open ? "收起" : "展开全部 " + n(r.gn) + " 枚") + "</button>" : "") +
-          (open && r.gn > g.length ? '<span class="bn-rk-rest">还有 ' + n(r.gn - g.length) + " 枚没列出</span>" : "") + "</p>"
-          : r.gn === 0 ? '<p class="bn-rk-g none">签到后名字已转走或挂到市场，现在钱包里没有创世域名</p>' : "") + "</li>";
-    }).join("") + "</ol>" + (list.length > 10 ? '<button type="button" class="bn-rk-all" id="bn-rk-all">' + (rkAll ? "收起，只看前 10 名" : "再看后面 " + n(list.length - 10) + " 个钱包") + "</button>" : "") +
-      (rk.w > list.length ? '<p class="note">榜上只列票数最多的 ' + n(list.length) + " 个钱包。</p>" : "");
-  }
-  function loadRank() {
-    if (!rk) { try { var c = JSON.parse(localStorage.getItem("bn:rk") || "null"); if (c && c.list) rk = c; } catch (e) {} }
-    try { paintRank(); } catch (e) {}
-    return fetch("/api/bonus?rank=1").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
-      if (!j || !j.list) throw new Error("bad");
-      rk = j; try { localStorage.setItem("bn:rk", JSON.stringify(j)); } catch (e) {}
-      paintRank();
-    }).catch(function () { try { if (!rk && el("bn-rk")) el("bn-rk").innerHTML = '<p class="muted">排行榜暂时没读到，稍后自动重试。</p>'; } catch (e) {} });
-  }
-
-  function loadPool() {
-    return fetch("/api/name-genesis").then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (j) {
-      if (j && j.pool !== undefined && j.pool !== null) pool = Number(j.pool) || 0;
-      paint();
-    }).catch(function () {
-      // 接口没答上来：自己读一次奖池钱包的链上余额（Anubis 上 DAI 就是原生币）
-      return A.wallet.rpcOn("anubis", "eth_getBalance", [POOL, "latest"]).then(function (b) { pool = Number(BigInt(b) / 10n ** 14n) / 1e4; paint(); });
-    }).catch(function () { if (el("bn-need") && pool === null) el("bn-need").textContent = "奖池金额暂时没读到，稍后自动重试"; });
-  }
-  function loadInfo() {
-    return fetch("/api/bonus" + (account ? "?a=" + account + (mainOf(account) ? "&m=" + mainOf(account) : "") : "")).then(function (r) { return r.json().then(function (j) { if (!r.ok || !j || j.error) throw new Error((j && j.error) || "bad"); return j; }); })
-      .then(function (j) { info = j; paint(); return j; })
-      .catch(function (e) { if (account && el("bn-me")) { el("bn-me").hidden = false; el("bn-me").textContent = "钱包 " + short(account) + "：" + (e && /[一-龥]/.test(e.message || "") ? e.message : "签到数据暂时没读到，稍后再试"); } return null; });
-  }
-  function connect() {
-    return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); })
-      .then(function (a) { var got = String(a[0]).toLowerCase(); if (got !== account) { account = got; info = info ? { day: info.day, round: info.round, goal: info.goal, all: info.all } : null; } return account; });
-  }
-  function onSign() {
-    if (busy) return;
-    var me = info && info.me;
-    if (account && me && me.held === 0) { location.hash = "#/names/otc"; return; }
-    if (account && me && me.held > 0 && !me.signed && me.ok === false) { location.hash = "#/otc"; return; }
-    busy = true; say(""); paint();
-    var done = function () { busy = false; paint(); };
-    (eth && account ? Promise.resolve() : connect()).then(function () { paint(); return loadInfo(); }).then(function (j) {
-      if (!j || !j.me) throw new Error("签到数据暂时没读到，稍后再点一次");
-      if (j.me.held < 0) throw new Error("暂时没读到你的域名，过一分钟再点");
-      if (j.me.held === 0) { say("这个钱包里没有创世域名。刚买的等 1 分钟再点；挂在市场里卖的不算。", true); return null; }
-      if (j.me.signed) { say("今天已经签过了，明天再来。"); return null; }
-      if (j.me.ok === false) { say("签到要持有至少 " + n(j.me.ailNeed) + " 枚 AiLGNS，或者至少 " + n(j.me.lgnsNeed) + " 枚 LGNS（官方质押里的 LGNS、质押在官方流动性池里的 LP 也算）。现在算到 AiLGNS " + ailFmt(j.me.ail) + " 枚、LGNS " + n(Math.floor(Number(j.me.lgns) || 0)) + " 枚，还不够。", true); return null; }
-      var mn = j.me.main || ""; // 有主钱包在作保：签名文字里带上主钱包地址
-      say("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");
-      return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(mn ? signTextM(j.day, account, mn) : signText(j.day, account)), account] }).then(function (sig) {
-        say("正在登记…");
-        return fetch("/api/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mn ? { a: account, sig: sig, m: mn } : { a: account, sig: sig }) }).then(function (r) { return r.json(); });
-      }).then(function (r) {
-        if (!r || !r.ok) throw new Error((r && r.error) || "没记上，稍后再点一次");
-        info = info || {}; info.me = r.me; info.day = r.day; info.round = r.round;
-        if (info.all && !r.already) { info.all.today = (Number(info.all.today) || 0) + 1; if (r.me.days === 1) info.all.w = (Number(info.all.w) || 0) + 1; }
-        say("✅ 签到成功，今天记 " + n(r.me.held) + " 票。明天再来。");
-        setTimeout(function () { try { loadRank(); } catch (e) {} }, 1500); // 榜一分钟更新一次，刚签的可能要等一会儿才上榜
-      });
-    }).then(done, function (e) {
-      var m = String((e && e.message) || "");
-      say(e && (e.code === 4001 || /reject|denied|cancel/i.test(m)) ? "你取消了签名，没有签到。" : /[一-龥]/.test(m) ? m : "没签成，稍后再点一次。", true);
-      done();
-    });
-  }
-  // 🤝 主钱包作保，第一步：现在连着的钱包是主钱包，填小号地址，签一次名
-  function onBind() {
-    if (busy) return;
-    var sb = String((el("bn-b-sub") || {}).value || "").trim().toLowerCase();
-    if (!isAddr(sb)) { sayB("请先填对小号的钱包地址。", true); return; }
-    busy = true; sayB(""); paint();
-    var done = function () { busy = false; paint(); };
-    (eth && account ? Promise.resolve() : connect()).then(function () {
-      if (sb === account) throw new Error("小号地址和现在连的钱包是同一个。请用主钱包打开这页再做这一步。");
-      var ts = Date.now(), main = account;
-      sayB("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");
-      return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(bindText(main, sb, ts)), main] }).then(function (sig) {
-        sayB("正在登记…");
-        return fetch("/api/bonus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bind: 1, main: main, sub: sb, ts: ts, sig: sig }) }).then(function (r) { return r.json(); });
-      }).then(function (r) {
-        if (!r || !r.ok) throw new Error((r && r.error) || "没办成，稍后再点一次。");
-        setMain(sb, main); // 同一个钱包 App 里换到小号，第二步就自动填好了
-        sayB("✅ 作保成功。现在在钱包里换到小号，回到这页点签到。");
-        return loadInfo();
-      });
-    }).then(done, function (e) {
-      var m = String((e && e.message) || "");
-      sayB(e && (e.code === 4001 || /reject|denied|cancel/i.test(m)) ? "你取消了签名，没有作保。" : /[一-龥]/.test(m) ? m : "没办成，稍后再点一次。", true);
-      done();
-    });
-  }
-  // 第二步：现在连着的是小号，记下主钱包地址（只记在这台设备上），签到时带上
-  function onSaveMain() {
-    var m = String((el("bn-b-main") || {}).value || "").trim().toLowerCase();
-    if (!account) { sayB("请先点上面的按钮连接钱包。", true); return; }
-    if (m && !isAddr(m)) { sayB("请先填对主钱包地址。", true); return; }
-    if (m === account) { sayB("主钱包地址和现在连的钱包是同一个，不用填。", true); return; }
-    setMain(account, m);
-    sayB(m ? "已保存，正在核对…" : "已清除。");
-    loadInfo().then(function (j) {
-      if (!m || !j || !j.me) return;
-      if (j.me.main === m) sayB("✅ 主钱包在给这个小号作保，可以签到了。");
-      else sayB("这个主钱包现在没有给这个小号作保。请先用主钱包做第一步。", true);
-    });
-  }
-  function render() {
-    A.app.innerHTML =
-      '<section class="card bn"><h1>🎁 创世域名分红计划</h1><p class="sub">持有创世域名，再加至少 1 枚 AiLGNS 或 1 万枚 LGNS，每天签到。奖池每满 ' + n(GOAL) + ' DAI 分 ' + n(WIN) + ' 份：' + n(WIN_T) + ' 份按票抽（票多中得多），' + n(WIN_W) + ' 份按钱包抽（人人机会一样），发 AiLGNS。</p>' +
-      '<div class="bn-cd"><p class="bn-cap">分红奖池现在有</p><div class="bn-big"><b id="bn-pool">…</b><span>DAI</span></div>' +
-      '<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-need">读取中…</span><span id="bn-all"></span></p></div>' +
-      '<p class="bn-me" id="bn-me" hidden></p>' +
-      '<button type="button" class="bn-go bn-sign" id="bn-sign">连接钱包签到</button><p class="bn-st" id="bn-st" hidden></p>' +
-      '<details class="bn-bind" id="bn-bind"><summary>创世域名在小号里？让主钱包作保</summary>' +
-      '<p>AiLGNS、LGNS 或质押的 LP 放在另一个钱包的，让那个钱包签一次名给小号「作保」，小号就能签到。只是签名，不转账、不花钱。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p>' +
-      '<div class="bn-bind-b"><b>第一步：用主钱包打开这页（只做一次）</b><input type="text" id="bn-b-sub" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="小号的钱包地址 0x…"><button type="button" class="bn-bind-go" id="bn-b-go">✍️ 主钱包签名作保（免费）</button></div>' +
-      '<div class="bn-bind-b"><b>第二步：换回小号来签到</b><input type="text" id="bn-b-main" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="主钱包地址 0x…"><button type="button" class="bn-bind-go ghost" id="bn-b-save">保存主钱包地址</button><small>在同一个钱包 App 里换号的，这一步会自动填好。</small></div>' +
-      '<p class="bn-st" id="bn-b-st" hidden></p></details>' +
-      '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/' + POOL + '">随时可查</a>。</p></section>' +
-      '<section class="card bn"><h2>🏆 签到排行榜</h2><div id="bn-rk"></div><p class="note">每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。</p></section>' +
-      '<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">' +
-      "<li><b>谁能领：有创世域名，并持有 1 枚 AiLGNS 或 1 万枚 LGNS</b><span>钱包里至少有 1 枚创世域名；另外还要持有至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。官方质押里的 LGNS 也算；质押在官方流动性池里的 LP 也算，按里面实际含的 AiLGNS 和 LGNS 折算。1 枚创世域名签到一天记 1 票，创世域名越多票越多；持仓够门槛就行，多了不加票。</span></li>" +
-      "<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>" +
-      "<li><b>怎么抽：奖池满 " + n(GOAL) + " DAI，分成 " + n(WIN) + " 份，两种抽法</b><span>奖池每累计满 " + n(GOAL) + " DAI 抽一次，分成 " + n(WIN) + " 份。① 按票抽 " + n(WIN_T) + " 份：从这一轮所有的票里随机抽 " + n(WIN_T) + " 张，票越多越容易中，票多的钱包可以中好几份。② 阳光普照 " + n(WIN_W) + " 份：从这一轮签到过的钱包里随机抽 " + n(WIN_W) + " 个，每个钱包机会一样，不看票多票少；按票已经中了的钱包不再参加这一步。抽完开始下一轮，票从头算。</span></li>" +
-      "<li><b>发什么：AiLGNS</b><span>每一份是奖池的 " + n(WIN) + " 分之一（约 " + n(GOAL / WIN) + " DAI）。发 AiLGNS，直接打到钱包。</span></li>" +
-      "<li><b>钱从哪里来</b><span>普通域名的销售收入。以后计划加入极速预言奖池的分红。</span></li>" +
-      '</ol></section>' +
-      '<section class="card bn"><h2>常见问题</h2>' +
-      "<details><summary>签到要花钱吗？</summary><p>不花钱。签到只是在钱包里签个名，不转账、不用 Gas。任何让你转账才能签到的都是骗子。</p></details>" +
-      "<details><summary>挂在市场上卖的创世域名算票吗？</summary><p>不算。挂单的名字存在市场里，不在你钱包里。撤单拿回钱包就算。已销毁的也不算。</p></details>" +
-      "<details><summary>AiLGNS / LGNS 要放在哪？不够怎么办？</summary><p>至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。算的是：签到钱包里的余额，加上官方质押里的 LGNS（长期质押、即时质押、折扣质押等都算），再加上质押在官方流动性池里的 LP（按里面实际含的币折算）。挂在 OTC 卖单里的、押在借贷里的不算。不够可以去 <a href=\"#/otc\">OTC</a> 买。之前已经签到的票照旧保留。</p></details>" +
-      "<details><summary>创世域名在小号里，币在主钱包里，怎么办？</summary><p>让主钱包给小号「作保」：先用主钱包打开这页，在签到按钮下面「让主钱包作保」里填小号地址、签一次名（免费，不转账）；再换回小号签到。以后门槛按小号和主钱包的持仓合起来算，票和奖都记在小号上。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p></details>" +
-      "<details><summary>刚买的创世域名签不了？</summary><p>等 1 分钟再点。网站要等链上记录同步过来才认得出。</p></details>" +
-      "<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>" +
-      "<details><summary>什么时候抽？</summary><p>没有固定日期。奖池满 " + n(GOAL) + " DAI 就抽一次，上面的进度条能看到还差多少。</p></details>" +
-      "<details><summary>签到了就一定有吗？</summary><p>不一定。每轮一共 " + n(WIN) + " 份：" + n(WIN_T) + " 份按票抽，签到天数越多、创世域名越多，票就越多，越容易中，也可能中好几份；" + n(WIN_W) + " 份按钱包抽，只要这一轮签到过，每个钱包机会一样。票或者钱包不够抽的时候，有几个中几个，那一部分的钱平分。</p></details></section>";
-    el("bn-sign").onclick = function () { try { onSign(); } catch (e) { busy = false; say("没签成，稍后再点一次。", true); } };
-    el("bn-b-go").onclick = function () { try { onBind(); } catch (e) { busy = false; sayB("没办成，稍后再点一次。", true); } };
-    el("bn-b-save").onclick = function () { try { onSaveMain(); } catch (e) { sayB("没办成，稍后再点一次。", true); } };
-    info = null; busy = false;
-    if (!eth || !account) { // 这次打开网站还没在这页连过钱包：先用上次认得的地址显示，点签到时再真正连
-      eth = null; account = "";
-      var saved = ""; try { saved = String(localStorage.getItem("ib:acct") || "").toLowerCase(); } catch (e) {}
-      if (/^0x[0-9a-f]{40}$/.test(saved)) account = saved;
-    }
-    paint(); loadPool(); loadInfo(); loadRank();
-    el("bn-rk").onclick = function (e) {
-      try {
-        var t = e.target, m = t.closest ? t.closest("button[data-rk]") : null;
-        if (m) { var k = m.getAttribute("data-rk"); rkOpen[k] = !rkOpen[k]; paintRank(); return; }
-        if (t.id === "bn-rk-all") { rkAll = !rkAll; paintRank(); }
-      } catch (x) {}
-    };
-    // 不弹窗问一下钱包现在是哪个地址：和上次记的不一样（客户在钱包里换了号再刷新，工单 #361）就换成现在这个，重新读签到状态
-    if (!eth) { try { if (A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { a = String(a || "").toLowerCase(); if (/^0x[0-9a-f]{40}$/.test(a) && !eth && a !== account) { account = a; info = null; paint(); loadInfo(); } }, function () {}); } catch (e) {} }
-    clearInterval(timer);
-    timer = setInterval(function () { if (!el("bn-pool")) { clearInterval(timer); return; } loadPool(); if (!busy) loadInfo(); loadRank(); }, 60000);
-  }
-  A.pages.bonus = function () { try { render(); } catch (e) { A.app.innerHTML = '<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>'; } };
-})();
-
-}catch(e){console.error('[bundle] bonus.js',e);}
-;
-try{
-// ⚡ 极速预言家 #/fast（站长 2026-11-12 定稿，试运行，不宣传）
-// 10 分钟一期，猜 0 到 9。票 = 新注册的纯数字 .ailgns 域名，1 DAI = 1 票。下注 = 给极速池转 0 个 DAI（只花 Gas），数据里带「ailgns-fast:数字:票数」。
-// 这页只读 /api/fast，下注时才连钱包发一笔 0 DAI 转账；算账和发奖都不在这里。
-(function () {
-  var A = window.AIL, W = A.wallet, DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
-  var SHOW_RES = true; /* 「资金池余额」那一行：站长 2026-11-14 说「显示资金池金额」，正式站也显示（本期没人下注时「本期奖池」是 0，容易被当成没钱） */
-  var data = null, acct = "", eth = null, picks = [], qty = 1, busy = false, tick = 0, poll = 0, lastR = 0, mineOpen = false;
-  function el(id) { return document.getElementById(id); }
-  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function two(n) { return (n < 10 ? "0" : "") + n; }
-  function at(r) { var d = new Date((r + 1) * 600 * 1000); return two(d.getHours()) + ":" + two(d.getMinutes()); } // 这一期几点开奖（手机当地时间）
-  function money(v) { return (Math.floor(Number(v || 0) * 100) / 100).toFixed(2); }
-  function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
-  var stT = "", stBad = false;
-  function say(t, bad) { stT = t || ""; stBad = !!bad; var s = el("fx-st"); if (s) { s.textContent = stT; s.className = "fx-st" + (stBad ? " bad" : ""); } }
-
-  function load() {
-    return fetch("/api/fast" + (acct ? "?a=" + acct : ""), { cache: "no-store" }).then(function (r) { return r.json().then(function (j) { if (!r.ok && !j.error) throw new Error("bad"); return j; }); }).then(function (j) {
-      if (j.error) throw new Error(j.error);
-      data = j; try { localStorage.setItem("fx:last", JSON.stringify(j)); } catch (e) {}
-      paint();
-    }).catch(function () { if (!data) { var b = el("fx-main"); if (b) b.innerHTML = '<p class="muted">数据没读出来，稍等几秒会自动再试。</p>'; } });
-  }
-
-  /* 🎟 刚买的票秒到账（站长 2026-11-14）：买票窗口付款成功后记在 localStorage 的 fx:pend = { a, target, n, t }，target = 账本追上后我应该有几张。
-     账本还没追上（差 20 个区块）时，差的那几张先算进可押的票；这时下注在链上排在出票之后，两边账本都认。账本追上或过 3 分钟就作废。 */
-  function pend() { try { var p = JSON.parse(localStorage.getItem("fx:pend") || "null"); return p && acct && p.a === String(acct).toLowerCase() && Date.now() - p.t < 180000 ? p : null; } catch (e) { return null; } }
-  function extra() {
-    var me = data && data.me, p = me && data.v2 ? pend() : null; if (!p) return 0;
-    var x = p.target - me.left;
-    if (x <= 0) { try { localStorage.removeItem("fx:pend"); } catch (e) { /* 删不掉也只是多留 3 分钟 */ } return 0; }
-    return x;
-  }
-  function left() { return data && data.me ? data.me.left + extra() : 0; }
-  // 站长 2026-11-17：赔率更正成「全包返 95%」后，页面上的数字不能再写死 1.9——跟着接口给的 payx 走（没开闸还是 1.9，开闸后 9.5）
-  function PAYX() { return (data && data.payx) || 1.9; }
-  function wf(k) { return String(+(PAYX() * (k || 1)).toFixed(2)); }
-  /* 这一期我最多还能押几张：老票不限；新票每个钱包每期最多 cap2 张（站长 2026-11-14 定 100），已经押过的要扣掉 */
-  function maxQ() {
-    var me = data && data.me; if (!me) return 0;
-    if (!data.v2 || !data.cap2) return me.left;
-    var used = (me.bets || []).reduce(function (t, x) { return t + (x.st === "wait" && x.r === data.r ? (x.n2 || 0) : 0); }, 0);
-    if (data.v4) { /* 老票 1.9、新票 9.5 分开以后：新票每期最多 cap2 张，1.9 的老票每期最多 capOld 张，各算各的 */
-      var used3 = (me.bets || []).reduce(function (t, x) { return t + (x.st === "wait" && x.r === data.r ? (x.n3 || 0) : 0); }, 0);
-      return (me.left1 || 0) + Math.min((me.left3 || 0) + extra(), Math.max(0, data.cap2 - used3)) + Math.min(me.left2 || 0, Math.max(0, (data.capOld || 0) - used));
-    }
-    return (me.left1 || 0) + Math.min((me.left2 || 0) + (me.left3 || 0) + extra(), Math.max(0, data.cap2 - used));
-  }
-  /* 这一期还能押几张 9.5 的新票（最老的纯数字票先用，所以要先扣掉）；没分开时返回 -1 */
-  function newRoom() {
-    var me = data && data.me; if (!me || !data.v4) return -1;
-    var used3 = (me.bets || []).reduce(function (t, x) { return t + (x.st === "wait" && x.r === data.r ? (x.n3 || 0) : 0); }, 0);
-    return Math.min((me.left3 || 0) + extra(), Math.max(0, data.cap2 - used3));
-  }
-  /* 多选数字（站长 2026-11-14）：选了 k 个数字，每个数字压一样多，所以每个数字最多 = 这一期还能押的 ÷ k */
-  function maxPer() { return Math.floor(maxQ() / Math.max(1, picks.length)); }
-  function dsText() { return picks.slice().sort().join("、"); }
-  // 走势图。数据没变就不重画（页面每几秒刷新一次，重画会把客户滚到一半的位置弄丢）
-  var trendSig = "";
-  function paintTrend() {
-    var sec = el("fx-trend"), box = el("fxt"); if (!sec || !box) return;
-    var L = (data && data.trend) || [];
-    if (L.length < 2) { sec.hidden = true; return; }
-    sec.hidden = false;
-    var sig = L.length + ":" + L[L.length - 1][0] + ":" + L[0][0];
-    if (sig === trendSig && box.firstChild) return;
-    var old = box.querySelector(".fxt-sc"), stay = old && old.scrollHeight - old.scrollTop - old.clientHeight > 40 ? old.scrollTop : -1; // 客户往上翻着看：位置不动；本来就在最下面：继续跟着最新的
-    trendSig = sig;
-    var miss = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], cnt = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], maxm = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], pts = [], rows = "", c;
-    L.forEach(function (x, i) {
-      var d = Number(x[1]), cells = "";
-      for (c = 0; c < 10; c++) {
-        if (c === d) { miss[c] = 0; cnt[c]++; cells += '<span class="hit"><b>' + d + "</b></span>"; }
-        else { miss[c]++; if (miss[c] > maxm[c]) maxm[c] = miss[c]; cells += "<span>" + miss[c] + "</span>"; }
-      }
-      pts.push((d + 0.5) + "," + (i + 0.5));
-      rows += '<div class="fxt-r' + ((i + 1) % 5 === 0 ? " g5" : "") + '"><i>' + at(x[0]) + "</i>" + cells + "</div>";
-    });
-    var head = '<div class="fxt-r fxt-h"><i>开奖</i>' + [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return "<span>" + n + "</span>"; }).join("") + "</div>";
-    var foot = function (name, arr) { return '<div class="fxt-r fxt-f"><i>' + name + "</i>" + arr.map(function (n) { return "<span>" + n + "</span>"; }).join("") + "</div>"; };
-    box.innerHTML = '<div class="fxt-sc">' + head + '<div class="fxt-b">' + rows +
-      '<svg class="fxt-ln" viewBox="0 0 10 ' + L.length + '" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + pts.join(" ") + '"/></svg></div>' +
-      '<div class="fxt-ft">' + foot("出现次数", cnt) + foot("当前遗漏", miss) + foot("最大遗漏", maxm) + "</div></div>" +
-      '<p class="fxt-n">共 ' + L.length + " 期（" + at(L[0][0]) + " – " + at(L[L.length - 1][0]) + "）· 可以上下滑动</p>";
-    var sc = box.querySelector(".fxt-sc"); if (sc) sc.scrollTop = stay >= 0 ? stay : sc.scrollHeight;
-  }
-  function paint() {
-    var box = el("fx-main"); if (!box || !data) return;
-    if (!data.open) { box.innerHTML = '<p class="fx-closed">⏳ 还没开放。开放时会在这里直接能玩，不用做任何准备。</p>'; ["fx-draws", "fx-mine", "fx-done"].forEach(function (i) { if (el(i)) el(i).hidden = true; }); return; }
-    var me = data.me, have = left(), v2 = !!data.v2; /* v2 = 新规则已生效（接口说了算） */
-    var oldOn = v2 && (data.left1 > 0 || data.tk > 0 || data.carry > 0), myOld = v2 && me && me.left1 > 0; /* 还有没有老票在用 */
-    var oldMine = myOld || !!(v2 && me && (me.bets || []).some(function (x) { return x.st === "wait" && x.r === data.r && x.n > (x.n2 || 0) + (x.n3 || 0); })); /* 我手里有老票 / 这一期押了老票：才给我看老奖池那一行 */
-    if (!data.multi && picks.length > 1) picks = picks.slice(0, 1);
-    if (qty > maxPer()) qty = Math.max(1, maxPer());
-    var rk = v2 + ":" + !!data.v4 + ":" + PAYX(); if (ruleV2 !== rk) { ruleV2 = rk; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
-    var grid = "";
-    for (var d = 0; d < 10; d++) grid += '<button type="button" class="fx-d' + (picks.indexOf(d) >= 0 ? " on" : "") + '" data-d="' + d + '"><b>' + d + "</b><i>" + (data.by[d] ? data.by[d] + " 票" : "还没人压") + "</i></button>";
-    box.innerHTML =
-      (data.trial ? '<p class="fx-trial">🧪 预览演示：还没正式开始，现在下注<b>不发奖</b>，只用来看页面。</p>' : "") +
-      '<div class="fx-hero"><p class="fx-t">本期 <b>' + at(data.r) + '</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>' +
-      (v2 ? '<p class="fx-pot">猜中每张票发 <b>' + wf() + ' DAI</b></p><p class="fx-pot2">押 1 张猜中发 ' + wf() + ' DAI，押 10 张猜中发 <b>' + wf(10) + ' DAI</b>（1 张票 = 1 DAI）· 本期已压 ' + (data.tk + (data.tk2 || 0)) + " 票</p>" +
-          (data.v4 && me && me.left2 > 0 ? '<p class="fx-res">你有 <b>' + me.left2 + "</b> 张 11 月 18 日前买的票，按买的时候的规则：猜中每张发 <b>" + data.payOld + " DAI</b>。" + (me.left3 > 0 ? "下注先用新买的票（" + me.left3 + " 张，每张 " + wf() + "），用完才用它们。" : "新买的票才是每张 " + wf() + " DAI。") + "</p>" : "") +
-          (oldOn && oldMine ? '<p class="fx-res">你的老票（规则调整前买的）按老规则：本期老奖池 <b>' + money(data.pot) + " DAI</b>，已压 " + data.tk + " 张老票，猜中的按票数分。</p>" : "")
-        : data.res && SHOW_RES
-          ? '<p class="fx-pot">资金池 <b>' + money(data.res.dai) + " DAI</b></p>" +
-            '<p class="fx-pot2">本期已压 ' + data.tk + " 票 · 本期可分 <b>" + money(data.pot) + " DAI</b>" + (data.carry > 0 ? "（含前面滚过来的 " + money(data.carry) + "）" : "") + "</p>" +
-            '<p class="fx-res">资金池是<a href="#/scan/' + data.pool + '">链上实际余额</a>' + (data.res.ail > 0 ? "（另有 " + data.res.ail.toFixed(4) + " AiLGNS）" : "") + "。猜中的人按票数分「本期可分」那部分，不是分整个资金池。已卖出、还没下注的票有 <b>" + Number(data.left || 0).toLocaleString("en-US") + "</b> 张。</p>"
-          : '<p class="fx-pot">本期奖池 <b>' + money(data.pot) + " DAI</b></p>" +
-            '<p class="fx-pot2">' + (data.carry > 0 ? "其中 " + money(data.carry) + " DAI 是前面没人猜中滚过来的 · " : "") + "已压 " + data.tk + " 票</p>") +
-      (v2 && data.res && SHOW_RES ? '<div class="fx-pool"><span class="fx-pool-l">💰 奖池</span><b class="fx-pool-n">' + money(data.res.dai + (data.transit || 0)) + ' DAI</b>' +
-        '<a class="fx-pool-v" href="#/scan/' + data.pool + '">🔗 链上验证 ›</a>' +
-        '' + (data.transit > 0 ? '<p class="fx-pool-t">其中 ' + money(data.transit) + ' DAI 是刚卖出的票款，正在转进奖池钱包（一般十几分钟内到），链上查到的会暂时少这么多。</p>' : "") + '<div class="fx-tags"><i>✅ 全额兑付</i><i>⚡ 中奖秒发 · 约 1 分钟到账</i></div></div>' : "") + "</div>" +
-      '<div class="fx-me">' + (!acct ? '还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>'
-        : have > 0 ? "钱包 " + short(acct) + " 还有 <b>" + have + "</b> 张票" + (extra() > 0 ? "（刚买的 " + extra() + " 张已到账，现在就能押）" : "") + (myOld ? (me.left2 > 0 ? "（其中老票 " + me.left1 + " 张，先用老票）" : "（都是老票，按老规则）") : "") + (v2 ? ' <a class="fx-more" href="#/names/batch">＋ 买更多票</a>' : "")
-        : v2 ? "钱包 " + short(acct) + " 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。"
-        : "钱包 " + short(acct) + " 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。") + "</div>" +
-      (acct && have <= 0 ? (v2 ? '<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>' : '<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>') : v2 ? '<a class="fx-go fx-go2" href="#/names/batch">🎟 注册域名买极速票（批量注册，至少 2 个）→</a>' : "") + /* 站长 2026-11-25：极速预言家一个注册入口，一直都在 */
-      '<p class="fx-h">' + (data.multi ? "① 选数字（可以多选 0-9）" : "① 选一个数字") + '</p><div class="fx-grid">' + grid + "</div>" +
-      (picks.length > 1 ? '<p class="note fx-mn">选了 ' + picks.length + " 个数字，押 1 倍 = " + picks.length + " 张票。开奖只开 1 个数字，所以最多只会中 1 个。" + (picks.length >= 10 ? "<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 " + wf() + "。" : "") + "</p>" : "") +
-      '<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">' + qty + '</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>' +
-      '<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>' +
-      (v2 ? '<p class="note">猜中：每张票发 ' + wf() + ' DAI（本金 1 + 净赚 ' + String(+(PAYX() - 1).toFixed(2)) + '），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。' + (myOld ? "你的老票猜中还按老规则分老奖池。" : "") + "</p>"
-        : '<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');
-    say(stT, stBad); betLabel(); clock();
-    // 最近开奖
-    paintTrend();
-    var dr = el("fx-draws");
-    if (dr) { dr.hidden = false; dr.querySelector(".fx-balls").innerHTML = data.draws.map(function (x) {
-      /* 站长 2026-11-17：显示开奖区块哈希换算成数字的末 6 位，最后一位（开奖数字）高亮；点格子去链上浏览器看那个区块。接口没给尾数的老记录照旧只显示数字 */
-      var tail = x.d != null && /^\d{6}$/.test(String(x.h || "")) && String(x.h).slice(-1) === String(x.d) ? String(x.h) : "";
-      var inner = "<b>" + (x.d == null ? "…" : (tail ? '<small class="fx-tl">…' + tail.slice(0, 5) + "</small>" : "") + x.d) + "</b><i>" + at(x.r) + "</i>";
-      return tail && Number(x.b) > 0 ? '<a class="fx-ball" href="https://anubisscan.io/block/' + Number(x.b) + '" target="_blank" rel="noopener">' + inner + "</a>" : '<span class="fx-ball' + (x.d == null ? " wait" : "") + '">' + inner + "</span>";
-    }).join(""); }
-    // 我的下注
-    var mb = el("fx-mine");
-    if (mb) {
-      var bets = (me && me.bets) || [];
-      mb.hidden = !acct;
-      // 站长 2026-11-16：只露最新 5 条，其余折叠。页面每 10 秒重画一次，所以把「展开没展开」记在 mineOpen 里，免得客户刚点开又自己合上
-      var betRow = function (x) {
-        var res = x.st === "wait" ? '<span class="fx-tag wait">等开奖</span>' : x.st === "win" ? '<span class="fx-tag win">中了 ' + money(x.pay) + " DAI" + (x.ail ? "，已发 " + x.ail + " AiLGNS" : data.trial ? "" : "，几分钟内到账") + "</span>" : '<span class="fx-tag lose">没中，开的是 ' + x.open + "</span>";
-        return '<div class="fx-row"><span><b>' + at(x.r) + "</b> 期　压 <b>" + x.d + "</b>　" + x.n + " 票</span>" + res + "</div>";
-      };
-      mb.querySelector(".fx-list").innerHTML = bets.length ? bets.slice(0, 5).map(betRow).join("") + (bets.length > 5 ? '<details class="fx-older"' + (mineOpen ? " open" : "") + "><summary>展开更早的 " + (bets.length - 5) + " 条</summary>" + bets.slice(5).map(betRow).join("") + "</details>" : "") : '<p class="muted">还没有下注记录。</p>';
-      var md = mb.querySelector(".fx-older"); if (md) md.ontoggle = function () { mineOpen = md.open; };
-    }
-    // 最近有人下注的几期
-    var dn = el("fx-done");
-    if (dn) {
-      dn.hidden = !data.done.length;
-      dn.querySelector(".fx-list").innerHTML = data.done.map(function (x) {
-        var n2 = x.tk2 || 0;
-        return '<div class="fx-row"><span><b>' + at(x.r) + "</b> 期　开 <b>" + x.d + "</b>　" + (x.tk + n2) + " 票" + (x.tk || !n2 ? "　" + (n2 ? "老奖池 " : "奖池 ") + money(x.pot) : "") + "</span>" + (x.winners ? '<span class="fx-tag win">' + x.winners + " 人中</span>" : '<span class="fx-tag wait">' + (x.tk || !n2 ? "没人中，滚存" : "没人中") + "</span>") + "</div>";
-      }).join("");
-    }
-  }
-  function betLabel() {
-    var b = el("fx-bet"); if (!b) return;
-    var have = left(), secs = data ? data.ends - Date.now() / 1000 : 0;
-    b.disabled = busy;
-    b.textContent = busy ? "处理中…" : !acct ? "连接钱包再下注" : have <= 0 ? "没有票，先去买票" : !picks.length ? "先选数字" : "押 " + qty + " 倍，猜 " + dsText() + "（共 " + qty * picks.length + " 张票）";
-    b.className = "fx-bet" + (!busy && (!acct || (have > 0 && picks.length)) ? " ready" : "");
-    if (el("fx-n")) el("fx-n").textContent = qty;
-    if (!busy && acct && have > 0 && picks.length && secs < 20 && secs > -5) say("本期快结束了，现在压多半会算到下一期。");
-  }
-  function clock() {
-    var c = el("fx-clock"); if (!c || !data || !data.open) return;
-    var s = Math.floor(data.ends - Date.now() / 1000);
-    if (s <= 0) { c.textContent = "开奖中…"; if (lastR !== data.r) { lastR = data.r; setTimeout(load, 6000); } return; }
-    c.textContent = two(Math.floor(s / 60)) + ":" + two(s % 60);
-  }
-
-  function connect() {
-    return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); })
-      .then(function (a) { acct = String(a[0]).toLowerCase(); return W.switchTo(eth, "anubis"); }).then(function () { return load(); });
-  }
-  function hexOf(txt) { return Array.prototype.map.call(new TextEncoder().encode(txt), function (b) { return b.toString(16).padStart(2, "0"); }).join(""); }
-  function bet() {
-    if (busy) return;
-    if (!acct || !eth) { busy = true; betLabel(); say("请在钱包里点「连接」"); return connect().then(function () { busy = false; say(""); paint(); if (picks.length && left() > 0) bet(); /* 连上了、有票、数字也选好了：直接接着下注，不用再点一次 */ }, function (e) { busy = false; betLabel(); say((e && e.message) || "钱包没连上", true); }); }
-    var have = left();
-    if (have <= 0) { location.hash = "#/names"; return; }
-    if (!picks.length) return say("先在上面点一个数字。", true);
-    if (data.v2 && maxQ() <= 0) return say("这一期你已经押满 " + data.cap2 + " 张了，每个钱包每期最多押 " + data.cap2 + " 张。等下一期再押。", true);
-    var k = picks.length, ds = picks.slice().sort();
-    if (maxPer() < 1) return say("票不够：选了 " + k + " 个数字，每个至少 1 张要 " + k + " 张票，你这一期最多还能押 " + maxQ() + " 张。少选几个数字，或者先去买票。", true);
-    var n = Math.min(qty, maxPer()), tot = n * k, d = dsText(); /* n = 每个数字几张，tot = 一共几张 */
-    var win = data.v2 ? "猜中每张票发 " + wf() + " DAI" : "猜中平分奖池";
-    /* 老票 1.9、新票 9.5：这一笔里会用到 1.9 的老票就要说清楚，别让人以为全是 9.5。一笔里按数字从小到大依次用票，先用新票 */
-    var room = newRoom(), oldest = (data.me && data.me.left1) || 0;
-    if (room >= 0 && tot - oldest > room) {
-      var nNew = Math.max(0, room), nOld = tot - oldest - nNew;
-      win = nNew > 0 ? "这 " + tot + " 张里有 " + nNew + " 张新票（猜中每张 " + wf() + " DAI）和 " + nOld + " 张 11 月 18 日前买的票（猜中每张 " + data.payOld + " DAI）" + (k > 1 ? "，新票先用在小的数字上" : "")
-        : "这 " + nOld + " 张都是 11 月 18 日前买的票：猜中每张发 " + data.payOld + " DAI（新买的票才是 " + wf() + "）";
-    }
-    if (!(A.sure2 || confirm)(k === 1
-      ? "确定押 " + n + " 倍，猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② " + win + "；猜不中，这 " + n + " 张票就用掉了\n③ 发出去以后不能撤回"
-      : "确定押 " + n + " 倍（每个数字 " + n + " 张），猜 " + d + "，一共 " + tot + " 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字：" + win + "，其余数字的票就用掉了" + (k >= 10 ? "\n⚠️ 10 个数字全选一定亏" : "") + "\n③ 发出去以后不能撤回")) return;
-    var tx = { from: acct, to: DAI, data: "0xa9059cbb" + data.pool.slice(2).padStart(64, "0") + "".padStart(64, "0") + hexOf("ailgns-fast:" + ds.join("") + ":" + n) }; /* 多个数字写成「0123:1」，一个数字还是老写法「7:3」 */
-    busy = true; betLabel(); say("请在钱包里点「确认」（显示转账 0 DAI 是正常的）");
-    W.switchTo(eth, "anubis").then(function () { return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [tx] }); })
-      .then(function (h) { say("已发出，等链上记账，大约十几秒…"); return W.waitOn("anubis", h); })
-      .then(function () { try { var p0 = pend(); if (p0) { p0.target -= tot; localStorage.setItem("fx:pend", JSON.stringify(p0)); } } catch (e9) { /* 记不了就等账本 */ } busy = false; picks = []; say("✅ 押好了：" + n + " 倍，猜 " + d + "，共 " + tot + " 张票。开奖后在下面「我的下注」看结果。"); setTimeout(load, 2500); setTimeout(load, 8000); betLabel(); })
-      .catch(function (e) { busy = false; betLabel(); say(/reject|denied|取消|cancel/i.test((e && e.message) || "") ? "你在钱包里点了取消，没有下注。" : "没发出去：" + ((e && e.message) || "请稍后再试"), true); });
-  }
-
-  var ruleV2 = false;
-  function subT(v2) { return v2 ? "10 分钟开一期，猜一个 0 到 9 的数字。猜中每张票发 " + wf() + " DAI。" : "10 分钟开一期，猜一个 0 到 9 的数字。猜中的人平分本期奖池。"; }
-  function rulesH(v2) { // 规则说明：新规则生效前后各一套（和 lib/fast.js、monita/fast_oracle.py 的算法一致，改规则三处一起改）
-    if (!v2) return '<h2>规则一共六条</h2><ol class="bn-rules">' +
-      "<li><b>票从哪来</b><span>注册一个纯数字的 .ailgns 域名，付多少 DAI 就得多少张票，5 DAI 就是 5 张。票记在付款的钱包上，续费不算。要自己点注册才有票，交给机器人代点的暂时不算。</span></li>" +
-      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。</span></li>" +
-      "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
-      "<li><b>奖池怎么分</b><span>每张票带 0.9 DAI 进本期奖池，另外 0.1 DAI 是平台服务费。猜中的人按票数平分奖池。</span></li>" +
-      "<li><b>奖金怎么发</b><span>只发 AiLGNS。分到的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
-      "<li><b>没人猜中</b><span>整个奖池滚到下一期。</span></li></ol>" +
-      '<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p>';
-    return '<h2>规则一共七条</h2><ol class="bn-rules">' +
-      "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
-      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
-      "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
-      "<li><b>猜中发多少</b><span>每张票发 " + wf() + " DAI：拿回本金 1 DAI，再赚 " + String(+(PAYX() - 1).toFixed(2)) + " DAI。压 5 张猜中就是 " + wf(5) + " DAI。" + (PAYX() > 5 ? "十个数字全包要 10 张票，一定中 1 张，拿回 " + wf() + " DAI，也就是 95%。" : "") + "不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
-      "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
-      "<li><b>没猜中</b><span>压的票就用掉了，不退。票钱的 95% 自动进极速奖池，5% 是平台服务费；猜中的奖金从极速奖池里发。</span></li>" +
-      (data && data.v4 ? "<li><b>11 月 18 日前买的票</b><span>还能用，不作废，按买的时候的规则：猜中每张发 " + data.payOld + " DAI，每期最多押 " + data.capOld + " 张。只有 11 月 18 日赔率更正之后新买的票才是每张 " + wf() + " DAI（每期最多 " + data.cap2 + " 张）。两种票都有时，先用新买的票。</span></li>" : "") +
-      "<li><b>老票</b><span>规则调整前用纯数字域名换的票还能用，按老规则：同一期的老票进老奖池，猜中的按票数分，没人中滚到下一期。老票和新票都有时，先用老票。</span></li></ol>" +
-      '<p class="bn-warn">⚠️ 十个数字只开一个：猜中 1 张变 ' + wf() + '，猜不中票就没了，平均下来是输的。这不是赚钱的办法，请只用闲钱玩。</p>';
-  }
-  function render() {
-    ruleV2 = false;
-    A.app.innerHTML = '<div id="fx-wrap">' +
-      '<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">' + subT(false) + '</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>去猜价格 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>' +
-      '<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">紫色大字是开奖数字：它是开奖区块的哈希换算成数字后的<b>最后一位</b>，前面灰色的是它前面 5 位。区块哈希谁也没法提前知道。下面是开奖时间，点格子可以到链上浏览器核对那个区块。</p></section>' +
-      // 📈 走势图（站长 2026-11-20：照彩票走势图的样子做）：一期一行、0–9 十列，开出来的数字是一个球，球和球连线；别的格子写「遗漏」= 这个数字已经连续几期没开
-      '<section class="card fx" id="fx-trend" hidden><h2>走势图</h2><div id="fxt"></div><p class="note">一行是一期，从上到下越来越新，最下面是刚开的。球是那一期开出的数字；格子里的小数字是「遗漏」：这个数字已经连续几期没开了。</p><p class="note">每一期的数字都来自区块哈希，期和期之间没有任何关系。走势图只是把开过的数字排出来，<b>不能用来预测下一期</b>。</p></section>' +
-      '<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>' +
-      '<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>' +
-      '<section class="card fx" id="fx-rules">' + rulesH(false) + "</section>" +
-      '<section class="card fx"><h2>常见问题</h2>' +
-      "<details><summary>票用完了，域名还在吗？</summary><p>在。域名还是你的，照常能用、能转、能卖。只是这个域名不能再换票，想继续玩要再注册新的。</p></details>" +
-      "<details><summary>钱包为什么显示「转账 0 DAI」？</summary><p>下注就是给极速奖池发一笔 0 元的转账，里面写着你猜的数字和票数。不花钱，只花一点点 Gas。这样每一笔下注链上都有记录，谁也改不了。</p></details>" +
-      "<details><summary>快结束的时候压，算哪一期？</summary><p>看这笔交易被链上记下来的时间。如果记下来时本期已经结束，就算下一期。最后 20 秒建议等下一期再压。</p></details>" +
-      "<details><summary>压的票比我有的多会怎样？</summary><p>按你剩下的票数算。一张都不剩的那笔作废，只白花了 Gas。</p></details></section></div>";
-    try { var sv = JSON.parse(localStorage.getItem("fx:last") || "null"); if (sv && sv.open && Date.now() / 1000 - sv.now < 600) { data = sv; data.me = null; paint(); } } catch (e) {}
-    stT = ""; picks = [];
-    el("fx-wrap").addEventListener("click", function (ev) {
-      var t = ev.target; if (!t || !t.closest || !el("fx-main")) return;
-      var d = t.closest(".fx-d");
-      if (d) { var dv = Number(d.getAttribute("data-d")), at = picks.indexOf(dv);
-        if (data && data.multi) { if (at >= 0) picks.splice(at, 1); else picks.push(dv); } else picks = at >= 0 ? [] : [dv]; /* 能多选时点一下选上、再点一下取消 */
-        say(""); paint(); return; }
-      if (t.closest("#fx-buy")) { try { sessionStorage.setItem("nm:batch", "1"); } catch (e) { /* 存不了就只是打开域名页，客户自己点批量注册 */ } return; } /* 去买票：到域名页后自动打开批量注册 */
-      if (t.closest("#fx-conn")) { say("请在钱包里点「连接」"); connect().then(function () { say(""); }, function (e) { say((e && e.message) || "钱包没连上", true); }); return; }
-      if (t.closest("#fx-minus")) { qty = Math.max(1, qty - 1); betLabel(); return; }
-      if (t.closest("#fx-plus")) { qty = Math.min(Math.max(1, maxPer()), qty + 1); betLabel(); return; }
-      if (t.closest("#fx-all")) { qty = Math.max(1, maxPer()); betLabel(); return; }
-      if (t.closest("#fx-bet")) bet();
-    });
-    // AiLGNS 现价行情条（站长 2026-11-15）：只是行情参考，开奖还是按区块哈希，和价格无关；读服务器 5 秒缓存，读不到就不显示数字
-    var px = function () { try { fetch("/api/px").then(function (x) { return x.ok ? x.json() : null; }).then(function (j) { var e = el("fx-px"); if (!e || !j || !j.r) return; var w = j.r.slice(2), ail = BigInt("0x" + w.slice(0, 64)), d = BigInt("0x" + w.slice(64, 128)); if (ail > 0n) e.textContent = (Number((d * 1000000n) / ail) / 1e6).toFixed(4); }).catch(function () {}); } catch (e) {} };
-    var go = function () { load(); px(); };
-    try { if (!acct && A.wallets && A.wallets.silent) A.wallets.silent().then(function (a) { if (a) acct = String(a).toLowerCase(); go(); }, go); else go(); } catch (e) { go(); }
-    clearInterval(tick); clearInterval(poll);
-    tick = setInterval(function () { if (!el("fx-main")) { clearInterval(tick); return; } try { clock(); } catch (e) {} }, 1000);
-    poll = setInterval(function () { if (!el("fx-main")) { clearInterval(poll); return; } if (!document.hidden && !busy) load(); if (!document.hidden) px(); }, 10000);
-  }
-  /* 站长 2026-11-25：极速预言家的注册（买票）就在极速页里做，不跳到域名页 */
-  if (!window.__fxRegBound) {
-    window.__fxRegBound = true;
-    document.addEventListener("click", function (e) {
-      try {
-        var a = e.target && e.target.closest ? e.target.closest('a[href="#/names/batch"]') : null;
-        if (!a || location.hash.indexOf("#/fast") !== 0 || !A.useBundle) return;
-        e.preventDefault();
-        A.useBundle("names").then(function () {
-          if (!A.nm || !A.nm.setDaily || !A.namesBatch) { location.hash = "#/names/batch"; return; }
-          A.nm.setDaily(false); A.namesBatch.open({ tickets: true, stay: true });
-        }, function () { location.hash = "#/names/batch"; });
-      } catch (x) { /* 出错就让链接照常跳转 */ }
-    });
-  }
-  A.pages.fast = function () { try { render(); } catch (e) { A.app.innerHTML = '<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>'; } };
-})();
-
-}catch(e){console.error('[bundle] fast.js',e);}
-;
-try{
-// 📊 官方资金池 #/funds（站长 2026-11-12）：官方公布的 7 个资金地址的链上余额 + 每个池子是干嘛的 + 一句话总结；放在会员栏目里，所有人免费看
-// 秒开：先画手机里上次存的数字，再去 /api/funds 取（边缘节点 5 分钟读一次链）；接口不通才由手机直接读链
-(function () {
-  "use strict";
-  var A = window.AIL, CACHE = "ailgns-funds-cache-v1";
-  var AIL_T = "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", LGNS_T = "0x4D1D808a081FdAc440703b3765FC61f8028C06B8";
-  /* 用途只按官方公布的名称用大白话解释，不替官方承诺怎么用 */
-  var FUNDS = [
-    { no: "①", n: "协议储备金", a: "0x27Cb55eE75E777fF972B74B6E68782D12Bd4ec46", w: "协议的家底，金额最大。大家买算力付的 DAI 都进这里。" },
-    { no: "②", n: "初始铸造池", a: "0xcC95906Da4b92B3a5c4B187553050df0f90eaE08", w: "按官方命名，放的是初始铸造出来的 AiLGNS。里面主要是币，不是 DAI。" },
-    { no: "③", n: "护盘资金", a: "0x85fF1E15CaBCa867F244B9c2465227477f251972", w: "官方标注用来护盘（稳住币价）的备用资金。" },
-    { no: "④", n: "缓冲池", a: "0x0664F1369209677FEcb279F5EC3Df1E53a22212e", w: "官方标注的缓冲资金，行情波动大的时候当缓冲垫。" },
-    { no: "⑤", n: "护价池 ①", a: "0x589B441A19fdFD28aEe5E57891a842e96d91de31", w: "官方标注用来托住价格的资金池。" },
-    { no: "⑥", n: "护价池 ②", a: "0xF1Fb9cE9472DEc231bCed60d6Aa729f5e403020B", w: "官方标注用来托住价格的资金池。" },
-    { no: "池", n: "底池资金", a: "0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0", pool: 1, w: "AiLGNS/DAI 交易池。大家在 DEX 买卖 AiLGNS 就是和这个池子换；池里的 DAI ÷ AiLGNS 就是现在的币价。" }
-  ];
-  function num(hex, dec) { try { return Number(BigInt(!hex || hex === "0x" ? "0x0" : hex) / BigInt(Math.pow(10, dec - 4))) / 1e4; } catch (e) { return 0; } }
-  /* 接口不通时的兜底：手机一次批量读链（7 个地址 × DAI / AiLGNS / LGNS） */
-  function direct() {
-    var list = [];
-    FUNDS.forEach(function (f) {
-      list.push(["eth_getBalance", [f.a, "latest"]]);
-      list.push(["eth_call", [{ to: AIL_T, data: "0x70a08231" + A.pad(f.a) }, "latest"]]);
-      list.push(["eth_call", [{ to: LGNS_T, data: "0x70a08231" + A.pad(f.a) }, "latest"]]);
-    });
-    return A.rpcMany(list).then(function (rs) {
-      if (rs.some(function (x) { return x == null; })) throw new Error("缺结果");
-      return { at: Date.now(), prev: null, f: FUNDS.map(function (f, i) { return { a: f.a.toLowerCase(), dai: num(rs[i * 3], 18), ail: num(rs[i * 3 + 1], 18), lgns: num(rs[i * 3 + 2], 9) }; }) };
-    });
-  }
-  function ok(d) { return d && d.f && d.f.length === FUNDS.length && d.f.every(function (x, i) { return x && String(x.a).toLowerCase() === FUNDS[i].a.toLowerCase() && typeof x.dai === "number"; }); }
-  function ago(at) {
-    var m = Math.max(0, Math.round((Date.now() - at) / 60000));
-    return m < 1 ? "刚刚" : m < 60 ? m + " 分钟前" : m < 1440 ? Math.round(m / 60) + " 小时前" : Math.round(m / 1440) + " 天前";
-  }
-  function draw(d, state) {
-    var wan = A.wan, fmt = A.fmt, html = '<h1>📊 官方资金池</h1><p class="sub">官方公布的 7 个资金地址，链上余额原样读出来，所有人免费看。</p>';
-    if (!ok(d)) {
-      A.app.innerHTML = html + '<section class="card"><p class="muted">' + (state === "fail" ? '链上数据暂时没读到，<a href="javascript:location.reload()">点这里刷新</a>再试。' : "⏳ 正在读链上余额…") + "</p></section>";
-      return;
-    }
-    var six = 0, guard = 0, pool = d.f[6];
-    d.f.forEach(function (x, i) { if (i < 6) six += x.dai; if (i >= 2 && i < 6) guard += x.dai; });
-    var price = pool.ail > 0 ? pool.dai / pool.ail : 0, times = pool.dai > 0 ? six / pool.dai : 0;
-    var word = times >= 2 ? "家底厚" : times >= 1 ? "家底够" : "家底偏薄", cls = times >= 1 ? "good" : "warn";
-    var why = times >= 1 ? "池子外面的备用资金，是交易池里 DAI 的 " + times.toFixed(1) + " 倍" : "池子外面的备用资金，比交易池里的 DAI 少（" + times.toFixed(2) + " 倍）";
-    html += '<section class="fd-sum ' + cls + '"><div class="fd-tag">一句话总结</div><div class="fd-word">' + word + '</div><div class="fd-why">' + why + "</div>" +
-      '<div class="fd-big"><b class="num">' + wan(six) + '</b><small>DAI</small></div><div class="fd-cap">①～⑥ 六个资金池的 DAI 合计</div>' +
-      '<div class="fd-rows">' +
-      '<div><span>其中储备金 ①</span><b class="num">' + wan(d.f[0].dai) + " DAI</b></div>" +
-      '<div><span>护盘 / 缓冲 / 护价 ③④⑤⑥</span><b class="num">' + wan(guard) + " DAI</b></div>" +
-      '<div><span>底池里的 DAI</span><b class="num">' + wan(pool.dai) + " DAI</b></div>" +
-      (price ? '<div><span>底池现价</span><b class="num">' + fmt(price, 2) + " DAI / AiLGNS</b></div>" : "") +
-      (d.prev && d.prev.six > 0 ? '<div><span>六个池合计比昨天</span><b class="num ' + (six >= d.prev.six ? "up" : "down") + '">' + (six >= d.prev.six ? "+" : "−") + wan(Math.abs(six - d.prev.six)) + " DAI</b></div>" : "") +
-      "</div>" +
-      '<p class="fd-note">这是链上此刻的真实数字，不是承诺。币价会涨也会跌，买不买、拿不拿请自己判断，本页不构成投资建议。</p></section>';
-    html += '<div class="fd-list">' + FUNDS.map(function (f, i) {
-      var x = d.f[i], extra = [];
-      var main = i === 1 ? wan(x.ail) + "<small>AiLGNS</small>" : wan(x.dai) + "<small>DAI</small>";
-      if (i === 1) extra.push("另有 " + fmt(x.dai, 0) + " DAI");
-      else if (x.ail >= 1) extra.push("另有 " + wan(x.ail) + " AiLGNS");
-      if (x.lgns >= 1) extra.push("另有 " + wan(x.lgns) + " LGNS");
-      return '<section class="fd-card' + (f.pool ? " pool" : "") + '"><div class="fd-head"><i>' + f.no + "</i><b>" + f.n + '</b><a href="#/scan/' + f.a.toLowerCase() + '">' + A.short(f.a) + " ›</a></div>" +
-        '<div class="fd-amt num">' + main + "</div>" + (extra.length ? '<div class="fd-extra">' + extra.join(" · ") + "</div>" : "") +
-        '<p class="fd-what">' + f.w + "</p></section>";
-    }).join("") + "</div>";
-    html += '<section class="card fd-foot"><p class="muted">数据时间：' + ago(d.at) + (state === "loading" ? " · 正在更新…" : "") + "（约 5 分钟更新一次）</p>" +
-      "<details><summary>这些数字怎么来的？</summary><p>直接读 Anubis 链上这 7 个地址的余额，谁都可以自己核对：点每张卡片右上角的地址，就能在本站账本里看到它的每一笔进出。</p>" +
-      "<p>每个池子的用途，是按官方公布的名称用大白话解释的；具体什么时候动用、怎么动用，以官方公告为准。本站只负责把链上余额原样读出来。</p>" +
-      "<p>「家底厚 / 家底够 / 家底偏薄」是按数字自动算的：六个资金池的 DAI 合计 ÷ 底池里的 DAI，≥ 2 倍算厚，≥ 1 倍算够，不到 1 倍算偏薄。</p></details></section>";
-    A.app.innerHTML = html;
-  }
-  A.pages.funds = function (id) {
-    var st = null;
-    try { st = JSON.parse(localStorage.getItem(CACHE)); } catch (e) { st = null; }
-    if (!ok(st)) st = null;
-    draw(st, "loading");
-    A.getJSON("/api/funds").then(function (d) { if (!ok(d)) throw new Error("bad"); return d; }).catch(function () { return direct(); }).then(function (d) {
-      try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) { /* 存不下就算了 */ }
-      if (A.isCurrent(id)) draw(d, "done");
-    }, function () { if (A.isCurrent(id)) draw(st, st ? "done" : "fail"); });
-  };
-})();
-
-}catch(e){console.error('[bundle] funds.js',e);}
-;
-try{
-// 🏆 OTC 手续费周榜 #/weekly（站长 2026-11-15 定，试运行，入口在 ☰ 更多 → 交易）
-// 大白话：这周谁在本站 OTC 付的手续费多，谁就排前面；前 10 名按占比分「奖金钱包」里实际有的钱。规则在 lib/weekly.js，这里只负责画。
-// 秒开：先画手机里上次存的，再去 /api/weekly 取新的。
-(function () {
-  "use strict";
-  var A = window.AIL, CACHE = "ailgns-weekly-cache-v1";
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function dai(v) { return Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function dayCn(d) { var p = String(d || "").split("-"); return p.length === 3 ? Number(p[1]) + "月" + Number(p[2]) + "日" : ""; }
-  function pct(s) { var v = (s || 0) * 100; return (v >= 10 ? v.toFixed(0) : v.toFixed(1)) + "%"; }
-  function left(ms) { var h = Math.max(0, Math.floor((ms - Date.now()) / 3600e3)); return h >= 24 ? Math.floor(h / 24) + " 天 " + (h % 24) + " 小时" : h + " 小时"; }
-  function addrBox(a) { return '<div class="wkb-addr"><small>奖池托管地址（链上公开，点地址能看每一笔进出）</small><a href="#/scan/' + esc(a) + '">' + esc(a) + '</a><button type="button" class="wkb-cp" data-cp="' + esc(a) + '">复制</button></div>'; }
-  var bindCopy = function (root) { /* 「复制」按钮：钱包 App 不让复制就换老办法，再不行提示长按 */
-    Array.prototype.forEach.call(root.querySelectorAll(".wkb-cp"), function (b) {
-      b.onclick = function () {
-        var t = b.getAttribute("data-cp") || "", done = function () { b.textContent = "已复制"; };
-        var old = function () { try { var x = document.createElement("textarea"); x.value = t; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0;opacity:0"; document.body.appendChild(x); x.select(); var ok = document.execCommand("copy"); x.remove(); b.textContent = ok ? "已复制" : "请长按地址复制"; } catch (e) { b.textContent = "请长按地址复制"; } };
-        try { navigator.clipboard.writeText(t).then(done, old); } catch (e) { old(); }
-      };
-    });
-  };
-  var ST = { wait: "⏳ 等烧创世名", say: "📣 等上传宣传截图", review: "🔎 凭证已交，等认证", ready: "🕐 机器人待发", sending: "🕐 发放中", paid: "✅ 已到账", forfeit: "已放弃" };
-  // 📣 站长 2026-11-22：分到超过 100 DAI 的奖，除了烧 1 枚创世名，还要上传宣传截图 / 视频；传上来像样就自动通过、机器人直接发，异常的才由团队在工单后台手动通过（站长当晚定）。
-  // 上传和预言家领奖用同一个接口（/api/oracle-proof，不用签名、不用连钱包：凭证只给团队看，奖只发到上榜的钱包，别人乱传领不走）。
-  var DEBOX_GROUP = "https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";
-  function wkShrink(file) { // 截图先压小再传（最长边 1400、JPEG）
-    return new Promise(function (ok, bad) {
-      var r = new FileReader();
-      r.onload = function () {
-        var im = new Image();
-        im.onload = function () { try { var k = Math.min(1, 1400 / Math.max(im.width, im.height)), c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height); ok(c.toDataURL("image/jpeg", 0.75)); } catch (e) { bad(new Error("这张图片打不开，请换一张")); } };
-        im.onerror = function () { bad(new Error("这张图片打不开，请换一张")); }; im.src = r.result;
-      };
-      r.onerror = function () { bad(new Error("这张图片读不出来，请换一张")); };
-      r.readAsDataURL(file);
-    });
-  }
-  function upBox(x, i, min) { // 发放记录里「要交凭证、还没通过」的那一行下面的上传块
-    if (!x.say || x.say.ok || (x.st !== "wait" && x.st !== "say" && x.st !== "review")) return "";
-    var tail = '<a class="wkb-upg" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
-      '<label class="nm-go wkb-upb"><input type="file" class="wkb-upf" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (x.say.has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
-      '<p class="wkb-ups" data-i="' + i + '"></p></li>';
-    if (x.burn === false) return '<li class="wkb-upl"><p>这笔不用销毁创世名，领奖一共两步。这一行是你的话，照着做：</p>' + // 50 DAI 及以下（站长 2026-11-23）
-      '<ol class="wkb-stp"><li class="' + (x.say.has ? "done" : "now") + '">第一步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : " 👉 现在做这一步") + "</li>" +
-      "<li>第二步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" + tail;
-    return '<li class="wkb-upl"><p>这笔超过 ' + min + " DAI，领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>" +
-      '<ol class="wkb-stp"><li class="' + (x.st === "wait" ? "now" : "done") + '">第一步：销毁 1 枚创世名' + (x.st === "wait" ? " 👉 现在做这一步" : " ✅ 已完成") + "</li>" +
-      '<li class="' + (x.say.has ? "done" : x.st === "wait" ? "" : "now") + '">第二步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : x.st === "wait" ? "" : " 👉 现在做这一步") + "</li>" +
-      "<li>第三步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" +
-      (x.st === "wait" ? '<a class="nm-go wkb-upb" href="#/genesis">🔥 去销毁名字</a>' : "") + tail;
-  }
-  function bindUp(root, pays, reload) {
-    Array.prototype.forEach.call(root.querySelectorAll(".wkb-upf"), function (fi) {
-      var idx = fi.getAttribute("data-i"), x = pays[Number(idx)];
-      var say = function (t, bad) { var el = root.querySelector('.wkb-ups[data-i="' + idx + '"]'); if (el) { el.textContent = t; el.className = "wkb-ups" + (bad ? " bad" : bad === 0 ? " tip" : ""); } };
-      var HELP2 = "在 DeBox 群里说一声自己中奖了，团队看到会手动通过。";
-      fi.onclick = function () { say("选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。不用反复试：" + HELP2, 0); };
-      fi.onchange = function () {
-        var files = [].slice.call(fi.files || []);
-        var isImg = function (f) { return /^image\//.test(f.type) || (!f.type && /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name || "")); };
-        var isVid = function (f) { return /^video\//.test(f.type) || (!f.type && /\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name || "")); };
-        var imgs = files.filter(isImg).slice(0, 3), vid = files.filter(isVid)[0];
-        if (!imgs.length && !vid) imgs = files.filter(function (f) { return !f.type; }).slice(0, 3);
-        var done = function () { try { fi.value = ""; } catch (e) { /* 清不掉也不要紧 */ } };
-        if (!x) { done(); return; }
-        if (!imgs.length && !vid) { done(); return say(files.length ? "选的不是图片或视频，请再选一次" : "没选到图片或视频，请再选一次；还不行就" + HELP2, true); }
-        if (vid && vid.size > 20 * 1024 * 1024) { done(); return say("这段视频有 " + Math.round(vid.size / 1048576) + "MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图", true); }
-        var jsonOf = function (r) { return r.json().catch(function () { return { error: "服务器没回正常的数据，请过几秒再试" }; }); };
-        var within = function (p, ms, msg) { return new Promise(function (ok, bad) { var t = setTimeout(function () { bad(new Error(msg)); }, ms); p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); bad(e); }); }); };
-        var step = Promise.resolve(), lastSt = "";
-        if (imgs.length) step = step.then(function () { say("收到 " + imgs.length + " 张截图，正在处理…"); return within(Promise.all(imgs.map(wkShrink)), 30000, "图片处理不动（可能太大了），请换成手机截图再试"); })
-          .then(function (us) { say("正在上传 " + us.length + " 张截图，请别关页面…"); return within(fetch("/api/oracle-proof", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "shots", a: x.a, id: x.id, imgs: us }) }).then(jsonOf), 90000, "传了一分半钟还没传完，网络太慢，请换个网络再试"); })
-          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
-        if (vid) step = step.then(function () { return imgs.length ? new Promise(function (ok) { setTimeout(ok, 9000); say("截图已交，马上接着上传视频，请别关页面…"); }) : null; })
-          .then(function () { say("正在上传视频（" + Math.max(1, Math.round(vid.size / 1048576)) + "MB），网慢要等一会儿，请别关页面…"); return within(fetch("/api/oracle-proof?video=1&id=" + encodeURIComponent(x.id) + "&a=" + x.a, { method: "POST", headers: { "content-type": vid.type || "video/mp4" }, body: vid }).then(jsonOf), 240000, "视频传了 4 分钟还没传完，网络太慢。请改传截图"); })
-          .then(function (j) { if (j.error) throw new Error(j.error); lastSt = j.st; });
-        step.then(function () { done(); say(lastSt === "ready" ? "✅ 交上去了，已自动通过，机器人几分钟内发奖" : lastSt === "wait" ? "✅ 交上去了。销毁 1 枚创世名以后，机器人自动发奖" : "✅ 交上去了，等团队看一眼（一般当天）"); if (reload) setTimeout(reload, 1500); },
-          function (e) { done(); say("没交上：" + ((e && e.message) || "网络不好，请再试一次") + "。再试一次；还不行就" + HELP2, true); });
-      };
-    });
-  }
-
-  function row(x, i, showAmt) {
-    return '<li><i class="wkb-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><div class="wkb-who"><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>付手续费 " + dai(x.fee) + " DAI · 占 " + pct(x.share) + "</small></div>" +
-      (showAmt ? '<em class="num">' + (x.amt > 0 ? "≈ " + dai(x.amt) : "—") + "<small>DAI</small></em>" : "") + "</li>";
-  }
-  // 上期中奖名单的一行（站长 2026-11-23）：每个人后面标领没领，还没领的整行标黄
-  function lastRow(x, i, pay) {
-    var st = pay ? pay.st : "", due = st === "wait" || st === "say";
-    var tag = !pay ? "" : st === "paid" ? '<span class="wkb-lt ok">✅ 已发</span>'
-      : due ? '<span class="wkb-lt due">⏰ 还没领' + (pay.due > Date.now() ? " · 还剩 " + left(pay.due) : "") + "</span>"
-      : st === "forfeit" ? '<span class="wkb-lt off">已放弃</span>'
-      : '<span class="wkb-lt">' + (st === "review" ? "🔎 审核中" : "🕐 发放中") + "</span>";
-    return "<li" + (due ? ' class="wkb-due"' : "") + '><i class="wkb-no' + (i < 3 ? " top" : "") + '">' + (i + 1) + '</i><div class="wkb-who"><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>付手续费 " + dai(x.fee) + " DAI · 占 " + pct(x.share) + "</small>" + tag + "</div>" +
-      '<em class="num">' + (x.amt > 0 ? "≈ " + dai(x.amt) : "—") + "<small>DAI</small></em></li>";
-  }
-  function draw(d, state, reload) {
-    if (!d) { A.app.innerHTML = '<section class="card"><p class="muted">' + (state === "fail" ? "读取失败，请稍后刷新再试。" : "读取中…") + "</p></section>"; return; }
-    var p = d.pool, canPay = d.on && !d.pre && p && p.avail != null, html = "";
-    if (d.demo) html += '<p class="wkb-demo">👀 这是预览站，下面全是<b>示例数据</b>，只为看页面长什么样。</p>';
-    /* 🎁 领奖入口（站长 2026-11-24：「客户找不到领奖的地方」）：有人中了奖还没领，就在最上面放一张黄卡，点名字 / 点大按钮直接滑到「发放记录」里那一行（上传按钮就在那一行下面） */
-    var due = [];
-    (d.pays || []).forEach(function (x, pi) { if ((x.st === "wait" || x.st === "say") && x.due > Date.now()) due.push({ x: x, i: pi }); });
-    if (due.length) html += '<section class="card wkb-claim" id="wkb-claim"><h2>🎁 中奖了在这里领奖</h2><p class="wkb-clp">还有 <b>' + due.length + "</b> 位没领。点自己的名字，直接跳到领奖的地方照着做。<b>过期算放弃</b></p>" +
-      '<div class="wkb-clc">' + due.map(function (o) { return '<button type="button" class="wkb-clb" data-go="' + o.i + '"><b>' + esc(o.x.name) + "</b><small>" + dai(o.x.amt) + " DAI · 还剩 " + left(o.x.due) + "</small></button>"; }).join("") + "</div>" +
-      '<button type="button" class="nm-go wkb-clgo" data-go="' + due[0].i + '">👉 我要领奖</button></section>';
-    html += '<section class="card wkb-hero"><div class="wkb-tag">🏆 OTC 手续费周榜 · 试运行</div>' +
-      (canPay ? '<div class="wkb-big"><b class="num">' + dai(p.avail) + '</b><small>DAI</small></div><div class="wkb-cap">奖金钱包里现在能分的钱 · 有多少分多少</div>'
-        : '<div class="wkb-big wkb-soon"><b>' + (d.on && d.pre ? dayCn(d.rules.from) + "开始" : "准备中") + '</b></div><div class="wkb-cap">' + (d.on && d.pre ? "从这一周起，前 " + d.rules.top + " 名开始分奖金钱包里的钱" : "奖金钱包开放后，这里显示钱包里能分的钱") + "</div>") +
-      /* 站长 2026-11-16：一长串托管地址不显示了，换成和荣耀榜一样的「查看奖池钱包」按钮（进账本能看每一笔进出、能复制地址） */
-      (p && p.a ? '<a class="or-pwal" href="#/scan/' + esc(p.a) + '">🏦 查看奖池钱包 ›</a>' : "") +
-      '<div class="wkb-week">本周：' + dayCn(d.cyc) + " – " + dayCn(d.to) + " · 周日 24 点截止，周一结算" + (d.endAt > Date.now() ? "（还剩 " + left(d.endAt) + "）" : "") + "</div>" +
-      (canPay && p.owed > 0 ? '<div class="wkb-owed">钱包里另有 ' + dai(p.owed) + " DAI 是前几周已经分出去、等领奖的，不算进本周</div>" : "") + "</section>";
-    html += '<section class="card"><div class="card-head"><h2>📋 本周榜单</h2><span class="muted">前 ' + d.rules.top + " 名分钱</span></div>" +
-      (d.top && d.top.length ? '<ol class="wkb-list">' + d.top.map(function (x, i) { return row(x, i, canPay); }).join("") + "</ol>" : '<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>') +
-      '<p class="muted wkb-tip">' + (canPay ? "金额跟着成交和钱包余额实时变，<b>以周一结算那一刻为准</b>，不承诺金额。发的是 <b>AiLGNS</b>。" : "现在只显示排名，开始计奖后这里会显示每人预计分多少。") + "</p>" +
-      '<a class="wkb-cta" href="#/otc">💱 去 OTC 吃一单，手续费直接计入 ›</a></section>';
-    html += '<section class="card"><div class="card-head"><h2>📖 怎么算</h2></div><ul class="wkb-rules">' +
-      "<li><b>排什么</b><span>每周一到周日（北京时间），你在本站 OTC <b>吃单付的手续费</b>加起来，从高到低排。挂单被别人吃不付手续费，不算。</span></li>" +
-      "<li><b>谁能分</b><span>前 " + d.rules.top + " 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>" +
-      "<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 " + d.rules.top + " 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>" +
-      "<li><b>怎么领</b><span>结算后 " + d.rules.burnDays + " 天内，到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发到你的钱包，不用申请；看不清的，团队再看一眼。</span></li>" +
-      "<li><b>超过 " + (d.rules.burnMin || 50) + " DAI</b><span>分到超过 " + (d.rules.burnMin || 50) + " DAI 的，还要在结算后 " + d.rules.burnDays + " 天内先到「🔥 创世域名销毁」页销毁 1 枚创世名。" + (d.rules.burnMin || 50) + " DAI 及以下的不用销毁。</span></li>" +
-      "<li><b>到账记得晒</b><span>奖金到账后，记得把到账截图或视频发到 DeBox 的 AiLGNS 群里晒一晒，让更多人看到周榜是真发奖。自愿的，不发也不影响领奖。</span></li>" +
-      "<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>" +
-      "<li><b>没领的</b><span>" + d.rules.burnDays + " 天内没做算放弃：超过 " + (d.rules.burnMin || 50) + " DAI 的看有没有销毁创世名，" + (d.rules.burnMin || 50) + " DAI 及以下的看有没有上传。这笔钱留在奖金钱包里，滚到下一周。</span></li>" +
-      '</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 超过 50 DAI 的去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';
-    if (d.last && d.last.top && d.last.top.length) {
-      var lp = {}, lowe = 0;
-      (d.pays || []).forEach(function (y) { if (y.cyc === d.last.cyc) lp[String(y.a).toLowerCase()] = y; });
-      d.last.top.forEach(function (x) { var y = lp[String(x.a).toLowerCase()]; if (y && (y.st === "wait" || y.st === "say")) lowe++; });
-      html += '<section class="card"><div class="card-head"><h2>🗓 上期中奖名单</h2><span class="muted">' + dayCn(d.last.cyc) + " – " + dayCn(d.last.to) + " · 共分 " + dai(d.last.avail) + ' DAI</span></div>' +
-        (lowe ? '<p class="wkb-lowe">⏰ 还有 ' + lowe + " 人没领。标黄的请到下面「发放记录」里自己那一行照着做，过期算放弃。</p>" : "") + '<ol class="wkb-list">' +
-        d.last.top.map(function (x, i) { return lastRow(x, i, lp[String(x.a).toLowerCase()]); }).join("") + "</ol></section>";
-    }
-    if (d.pays && d.pays.length) {
-      html += '<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">' + d.pays.map(function (x, pi) {
-        var s = ST[x.st] || x.st, more = x.st === "wait" || (x.st === "say" && x.burn === false) ? " · 还剩 " + left(x.due) : "";
-        return '<li id="wkb-p' + pi + '"><div><b data-a="' + esc(x.a) + '">' + esc(x.name) + "</b><small>" + dayCn(x.cyc) + " 那一周 · " + dai(x.amt) + " DAI" + (x.ail > 0 ? " → " + Number(x.ail).toFixed(4) + " AiLGNS" : "") + more + '</small></div><span class="wkb-st ' + esc(x.st) + '">' + (x.st === "paid" && x.tx ? '<a href="#/scan/' + esc(x.a) + '">' + s + " ›</a>" : s) + "</span></li>" + upBox(x, pi, d.rules.burnMin || 50);
-      }).join("") + "</ul></section>";
-    }
-    A.app.innerHTML = html;
-    try { // 领奖入口：滑到发放记录里那一行，闪一下
-      var goRow = function (i) { var li = document.getElementById("wkb-p" + i); if (!li) return; li.scrollIntoView({ block: "start" }); /* 不用平滑滚动：页面很长，有的钱包浏览器平滑滚动滚不到位 */ li.classList.add("wkb-flash"); setTimeout(function () { li.classList.remove("wkb-flash"); }, 2600); };
-      Array.prototype.forEach.call(A.app.querySelectorAll("[data-go]"), function (b) { b.onclick = function () { goRow(b.getAttribute("data-go")); }; });
-      if (/^#\/weekly\/claim/.test(location.hash) && due.length && !draw.went) { draw.went = 1; setTimeout(function () { var c = document.getElementById("wkb-claim"); if (c) c.scrollIntoView({ block: "start" }); }, 60); }
-    } catch (e) { /* 入口挂不上不影响看榜，往下滑照样能领 */ }
-    try { bindCopy(A.app); } catch (e) { /* 复制按钮挂不上不影响看榜 */ }
-    try { if (d.pays && d.pays.length) bindUp(A.app, d.pays, reload); } catch (e) { /* 上传按钮挂不上不影响看榜 */ }
-    try { if (A.credFill) A.credFill(A.app); } catch (e) { /* 信誉标志挂不上不影响看榜 */ }
-  }
-  A.pages.weekly = function (id) {
-    var st = null;
-    try { st = JSON.parse(localStorage.getItem(CACHE)); } catch (e) { st = null; }
-    if (!st || !st.rules) st = null;
-    var load = function () {
-      A.getJSON("/api/weekly").then(function (d) {
-        if (!d || !d.rules) throw new Error("bad");
-        try { localStorage.setItem(CACHE, JSON.stringify(d)); } catch (e) { /* 存不下就算了 */ }
-        if (A.isCurrent(id)) draw(d, "done", load);
-      }).catch(function () { if (A.isCurrent(id)) draw(st, st ? "done" : "fail", load); });
-    };
-    draw(st, "loading", load);
-    load();
-  };
-})();
-
-}catch(e){console.error('[bundle] weekly.js',e);}
-;
-try{
-// 💵 #/usdt「USDT 跨链桥」一键通道（站长 2026-11-19：客户 USDT 提到 Polygon 换 DAI 损耗太高，是刚需；试运行，放 ☰ 更多 → 交易）
-// 双向（站长同日要求）：
-//   充进来 dir=in ：① Polygon 上 USDT 换成 DAI  → ② DAI 过桥到 Anubis
-//   提出去 dir=out：① Anubis 的 DAI 过桥到 Polygon → ② Polygon 上 DAI 换成 USDT
-// 每一步都由客户自己的钱包签名，本站不经手客户的币、没有新合约。
-// 换币：/api/u2d 向聚合器（KyberSwap，不通就换 ParaSwap）要最划算的路线。服务费现在不收（functions/api/u2d.js 的 FEE_BPS = 0，2026-11-19 站长定：钱包自带兑换同价不收费，我们收了反而贵）；报价区的文字跟着接口返回的费率变，页头和说明里的「不收服务费」是写死的，改回收费时要一起改。
-// 过桥：Anubis 官方跨链桥（app.anubisbridge.com），两个方向都是同一个函数 bridge(币编号, 目标链, 收款人, 数量)，不收手续费（2026-11-19 核对官方桥订单记录：两个方向都是发多少到多少）。
-//   Polygon → Anubis：要先授权 DAI 给桥；Anubis → Polygon：DAI 是 Anubis 的原生币，链上实测不用授权（模拟不带授权能过，真实交易也都没有授权这一步）。
-//   合约本身不拦 10 DAI 以下的数量，但官方页面规定最少 10 DAI，低于这个数可能没人处理，所以本页一律拦在 10 DAI。
-// 授权只授权这一笔的数量（用的是第三方合约，不给无限额度）。Polygon 上 Gas 用 POL，Anubis 上 Gas 用 DAI。
-(function () {
-  "use strict";
-  var A = window.AIL, W = A.wallet;
-  var USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", PDAI = "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063";
-  var BRIDGE = "0x8932fe7726c1ee743f662f485c3e5a5d1d595f71"; // Anubis 官方跨链桥（各链同一地址）
-  var DAI_ID = "a5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568"; // 桥里 DAI 的编号（两条链相同）
-  var CHAIN_ID = { anubis: 6714, polygon: 137, bsc: 56 }, FEE = 0, BMIN = 10, SLIP = 50; // 官方桥不收费；最少 10 DAI；价格保护 0.5%。哪天官方开始收费，改 FEE 这一个数，页面文字会跟着变
-  var GAS_KEEP = 50000000000000000n; // 提出去时在 Anubis 上留 0.05 DAI 当 Gas，「全部」不会把它也跨走
-  var POL_MIN = 20000000000000000n; // Polygon 上少于 0.02 POL 就付不了 Gas
-  // 🆕 2026-11-20 加 BSC（站长：把常用链加上）。net = 客户的币现在在哪条链；每条链各自的 USDT / DAI 地址、小数位、付 Gas 的币、官方桥大概多久到。
-  // BSC 只能充进来：官方桥没有「DAI 从 Anubis 回 BSC」这条路（canOut: false）。BSC 上 DAI 的池子浅，一次最多换 2 万（服务器也拦），大额让客户走 Polygon
-  var NETS = {
-    polygon: { key: "polygon", name: "Polygon", usdt: USDT, dai: PDAI, ud: 6, gas: "POL", gasMin: POL_MIN, eta: 2 * 60, canOut: true },
-    bsc: { key: "bsc", name: "BSC", usdt: "0x55d398326f99059ff775485246999027b3197955", dai: "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3", ud: 18, gas: "BNB", gasMin: 500000000000000n, eta: 4 * 60, canOut: false, cap: 20000 }
-  };
-  var net = "polygon";
-  function N() { return NETS[net]; }
-  var ROUTERS = ["0x6131b5fae19ea4f9d964eac0408e4408b66337b5", "0x6a000f20005980200259b80c5102003040001068"]; // KyberSwap、ParaSwap（备用）的路由合约
-  var SEL = { balanceOf: "0x70a08231", allowance: "0xdd62ed3e", approve: "0x095ea7b3", bridge: "0x8d3ccf9f" /* bridge(bytes32,uint32,bytes32,uint256) */ };
-  var mode = "std"; // 标题下选的通道：std = 本站通道（官方桥，0 手续费），fast = 秒到通道（第三方 GaleBridge，收费）
-  var account = null, bal = null, q = null, busy = false, rid = 0, qTimer = null, qSeq = 0, watch = null, dir = "in", sdir = "in"; // dir = 过桥那一步的方向，sdir = 换币那一步的方向；都由下面的 from / to 推出来（sync()），别处不要直接改
-  // 🆕 2026-11-20 两张卡合成一张（站长：主流都是一张卡——上面付出、下面到账、一个按钮）。
-  // from / to = 付出的币、到账的币：U = 这条链的 USDT，D = 这条链的 DAI，A = Anubis 的 DAI。走哪几步由这一对决定：
-  //   U→A 换币 + 过桥；A→U 过桥 + 换币；U⇄D 只换币；D⇄A 只过桥。
-  // 换币、过桥两段链上逻辑（doSwap / doBridge）和合成前一样，只是由一个按钮按顺序带着走；每一笔仍然要客户在钱包里确认
-  var from = "U", to = "A", pick = null, amtStr = "", way = null; // pick = 哪个框的选币列表开着；amtStr =「你付出」框里填的数；way = 两步的那一趟走到第几步 { k: "UA" | "AU", now: 1 | 2 }
-  function route() { var k = from + to; return k === "UA" ? ["swap", "bridge"] : k === "AU" ? ["bridge", "swap"] : (k === "UD" || k === "DU") ? ["swap"] : ["bridge"]; }
-  function has(s) { return route().indexOf(s) >= 0; }
-  function sync() { if (!N().canOut && from === "A") { from = "U"; to = "A"; } if (from === to) to = from === "A" ? "U" : "A"; sdir = from === "U" ? "in" : "out"; dir = from === "A" ? "out" : "in"; }
-  function C(k) { var c = N(); return k === "U" ? { cls: "usdt", ch: "₮", sym: "USDT", chain: c.name, bk: "usdt", d: c.ud } : k === "D" ? { cls: "dai", ch: "◈", sym: "DAI", chain: c.name, bk: "pdai", d: 18 } : { cls: "dai an", ch: "◈", sym: "DAI", chain: "Anubis", bk: "adai", d: 18 }; }
-  // 换币这一步两个方向各自的：付出币、换出币、小数位
-  function P() { var c = N(); return sdir === "in" ? { src: c.usdt, sd: c.ud, sn: "USDT", dd: 18, dn: "DAI", sb: "usdt", db: "pdai" } : { src: c.dai, sd: 18, sn: "DAI", dd: c.ud, dn: "USDT", sb: "pdai", db: "usdt" }; }
-  // 过桥这一步两个方向各自的：从哪条链到哪条链、余额记在哪
-  function B() { var c = N(); return dir === "in" ? { from: c.key, to: "anubis", fn: c.name, tn: "Anubis", fb: "pdai", tb: "adai" } : { from: "anubis", to: c.key, fn: "Anubis", tn: c.name, fb: "adai", tb: "pdai" }; }
-  function decOf(k) { return k === "usdt" ? N().ud : 18; } // 余额里的 usdt / pdai / pol 都是「当前选的那条链」上的（名字沿用 Polygon 时代的）
-  // 官方桥过一次要多久（秒）。2026-11-19 从官方桥订单记录量的：Polygon → Anubis 29 笔全是约 2 分钟；Anubis → Polygon 72 笔全是约 130 分钟
-  // （官方桥设定：Anubis 发出的要等 7200 个区块确认，约 2 小时；别的链只等 64 个区块）。这是官方桥的规则，本站改不了也加急不了
-  var EXPECT = { in: 2 * 60, out: 130 * 60 };
-  function expOf(d, nk) { return d === "in" ? (NETS[nk] || NETS.polygon).eta : EXPECT.out; } // BSC → Anubis 官方桥同样等 64 个区块，按 4 分钟估（还没有真实记录量过）
-  function dur(sec) { sec = Math.max(0, Math.round(sec)); if (sec < 90) return sec < 45 ? "不到 1 分钟" : "约 1 分钟"; var m = Math.round(sec / 60); return m < 60 ? "约 " + m + " 分钟" : "约 " + Math.floor(m / 60) + " 小时" + (m % 60 ? " " + (m % 60) + " 分钟" : ""); }
-
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function g(id) { return document.getElementById(id); }
-  function u256(v) { return BigInt(v).toString(16).padStart(64, "0"); }
-  function aw(a) { return String(a).toLowerCase().replace("0x", "").padStart(64, "0"); }
-  function units(s, d) { s = String(s || "").trim().replace(/,/g, ""); if (!/^\d*(\.\d*)?$/.test(s) || s === "" || s === ".") return 0n; var p = s.split("."); return BigInt(p[0] || "0") * 10n ** BigInt(d) + BigInt((p[1] || "").slice(0, d).padEnd(d, "0") || "0"); }
-  function n(wei, d) { return Number(wei) / Math.pow(10, d); }
-  function f(v, dg) { return isFinite(v) ? Number(v).toLocaleString("en-US", { minimumFractionDigits: dg === undefined ? 2 : dg, maximumFractionDigits: dg === undefined ? 2 : dg }) : "—"; }
-  function plain(wei, d, dg) { var v = n(wei, d), p = Math.pow(10, dg); return String(Math.floor(v * p) / p); } // 往下取，免得填出来比余额多
-  function nice(e) { var m = (A.otcKit && A.otcKit.niceError) ? A.otcKit.niceError(e) : String((e && e.message) || e || ""); return /reject|denied|取消|拒绝|cancel/i.test(m) ? "你在钱包里取消了，币没有动。想继续再点一次就行" : (m || "钱包没有响应，刷新后再试"); }
-  function rd(chain, to, data) { return W.rpcOn(chain, "eth_call", [{ to: to, data: data }, "latest"]).then(function (h) { return BigInt(h && h !== "0x" ? h : 0); }); }
-  function balOf(k) { return bal ? f(n(bal[k], decOf(k))) : "—"; }
-
-  // ---------- 余额 ----------
-  function loadBal() {
-    if (!account) { bal = null; return Promise.resolve(); }
-    var a = account, c = N(), nk = net;
-    return Promise.all([
-      rd(c.key, c.usdt, SEL.balanceOf + aw(a)), rd(c.key, c.dai, SEL.balanceOf + aw(a)),
-      W.rpcOn(c.key, "eth_getBalance", [a, "latest"]).then(BigInt), W.rpcOn("anubis", "eth_getBalance", [a, "latest"]).then(BigInt)
-    ]).then(function (r) { if (a === account && nk === net) bal = { usdt: r[0], pdai: r[1], pol: r[2], adai: r[3] }; });
-  }
-  // 余额写进每个兑换框右上角（Uniswap 式：钱在哪条链、有多少，就写在那个框里）
-  function setBal() { [["u2d-b1", balOf(C(from).bk)], ["u2d-b2", balOf(C(to).bk)]].forEach(function (x) { var e = g(x[0]); if (e) e.textContent = x[1]; }); }
-  function paintBal() {
-    var el = g("u2d-bal"); if (!el) return;
-    setBal(); if (hisFor !== (account || "")) loadHis();
-    if (!account || !bal) { el.innerHTML = ""; return; } // 没连钱包 / 余额还在读：这里不占地方（主按钮会写「连接钱包」，框右上角的余额先是「—」）
-    var c = N(), low = bal.pol < c.gasMin, pol = f(n(bal.pol, 18), low ? 4 : 2), tip = gasTip();
-    el.innerHTML = !low ? "" : dir === "in"
-      ? '<p class="u2d-warn">⚠️ 这个钱包在 ' + c.name + " 上只有 " + pol + " 个 " + c.gas + "，付不了 Gas。" + tip + "，再回来操作。</p>"
-      : '<p class="u2d-warn">⚠️ 先别急着跨：这个钱包在 ' + c.name + " 上只有 " + pol + " 个 " + c.gas + "。DAI 跨到 " + c.name + " 以后，换成 USDT 那一步要用 " + c.gas + " 付 Gas。" + tip + "。</p>";
-  }
-
-  function gasTip() { var c = N(); return "请先从交易所提一点 " + c.gas + "（" + (c.key === "bsc" ? "0.005 个就够" : "1 个就够") + "）到这个钱包（选 " + c.name + " 网络）"; }
-  // ---------- 钱包 ----------
-  function connect(chain) {
-    var eth;
-    return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return W.switchTo(eth, chain); }).then(function () { return account; });
-  }
-  function ready(chain) { return Promise.resolve().then(function () { return account ? W.switchTo(W.get(), chain) : connect(chain); }); }
-  function say(k, t, bad) { var el = g("u2d-say"); if (el) { el.textContent = t || ""; el.className = "u2d-say" + (bad ? " bad" : t ? " on" : ""); } } // 合成一张卡以后只有一处提示；第一个参数留着是为了少改调用的地方
-  function lock(on) { busy = on; [].forEach.call(document.querySelectorAll("#u2d-go, #u2d-flip, #u2d-max1, #u2d-std .u2d-tb, #u2d-std .u2d-pk button, #u2d-net button"), function (b) { b.disabled = on; }); var a = g("u2d-a1"); if (a) a.readOnly = on; if (!on) paintBtn(); }
-  function wait(chain, hash) {
-    var tries = 0;
-    return new Promise(function (ok, fail) {
-      (function poll() {
-        W.rpcOn(chain, "eth_getTransactionReceipt", [hash]).then(function (r) {
-          if (r) return r.status === "0x1" ? ok(r) : fail(new Error("这笔交易被链上拒绝了，币没有动（只花了一点 Gas）"));
-          if (++tries > 120) return fail(new Error("等了 4 分钟链上还没确认。别重复点：过一会儿刷新这一页，余额变了就是成功了"));
-          setTimeout(poll, 2000);
-        }, function () { setTimeout(poll, 3000); });
-      })();
-    });
-  }
-  // 先在节点上模拟一次，会失败的直接说原因，不让钱包弹一个确认不了的窗口；Gas 由本站节点估好（多留 30%）
-  function send(chain, to, data, k, label) {
-    var eth = W.get();
-    say(k, "正在检查这一步能不能成功…");
-    return Promise.all([
-      W.rpcOn(chain, "eth_call", [{ from: account, to: to, data: data }, "latest"]).catch(function (e) { throw new Error("这一步现在做不成：" + nice(e)); }),
-      W.rpcOn(chain, "eth_estimateGas", [{ from: account, to: to, data: data }]).then(function (x) { return "0x" + (BigInt(x) * 13n / 10n).toString(16); }, function () { return null; })
-    ]).then(function (res) {
-      var tx = { from: account, to: to, data: data }; if (res[1]) tx.gas = res[1];
-      say(k, "请在钱包里确认「" + label + "」");
-      return A.wallets.ask(eth, { method: "eth_sendTransaction", params: [tx] });
-    }).then(function (hash) { say(k, label + "已提交，等链上确认（一般十几秒）…"); return wait(chain, hash); });
-  }
-  // 第三方合约：只授权这一笔要用的数量，不给无限额度（只在 Polygon 上用）
-  function allow(token, spender, amount, k, name) {
-    var ck = N().key;
-    return rd(ck, token, SEL.allowance + aw(account) + aw(spender)).then(function (a) {
-      if (a >= amount) return;
-      return send(ck, token, SEL.approve + aw(spender) + u256(amount), k, "授权 " + name + "（只授权这一笔的数量）");
-    });
-  }
-
-  // ---------- 报价 ----------
-  function getQuote(amt) { var d = sdir, nk = net; return fetch("/api/u2d?amt=" + amt + "&dir=" + d + (nk === "polygon" ? "" : "&chain=" + nk)).then(function (r) { return r.json(); }).then(function (j) { if (!j || j.error || !j.ok) throw new Error((j && j.error) || "现在拿不到报价，稍后再试"); if ((j.dir || "in") !== d || (j.chain || "polygon") !== nk) throw new Error("报价方向不对，请重新填一次数量"); return { dir: d, net: nk, amt: amt, out: BigInt(j.out), fee: BigInt(j.fee || 0), feeBps: Number(j.feeBps) || 0, sum: j.sum, via: j.via, at: Date.now() }; }); }
-  function amtIn() { return units(amtStr, C(from).d); }
-  var FEE_WEI = BigInt(Math.round(FEE * 1e6)) * 10n ** 12n;
-  // 「你到账」那个数 + 下面的说明。到账数 = 整趟走完最后到手的数（显示即所得）
-  function paintInfo(err) {
-    var el = g("u2d-q"), o = g("u2d-out"), cf = C(from), ct = C(to), sw = has("swap"), br = has("bridge"); if (!el) return;
-    var amt = amtIn(), okq = sw && !err && !!q && q.dir === sdir && q.net === net && q.amt === amt.toString();
-    var outWei = !sw ? (n(amt, 18) >= BMIN ? amt - FEE_WEI : 0n) : !okq ? 0n : (from === "U" && to === "A") ? (q.out > FEE_WEI ? q.out - FEE_WEI : 0n) : q.out;
-    if (o) { o.textContent = outWei > 0n ? f(n(outWei, ct.d)) : "0"; o.className = "u2d-num" + (outWei > 0n ? "" : " zero"); }
-    paintBtn();
-    if (err) { el.innerHTML = '<p class="u2d-warn">' + esc(err) + "</p>"; return dtVis(); }
-    if (amt === 0n) { el.innerHTML = ""; return dtVis(); }
-    if (br && !sw && n(amt, 18) < BMIN) { el.innerHTML = '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>"; return dtVis(); }
-    if (sw && !okq) return dtVis(); // 报价还在路上，onAmt 已经写了「正在找价」
-    // 明细行照主流兑换页的排法：左边名目、右边数字；解释性的话收在下面「这些数是怎么算的？」里，想看的人再点开
-    var rows = [], why = "", warn = "";
-    if (sw) {
-      // out 已经是扣完本站服务费之后的到手数；gap = 除服务费以外的差额，主要是 USDT 和 DAI 两个币本身的市价差，不是手续费
-      var p = P(), inU = n(q.amt, p.sd), out = n(q.out, p.dd), fee = n(q.fee, p.dd), pct = q.feeBps / 100, gap = (1 - (out + fee) / inU) * 100, min = out * (1 - SLIP / 10000);
-      var feeTxt = q.feeBps ? "本站服务费 " + pct + "%（约 " + f(fee) + " " + p.dn + "）已经扣在这个数里" : "本站不收服务费，这是全网比价后的到手数";
-      rows.push(["兑换比例", "1 " + p.sn + " ≈ " + f(out / inU, 4) + " " + p.dn]);
-      rows.push(["手续费", q.feeBps ? pct + "%" : '<b class="free">0</b>']);
-      rows.push(["最少到手", f(min) + " " + p.dn]);
-      why += '<p class="note">' + feeTxt + "。" + (gap > 0.005 ? (q.feeBps ? "另外约 " : "和 1:1 差的约 ") + f(gap, 2) + "% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。" : gap < -0.005 ? "这一刻 " + p.sn + " 比 " + p.dn + " 略贵，市价差对你有利。" : "") + "</p>" +
-        '<p class="note">最少到手 ' + f(min) + " " + p.dn + "：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>";
-      if (gap > 1) warn += '<p class="u2d-warn">⚠️ 现在这个数量换下来比平时差不少（市价差超过 1%）。可以把数量改小分几次换，或者过一会儿再看。</p>';
-      if (from === "U" && to === "A" && out < BMIN) warn += '<p class="u2d-warn">换出来不到 ' + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点。</p>";
-      if (from === "A" && n(amt, 18) < BMIN) warn += '<p class="u2d-warn">官方桥最少跨 ' + BMIN + " DAI。</p>";
-    } else rows.push(["手续费", FEE ? FEE + " DAI" : '<b class="free">0</b>']);
-    rows.push(["预计到账", !br ? "十几秒" : dir === "out" ? dur(EXPECT.out) : net === "bsc" ? "几分钟" : dur(expOf("in", net))]);
-    rows.push(["到账地址", "你这个钱包 · " + ct.chain + " 链"]);
-    if (br) why += '<p class="note">' + (FEE ? "官方桥收 " + FEE + " DAI" : "官方跨链桥不收费，跨多少到多少") + "。到账地址就是你现在这个钱包，在 " + ct.chain + ' 链上。</p><p class="note">官方桥最少跨 ' + BMIN + " DAI。</p>";
-    el.innerHTML = warn + '<dl class="u2d-rows">' + rows.map(function (r) { return "<div><dt>" + r[0] + "</dt><dd>" + r[1] + "</dd></div>"; }).join("") + '</dl><details class="u2d-why"><summary>这些数是怎么算的？</summary>' + why + "</details>";
-    dtVis();
-  }
-  // 明细那一块（步骤条 + 明细行）两样都没有的时候整块收起来，不留一个空框
-  function dtVis() { var d = g("u2d-dt"), w = g("u2d-way"), e = g("u2d-q"); if (d) d.hidden = !(w && w.innerHTML) && !(e && e.innerHTML); }
-  // 主按钮按状态换字（主流兑换页的做法）：没连钱包 →「连接钱包」；没填数 →「输入数量」；余额不够 →「XX 余额不足」；都好了才是「开始跨链」
-  function btnState() {
-    if (!account) return { t: "连接钱包", act: "conn" };
-    var amt = amtIn(), cf = C(from);
-    if (amt === 0n) return { t: "输入数量", dim: 1, act: "focus" };
-    if (bal && bal[cf.bk] < amt) return { t: cf.sym + " 余额不足", dim: 1, act: "go" }; // 点了照样走 go()，由它说清楚差多少
-    return { t: goLabel(), act: "go" };
-  }
-  function paintBtn() { var b = g("u2d-go"); if (!b || busy) return; var st = btnState(); b.textContent = st.t; b.className = "u2d-go" + (st.dim ? " dim" : ""); }
-  function onAmt() {
-    clearTimeout(qTimer); var seq = ++qSeq, a = g("u2d-a1"); if (a) amtStr = a.value;
-    var amt = amtIn(), cf = C(from), one = 10n ** BigInt(cf.d);
-    if (!has("swap")) { q = null; return paintInfo(); }
-    if (amt < one) { q = null; return amt > 0n ? paintInfo("最少换 1 " + cf.sym) : paintInfo(); }
-    var el = g("u2d-q"); if (el) el.innerHTML = '<p class="muted">正在全网找最划算的价…</p>'; dtVis(); paintBtn();
-    qTimer = setTimeout(function () { getQuote(amt.toString()).then(function (x) { if (seq !== qSeq) return; q = x; paintInfo(); }, function (e) { if (seq !== qSeq) return; q = null; paintInfo(String((e && e.message) || e)); }); }, 450);
-  }
-
-  // ---------- 换币（在客户选的那条链上）。成功后返回这一笔实际到手多少 ----------
-  // 换完读余额，一直读到看见多出来的数（节点偶尔慢一两个区块）；读了 6 次还没变就返回 0，由调用的地方让客户自己再点
-  function settle(k, before) {
-    var tries = 0;
-    function later() { return ++tries >= 6 ? 0n : new Promise(function (r) { setTimeout(r, 1500); }).then(again); }
-    function again() { return loadBal().then(function () { return bal && bal[k] > before ? bal[k] - before : later(); }, later); }
-    return again();
-  }
-  function doSwap(amt, needBridge) {
-    var d0 = sdir, p = P(), c = N(), nk0 = net, before = 0n;
-    if (c.cap && n(amt, p.sd) > c.cap) return Promise.reject(new Error(c.name + " 上一次最多换 " + c.cap / 10000 + " 万（池子浅，再多会亏很多）。大额请在上面选 Polygon"));
-    return ready(c.key).then(function () { return loadBal(); }).then(function () {
-      paintBal();
-      if (!bal) throw new Error("没读到余额，刷新后再试");
-      if (bal[p.sb] < amt) throw new Error(c.name + " 上的 " + p.sn + " 不够：你有 " + balOf(p.sb) + "，要换 " + f(n(amt, p.sd)));
-      if (bal.pol < c.gasMin) throw new Error("钱包里的 " + c.gas + " 不够付 Gas，" + gasTip());
-      before = bal[p.db]; say("s", "正在拿最新报价…");
-      return getQuote(amt.toString());
-    }).then(function (x) {
-      if (sdir !== d0 || net !== nk0) throw new Error("方向或者链已经换了，请重新点一次");
-      q = x; paintInfo();
-      if (needBridge && n(x.out, 18) < BMIN) throw new Error("换出来不到 " + BMIN + " DAI，过不了桥（官方桥最少跨 " + BMIN + " DAI）。请把数量加大一点");
-      return fetch("/api/u2d", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sum: x.sum, via: x.via, dir: d0, chain: nk0, sender: account, slip: SLIP }) }).then(function (r) { return r.json(); });
-    }).then(function (j) {
-      if (!j || j.error || !j.ok) throw new Error((j && j.error) || "拿不到换币数据，稍后再试");
-      // 本机再核一遍：只认登记的两个聚合器路由合约（KyberSwap、ParaSwap），方向要对，交易里必须写着你自己的地址
-      if (ROUTERS.indexOf(String(j.to).toLowerCase()) < 0 || (j.dir || "in") !== d0 || (j.chain || "polygon") !== nk0 || net !== nk0 || String(j.data).toLowerCase().indexOf(account.slice(2)) < 0) throw new Error("换币数据没通过安全检查，已拦下，你的币没有动");
-      return allow(p.src, j.to, amt, "s", p.sn).then(function () { return send(c.key, j.to, j.data, "s", p.sn + " 换成 " + p.dn); });
-    }).then(function () { return settle(p.db, before); });
-  }
-
-  // ---------- 过桥（往里充在客户那条链上发，往外提在 Anubis 上发）。then = "swap" 表示到了以后还要接着换成 USDT ----------
-  function doBridge(amt, then) {
-    var d0 = dir, b = B(), c = N(), nk0 = net, start = 0n, txHash = "";
-    if (n(amt, 18) < BMIN) return Promise.reject(new Error("官方桥最少跨 " + BMIN + " DAI"));
-    if (d0 === "out" && !c.canOut) return Promise.reject(new Error("官方桥不支持把 DAI 跨回 " + c.name + "，往外提请在上面选 Polygon"));
-    return ready(b.from).then(function () { return loadBal(); }).then(function () {
-      paintBal();
-      if (!bal) throw new Error("没读到余额，刷新后再试");
-      if (d0 === "in") {
-        if (bal.pdai < amt) throw new Error(c.name + " 上的 DAI 不够：你有 " + balOf("pdai") + "，要跨 " + f(n(amt, 18)));
-        if (bal.pol < c.gasMin / 2n) throw new Error("钱包里的 " + c.gas + " 不够付 Gas，" + gasTip());
-      } else if (bal.adai < amt + GAS_KEEP / 5n) throw new Error("Anubis 上的 DAI 不够：你有 " + balOf("adai") + "，要跨 " + f(n(amt, 18)) + "，还要留一点点当 Gas。点「全部」会自动留好");
-      start = bal[b.tb];
-      // 客户那条链上的 DAI 是普通代币，要先授权给桥；Anubis 的 DAI 是原生币，实测不用授权
-      return d0 === "in" ? allow(c.dai, BRIDGE, amt, "b", "DAI 给官方跨链桥") : null;
-    }).then(function () {
-      if (dir !== d0 || net !== nk0) throw new Error("方向或者链已经换了，请重新点一次");
-      return send(b.from, BRIDGE, SEL.bridge + DAI_ID + u256(CHAIN_ID[b.to]) + aw(account) + u256(amt), "b", "DAI 跨到 " + b.tn);
-    }).then(function (rc) { txHash = rc && rc.transactionHash; return loadBal(); }).then(function () {
-      track({ a: account, dir: d0, net: nk0, amt: amt.toString(), start: start.toString(), t0: Date.now(), tx: txHash || "", then: then || "" });
-      setTimeout(function () { loadHis(true); }, 10000);
-    });
-  }
-  function bridged(d, nk) { return "✅ 已交给官方跨链桥，正在跨（官方桥到账" + dur(expOf(d, nk)) + "）。进度看页面上方的进度条，可以关掉这一页，回来还在。"; }
-
-  // ---------- 那一个按钮：按 from / to 这一对，把该走的步骤按顺序走完 ----------
-  function go() {
-    if (busy) return;
-    var k = from + to, r = route(), cf = C(from), amt = amtIn(), c = N(), stage = 1, got1 = 0n, second = way && way.now === 2 ? way.k : "";
-    if (amt === 0n) return say("s", "先填要付出多少 " + cf.sym, true);
-    if (r[0] === "swap" && amt < 10n ** BigInt(cf.d)) return say("s", "最少换 1 " + cf.sym, true);
-    if (r[0] === "bridge" && n(amt, 18) < BMIN) return say("s", "官方桥最少跨 " + BMIN + " DAI", true);
-    if (pick) { pick = null; render(); }
-    lock(true); say("s", "正在连接钱包…");
-    if (r.length === 2) { way = { k: k, now: 1 }; paintWay(); }
-    var job;
-    if (k === "UA") job = doSwap(amt, true).then(function (got) {
-      // 第 1 步换好了：界面切成「这条链的 DAI → Anubis」并填上到手的数。后面过桥万一没成，客户再点一次按钮就是接着跨，不会重复换币
-      got1 = got; stage = 2;
-      from = "D"; to = "A"; amtStr = got > 0n ? plain(got, 18, 4) : ""; q = null; way = { k: "UA", now: 2 };
-      render(); lock(true);
-      if (got === 0n) throw new Error("余额还没刷新出来。等几秒点「全部」，再点下面的按钮跨到 Anubis");
-      say("s", "✅ 第 1 步换好了，到手 " + f(n(got, 18)) + " DAI。接着第 2 步：跨到 Anubis…");
-      return doBridge(got, "");
-    }).then(function () { var nk = net; from = "U"; to = "A"; amtStr = ""; way = null; render(); say("s", bridged("in", nk)); });
-    else if (k === "AU") job = doBridge(amt, "swap").then(function () { amtStr = ""; way = null; render(); say("s", "✅ 第 1 步已交给官方跨链桥，" + dur(EXPECT.out) + "后到 " + c.name + "。到了以后这一页会帮你填好第 2 步，点一下按钮把 DAI 换成 USDT。可以关掉这一页，回来还在。"); });
-    else if (r[0] === "swap") job = doSwap(amt, false).then(function (got) {
-      var ct = C(to), gotTxt = got > 0n ? "，到手 " + f(n(got, ct.d)) + " " + ct.sym : "";
-      if (second === "AU") pendClear(); // 两步都走完了：上面那条「到账了，接着换成 USDT」的进度收起来
-      amtStr = ""; q = null; way = null; render();
-      say("s", (second === "AU" ? "🎉 换好了" : "✅ 换好了") + gotTxt + "，就在你这个钱包里（" + c.name + " 链）。" + (second === "AU" ? "两步都走完了。" : ""));
-    });
-    else job = doBridge(amt, "").then(function () { var d0 = dir, nk = net; if (second === "UA") { from = "U"; to = "A"; } amtStr = ""; way = null; render(); say("s", bridged(d0, nk)); });
-    job.catch(function (e) {
-      if (stage === 2) say("s", "第 1 步已经换好，" + (got1 > 0n ? f(n(got1, 18)) + " " : "") + "DAI 在你钱包里（" + c.name + " 链），没有丢。第 2 步还没做：" + nice(e), true);
-      else { if (r.length === 2) { way = null; paintWay(); } say("s", "没成功：" + nice(e), true); }
-    }).then(function () { lock(false); });
-  }
-
-  // ---------- 到账进度条 ----------
-  // 过桥那一笔记在本机（按钱包地址），关掉页面再回来还能接着看；每 20 秒查一次：先问官方桥这一笔的状态，再看目标链余额有没有变多，哪个先说到了都算到
-  var PKEY = "u2d:pend:";
-  function pend() { try { var p = JSON.parse(localStorage.getItem(PKEY + account) || "null"); return p && p.a === account && Date.now() - p.t0 < 3 * 86400e3 ? p : null; } catch (e) { return null; } }
-  function pendSave(p) { try { if (p) localStorage.setItem(PKEY + p.a, JSON.stringify(p)); } catch (e) { /* 存不上只是关掉页面后看不到进度，不影响到账 */ } }
-  function pendClear() { try { localStorage.removeItem(PKEY + account); } catch (e) { /* 忽略 */ } var el = g("u2d-prog"); if (el) el.innerHTML = ""; clearInterval(watch); }
-  function paintProg(p) {
-    var el = g("u2d-prog"); if (!el) return; if (!p) { el.innerHTML = ""; return; }
-    var isIn = p.dir === "in", pn = NETS[p.net] || NETS.polygon, to = isIn ? "Anubis" : pn.name, exp = expOf(p.dir, p.net), el2 = (Date.now() - p.t0) / 1000, amt = f(n(BigInt(p.amt), 18) - FEE);
-    var done = !!p.done, late = !done && el2 > exp * 1.3 + 300, pct = done ? 100 : Math.max(4, Math.min(96, el2 / exp * 100));
-    var head = done ? "🎉 到账了：" + amt + " DAI 已经在 " + to + " 链上" : "正在跨链：" + amt + " DAI → " + to + " 链";
-    var sub2 = done ? "这一趟用了" + dur((p.done - p.t0) / 1000) + "。" + (isIn ? "现在可以去买 AiLGNS 或注册域名了。" : p.then === "" ? "DAI 已经在你这个钱包里了。" : "接着在下面点按钮，把 DAI 换成 USDT。")
-      : late ? "已经过了" + dur(el2) + "，比平时（" + dur(exp) + "）慢。币不会丢，官方桥还在处理。"
-      : "已经过了" + dur(el2) + " · 预计还要" + dur(exp - el2);
-    el.innerHTML = '<div class="u2d-prog' + (done ? " done" : late ? " late" : "") + '"><div class="u2d-pt"><b>' + head + "</b><span>" + sub2 + '</span></div>' +
-      '<div class="u2d-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
-      '<ol class="u2d-stg"><li class="ok">交易已上链</li><li class="' + (done ? "ok" : "now") + '">官方桥确认中</li><li class="' + (done ? "ok" : "") + '">到账</li></ol>' +
-      (done ? "" : '<p class="note">' + (isIn ? "这个方向官方桥一般" + dur(exp) + "到账。" : "这个方向官方桥要等 2 小时 10 分钟左右，是它的安全规则（下面有详细说明），不是卡住了。") + "可以关掉这一页去做别的，回来还能看到进度。" + (late ? "一直不到，就到官方桥 app.anubisbridge.com 的 History 里看这一笔，或者提工单把钱包地址和交易哈希发给我们。" : "") + "</p>") +
-      '<button type="button" class="u2d-px" id="u2d-px">' + (done ? "知道了" : "不看这条进度了") + "</button></div>";
-    var x = g("u2d-px"); if (x) x.onclick = pendClear;
-  }
-  function arrived(p, nowBal) {
-    if (p.done) return; p.done = Date.now(); pendSave(p); clearInterval(watch); paintProg(p);
-    loadBal().then(function () { paintBal(); if (p.dir === "out" && p.then !== "" && !busy && !amtStr && net === (p.net || "polygon") && bal) { var v = BigInt(p.amt); if (bal.pdai < v) v = bal.pdai; if (v > 0n) { from = "D"; to = "U"; pick = null; q = null; amtStr = plain(v, 18, 4); way = { k: "AU", now: 2 }; render(); } } }, function () { /* 余额下次再读 */ });
-  }
-  function checkProg() {
-    var p = pend(); if (!p || p.done) return clearInterval(watch);
-    paintProg(p);
-    var a = p.a, st = BigInt(p.start || 0);
-    (p.tx ? fetch("/api/u2d?order=" + p.tx + "&a=" + a).then(function (r) { return r.json(); }).catch(function () { return null; }) : Promise.resolve(null)).then(function (j) {
-      if (a !== account) return;
-      if (j && j.ok && j.found && (j.status === "completed" || j.receivedTs)) return arrived(p);
-      return (p.dir === "in" ? W.rpcOn("anubis", "eth_getBalance", [a, "latest"]).then(BigInt) : rd((NETS[p.net] || NETS.polygon).key, (NETS[p.net] || NETS.polygon).dai, SEL.balanceOf + aw(a))).then(function (now) { if (a === account && now > st) arrived(p); });
-    }).catch(function () { /* 这一轮没查到，等下一轮 */ });
-  }
-  function track(p) { if (p) pendSave(p); clearInterval(watch); var cur = pend(); paintProg(cur); if (cur && !cur.done) { watch = setInterval(function () { if (!g("u2d-prog")) return clearInterval(watch); checkProg(); }, 20000); checkProg(); } }
-
-  // ---------- 我的跨链记录（站长 2026-11-20：自己跨了一笔，页面上找不到记录，问「钱到哪了、什么时候到」）----------
-  // 直接读官方桥上这个钱包的订单（/api/u2d?orders=），不靠浏览器里存的那一条：换手机、换浏览器、在官方桥页面跨的，都查得到。
-  // 上面那条进度条（u2d-prog）是刚跨完这一笔的即时反馈，还管「到了以后接着换成 USDT」；这里是完整的记录
-  var his = null, hisAt = 0, hisFor = "", hisBusy = false, hisTimer = null, hisOpen = false, HSHOW = 3;
-  var HEXP = { out: 130 * 60, polygon: 120, bsc: 120 }, HNAME = { anubis: "Anubis", polygon: "Polygon", bsc: "BSC" }; // 官方桥大概多久到（秒）：从 Anubis 出去约 2 小时 10 分钟；进 Anubis 一两分钟
-  function hm(ts) { var d = new Date(ts * 1000), p2 = function (x) { return (x < 10 ? "0" : "") + x; }; return (new Date().toDateString() === d.toDateString() ? "" : (d.getMonth() + 1) + "-" + d.getDate() + " ") + p2(d.getHours()) + ":" + p2(d.getMinutes()); }
-  function paintHis(msg) {
-    var el = g("u2d-his"); if (!el) return;
-    var head = '<div class="u2d-hh"><b>我的跨链记录</b>' + (account ? '<button type="button" class="u2d-hr" id="u2d-hr">' + (hisBusy ? "查询中…" : "查询进度") + "</button>" : "") + "</div>";
-    if (!account) { el.innerHTML = head + '<p class="muted">连接钱包后，这里显示你最近的跨链：钱到哪了、还要多久到。</p>'; return; }
-    var L = hisFor === account && his ? his : null, body;
-    if (msg) body = '<p class="u2d-warn">' + esc(msg) + "</p>";
-    else if (!L) body = '<p class="muted">正在查…</p>';
-    else if (!L.length) body = '<p class="muted">这个钱包最近没有跨链记录。</p>';
-    else body = L.map(function (o, i) {
-      var now = Date.now() / 1000, exp = o.from === "anubis" ? HEXP.out : (HEXP[o.from] || 120), done = o.st === "completed" || o.recvTs > 0, bad = !done && !!(o.fail || /fail|refund|cancel/i.test(o.st));
-      var el2 = Math.max(0, now - o.sendTs), late = !done && !bad && el2 > exp * 1.3 + 300, pct = done ? 100 : Math.max(4, Math.min(96, el2 / exp * 100));
-      var amt = o.amt ? f(n(BigInt(o.amt), o.dec)) + " " + esc(o.sym) : (esc(o.sym) || "跨链");
-      var t = done ? "✅ 已到账" + (o.recvTs ? " · " + hm(o.recvTs) + " · 用了" + dur(o.recvTs - o.sendTs) : "")
-        : bad ? "⚠️ 官方桥显示这笔没成功" + (o.fail ? "：" + esc(o.fail) : "") + "。请到官方桥 app.anubisbridge.com 的 History 里看，或者提工单给我们"
-        : late ? "⏳ 已经过了" + dur(el2) + "，比平时（" + dur(exp) + "）慢。币不会丢，官方桥还在处理"
-        : "⏳ 正在跨 · 预计 " + hm(o.sendTs + exp) + " 到（还要" + dur(exp - el2) + "）";
-      return { old: i >= HSHOW && (done || bad), h: '<div class="u2d-ho' + (done ? " done" : bad ? " bad" : "") + '"><div class="u2d-ht"><b>' + amt + "</b><span>" + (HNAME[o.from] || "其它链") + " → " + (HNAME[o.to] || "其它链") + " · " + hm(o.sendTs) + ' 发出</span></div><p>' + t + "</p>" + (done || bad ? "" : '<div class="u2d-bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>') + "</div>" };
-    });
-    // 站长 2026-11-20：只显示前几笔，多的折叠。前 3 笔 + 所有还没到的直接显示；更早的收进「更早的 N 笔」，点开才看（点开后刷新也保持开着）
-    if (L && L.length && !msg) { var olds = body.filter(function (r) { return r.old; }); body = body.filter(function (r) { return !r.old; }).map(function (r) { return r.h; }).join("") + (olds.length ? '<details class="u2d-hm" id="u2d-hm"' + (hisOpen ? " open" : "") + "><summary>更早的 " + olds.length + " 笔</summary>" + olds.map(function (r) { return r.h; }).join("") + "</details>" : ""); }
-    el.innerHTML = head + body;
-    var b = g("u2d-hr"); if (b) b.onclick = function () { loadHis(true); };
-    var hmEl = g("u2d-hm"); if (hmEl) hmEl.ontoggle = function () { hisOpen = hmEl.open; };
-  }
-  function loadHis(force) {
-    clearTimeout(hisTimer);
-    if (!account) { hisFor = ""; return paintHis(); }
-    if (hisFor !== account) { his = null; hisFor = account; hisAt = 0; }
-    if (hisBusy) return paintHis();
-    if (!force && his && Date.now() - hisAt < 20000) { paintHis(); return hisNext(); } // 20 秒内查过：直接用刚才的，不再问一遍
-    var a = account; hisBusy = true; paintHis();
-    fetch("/api/u2d?orders=" + a).then(function (r) { return r.json(); }).then(function (j) {
-      hisBusy = false; if (a !== account) return;
-      if (!j || !j.ok) return paintHis(his ? "" : (j && j.error) || "记录暂时查不到，过一会儿再点「查询进度」"); // 以前查到过的先留着显示
-      his = j.list || []; hisAt = Date.now(); paintHis(); hisNext();
-    }, function () { hisBusy = false; if (a === account) paintHis(his ? "" : "网络不好，过一会儿再点「查询进度」"); });
-  }
-  // 有还没到的：页面开着就每分钟自己再查一次（切到后台不查），到了自动变成「已到账」
-  function hisNext() { clearTimeout(hisTimer); if (his && his.some(function (o) { return o.st !== "completed" && !o.recvTs; })) hisTimer = setTimeout(function () { if (!g("u2d-his")) return; if (document.hidden) return hisNext(); loadHis(true); }, 60000); }
-
-  // ---------- 页面 ----------
-  var hooked = false;
-  function paintAll() { paintBal(); paintInfo(); paintWay(); }
-  // 两步的那一趟：框下面一行「第 1 步 → 第 2 步」，走到哪步亮哪步。只有一步的（只换币 / 只过桥）不显示
-  function paintWay() {
-    var el = g("u2d-way"); if (!el) return;
-    var k = way ? way.k : from + to, now = way ? way.now : 0;
-    if (k !== "UA" && k !== "AU") { el.innerHTML = ""; dtVis(); paintBtn(); return; }
-    var nm = k === "UA" ? ["换币", "过桥"] : ["过桥", "换币"];
-    el.innerHTML = '<ol class="u2d-way">' + nm.map(function (x, i) { var cl = now > i + 1 ? "ok" : now === i + 1 ? "now" : ""; return '<li class="' + cl + '"><i>' + (cl === "ok" ? "✓" : i + 1) + "</i><b>" + x + "</b></li>"; }).join('<li class="ar"></li>') + "</ol>" +
-      /* 工单 #451（2026-11-25）：客户以为跨过去自动变成 USDT，其实到账的先是 DAI，要回来再点一次。还没走到第 2 步时把这句写在按钮上方 */
-      (k === "AU" && now < 2 ? '<p class="u2d-two">⚠️ 要点两次：' + dur(EXPECT.out) + "后到 " + C(to).chain + " 的先是 <b>DAI</b>；到了以后回到这一页，再点一次「第 2 步：换成 USDT」，才变成 USDT。</p>" : "");
-    dtVis(); paintBtn();
-  }
-  // 币的图标用官方标志：icons/tokens/usdt.png、dai.png，图片万一没加载出来，后面还垫着原来的色块和符号。
-  // Anubis 链上的 DAI：币的右下角压一个 Anubis 链的小标志（取自官方区块浏览器的站标），和钱包里显示「哪条链上的币」一个画法
-  function tokIn(k) { var c = C(k); return '<span class="u2d-cw"><i class="u2d-coin ' + c.cls + '"><img src="/icons/tokens/' + (c.sym === "USDT" ? "usdt" : "dai") + '.png?v=1" alt="" width="30" height="30">' + c.ch + "</i>" + (k === "A" ? '<em class="u2d-ch" title="Anubis 链"></em>' : "") + "</span><span><b>" + c.sym + "</b><small>" + c.chain + " 链</small></span>"; }
-  // 框右边那个币是个按钮：点一下，在框里列出能换成的另外两个币（主流兑换页的「选币」）
-  function tokBtn(side, k) { return '<button type="button" class="u2d-tok u2d-tb" data-side="' + side + '" aria-label="换一个币">' + tokIn(k) + '<i class="u2d-car"></i></button>'; }
-  function pickList(side) {
-    var cur = side === "from" ? from : to;
-    var other = side === "from" ? to : from;
-    var ok = ["U", "D", "A"].filter(function (k) { return k !== cur && !(side === "from" && k === "A" && !N().canOut); });
-    // 站长 2026-11-20：对面那个框已经选着的币不再列出来（看着像重复；要对调点中间的 ⇅）。只有去掉以后一个都不剩时才留着它（选它 = 两边对调）
-    var ks = ok.filter(function (k) { return k !== other; }); if (!ks.length) ks = ok;
-    return '<div class="u2d-pk"><p>' + (side === "from" ? "你要付出哪个币" : "你要到账哪个币") + "</p>" + ks.map(function (k) { return '<button type="button" class="u2d-tok" data-side="' + side + '" data-k="' + k + '">' + tokIn(k) + "</button>"; }).join("") + "</div>";
-  }
-  function choose(side, k) {
-    if (busy) return; var of = from, ot = to;
-    if (side === "from") { from = k; if (to === k) to = of; } else { to = k; if (from === k) from = ot; }
-    if (!N().canOut && from === "A") from = to === "U" ? "D" : "U"; // 这条链不能往外提：付出的币只能是这条链上的
-    pick = null; way = null; q = null; qSeq++; clearTimeout(qTimer); render();
-  }
-  function goLabel() {
-    var k = from + to, two = way && way.now === 2;
-    return k === "UA" || k === "AU" ? "开始跨链" : k === "UD" ? "换成 DAI" : k === "DU" ? (two ? "第 2 步：换成 USDT" : "换成 USDT") : (two ? "第 2 步：" : "") + "跨到 " + C(to).chain;
-  }
-  function etaHtml() {
-    if (!has("bridge")) return "";
-    if (dir === "in") return ""; // 往里充的到账时间写在明细行「预计到账」里
-    return '<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><p class="u2d-fastgo">着急？<a href="#/gale">⚡ 换成秒到通道（第三方 GaleBridge，约 20 秒，要收手续费）→</a></p><details><summary>为什么这么慢？能加急吗？</summary>' +
-      '<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>' +
-      '<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以从 Polygon 跨到 Anubis 只要 2 分钟。</p>' +
-      '<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>' +
-      '<p><b>官方桥不能加急</b>：这是官方桥写死的规则，谁也改不了。着急的可以在页面上方选「秒到通道」，那是第三方 GaleBridge 的服务，约 20 秒到，要收手续费。</p>' +
-      '<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；要换成 USDT 的，到账后这一页会帮你填好，点一下按钮就行。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>' +
-      '<p><b>急用钱</b>：请提前 2 个多小时操作，或者走秒到通道。</p></details></div>';
-  }
-  function card() {
-    var canFlip = N().canOut || to !== "A"; // 对调以后付出的币不能是 Anubis 的 DAI（这条链不能往外提）
-    return '<section class="u2d-card">' +
-      '<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="u2d-b1">—</b><button type="button" class="u2d-max" id="u2d-max1">全部</button></span></div>' +
-      '<div class="u2d-bm"><input id="u2d-a1" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + tokBtn("from", from) + "</div>" + (pick === "from" ? pickList("from") : "") + "</div>" +
-      (canFlip ? '<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip" aria-label="付出和到账对调" title="点一下，付出和到账对调">⇅</button></div>' : '<div class="u2d-mid"><i>↓</i><span class="u2d-one">往外提请选 Polygon</span></div>') +
-      '<div class="u2d-box end"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="u2d-b2">—</b></span></div>' +
-      '<div class="u2d-bm"><output id="u2d-out" class="u2d-num zero">0</output>' + tokBtn("to", to) + "</div>" + (pick === "to" ? pickList("to") : "") + "</div>" +
-      '<div class="u2d-dt" id="u2d-dt" hidden><div id="u2d-way"></div><div id="u2d-q"></div></div>' + etaHtml() +
-      '<button type="button" class="u2d-go" id="u2d-go">' + goLabel() + '</button><p class="u2d-say" id="u2d-say"></p>' +
-      (has("swap") && N().cap ? '<p class="note">' + N().name + " 上 DAI 的池子比较浅：一次最多换 " + N().cap / 10000 + " 万，超过 1 万价格会明显变差。大额请在上面选 Polygon。</p>" : "") + "</section>";
-  }
-  function render() {
-    sync();
-    A.app.innerHTML =
-      // 版式参照主流兑换页（Uniswap / 币安钱包那种）：一张窄卡居中、上面付出、下面到账、中间一个箭头、框右边选哪条链的哪个币、底下一个按钮
-      '<div class="u2d">' +
-      '<header class="u2d-hd"><h2>USDT 跨链桥</h2>' +
-      // 2026-11-20 站长：秒到跨链「合并到跨链桥里面，并标注第三方跨链桥收费，我们的是0手续费」→ 标题下两个通道二选一。两个通道的内容都留在页面里，只是藏起一个（原来那一套的定时刷新照常跑，不会找不到元素）
-      '<div class="u2d-mode" id="u2d-mode">' +
-      '<button type="button" data-mode="std"><b>本站通道</b><em class="free">0手续费</em><small>走官方桥：进约 2 分钟，出约 2 小时 10 分钟</small></button>' +
-      '<button type="button" data-mode="fast"><b>⚡ 秒到通道</b><em class="paid">第三方收费</em><small>GaleBridge：约 20 秒</small></button>' +
-      '</div></header>' +
-      '<div id="u2d-fast" hidden></div><div id="u2d-std">' +
-      '<div class="u2d-net" id="u2d-net"><span>你的币在哪条链</span>' + Object.keys(NETS).map(function (k) { return '<button type="button" data-net="' + k + '"' + (k === net ? ' class="on"' : "") + ">" + NETS[k].name + "</button>"; }).join("") + "</div>" +
-      '<div id="u2d-bal"></div><div id="u2d-prog"></div>' + card() + '<section class="u2d-card u2d-his" id="u2d-his"></section>' +
-      '<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>' +
-      '<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>' +
-      '<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。</p>' +
-      '<p class="note">② 跨链用 <b>Anubis 官方跨链桥</b>（app.anubisbridge.com），两个方向都是它，和你自己去官方桥页面操作是同一个合约。</p>' +
-      '<p class="note">收费：本站不收服务费，换出来的币全部到你自己钱包；过桥官方也不收费。你只付链上的 Gas。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>' +
-      '<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>' +
-      '<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section></div></div>';
-    Array.prototype.forEach.call(g("u2d-mode").querySelectorAll("button"), function (b) { b.onclick = function () { if (busy) return; mode = b.getAttribute("data-mode") === "fast" ? "fast" : "std"; paintMode(); }; });
-    paintMode();
-    var a1 = g("u2d-a1"); a1.value = amtStr; a1.oninput = onAmt;
-    g("u2d-max1").onclick = function () {
-      if (!bal) return say("s", "先连接钱包", true);
-      var cf = C(from), v = bal[cf.bk]; if (from === "A") v = v > GAS_KEEP ? v - GAS_KEEP : 0n; // 往外提：在 Anubis 上留一点 DAI 当 Gas
-      a1.value = plain(v, cf.d, cf.d === 6 ? 2 : 4); onAmt();
-    };
-    g("u2d-go").onclick = function () {
-      if (busy) return; var st = btnState();
-      if (st.act === "conn") return void connect(N().key).then(function () { track(); return loadBal(); }).then(paintAll, function (e) { say("s", nice(e), true); });
-      if (st.act === "focus") { say("s", ""); return a1.focus(); }
-      go();
-    };
-    if (g("u2d-flip")) g("u2d-flip").onclick = function () { if (busy) return; var t = from; from = to; to = t; pick = null; way = null; q = null; qSeq++; clearTimeout(qTimer); render(); };
-    [].forEach.call(document.querySelectorAll("#u2d-std .u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var s = b.getAttribute("data-side"); pick = pick === s ? null : s; render(); }; }); // 只管本站通道这张卡里的按钮：秒到通道那张卡（gale.js）用同一套样式，按钮它自己管
-    [].forEach.call(document.querySelectorAll("#u2d-std .u2d-pk button"), function (b) { b.onclick = function () { choose(b.getAttribute("data-side"), b.getAttribute("data-k")); }; });
-    [].forEach.call(document.querySelectorAll("#u2d-net button"), function (bt) { bt.onclick = function () { setNet(bt.getAttribute("data-net")); }; });
-    paintAll(); track(); loadHis();
-    if (amtStr && has("swap") && !q) onAmt();
-  }
-  // 换一条链：余额、报价都是那条链上的，清掉重读；这条链不能往外提的话，付出的币拨回这条链上的（sync() 里管）
-  // 两个通道切换：只换显示，不重画页面。秒到通道的内容由 gale.js 画（嵌第三方 GaleBridge 的组件）
-  function paintMode() {
-    var m = g("u2d-mode"), st = g("u2d-std"), fa = g("u2d-fast");
-    if (!m || !st || !fa) return;
-    if (mode === "fast" && !(A.gale && A.gale.mount)) mode = "std";
-    Array.prototype.forEach.call(m.querySelectorAll("button"), function (b) { b.className = b.getAttribute("data-mode") === mode ? "on" : ""; });
-    st.hidden = mode === "fast"; fa.hidden = mode !== "fast";
-    try {
-      if (mode === "fast") { if (!g("gbx-a")) A.gale.mount(fa, rid); }
-      else if (A.gale) { A.gale.unmount(); fa.innerHTML = ""; }
-    } catch (e) { mode = "std"; st.hidden = false; fa.hidden = true; }
-  }
-  function setNet(k) {
-    if (busy || !NETS[k] || k === net) return;
-    net = k; pick = null; way = null;
-    q = null; qSeq++; clearTimeout(qTimer); bal = null; render();
-    if (account) loadBal().then(paintAll, function () { /* 余额读不到：框里先显示「—」 */ });
-  }
-  A.pages.usdt = function (id) {
-    try { if (sessionStorage.getItem("u2d:mode") === "fast") { mode = "fast"; sessionStorage.removeItem("u2d:mode"); } } catch (e) { /* 忽略 */ }
-    if (mode === "fast" && g("gbx-a") && g("u2d-std")) { rid = id; return; } // 秒到通道开着时页面被要求重画（切回前台之类）：不动，免得把客户正在跨的那一笔的小窗毁掉
-    rid = id; q = null; pick = null; sync();
-    if (!hooked) { hooked = true; A.wallets.onAccounts(function (a) { account = a && a[0] ? String(a[0]).toLowerCase() : null; bal = null; if (location.hash.indexOf("#/usdt") === 0 && g("u2d-bal")) { paintBal(); track(); loadBal().then(paintAll, function () { /* 读不到就等客户再点 */ }); } }); }
-    render();
-    // 钱包以前连过本站：不弹窗直接显示余额
-    (account ? Promise.resolve() : A.wallets.silent().then(function (a) { if (a) account = String(a).toLowerCase(); }, function () { /* 没连过就等客户点 */ }))
-      .then(function () { paintBal(); track(); return loadBal(); }).then(function () { if (A.isCurrent(id)) paintAll(); }, function () { if (A.isCurrent(id)) paintBal(); });
-  };
-})();
-
-}catch(e){console.error('[bundle] usdt.js',e);}
-;
-try{
-// ⚡ 跨链桥页里的「秒到通道」（第三方 GaleBridge）。2026-11-20 上线；当天从单独一页合并进 #/usdt（由 usdt.js 选了秒到通道时调 A.gale.mount 画进来）。
-// 2026-11-21 改成本站自己的简体卡片（站长：「默认是简体，我们的客户大陆用户」；GaleBridge 自己的小窗只有繁体 / 英文，所以不再嵌它的小窗）：
-//   · 页面直接调 GaleBridge 在 Anubis 上的合约：存入(币, 数量, "目标链,收款人,目标币")，由它在目标链付款。客户的币进的是它的合约，本站不经手，没有新合约。
-//   · 这是它没有公开写明的接法（链上 2026-11-20 核对过：它自己网站发的也是这一个函数、同样的备注格式）。所以每次先问 /api/gale 做体检：
-//     它公开清单里的合约地址还是登记的那个、目标链的钱够、最近没有「存了没付」的单 —— 任何一条不对就不让发交易（宁可拦）。发之前再在节点上模拟一遍。
-//   · 只做从 Anubis 往外：付出 DAI / USDT，到账 Polygon 或 BSC 的 DAI / USDT。往 Anubis 里充走「本站通道」（官方桥 2 分钟、0 手续费）。
-//   · 本站服务费 0.05%：跨链前钱包单独转一笔到本站收款钱包（没有新合约只能分两笔）。页面写在手续费合计里，小字「含本站 0.05%」；
-//     站长想过「收了不说」，没做：这笔是钱包单独弹出来的转账，藏不住。服务费付了、跨链没发出去：记在这台设备上，同一个数量再点不重复收。
-//   · 「预计到手」是按链上最近真实成交量出来的费率估的（/api/gale），不是 GaleBridge 的正式报价，页面上写「约」。
-(function () {
-  "use strict";
-  var A = window.AIL, W = A.wallet;
-  var FEE_BPS = 5n; // 本站服务费：万分之五 = 0.05%。改费率时页面那行合计、客服知识、更新日志要一起改
-  var PAYEE = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 本站收款钱包
-  var GALE = "0xd1a5c8492ed1773ca0f1a97abad71afb122a750a"; // GaleBridge 在 Anubis 上的合约（/api/gale 每次核对它有没有变）
-  var DGALE = { "137": ["0xc615f91a31791f1bf4ac7f7fdc60525bf1804186", "0xa2c1ec79872d2c961cbd33ef750659e3b2439647"], "56": ["0xc615f91a31791f1bf4ac7f7fdc60525bf1804186", "0xa2c1ec79872d2c961cbd33ef750659e3b2439647"] }; // 它在目标链上付款的合约（新版、旧版）
-  var SEL = { deposit: "0x5f377433", approve: "0x095ea7b3", allowance: "0xdd62ed3e", balanceOf: "0x70a08231", transfer: "0xa9059cbb" };
-  var PAY = "0xae33cb06d7303f889d953bb09540983050163c1c4c98b330db432a911cfb63fd"; // 它付款时的事件（付款方, 币, 收款人；数量）
-  var DEP = "0x1cbdf89ba7d7cd8303790e1d0c0dcbc95b421c3d27f4958e058ec003073df946"; // 存入时的事件（客户, 币；数量, "目标链,收款人,目标币"）
-  var FALLBACK = { "DAI>DAI": 0.0041, "DAI>USDT": 0.0032, "USDT>USDT": 0.003, "USDT>DAI": 0.0034 }; // 2026-11-20 链上量的比例费（不含每笔固定的 0.1）；读不到最近成交时用它
-  var SRC = { // 能付出的币（都在 Anubis 上）
-    DAI: { k: "DAI", sym: "DAI", addr: "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", d: 18, native: true },
-    USDT: { k: "USDT", sym: "USDT", addr: "0xdfb6a28bc6dc51fed17c27c880f2c66cdd040a3e", d: 6 }
-  };
-  var DST = { // 能到账的币
-    PD: { k: "PD", c: "137", key: "polygon", chain: "Polygon", sym: "DAI", addr: "0x8f3cf7ad23cd3cadbd9735aff958023239c6a063", d: 18, scan: "https://polygonscan.com/tx/" },
-    PU: { k: "PU", c: "137", key: "polygon", chain: "Polygon", sym: "USDT", addr: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", d: 6, scan: "https://polygonscan.com/tx/" },
-    BU: { k: "BU", c: "56", key: "bsc", chain: "BSC", sym: "USDT", addr: "0x55d398326f99059ff775485246999027b3197955", d: 18, scan: "https://bscscan.com/tx/" },
-    BD: { k: "BD", c: "56", key: "bsc", chain: "BSC", sym: "DAI", addr: "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3", d: 18, scan: "https://bscscan.com/tx/" }
-  };
-  var GAS_KEEP = 50000000000000000n; // 付出 DAI 时在 Anubis 上留 0.05 DAI 当 Gas
-  var src = "DAI", dst = "PD", amtStr = "", account = null, bal = {}, info = null, infoAt = 0, live = {}, busy = false, pick = null, host = null, rid = 0, hooked = false, pend = null, timer = null;
-
-  function g(id) { return document.getElementById(id); }
-  function low(s) { return String(s || "").toLowerCase(); }
-  function word(h) { return ("0".repeat(64) + String(h).replace(/^0x/, "")).slice(-64); }
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function show(v, dec, dg) { // 链上的整数 → 给人看的数（往下取）
-    var s = v.toString().padStart(dec + 1, "0"), i = s.slice(0, s.length - dec), f = s.slice(s.length - dec).slice(0, dg == null ? 6 : dg).replace(/0+$/, "");
-    return i + (f ? "." + f : "");
-  }
-  function toWei(str, dec) { // 客户填的数 → 链上的整数；填得不对返回 null
-    var m = /^(\d{0,12})(?:\.(\d{0,18}))?$/.exec(String(str || "").trim());
-    if (!m || (!m[1] && !m[2])) return null;
-    return BigInt(m[1] || "0") * 10n ** BigInt(dec) + BigInt(((m[2] || "") + "0".repeat(dec)).slice(0, dec) || "0");
-  }
-  function num2(x) { return (Math.floor(x * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function nice(e) { var m = (A.otcKit && A.otcKit.niceError) ? A.otcKit.niceError(e) : String((e && e.message) || e || ""); return /reject|denied|取消|拒绝|cancel/i.test(m) ? "你在钱包里取消了，这一步没有发出去。" : (m || "钱包没有响应，刷新后再试"); }
-  function say(t, bad) { var el = g("gbx-say"); if (el) { el.textContent = t || ""; el.className = "u2d-say" + (bad ? " bad" : t ? " on" : ""); } }
-  // 这一对币现在的数：限额和每笔固定费来自 GaleBridge 公开的清单（/api/gale），对面的钱、比例费、有没有晚付的单来自链上（loadLive）
-  function pair() {
-    var d = DST[dst], lv = live[d.c];
-    if (!info || !info.ok || !info.lim || !info.lim[src] || !lv || !lv.ok) return null;
-    return { pct: lv.pct[src + ">" + dst], fix: info.fix[dst], min: info.lim[src][0], max: info.lim[src][1], liq: lv.liq[dst], late: lv.late[dst] || 0 };
-  }
-
-  // ---------- 体检和费率 ----------
-  function loadInfo(force) {
-    if (!force && info && Date.now() - infoAt < 120000) return Promise.resolve(info);
-    return fetch("/api/gale").then(function (r) { return r.json(); }).then(function (j) { info = j && typeof j === "object" ? j : { ok: false }; infoAt = Date.now(); return info; }, function () { info = { ok: false, why: "net" }; infoAt = Date.now(); return info; });
-  }
-  // 把 Anubis 上的存入和目标链上的付款配对：算每个「付出币 > 到账币」的比例费中位数，和「存了 3～25 分钟还没付」的单数（纯计算，方便单独测）
-  function analyse(deps, pays, fix, nowBlock, ks) {
-    var used = {}, samples = {}, late = {}, pct = {};
-    ks.forEach(function (k) { samples[k] = { DAI: [], USDT: [] }; late[k] = 0; });
-    pays.forEach(function (p) {
-      var best = -1, gap = 1;
-      deps.forEach(function (d, i) {
-        if (used[i] || d.k !== p.k || d.recv !== p.to || !(d.amt >= p.amt)) return;
-        var x = (d.amt - p.amt) / d.amt; if (x < 0.03 && x < gap) { gap = x; best = i; }
-      });
-      if (best < 0) return;
-      used[best] = 1;
-      var d = deps[best], r = (d.amt - p.amt - (fix[p.k] || 0)) / d.amt;
-      if (r > 0 && r < 0.02) samples[p.k][d.sym].push(r);
-    });
-    deps.forEach(function (d, i) { var age = nowBlock - d.b; if (!used[i] && age > 180 && age < 1500) late[d.k]++; }); // Anubis 约 1 秒一个块
-    ks.forEach(function (k) { ["DAI", "USDT"].forEach(function (sy) {
-      var a = samples[k][sy].sort(function (x, y) { return x - y; });
-      pct[sy + ">" + k] = a.length >= 3 ? a[Math.floor(a.length / 2)] : FALLBACK[sy + ">" + DST[k].sym];
-    }); });
-    return { pct: pct, late: late };
-  }
-  // 读链上的实时情况（只读这一条目标链）：它合约里的钱 + 最近约 1～2 小时的存入和付款。3 分钟内不重复读
-  function loadLive(c, force) {
-    var old = live[c]; if (!force && old && Date.now() - old.at < 180000) return Promise.resolve(old);
-    var key = c === "137" ? "polygon" : "bsc", ks = Object.keys(DST).filter(function (k) { return DST[k].c === c; });
-    var hx = function (n) { return "0x" + n.toString(16); };
-    var liqP = Promise.all(ks.map(function (k) { return rd(key, DST[k].addr, SEL.balanceOf + word(DGALE[c][0])); }));
-    var logP = Promise.all([
-      W.rpcOn("anubis", "eth_blockNumber", []).then(function (t) { var top = parseInt(t, 16); return Promise.all([[top - 9999, top - 5000], [top - 4999, top]].map(function (r) { return W.rpcOn("anubis", "eth_getLogs", [{ address: GALE, topics: [DEP], fromBlock: hx(r[0]), toBlock: hx(r[1]) }]); })).then(function (a) { return { top: top, logs: a[0].concat(a[1]) }; }); }),
-      W.rpcOn(key, "eth_blockNumber", []).then(function (t) { var top = parseInt(t, 16); return W.rpcOn(key, "eth_getLogs", [{ address: DGALE[c][0], topics: [PAY], fromBlock: hx(top - 5000), toBlock: hx(top) }]); })
-    ]).then(function (res) {
-      var deps = [], pays = [];
-      res[0].logs.forEach(function (l) {
-        var t = "0x" + l.topics[2].slice(26), sy = Object.keys(SRC).filter(function (x) { return SRC[x].addr === t; })[0]; if (!sy) return;
-        var d = l.data.slice(2), n = parseInt(d.slice(128, 192), 16), memo = "";
-        for (var i = 0; i < n && i < 200; i++) memo += String.fromCharCode(parseInt(d.slice(192 + i * 2, 194 + i * 2), 16));
-        var m = memo.split(","); if (m.length !== 3 || m[0] !== c) return;
-        var k = ks.filter(function (x) { return DST[x].addr === low(m[2]); })[0]; if (!k) return;
-        deps.push({ b: parseInt(l.blockNumber, 16), sym: sy, amt: Number(BigInt("0x" + d.slice(0, 64))) / Math.pow(10, SRC[sy].d), k: k, recv: low(m[1]) });
-      });
-      res[1].forEach(function (l) {
-        var t = "0x" + l.topics[2].slice(26), k = ks.filter(function (x) { return DST[x].addr === t; })[0]; if (!k) return;
-        pays.push({ k: k, to: "0x" + l.topics[3].slice(26), amt: Number(BigInt(l.data)) / Math.pow(10, DST[k].d) });
-      });
-      return analyse(deps, pays, (info && info.fix) || {}, res[0].top, ks);
-    }).catch(function () { return analyse([], [], {}, 0, ks); }); // 读不到最近成交：比例费用 2026-11-20 量的数，照样可以跨（对面的钱和模拟还会再查）
-    return Promise.all([liqP, logP]).then(function (r) {
-      var liq = {}; ks.forEach(function (k, i) { liq[k] = Number(r[0][i]) / Math.pow(10, DST[k].d); });
-      live[c] = { ok: true, at: Date.now(), liq: liq, pct: r[1].pct, late: r[1].late };
-      return live[c];
-    }, function () { live[c] = { ok: false, at: Date.now() - 150000 }; return live[c]; }); // 连它合约里有多少钱都读不到：先不让跨，30 秒后可以再读
-  }
-  // 这一笔的数：付出多少、两边各收多少、预计到手多少
-  function calc() {
-    var s = SRC[src], d = DST[dst], p = pair(), amt = toWei(amtStr, s.d);
-    if (!amt || amt <= 0n) return null;
-    var a = Number(amt) / Math.pow(10, s.d), ours = amt * FEE_BPS / 10000n, oursN = Number(ours) / Math.pow(10, s.d);
-    var galeN = p ? a * p.pct + p.fix : 0, outN = Math.max(0, a - galeN);
-    return { s: s, d: d, p: p, amt: amt, a: a, ours: ours, oursN: oursN, galeN: galeN, outN: outN };
-  }
-  // 现在能不能跨：不能的话给一句原因（short 放按钮上，long 放卡片里）
-  function check(c) {
-    if (!info) return { wait: true, short: "正在检查秒到通道…" };
-    if (!info.ok) return { short: "秒到通道暂时用不了", long: "现在没法确认 GaleBridge 的状态，为了你的币安全，先不让发交易。请走「本站通道」，或者过几分钟再来。" };
-    var lv = live[DST[dst].c];
-    if (!lv) return { wait: true, short: "正在读 " + DST[dst].chain + " 链上的情况…" };
-    if (!lv.ok) return { short: "读不到 " + DST[dst].chain + " 链", long: "现在读不到 " + DST[dst].chain + " 链上 GaleBridge 的情况，没法确认它付不付得出，先不让发交易。过一会儿再点一次，或者换一个到账的币。", retry: true };
-    if (!c) return { idle: true };
-    var p = c.p; if (!p) return { short: "秒到通道暂时用不了", long: "这一对币现在查不到，换一个到账的币试试。" };
-    if (c.a < p.min) return { short: "最少 " + p.min + " " + c.s.sym, long: "GaleBridge 一笔最少 " + p.min + " " + c.s.sym + "。" };
-    if (c.a > p.max) return { short: "一笔最多 " + p.max.toLocaleString("en-US"), long: "GaleBridge 一笔最多 " + p.max.toLocaleString("en-US") + " " + c.s.sym + "，请分几笔。" };
-    if (c.a > p.liq * 0.9) return { short: "对面的钱不够这一笔", long: "GaleBridge 在 " + c.d.chain + " 上的 " + c.d.sym + " 现在约有 " + Math.floor(p.liq).toLocaleString("en-US") + "，不够付这一笔。请把数量改小，或者换一个到账的币。" };
-    if (p.late >= 3) return { short: "GaleBridge 现在付款慢", long: "链上看到最近有 " + p.late + " 笔存进去超过 3 分钟还没付到 " + c.d.chain + "，它可能在排队。先别跨，过几分钟再看，或者走「本站通道」。" };
-    if (account && bal[src] != null) {
-      var need = c.amt + c.ours + (c.s.native ? GAS_KEEP : 0n);
-      if (bal[src] < need) return { short: c.s.sym + " 余额不足", long: "这一笔要用 " + show(c.amt + c.ours, c.s.d, 4) + " " + c.s.sym + "（含服务费）" + (c.s.native ? "，另外留 0.05 DAI 付 Gas" : "") + "，钱包里不够。" };
-      if (!c.s.native && bal.DAI != null && bal.DAI < GAS_KEEP / 5n) return { short: "没有 DAI 付 Gas", long: "Anubis 上的 Gas 用 DAI 付，这个钱包里几乎没有 DAI。先转一点 DAI 进来。" };
-    }
-    return { ok: true };
-  }
-
-  // ---------- 画面 ----------
-  function tokIn(o, anubis) { return '<span class="u2d-cw"><i class="u2d-coin ' + (o.sym === "USDT" ? "usdt" : "dai") + '"><img src="/icons/tokens/' + (o.sym === "USDT" ? "usdt" : "dai") + '.png?v=1" alt="" width="30" height="30">' + (o.sym === "USDT" ? "₮" : "◈") + "</i>" + (anubis ? '<em class="u2d-ch" title="Anubis 链"></em>' : "") + "</span><span><b>" + o.sym + "</b><small>" + (anubis ? "Anubis" : o.chain) + " 链</small></span>"; }
-  function tokBtn(side) { var o = side === "src" ? SRC[src] : DST[dst]; return '<button type="button" class="u2d-tok u2d-tb" data-side="' + side + '" aria-label="换一个币">' + tokIn(o, side === "src") + '<i class="u2d-car"></i></button>'; }
-  function pickList(side) {
-    var all = side === "src" ? SRC : DST, cur = side === "src" ? src : dst;
-    return '<div class="u2d-pk"><p>' + (side === "src" ? "你要付出哪个币" : "你要到账哪个币") + "</p>" + Object.keys(all).filter(function (k) { return k !== cur; }).map(function (k) { return '<button type="button" class="u2d-tok" data-side="' + side + '" data-k="' + k + '">' + tokIn(all[k], side === "src") + "</button>"; }).join("") + "</div>";
-  }
-  function draw() {
-    if (!host) return;
-    host.innerHTML = '<div class="gbx"><section class="u2d-card">' +
-      '<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="gbx-b1">—</b><button type="button" class="u2d-max" id="gbx-max">全部</button></span></div>' +
-      '<div class="u2d-bm"><input id="gbx-a" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">' + tokBtn("src") + "</div>" + (pick === "src" ? pickList("src") : "") + "</div>" +
-      '<div class="u2d-mid"><i>↓</i></div>' +
-      '<div class="u2d-box end"><div class="u2d-bh"><span>预计到手</span><span>约 20 秒到</span></div>' +
-      '<div class="u2d-bm"><output id="gbx-out" class="u2d-num zero">0</output>' + tokBtn("dst") + "</div>" + (pick === "dst" ? pickList("dst") : "") + "</div>" +
-      '<div class="u2d-dt" id="gbx-q" hidden></div>' +
-      '<button type="button" class="u2d-go" id="gbx-go"></button><p class="u2d-say" id="gbx-say"></p><div id="gbx-prog"></div>' +
-      "</section>" +
-      '<p class="gbx-note"><b>这是第三方 GaleBridge 的服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你；到手的数是按它最近的实际成交估的，以实际到账为准。出了问题要找 GaleBridge 处理。</p>' +
-      "</div>";
-    var a = g("gbx-a"); a.value = amtStr; a.oninput = function () { amtStr = a.value.replace(/[^\d.]/g, ""); if (a.value !== amtStr) a.value = amtStr; paint(); };
-    g("gbx-max").onclick = function () {
-      if (busy) return; if (bal[src] == null) return say("先连接钱包", true);
-      var s = SRC[src], v = bal[src]; if (s.native) v = v > GAS_KEEP ? v - GAS_KEEP : 0n;
-      v = v * 10000n / (10000n + FEE_BPS); // 留出服务费
-      amtStr = show(v, s.d, s.d === 6 ? 2 : 4); a.value = amtStr; paint();
-    };
-    g("gbx-go").onclick = onGo;
-    [].forEach.call(host.querySelectorAll(".u2d-tb"), function (b) { b.onclick = function () { if (busy) return; var sd = b.getAttribute("data-side"); pick = pick === sd ? null : sd; draw(); }; });
-    [].forEach.call(host.querySelectorAll(".u2d-pk button"), function (b) { b.onclick = function () { if (busy) return; var k = b.getAttribute("data-k"); if (b.getAttribute("data-side") === "src") src = k; else dst = k; pick = null; draw(); }; });
-    paint(); paintProg();
-    loadLive(DST[dst].c).then(paint);
-  }
-  function paint() {
-    var c = calc(), st = check(c), out = g("gbx-out"), q = g("gbx-q"), go = g("gbx-go"), b1 = g("gbx-b1");
-    if (!out || !q || !go) return;
-    if (b1) b1.textContent = bal[src] == null ? "—" : show(bal[src], SRC[src].d, SRC[src].d === 6 ? 2 : 4);
-    var okNum = c && c.p && info && info.ok;
-    out.textContent = okNum ? num2(c.outN) : "0"; out.className = "u2d-num" + (okNum ? "" : " zero");
-    var html = "";
-    if (st.long) html += '<p class="u2d-warn">' + esc(st.long) + "</p>";
-    if (okNum) {
-      html += '<dl class="u2d-rows">' +
-        "<div><dt>手续费</dt><dd>约 " + num2(c.galeN + c.oursN) + " " + c.s.sym + '<small class="gbx-in">含本站 0.05%</small></dd></div>' +
-        "<div><dt>到账地址</dt><dd>" + (account ? esc(A.short ? A.short(account) : account.slice(0, 6) + "…" + account.slice(-4)) : "你连接的钱包") + " · " + c.d.chain + "</dd></div>" +
-        "<div><dt>钱包要确认</dt><dd>2～3 次（授权、服务费、跨链）</dd></div>" +
-        "</dl>";
-    }
-    q.innerHTML = html; q.hidden = !html;
-    go.textContent = busy ? "处理中…" : st.wait || st.retry || !info.ok ? st.short : !account ? "连接钱包" : (!c ? "输入数量" : st.ok ? "开始秒到跨链" : st.short);
-    go.className = "u2d-go" + (!busy && account && (!c || !st.ok) ? " off" : "");
-  }
-  function lock(on) { busy = on; if (host) [].forEach.call(host.querySelectorAll("#gbx-go, #gbx-max, .u2d-tb, .u2d-pk button"), function (b) { b.disabled = on; }); var a = g("gbx-a"); if (a) a.readOnly = on; paint(); }
-
-  // ---------- 钱包和读链 ----------
-  function rd(chain, to, data) { return W.rpcOn(chain, "eth_call", [{ to: to, data: data }, "latest"]).then(function (x) { return BigInt(x && x !== "0x" ? x : "0x0"); }); }
-  function loadBal() {
-    if (!account) return Promise.resolve();
-    return Promise.all([
-      W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(function (x) { bal.DAI = BigInt(x); }),
-      rd("anubis", SRC.USDT.addr, SEL.balanceOf + word(account)).then(function (x) { bal.USDT = x; })
-    ]).then(paint, function () { /* 读不到余额：先显示「—」，发交易前还会再查 */ });
-  }
-  function connect() {
-    var eth;
-    return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = low(a[0]); return W.switchTo(eth, "anubis"); }).then(function () { return account; });
-  }
-  function ready() { return Promise.resolve().then(function () { return account ? W.switchTo(W.get(), "anubis") : connect(); }); }
-  function wait(hash) {
-    var tries = 0;
-    return new Promise(function (ok, fail) {
-      (function poll() {
-        W.rpcOn("anubis", "eth_getTransactionReceipt", [hash]).then(function (r) {
-          if (r) return r.status === "0x1" ? ok(r) : fail(new Error("这笔交易被链上拒绝了，币没有动（只花了一点 Gas）。"));
-          if (++tries > 60) return fail(new Error("等了 2 分钟链上还没确认。别重复点：过一会儿刷新这一页再看。"));
-          setTimeout(poll, 1500);
-        }, function () { setTimeout(poll, 2500); });
-      })();
-    });
-  }
-  function sendTx(tx, label) {
-    say("请在钱包里确认「" + label + "」");
-    return A.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [tx] }).then(function (h) { say(label + "已提交，等链上确认…"); return wait(h).then(function () { return h; }); });
-  }
-  function paidGet() { try { return localStorage.getItem("gbx:paid") || ""; } catch (e) { return ""; } }
-  function paidSet(k) { try { if (k) localStorage.setItem("gbx:paid", k); else localStorage.removeItem("gbx:paid"); } catch (e) { /* 存不了就算了：最坏是重试时再收一次 0.05% */ } }
-  function depositData(c) {
-    var memo = c.d.c + "," + account + "," + c.d.addr, hex = "";
-    for (var i = 0; i < memo.length; i++) hex += ("0" + memo.charCodeAt(i).toString(16)).slice(-2);
-    return SEL.deposit + word(c.s.addr) + word(c.amt.toString(16)) + word("60") + word(memo.length.toString(16)) + hex + "0".repeat((64 - hex.length % 64) % 64);
-  }
-
-  // ---------- 开始跨 ----------
-  function onGo() {
-    if (busy) return;
-    if (!info || !info.ok) return void loadInfo(true).then(paint);
-    if (!live[DST[dst].c] || !live[DST[dst].c].ok) return void loadLive(DST[dst].c, true).then(paint);
-    if (!account) return void connect().then(function () { return loadBal(); }).then(paint, function (e) { say(nice(e), true); });
-    var c0 = calc(); if (!c0) { say(""); var a = g("gbx-a"); if (a) a.focus(); return; }
-    if (!check(c0).ok) return;
-    lock(true); say("正在检查秒到通道…");
-    var c, data, startBlock = 0, hash = "";
-    ready().then(function () { return Promise.all([loadInfo(true), loadLive(DST[dst].c, true), loadBal()]); }).then(function () {
-      c = calc(); var st = check(c);
-      if (!c || !st.ok) throw new Error(st.long || st.short || "现在不能跨，请稍后再试。");
-      data = depositData(c);
-      return rd("anubis", c.s.addr, SEL.allowance + word(account) + word(GALE));
-    }).then(function (allow) {
-      if (allow >= c.amt) return;
-      return sendTx({ from: account, to: c.s.addr, data: SEL.approve + word(GALE) + word(c.amt.toString(16)) }, "授权 " + c.s.sym + "（只授权这一笔的数量）");
-    }).then(function () {
-      // 发之前在节点上模拟一遍跨链那一笔：过不了就停在这，服务费还没收
-      return W.rpcOn("anubis", "eth_call", [{ from: account, to: GALE, data: data }, "latest"]).catch(function () { throw new Error("模拟跨链这一笔没通过，为了安全没有发出去，服务费也没有收。请过几分钟再试，或者走「本站通道」。"); });
-    }).then(function () {
-      if (c.ours <= 0n) return;
-      var key = [account, c.d.c, c.s.addr, c.amt.toString()].join("|");
-      if (paidGet() === key) return;
-      // DAI 也走合约转账：Anubis 上「直接转网络自带的 DAI」链上不认（估不出 Gas，钱包的确认按钮是灰的，2026-11-21 站长实测）
-      var tx = { from: account, to: c.s.addr, data: SEL.transfer + word(PAYEE) + word(c.ours.toString(16)) };
-      return sendTx(tx, "本站服务费 " + show(c.ours, c.s.d) + " " + c.s.sym).then(function () { paidSet(key); });
-    }).then(function () {
-      return W.rpcOn(c.d.key, "eth_blockNumber", []).then(function (x) { startBlock = parseInt(x, 16); }, function () { startBlock = 0; });
-    }).then(function () {
-      say("请在钱包里确认「跨链 " + show(c.amt, c.s.d) + " " + c.s.sym + "」");
-      return A.wallets.ask(W.get(), { method: "eth_sendTransaction", params: [{ from: account, to: GALE, data: data }] });
-    }).then(function (h) {
-      hash = h; paidSet("");
-      pend = { h: h, k: c.d.k, a: account, out: c.outN, from: startBlock, t: Date.now() }; pendSave();
-      say("跨链已提交，等 Anubis 确认…");
-      paintProg();
-      return wait(h);
-    }).then(function () {
-      say(""); amtStr = ""; var a = g("gbx-a"); if (a) a.value = "";
-      lock(false); loadBal(); track();
-    }, function (e) {
-      var m = nice(e);
-      if (hash) { m = "跨链这一笔在链上没成功，币没有动。"; pend = null; pendSave(); paintProg(); }
-      else if (/取消/.test(m) && paidGet()) m = "你取消了跨链这一笔。服务费已经付过，同一个数量再点一次不会重复收。";
-      lock(false); say(m, true); loadBal();
-    });
-  }
-
-  // ---------- 到账进度 ----------
-  function pendSave() { try { if (pend) localStorage.setItem("gbx:pend", JSON.stringify(pend)); else localStorage.removeItem("gbx:pend"); } catch (e) { /* 存不了：关页面回来就看不到进度条，不影响到账 */ } }
-  function pendLoad() { try { var p = JSON.parse(localStorage.getItem("gbx:pend") || "null"); if (p && p.h && DST[p.k] && Date.now() - p.t < 6 * 3600e3) return p; } catch (e) { /* 忽略 */ } return null; }
-  function paintProg() {
-    var el = g("gbx-prog"); if (!el) return;
-    if (!pend) { el.innerHTML = ""; return; }
-    var d = DST[pend.k], sec = Math.floor((Date.now() - pend.t) / 1000);
-    if (pend.done) {
-      el.innerHTML = '<div class="gbx-prog ok"><b>✅ 已到账 ' + esc(pend.got) + " " + d.sym + "</b><span>在 " + d.chain + ' 链，到你的钱包里看余额。</span><a href="' + d.scan + esc(pend.done) + '" target="_blank" rel="noopener">看这笔付款 ↗</a><button type="button" id="gbx-pok">知道了</button></div>';
-      g("gbx-pok").onclick = function () { pend = null; pendSave(); paintProg(); };
-      return;
-    }
-    el.innerHTML = '<div class="gbx-prog"><b>⏳ 正在跨到 ' + d.chain + "：预计到手约 " + num2(pend.out) + " " + d.sym + "</b>" +
-      (sec < 180 ? "<span>一般 20 秒左右到账，已等 " + sec + " 秒。可以关掉这一页，回来还能看到。</span>"
-        : '<span class="bad">已经等了 ' + Math.floor(sec / 60) + " 分钟，比平时慢。币在 GaleBridge 的合约里，不会凭空消失；请拿下面这笔交易的哈希到 galebridge.net 查，或者找 GaleBridge 的客服。本站查不到它内部的订单。</span>") +
-      "<code>" + esc(pend.h) + '</code><button type="button" id="gbx-pcp">复制交易哈希</button></div>';
-    g("gbx-pcp").onclick = function () { try { navigator.clipboard.writeText(pend.h); say("已复制"); } catch (e) { /* 复制不了就让客户长按选中 */ } };
-  }
-  function track() {
-    clearTimeout(timer);
-    if (!pend || pend.done) return;
-    var d = DST[pend.k];
-    var go = function () {
-      if (!pend || pend.done) return;
-      var from = pend.from ? "0x" + pend.from.toString(16) : "latest";
-      W.rpcOn(d.key, "eth_getLogs", [{ address: DGALE[d.c], topics: [PAY, null, "0x" + word(d.addr), "0x" + word(pend.a)], fromBlock: from, toBlock: "latest" }]).then(function (logs) {
-        if (logs && logs.length) {
-          var l = logs[logs.length - 1];
-          pend.done = l.transactionHash; pend.got = show(BigInt(l.data), d.d, 2); pendSave(); paintProg(); loadBal();
-          return;
-        }
-        paintProg(); timer = setTimeout(go, Date.now() - pend.t < 120000 ? 4000 : 15000);
-      }, function () { paintProg(); timer = setTimeout(go, 8000); });
-    };
-    go();
-  }
-
-  function unmount() { clearTimeout(timer); timer = null; host = null; }
-  function mountIn(el, id) {
-    rid = id; host = el;
-    if (!hooked) {
-      hooked = true;
-      try { A.wallets.onAccounts(function (a) { account = a && a[0] ? low(a[0]) : null; bal = {}; if (host) { paint(); loadBal(); } }); } catch (e) { /* 忽略 */ }
-      window.addEventListener("hashchange", function () { try { if (location.hash.indexOf("#/usdt") !== 0) unmount(); } catch (e) { /* 忽略 */ } });
-    }
-    pend = pend || pendLoad();
-    draw();
-    loadInfo().then(paint);
-    (account ? Promise.resolve() : A.wallets.silent().then(function (a) { if (a) account = low(a); }, function () { /* 没连过就等客户点 */ }))
-      .then(function () { paint(); return loadBal(); }).then(function () { if (pend && (!account || pend.a === account)) track(); }, function () { /* 忽略 */ });
-  }
-  A.gale = { mount: mountIn, unmount: unmount };
-  // 老网址 #/gale：转到跨链桥页并选好秒到通道
-  A.pages.gale = function () {
-    try { sessionStorage.setItem("u2d:mode", "fast"); } catch (e) { /* 存不了就落在本站通道，客户自己点一下 */ }
-    location.replace("#/usdt");
-  };
-})();
-
-}catch(e){console.error('[bundle] gale.js',e);}
-;
-try{
-// 🛡 互助保障 #/cover（站长 2026-11-23 定，试运行，入口在 ☰ 更多 → 交易）
-// 大白话：大家每年各交 50 DAI 进一个公开的保障池；账户被盗、或者因为平台失误亏了钱，从池子里赔，池子有多少最多赔多少。
-// 规则和计算在 lib/cover.js，这里只负责画和「加入」那三步（登记备用收款钱包 → 交保费 → 登记）。对外不叫保险、不写全赔。
-(function () {
-  "use strict";
-  var A = window.AIL, K = function () { return A.otcKit; };
-  var KEY = "cover-v1", rid = 0, info = null, account = null, busy = false, draft = {};
-  try { draft = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { draft = {}; }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(draft)); } catch (e) { /* 存不了就只在内存里 */ } }
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function g(id) { return document.getElementById(id); }
-  function dai(v) { return Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 2 }); }
-  function day(ms) { var d = new Date(ms + 8 * 3600e3); return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0"); }
-  function low(a) { return String(a || "").toLowerCase(); }
-  function pad(a) { return low(a).replace("0x", "").padStart(64, "0"); }
-  function utf8hex(t) { var b = new TextEncoder().encode(t), h = "0x"; for (var i = 0; i < b.length; i++) h += b[i].toString(16).padStart(2, "0"); return h; }
-  // 和 lib/cover.js 的 bindText 一字不差
-  function bindText(a, backup, ts) { return "AiLGNS 互助保障 · 登记\n加入的钱包：" + low(a) + "\n备用收款钱包（理赔款只打到这里）：" + low(backup) + "\n时间：" + ts; }
-  // 和 lib/cover.js 的 voteText 一字不差
-  function voteText(a, id, v, ts) { return "AiLGNS 互助保障 · 投票\n理赔编号：" + id + "\n我的钱包：" + low(a) + "\n我的意见：" + (v === "y" ? "赞成赔付" : "反对赔付") + "\n时间：" + ts; }
-  var myVote = {}; /* 刚投的票：服务器那头的计票要几十秒才追上，先记在这里马上显示 */
-  var ST = { notice: "📢 公示中", approved: "✅ 已通过，等月度结算", rejected: "❌ 没通过", paid: "💰 已赔付" };
-
-  function load() {
-    return fetch("/api/cover" + (account ? "?a=" + account : "")).then(function (r) { return r.json(); }).then(function (j) { info = j; }, function () { info = null; });
-  }
-  function page(id) {
-    rid = id;
-    try { if (K() && K().M && K().M().chain !== "anubis") K().useMarket("ailgns"); } catch (e) { /* 钱包工具没就绪也不影响看页面 */ }
-    A.app.innerHTML = '<section class="card"><p class="muted">⏳ 读取保障池…</p></section>';
-    var sa = K() && K().silentAccount ? K().silentAccount() : Promise.resolve();
-    sa.then(function () { account = K().account(); }, function () {}).then(load).then(function () { if (A.isCurrent(rid)) render(); });
-  }
-  function render() {
-    var R = (info && info.rules) || { fee: 50, waitDays: 30, tiers: [[1, 1000], [3, 3000], [6, 5000], [12, 10000]], monthBudget: 0.3, reportHours: 72, noticeDays: 7 };
-    if (R.opsShare == null) R.opsShare = 0.1; if (!R.voteMin) R.voteMin = 5; if (!R.voteQuorum) R.voteQuorum = 0.2;
-    var ops = Math.round(R.opsShare * 100);
-    var open = !!(info && info.open), bal = info && info.pool ? info.pool.bal : null, me = info && info.me, top = R.tiers[R.tiers.length - 1][1];
-    A.app.innerHTML =
-      '<section class="card lp-hero cvr-hero"><div class="lp-ht"><h2>🛡 互助保障 <span class="lp-tag">试运行</span></h2>' +
-      "<p>大家每年各交 <b>" + R.fee + " DAI</b> 进一个公开的保障池。谁的账户被盗了，或者因为平台失误亏了钱，就从池子里赔。<b>池子里有多少，最多赔多少</b>，每一笔进出链上都查得到。</p></div>" +
-      '<div class="lp-kpi"><div><small>保障池现在有</small><b>' + (bal == null ? "—" : dai(bal) + " DAI") + "</b><span>" + (open ? "链上公开" : "钱包准备中") + "</span></div><div><small>已加入</small><b>" + ((info && info.members) || 0) + " 人</b><span>人越多池子越大</span></div><div><small>被盗最高赔</small><b>" + dai(top) + " DAI</b><span>连续加入满 1 年</span></div></div>" +
-      (open && info.pool.addr ? '<p class="cvr-addr"><small>保障池钱包（点开能看每一笔进出）</small><a href="#/scan/' + esc(info.pool.addr) + '">' + esc(info.pool.addr) + "</a></p>" : "") + "</section>" +
-      '<section class="card cvr-what"><h2>能赔什么</h2>' +
-      '<div class="cvr-k"><b>① 平台失误</b><p>合约出了漏洞、网站出错、机器人转错了钱，让你亏了。<b>损失多少赔多少</b>，最高到整个保障池；同时有好几个人出事、池子不够时，按比例分。加入当天就算。</p></div>' +
-      '<div class="cvr-k"><b>② 账户被盗</b><p>私钥泄露、点了钓鱼链接，币被人转走了。最高赔多少，看你连续加入了多久：</p>' +
-      '<table class="cvr-tb"><thead><tr><th>连续加入满</th><th>最高赔</th></tr></thead><tbody>' + R.tiers.map(function (x) { return "<tr><td>" + x[0] + " 个月</td><td><b>" + dai(x[1]) + " DAI</b></td></tr>"; }).join("") + "</tbody></table>" +
-      "<p>损失比上限少的，按实际损失赔。</p></div></section>" +
-      '<section class="card cvr-warn"><b>⚠️ 加入前请看清楚</b><ul>' +
-      "<li>这是大家互相帮忙的保障池，<b>不是保险公司的保险</b>，不承诺一定足额赔。</li>" +
-      "<li><b>以保障池余额为限。</b>被盗类每个月最多动用池子的 " + Math.round(R.monthBudget * 100) + "%" + (bal == null ? "" : "（现在约 " + dai(bal * R.monthBudget) + " DAI）") + "，当月要赔的超过这个数，大家<b>按比例打折</b>。</li>" +
-      "<li>被盗保障在加入满 <b>" + R.waitDays + " 天</b>后才生效；被盗后 <b>" + R.reportHours + " 小时内</b>必须提工单，过期不受理。</li>" +
-      "<li>每笔保费的 <b>" + ops + "%</b> 是运营费（人工核对、服务器），<b>" + (100 - ops) + "%</b> 留在保障池。上面显示的保障池金额已经扣掉运营费。</li>" +
-      "<li><b>赔不赔由加入的成员投票决定。</b>每笔理赔<b>公示 " + R.noticeDays + " 天</b>（公开钱包地址、金额、币去了哪里），这 " + R.noticeDays + " 天就是投票期：在这笔理赔登记之前已经加入满 " + R.waitDays + " 天的成员一人一票，申请人自己不能投；赞成多于反对、而且至少 " + Math.round(R.voteQuorum * 100) + "% 的人投了票，才算通过。通过的每月结算一次。</li>" +
-      "<li>有资格投票的不满 " + R.voteMin + " 人，或者投票的人不够时，由团队核对链上记录后决定。团队发现骗赔证据可以否决，并公开理由。</li>" +
-      "<li><b>一个钱包只赔一次。</b>赔过以后这个钱包不再受保。</li>" +
-      "<li>理赔款<b>只打到你加入时登记的备用收款钱包</b>。备用钱包请用另一组助记词，和这个钱包分开放。</li>" +
-      "<li>保费交了不退。发现骗赔的，不赔并公开。</li></ul></section>" +
-      '<section class="card cvr-me" id="cvr-me">' + meBox(R, open, me) + "</section>" +
-      '<section class="card cvr-how"><h2>出事了怎么申请</h2><ol><li>先别慌，<b>不要理任何私聊你的「客服」</b>。平台不会私聊你，更不会让你先转钱。</li><li>打开 <a href="#/feedback">☰ 更多 → 服务 → 问题反馈</a>，标题写「互助保障理赔」。</li><li>写清楚：哪个钱包、什么时候、丢了多少、被盗那几笔交易的交易号，能截图就截图。</li><li>团队核对链上记录后公示 ' + R.noticeDays + " 天，成员投票通过后进入当月结算，理赔款打到你登记的备用收款钱包。</li></ol></section>" +
-      '<section class="card cvr-list"><h2>📢 理赔公示</h2><div id="cvr-claims">' + claimsBox() + "</div></section>";
-    bind(R);
-  }
-  function meBox(R, open, me) {
-    var head = '<div class="card-head"><h2>我的保障</h2><button type="button" class="ghost" id="cvr-conn">' + (account ? A.short(account) : "连接钱包") + "</button></div>";
-    if (me && me.closed) return head + '<p class="cvr-st bad">这个钱包已经赔过一次，不再受保。想继续加入请换一个钱包。</p>';
-    if (me && me.active) {
-      var soon = me.until - Date.now() < 30 * 86400e3;
-      return head + '<p class="cvr-st ok">✅ 已加入，保障到 ' + day(me.until) + "</p>" +
-        '<div class="cvr-rows"><p><span>加入日期</span><b>' + day(me.start) + "</b></p><p><span>连续加入</span><b>" + me.months + " 个月</b></p>" +
-        "<p><span>平台失误</span><b>已生效</b></p>" +
-        "<p><span>被盗保障</span><b>" + (me.effective ? (me.cap > 0 ? "现在最高赔 " + dai(me.cap) + " DAI" : "已生效，满 1 个月开始有额度") : day(me.effectiveAt) + " 生效") + "</b></p>" +
-        "<p><span>备用收款钱包</span><b class=\"mono\">" + esc(me.backup) + "</b></p></div>" +
-        (soon ? '<button type="button" class="nm-go cvr-go" id="cvr-go"' + (open ? "" : " disabled") + ">续一年（" + R.fee + " DAI）</button><p class=\"muted\">到期后 " + (R.graceDays || 7) + ' 天内续上，连续加入的时间不断。</p><p class="muted nm-st" id="cvr-stt"></p>' : '<p class="muted">快到期时这里会出现「续一年」按钮。备用收款钱包要更换，请提工单。</p>');
-    }
-    return head + (me && !me.active && me.start ? '<p class="cvr-st bad">你的保障已在 ' + day(me.until) + " 到期。重新加入后，连续加入的时间从头算。</p>" : "") +
-      '<p class="cvr-t">① 填一个备用收款钱包</p><p class="muted">万一这个钱包被盗，理赔款只打到备用钱包。偷到私钥的人改不了它。请填<b>另一组助记词</b>的钱包地址。</p>' +
-      '<input id="cvr-bk" class="cvr-in" placeholder="0x 开头的钱包地址" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(draft.backup || "") + '"' + (me && me.backup ? " disabled" : "") + ">" +
-      (me && me.backup ? '<p class="muted">沿用你以前登记的备用钱包 ' + esc(me.backup) + "</p>" : "") +
-      '<p class="cvr-t">② 加入</p><p class="muted">钱包会弹 2 次：第 1 次是签名登记备用钱包（不花钱），第 2 次是交 ' + R.fee + " DAI 保费。</p>" +
-      '<button type="button" class="nm-go cvr-go" id="cvr-go"' + (open ? "" : " disabled") + ">" + (draft.tx ? "👉 保费已交，点这里完成登记" : "🛡 加入互助保障（" + R.fee + " DAI / 年）") + "</button>" +
-      (open ? "" : '<p class="cvr-soon">🧪 保障池钱包还在准备，暂时不能加入。开放时间会在收件箱和交流群通知。</p>') +
-      '<p class="muted nm-st" id="cvr-stt"></p>';
-  }
-  function claimsBox() {
-    var L = (info && info.claims) || [];
-    if (!L.length) return '<p class="muted">' + (info && info.noKv ? "预览站没有存储，看不到公示。" : "还没有理赔。每一笔理赔都会在这里公开。") + "</p>";
-    return L.map(function (c) {
-      return '<div class="cvr-c"><div class="cvr-ch"><b>' + (c.kind === "fault" ? "平台失误" : "账户被盗") + '</b><span class="cvr-cs ' + esc(c.status) + '">' + (ST[c.status] || esc(c.status)) + "</span></div>" +
-        "<p><span>钱包</span><b>" + (A.nameTag ? A.nameTag(c.a) : A.short(c.a)) + "</b></p><p><span>损失</span><b>" + dai(c.loss) + " DAI</b></p>" +
-        (c.kind === "theft" ? "<p><span>最高可赔</span><b>" + dai(c.cap) + " DAI</b></p>" : "") +
-        "<p><span>出事时间</span><b>" + day(c.when) + "</b></p>" +
-        (c.status === "notice" ? "<p><span>公示到</span><b>" + day(c.noticeUntil) + "</b></p>" : "") + voteBox(c) +
-        (c.status === "paid" ? "<p><span>实际赔付</span><b>" + dai(c.pay) + " DAI" + (c.payTx ? ' <a href="#/scan/' + esc(c.payTx) + '">看账本</a>' : "") + "</b></p>" : "") +
-        (c.txs && c.txs.length ? '<p class="cvr-tx">' + c.txs.map(function (t, i) { return '<a href="#/scan/' + esc(t) + '">交易 ' + (i + 1) + "</a>"; }).join(" · ") + "</p>" : "") +
-        (c.note ? '<p class="cvr-note">' + esc(c.note) + "</p>" : "") + "</div>";
-    }).join("") + '<p class="muted">觉得哪一笔有问题，可以到「问题反馈」里举报。</p>';
-  }
-  // 🗳 投票（站长 2026-11-24：「赔偿是所有投保人投票决定」）：公示中的理赔显示票数；符合条件的成员能点「赞成 / 反对」
-  function voteBox(c) {
-    var v = c.vote; if (!v) return "";
-    var mine = myVote[c.id] || c.my || "", yes = v.yes, no = v.no;
-    if (myVote[c.id] && myVote[c.id] !== c.my) { if (c.my === "y") yes--; if (c.my === "n") no--; if (myVote[c.id] === "y") yes++; else no++; } /* 刚投 / 刚改的票先算进去 */
-    var count = '<p class="cvr-vn">🗳 赞成 <b>' + yes + "</b> · 反对 <b>" + no + "</b></p>";
-    if (c.status !== "notice") return v.elig >= ((info.rules && info.rules.voteMin) || 5) && (yes + no) ? '<div class="cvr-vote">' + count + "</div>" : "";
-    if (v.state === "team") return '<div class="cvr-vote"><p class="cvr-vt">加入满 ' + ((info.rules && info.rules.waitDays) || 30) + " 天的成员还不够 " + ((info.rules && info.rules.voteMin) || 5) + " 位，这一笔由团队核对决定。</p></div>";
-    if (v.state === "low") return '<div class="cvr-vote">' + count + '<p class="cvr-vt">投票期已结束，投票的人不够，这一笔由团队核对决定。</p></div>';
-    return '<div class="cvr-vote">' + count + '<p class="cvr-vq">有资格投票 ' + v.elig + " 人，至少要 " + v.need + " 人投票才算数</p>" +
-      (c.can ? '<div class="cvr-vb"><button type="button" class="cvr-y' + (mine === "y" ? " on" : "") + '" data-vid="' + esc(c.id) + '" data-v="y">👍 赞成赔付</button><button type="button" class="cvr-n' + (mine === "n" ? " on" : "") + '" data-vid="' + esc(c.id) + '" data-v="n">👎 反对</button></div>' +
-        '<p class="muted cvr-vh">' + (mine ? "你投了「" + (mine === "y" ? "赞成" : "反对") + "」，公示期内可以改。" : "点一下，钱包签个名就投好了，不花钱。") + "</p>"
-        : '<p class="muted cvr-vh">' + (account ? "这一笔你不能投票：要在它登记之前已经加入满 " + ((info.rules && info.rules.waitDays) || 30) + " 天，申请人自己也不能投。" : "连接钱包后，符合条件的成员可以投票。") + "</p>") + "</div>";
-  }
-  function castVote(btn) {
-    if (busy) return;
-    var id = btn.getAttribute("data-vid"), v = btn.getAttribute("data-v"), ts = Date.now();
-    busy = true;
-    K().ready().then(function () {
-      account = K().account();
-      return A.wallets.ask(A.wallet.get(), { method: "personal_sign", params: [utf8hex(voteText(account, id, v, ts)), account] });
-    }).then(function (sig) {
-      return fetch("/api/cover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "vote", a: account, id: id, v: v, ts: ts, sig: sig }) }).then(function (r) { return r.json(); });
-    }).then(function (j) {
-      if (!j || !j.ok) throw new Error((j && j.error) || "投票没成功，请过一会儿再点一次");
-      myVote[id] = v; busy = false;
-      var box = g("cvr-claims"); if (box) { box.innerHTML = claimsBox(); bindVotes(); }
-    }).then(null, function (e) { busy = false; A.errTip(K().niceError(e), btn); });
-  }
-  function bindVotes() { Array.prototype.forEach.call(document.querySelectorAll("#cvr-claims [data-vid]"), function (b) { b.onclick = function () { castVote(b); }; }); }
-  function bind(R) {
-    bindVotes();
-    var cb = g("cvr-conn"); if (cb) cb.onclick = function () { K().connect().then(function (a) { account = a; return load(); }).then(function () { if (A.isCurrent(rid)) render(); }, function (e) { A.errTip(K().niceError(e), cb); }); };
-    var bk = g("cvr-bk"); if (bk) bk.oninput = function () { draft.backup = bk.value.trim(); save(); };
-    var go = g("cvr-go"); if (go) go.onclick = function () { join(R, go); };
-  }
-  function join(R, go) {
-    if (busy) return;
-    var say = function (t) { var e = g("cvr-stt"); if (e) e.textContent = t; }, me = info && info.me, has = !!(me && me.backup);
-    var backup = low(has ? "" : (g("cvr-bk") || {}).value || draft.backup);
-    if (!has && !/^0x[0-9a-f]{40}$/.test(backup)) return A.errTip("请先填备用收款钱包地址（0x 开头，42 位）", go);
-    busy = true; go.disabled = true;
-    var done = function () { busy = false; return load().then(function () { if (A.isCurrent(rid)) render(); }); };
-    var post = function () {
-      say("正在登记，网站在核对链上记录…");
-      return fetch("/api/cover", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "join", a: account, backup: draft.backup || "", ts: draft.ts || 0, sig: draft.sig || "", tx: draft.tx }) }).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.ok) throw new Error((j && j.error) || "登记没成功，请过一会儿再点一次（不会多收费）");
-        draft = {}; save();
-      });
-    };
-    K().ready().then(function () {
-      account = K().account();
-      if (draft.by && draft.by !== account) { draft = { backup: draft.backup }; save(); } // 换了钱包：上一个钱包没做完的不带过来
-      if (!has && backup === account) throw new Error("备用收款钱包不能和加入的钱包相同。请填另一组助记词的钱包地址");
-      if (draft.tx) return; // 保费已经交过，只差登记
-      var step1 = Promise.resolve();
-      if (!has) {
-        // ① 签名登记备用钱包（不花钱）
-        var ts = Date.now(); say("第 1 次：请在钱包里签名，登记备用收款钱包（不花钱）");
-        step1 = A.wallets.ask(A.wallet.get(), { method: "personal_sign", params: [utf8hex(bindText(account, backup, ts)), account] }).then(function (sig) { draft.backup = backup; draft.ts = ts; draft.sig = sig; draft.by = account; save(); });
-      }
-      return step1.then(function () { return K().balance(info.dai, account); }).then(function (b) {
-        var fee = BigInt(R.fee) * 10n ** 18n;
-        if (b < fee + 10n ** 17n) throw new Error("DAI 不够：保费 " + R.fee + " DAI，另外留一点付 Gas");
-        // ② 交保费：DAI 转给保障池钱包
-        return K().send(info.dai, "0xa9059cbb" + pad(info.pool.addr) + fee.toString(16).padStart(64, "0"), say, "交互助保障保费 " + R.fee + " DAI");
-      }).then(function (rc) { if (!rc || !rc.transactionHash) throw new Error("保费交易没拿到交易号，请到账本里确认后再点一次"); draft.tx = rc.transactionHash; draft.by = account; save(); });
-    }).then(post).then(done, function (e) { busy = false; say(""); render(); A.errTip(K().niceError(e), g("cvr-go") || A.app); });
-  }
-  A.pages.cover = page;
-})();
-
-}catch(e){console.error('[bundle] cover.js',e);}
-;
-try{
-// 🎬 视频教程 #/videos：客户点开就能看操作视频；#/videos/admin：客服用工单口令上传 / 改名 / 排序 / 删除
-// （站长 2026-11-24：老年客户建议把操作视频放网站上，比在群里一遍遍发有用）
-(function () {
-  "use strict";
-  var A = window.AIL, PART = 8 * 1024 * 1024;
-  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  function mb(n) { return n >= 1048576 ? Math.round(n / 1048576) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB"; }
-  function api(body) { return fetch("/api/tutorial", { method: "POST", headers: { "content-type": "application/json", "x-key": key() }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }); }
-
-  /* 🚀 上传前自动整理（站长 2026-11-24：客户反映视频打开很慢）。
-     手机录的 mp4 / mov，「目录」（moov）常常在文件最末尾，播放器要先绕到末尾取目录才能开始放 → 点了半天不动。
-     这里在上传前把目录挪到最前面：不重新压制、画面一点不变，只是换个位置，并把目录里记的「每段数据在哪」统一往后挪目录那么长。
-     任何一步看不懂（文件结构特殊）就原样上传，绝不改坏视频。返回 { blob, secs（时长，读不到是 0）, moved } */
-  function u32(d, o) { return d.getUint32(o); }
-  function atomsOf(file, from, to) { // 读顶层的盒子：[{ type, start, size }]
-    var out = [], off = from;
-    function next() {
-      if (off + 8 > to || out.length > 200) return Promise.resolve(out);
-      return file.slice(off, off + 16).arrayBuffer().then(function (b) {
-        var d = new DataView(b), n = u32(d, 0), t = String.fromCharCode(d.getUint8(4), d.getUint8(5), d.getUint8(6), d.getUint8(7));
-        if (n === 1) { if (b.byteLength < 16 || u32(d, 8) !== 0) throw new Error("big"); n = u32(d, 12); }
-        else if (n === 0) n = to - off;
-        if (n < 8 || off + n > to) throw new Error("bad");
-        out.push({ type: t, start: off, size: n }); off += n; return next();
-      });
-    }
-    return next();
-  }
-  // 在目录里找出所有 stco / co64（记着每段数据位置的表），把里面的位置都加上 shift；顺手读出时长
-  function patchMoov(buf, shift) {
-    var d = new DataView(buf), secs = 0, bad = false;
-    var BOX = { moov: 1, trak: 1, mdia: 1, minf: 1, stbl: 1, edts: 0, udta: 0 };
-    (function walk(from, to) {
-      var off = from;
-      while (off + 8 <= to) {
-        var n = u32(d, off), t = String.fromCharCode(d.getUint8(off + 4), d.getUint8(off + 5), d.getUint8(off + 6), d.getUint8(off + 7));
-        if (n < 8 || off + n > to) { bad = true; return; }
-        if (t === "cmov") { bad = true; return; } // 压缩过的目录：不动
-        if (t === "mvhd") { var v = d.getUint8(off + 8); var ts = v === 1 ? u32(d, off + 28) : u32(d, off + 20), du = v === 1 ? u32(d, off + 32) * 4294967296 + u32(d, off + 36) : u32(d, off + 24); if (ts > 0) secs = du / ts; }
-        else if (t === "stco") { var c = u32(d, off + 12); if (off + 16 + c * 4 > off + n) { bad = true; return; } for (var i = 0; i < c; i++) { var o = off + 16 + i * 4, nv = u32(d, o) + shift; if (nv > 4294967295) { bad = true; return; } d.setUint32(o, nv); } }
-        else if (t === "co64") { var c2 = u32(d, off + 12); if (off + 16 + c2 * 8 > off + n) { bad = true; return; } for (var k = 0; k < c2; k++) { var o2 = off + 16 + k * 8, lo = u32(d, o2 + 4) + shift, hi = u32(d, o2); if (lo > 4294967295) { hi += 1; lo -= 4294967296; } d.setUint32(o2, hi); d.setUint32(o2 + 4, lo); } }
-        else if (BOX[t]) walk(off + 8, off + n);
-        off += n;
-      }
-    })(0, buf.byteLength);
-    return bad ? null : { secs: secs };
-  }
-  function fastStart(file) {
-    var keep = { blob: file, secs: 0, moved: false };
-    return atomsOf(file, 0, file.size).then(function (as) {
-      var mi = -1, di = -1;
-      as.forEach(function (a, i) { if (a.type === "moov" && mi < 0) mi = i; if (a.type === "mdat" && di < 0) di = i; });
-      if (mi < 0 || di < 0 || as[0].type !== "ftyp" || as[mi].size > 64 * 1024 * 1024) return keep;
-      var m = as[mi];
-      return file.slice(m.start, m.start + m.size).arrayBuffer().then(function (buf) {
-        if (mi < di) { var r0 = patchMoov(buf.slice(0), 0); return { blob: file, secs: r0 ? r0.secs : 0, moved: false }; } // 目录本来就在前面：只读时长
-        var r = patchMoov(buf, m.size);
-        if (!r) return keep;
-        var parts = [file.slice(0, as[0].size), buf];
-        as.forEach(function (a, i) { if (i !== 0 && i !== mi) parts.push(file.slice(a.start, a.start + a.size)); });
-        var out = new Blob(parts, { type: file.type });
-        return out.size === file.size ? { blob: out, secs: r.secs, moved: true } : keep;
-      });
-    }).catch(function () { return keep; });
-  }
-  // 体积提醒：录屏教程每分钟 10MB 以内就很清楚了；超过这个客户打开会慢（不拦，只提醒）
-  function heavy(size, secs) { return secs > 5 && size / secs > 10 * 1048576 / 60 * 1.5; }
-
-  // 分类（站长 2026-11-26：「做一个简单的分类，有的是我们 otc 的操作，有的是官网的操作」）
-  // 后台没选分类的，按标题猜：提到涡轮 / 卫星池 / 空投 / 质押 / LP / Helix / 排放 / 投票 / 挖矿 / 官网 的算官网操作，其余算本站操作
-  var CATS = [["otc", "🏪 本站操作"], ["off", "🌀 官网操作"]];
-  function catOf(x) { return x.cat === "otc" || x.cat === "off" ? x.cat : (/涡轮|卫星池|空投|质押|LP|helix|排放|投票|挖矿|官网|螺旋/i.test(x.title || "") ? "off" : "otc"); }
-  function catName(c) { return c === "off" ? CATS[1][1] : CATS[0][1]; }
-  /* 关键词（站长 2026-11-26：「太多了关键词，简单一点，比如 otc 交易、域名、预言家这样的，官网的操作不放关键词，主要是我们自己网站的」）
-     → 只给本站操作的视频出几个主题词；按标题认主题，从上往下第一个对上的算（「添加 OTC app」先算手机 App，不算 OTC 交易）。
-     没有视频的主题不出词（比如预言家的视频还没录，录好上传、标题带「预言」就自动出来）。点词跳到这个主题的第一个视频，同主题的都闪一下 */
-  var KEYS = [["📲 手机 App", /app|桌面|链接钱包|连钱包/i], ["📮 工单", /工单|客服|反馈/], ["🌐 域名", /域名/], ["🔮 预言家", /预言|预测/], ["🏪 OTC 交易", /otc|场外|盘口|买卖|交易/i]];
-  function keyOf(x) { if (catOf(x) !== "otc") return -1; for (var i = 0; i < KEYS.length; i++) if (KEYS[i][1].test(x.title || "")) return i; return -1; }
-
-  // ===== 客户看的页面 =====
-  function page(id) {
-    if ((location.hash.split("/")[2] || "") === "admin") return admin(id);
-    A.app.innerHTML = '<section class="card vdg"><h2>🎬 视频教程</h2><p class="muted">不会操作的，点下面的视频跟着做。看完还不会，点「📮 问题反馈」找客服。</p><div id="vdg-list"><p class="muted">读取中…</p></div></section>';
-    fetch("/api/tutorial?list=1").then(function (r) { return r.json(); }).then(function (d) {
-      if (!A.isCurrent(id)) return;
-      var el = document.getElementById("vdg-list"), list = (d && d.list) || [];
-      if (!el) return;
-      if (!list.length) { el.innerHTML = '<p class="muted">教程视频正在录制，过几天再来看。着急的话点「📮 问题反馈」，客服教你。</p>'; return; }
-      /* 站长 2026-11-26：「增加一些关键词，可直接点进进入，然后做一个简单的分类」
-         → 顶上三个页签（全部 / 本站操作 / 官网操作）+ 一排关键词（就是每个视频的标题），点一下直接跳到那个视频；下面的视频按分类分成两组 */
-      var cur = "";
-      function draw() {
-        var show = list.filter(function (x) { return !cur || catOf(x) === cur; }), n = 0;
-        var tabs = '<div class="vdc-tabs">' + [["", "全部"]].concat(CATS).map(function (c) {
-          var cnt = list.filter(function (x) { return !c[0] || catOf(x) === c[0]; }).length;
-          return '<button type="button" data-c="' + c[0] + '"' + (cur === c[0] ? ' class="on"' : "") + ">" + c[1] + "<small>" + cnt + "</small></button>";
-        }).join("") + "</div>";
-        var num = {}, body = "";
-        CATS.forEach(function (c) {
-          var g = show.filter(function (x) { return catOf(x) === c[0]; }); if (!g.length) return;
-          body += '<h3 class="vdc-g">' + c[1] + "<small>" + g.length + "</small></h3>" + g.map(function (x) {
-            num[x.id] = ++n;
-            return '<div class="vdg-it" id="vd-' + esc(x.id) + '"><h3 data-nobrand="1">' + n + ". " + esc(x.title) + '</h3><video controls playsinline preload="none" src="/api/tutorial?v=' + encodeURIComponent(x.id) + '"></video></div>';
-          }).join("");
-        });
-        // 显示顺序按客户常用的来，和上面认主题的先后不一样
-        var keyIdx = [4, 2, 3, 0, 1].filter(function (i) { return show.some(function (x) { return keyOf(x) === i; }); });
-        var idx = keyIdx.length ? '<p class="muted vdc-tip">👇 点关键词，直接跳到那类视频</p><div class="vdc-idx">' + keyIdx.map(function (i) {
-          var cnt = show.filter(function (x) { return keyOf(x) === i; }).length;
-          return '<button type="button" class="vdc-k vdc-otc" data-key="' + i + '">' + KEYS[i][0] + (cnt > 1 ? "<small>" + cnt + "</small>" : "") + "</button>";
-        }).join("") + "</div>" : "";
-        el.innerHTML = tabs + idx + body;
-        Array.prototype.forEach.call(el.querySelectorAll(".vdc-tabs button"), function (b) { b.onclick = function () { cur = b.getAttribute("data-c"); draw(); }; });
-        Array.prototype.forEach.call(el.querySelectorAll("[data-key]"), function (b) {
-          b.onclick = function () {
-            var k = Number(b.getAttribute("data-key"));
-            var its = show.filter(function (x) { return keyOf(x) === k; }).map(function (x) { return document.getElementById("vd-" + x.id); }).filter(Boolean);
-            var it = its[0]; if (!it) return;
-            // 顶栏是固定的，留出它的高度，标题别被挡住
-            var top = it.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop) - 150;
-            try { window.scrollTo({ top: top, behavior: "smooth" }); } catch (e) { window.scrollTo(0, top); }
-            its.forEach(function (v) { v.classList.add("vdc-hit"); setTimeout(function () { v.classList.remove("vdc-hit"); }, 2200); });
-          };
-        });
-        // 一次只放一个：点开新的，别的自动停
-        var vs = el.querySelectorAll("video");
-        Array.prototype.forEach.call(vs, function (v) { v.addEventListener("play", function () { Array.prototype.forEach.call(vs, function (o) { if (o !== v) { try { o.pause(); } catch (e) { /* 停不了就算了 */ } } }); }); });
-      }
-      draw();
-    }).catch(function () { var el = document.getElementById("vdg-list"); if (el) el.innerHTML = '<p class="muted">没读出来，请刷新再试。</p>'; });
-  }
-
-  // ===== 后台：上传 / 管理 =====
-  function login(id, msg) {
-    A.app.innerHTML = '<section class="card vdg"><h2>🎬 视频教程后台</h2><p class="muted">输入工单后台的口令（和工单后台是同一个）。</p>' +
-      '<input type="password" id="vdg-k" placeholder="口令" autocomplete="off"><button type="button" class="nm-go" id="vdg-in">进入</button><p class="muted" id="vdg-st">' + esc(msg || "") + "</p></section>";
-    document.getElementById("vdg-in").onclick = function () {
-      var k = document.getElementById("vdg-k").value.trim(); if (!k) return;
-      try { localStorage.setItem("fbKey", k); } catch (e) { /* 存不下也能用这一次 */ }
-      admin(id);
-    };
-  }
-  function admin(id) {
-    if (!key()) return login(id);
-    A.app.innerHTML = '<section class="card vdg"><div class="card-head"><h2>🎬 视频教程后台</h2><a href="#/videos">看客户页面 →</a></div>' +
-      '<p class="muted">传上去客户马上就能在「视频教程」里看到。视频最大 200MB，用手机录屏的 mp4 / mov 就行。</p>' +
-      '<div class="vdg-form"><input type="text" id="vdg-t" maxlength="40" placeholder="标题，例如：怎么买 AiLGNS">' +
-      '<div class="vdc-pick" id="vdg-c" data-c="otc"><span class="muted">这是哪一类：</span><button type="button" class="on" data-c="otc">🏪 本站操作</button><button type="button" data-c="off">🌀 官网操作</button></div>' +
-      '<input type="file" id="vdg-f" accept="video/*" hidden><button type="button" class="ghost" id="vdg-pick">🎬 选视频</button><div class="muted" id="vdg-fn">还没选视频</div>' +
-      '<button type="button" class="nm-go" id="vdg-up">上传</button><p class="muted" id="vdg-st"></p></div></section>' +
-      '<section class="card vdg"><h2>已有的教程</h2><div id="vdg-adm"><p class="muted">读取中…</p></div></section>';
-    var fi = document.getElementById("vdg-f"), st = document.getElementById("vdg-st"), busy = false;
-    function say(t, bad) { st.textContent = t; st.className = bad ? "nm-bad" : "muted"; }
-    document.getElementById("vdg-pick").onclick = function () { fi.click(); };
-    var cb = document.getElementById("vdg-c");
-    Array.prototype.forEach.call(cb.querySelectorAll("button"), function (b) { b.onclick = function () { cb.setAttribute("data-c", b.getAttribute("data-c")); Array.prototype.forEach.call(cb.querySelectorAll("button"), function (o) { o.className = o === b ? "on" : ""; }); }; });
-    fi.onchange = function () {
-      var f = fi.files && fi.files[0], fn = document.getElementById("vdg-fn");
-      fn.textContent = f ? f.name + "（" + mb(f.size) + "）" : "还没选视频";
-      if (!f) return;
-      fastStart(f).then(function (r) { // 选完就先看一眼：太大的提醒一句（不拦）
-        if (fi.files[0] !== f || !heavy(f.size, r.secs)) return;
-        fn.textContent = f.name + "（" + mb(f.size) + "，" + Math.round(r.secs) + " 秒）。⚠️ 这个视频偏大，客户打开会慢。能重录的话，录屏清晰度选 720p；不方便就照传，也能看。";
-      });
-    };
-    document.getElementById("vdg-up").onclick = function () {
-      if (busy) return;
-      var f = fi.files && fi.files[0], title = document.getElementById("vdg-t").value.trim();
-      if (!title) return say("请先写标题", true);
-      if (!f) return say("请先选视频", true);
-      if (!/^video\//.test(f.type || "")) return say("这个文件不是视频，请选手机里的录屏 / 视频", true);
-      busy = true; say("准备上传…");
-      fastStart(f).then(function (fsr) {
-        f = fsr.blob; // 目录挪到了前面的版本（没法挪就是原文件）；大小不变
-        return api({ action: "new", title: title, size: f.size, type: f.type, cat: cb.getAttribute("data-c") });
-      }).then(function (j) {
-        if (j.error) throw new Error(j.error);
-        var i = 0, n = j.n, tries = 0;
-        function next() {
-          if (i >= n) return null;
-          say("正在上传 " + Math.round(i / n * 100) + "%，请别关页面…");
-          return fetch("/api/tutorial?up=1&id=" + encodeURIComponent(j.id) + "&i=" + i, { method: "POST", headers: { "content-type": f.type, "x-key": key() }, body: f.slice(i * PART, Math.min(f.size, (i + 1) * PART)) })
-            .then(function (r) { return r.json(); }, function () { return { error: "网络断了", retry: 1 }; })
-            .then(function (r) {
-              if (r.error) { if (r.retry && tries++ < 3) return next(); throw new Error(r.error); }
-              tries = 0; i++; return next();
-            });
-        }
-        return next();
-      }).then(function () {
-        busy = false; say("✅ 传好了，客户已经能看到。");
-        document.getElementById("vdg-t").value = ""; fi.value = ""; document.getElementById("vdg-fn").textContent = "还没选视频";
-        load();
-      }, function (e) {
-        busy = false;
-        if (/口令/.test(e.message)) { try { localStorage.removeItem("fbKey"); } catch (x) { /* 忽略 */ } return login(id, "口令失效或不对，请重新输入"); }
-        say("没传成：" + e.message + "。没传完的那条在下面，删掉后重新传。", true); load();
-      });
-    };
-    function load() {
-      fetch("/api/tutorial?list=1&_=" + Date.now(), { headers: { "x-key": key() } }).then(function (r) { return r.json(); }).then(function (d) {
-        if (!A.isCurrent(id)) return;
-        if (d.error) { try { localStorage.removeItem("fbKey"); } catch (x) { /* 忽略 */ } return login(id, "口令失效或不对，请重新输入"); }
-        var el = document.getElementById("vdg-adm"), list = d.list || []; if (!el) return;
-        el.innerHTML = list.length ? list.map(function (x, i) {
-          return '<div class="vdg-row" data-id="' + esc(x.id) + '"><div class="vdg-rt"><b>' + (i + 1) + ". " + esc(x.title) + "</b><small class=\"muted\">" + catName(catOf(x)) + " · " + mb(x.size) + (x.ok ? "" : " · ⚠️ 没传完，客户看不到，请删掉重传") + "</small></div>" +
-            '<div class="vdg-btns"><button type="button" class="ghost" data-a="up"' + (i ? "" : " disabled") + '>上移</button><button type="button" class="ghost" data-a="down"' + (i < list.length - 1 ? "" : " disabled") + '>下移</button>' +
-            '<button type="button" class="ghost" data-a="name">改标题</button><button type="button" class="ghost" data-a="cat" data-to="' + (catOf(x) === "off" ? "otc" : "off") + '">改成' + catName(catOf(x) === "off" ? "otc" : "off").replace(/^\S+\s/, "") + '</button><button type="button" class="ghost vdg-del" data-a="del">删除</button></div></div>';
-        }).join("") : '<p class="muted">还没有教程，在上面传第一个。</p>';
-        Array.prototype.forEach.call(el.querySelectorAll("button[data-a]"), function (b) {
-          b.onclick = function () {
-            var row = b.closest(".vdg-row"), vid = row.getAttribute("data-id"), a = b.getAttribute("data-a"), job;
-            if (a === "del") {
-              // 不用系统弹窗（有的钱包 App 不弹）：点第一次变成「再点一次确认」，3 秒不点就恢复
-              if (!b._sure) { b._sure = true; b.textContent = "再点一次确认删除"; setTimeout(function () { b._sure = false; b.textContent = "删除"; }, 3000); return; }
-              job = api({ action: "del", id: vid });
-            } else if (a === "name") {
-              var tb = row.querySelector(".vdg-rt"), old = tb.querySelector("b").textContent.replace(/^\d+\.\s/, "");
-              tb.innerHTML = '<input type="text" maxlength="40" value="' + esc(old) + '"><button type="button" class="ghost">保存</button>';
-              tb.querySelector("button").onclick = function () { var nv = tb.querySelector("input").value.trim(); if (!nv) return; api({ action: "set", id: vid, title: nv }).then(load, load); };
-              return;
-            } else if (a === "cat") job = api({ action: "set", id: vid, cat: b.getAttribute("data-to") });
-            else job = api({ action: "set", id: vid, move: a === "up" ? -1 : 1 });
-            job.then(load, load);
-          };
-        });
-      }).catch(function () { var el = document.getElementById("vdg-adm"); if (el) el.innerHTML = '<p class="muted">没读出来，请刷新再试。</p>'; });
-    }
-    load();
-  }
-  A.pages.videos = page;
-})();
-
-}catch(e){console.error('[bundle] tutorial.js',e);}
-;
-try{
-// 📈 看盘（#/chart，站长 2026-11-25：「做一个 ave.ai 这样的看盘工具，目前仅上架我们这几只币」）
-//   #/chart          币种列表：最新价、24 小时涨跌、小走势线、池子资金、24 小时成交额
-//   #/chart/ailgns   单个币：大字现价 + 24 小时数据 + K 线（A.kchart）+ 实时成交 + 池子信息 + 去 OTC 买卖
-//   #/chart/lp       LP 没有能直接卖的池子：只给参考价（otc.js 的 lpQuote，按里面含的币去 DEX 卖出到手折算）
-// 数据：/api/dex（现价 / 池子 / 最近成交，8 秒缓存）+ /api/candles（K 线和 24 小时数据）。只看不交易，页面不碰钱包。
-// 上新币：COINS 加一行 + functions/api/dex.js 的 MKS + functions/api/candles.js 的 MKS
-(function () {
-  "use strict";
-  var A = window.AIL;
-  var COINS = {
-    ailgns: { sym: "AiLGNS", ico: "icons/tokens/ailgns.png?v=1", pd: 2, qd: 4, ca: "0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB", otc: "#/otc/ailgns", foot: "AiLGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25" },
-    lgns: { sym: "LGNS", ico: "icons/tokens/lgns.png?v=1", pd: 4, qd: 2, ca: "0x4D1D808a081FdAc440703b3765FC61f8028C06B8", otc: "#/otc/lgns", foot: "LGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25", tax: 1 },
-    lp: { sym: "LP", full: "AiLGNS-LGNS 的 LP", ico: "icons/tokens/lp.png?v=2", lp: 1, ca: "0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2", otc: "#/otc/lp" }
-  };
-  var ORDER = ["ailgns", "lgns", "lp"];
-  var ZH = !window.AIL_LANG || /^zh/i.test(window.AIL_LANG) || window.AIL_LANG === "hant";
-  var mem = {}; // 这次打开期间读到的数据：从列表点进详情、再退回来都先用它画，不等网络
-  var timer = 0;
-
-  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function num(v, d) { return Number(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); }
-  // 大数：中文用 万 / 亿，其它语言用 K / M / B
-  function big(v) {
-    v = Number(v) || 0;
-    if (ZH) return v >= 1e8 ? num(v / 1e8, 2) + " 亿" : v >= 1e4 ? num(v / 1e4, 1) + " 万" : num(v, v >= 100 ? 0 : 2);
-    return v >= 1e9 ? num(v / 1e9, 2) + "B" : v >= 1e6 ? num(v / 1e6, 2) + "M" : v >= 1e3 ? num(v / 1e3, 1) + "K" : num(v, v >= 100 ? 0 : 2);
-  }
-  function hms(t) { var d = new Date(t * 1000 + 8 * 3600e3), p = function (n) { return String(n).padStart(2, "0"); }; return p(d.getUTCHours()) + ":" + p(d.getUTCMinutes()) + ":" + p(d.getUTCSeconds()); }
-  function short(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
-  function T(s) { try { return window.AIL_LANG_T ? window.AIL_LANG_T(s) : s; } catch (e) { return s; } } // 拼进一整句里的小词，自己先翻好
-  function getJSON(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error("http " + r.status); return r.json(); }); }
-
-  // 24 小时数据：从 15 分钟 K 线（最近 97 根）里算。K 线不够 23 小时（历史还在补读）就不给涨跌，免得拿半天的数冒充一天
-  function dayOf(c) {
-    if (!c || !c.length) return null;
-    var hi = -Infinity, lo = Infinity, vol = 0, cl = [];
-    c.forEach(function (x) { if (x[2] > hi) hi = x[2]; if (x[3] < lo) lo = x[3]; vol += x[5] || 0; cl.push(x[4]); });
-    var full = c.length >= 92, open = c[0][1], last = c[c.length - 1][4];
-    return { hi: hi, lo: lo, vol: vol, cl: cl, full: full, chg: full && open > 0 ? (last / open - 1) * 100 : null };
-  }
-  function load(k) {
-    var m = mem[k] || (mem[k] = {});
-    return Promise.all([
-      getJSON("/api/dex?m=" + k).then(function (d) { if (d && d.px > 0) m.dex = d; }, function () {}),
-      getJSON("/api/candles?i=15m&n=97&m=" + k).then(function (d) { if (d && d.c && d.c.length) { m.day = dayOf(d.c); m.lag = d.lag || 0; } }, function () {})
-    ]).then(function () { return m; });
-  }
-  function loadLp() {
-    var m = mem.lp || (mem.lp = {}), kit = A.otcKit;
-    if (!kit || !kit.lpQuote) return Promise.resolve(m);
-    return kit.lpQuote().then(function (q) { m.q = q; return m; }, function () { return m; });
-  }
-  function chgHtml(v) { return v === null || v === undefined || !isFinite(v) ? '<span class="cht-chg na">—</span>' : '<span class="cht-chg ' + (v >= 0 ? "up" : "dn") + '">' + (v >= 0 ? "+" : "") + v.toFixed(2) + "%</span>"; }
-  function spark(cl, up) {
-    if (!cl || cl.length < 2) return '<svg class="cht-sp" viewBox="0 0 64 24"></svg>';
-    var lo = Math.min.apply(null, cl), hi = Math.max.apply(null, cl), span = hi - lo || 1, n = cl.length;
-    var pts = cl.map(function (v, i) { return (i / (n - 1) * 62 + 1).toFixed(1) + "," + (21 - (v - lo) / span * 18).toFixed(1); }).join(" ");
-    return '<svg class="cht-sp" viewBox="0 0 64 24" aria-hidden="true"><polyline points="' + pts + '" fill="none" stroke="' + (up ? "#0ecb81" : "#f6465d") + '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';
-  }
-
-  // ───────── 列表 ─────────
-  function rowHtml(k) {
-    var C = COINS[k], m = mem[k] || {}, px = "—", sub = "", chg = chgHtml(null), sp = spark(null);
-    if (C.lp) {
-      if (m.q) px = big(m.q.px);
-      sub = "参考价 · 按含的币折算";
-    } else {
-      if (m.dex) { px = num(m.dex.px, C.pd); sub = T("池子") + " " + big(m.dex.liq); }
-      if (m.day) { chg = chgHtml(m.day.chg); sp = spark(m.day.cl, m.day.chg === null ? m.day.cl[m.day.cl.length - 1] >= m.day.cl[0] : m.day.chg >= 0); if (m.day.full) sub += (sub ? " · " : "") + T("成交") + " " + big(m.day.vol); }
-    }
-    return '<a class="cht-row" href="#/chart/' + k + '"><img src="' + C.ico + '" alt="" width="34" height="34"><span class="cht-nm"><b>' + esc(C.sym) + '</b><small>' + esc(sub || (C.full || "")) + "</small></span>" + sp +
-      '<span class="cht-r"><b>' + px + "</b>" + (C.lp ? '<span class="cht-chg na">DAI</span>' : chg) + "</span></a>";
-  }
-  function drawList() { var el = document.getElementById("cht-rows"); if (el) el.innerHTML = ORDER.map(rowHtml).join(""); }
-  function pageList(id) {
-    A.app.innerHTML = '<section class="card cht"><h2>📈 看盘</h2><p class="muted">官方 DEX 池子的真实价格和成交，几秒更新一次。先上架这几只，点进去看 K 线和实时成交。</p>' +
-      '<div class="cht-h"><span>币种</span><span>最新价（DAI） / 24 小时</span></div><div id="cht-rows"></div>' +
-      '<p class="muted cht-tip">这里只看行情，不动钱包。价格是池子的标价；LGNS 在 DEX 卖出要扣手续费，实际到手会比标价少。</p></section>';
-    drawList();
-    var tick = function () {
-      if (!A.isCurrent(id)) { clearInterval(timer); return; }
-      if (document.hidden) return;
-      load("ailgns").then(function () { if (A.isCurrent(id)) drawList(); });
-      load("lgns").then(function () { if (A.isCurrent(id)) drawList(); });
-      loadLp().then(function () { if (A.isCurrent(id)) drawList(); });
-    };
-    tick(); timer = setInterval(tick, 15000);
-  }
-
-  // 合约地址（站长 2026-11-25：客户要找合约地址，高亮出来让他一点就复制）。整块都能点；剪贴板不让用就退回老办法
-  function caHtml(k) { var C = COINS[k]; return C.ca ? '<button type="button" class="cht-ca" id="cht-ca" data-ca="' + C.ca + '"><span class="cht-ca-l"><small>' + esc(C.sym) + ' 合约地址（Anubis 链）</small><code>' + C.ca + '</code></span><span class="cht-ca-b" id="cht-ca-b">复制</span></button>' : ""; }
-  function caBind() {
-    var b = document.getElementById("cht-ca"); if (!b) return;
-    b.onclick = function () {
-      var a = b.getAttribute("data-ca"), t = document.getElementById("cht-ca-b");
-      var done = function () { if (t) { t.textContent = "✅ 已复制"; setTimeout(function () { t.textContent = "复制"; }, 2000); } };
-      var old = function () { try { var x = document.createElement("textarea"); x.value = a; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0"; document.body.appendChild(x); x.select(); x.setSelectionRange(0, 99); var ok = document.execCommand("copy"); document.body.removeChild(x); if (ok) done(); else if (t) t.textContent = "请长按地址复制"; } catch (e) { if (t) t.textContent = "请长按地址复制"; } };
-      try { navigator.clipboard.writeText(a).then(done, old); } catch (e) { old(); }
-    };
-  }
-
-  // ───────── 单个币 ─────────
-  function headHtml(k, sub) { var C = COINS[k]; return '<a class="cht-back" href="#/chart">‹ 全部币种</a><div class="cht-top"><img src="' + C.ico + '" alt="" width="40" height="40"><span class="cht-nm"><b>' + esc(C.sym) + ' <i>/ DAI</i></b><small>' + esc(sub) + "</small></span></div>"; }
-  function cell(t, v) { return '<div><small>' + t + "</small><b>" + v + "</b></div>"; }
-  function drawCoin(k) {
-    var C = COINS[k], m = mem[k] || {}, d = m.dex, day = m.day, el;
-    if ((el = document.getElementById("cht-px"))) el.innerHTML = "<b>" + (d ? num(d.px, C.pd) : "—") + "</b>" + chgHtml(day ? day.chg : null) + '<small>DAI · 24 小时</small>';
-    if ((el = document.getElementById("cht-st"))) el.innerHTML =
-      cell("24 小时最高", day && day.full ? num(day.hi, C.pd) : "—") + cell("24 小时最低", day && day.full ? num(day.lo, C.pd) : "—") + cell("24 小时成交额（DAI）", day && day.full ? big(day.vol) : "—") +
-      cell("池子资金（DAI）", d ? big(d.liq) : "—") + cell("持币地址", d && d.info ? big(d.info.holders) : "—") + cell("发行总量", d && d.info ? big(d.info.supply) : "—");
-    if ((el = document.getElementById("cht-lag"))) el.textContent = day && !day.full ? "K 线历史还在补读，24 小时数据补齐后显示。" : "";
-    if ((el = document.getElementById("cht-pool"))) el.innerHTML = d ? "<span>池子里现在有：</span><b>" + big(d.coin) + " " + esc(C.sym) + "</b> + <b>" + big(d.dai) + " DAI</b>" + (C.tax ? "<br><span>LGNS 在 DEX 卖出要扣手续费（比例会变），实际到手比标价少，卖之前可以先看看本站 OTC 的买单。</span>" : "") : "";
-    if ((el = document.getElementById("cht-tr"))) {
-      var list = d && d.list ? d.list : null;
-      el.innerHTML = !list ? '<p class="muted">读取中…</p>' : !list.length ? '<p class="muted">最近一会儿没有成交</p>' :
-        '<div class="cht-th"><span>时间</span><span>方向</span><span>金额（DAI）</span><span>数量</span><span>钱包</span></div>' + list.map(function (x) {
-          var b = x.s === "b";
-          return '<a class="cht-t ' + (b ? "up" : "dn") + '" href="#/scan/tx/' + esc(x.tx) + '"><span>' + hms(x.t) + "</span><span>" + (b ? "买入" : "卖出") + "</span><span>" + num(x.d, 2) + "</span><span>" + num(x.q, C.qd) + '</span><span class="cht-a">' + esc(short(x.a)) + "</span></a>";
-        }).join("");
-    }
-  }
-  var kc = null;
-  function pageCoin(id, k) {
-    var C = COINS[k];
-    A.app.innerHTML = '<section class="card cht">' + headHtml(k, "官方 DEX 池子价") + caHtml(k) +
-      '<div class="cht-px" id="cht-px"></div><div class="cht-st" id="cht-st"></div><p class="muted cht-tip" id="cht-lag"></p>' +
-      '<div id="cht-k"></div>' +
-      '<a class="btn cht-go" href="' + C.otc + '">去本站 OTC 买卖 ' + esc(C.sym) + '</a>' +
-      '<h3 class="cht-h3">实时成交</h3><div class="cht-trs" id="cht-tr"></div>' +
-      '<h3 class="cht-h3">池子</h3><p class="muted cht-tip" id="cht-pool"></p></section>';
-    drawCoin(k); caBind();
-    if (kc) { try { kc.stop(); } catch (e) {} kc = null; }
-    try { if (A.kchart) kc = A.kchart(document.getElementById("cht-k"), { i: "15m", m: k === "ailgns" ? "" : k, d: C.pd, foot: C.foot, alive: function () { return A.isCurrent(id); } }); } catch (e) {}
-    var tick = function () {
-      if (!A.isCurrent(id)) { clearInterval(timer); return; }
-      if (document.hidden) return;
-      load(k).then(function () { if (A.isCurrent(id)) drawCoin(k); });
-    };
-    tick(); timer = setInterval(tick, 9000);
-  }
-
-  // ───────── LP ─────────
-  function drawLp() {
-    var m = mem.lp || {}, q = m.q, el;
-    if ((el = document.getElementById("cht-px"))) el.innerHTML = "<b>" + (q ? big(q.px) : "—") + '</b><small>DAI / 1 个 LP（参考价）</small>';
-    if ((el = document.getElementById("cht-st")) && q) el.innerHTML =
-      cell("1 个 LP 含 AiLGNS", num(q.ail, 2)) + cell("1 个 LP 含 LGNS", big(q.lgns)) + cell("LGNS 卖出手续费", (q.tax * 100).toFixed(1) + "%") +
-      cell("AiLGNS 这部分值", big(q.vAil) + " DAI") + cell("LGNS 这部分值", big(q.vLgns) + " DAI") + cell("合计", big(q.px) + " DAI");
-  }
-  function pageLp(id) {
-    A.app.innerHTML = '<section class="card cht">' + headHtml("lp", "AiLGNS-LGNS 的 LP · 参考价") + caHtml("lp") +
-      '<div class="cht-px" id="cht-px"></div><div class="cht-st" id="cht-st"></div>' +
-      '<p class="muted cht-tip">LP 现在拆不开，DEX 上也没有能直接卖 LP 的池子，所以没有 K 线和成交记录。这个参考价是按「1 个 LP 里含的 AiLGNS 和 LGNS，拿去 DEX 卖出实际到手多少 DAI」折算的，会随行情和 LGNS 卖出手续费变化，只供参考。</p>' +
-      '<a class="btn cht-go" href="#/otc/lp">去本站 LP 市场买卖</a></section>';
-    drawLp(); caBind();
-    var tick = function () {
-      if (!A.isCurrent(id)) { clearInterval(timer); return; }
-      if (document.hidden) return;
-      loadLp().then(function () { if (A.isCurrent(id)) drawLp(); });
-    };
-    tick(); timer = setInterval(tick, 30000);
-  }
-
-  A.pages.chart = function (id) {
-    clearInterval(timer);
-    if (kc) { try { kc.stop(); } catch (e) {} kc = null; }
-    var k = (location.hash.split("/")[2] || "").toLowerCase().split("?")[0];
-    try {
-      if (k === "lp") pageLp(id);
-      else if (COINS[k]) pageCoin(id, k);
-      else pageList(id);
-    } catch (e) { A.app.innerHTML = '<section class="card"><p class="muted">看盘页没打开，请刷新再试。</p></section>'; }
-  };
-})();
-
-}catch(e){console.error('[bundle] chart.js',e);}
-;
-try{
-// 🛰 备用节点（#/rpc，站长 2026-11-25：「客户反应官方节点无法操作，把我们的节点公布给客户，让客户自己选择，引导客户自己添加」）
-//   · 上面：官方节点和本站备用节点「从你这台手机连过去」通不通、多快、落后几块——每个人的网络不一样，所以在客户自己这边测，不走服务器
-//   · 中间：备用节点地址一键复制 + 一键添加（钱包支持的话）+ 手动怎么填
-//   · 最显眼：防骗提醒（骗子会冒充客服让人改节点；只认本页这个地址）
-// 定位只是「备用」：官方节点卡的时候用，不承诺永远可用。节点只转发已经签好名的交易，碰不到私钥。只看不动钱。
-(function () {
-  "use strict";
-  var A = window.AIL;
-  var OURS = "https://rpc.ailgns.dev", CHAIN_HEX = "0x1a3a", CHAIN_ID = 6714, EXPLORER = "https://browser.anubispace.org";
-  var NODES = [
-    { k: "o1", name: "官方节点 1", url: "https://rpc.anubispace.org" },
-    { k: "o2", name: "官方节点 2", url: "https://rpc2.anubispace.org" },
-    { k: "o3", name: "官方节点 3", url: "https://rpc3.anubispace.org" },
-    { k: "us", name: "本站备用节点", url: OURS, ours: 1 }
-  ];
-  var timer = 0;
-  function T(s) { try { return window.AIL_LANG_T ? window.AIL_LANG_T(s) : s; } catch (e) { return s; } } // 拼进一句里的小词，自己先翻好
-  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-
-  // 从客户这边问一次最新区块：8 秒没回算不通
-  function ping(url) {
-    var t0 = Date.now(), ac = window.AbortController ? new AbortController() : null, tm = ac && setTimeout(function () { ac.abort(); }, 8000);
-    return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }), signal: ac ? ac.signal : undefined })
-      .then(function (r) { return r.json(); })
-      .then(function (j) { clearTimeout(tm); var n = j && typeof j.result === "string" ? parseInt(j.result, 16) : NaN; if (!(n > 0)) throw new Error("bad"); return { ok: true, ms: Date.now() - t0, block: n }; })
-      .catch(function () { clearTimeout(tm); return { ok: false, ms: Date.now() - t0, block: 0 }; });
-  }
-  function draw(res) {
-    var el = document.getElementById("rpcp-st"); if (!el) return;
-    var top = 0; res.forEach(function (r) { if (r && r.ok && r.block > top) top = r.block; });
-    el.innerHTML = NODES.map(function (n, i) {
-      var r = res[i], st, cls;
-      if (!r) { st = T("检测中…"); cls = "wait"; }
-      else if (!r.ok) { st = "❌ " + T("连不上"); cls = "bad"; }
-      else { var lag = top - r.block; st = (lag > 30 ? "⚠️ " + T("落后") + " " + lag + " " + T("块") : "✅ " + T("正常")) + " · " + (r.ms / 1000).toFixed(2) + " " + T("秒"); cls = lag > 30 ? "slow" : "ok"; }
-      return '<div class="rpcp-row ' + cls + (n.ours ? " ours" : "") + '"><span>' + esc(T(n.name)) + "</span><b>" + st + "</b></div>";
-    }).join("");
-    var tip = document.getElementById("rpcp-tip"); if (!tip) return;
-    if (res.some(function (r) { return !r; })) { tip.textContent = ""; return; }
-    var offOk = res.slice(0, 3).some(function (r) { return r.ok; }), usOk = res[3].ok;
-    tip.textContent = offOk ? (usOk ? "官方节点现在是通的，可以不用换；想换也行。" : "官方节点现在是通的，不用换。本站备用节点这会儿连不上。")
-      : usOk ? "从你这边连官方节点连不上，可以先换成本站备用节点。" : "两边都连不上，多半是你的网络问题：换个网络（Wi-Fi / 流量互换）再试。";
-  }
-  function check() {
-    var res = [null, null, null, null]; draw(res);
-    NODES.forEach(function (n, i) { ping(n.url).then(function (r) { res[i] = r; draw(res); }); });
-  }
-  function copy(text, btn) {
-    var done = function () { if (btn) { var o = btn.textContent; btn.textContent = "✅ 已复制"; setTimeout(function () { btn.textContent = o; }, 2000); } };
-    var old = function () { try { var x = document.createElement("textarea"); x.value = text; x.setAttribute("readonly", ""); x.style.cssText = "position:fixed;left:-999px;top:0"; document.body.appendChild(x); x.select(); x.setSelectionRange(0, 999); var ok = document.execCommand("copy"); document.body.removeChild(x); if (ok) done(); else if (btn) btn.textContent = "请长按地址复制"; } catch (e) { if (btn) btn.textContent = "请长按地址复制"; } };
-    try { navigator.clipboard.writeText(text).then(done, old); } catch (e) { old(); }
-  }
-  // 一键添加：请钱包把这个节点加进 Anubis 网络。不是每个钱包都支持给已有的网络换节点，不行就按下面手动填
-  function addToWallet(btn) {
-    var say = function (t) { var s = document.getElementById("rpcp-say"); if (s) s.textContent = t; };
-    var eth = window.ethereum;
-    if (!eth || !eth.request) { say("这个浏览器里没有钱包。请在钱包 App 里打开本页再点，或者按下面的步骤手动填。"); return; }
-    btn.disabled = true; say("请在钱包里确认…");
-    eth.request({ method: "wallet_addEthereumChain", params: [{ chainId: CHAIN_HEX, chainName: "Anubis", nativeCurrency: { name: "DAI", symbol: "DAI", decimals: 18 }, rpcUrls: [OURS], blockExplorerUrls: [EXPLORER] }] })
-      .then(function () { btn.disabled = false; say("钱包已处理。有的钱包对已有的网络不会换节点：到钱包的网络设置里看一下 Anubis 的节点地址是不是 " + OURS + "，不是就按下面手动填。"); },
-        function (e) { btn.disabled = false; say(e && e.code === 4001 ? "你在钱包里点了取消。" : "这个钱包不支持一键添加，请按下面的步骤手动填。"); });
-  }
-
-  A.pages.rpc = function (id) {
-    clearInterval(timer);
-    A.app.innerHTML = '<section class="card rpcp"><h2>🛰 备用节点</h2>' +
-      '<p class="muted">钱包里点了没反应、交易一直发不出去，有时是钱包连的官方节点卡了。本站自己跑了一个 Anubis 节点，可以当备用。先看下面从你这边连过去通不通：</p>' +
-      '<div id="rpcp-st" class="rpcp-st"></div><p id="rpcp-tip" class="rpcp-tip"></p>' +
-      '<button type="button" class="ghost rpcp-re" id="rpcp-re">重新检测</button>' +
-      '<div class="rpcp-warn"><b>⚠️ 防骗，先看这个</b><p>备用节点只认本页这一个地址。客服和技术人员<b>不会私聊</b>让你改节点、「同步」「升级」钱包，更不会要助记词或私钥。有人私聊让你加别的节点地址，就是骗子。</p></div>' +
-      '<h3 class="rpcp-h3">备用节点地址</h3>' +
-      '<button type="button" class="rpcp-url" id="rpcp-url"><code>' + OURS + '</code><span id="rpcp-cp">复制</span></button>' +
-      '<button type="button" class="rpcp-add" id="rpcp-add">一键添加到钱包</button><p class="muted rpcp-say" id="rpcp-say"></p>' +
-      '<h3 class="rpcp-h3">手动怎么填</h3>' +
-      '<ol class="rpcp-ol"><li>打开钱包，进「网络」设置（有的钱包叫「自定义网络」或「节点设置」），找到 <b>Anubis</b> 网络。</li>' +
-      '<li>选「添加节点」或「修改 RPC 地址」，把上面的地址粘贴进去。</li><li>其它几项照下面填（已经有的不用动），保存，然后选中这个节点。</li></ol>' +
-      '<div class="rpcp-kv"><div><span>网络名称</span><b>Anubis</b></div><div><span>RPC 地址</span><b>' + OURS + '</b></div><div><span>链 ID</span><b>' + CHAIN_ID + '</b></div><div><span>货币符号</span><b>DAI</b></div><div><span>区块浏览器</span><b>' + EXPLORER + "</b></div></div>" +
-      '<h3 class="rpcp-h3">要知道的几件事</h3>' +
-      '<ul class="rpcp-ul"><li>节点只负责把你<b>已经签好名</b>的交易送上链，碰不到你的私钥和助记词，动不了你的钱。</li>' +
-      '<li>这是备用：官方节点恢复后可以换回去；本站节点偶尔也会维护，连不上时换回官方节点就行。</li>' +
-      '<li>换节点不影响你的资产，币都在链上，不在节点里。</li></ul></section>';
-    var on = function (i, f) { var e = document.getElementById(i); if (e) e.onclick = f; };
-    on("rpcp-re", check);
-    on("rpcp-url", function () { copy(OURS, document.getElementById("rpcp-cp")); });
-    on("rpcp-add", function () { addToWallet(document.getElementById("rpcp-add")); });
-    check();
-    timer = setInterval(function () { if (!A.isCurrent(id)) { clearInterval(timer); return; } if (!document.hidden) check(); }, 30000);
-  };
-})();
-
-}catch(e){console.error('[bundle] rpcpage.js',e);}
-;
-try{
-// 🤖 AI 资讯（#/ainews，站长 2026-11-25：「做一个滚动的 AI 资讯板块，专门轮播 AI 资讯，放更多栏目里，不放 OTC 首页」）
-//   · 最上面一张轮播卡：每 5 秒换一条最新的标题（手指按着时不换）；下面是完整列表，新的在前
-//   · 只有标题 + 来源 + 时间，正文不搬。数据来自 /api/ainews（每小时抓一次，秒开）
-//   · 站长 2026-11-26：「只展示标题，不跳转，不看细节，看个标题就行」→ 点了没反应（不再链到原文），英文原标题那一行也去掉；
-//     中文页面只列已经翻成中文的（没翻好的那条不显示，免得混进一条看不懂的英文）；英文 / 韩文页面显示英文原标题
-//   · 内容是别人写的：页面底下写明「来自第三方，不代表本站观点，不构成投资建议」
-(function () {
-  "use strict";
-  var A = window.AIL, LS = "ainews:c", timer = 0, idx = 0, hold = false;
-  function T(s) { try { return window.AIL_LANG_T ? window.AIL_LANG_T(s) : s; } catch (e) { return s; } }
-  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function ago(ts) {
-    var m = Math.max(1, Math.round((Date.now() - ts) / 60000));
-    if (m < 60) return m + " " + T("分钟前");
-    if (m < 1440) return Math.round(m / 60) + " " + T("小时前");
-    return Math.round(m / 1440) + " " + T("天前");
-  }
-  function zh() { return !window.AIL_LANG || window.AIL_LANG === "zh"; }
-  function title(x) { return zh() ? x.t : (x.o || x.t); } // 英 / 韩页面：用英文原标题（没有就是本来就是英文的那条）
-  function usable(x) { return !!x && !!x.t && (!zh() || /[\u4e00-\u9fff]/.test(x.t)); } // 中文页面：标题里没有中文 = 没翻好，不显示
-  function showTop(list) {
-    var el = document.getElementById("ainw-top"); if (!el || !list.length) return;
-    var x = list[idx % list.length];
-    el.innerHTML = '<div class="ainw-hot"><span class="ainw-tag">' + T("最新") + " " + (idx % list.length + 1) + "/" + list.length + '</span><b>' + esc(title(x)) + '</b><i>' + esc(x.s) + " · " + ago(x.ts) + "</i></div>";
-  }
-  function draw(d) {
-    var box = document.getElementById("ainw-list"); if (!box) return;
-    var list = ((d && d.list) || []).filter(usable);
-    if (!list.length) { box.innerHTML = '<p class="muted">' + T("暂时没有读到资讯，过一会儿再来看。") + "</p>"; return; }
-    var hot = list.slice(0, 10);
-    idx = 0; showTop(hot);
-    clearInterval(timer);
-    timer = setInterval(function () { if (!document.getElementById("ainw-top")) { clearInterval(timer); return; } if (hold || document.hidden) return; idx++; showTop(hot); }, 5000);
-    box.innerHTML = list.map(function (x) {
-      return '<div class="ainw-it"><b>' + esc(title(x)) + "</b><i>" + esc(x.s) + " · " + ago(x.ts) + "</i></div>";
-    }).join("");
-    var at = document.getElementById("ainw-at"); if (at && d.at) at.textContent = T("更新于") + " " + ago(d.at);
-  }
-  A.pages.ainews = function (id) {
-    clearInterval(timer);
-    A.app.innerHTML = '<section class="card ainw"><h2>🤖 AI 资讯</h2>' +
-      '<p class="muted">每小时自动更新一次，只看标题就行。 <span id="ainw-at"></span></p>' +
-      '<div id="ainw-top" class="ainw-top"></div>' +
-      '<div id="ainw-list" class="ainw-list"><p class="muted">加载中…</p></div>' +
-      '<p class="muted ainw-foot">资讯标题来自国外第三方媒体，中文标题是机器翻译的，可能不准。不代表本站观点，不构成投资建议。</p></section>';
-    var top = document.getElementById("ainw-top");
-    if (top) { top.addEventListener("touchstart", function () { hold = true; }, { passive: true }); top.addEventListener("touchend", function () { hold = false; }, { passive: true }); top.addEventListener("mouseenter", function () { hold = true; }); top.addEventListener("mouseleave", function () { hold = false; }); }
-    hold = false;
-    var cached = null;
-    try { cached = JSON.parse(localStorage.getItem(LS) || "null"); } catch (e) {}
-    if (cached && cached.list) draw(cached);
-    fetch("/api/ainews").then(function (r) { return r.json(); }).then(function (d) {
-      if (!A.isCurrent(id)) return;
-      if (d && d.list && d.list.length) { draw(d); try { localStorage.setItem(LS, JSON.stringify({ at: d.at, list: d.list.slice(0, 40) })); } catch (e) {} }
-      else if (!cached) draw(d);
-    }).catch(function () { if (A.isCurrent(id) && !cached) draw(null); });
-  };
-})();
-
-}catch(e){console.error('[bundle] ainews.js',e);}
-;
-try{
-// 🌀 涡轮助手（#/turbine，站长 2026-11-25：「官方的功能太复杂，能不能一键整合，先从一键涡轮领取开始」「做成第一步、第二步、第三步，这样小白容易操作」）
-//   官方要在三个页面里来回点：领排放 → 涡轮激活（付 DAI）→ 24 小时后领取。这里放到一页，按顺序一步一步点。
-//   · 调的全是官方合约（地址、函数都从官方网站前端核过，手续费 / 锁定时间到链上读）：排放金库 VAULT、涡轮 TURBINE。本站没有新合约、不经手、不收费
-//   · 客户自己的钱包签名。DAI 授权只批这一次要付的数，不批无限额
-//   · 链上实际走法（拿真实交易核过）：激活 X 枚 → 付「市价买 X 枚的 DAI + 2.5% 手续费」→ 市场买到的 X 枚马上进钱包；排放的那 X 枚锁 24 小时后再领
-//   · 只做「个人排放」（claimStatic）。社区动态排放要带官方接口给的证明，这一版不做，页面上提示去官方领
-//   · 第四、五步（站长 2026-11-25：「自动在 OTC 卖出、DAI 复投算力，做出来」）：
-//       第四步 把 AiLGNS 在本站 OTC 卖成 DAI——吃现成的买单，和「闪兑」第 1 步同一套代码（A.otcKit.sellQuote / sellFire），照收 1% 吃单手续费；
-//               先算给客户看再让他点确认；卖出均价比涡轮的市场买入价低 10% 以上就不让卖（买盘太浅）
-//       第五步 把 DAI 投进官方算力账本 LEDGER.participate(DAI 数量)（链上核过：现在 1 DAI 记 2.5 算力、开放中）。授权同样只批这一次的数
-//       页面只摆数字，不说「复投更赚」——划不划算客户自己判断
-//   · 试运行：真钱包完整走一遍还没人试过。官方改规则时这里要跟着改
-(function () {
-  "use strict";
-  var A = window.AIL, K = function () { return A.otcKit; };
-  var VAULT = "0x3deea5f638ca0dfb03a0873cf4c0b90ba50e1aa2", TURBINE = "0xe884a336550a4482ca6a17a3f93aa30ed4ed9bad";
-  var LEDGER = "0x9e68f61e2615cc1d2c4a2d0026bfc1ebfdf68c1b";
-  // 站长 2026-11-26 转群里的反馈（「点不了领取到涡轮」「奖励显示了，可领取是零」）：大多数客户拿的是 LP 空投，不是个人排放，
-  // 原来第一步只认个人排放，有 LP 空投的人在这一页没东西可点。官方 LP 空投金库：pendingOf(钱包) = 已经记到账、现在能领的；claim() = 全部领进涡轮（之后做第二步激活）。
-  // 链上核过（2026-11-26）：官方每天给金库记一次账（最近三天是北京时间凌晨 1～4 点），claim() 把币转进涡轮并记到钱包名下。
-  var AIRDROP = "0xf0e9ec153f68bfa2fc8c76165db2b80579dcb217", CLAIM_LP = "0x4e71d92d";
-  // 站长 2026-11-26「社区动态排放也加上，很多团队长也需要这个功能」。官方的做法（从官方页面脚本核对，2026-11-26 用 5 个真实钱包试算过）：
-  //   动态排放每天由官方算一棵树、树根记在排放金库里；领的时候带上「累计数 + 证明」调 claimDynamicWithRoot(累计, 证明, 数量)，合约自己验证。
-  //   已经记到账、不用证明的那部分（usableCreditsOf）用 claimDynamic(数量)。能领多少以「用这个钱包试算一遍」的结果为准（官方还按 NFT 额度封顶）。
-  //   凭证从 /api/helix-proof 取（它去官方接口拿）；拿不到凭证就只领已经记到账的那部分。领到的币进涡轮，接着做第二步。
-  var DYN = { root: "0xfdab463d", credited: "0xe4472872", withRoot: "0x60c8a4ea", plain: "0xc1f55a03" }, MAXU = (1n << 256n) - 1n;
-  function dynData(cum, proof, amt) { return DYN.withRoot + u(cum) + u(96) + u(amt) + u(proof.length) + proof.map(function (x) { return x.replace(/^0x/, ""); }).join(""); }
-  function proofOf(a) {
-    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null, tm = ctl && setTimeout(function () { ctl.abort(); }, 6000);
-    return fetch("/api/helix-proof?a=" + a, { signal: ctl ? ctl.signal : undefined }).then(function (r) { clearTimeout(tm); return r.json(); }).then(function (j) { return j && j.proof && j.root && j.cumulativeRaw ? j : null; }, function () { return null; });
-  }
-  // 动态排放现在能领多少：有新凭证（累计 > 已记账，且官方接口的树根和链上的一样）就带凭证试算；否则就是已经记到账的那部分
-  function dynOf(a, usable, rootHex, creditedHex, pf) {
-    var plain = { amt: usable, cum: "", proof: null };
-    try {
-      if (!pf || !rootHex || !creditedHex) return Promise.resolve(plain);
-      var chainRoot = "0x" + rootHex.slice(66, 130).toLowerCase(), cum = BigInt(pf.cumulativeRaw);
-      if (pf.root !== chainRoot || cum <= big(creditedHex)) return Promise.resolve(plain);
-      return A.rpc("eth_call", [{ from: a, to: VAULT, data: dynData(cum, pf.proof, MAXU) }, "latest"]).then(function (h) {
-        return { amt: big(h), cum: cum.toString(), proof: pf.proof, full: usable + cum - big(creditedHex) };
-      }, function () { return plain; });
-    } catch (e) { return Promise.resolve(plain); }
-  }
-  var DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14", AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";
-  var SEL = { pendingOf: "0xf44136a1", usable: "0x8c9a2d45", claimStatic: "0x064f3406", feeBps: "0x24a9d853", lockSeconds: "0xbfa6fddb", claimed: "0x9886c2a5", locksOf: "0xc3f9ab58", lockOf: "0x632a4861",
-    rateBps: "0xbe7f8c68", open: "0x549c4627", minDai: "0xa2b7b1c5", participate: "0x845c9306", active: "0x6cf2fa36", pendingPow: "0xaa81a38f",
-    quote: "0xed1bd76c", activate: "0xd96c5110", claimUnlocked: "0xadaace55", approve: "0x095ea7b3" };
-  var SLIP_BPS = 100n, DEADLINE = 1800, LOCKS_MAX = 30; // 报价上多留 1%（市价会动）；交易 30 分钟内有效
-  var account = null, S = null, busy = false, tick = 0, pageId = 0, hooked = false;
-  var sellStr = "", daiStr = "", sellQ = null; // 第四、五步输入框里的数（重画时不丢）；sellQ = 算好等客户确认的卖出计划
-  var GAS_KEEP = 2n * 10n ** 17n; // 留 0.2 DAI 付 Gas
-  var LOW_SELL = 90n; // 卖出均价不到「涡轮市场买入价」的 90% 就不让卖
-  function mem(k, v) { try { var key = "tbn:" + k + ":" + account; if (v === undefined) return localStorage.getItem(key) || ""; localStorage.setItem(key, v); } catch (e) {} return ""; }
-  function plain(w, dp) { return f(w, dp).replace(/,/g, ""); }
-  function T(s) { try { return window.AIL_LANG_T ? window.AIL_LANG_T(s) : s; } catch (e) { return s; } }
-  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  function u(v) { return BigInt(v).toString(16).padStart(64, "0"); }
-  function big(h) { try { return h && h.length >= 3 ? BigInt(h) : 0n; } catch (e) { return 0n; } }
-  function word(h, i) { return "0x" + String(h || "").slice(2 + 64 * i, 66 + 64 * i); }
-  // 18 位精度的整数 → 好读的数（dp 位小数，去掉末尾的 0）
-  function f(w, dp) {
-    dp = dp == null ? 4 : dp; var neg = w < 0n; if (neg) w = -w;
-    var base = 10n ** 18n, cut = 10n ** BigInt(18 - dp), r = (w + cut / 2n) / cut, i = r / (10n ** BigInt(dp)), d = (r % (10n ** BigInt(dp))).toString().padStart(dp, "0").replace(/0+$/, "");
-    return (neg ? "-" : "") + i.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (d ? "." + d : "");
-  }
-  function fd(w) { return f(w, w < 10n ** 18n ? 4 : 2); } // DAI：不到 1 的显示 4 位，免得小额手续费显示成 0
-  // 站长 2026-11-26「涡轮读取速度很慢，我要丝滑秒开」：
-  //   ① 读链攒成一批发（A.bcall：30 毫秒内的合成一次请求）。原来 14 条各发一次，浏览器对同一个网址一次只放 6 条，光排队就 1 秒多；
-  //   ② 上次读到的数据记在这台设备上，进页面先画出来，后台再读最新的（读到之前按钮先不让点，免得按旧数字发交易）；
-  //   ③ 进页面自动连钱包，不用再点「连接钱包」；可以换账号。
-  function read(to, data) { return A.bcall ? A.bcall(to, data) : K().read(to, data); }
-  function bal(token, who) { return read(token, "0x70a08231" + u(who)).then(BigInt); }
-  // 记住上次读到的数据（大数存成字符串）
-  function keep(st) { try { localStorage.setItem("tbn:S:" + account, JSON.stringify(st, function (k, v) { return typeof v === "bigint" ? "n:" + v.toString() : v; })); localStorage.setItem("tbn:last", account); } catch (e) {} }
-  function recall(a) {
-    try {
-      var st = JSON.parse(localStorage.getItem("tbn:S:" + a) || "null", function (k, v) { return typeof v === "string" && /^n:-?\d+$/.test(v) ? BigInt(v.slice(2)) : v; });
-      if (!st || typeof st.ail !== "bigint" || typeof st.dai !== "bigint" || !Array.isArray(st.locks) || typeof st.feeBps !== "number") return null;
-      return st;
-    } catch (e) { return null; }
-  }
-  var fresh = false; // 画面上的数据是不是刚从链上读的（false = 还是上次记下的，按钮先不让点）
-  function sa(a) { return a.slice(0, 6) + "…" + a.slice(-4); }
-  function left(sec) { if (sec <= 0) return T("已解锁"); var h = Math.floor(sec / 3600), m = Math.ceil((sec % 3600) / 60); if (m === 60) { h++; m = 0; } return (h ? h + " " + T("小时") + " " : "") + m + " " + T("分钟"); }
-
-  function load() {
-    var a = account;
-    return Promise.all([read(VAULT, SEL.pendingOf + u(a)), read(VAULT, SEL.usable + u(a)), read(TURBINE, SEL.claimed + u(a)), read(TURBINE, SEL.locksOf + u(a)),
-      bal(DAI, a), bal(AIL, a), read(TURBINE, SEL.feeBps), read(TURBINE, SEL.lockSeconds),
-      read(LEDGER, SEL.rateBps).catch(function () { return ""; }), read(LEDGER, SEL.open).catch(function () { return ""; }), read(LEDGER, SEL.minDai).catch(function () { return ""; }),
-      read(LEDGER, SEL.active + u(a)).catch(function () { return ""; }), read(LEDGER, SEL.pendingPow + u(a)).catch(function () { return ""; }), read(TURBINE, SEL.quote + u(10n ** 18n)).catch(function () { return ""; }),
-      read(AIRDROP, SEL.pendingOf + u(a)).catch(function () { return ""; }),
-      read(VAULT, DYN.root).catch(function () { return ""; }), read(VAULT, DYN.credited + u(a)).catch(function () { return ""; }), proofOf(a)]).then(function (r) {
-      var pending = big(r[0]), usable = big(r[1]), n = Number(big(word(r[3], 1))), ids = [];
-      for (var i = Math.max(0, n - LOCKS_MAX); i < n; i++) ids.push(big(word(r[3], 2 + i)));
-      var st = { stat: pending > usable ? pending - usable : 0n, dyn: usable, wait: big(r[2]), dai: r[4], ail: r[5], feeBps: Number(big(r[6])), lockSec: Number(big(r[7])), locks: [], quote: null,
-        rate: Number(big(r[8])), open: r[9] ? big(r[9]) > 0n : null, minDai: big(r[10]), pow: big(r[11]), powWait: big(r[12]), mkt: r[13] ? big(word(r[13], 0)) : 0n, lp: r[14] ? big(r[14]) : 0n }; // mkt = 涡轮按市价买 1 枚要多少 DAI
-      var jobs = ids.map(function (id) { return read(TURBINE, SEL.lockOf + u(id)).then(function (h) { return { id: id, amt: big(word(h, 1)), at: Number(big(word(h, 2))), done: big(word(h, 3)) > 0n }; }, function () { return null; }); });
-      var q = st.wait > 0n ? read(TURBINE, SEL.quote + u(st.wait)).then(function (h) { return { buy: big(word(h, 0)), fee: big(word(h, 1)), total: big(word(h, 2)) }; }, function () { return null; }) : Promise.resolve(null);
-      return Promise.all([Promise.all(jobs), q, dynOf(a, usable, r[15], r[16], r[17])]).then(function (x) { st.locks = x[0].filter(function (l) { return l && !l.done; }).reverse(); st.quote = x[1]; st.dynC = x[2]; return st; });
-    });
-  }
-  // DAI 不够付全部时：按比例算出够付的那一部分（再问一次报价确认）
-  function fit(st) {
-    if (!st.quote || st.wait <= 0n) return Promise.resolve(null);
-    var need = st.quote.total + st.quote.total * SLIP_BPS / 10000n;
-    var have = st.dai > GAS_KEEP ? st.dai - GAS_KEEP : 0n; // Anubis 链的 Gas 用的就是 DAI：留一点，别把钱包付空了后面几步发不出去
-    if (have >= need) return Promise.resolve({ amt: st.wait, q: st.quote, max: need, part: false });
-    var amt = st.wait * have / need * 99n / 100n; if (amt <= 0n) return Promise.resolve(null);
-    return read(TURBINE, SEL.quote + u(amt)).then(function (h) { var q = { buy: big(word(h, 0)), fee: big(word(h, 1)), total: big(word(h, 2)) }, max = q.total + q.total * SLIP_BPS / 10000n; return max <= have ? { amt: amt, q: q, max: max, part: true } : null; }, function () { return null; });
-  }
-
-  /* 版式（站长 2026-11-25「把这五步做精美一点」）：左边一条竖线串起五个圆点（像物流进度），右边是卡片。
-     轮到要做的那一步：圆点实心、卡片白底描紫边带一点阴影，标题旁有「现在可以做」；没事可做的：圆点空心、卡片淡一档。第四、五步带「可选」小标 */
-  function step(n, title, sub, body, done, opt) {
-    return '<div class="tbn-step' + (done ? " off" : " on") + '"><div class="tbn-dot">' + n + '</div><div class="tbn-card"><div class="tbn-h"><b data-nobrand>' + title + "</b>" +
-      (opt ? '<em class="tbn-opt">可选</em>' : "") + (done ? "" : '<em class="tbn-now">现在可以做</em>') + '</div><p class="tbn-sub">' + sub + "</p>" + body + "</div></div>";
-  }
-  function draw() {
-    var box = document.getElementById("tbn-box"); if (!box) return;
-    if (!account) { box.innerHTML = '<button type="button" class="nm-go tbn-go" id="tbn-conn">连接钱包</button><p class="muted nm-st" id="tbn-cst"></p>'; document.getElementById("tbn-conn").onclick = conn; return; }
-    var whoBar = '<div class="tbn-who"><span>' + T("当前钱包") + ' <b class="mono">' + sa(account) + '</b></span><button type="button" class="link" id="tbn-sw">' + T("换账号") + '</button></div><p class="muted tbn-sm" id="tbn-who-st"></p>';
-    var wire = function () { var sw = document.getElementById("tbn-sw"); if (sw) sw.onclick = switchAcct; };
-    if (!S) { box.innerHTML = whoBar + '<div class="tbn-sk"><i></i><i></i><i></i></div><p class="muted">' + T("正在读取你的排放和涡轮数据…") + "</p>"; wire(); return; }
-    var now = Math.floor(Date.now() / 1000), open = S.locks.filter(function (l) { return l.at <= now; }), shut = S.locks.filter(function (l) { return l.at > now; });
-    var openAmt = open.reduce(function (x, l) { return x + l.amt; }, 0n), F = S.fit, fee = (S.feeBps / 100) + "%", hrs = Math.round(S.lockSec / 3600);
-    var lp = typeof S.lp === "bigint" ? S.lp : 0n, s1 = "";
-    if (lp > 0n) s1 += '<p>现在可以领 <b class="tbn-n">' + f(lp, 6) + '</b> AiLGNS 的 LP 空投。</p><button type="button" class="nm-go tbn-go" data-act="claimlp">领取 LP 空投到涡轮</button>';
-    if (S.stat > 0n) s1 += '<p>现在可以领 <b class="tbn-n">' + f(S.stat, 6) + '</b> AiLGNS 的个人排放。</p><button type="button" class="nm-go tbn-go" data-act="claim">领取排放</button>';
-    var dc = S.dynC && typeof S.dynC.amt === "bigint" ? S.dynC : { amt: typeof S.dyn === "bigint" ? S.dyn : 0n, cum: "", proof: null };
-    if (dc.amt > 0n) s1 += '<p>现在可以领 <b class="tbn-n">' + f(dc.amt, 6) + '</b> AiLGNS 的社区动态排放。</p><button type="button" class="nm-go tbn-go" data-act="claimdyn">领取社区动态排放</button>' +
-      (typeof dc.full === "bigint" && dc.full > dc.amt ? '<p class="muted tbn-sm">你累计的动态排放比这个数多，多出来的部分受官方 NFT 额度限制，暂时领不了，以官方页面为准。</p>' : "");
-    if (lp <= 0n && S.stat <= 0n && dc.amt <= 0n) s1 = '<p class="muted">现在没有可领的 LP 空投、个人排放和社区动态排放。' + (S.wait > 0n ? "之前领的还在第二步等着激活。" : "") + '</p>' +
-      '<p class="muted tbn-sm">LP 空投由官方每天记一次账（一般在北京时间凌晨）。官方页面上显示的「奖励」要等记完账才变成可领取；今天已经领过的，要等明天。</p>';
-    var s2;
-    if (S.wait <= 0n) s2 = '<p class="muted">没有等着激活的排放。先做第一步。</p>';
-    else if (!S.quote) s2 = '<p>有 <b class="tbn-n">' + f(S.wait, 6) + '</b> AiLGNS 等着激活，但这会儿没读到官方报价。</p><button type="button" class="ghost tbn-go" data-act="reload">重新读取</button>';
-    else if (!F) s2 = '<p>有 <b class="tbn-n">' + f(S.wait, 6) + "</b> AiLGNS 等着激活，全部激活要付约 <b>" + f(S.quote.total, 2) + " DAI</b>。</p><p class=\"tbn-warn\">你钱包里只有 " + f(S.dai, 2) + ' DAI，不够。先准备好 DAI 再回来点「重新读取」。</p><button type="button" class="ghost tbn-go" data-act="reload">重新读取</button>';
-    else s2 = "<p>" + (F.part ? "有 " + f(S.wait, 6) + " AiLGNS 等着激活，你的 DAI 只够先激活 " : "激活 ") + '<b class="tbn-n">' + f(F.amt, 6) + "</b> AiLGNS：</p>" +
-      '<div class="tbn-kv"><div><span>要付</span><b>' + fd(F.q.total) + " DAI</b></div><div><span>其中官方手续费（" + fee + "）</span><b>" + fd(F.q.fee) + " DAI</b></div>" +
-      "<div><span>付完马上到钱包</span><b>" + f(F.amt, 6) + " AiLGNS</b></div><div><span>" + hrs + " 小时后再到手</span><b>" + f(F.amt, 6) + " AiLGNS</b></div><div><span>你的 DAI 余额</span><b>" + f(S.dai, 2) + " DAI</b></div></div>" +
-      '<p class="muted tbn-sm">官方规则：付的 DAI 用来在市场上买同样数量的 AiLGNS，买到的马上给你；排放的那一份锁 ' + hrs + " 小时。市价会动，实际付的可能比上面多一点，最多多 1%，超过就不成交。</p>" +
-      '<button type="button" class="nm-go tbn-go" data-act="activate">授权并激活涡轮</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次要付的 DAI，再激活。</p>';
-    var s3 = "";
-    if (open.length) s3 += '<p>已经解锁 <b class="tbn-n">' + f(openAmt, 6) + "</b> AiLGNS（" + open.length + ' 笔），可以领了。</p><button type="button" class="nm-go tbn-go" data-act="unlock">领取已解锁的</button>';
-    if (shut.length) s3 += '<div class="tbn-locks">' + shut.map(function (l) { var pct = S.lockSec > 0 ? Math.max(3, Math.min(100, Math.round((S.lockSec - (l.at - now)) / S.lockSec * 100))) : 0; return '<div class="tbn-lock"><div class="tbn-lockr"><span>' + f(l.amt, 6) + ' AiLGNS</span><b class="tbn-left" data-at="' + l.at + '">' + T("还要") + " " + left(l.at - now) + '</b></div><div class="tbn-bar"><i style="width:' + pct + '%"></i></div></div>'; }).join("") + "</div>";
-    if (!s3) s3 = '<p class="muted">没有锁着的。第二步激活后，' + hrs + " 小时回来这里领。</p>";
-    if (!sellStr) { var ls = mem("sell"); try { if (ls && BigInt(ls) > 0n && BigInt(ls) <= S.ail) sellStr = plain(BigInt(ls), 6); } catch (e) {} }
-    if (!daiStr) { var ld = mem("dai"); try { if (ld && BigInt(ld) > 0n && BigInt(ld) <= S.dai) daiStr = plain(BigInt(ld), 2); } catch (e) {} }
-    var s4 = '<p>钱包里有 <b class="tbn-n">' + f(S.ail, 6) + "</b> AiLGNS。想卖多少，填在下面：</p>" +
-      '<div class="tbn-in"><input id="tbn-sell" inputmode="decimal" autocomplete="off" placeholder="卖多少 AiLGNS" value="' + esc(sellStr) + '"><button type="button" class="ghost" data-act="sellall">全部</button></div>';
-    if (sellQ) s4 += '<div class="tbn-kv"><div><span>卖出</span><b>' + f(sellQ.tok, 6) + " AiLGNS</b></div><div><span>到手（已扣 1% 手续费）</span><b>" + fd(sellQ.dai) + " DAI</b></div><div><span>合每枚</span><b>" + f(sellQ.avg, 2) + " DAI</b></div>" +
-      (S.mkt > 0n ? "<div><span>涡轮的市场买入价</span><b>" + f(S.mkt, 2) + " DAI</b></div>" : "") + "</div>" +
-      (sellQ.short ? '<p class="tbn-warn">现在的买单只够接 ' + f(sellQ.tok, 6) + " AiLGNS，剩下的这次卖不掉。</p>" : "") +
-      (sellQ.low ? '<p class="tbn-warn">现在买单的出价太低（比涡轮的市场买入价低 10% 以上），这个价先不卖。可以过一会儿再来，或者到 OTC 自己挂卖单。</p><a class="ghost tbn-otc" href="#/otc">去 OTC 挂卖单 →</a>'
-        : '<button type="button" class="nm-go tbn-go" data-act="sellgo">确认卖出</button><p class="muted tbn-sm">吃的是 OTC 里现成的买单（' + sellQ.n + " 张），一笔交易成交。第一次用会先让你授权一次。</p>");
-    else s4 += '<button type="button" class="nm-go tbn-go" data-act="sellq">算一下能卖多少 DAI</button>';
-    var rateX = S.rate ? (S.rate / 10000) : 0, s5;
-    if (S.open === false) s5 = '<p class="tbn-warn">官方现在暂停了 DAI 参与算力，等开放后再来。</p>';
-    else s5 = '<p>钱包里有 <b class="tbn-n">' + f(S.dai, 2) + "</b> DAI。想投多少进官方算力，填在下面：</p>" +
-      '<div class="tbn-in"><input id="tbn-dai" inputmode="decimal" autocomplete="off" placeholder="投多少 DAI" value="' + esc(daiStr) + '"><button type="button" class="ghost" data-act="daiall">全部</button></div>' +
-      (rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的 DAI 不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "") +
-      '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
-    s5 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p>";
-    box.innerHTML = whoBar + (fresh ? "" : '<p class="tbn-upd">' + T("先显示上次的数据，正在读最新的…") + "</p>") + '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
-      '<div class="tbn-steps">' + step(1, "领排放", "把 LP 空投、个人排放、社区动态排放领进涡轮", s1, S.stat <= 0n && lp <= 0n && dc.amt <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
-      step(4, "卖成 DAI", "在本站 OTC 卖给现成的买单", s4, S.ail <= 0n, 1) + step(5, "复投算力", "把 DAI 投进官方算力", s5, S.dai <= 0n || S.open === false, 1) + "</div>" +
-      '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
-    var i4 = document.getElementById("tbn-sell"), i5 = document.getElementById("tbn-dai");
-    if (i4) i4.oninput = function () { sellStr = i4.value; if (sellQ) { sellQ = null; draw(); var n4 = document.getElementById("tbn-sell"); if (n4) { n4.focus(); try { n4.setSelectionRange(n4.value.length, n4.value.length); } catch (e) {} } } };
-    if (i5) i5.oninput = function () { daiStr = i5.value; };
-    Array.prototype.forEach.call(box.querySelectorAll("[data-act]"), function (b) { b.onclick = function () { act(b.getAttribute("data-act"), b); }; if (!fresh) b.disabled = true; });
-    wire();
-  }
-  function say(t, bad) { var e = document.getElementById("tbn-st"); if (e) { e.textContent = t || ""; e.className = (bad ? "nm-bad" : "muted") + " nm-st"; } }
-  function refresh() {
-    var who = account;
-    return load().then(function (st) { return fit(st).then(function (F) {
-      if (who !== account) return; // 读的过程中换了账号：这份不要了
-      st.fit = F; S = st; fresh = true; keep(st); if (A.isCurrent(pageId)) draw();
-    }); });
-  }
-  // 换账号：让钱包弹出选账号的窗口；有的钱包 App 不支持，就提示去钱包里切，页面会自动跟着换
-  function switchAcct() {
-    var tip = function (t) { var e = document.getElementById("tbn-who-st"); if (e) e.textContent = t; };
-    var eth = A.wallets && A.wallets.current && A.wallets.current();
-    if (!eth) return conn();
-    Promise.resolve().then(function () { return A.wallets.ask(eth, { method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] }); })
-      .then(function () { return A.wallets.ask(eth, { method: "eth_requestAccounts" }); })
-      .then(function (a) { if (a && a[0]) setAcct(String(a[0]).toLowerCase()); },
-        function () { tip("这个钱包不能在网页里换账号：请到钱包 App 里切换账号，这一页会自动跟着换。"); });
-  }
-  function setAcct(a) {
-    if (a === account) return;
-    account = a || null; busy = false; sellStr = ""; daiStr = ""; sellQ = null; fresh = false;
-    S = account ? recall(account) : null;
-    if (!A.isCurrent(pageId)) return;
-    draw(); if (account) refresh().catch(function () {});
-  }
-  function conn() {
-    var st = document.getElementById("tbn-cst");
-    try { K().useMarket("ailgns"); } catch (e) {}
-    K().connect().then(function (a) { account = String(a || K().account() || "").toLowerCase() || null; fresh = false; S = account ? recall(account) : null; draw(); if (account) return refresh(); }, function (e) { if (st) { st.textContent = K().niceError(e); st.className = "nm-bad nm-st"; } });
-  }
-  function act(kind, btn) {
-    if (kind === "reload") { S = null; fresh = false; draw(); refresh().catch(function () { S = null; say("没读出来，再点一次「刷新数据」。", true); }); return; }
-    if (kind === "sellall") { sellStr = plain(S.ail, 6); if (BigInt(K().toWei(sellStr, 18)) > S.ail) sellStr = plain(S.ail - 10n ** 12n, 6); sellQ = null; draw(); return; }
-    if (kind === "daiall") { daiStr = plain(S.dai - (S.dai > 2n * 10n ** 18n ? 2n * 10n ** 18n : 0n), 2); if (BigInt(K().toWei(daiStr, 18)) > S.dai) daiStr = "0"; draw(); say(S.dai > 2n * 10n ** 18n ? "留了 2 DAI 当手续费（Anubis 链的 Gas 用的就是 DAI）。" : ""); return; }
-    if (kind === "sellq") {
-      if (busy || !S) return; var want; try { want = BigInt(K().toWei(sellStr, 18)); } catch (e) { want = 0n; }
-      if (want <= 0n) { say("先填要卖多少 AiLGNS。", true); return; }
-      if (want > S.ail) { say("钱包里没有这么多 AiLGNS。", true); return; }
-      busy = true; say("正在读 OTC 的买单…");
-      K().sellQuote(want).then(function (q) {
-        busy = false; try { K().useMarket("ailgns"); } catch (e) {}
-        if (!q || !q.n || q.tok <= 0n) { say("OTC 现在没有能接的买单。可以到 OTC 自己挂卖单。", true); return; }
-        var avg = q.dai * (10n ** 18n) / q.tok;
-        sellQ = { p: q.p, dai: q.dai, tok: q.tok, n: q.n, avg: avg, short: q.tok < want * 99n / 100n, low: S.mkt > 0n && avg * 100n < S.mkt * LOW_SELL };
-        draw(); say("");
-      }, function () { busy = false; say("没读到 OTC 的买单，再点一次。", true); });
-      return;
-    }
-    if (busy || !S) return; busy = true;
-    Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"), function (b) { b.disabled = true; });
-    var done = function (msg) { busy = false; return refresh().then(function () { say(msg); }, function () { say(msg); }); };
-    var fail = function (e) { busy = false; Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"), function (b) { b.disabled = false; }); say("没成功：" + K().niceError(e), true); };
-    try { K().useMarket("ailgns"); } catch (e) {}
-    say("正在连接钱包…");
-    K().ready().then(function () {
-      if (String(K().account() || "").toLowerCase() !== account) throw new Error("钱包换了账户，请刷新页面再来");
-      if (kind === "claimdyn") {
-        var d = S.dynC && typeof S.dynC.amt === "bigint" ? S.dynC : { amt: S.dyn, cum: "", proof: null };
-        if (!(d.amt > 0n)) throw new Error("现在没有可领的社区动态排放");
-        return K().send(VAULT, d.proof ? dynData(BigInt(d.cum), d.proof, d.amt) : DYN.plain + u(d.amt), say, "领取社区动态排放").then(function () { return done("✅ 社区动态排放领好了，接着做第二步。"); });
-      }
-      if (kind === "claimlp") return K().send(AIRDROP, CLAIM_LP, say, "领取 LP 空投到涡轮").then(function () { return done("✅ LP 空投领好了，接着做第二步。"); });
-      if (kind === "claim") return K().send(VAULT, SEL.claimStatic + u(S.stat), say, "领取排放").then(function () { return done("✅ 排放领好了，接着做第二步。"); });
-      if (kind === "unlock") {
-        var now = Math.floor(Date.now() / 1000), ids = S.locks.filter(function (l) { return l.at <= now; }).map(function (l) { return l.id; });
-        if (!ids.length) throw new Error("还没有解锁的");
-        return K().send(TURBINE, SEL.claimUnlocked + u(32) + u(ids.length) + ids.map(u).join(""), say, "领取已解锁的 AiLGNS").then(function () { return done("✅ 已经领到钱包了。"); });
-      }
-      if (kind === "sellgo") {
-        if (!sellQ || sellQ.low) throw new Error("先点「算一下能卖多少 DAI」");
-        var plan = sellQ.p;
-        return K().sellFire(plan, say).then(function (r) {
-          sellQ = null; sellStr = ""; mem("sell", "0"); mem("dai", r.got.toString()); daiStr = plain(r.got, 2); if (BigInt(K().toWei(daiStr, 18)) > r.got) daiStr = plain(r.got - 10n ** 16n, 2);
-          return done("✅ 卖掉 " + f(r.paid, 6) + " AiLGNS，到手 " + fd(r.got) + " DAI。想复投就接着做第五步。");
-        });
-      }
-      if (kind === "invest") {
-        var amt; try { amt = BigInt(K().toWei(daiStr, 18)); } catch (e) { amt = 0n; }
-        if (amt <= 0n) throw new Error("先填要投多少 DAI");
-        if (amt > S.dai) throw new Error("钱包里没有这么多 DAI");
-        if (S.minDai > 0n && amt < S.minDai) throw new Error("官方要求每次最少 " + f(S.minDai, 2) + " DAI");
-        return K().allowance(DAI, account, LEDGER).then(function (al) {
-          if (al >= amt) return;
-          return K().send(DAI, SEL.approve + u(LEDGER) + u(amt), say, "授权这一次要投的 DAI（" + fd(amt) + " DAI）");
-        }).then(function () { return K().send(LEDGER, SEL.participate + u(amt), say, "DAI 投入算力"); })
-          .then(function () { daiStr = ""; mem("dai", "0"); return done("✅ " + fd(amt) + " DAI 已投入算力。"); });
-      }
-      if (kind === "activate") {
-        // 点的那一刻重新要一次报价（市价会动），按最新的算最多付多少
-        return load().then(function (st) { return fit(st).then(function (F) {
-          if (!F) throw new Error("DAI 不够，或者没读到官方报价");
-          return K().allowance(DAI, account, TURBINE).then(function (al) {
-            if (al >= F.max) return;
-            return K().send(DAI, SEL.approve + u(TURBINE) + u(F.max), say, "授权这一次要付的 DAI（" + fd(F.max) + " DAI）");
-          }).then(function () {
-            var dl = Math.floor(Date.now() / 1000) + DEADLINE;
-            return K().send(TURBINE, SEL.activate + u(F.amt) + u(F.max) + u(dl), say, "激活涡轮");
-          }).then(function () { mem("sell", F.amt.toString()); sellStr = ""; sellQ = null; return done("✅ 激活好了：买到的 AiLGNS 已经进钱包（想卖成 DAI 看第四步），另一份到时间后回来做第三步。"); });
-        }); });
-      }
-    }).catch(fail);
-  }
-
-  A.pages.turbine = function (id) {
-    pageId = id; clearInterval(tick); S = null; busy = false; sellStr = ""; daiStr = ""; sellQ = null; fresh = false;
-    try { K().useMarket("ailgns"); } catch (e) {}
-    account = String((K() && K().account && K().account()) || "").toLowerCase() || null;
-    var known = !!account, guess = "";
-    if (!account) { try { guess = localStorage.getItem("tbn:last") || ""; } catch (e) {} if (/^0x[0-9a-f]{40}$/.test(guess)) account = guess; } // 钱包还没回话：先按上次的账号画
-    if (account) S = recall(account);
-    if (!hooked) { hooked = true; try { A.wallets.onAccounts(function (a) { if (location.hash.indexOf("#/turbine") === 0) setAcct(a && a[0] ? String(a[0]).toLowerCase() : null); }); } catch (e) {} }
-    A.app.innerHTML = '<section class="card tbn"><h2>🌀 涡轮助手 <small class="tbn-tag">试运行</small></h2>' +
-      '<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四、五步是可选的：把币在本站 OTC 卖成 DAI，再投回官方算力。</p>' +
-      '<div id="tbn-box"></div>' +
-      '<div class="tbn-note"><b>要知道的</b><ul><li>第一、二、三、五步调用的是官方合约，本站不经手、不收费。第四步是在本站 OTC 成交，和平时吃单一样收 1% 手续费。</li>' +
-      "<li>手续费、锁定时间是官方定的，以官方页面为准；官方改规则时，这一页可能要等技术人员跟着更新。</li>" +
-      "<li>本页只是把操作变简单，不是投资建议。要不要激活、要不要卖，请自己判断。</li></ul></div></section>";
-    draw();
-    var failed = function () { if (S) return; var b = document.getElementById("tbn-box"); if (b && A.isCurrent(id)) b.innerHTML = '<p class="nm-bad">没读出来。</p><button type="button" class="ghost tbn-go" id="tbn-again">再读一次</button>'; var g = document.getElementById("tbn-again"); if (g) g.onclick = function () { S = null; draw(); refresh().catch(function () {}); }; };
-    if (account) refresh().catch(failed); // 数据是公开的链上数据，不用等钱包回话就能先读
-    if (!known) Promise.resolve().then(function () { return K().silentAccount(); }).then(function () {
-      if (!A.isCurrent(id)) return;
-      var real = String(K().account() || "").toLowerCase() || null;
-      if (real) { if (real !== account) setAcct(real); return; }
-      // 钱包没授权过本站：页面里有钱包（钱包 App 的浏览器 / 装了插件）就自动发起连接，不用客户再点一下；连不上就留着「连接钱包」按钮
-      if (guess) { account = null; S = null; draw(); }
-      if (window.ethereum) K().connect().then(function (a) { if (A.isCurrent(id)) setAcct(String(a || K().account() || "").toLowerCase() || null); }, function () {});
-    }, function () {});
-    tick = setInterval(function () { // 倒计时每分钟走一下；到点了重画，让「领取」按钮出来
-      if (!A.isCurrent(id)) { clearInterval(tick); return; }
-      if (!S || busy) return; var now = Math.floor(Date.now() / 1000), due = false;
-      Array.prototype.forEach.call(document.querySelectorAll(".tbn-left"), function (e) { var at = Number(e.getAttribute("data-at")); if (at <= now) due = true; else e.textContent = T("还要") + " " + left(at - now); });
-      if (due) draw();
-    }, 30000);
-  };
-})();
-
-}catch(e){console.error('[bundle] turbine.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h51aec39a92";
-/*v:h51aec39a92*/
+try{(function(){"use strict";var A=window.AIL;var MK={ailgns:"AiLGNS",lgns:"LGNS · Anubis",plgns:"LGNS · Polygon",glgns:"gLGNS",lp:"LP",rm:"RM",flgns:"fLGNS",nft:"AWAKE NFT"};var TX={plgns:"https://polygonscan.com/tx/"};function row(t,addr){var mine=t.taker===addr,side=mine?(t.makerSide==="卖"?"买入":"卖出"):(t.makerSide==="卖"?"卖出":"买入");var other=mine?t.maker:t.taker,tx=(TX[t.m]||"#/scan/tx/")+t.tx;return'<tr><td data-l="时间" class="l">'+A.timeBJ(t.t*1000)+'</td><td data-l="市场" class="l">'+(MK[t.m]||t.m)+'</td><td data-l="方向" class="'+(side==="买入"?"up":"down")+'">'+side+"</td>"+'<td data-l="数量">'+(t.nft?"#"+t.tokenId:A.fmt(t.qty,4)+" "+t.sym)+'</td><td data-l="单价 DAI">'+(t.nft?"—":A.fmt(t.price,t.m==="lgns"||t.m==="plgns"?4:2))+'</td><td data-l="金额 DAI"><b>'+A.fmt(t.dai,2)+"</b></td>"+'<td data-l="对手方" class="l mono">'+A.short(other)+'</td><td data-l="角色" class="l">'+(mine?"吃单":"挂单")+'</td><td data-l="交易"><a target="_blank" rel="noopener" href="'+tx+'">查看 ↗</a></td></tr>';}
+var OPEN_MKTS=[["ailgns","AiLGNS",18,7],["lgns","LGNS · Anubis",9,7],["plgns","LGNS · Polygon",9,7],["glgns","gLGNS",18,7],["lp","LP",18,7],["rm","RM",9,7],["flgns","fLGNS",18,7],["nft","AWAKE NFT",0,6]];function openOrders(addr){var now=Date.now()/1000;return Promise.all(OPEN_MKTS.map(function(m){return fetch("/api/book?m="+m[0]).then(function(r){return r.json();}).then(function(j){if(!j||!j.orders||j.orders==="0x")return[];var h=j.orders.slice(2),w=h.match(/.{64}/g)||[],n=parseInt(w[1],16),W=m[3],out=[];for(var i=0;i<n;i++){var o=w.slice(2+i*W,2+(i+1)*W);if(!o[0].endsWith(addr.slice(2))||BigInt("0x"+o[2])!==1n||Number(BigInt("0x"+o[3]))<=now)continue;var sell=BigInt("0x"+o[1])===1n;if(W===6)out.push({mk:m[1],side:sell?"卖出":"求购",what:sell?"卡 #"+BigInt("0x"+o[4]):"任意一张",dai:Number(BigInt("0x"+o[5]))/1e18,id:j.from+i});else{var giveTotal=Number(BigInt("0x"+o[4])),wantTotal=Number(BigInt("0x"+o[5])),left=Number(BigInt("0x"+o[6])),gd=sell?m[2]:18;var daiLeft=sell?left*wantTotal/giveTotal/1e18:left/1e18;out.push({mk:m[1],side:sell?"卖出":"买入",what:sell?(left/Math.pow(10,gd)).toFixed(m[2]===9?2:4)+" "+m[1].split(" ")[0]:(left*wantTotal/giveTotal/Math.pow(10,m[2])).toFixed(m[2]===9?2:4)+" "+m[1].split(" ")[0],dai:daiLeft,id:j.from+i});}}
+return out;}).catch(function(){return[];});})).then(function(lists){return[].concat.apply([],lists);});}
+function render(id,a){var app=A.app;app.innerHTML='<h1>成交查询</h1><p class="sub sub-x">输入任意钱包地址，查它在本站 OTC（四个市场）和卡牌交易的成交记录：挂单被吃、自己吃单都算，带交易链接可核对。</p>'+'<section class="card"><div class="addr-box"><input id="tr-addr" class="mono" placeholder="粘贴钱包地址 0x…" autocomplete="off" spellcheck="false" value="'+(a||"")+'"><button id="tr-go">查询</button></div><p class="note" style="margin:8px 0 0">成交后几分钟内记录会出现在这里；累计成交和会员赠送以「会员中心」的查询为准。</p></section><div id="tr-out"></div>';var inp=document.getElementById("tr-addr"),out=document.getElementById("tr-out");function go(){var addr=(inp.value||"").trim().toLowerCase();if(!A.isAddr(addr)){out.innerHTML='<p class="note down">地址格式不对</p>';return;}
+if(location.hash!=="#/trades/"+addr){history.replaceState(null,"","#/trades/"+addr);}
+out.innerHTML='<div class="loading">正在读取成交记录…</div>';A.track&&A.track("q_trades");Promise.all([fetch("/api/trades?addr="+addr).then(function(r){return r.json();}),openOrders(addr)]).then(function(res){if(!A.isCurrent(id))return;var d=res[0],opens=res[1],list=d.trades||[];var openHtml=opens.length?'<section class="card"><div class="card-head"><h2>挂单中 <small class="muted">'+opens.length+' 张 · 还没成交</small></h2></div><div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">市场</th><th>方向</th><th>剩余</th><th>剩余金额 DAI</th><th>单号</th></tr></thead><tbody>'+
+opens.map(function(o){return'<tr><td data-l="市场" class="l">'+o.mk+'</td><td data-l="方向" class="'+(o.side==="买入"||o.side==="求购"?"up":"down")+'">'+o.side+'</td><td data-l="剩余">'+o.what+'</td><td data-l="剩余金额 DAI">'+A.fmt(o.dai,2)+'</td><td data-l="单号">#'+o.id+"</td></tr>";}).join("")+'</tbody></table></div><p class="note">挂单成交后才会出现在下面的成交记录里。</p></section>':"";if(!list.length){out.innerHTML=openHtml+'<section class="card"><div class="empty">这个地址在本站还没有成交记录'+(opens.length?"（有 "+opens.length+" 张挂单还没人吃）":"")+'</div></section>';return;}
+out.innerHTML=openHtml;var total=list.reduce(function(s,t){return s+(t.dai||0);},0);out.innerHTML+='<section class="card"><div class="card-head"><h2>成交记录 <small class="muted">'+list.length+' 笔 · 合计 '+A.fmt(total,2)+' DAI</small></h2><span class="muted mono">'+A.short(addr)+'</span></div>'+'<div class="tbl-wrap"><table class="cards"><thead><tr><th class="l">时间（北京）</th><th class="l">市场</th><th>方向</th><th>数量</th><th>单价 DAI</th><th>金额 DAI</th><th class="l">对手方</th><th class="l">角色</th><th>交易</th></tr></thead><tbody>'+
+list.map(function(t){return row(t,addr);}).join("")+"</tbody></table></div>"+(list.length>=300?'<p class="note">只显示最近 300 笔。</p>':"")+"</section>";}).catch(function(){if(A.isCurrent(id))out.innerHTML='<p class="note down">读取失败，请稍后再试</p>';});}
+document.getElementById("tr-go").onclick=go;inp.addEventListener("keydown",function(e){if(e.key==="Enter")go();});if(a&&A.isAddr(a))go();}
+A.pages.trades=function(id,a){location.replace("#/scan"+(a?"/"+a:""));};})();}catch(e){console.error('[bundle] trades.js',e);};try{(function(){"use strict";var A=window.AIL,W=A.wallet;var ARB="0x06cc2a46d7ad17496c2de9c61362808e06b44437",DAI="0x83fd06f0846d9d90b3016bf670efe2e0b11cde14",AIL="0x256edb652db43e721ec6a12b6b51b6967d3bb8cb",PAIR="0x0a1cce65d995c6c5100e6f5ba3c388ef34cecaf0";var RAW="https://raw.githubusercontent.com/yaoyederener/monita/main/data/arb.json";function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function bal(t){return W.rpcOn("anubis","eth_call",[{to:t,data:"0x70a08231"+ARB.slice(2).padStart(64,"0")},"latest"]).then(function(r){return Number(BigInt(r)/10n**12n)/1e6;});}
+function bj(ts){var d=new Date(ts*1000+8*3600e3);return(d.getUTCMonth()+1)+"/"+String(d.getUTCDate()).padStart(2,"0")+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}
+function page(id){A.app.innerHTML='<section class="card"><h2>⚡ EVM 套利做市商 <small class="muted">内部测试 · 未开放</small></h2>'+'<p class="muted">AiLGNS 在本站 OTC 和官方 DEX 之间的差价套利：OTC 有人贱卖 → 吃掉再去 DEX 卖；OTC 有人高价求购 → DEX 买来卖给他。两条腿几秒内完成，不持仓，只赚差价。keeper 每 5 分钟检查一次，单笔 ≤ 300 DAI，净利 ≥ 0.05 DAI 且 ≥ 0.3% 才出手。</p>'+'<p>套利钱包 <a href="#/scan/'+ARB+'" class="mono">'+ARB+'</a></p><div class="sc-bal" id="arb-bal"><p class="muted">读取中…</p></div></section>'+'<section class="card"><div class="card-head"><h2>📈 战绩</h2><span class="muted" id="arb-eff"></span></div><div id="arb-sum">读取中…</div></section>'+'<section class="card"><h2>🧾 成交记录</h2><div class="lg-list" id="arb-log">读取中…</div></section>'+'<section class="card"><h2>📐 手续费账（为什么能稳赚）</h2><table class="arb-t"><tr><th>场所</th><th>挂单（maker）</th><th>吃单（taker）</th></tr>'+'<tr><td>本站 OTC</td><td><b>0</b></td><td>1%（从收到的币里扣）</td></tr><tr><td>币安现货</td><td>0.1%（VIP 更低）</td><td>0.1%</td></tr><tr><td>官方 DEX</td><td>—</td><td>买约 0.5% · 卖约 3.3%</td></tr></table>'+'<ul class="muted arb-ul"><li>路径 A 触发条件：OTC 卖单价 &lt; DEX 现价 × 0.965 × 0.99 ≈ 现价的 95.5%；路径 B：OTC 买单价 &gt; DEX 现价 ÷ 0.99 ÷ 0.995 ≈ 现价的 101.5%。</li>'+'<li>Anubis 链一笔 Gas 约 0.0015 DAI，一次套利 2–3 笔，所以理论最低利润只要 &gt; 0.005 DAI 就是正的；为了留余量设成 0.05 DAI。</li>'+'<li>唯一风险是两腿之间几秒的价格变动，用「DEX 成交量下限 + 单笔小额」兜住；DEX 那腿失败就回滚，币留在套利钱包等下次。</li>'+'<li>同一盘口里买单 ≥ 卖单的交叉机会由撮合合约另外处理（利润进回购池）。</li></ul></section>';Promise.all([bal(DAI),bal(AIL)]).then(function(b){var el=document.getElementById("arb-bal");if(!el||!A.isCurrent(id))return;el.innerHTML="<div><span>DAI</span><b>"+b[0].toLocaleString("en-US",{maximumFractionDigits:2})+"</b></div><div><span>AiLGNS</span><b>"+b[1].toLocaleString("en-US",{maximumFractionDigits:4})+"</b></div>"+(b[0]<2?'<p class="muted">本金不足：往套利钱包转 DAI 后 keeper 才会开始工作（建议 1,000–3,000 DAI，Gas 也是 DAI）</p>':"");});fetch(RAW+"?r="+Date.now()).then(function(r){return r.json();}).then(function(st){if(!A.isCurrent(id))return;var tr=st.trades||[],day=Date.now()/1000-86400,td=tr.filter(function(x){return x.t>=day;});document.getElementById("arb-eff").textContent="DEX 实测折损：卖出 "+((1-st.sell_eff)*100).toFixed(2)+"% · 买入 "+((1-st.buy_eff)*100).toFixed(2)+"%";document.getElementById("arb-sum").innerHTML='<div class="sc-bal"><div><span>累计净利</span><b>'+(st.pnl||0).toFixed(4)+" DAI</b></div><div><span>累计笔数</span><b>"+tr.length+"</b></div><div><span>24 小时</span><b>"+td.reduce(function(s,x){return s+x.profit;},0).toFixed(4)+" DAI / "+td.length+" 笔</b></div></div>";document.getElementById("arb-log").innerHTML=tr.length?tr.slice().reverse().slice(0,50).map(function(x){return'<div class="lg-row"><span class="lg-ico">'+(x.path==="A"?"🅰️":"🅱️")+'</span><div class="lg-main"><div class="lg-txt">'+(x.path==="A"?"OTC 买入 → DEX 卖出":"DEX 买入 → OTC 卖出")+"，动用 "+x.size+" DAI，净赚 <b>"+x.profit.toFixed(4)+" DAI</b>（DEX "+x.dex+"）</div><small>"+bj(x.t)+" · 单 #"+x.id+"</small></div>"+(x.tx&&x.tx[0]?'<a class="lg-link" href="#/scan/'+x.tx[0]+'">详情 ›</a>':"")+"</div>";}).join(""):'<p class="muted">还没有成交。keeper 每 5 分钟扫一次，有机会就自动出手。</p>';}).catch(function(){var s=document.getElementById("arb-sum");if(s)s.innerHTML='<p class="muted">记账文件还没生成（keeper 第一次成交后出现）</p>';var l=document.getElementById("arb-log");if(l)l.innerHTML="";});}
+A.pages.arb=page;})();}catch(e){console.error('[bundle] arb.js',e);};try{(function(){"use strict";var A=window.AIL;function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function key(){try{return localStorage.getItem("fbKey")||"";}catch(e){return"";}}
+var NAV='<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb">📣 发站内信</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb on">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';function login(id,msg){A.app.innerHTML='<section class="card ptn-login"><h2>🆕 更新日志（内部）</h2><p class="muted">这一页只有内部能看。输入工单后台的口令（同一个）。</p>'+(msg?'<p class="nm-bad">'+esc(msg)+"</p>":"")+'<input id="up-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="up-go">进入</button></section>';var go=document.getElementById("up-go"),inp=document.getElementById("up-k");go.onclick=function(){var v=inp.value.trim();if(!v)return;try{localStorage.setItem("fbKey",v);}catch(e){}page(id);};inp.onkeydown=function(e){if(e.key==="Enter")go.click();};}
+function page(id){var k=key();if(!k)return login(id);A.app.innerHTML='<section class="card"><h2>🆕 更新日志（内部）</h2>'+NAV+'<p class="muted">网站每次上线的新功能和规则变化，新的在前。只有内部能看，客户看不到这一页。</p><div id="up-list" class="lg-list">读取中…</div></section>';fetch("/api/updates",{headers:{"x-key":k}}).then(function(r){return r.json();}).then(function(d){if(!A.isCurrent(id))return;if(d.error){try{localStorage.removeItem("fbKey");}catch(e){}return login(id,"口令失效或不对，请重新输入");}
+var el=document.getElementById("up-list"),list=d.list||[];el.innerHTML=list.length?list.map(function(u){var m=u.t.match(/^(\S+)\s/);return'<div class="lg-row"><span class="lg-ico">'+(m?m[1]:"✨")+'</span><div class="lg-main"><div class="lg-txt">'+esc(m?u.t.slice(m[0].length):u.t)+'</div><small>'+esc(u.d)+"</small></div></div>";}).join(""):'<p class="muted">暂无</p>';}).catch(function(){var el=document.getElementById("up-list");if(el)el.textContent="读取失败";});}
+A.pages.updates=page;})();}catch(e){console.error('[bundle] updates.js',e);};try{(function(){"use strict";var A=window.AIL;var MK={ailgns:{sym:"AiLGNS",dec:18,chain:"Anubis"},lgns:{sym:"LGNS",dec:9,chain:"Anubis"},glgns:{sym:"gLGNS",dec:18,chain:"Anubis"},lp:{sym:"LP",dec:18,chain:"Anubis"},rm:{sym:"RM",dec:9,chain:"Anubis"},flgns:{sym:"fLGNS",dec:18,chain:"Anubis"},plgns:{sym:"LGNS",dec:9,chain:"Polygon"}};function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+var big=function(x,dec){var b=BigInt(x);return dec>=6?Number(b/BigInt(10)**BigInt(dec-6))/1e6:Number(b)/Math.pow(10,dec);};var fmt=function(v,d){return Number(v||0).toLocaleString("en-US",{maximumFractionDigits:d===undefined?2:d});};var leftT=function(sec){if(sec<=0)return"已到期";var d=Math.floor(sec/86400),h=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);return d?d+" 天 "+h+" 时":h?h+" 时 "+m+" 分":m+" 分";};var who=function(a){return'<a href="#/scan/'+a+'" data-a="'+a+'" class="mono">'+A.short(a)+"</a>";};function bj(ts){var d=new Date(ts*1000+8*3600e3);return(d.getUTCMonth()+1)+"/"+String(d.getUTCDate()).padStart(2,"0")+" "+String(d.getUTCHours()).padStart(2,"0")+":"+String(d.getUTCMinutes()).padStart(2,"0");}
+function market(k){var m=MK[k];return fetch("/api/book?m="+k).then(function(r){return r.json();}).then(function(d){var w=(d.orders||"0x").slice(2).match(/.{64}/g)||[],n=w.length>1?Number(BigInt("0x"+w[1])):0,from=Number(d.from||0),now=Date.now()/1000,rows=[];for(var i=0;i<n;i++){var o=w.slice(2+i*7,9+i*7);if(o.length<7)break;var maker="0x"+o[0].slice(24),sell=o[1].slice(-1)==="1",open=o[2].slice(-1)==="1",exp=Number(BigInt("0x"+o[3])),gT=BigInt("0x"+o[4]),wT=BigInt("0x"+o[5]),gL=BigInt("0x"+o[6]);if(!open||exp<=now||gL===0n||gT===0n)continue;var coin=sell?big(gL,m.dec):(wT>0n?big(gL*wT/gT,m.dec):0),dai=sell?big(gL*wT/gT,18):big(gL,18);rows.push({k:k,id:from+i,maker:maker,sell:sell,px:coin?dai/coin:0,coin:coin,dai:dai,exp:exp});}
+return rows;}).catch(function(){return[];});}
+A.pages.orders=function(id){A.app.innerHTML='<section class="card"><div class="card-head"><h2>📋 全站订单 <small class="muted">内部</small></h2><span class="muted" id="od-sum">读取中…</span></div>'+'<div class="od-tabs" id="od-tabs">'+Object.keys(MK).map(function(k,i){return'<button type="button" data-k="'+k+'"'+(i?"":' class="on"')+">"+MK[k].sym+(MK[k].chain==="Polygon"?" · Polygon":"")+"</button>";}).join("")+'<button type="button" data-k="names">域名挂单</button><button type="button" data-k="fills">最近成交</button></div>'+'<div id="od-body">读取中…</div></section>';var cache={},cur="ailgns";function show(k){cur=k;var body=document.getElementById("od-body");if(!body)return;document.querySelectorAll("#od-tabs button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-k")===k);});body.innerHTML="读取中…";var p=k==="names"?fetch("/api/name-market").then(function(r){return r.json();}).then(function(d){return{names:d.list||[]};}):k==="fills"?fetch("/api/fills?m=ailgns").then(function(r){return r.json();}).then(function(d){return{fills:d.list||[]};}):market(k).then(function(rows){return{rows:rows};});p.then(function(d){if(!A.isCurrent(id)||cur!==k)return;var now=Date.now()/1000,html;if(d.rows){var rows=d.rows.sort(function(a,b){return a.sell-b.sell||(a.sell?a.px-b.px:b.px-a.px);}),byMaker={};rows.forEach(function(r){(byMaker[r.maker]=byMaker[r.maker]||[]).push(r);});var makers=Object.keys(byMaker).sort(function(a,b){return byMaker[b].reduce(function(s,r){return s+r.dai;},0)-byMaker[a].reduce(function(s,r){return s+r.dai;},0);});html='<p class="muted">'+rows.length+" 张在挂 · "+makers.length+" 个挂单人 · 买单 "+rows.filter(function(r){return!r.sell;}).length+" / 卖单 "+rows.filter(function(r){return r.sell;}).length+" · 总额 "+fmt(rows.reduce(function(s,r){return s+r.dai;},0),0)+" DAI</p>"+
+makers.map(function(mk){var L=byMaker[mk],tot=L.reduce(function(s,r){return s+r.dai;},0);return'<div class="od-maker"><div class="od-mh">'+who(mk)+' <small class="muted">'+L.length+" 张 · "+fmt(tot,0)+" DAI</small></div>"+L.map(function(r){return'<div class="od-row '+(r.sell?"ask":"bid")+'"><span>'+(r.sell?"卖出":"买入")+"</span><span>"+fmt(r.px,3)+"</span><span>"+fmt(r.coin,4)+" "+MK[r.k].sym+"</span><span>"+fmt(r.dai,0)+" DAI</span><span>#"+r.id+"</span><span>"+leftT(r.exp-now)+"</span></div>";}).join("")+"</div>";}).join("");}else if(d.names){html='<p class="muted">'+d.names.length+" 个域名在卖</p>"+d.names.map(function(x){var p=big(x.price,18);return'<div class="od-row"><span>🏷</span><span><a href="#/names/'+encodeURIComponent(x.label+"."+x.t)+'">'+esc(x.label+"."+x.t)+"</a></span><span>"+fmt(p,0)+" DAI</span><span>"+who(x.maker)+"</span><span>#"+x.id+"</span><span>"+leftT(x.expiry-now)+"</span></div>";}).join("");}else{html='<p class="muted">AiLGNS OTC 最近 '+d.fills.length+" 笔成交（北京时间）</p>"+d.fills.map(function(x){return'<div class="od-row"><span>'+bj(x.t)+"</span><span>"+fmt(x.px,3)+"</span><span>"+fmt(x.dai/x.px,4)+" AiLGNS</span><span>"+fmt(x.dai,2)+" DAI</span><span>#"+x.id+'</span><span><a href="#/scan/'+x.tx+'">详情</a></span></div>';}).join("");}
+body.innerHTML=html||'<p class="muted">暂无</p>';if(A.fillNames)A.fillNames(body);});}
+document.getElementById("od-tabs").onclick=function(e){var b=e.target.closest("button[data-k]");if(b)show(b.getAttribute("data-k"));};Promise.all(Object.keys(MK).map(market)).then(function(all){var n=all.reduce(function(s,r){return s+r.length;},0),el=document.getElementById("od-sum");if(el)el.textContent="四个市场共 "+n+" 张在挂";});show("ailgns");};})();}catch(e){console.error('[bundle] orders.js',e);};try{(function(){var A=window.AIL;function key(){try{return localStorage.getItem("fbKey")||"";}catch(e){return"";}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function tm(ms){if(!ms)return"";try{return new Intl.DateTimeFormat("zh-CN",{timeZone:"America/Vancouver",hour:"2-digit",minute:"2-digit",hour12:false}).format(ms);}catch(e){return new Date(ms).toTimeString().slice(0,5);}}
+function render(id){var app=A.app,k=key();if(!k){app.innerHTML='<section class="card"><h1>💊 吃药打卡</h1><p class="note">这页是站长自己用的。先去 <a href="#/feedback/admin">工单后台</a> 输一次口令，回来就能用。</p></section>';return;}
+var nav='<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb on">💊 吃药</a></div>';app.innerHTML='<section class="card"><h1>💊 吃药打卡</h1>'+nav+'<p class="sub" style="margin-top:10px">早上 10 点后一粒，晚上 22 点后一粒（温哥华时间）。到点没点「吃了」，站内信每半小时催一次。</p><div id="med-box"><p class="muted">读取中…</p></div><div id="med-hist"></div></section>';fetch("/api/med?key="+encodeURIComponent(k)).then(function(r){return r.json();}).then(function(j){if(!A.isCurrent(id))return;if(j.error){document.getElementById("med-box").innerHTML='<p class="note down">'+esc(j.error)+"</p>";return;}
+var t=j.today||{},cur=j.now||{};function slotHtml(slot,name){var s=t[slot]||{},on=cur.slot===slot,done=!!s.taken;return'<div class="med-slot'+(done?" ok":on?" due":"")+'"><div class="med-t"><b>'+name+"</b><small>"+(done?"✅ 已吃 "+tm(s.taken):on?"⏰ 到点了"+(s.nagN?"（已提醒 "+s.nagN+" 次）":""):"还没到时间")+"</small></div>"+
+(done?'<button type="button" class="ghost" data-act="undo" data-slot="'+slot+'">点错了，撤销</button>':'<div class="med-btns"><button type="button" class="med-yes" data-act="taken" data-slot="'+slot+'">吃了 ✅</button><button type="button" class="med-no" data-act="skip" data-slot="'+slot+'">没吃，15 分钟后再催</button></div>')+"</div>";}
+document.getElementById("med-box").innerHTML='<p class="muted">今天 '+esc(cur.bjDay||"")+"（温哥华时间）</p>"+slotHtml("am","🌞 早上那粒（10 点后）")+slotHtml("pm","🌙 晚上那粒（22 点后）");var days=(j.days||[]).slice(1);document.getElementById("med-hist").innerHTML=days.length?'<h2 style="margin-top:14px">最近 7 天</h2><ul class="med-ul">'+days.map(function(x){var d=x.d||{};return"<li><span>"+esc(x.day)+"</span><em>"+(d.am&&d.am.taken?"🌞 ✅ "+tm(d.am.taken):"🌞 ❌")+"</em><em>"+(d.pm&&d.pm.taken?"🌙 ✅ "+tm(d.pm.taken):"🌙 ❌")+"</em></li>";}).join("")+"</ul>":"";app.querySelectorAll("[data-act]").forEach(function(b){b.onclick=function(){b.disabled=true;fetch("/api/med",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({key:k,slot:b.getAttribute("data-slot"),action:b.getAttribute("data-act"),day:cur.day})}).then(function(r){return r.json();}).then(function(){render(id);}).catch(function(){b.disabled=false;});};});}).catch(function(){if(A.isCurrent(id))document.getElementById("med-box").innerHTML='<p class="note down">读不到，刷新再试</p>';});}
+A.pages.med=render;})();}catch(e){console.error('[bundle] med.js',e);};try{var PARTNER_BUILD="2026-11-10";(function(){var A=window.AIL,esc=A.esc||function(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});};function key(){try{return localStorage.getItem("ptnKey")||localStorage.getItem("fbKey")||"";}catch(e){return"";}}
+function fm(v,d){return Number(v||0).toLocaleString("en-US",{maximumFractionDigits:d==null?2:d});}
+function tm(t){var x=new Date(t+8*3600e3);return(x.getUTCMonth()+1)+"/"+x.getUTCDate()+" "+String(x.getUTCHours()).padStart(2,"0")+":"+String(x.getUTCMinutes()).padStart(2,"0");}
+function dayCn(d){return d?Number(d.slice(5,7))+"/"+Number(d.slice(8,10)):"";}
+var LV={red:["🔴","马上处理"],yellow:["🟡","今天处理"],green:["🟢","知道就好"]};var adSort="";function sortAddr(k){var tb=document.querySelector(".ptn-addr tbody");if(!tb)return;adSort=k||"";var at=function(r,n){return parseFloat(r.getAttribute("data-"+n));},rows=[].slice.call(tb.children);rows.sort(function(x,y){if(adSort){var p=at(x,adSort),q=at(y,adSort),dv=(isNaN(q)?-1:q)-(isNaN(p)?-1:p);if(dv)return dv;}
+return at(x,"i")-at(y,"i");});rows.forEach(function(r){tb.appendChild(r);});[].forEach.call(document.querySelectorAll("#ptn-sort button"),function(b){b.className=(b.getAttribute("data-k")||"")===adSort?"on":"";});}
+function addrTable(j){var L=j.addrs||[];if(!L.length)return"";var bad=L.filter(function(d){return d.st!=="✅";}),good=L.filter(function(d){return d.st==="✅";});var scan=function(d){return d.c==="polygon"?"https://polygonscan.com/address/"+d.a:"#/scan/"+d.a;};var f4=function(v){return v==null?"—":v>=100?fm(v,0):String(Math.round(v*1e4)/1e4);};var dv=function(v){return v==null?"":v;};var row=function(d,i){return'<tr data-i="'+i+'" data-gas="'+dv(d.gas)+'" data-dai="'+dv(d.tok.DAI)+'" data-ailgns="'+dv(d.tok.AiLGNS)+'" data-lgns="'+dv(d.tok.LGNS)+'" class="'+(d.st==="✅"?"":"ptn-bad")+'"><td><b>'+esc(d.n)+"</b><small>"+(d.k==="contract"?"合约":"钱包")+" · "+(d.c==="polygon"?"Polygon":"Anubis")+' · <a href="'+scan(d)+'"'+(d.c==="polygon"?' target="_blank" rel="noopener"':"")+'><code>'+d.a.slice(0,6)+"…"+d.a.slice(-4)+"</code></a>"+(d.note?" · "+esc(d.note):"")+"</small></td>"+"<td data-l=Gas>"+f4(d.gas)+"</td><td data-l=DAI>"+f4(d.tok.DAI)+"</td><td data-l=AiLGNS>"+f4(d.tok.AiLGNS)+"</td><td data-l=LGNS>"+f4(d.tok.LGNS)+"</td><td data-l=状态>"+esc(d.st)+"</td></tr>";};return'<details class="ptn-addrs"'+(bad.length?" open":"")+'><summary><h3 class="ad-h">📍 所有部署地址（'+L.length+" 个"+(bad.length?" · ⚠️ "+bad.length+" 个异常":" · ✅ 全部正常")+'）<small class="muted">'+(bad.length?"有异常，已展开":"点开看每个地址的余额")+"</small></h3></summary>"+'<p class="muted">合约、机器人钱包、合伙人收款全在这，有异常会同时出现在上面的风险里。新部署的合约或钱包必须登记到这张表（lib/addresses.js），不然看不见。</p>'+'<div class="ptn-sort" id="ptn-sort"><span>余额从高到低排：</span><button type="button" data-k="" class="on">默认</button><button type="button" data-k="gas">Gas</button><button type="button" data-k="dai">DAI</button><button type="button" data-k="ailgns">AiLGNS</button><button type="button" data-k="lgns">LGNS</button></div>'+'<div class="ad-tw"><table class="ad-t ptn-t ptn-addr"><thead><tr><th>地址</th><th>Gas</th><th>DAI</th><th>AiLGNS</th><th>LGNS</th><th>状态</th></tr></thead><tbody>'+bad.concat(good).map(row).join("")+"</tbody></table></div></details>";}
+function allocHtml(j){var L=j.alloc||[];if(!L.length)return"";var tot=L.reduce(function(t,y){return t+((y.got&&y.got.ail)||0);},0);var lg=j.alloclog||[],tr=(j.split&&j.split.transit)||{},wait=tr.ail>0.0001;var st=(j.canWrite?'<div class="ptn-cp"><div class="ptn-cpt">⚠️ 每次分配，先把 AiLGNS 转到这个地址</div><div class="ptn-cpa mono" id="ptn-cpa">'+esc(tr.a||"")+'</div><button type="button" class="nm-go ptn-cpb" id="ptn-cpb">📋 点击复制中转地址</button></div>':"")+'<div class="ptn-tr"><span>🔁 中转地址余额</span><b>'+(tr.ail==null?"读取失败":fm(tr.ail,4)+" AiLGNS")+"</b>"+(tr.value?'<small class="muted">≈ '+fm(tr.value,0)+" DAI</small>":"")+'<a class="mono" href="#/scan/'+tr.a+'">链上记录 →</a></div><p class="muted">流程：谷歌社交账号钱包 → 转到这个中转地址 → 从中转地址按比例转到下面四个地址（只分 AiLGNS）。</p>'+'<div class="ptn-ast '+(wait?"wait":"done")+'">'+(wait?"<b>⏳ 等待分配</b><span>中转地址里还有 "+fm(tr.ail,4)+" AiLGNS 没分</span>":"<b>✅ 已分配</b><span>中转地址已转空</span>")+
+(j.canWrite?'<button type="button" class="nm-go" id="ptn-adone">📣 我已分配，通知他们</button>':"")+'<small class="muted" id="ptn-ast">'+(lg[0]?"上次通知 "+tm(lg[0].t)+" · "+(lg[0].ail!=null?fm(lg[0].ail,4)+" AiLGNS":"≈ "+fm(lg[0].total,0)+" DAI"):"")+"</small></div>";var hist=lg.length?'<details class="ptn-ahist"><summary>📜 分配记录（'+lg.length+' 次）</summary>'+lg.slice(0,20).map(function(x){return"<div><b>"+tm(x.t)+"</b> 合计 "+(x.ail!=null?fm(x.ail,4)+" AiLGNS":"≈ "+fm(x.total,0)+" DAI")+"<small class=\"muted\"> · "+x.parts.map(function(y){return esc(y.n)+" "+y.p+"% "+(y.ail!=null?fm(y.ail,4):fm(y.amt,0));}).join(" / ")+"</small></div>";}).join("")+"</details>":"";return st+hist+'<details class="ptn-ald"><summary>📊 运营分配统计（中转地址累计已转 '+fm(tot,4)+' AiLGNS）</summary><div class="ptn-alloc">'+L.map(function(y){var g=y.got||{},real=tot?Math.round(g.ail/tot*1000)/10:0;return'<div class="ptn-al"><div class="ptn-alh"><b>'+esc(y.n)+" "+y.p+'%</b><a class="mono" href="#/scan/'+y.a+'">'+y.a.slice(0,6)+"…"+y.a.slice(-4)+" →</a></div>"+
+(g.err?'<p class="muted">读取失败，稍后刷新</p>':'<div class="ptn-alv"><span>已转 <b>'+fm(g.ail||0,4)+" AiLGNS</b></span><span>实际占比 <b"+(tot&&Math.abs(real-y.p)>5?' class="warn"':"")+">"+real+"%</b></span><span>"+(g.n||0)+" 笔</span></div>"+'<small class="muted">≈ '+fm(g.value||0,0)+" DAI（按现价）"+(g.last?" · 最近 "+tm(g.last):"")+"</small>"+((g.txs||[]).length?'<details class="ptn-atxd"><summary>查看最近 '+g.txs.length+' 笔转账明细</summary><div class="ptn-atx">'+g.txs.map(function(x){return'<a href="#/scan/'+x.h+'"><span>'+tm(x.t)+"</span><b>"+fm(x.v,4)+" AiLGNS</b><small>查看转账 →</small></a>";}).join("")+"</div></details>":""))+"</div>";}).join("")+'<p class="muted">四个地址合计已转 <b>'+fm(tot,4)+' AiLGNS</b>。「实际占比」和设定比例差 5% 以上会标红。</p></div></details>';}
+function login(rid,msg){A.app.innerHTML='<section class="card ptn-login"><h2>🤝 合伙人面板</h2><p class="muted">输入查看口令。合伙人只能看，站长口令还能改分配比例和计划。</p>'+
+(msg?'<p class="nm-bad">'+esc(msg)+"</p>":"")+'<input id="ptn-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="ptn-go">进入</button></section>';var go=document.getElementById("ptn-go"),inp=document.getElementById("ptn-k");go.onclick=function(){var v=inp.value.trim();if(!v)return;try{localStorage.setItem("ptnKey",v);}catch(e){}load(rid);};inp.onkeydown=function(e){if(e.key==="Enter")go.click();};}
+function vs(t,y,unit){t=Number(t)||0;y=Number(y)||0;var d=y?Math.round((t-y)/y*100):0;return"昨天 "+fm(y,0)+(unit||"")+(y?(d>0?' <i class="up">↑'+d+"%</i>":d<0?' <i class="down">↓'+(-d)+"%</i>":" 持平"):"");}
+function tile(label,val,sub,cls){return'<div class="ad-tile'+(cls?" "+cls:"")+'"><small>'+label+"</small><b>"+val+"</b>"+(sub?"<span>"+sub+"</span>":"")+"</div>";}
+var PROD_N={otc:"OTC · AiLGNS",otclgns:"OTC · LGNS",otcglgns:"OTC · gLGNS",otcplgns:"OTC · LGNS（Polygon）",otcnft:"OTC · AWAKE NFT",otcswap:"闪兑",names:"域名",oracle:"每日预言家",lend:"借贷",member:"会员",rank:"荣耀榜",scan:"账本",inbox:"收件箱",usdt:"USDT 跨链桥",gale:"秒到跨链",fast:"极速预言家",aiswap:"aiswap",lp:"做市商",trade:"交易所盘口",farm:"开心农场",mj:"麻将",gd:"掼蛋",br:"大逃杀",play:"销毁乐园（游戏厅）",pixel:"像素画",square:"链上广场",genesis:"创世销毁",bonus:"创世分红签到",weekly:"手续费周榜",feedback:"问题反馈",updates:"更新日志",trades:"成交查询",wallet:"钱包快查",team:"团队查询",flows:"资金流向",growth:"团队新增业绩",tree:"团队树",upline:"查上级",custom:"私人定制",app:"下载 App",g2048:"2048",snake:"贪吃蛇",tetris:"方块",flappy:"飞鸟",mines:"扫雷",brick:"打砖块",merge:"合成",pet:"宠物"};function prodHtml(rows){var col=function(r,title){var p=(r&&r.prod)||{},ks=Object.keys(p).filter(function(k){return k.slice(0,2)!=="zz";}).sort(function(a,b){return p[b]-p[a];}),top=ks.length?p[ks[0]]:0;return'<div class="ad-pr-c"><h4>'+title+(r&&r.day?" <small>"+r.day.slice(5)+"</small>":"")+"</h4>"+(ks.length?"<ol>"+ks.slice(0,15).map(function(k,i){return'<li><span class="ad-pr-n">'+(i<3?["🥇","🥈","🥉"][i]:i+1)+" "+esc(PROD_N[k]||k)+'</span><span class="ad-pr-b"><i style="width:'+Math.max(4,Math.round(p[k]/top*100))+'%"></i></span><b>'+p[k]+" 人</b></li>";}).join("")+"</ol>"+(ks.length>15?'<p class="muted">另有 '+(ks.length-15)+" 个产品人数更少，没列出</p>":""):'<p class="muted">还没有数据</p>')+"</div>";};return'<h3 class="ad-h">📈 每天哪个产品用的人最多</h3><div class="ad-pr">'+col(rows[0],"今天")+col(rows[1],"昨天")+'</div><p class="muted">一台设备一天打开过某个产品算 1 人（同一个人换手机、换浏览器会算成 2 人）；只记数量，不记是谁。2026-11-19 上线后才开始记，之前的日子没有数据。今天的数每 2 分钟更新。</p>';}
+function render(rid,j){var d0=j.rows[0]||{},d1=j.rows[1]||{},d2=j.rows[2]||{},w7=j.rows.slice(0,7);var sum=function(k){return w7.reduce(function(s,r){return s+(r[k]||0);},0);};var TK=["dai","ail","lgns"],MK={dai:"mDai",ail:"mAil",lgns:"mLgns"},GK=["otc","nm","pool","mem","oth","all"];var Z=function(){return{dai:0,ail:0,lgns:0};};var tk=function(o){var a=[];if(Math.abs(o.dai)>=0.005)a.push('<b>'+fm(o.dai,Math.abs(o.dai)>=100?0:2)+"</b> DAI");if(Math.abs(o.ail)>=0.00005)a.push('<b>'+fm(o.ail,4)+"</b> AiLGNS");if(Math.abs(o.lgns)>=0.5)a.push('<b>'+fm(o.lgns,0)+"</b> LGNS");return a.length?a.join(" + "):"<b>0</b>";};var parts=function(r){if(!r.fl)return null;var f=r.fl,x=r.src||{},g=function(k){return f[k]||{};};var P={otc:Z(),nm:Z(),pool:Z(),mem:Z(),oth:Z(),all:Z(),memN:x.memN||0,usd:x.mem||0,othN:(x.n||0)+(g("oth").n||0),k:1};TK.forEach(function(t){P.otc[t]=g("otc")[t]||0;P.pool[t]=g("pool")[t]||0;P.nm[t]=(g("nm")[t]||0)-P.pool[t];P.mem[t]=x[MK[t]]||0;P.oth[t]=(x[t]||0)+(g("oth")[t]||0);P.all[t]=P.otc[t]+P.nm[t]+P.mem[t]+P.oth[t];});return P;};var PS=w7.map(parts),SUM=PS.reduce(function(S,P){if(!P)return S;GK.forEach(function(g){TK.forEach(function(t){S[g][t]+=P[g][t];});});S.memN+=P.memN;S.usd+=P.usd;S.othN+=P.othN;S.k++;return S;},{otc:Z(),nm:Z(),pool:Z(),mem:Z(),oth:Z(),all:Z(),memN:0,usd:0,othN:0,k:0});var flWait=j.flLag>3000?Math.ceil(j.flLag/29400)*5:0;var PXN=j.pxNow||{ail:j.price||0,lgns:0};var conv=function(o,px){return(o.dai||0)+(o.ail||0)*px.ail+(o.lgns||0)*px.lgns;};var CK=["otc","nm","mem","oth"],CN={otc:"OTC 手续费",nm:"域名",mem:"会员",oth:"其它"};var DV=w7.map(function(r,i){var P=PS[i];if(!P)return null;var p=r.px||{},px={ail:p.ail||PXN.ail||0,lgns:p.lgns||PXN.lgns||0};var o={all:conv(P.all,px),px:px,est:!r.px||!!p.e,miss:px.lgns?0:P.all.lgns};CK.forEach(function(k){o[k]=conv(P[k],px);});return o;});var W=DV.reduce(function(S,o){if(!o)return S;S.all+=o.all;S.miss+=o.miss;S.k++;if(o.est)S.est=1;CK.forEach(function(k){S[k]+=o[k];});return S;},{all:0,otc:0,nm:0,mem:0,oth:0,miss:0,k:0,est:0});var ap=function(v){return"≈ "+fm(v,0)+" DAI";},estTag='<em class="ptn-est">估</em>';var arrow=function(t,y){if(!(y>0))return"";var d=Math.round((t-y)/y*100);return d===0?"，和前天差不多":'，比前天 <i class="'+(d>0?"up":"down")+'">'+(d>0?"↑":"↓")+Math.abs(d)+"%</i>";};var hero='<div class="ptn-hero"><small>今天到现在，真留下来的钱（三种币折成 DAI）</small><b class="big">'+(DV[0]?ap(DV[0].all):"—")+"</b>"+"<p>昨天全天 <b>"+(DV[1]?ap(DV[1].all):"—")+"</b>"+(DV[1]&&DV[2]?arrow(DV[1].all,DV[2].all):"")+"</p>"+"<p>近 "+(W.k||7)+" 天 <b>"+(W.k?ap(W.all):"—")+"</b></p>"+
+(W.miss>0.5?'<p class="muted">另有 '+fm(W.miss,0)+" LGNS 还没有成交价，没折进去</p>":"")+"</div>";var bars=function(k){var a=w7.map(function(r){return r[k]||0;}),mx=Math.max.apply(null,a.concat([1]));return'<div class="ptn-bars">'+a.map(function(v,i){return"<i"+(i===0?' class="now"':"")+' style="height:'+Math.max(4,Math.round(v/mx*100))+'%" title="'+dayCn(w7[i].day)+" "+fm(v,0)+'"></i>';}).reverse().join("")+"</div>";};var shareTot=CK.reduce(function(t,k){return t+Math.max(0,W[k]);},0);var share=shareTot>0?'<div class="ptn-share">'+CK.map(function(k){var p=Math.max(0,W[k])/shareTot*100;return p>=0.5?'<i class="s-'+k+'" style="width:'+p.toFixed(1)+'%"></i>':"";}).join("")+'</div><div class="ptn-lg">'+
+CK.map(function(k){return'<span><i class="s-'+k+'"></i>'+CN[k]+" <b>"+Math.round(Math.max(0,W[k])/shareTot*100)+"%</b></span>";}).join("")+"</div>":'<p class="muted">正在从链上补</p>';var cards='<div class="ptn-c3"><div class="ptn-c"><small>钱从哪来（近 '+(W.k||7)+" 天留存）</small>"+share+"</div>"+'<div class="ptn-c"><small>生意大不大 · OTC 成交额</small><b>'+fm(d0.fillDai,0)+" <span>DAI 今天</span></b>"+bars("fillDai")+"<small>昨天 "+fm(d1.fillDai,0)+"</small></div>"+'<div class="ptn-c"><small>人多不多 · 第一次来的人</small><b>'+fm(d0.v1,0)+" <span>人 今天</span></b>"+bars("v1")+"<small>昨天 "+fm(d1.v1,0)+" 人</small></div></div>";var row=function(lab,val){return"<p><span>"+lab+"</span><span>"+val+"</span></p>";};var detail=function(P,o,fills,nmN,extra){if(!P)return'<div class="ptn-dd">'+row("留存","正在从链上补")+extra+"</div>";return'<div class="ptn-dd">'+
+row("OTC 手续费",tk(P.otc)+"<small>"+(fills||0)+" 笔成交</small>")+
+row("域名留存",tk(P.nm)+"<small>卖 "+(nmN||0)+" 个 · 已转奖池 "+fm(P.pool.dai,0)+" DAI</small>")+
+row("会员费",tk(P.mem)+(P.memN?"<small>"+P.memN+" 笔 · 合 "+fm(P.usd,0)+" 美元</small>":""))+
+row("其它",tk(P.oth)+(P.othN?"<small>"+P.othN+" 笔</small>":""))+
+row("真实到手合计",tk(P.all))+
+(o?row("折算用的价","1 AiLGNS ≈ "+fm(o.px.ail,0)+" DAI"+(o.px.lgns?" · 1 LGNS ≈ "+fm(o.px.lgns,4)+" DAI":" · LGNS 暂无成交价")+"<small>"+(o.est?"没存到当天的价，按后来的价估算":"当天 OTC 最后一笔成交价")+"</small>"):"")+
+extra+"</div>";};var pkOf=function(r,i){return r.pk||(i===0&&j.traffic?j.traffic.peak:0)||0;};var list='<div class="ptn-l"><div class="ptn-lh"><span>日期</span><span>留存 ≈DAI</span><span>OTC 成交额</span><span>来访人</span></div>'+
+w7.map(function(r,i){var o=DV[i],wk=r.day?"周"+"日一二三四五六".charAt(new Date(r.day+"T00:00:00Z").getUTCDay()):"",pk=pkOf(r,i);return'<details class="ptn-day'+(i===0?" now":"")+'"><summary><span>'+(i===0?"今天 ":i===1?"昨天 ":"")+dayCn(r.day)+(i>1?" <small>"+wk+"</small>":"")+'</span><span class="m">'+(o?fm(o.all,0)+(o.est?estTag:""):"—")+"</span><span>"+fm(r.fillDai,0)+"</span><span>"+fm(r.v1,0)+"</span></summary>"+
+detail(PS[i],o,r.fills,r.nmN,row("来访",fm(r.v,0)+" 次打开 · App 装机 "+(r.an||0)+" 台"+(pk?" · 在线峰值 "+pk+" 人":"")))+"</details>";}).join("")+'<details class="ptn-day sum"><summary><span>近 7 天'+(SUM.k&&SUM.k<w7.length?" <small>留存 "+SUM.k+" 天</small>":"")+'</span><span class="m">'+(W.k?fm(W.all,0)+(W.est?estTag:""):"—")+"</span><span>"+fm(sum("fillDai"),0)+"</span><span>"+fm(sum("v1"),0)+"</span></summary>"+
+detail(SUM.k?SUM:null,null,sum("fills"),sum("nmN"),row("来访",fm(sum("v"),0)+" 次打开 · App 装机 "+sum("an")+" 台 · 在线最高 "+w7.reduce(function(m,r,i){return Math.max(m,pkOf(r,i));},0)+" 人"))+"</details></div>";var biz='<h3 class="ad-h">📊 股东面板（近 7 天）</h3>'+hero+cards+list+prodHtml(j.rows||[])+'<p class="muted ptn-dn">👆 点某一天，看那天真实收到的三种币和明细。今天还没过完。'+(W.est?"带「估」的日子没存到当天的价，是按后来的价估的。":"")+"</p>"+
+(flWait?'<p class="muted ptn-dn">⏳ 前几天的数正在从链上一笔一笔补，大约 '+flWait+" 分钟补齐，没补到的日子先显示「—」。</p>":"")+'<details class="ptn-how"><summary>这些数怎么算的</summary><p class="muted ptn-dn">留存 = 真留在谷歌社交账号钱包里的钱，从链上一笔一笔数出来，不是算出来的毛收入。为了一眼看懂，把收到的 DAI、AiLGNS、LGNS 按当天 OTC 最后一笔成交价折成 DAI 一个数（带 ≈ 的都是折算，是估值，不是真换成了 DAI）；真实收到的三种币各多少，点开那一天看。当天的价存下来以后不再变，过去的日子不会跟着币价动。OTC 手续费 = 每笔成交时托管合约转进钱包的手续费（买卖两边收的币不一样，所以有 DAI、AiLGNS、LGNS）。域名留存 = 域名的钱转进钱包的数，减掉转给预言家奖池 / 极速资金池的数（那是客户的奖金，不是我们的）。会员费 = 会员页开通 / 升级实际收到的币。其它 = 外面的钱包直接转进来的钱（游戏充值等）和像素墙收入。不算收入的：自己挂单的本金进出、自己换币、撤单退回、自己钱包之间互转。给客户的退款、分出去和提走的钱没有从这里减。来访人 = 第一次打开网站的人。</p></details>';var b=j.bal.src;var ratio='<h3 class="ad-h">💼 分配比例</h3><div class="ptn-l">'+'<div class="ptn-rr top"><span><b>现在待分配</b><small>谷歌社交账号钱包里的 AiLGNS + DAI</small></span><span class="m">≈ '+fm(j.split.total,0)+" DAI<small>折 "+(j.price?fm(j.split.total/j.price,4):"—")+" AiLGNS</small></span></div>"+
+(j.split.parts||[]).map(function(y){return'<div class="ptn-rr"><span><b>'+esc(y.n)+" "+y.p+'%</b><small><a class="mono" href="#/scan/'+y.a+'">'+y.a.slice(0,6)+"…"+y.a.slice(-4)+'</a></small></span><span class="m">≈ '+fm(y.amt,0)+" DAI<small>"+fm(y.ail||0,4)+" AiLGNS</small></span></div>";}).join("")+'</div><p class="muted ptn-dn">待分配里有 AiLGNS '+fm(b.ail,4)+" + DAI "+fm(b.dai+b.pdai,0)+"（Anubis "+fm(b.dai,0)+" + Polygon "+fm(b.pdai,0)+"），按现价 "+fm(j.price,0)+" 折算，LGNS 不算在内。"+(j.split.basis==="transit"?"中转地址里有币，上面每人应分的数按中转地址余额算。":"")+"分的时候只分 AiLGNS。</p>";var fundsH="";if(j.canWrite&&j.funds&&j.funds.length){fundsH='<h3 class="ad-h">💰 资金一览 · 哪个池子要补钱</h3><div class="ptn-fd">'+j.funds.map(function(f){var bad=f.need>0||/⚠️/.test(f.st||"");var big=f.bal==null?"读不到":fm(f.bal,2);var chip=f.need>0?'<span class="ptn-fdc bad">要补 '+fm(f.need,0)+" DAI</span>":f.need===0?'<span class="ptn-fdc ok">✅ 不用补</span>':"";if(f.k==="gen"&&f.left!=null)chip=f.left>0?'<span class="ptn-fdc bad">离发放还差 '+fm(f.left,0)+" DAI</span>":'<span class="ptn-fdc ok">✅ 满了，可以发放</span>';var day=f.k==="mm"&&f.delta!=null?'<div class="ptn-fdd">今天 <b class="'+(f.delta>=0?"up":"down")+'">'+(f.delta>=0?"+":"")+fm(f.delta,2)+" DAI</b>"+(f.pc!=null?" · 昨天（"+esc(f.pd||"")+"）收在 "+fm(f.pc,2):"")+"</div>":"";return'<div class="ptn-fdr'+(bad?" bad":"")+'"><div class="ptn-fdh"><b>'+esc(f.n)+"</b>"+chip+'</div><div class="ptn-fdb"><b>'+big+"</b><small>"+esc(f.unit||"DAI")+"</small></div>"+day+'<p class="ptn-fds">'+esc(f.st||"")+"</p>"+(f.led?'<p class="ptn-fdl">'+esc(f.led)+"</p>":"")+'<p class="muted ptn-fdt">'+esc(f.tip||"")+"</p>"+'<div class="ptn-fda"><a class="mono" href="#/scan/'+f.a+'">'+f.a.slice(0,8)+"…"+f.a.slice(-6)+' ›</a><button type="button" class="ghost" data-fdcp="'+f.a+'">📋 复制地址</button></div></div>';}).join("")+'</div><p class="muted ptn-dn">每 5 分钟更新。只是提醒，不会自动动任何钱；往哪个池子补，点「复制地址」到钱包里转 DAI（Anubis 链）。</p>';}
+var nd=j.need,needH="";if(j.canWrite&&nd){var ailEq=nd.price?nd.left/nd.price:0;needH='<h3 class="ad-h">🏆 奖池需转多少钱 <a class="ptn-ndl" href="#/scan/'+nd.a+'">看奖池钱包 ›</a></h3><div class="ptn-need">'+
+(nd.bot?'<div class="ptn-ndv">'+(nd.left>0?"还需转 <b>"+fm(nd.left,2)+"</b> DAI":"✅ 现在不用转")+"</div>"+
+(nd.left>0?'<p class="muted ptn-dn">转 DAI 或 AiLGNS 都行；全用 AiLGNS 的话约 '+fm(ailEq,4)+" 枚（现价 "+fm(nd.price,0)+"）。</p>":(nd.over>0?'<p class="muted ptn-dn">已经比规则多转了 '+fm(nd.over,2)+" DAI。</p>":""))+'<div class="ptn-rr"><span><b>按规则应进奖池</b><small>11-15 02:35 机器人停止自动转之后累计：DAI、AiLGNS 付的域名费 × 70%</small></span><span class="m">'+fm(nd.dueDai,2)+" DAI<small>+ "+fm(nd.dueAil,4)+" AiLGNS</small></span></div>"+'<div class="ptn-rr"><span><b>这之后已转进奖池</b><small>只算从谷歌社交账号钱包转过去的</small></span><span class="m">'+fm(nd.inDai,2)+" DAI<small>+ "+fm(nd.inAil,4)+" AiLGNS</small></span></div>"
++(nd.othDai>0||nd.othAil>0?'<div class="ptn-rr"><span><b>其它自家钱包转进奖池的</b><small>比如极速资金池转来的；没有抵扣上面的数，要不要抵你自己定</small></span><span class="m">'+fm(nd.othDai,2)+" DAI<small>+ "+fm(nd.othAil,4)+" AiLGNS</small></span></div>":"")
++(nd.ins&&nd.ins.length?'<details class="ptn-ndd"><summary>最近转进奖池的几笔</summary>'+nd.ins.map(function(x){return'<div class="ptn-rr"><span><b>'+esc(x.n||"")+"</b><small>"+(x.mine?"已抵扣":"没抵扣")+' · <a href="#/scan/'+x.tx+'">看这笔 ›</a></small></span><span class="m">'+fm(x.v,x.tok==="dai"?2:4)+" "+(x.tok==="dai"?"DAI":"AiLGNS")+"</span></div>";}).join("")+"</details>":""):'<p class="nm-bad">机器人账本这会儿读不到，「还需转」先不显示，过 5 分钟再看。</p>')+
+(nd.lag>6000?'<p class="muted ptn-dn">⏳ 已转进奖池的记录还在补扫（差 '+fm(nd.lag,0)+" 个区块），数字可能偏大，等几分钟。</p>":"")+'<div class="ptn-cp ptn-ndc"><div class="ptn-cpt">奖池钱包地址（Anubis 链）</div><div class="ptn-cpa mono" id="ptn-nda">'+esc(nd.a)+'</div><button type="button" class="nm-go ptn-cpb" id="ptn-ndb">📋 点击复制奖池地址</button></div>'+'<p class="muted ptn-dn">只算每日预言家奖池，极速资金池不在这里。LGNS 付的域名费不计入。转完约 5 分钟后这里自动扣掉。</p></div>';}
+var h='<section class="card ptn-top"><div class="card-head"><h2>🤝 合伙人面板</h2><span class="muted">'+tm(j.at)+" 更新 · 每 5 分钟</span></div>"+
+biz+
+ratio+
+allocHtml(j)+
+fundsH+needH+'<h3 class="ad-h">💰 其它余额（现在钱包里有的，不是收入）</h3><div class="ad-tiles">'+
+tile("奖池（客户的奖金，是负债）","≈ "+fm(j.pool.value,0)+" DAI",fm(j.pool.ail,2)+" AiLGNS + "+fm(j.pool.dai,0)+" DAI")+
+(j.bal.fast?tile("⚡ 极速资金池（暂停进账，留给极速预言家）","≈ "+fm(j.bal.fast.dai+j.bal.fast.ail*j.price,0)+" DAI",fm(j.bal.fast.ail,2)+" AiLGNS + "+fm(j.bal.fast.dai,0)+" DAI"):"")+
+tile("钱包里的 LGNS（没算进待分配）",fm(b.lgns,0)+" + "+fm(b.plgns,0),"Anubis + Polygon")+
+tile("触发钱包 Gas",fm(j.bal.keeper.dai,1)+" DAI",j.bal.keeper.dai<8?"⚠️ 低于 8 机器人会停":"够用",j.bal.keeper.dai<8?"warn":"")+"</div>"+'<h3 class="ad-h">👥 客户</h3><div class="ad-tiles">'+
+tile("同时在线（5 分钟内打开）",(j.traffic?j.traffic.now:0)+" 人","今天峰值 "+(j.traffic?j.traffic.peak+"（"+j.traffic.peakAt+"）":"—")+(j.traffic&&j.traffic.peakY!=null?" · 昨天 "+j.traffic.peakY+"（"+j.traffic.peakYAt+"）":"")+(j.traffic&&j.traffic.peakY2?" · 前天 "+j.traffic.peakY2+"（"+j.traffic.peakY2At+"）":"")+" · 容量约 "+(j.cap?j.cap.conc:"—"),j.traffic&&j.cap&&j.traffic.now>=j.cap.conc*0.5?"warn":"")+
+tile("今日访客",fm(d0.v,0)+" 次",vs(d0.v,d1.v," 次")+" · 前天 "+fm(d2.v,0)+" 次 · 首次 "+(d0.v1||0)+" 人（昨天 "+(d1.v1||0)+" · 前天 "+(d2.v1||0)+"）")+
+tile("App 装机","今天 "+(d0.an||0)+" 台",vs(d0.an,d1.an," 台")+" · 前天 "+(d2.an||0)+" 台 · 累计 "+j.installs+" 台")+
+tile("工单","今天 "+j.tk.today+" 张",(j.tk.yest!=null?vs(j.tk.today,j.tk.yest," 张")+(j.tk.yest2!=null?" · 前天 "+j.tk.yest2+" 张":"")+" · ":"")+(j.tk.open?"⚠️ "+j.tk.open+" 张没回，最久等了 "+j.tk.oldestH+" 小时":"全部回完")+(j.tk.avgH?" · 平均 "+j.tk.avgH+" 小时回复":""),j.tk.open&&j.tk.oldestH>=2?"warn":"")+"</div>"+
+(j.tk.latest.length?'<div class="ptn-tk">'+j.tk.latest.map(function(t){return'<div><span class="muted">'+tm(t.t)+"</span> "+(t.done?"✅":"⏳")+" "+esc(t.txt)+"</div>";}).join("")+'<p class="muted">详细回复在 <a href="#/feedback/admin">工单后台</a>（需要站长口令）</p></div>':"")+'<h3 class="ad-h">🎮 本周游戏榜（近 7 天打开次数）</h3><p class="muted" id="ptn-games">读取中…</p>'+'<h3 class="ad-h">🗺️ 开发计划</h3><div class="ptn-plan" id="ptn-plan">'+(j.plan.length?j.plan.map(function(p,i){return"<label"+(p.done?' class="done"':"")+'><input type="checkbox" data-i="'+i+'"'+(p.done?" checked":"")+(j.canWrite?"":" disabled")+"> "+esc(p.t)+"</label>";}).join(""):'<p class="muted">还没写计划'+(j.canWrite?"，站长在下面加":"")+"</p>")+"</div>"+
+(j.canWrite?'<p class="ptn-cfg"><input id="ptn-plan-new" placeholder="加一条计划，回车保存" style="width:100%"></p>':"")+'<div id="ptn-upd" class="ptn-upd"></div>'+
+addrTable(j)+
+(j.canWrite?'<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>':"")+'<p class="muted ptn-note">'+esc(j.note)+"</p></section>";A.app.innerHTML=h;fetch("/api/updates",{headers:{"x-key":(function(){try{return localStorage.getItem("fbKey")||"";}catch(e){return"";}})()}}).then(function(r){return r.json();}).then(function(u){var el=document.getElementById("ptn-upd");if(!el||!A.isCurrent(rid)||!u||!u.list)return;el.innerHTML='<h3 class="ad-h">🆕 最近上线</h3>'+(u.list||[]).slice(0,7).map(function(x){return'<div><span class="muted">'+esc(x.d.slice(5))+"</span> "+esc(x.t.slice(0,70))+(x.t.length>70?"…":"")+"</div>";}).join("");}).catch(function(){});if(!j.canWrite)return;function post(body,st){body.key=key();return fetch("/api/partner",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(r){if(r.error)throw new Error(r.error);if(st)st.textContent=" ✅ 已保存";load(rid);},function(e){if(st)st.textContent=" ❌ "+(e.message||e);});}
+document.querySelectorAll("[data-fdcp]").forEach(function(b){b.onclick=function(){var v=b.getAttribute("data-fdcp"),ok=function(){b.textContent="✅ 已复制";setTimeout(function(){b.textContent="📋 复制地址";},2500);};try{navigator.clipboard.writeText(v).then(ok,function(){prompt("长按复制：",v);});}catch(e){prompt("长按复制：",v);}};});var ndb=document.getElementById("ptn-ndb");if(ndb)ndb.onclick=function(){var v=document.getElementById("ptn-nda").textContent,ok=function(){ndb.textContent="✅ 已复制，去钱包粘贴";setTimeout(function(){ndb.textContent="📋 点击复制奖池地址";},2500);};try{navigator.clipboard.writeText(v).then(ok,function(){prompt("长按复制：",v);});}catch(e){prompt("长按复制：",v);}};var cpb=document.getElementById("ptn-cpb");if(cpb)cpb.onclick=function(){var v=document.getElementById("ptn-cpa").textContent,ok=function(){cpb.textContent="✅ 已复制，去钱包粘贴";setTimeout(function(){cpb.textContent="📋 点击复制中转地址";},2500);};try{navigator.clipboard.writeText(v).then(ok,function(){prompt("长按复制：",v);});}catch(e){prompt("长按复制：",v);}};var so=document.getElementById("ptn-sort");if(so){so.onclick=function(e){var b=e.target&&e.target.closest?e.target.closest("button"):null;if(b)sortAddr(b.getAttribute("data-k"));};if(adSort)sortAddr(adSort);}
+var ad=document.getElementById("ptn-adone");if(ad)ad.onclick=function(){var t=(j.split.parts||[]).map(function(y){return y.n+" "+y.p+"% ≈ "+fm(y.amt,0)+" DAI";}).join("\n");if(!confirm("确定已经按比例转完了？\n"+t+"\n\n确定后会给四个地址各发一条站内信通知。"))return;ad.disabled=true;post({action:"allocDone"},document.getElementById("ptn-ast"));};var cs=document.getElementById("ptn-cfg-save");if(cs)cs.onclick=function(){post({cfg:{tech:Number(document.getElementById("ptn-tech").value)}},document.getElementById("ptn-cfg-st"));};var plan=j.plan.slice();document.querySelectorAll("#ptn-plan input[data-i]").forEach(function(c){c.onchange=function(){plan[+c.getAttribute("data-i")].done=c.checked;post({plan:plan});};});var pn=document.getElementById("ptn-plan-new");if(pn)pn.onkeydown=function(e){if(e.key==="Enter"&&pn.value.trim()){plan.push({t:pn.value.trim(),done:false});post({plan:plan});}};}
+function load(rid){var k=key();if(!k)return login(rid);A.app.innerHTML='<section class="card"><p class="muted">读取中…</p></section>';var GN={play:"销毁乐园",farm:"开心农场",pixel:"LGNS 像素墙",g2048:"2048",snake:"贪吃蛇",tetris:"俄罗斯方块",flappy:"飞翔小鸟",mines:"扫雷",brick:"打砖块",merge:"DNA 合成",pet:"HELIX 宠物"};function gamesLine(){fetch("/api/games-top").then(function(r){return r.json();}).then(function(j){var el=document.getElementById("ptn-games");if(!el)return;var rows=Object.keys(j.counts||{}).map(function(k){return[GN[k]||k,j.counts[k]];}).sort(function(a,b){return b[1]-a[1];});el.innerHTML=rows.length?rows.map(function(r,i){return(i<3?["🥇","🥈","🥉"][i]:"·")+" <b>"+esc(r[0])+"</b> "+r[1]+" 次";}).join("　"):"还没有数据（从今天开始统计）";}).catch(function(){});}
+fetch("/api/partner?key="+encodeURIComponent(k)).then(function(r){return r.json();}).then(function(j){if(!A.isCurrent(rid))return;if(j.error){if(/口令/.test(j.error)){try{localStorage.removeItem("ptnKey");}catch(e){}return login(rid,j.error);}A.app.innerHTML='<section class="card"><p class="nm-bad">'+esc(j.error)+"</p></section>";return;}
+render(rid,j);gamesLine();},function(e){if(A.isCurrent(rid))A.app.innerHTML='<section class="card"><p class="nm-bad">读取失败：'+esc(e.message||e)+"</p></section>";});}
+A.pages.partner=function(rid){load(rid);};})();}catch(e){console.error('[bundle] partner.js',e);};try{(function(){var A=window.AIL;function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function key(){try{return localStorage.getItem("fbKey")||"";}catch(e){return"";}}
+function tm(t){var x=new Date(t+8*3600e3);return(x.getUTCMonth()+1)+"/"+x.getUTCDate()+" "+String(x.getUTCHours()).padStart(2,"0")+":"+String(x.getUTCMinutes()).padStart(2,"0");}
+var LV={red:"🔴",yellow:"🟡",green:"🟢"};function login(rid,msg){A.app.innerHTML='<section class="card ptn-login"><h2>'+(location.hash.indexOf("#/notify")===0?"📣 发站内信":"📝 待办")+'</h2><p class="muted">和工单后台同一个口令。</p>'+(msg?'<p class="nm-bad">'+esc(msg)+"</p>":"")+'<input id="ops-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="ops-go">进入</button></section>';var go=document.getElementById("ops-go"),inp=document.getElementById("ops-k");go.onclick=function(){var v=inp.value.trim();if(!v)return;try{localStorage.setItem("fbKey",v);}catch(e){}if(location.hash.indexOf("#/notify")===0)A.pages.notify(rid);else A.pages.todo(rid);};inp.onkeydown=function(e){if(e.key==="Enter")go.click();};}
+function nav(cur){return'<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb'+(cur==="notify"?" on":"")+'">📣 发站内信</a><a href="#/todo" class="ad-nb'+(cur==="todo"?" on":"")+'">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';}
+function hot(j){var rs=j.risks||[];return rs.filter(function(r){return r.level==="red";}).concat(rs.filter(function(r){return r.level==="yellow";}));}
+function roll(j){var hs=hot(j);if(!hs.length)return'<div class="ops-roll ok"><div class="ops-ri"><b>🟢 现在没有紧急的事</b><span>下面的清单有空再看</span></div></div>';return'<div class="ops-roll" id="ops-roll"><div class="ops-rt" id="ops-rt">'+hs.concat(hs.length>1?[hs[0]]:[]).map(function(r){return'<div class="ops-ri '+r.level+'"><b>'+LV[r.level]+" "+(r.level==="red"?"紧急":"重要")+"："+esc(r.title)+"</b><span>👉 "+esc(r.todo)+"</span></div>";}).join("")+'</div><i class="ops-rn" id="ops-rn">1/'+hs.length+"</i></div>";}
+function rollGo(n){try{var box=document.getElementById("ops-roll"),t=document.getElementById("ops-rt"),num=document.getElementById("ops-rn");if(!box||!t)return;box.onclick=function(){var x=document.getElementById("ops-now");if(x)x.scrollIntoView({behavior:"smooth",block:"start"});};if(n<2)return;var i=0,hold=false;box.onmouseenter=box.ontouchstart=function(){hold=true;};box.onmouseleave=box.ontouchend=function(){hold=false;};var iv=setInterval(function(){try{if(!document.body.contains(box)){clearInterval(iv);return;}
+if(hold||document.hidden)return;i++;t.style.transition="transform .45s ease";t.style.transform="translateY(-"+(i*54)+"px)";if(num)num.textContent=((i%n)+1)+"/"+n;if(i===n)setTimeout(function(){i=0;t.style.transition="none";t.style.transform="translateY(0)";},500);}catch(e){clearInterval(iv);}},4000);}catch(e){}}
+function li(items,f){return'<ul class="ops-ul">'+items.map(f).join("")+"</ul>";}
+function refDoc(j){if(!j||!j.worst)return"";return'<details class="td-ref"><summary>📚 资料（最坏情况 / 安全维护 / 定的方案 / 学习清单），有空再看</summary>'+'<h3 class="ad-h">☠️ 最坏情况与防护（按损失从大到小）</h3>'+li(j.worst,function(w){return"<li><b>"+esc(w.t)+'</b><div class="ops-k">会丢什么</div><p>'+esc(w.lose)+'</p><div class="ops-k">怎么防</div><p>'+esc(w.guard)+"</p>"+(w.done?'<div class="ops-k ok">✅ 已经做了</div><p>'+esc(w.done)+"</p>":"")+(w.next?'<div class="ops-k go">🔧 继续优化</div><p>'+esc(w.next)+"</p>":"")+"</li>";})+'<h3 class="ad-h">🔐 网站怎么维护保证安全</h3><h4 class="ops-h4">每天</h4>'+li(j.security.daily,function(x){return"<li><b>"+esc(x.t)+"</b><p>"+esc(x.d)+"</p></li>";})+'<h4 class="ops-h4">每周</h4>'+li(j.security.weekly,function(x){return"<li><b>"+esc(x.t)+"</b><p>"+esc(x.d)+"</p></li>";})+'<h4 class="ops-h4">永远不做</h4>'+li(j.security.never,function(x){return"<li><b>"+esc(x.t)+"</b><p>"+esc(x.d)+"</p></li>";})+'<h3 class="ad-h">📜 你定的方案（新的在前）</h3>'+li(j.decisions||[],function(x){return'<li><span class="muted">'+esc(x.d)+"</span> "+esc(x.t)+"</li>";})+'<h3 class="ad-h">📚 学习清单</h3>'+li(j.learn||[],function(x){return"<li><b>"+esc(x.t)+'</b><div class="ops-k">为什么</div><p>'+esc(x.why)+'</p><div class="ops-k">怎么练</div><p>'+esc(x.how)+"</p></li>";})+"</details>";}
+var TD_ST={"动手":["🔴 要你亲自动手","td-do"],"拍板":["🟣 等你拍板","td-pick"],"半成":["🟠 想了一半没做","td-half"],"长期":["🔵 长期 / 基础设施","td-long"],"跟进":["🟢 开发在查在盯","td-follow"]};A.pages.todo=function(rid){var k=key();if(!k)return login(rid);A.app.innerHTML='<section class="card"><p class="muted">读取中…</p></section>';var opsP=fetch("/api/ops?key="+encodeURIComponent(k)).then(function(r){return r.json();}).then(function(o){return o&&!o.error?o:{};},function(){return{};});Promise.all([fetch("/api/todo?key="+encodeURIComponent(k)).then(function(r){return r.json();}),opsP]).then(function(both){var j=both[0],o=both[1];if(!A.isCurrent(rid))return;if(j.error){if(/口令/.test(j.error)){try{localStorage.removeItem("fbKey");}catch(e){}return login(rid,j.error);}A.app.innerHTML='<section class="card"><p class="nm-bad">'+esc(j.error)+"</p></section>";return;}
+var done=j.done||{},items=j.items||[],open=items.filter(function(x){return!done[x.id];}),closed=items.filter(function(x){return done[x.id]&&Date.now()-done[x.id]<7*86400e3;});var risks=hot(o);var rollList=risks.concat(open.filter(function(x){return x.st==="动手";}).concat(open.filter(function(x){return x.st!=="动手"&&x.pri==="高";})).map(function(x){return{level:"yellow",title:x.t,todo:x.next};}));var card=function(x){var dn=!!done[x.id];return'<li class="td-it'+(dn?" done":"")+' pri-'+(x.pri==="高"?"h":x.pri==="中"?"m":"l")+'"><div class="td-h"><b>'+(dn?"✅ ":"")+esc(x.t)+'</b><span class="td-pri">'+esc(x.pri)+"</span></div>"+'<p class="td-why">'+esc(x.why)+'</p><p class="td-next">👉 '+esc(x.next)+'</p>'+'<div class="td-f"><small class="muted">'+esc(x.d)+(dn?" · 做完于 "+tm(done[x.id]):"")+'</small><button type="button" class="td-tg" data-id="'+esc(x.id)+'" data-done="'+(dn?"0":"1")+'">'+(dn?"恢复":"做完了 ✓")+"</button></div></li>";};var groups=Object.keys(TD_ST).map(function(st){var l=open.filter(function(x){return x.st===st;});return l.length?'<h3 class="ad-h">'+TD_ST[st][0]+"（"+l.length+"）</h3>"+li(l,card):"";}).join("");A.app.innerHTML='<section class="card ops"><div class="card-head"><h2>📝 待办</h2><span class="muted">清单更新于 '+esc(j.updated)+"</span></div>"+nav("todo")+roll({risks:rollList})+'<p class="muted ptn-note">上面滚动的是紧急、重要的事。做完一项点「做完了 ✓」，它就从清单里消失。</p>'+'<div id="ops-now">'+(risks.length?'<h3 class="ad-h">🚦 现在的风险（'+risks.length+"）"+(o.risksAt?'<small class="muted"> '+tm(o.risksAt)+" 算的</small>":"")+'</h3><div class="ptn-risks">'+risks.map(function(r){return'<div class="ptn-risk '+r.level+'"><div class="ptn-rh">'+LV[r.level]+" <b>"+esc(r.title)+"</b><i>"+esc(r.who)+"</i></div><p>"+esc(r.why)+'</p><p class="ptn-todo">👉 '+esc(r.todo)+"</p></div>";}).join("")+"</div>":"")+"</div>"+
+(open.length?groups:'<p class="muted">全部做完了 🎉</p>')+
+(closed.length?'<details class="td-done"><summary>刚做完的（'+closed.length+'），点错了可以在这里恢复</summary>'+li(closed,card)+"</details>":"")+
+refDoc(o)+'<p class="muted ptn-note">清单由开发维护：你每说一个新想法、每定一条规则都会加进来；做完的直接删掉。</p></section>';rollGo(rollList.length);A.app.querySelectorAll(".td-tg").forEach(function(b){b.onclick=function(){b.disabled=true;fetch("/api/todo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:k,id:b.getAttribute("data-id"),done:b.getAttribute("data-done")==="1"})}).then(function(r){return r.json();}).then(function(r2){if(r2.error){A.errTip(r2.error,b);b.disabled=false;return;}A.pages.todo(rid);},function(){b.disabled=false;});};});},function(e){if(A.isCurrent(rid))A.app.innerHTML='<section class="card"><p class="nm-bad">读取失败：'+esc(e.message||e)+"</p></section>";});};A.pages.ops=A.pages.todo;function tm2(t){var d=new Date(t+8*3600e3);return d.toISOString().slice(5,16).replace("T"," ");}
+function logHtml(log){if(!log||!log.length)return'<p class="muted">还没发过</p>';return log.map(function(x){return'<div class="ntf-log"><small class="muted">'+tm2(x.t)+" · 发给 "+x.to.length+" 个地址</small><p>"+esc(x.msg)+'</p><small class="mono muted">'+x.to.map(function(a){return a.slice(0,6)+"…"+a.slice(-4);}).join("、")+"</small></div>";}).join("");}
+A.pages.notify=function(rid){var k=key();if(!k)return login(rid);A.app.innerHTML='<section class="card ops"><div class="card-head"><h2>📣 发站内信</h2><span class="muted">只有站长能用</span></div>'+nav("notify")+'<label class="ntf-l">发给谁（钱包地址，一行一个，最多 50 个）</label><textarea id="ntf-to" rows="4" placeholder="0x…&#10;0x…"></textarea>'+'<button type="button" class="link" id="ntf-all">＋ 填入「全部 OTC 商户」（✔ 认证商家及以上，按本周名单）</button>'+'<label class="ntf-l">内容（1200 字以内）</label><textarea id="ntf-msg" rows="5" maxlength="1200" placeholder="比如：恭喜你获得本周贡献王，奖金已发到你的钱包，请查收 💜"></textarea>'+'<label class="ntf-l">点开跳到哪一页（可不填）</label><input id="ntf-link" placeholder="#/oracle">'+'<button type="button" class="nm-go" id="ntf-go">发送</button><p id="ntf-st" class="muted"></p>'+'<h3 class="ad-h">🗂 发送记录</h3><div id="ntf-log"><p class="muted">读取中…</p></div>'+'<p class="muted ptn-note">对方会在「📬 收件箱」看到，标题是「📣 站长通知」；开了通知的手机、电脑会弹提醒。</p></section>';var post=function(o){o.key=k;return fetch("/api/inbox",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(o)}).then(function(r){return r.json();});};post({action:"adminlog"}).then(function(j){if(!A.isCurrent(rid))return;if(j.error&&/口令/.test(j.error)){try{localStorage.removeItem("fbKey");}catch(e){}return login(rid,j.error);}
+document.getElementById("ntf-log").innerHTML=j.error?'<p class="nm-bad">'+esc(j.error)+"</p>":logHtml(j.log);},function(){});document.getElementById("ntf-all").onclick=function(){var t=document.getElementById("ntf-to");if(!/@商户/.test(t.value))t.value="@商户"+(t.value.trim()?"\n"+t.value.trim():"");};document.getElementById("ntf-go").onclick=function(){var b=this,st=document.getElementById("ntf-st"),to=document.getElementById("ntf-to").value,msg=document.getElementById("ntf-msg").value.trim(),link=document.getElementById("ntf-link").value.trim();var n=(to.toLowerCase().match(/0x[0-9a-f]{40}/g)||[]).length,all=/@商户/.test(to);if(!n&&!all){st.textContent="❌ 没找到有效地址";return;}
+if(msg.length<2){st.textContent="❌ 内容太短";return;}
+if(!confirm(all?"确定发给全部 OTC 商户"+(n?"（再加 "+n+" 个地址）":"")+"？":"确定发给 "+n+" 个地址？"))return;b.disabled=true;st.textContent="发送中…";post({action:"admin",to:to,msg:msg,link:link}).then(function(j){b.disabled=false;if(j.error){st.textContent="❌ "+j.error;return;}
+st.textContent="✅ 已发给 "+j.n+" 个地址";document.getElementById("ntf-msg").value="";document.getElementById("ntf-log").innerHTML=logHtml(j.log);},function(e){b.disabled=false;st.textContent="❌ 发送失败："+(e.message||e);});};};})();}catch(e){console.error('[bundle] ops.js',e);};try{(function(){var A=window.AIL,W=A.wallet;var SQUARE="0x0000000000000000000000000000000000a11905";var PREFIX="ailgns-post:",MAX=300;var NAMES={ailgns:"0xbc408e9d7350967e7247c917a086cb4ece0ed988",lgns:"0x93af23fe74e5180f54f0996fa6bb6c157775f7f3"},SEL_NAMEOF="0xf5c57382";var MK={ailgns:"AiLGNS",lgns:"LGNS",glgns:"gLGNS",plgns:"LGNS（Polygon）",lp:"LP",rm:"RM",flgns:"fLGNS",nft:"AWAKE NFT"};var CONTACT=/https?:\/\/|www\.|[a-z0-9-]+\.(com|net|org|xyz|io|app|cc|top|vip|cn|me|link|site|online|shop|pro)\b|t\.me|微信|微信号|vx|wx|weixin|wechat|qq|扣扣|电报|telegram|tg|飞机|whatsapp|line\b|手机号|电话|加我|加一下|私聊|私信我|联系方式|联系我|\d{11}/i;function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function tm(t){var x=new Date(t+8*3600e3);return(x.getUTCMonth()+1)+"/"+x.getUTCDate()+" "+String(x.getUTCHours()).padStart(2,"0")+":"+String(x.getUTCMinutes()).padStart(2,"0");}
+function ago(t){var s=Math.max(0,(Date.now()-t)/1000);return s<60?"刚刚":s<3600?Math.floor(s/60)+" 分钟前":s<86400?Math.floor(s/3600)+" 小时前":Math.floor(s/86400)+" 天前";}
+function left(t){var s=Math.max(0,(t-Date.now())/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+" 天 "+h+" 小时":h?h+" 小时 "+m+" 分":m+" 分钟";}
+function enc(obj){return"0x"+Array.prototype.map.call(new TextEncoder().encode(PREFIX+JSON.stringify(obj)),function(b){return b.toString(16).padStart(2,"0");}).join("");}
+function decStr(hex){var w=hex.slice(2),off=parseInt(w.slice(0,64),16)*2,len=parseInt(w.slice(off,off+64),16);return new TextDecoder().decode(new Uint8Array((w.slice(off+64,off+64+len*2).match(/../g)||[]).map(function(x){return parseInt(x,16);})));}
+function nameOf(a){return Promise.all(Object.keys(NAMES).map(function(t){return A.call(NAMES[t],SEL_NAMEOF+A.pad(a)).then(function(r){var s=decStr(r);return s?s+"."+t:"";},function(){return"";});})).then(function(r){return r.filter(Boolean)[0]||"";});}
+function nameHtml(p){return'<a class="sq-name" href="#/scan/'+p.from+'">'+esc(p.name||A.short(p.from))+"</a>";}
+function body(p){if(p.locked)return'<div class="sq-lock">🔒 时间胶囊 · '+tm(p.at)+" 揭晓（还有 "+left(p.at)+"）</div>";var h='<div class="sq-txt">'+esc(p.t).replace(/\n/g,"<br>")+"</div>",btn="";if(p.o)btn+='<a class="sq-btn" href="#/otc'+(p.o.m==="ailgns"?"":"/"+p.o.m)+'">💱 去买这张单（'+esc(MK[p.o.m]||p.o.m)+" 市场 #"+p.o.id+"）→</a>";if(p.k==="pred")btn+='<a class="sq-btn" href="#/oracle">🔮 我也预测 →</a>';if(p.k==="iou")h='<div class="sq-iou">📜 立字据 · 永久刻在链上</div>'+h;if(p.at&&!p.locked)h='<div class="sq-iou">⏰ 时间胶囊 · '+tm(p.at)+" 揭晓</div>"+h;return h+(btn?'<div class="sq-btns">'+btn+"</div>":"");}
+function rootCard(p){return'<a class="sq-card" href="#/square/'+p.tx+'"><div class="sq-h">'+nameHtml(p)+'<small>'+ago(p.time)+"</small></div>"+body(p)+'<div class="sq-f"><span>💬 '+(p.n||0)+" 层</span><span>"+(p.n?"最新 "+ago(p.last||p.time)+" · ":"")+"点开盖楼 →</span></div></a>";}
+function floorCard(p,i){var tag=i===1?"楼主":i===2?"沙发":i===3?"板凳":i+" 楼";return'<div class="sq-floor"><div class="sq-h"><b class="sq-no">#'+i+" "+tag+"</b>"+nameHtml(p)+"<small>"+tm(p.time)+'</small><a class="sq-tx" href="#/scan/'+p.tx+'" title="链上证据">🔗</a></div>'+body(p)+"</div>";}
+function composer(re){return'<section class="card sq-compose"><div class="card-head"><h2>'+(re?"💬 盖一层":"✍️ 发一帖")+'</h2><span class="muted">只花约 0.001 DAI Gas · 永久上链</span></div>'+
+(re?"":'<div class="sq-kinds"><button type="button" class="on" data-k="">普通</button><button type="button" data-k="cap">🔒 时间胶囊</button><button type="button" data-k="iou">📜 立字据</button><button type="button" data-k="order">📌 挂单帖</button><button type="button" data-k="pred">🔮 预言帖</button></div>')+'<textarea id="sq-t" maxlength="'+MAX+'" rows="3" placeholder="写点什么（'+MAX+' 字以内）。不能有网址和联系方式，所有交流只在链上。"></textarea>'+'<div id="sq-opt" class="sq-opt" hidden></div>'+'<div class="sq-cf"><span class="muted" id="sq-n">0 / '+MAX+'</span><button type="button" class="nm-go" id="sq-go">'+(re?"盖楼（钱包确认一次）":"发布（钱包确认一次）")+'</button></div><p class="note" id="sq-st"></p></section>';}
+var kind="";function optHtml(k){var d=new Date(Date.now()+365*86400e3),iso=d.toISOString().slice(0,10);if(k==="cap")return'<label>🔒 到这一天才揭晓：<input type="date" id="sq-at" value="'+iso+'"></label><small>到期前本站只显示「🔒 时间胶囊」。写给未来的自己、一年后的预言、给某人的话。链上原文懂技术的人能提前解出来，所以别写秘密。</small>';if(k==="order")return'<label>📌 市场 <select id="sq-m">'+Object.keys(MK).map(function(m){return'<option value="'+m+'">'+MK[m]+"</option>";}).join("")+'</select> 单号 <input id="sq-id" type="number" min="0" placeholder="例如 1234" style="width:100px"></label><small>单号在 OTC 页「我的挂单」里看（# 后面的数字）。帖子下面会出现「去买这张单」按钮，别人一点就到你的单。</small>';if(k==="iou")return'<small>📜 立字据模板已填进正文：改成你们的内容。双方名字和时间永久刻在链上，谁都改不了。</small>';if(k==="pred")return'<small>🔮 预言帖：写你对今晚揭晓价的看法，帖子下面会有「我也预测」按钮带大家去预言家页。</small>';return"";}
+function bindComposer(rid,re,onDone){var ta=document.getElementById("sq-t"),n=document.getElementById("sq-n"),go=document.getElementById("sq-go"),st=document.getElementById("sq-st"),opt=document.getElementById("sq-opt");if(!ta)return;ta.oninput=function(){n.textContent=Array.from(ta.value).length+" / "+MAX;};document.querySelectorAll(".sq-kinds button").forEach(function(b){b.onclick=function(){kind=b.getAttribute("data-k");document.querySelectorAll(".sq-kinds button").forEach(function(x){x.classList.toggle("on",x===b);});opt.innerHTML=optHtml(kind);opt.hidden=!opt.innerHTML;if(kind==="iou"&&!ta.value){ta.value="我 ___ 承诺：___。期限：___。违约则：___。";ta.oninput();}};});function say(t,bad){st.className="note"+(bad?" down":"");st.textContent=t;if(bad)A.errTip(t,go);}
+go.onclick=function(){var txt=ta.value.trim();if(!txt)return say("先写点什么",true);if(Array.from(txt).length>MAX)return say("最多 "+MAX+" 字",true);if(CONTACT.test(txt))return say("🛡️ 帖子里不能有网址或联系方式（微信、QQ、电报、手机号等）。所有交流只在链上进行，骗子才会让你加联系方式。",true);var obj={t:txt};if(re)obj.re=re;else{if(kind==="cap"){var at=document.getElementById("sq-at"),ts=at&&at.value?new Date(at.value+"T21:00:00+08:00").getTime():0;if(!ts||ts<Date.now())return say("揭晓日期要在今天之后",true);obj.at=ts;}
+if(kind==="order"){var m=document.getElementById("sq-m").value,id=Number(document.getElementById("sq-id").value);if(!(id>=0)||document.getElementById("sq-id").value==="")return say("填一下挂单的单号",true);obj.o={m:m,id:id};}
+if(kind==="pred"||kind==="iou")obj.k=kind;}
+go.disabled=true;var acct;A.otcKit.connect().then(function(acc){acct=acc;say("检查发帖资格…");return nameOf(acct);}).then(function(nm){if(!nm)throw new Error("只有注册了 .ailgns 域名并设为主名字的钱包才能发帖。去「域名」页注册一个（最低 5 DAI），设为主名字后再来");say("🔒 这是一笔 0 元转账，内容放在交易里，只花约 0.001 DAI 的 Gas。请在钱包确认");return A.wallets.ask(W.get(),{method:"eth_sendTransaction",params:[{from:acct,to:SQUARE,value:"0x0",data:enc(obj)}]});}).then(function(hash){say("已提交，等待链上确认…");return W.waitOn("anubis",hash).then(function(){return hash;});}).then(function(hash){say("链上已确认，正在收进广场…");return fetch("/api/square",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({tx:hash})}).then(function(r){return r.json();});}).then(function(r){if(r.error)throw new Error(r.error);say("✅ 已上链");ta.value="";n.textContent="0 / "+MAX;go.disabled=false;onDone(r.item);}).catch(function(e){go.disabled=false;say(A.otcKit.niceError?A.otcKit.niceError(e):(e.message||String(e)),true);});};}
+function head(){return'<section class="card sq-head"><h1>🏛️ 链上广场</h1><p class="sub">有 .ailgns 名字的人才能发言，每句话都是一笔链上交易：发了就删不掉、改不了，谁说的永远查得到。<b>看帖不用钱包。</b></p>'+'<div class="sq-rules"><span>🧱 盖楼</span><span>🔒 时间胶囊</span><span>📜 立字据</span><span>📌 挂单帖一键去成交</span><span>🔮 预言帖</span></div></section>';}
+function list(rid){A.app.innerHTML=head()+composer(null)+'<div id="sq-list"><p class="muted">读取中…</p></div>';kind="";bindComposer(rid,null,function(){list(rid);});fetch("/api/square?list=1").then(function(r){return r.json();}).then(function(j){if(!A.isCurrent(rid))return;var box=document.getElementById("sq-list"),l=j.list||[];box.innerHTML=l.length?'<h3 class="sq-h3">最新 · 共 '+(j.total||l.length)+" 帖</h3>"+l.map(rootCard).join(""):'<section class="card"><p class="muted">广场还空着。第一帖会永远是第一帖，要不要留给你？</p></section>';}).catch(function(){var box=document.getElementById("sq-list");if(box)box.innerHTML='<p class="muted">读取失败，稍后再试</p>';});}
+function thread(rid,tx){A.app.innerHTML='<p class="sq-back"><a href="#/square">← 回广场</a></p><div id="sq-th"><p class="muted">读取中…</p></div>';fetch("/api/square?p="+tx).then(function(r){return r.json();}).then(function(j){if(!A.isCurrent(rid))return;var box=document.getElementById("sq-th");if(j.error){box.innerHTML='<section class="card"><p class="nm-bad">'+esc(j.error)+"</p></section>";return;}
+var floors=[j.root].concat(j.replies||[]);box.innerHTML='<section class="card sq-thread">'+floors.map(function(p,i){return floorCard(p,i+1);}).join("")+"</section>"+composer(tx);bindComposer(rid,tx,function(item){var th=document.querySelector(".sq-thread");if(th)th.insertAdjacentHTML("beforeend",floorCard(item,floors.length+1));floors.push(item);});}).catch(function(){var box=document.getElementById("sq-th");if(box)box.innerHTML='<p class="muted">读取失败，稍后再试</p>';});}
+A.pages.square=function(rid){var tx=(location.hash.split("/")[2]||"").toLowerCase();if(/^0x[0-9a-f]{64}$/.test(tx))thread(rid,tx);else list(rid);};})();}catch(e){console.error('[bundle] square.js',e);};try{(function(){var A=window.AIL,GOAL=500,WIN=50,WIN_T=30,WIN_W=20,POOL="0xf1a871f4f732fb2217cda4e4224d2b2d3b4aa6c2",timer=0,eth=null,account="",info=null,busy=false,pool=null;function n(v){return Number(v||0).toLocaleString("en-US");}
+function n2(v){return Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function el(id){return document.getElementById(id);}
+function short(a){return a.slice(0,6)+"…"+a.slice(-4);}
+function utf8hex(str){var b=unescape(encodeURIComponent(str)),h="0x";for(var i=0;i<b.length;i++)h+=b.charCodeAt(i).toString(16).padStart(2,"0");return h;}
+function signText(day,a){return"AiLGNS 创世域名分红 · 每日签到\n日期："+day+"\n钱包："+a+"\n只是签名，不花钱、不转账。";}
+function signTextM(day,a,m){return"AiLGNS 创世域名分红 · 每日签到\n日期："+day+"\n钱包："+a+"\n主钱包："+m+"\n只是签名，不花钱、不转账。";}
+function bindText(main,sub,ts){return"AiLGNS 创世域名分红 · 主钱包作保\n主钱包："+main+"\n小号："+sub+"\n时间："+ts+"\n只是签名，不花钱、不转账。让这个小号用我的持仓过签到门槛。";}
+function isAddr(x){return/^0x[0-9a-f]{40}$/.test(x);}
+function mainOf(a){try{var m=String(localStorage.getItem("bn:main:"+a)||"").toLowerCase();return isAddr(m)&&m!==a?m:"";}catch(e){return"";}}
+function setMain(a,m){try{if(m)localStorage.setItem("bn:main:"+a,m);else localStorage.removeItem("bn:main:"+a);}catch(e){}}
+function sayB(t,bad){var s=el("bn-b-st");if(!s)return;s.textContent=t||"";s.hidden=!t;s.className="bn-st"+(bad?" bad":"");}
+function say(t,bad){var s=el("bn-st");if(!s)return;s.textContent=t||"";s.hidden=!t;s.className="bn-st"+(bad?" bad":"");}
+function paintPool(){if(!el("bn-pool"))return;var goal=Number(info&&info.goal)||GOAL,has=pool===null?null:Number(pool)||0;el("bn-pool").textContent=has===null?"…":n2(has);el("bn-fill").style.width=Math.max(2,Math.min(100,Math.round((has||0)/goal*1000)/10))+"%";el("bn-need").textContent=has===null?"读取中…":has>=goal?"奖池已满 "+n(goal)+" DAI，等待发放":"还差 "+n2(goal-has)+" DAI 就发放";var all=info&&info.all;el("bn-all").textContent=all?"第 "+n(info.round)+" 轮 · 已有 "+n(all.w)+" 个钱包签到，今天 "+n(all.today)+" 个":"";}
+function paintMe(){var box=el("bn-me"),btn=el("bn-sign");if(!box||!btn)return;var me=info&&info.me;btn.disabled=busy;if(!account){box.hidden=true;btn.textContent="连接钱包签到";return;}
+box.hidden=false;if(!me){box.textContent="钱包 "+short(account)+"：签到数据读取中…";btn.textContent="✍️ 今日签到（免费）";return;}
+if(me.held<0){box.textContent="钱包 "+short(account)+"：暂时没读到你的域名，过一分钟再来。";btn.textContent="✍️ 今日签到（免费）";return;}
+if(me.held===0){box.innerHTML="钱包 "+short(account)+" 里没有创世域名，有 1 枚就能签到。"+(me.days>0?"（本轮已签 "+n(me.days)+" 天）":"");btn.textContent="去域名市场买创世域名 →";return;}
+var lack=!me.signed&&me.ok===false;var got="AiLGNS <b>"+ailFmt(me.ail)+"</b> 枚、LGNS <b>"+n(Math.floor(Number(me.lgns)||0))+"</b> 枚";box.innerHTML="钱包 "+short(account)+" 有 <b>"+n(me.held)+"</b> 枚创世域名，签到一天记 <b>"+n(me.held)+"</b> 票。"+
+(me.days>0?"<br>本轮已签 <b>"+n(me.days)+"</b> 天，共 <b>"+n(me.tickets)+"</b> 票。":"")+
+(lack?'<br><span class="bn-lack">持仓还不够签到：现在算到 '+got+"。要至少 "+n(me.ailNeed)+" 枚 AiLGNS，或至少 "+n(me.lgnsNeed)+" 枚 LGNS（质押的 LP 也算）。持仓在别的钱包？看下面「让主钱包作保」。</span>":me.ok===true&&!me.signed?"<br>持仓够了："+got+(me.main?'，含主钱包 <b class="mono">'+short(me.main)+"</b> 的持仓。可以签到了。":"。可以签到了。"):"")+
+(me.mainBad?'<br><span class="bn-lack">你填的主钱包 <b class="mono">'+short(me.mainBad)+"</b> 现在没有给这个小号作保。请先用主钱包做下面第一步。</span>":"")+
+(me.back?'<br>这个钱包正在给小号 <b class="mono">'+short(me.back.s)+"</b> 作保。":"");if(me.signed){btn.textContent="✅ 今天已签到，明天再来";btn.disabled=true;}
+else if(lack)btn.textContent="去 OTC 买 AiLGNS →";else btn.textContent="✍️ 今日签到（免费）";try{var bm=el("bn-b-main");if(bm&&!bm.value&&document.activeElement!==bm)bm.value=mainOf(account);}catch(e){}}
+function ailFmt(v){v=Number(v)||0;return v>=100?n(Math.floor(v)):String(Math.floor(v*10000)/10000);}
+function paint(){try{paintPool();paintMe();}catch(e){}}
+var rk=null,rkAll=false,rkOpen={};function esc(t){return String(t).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function paintRank(){var box=el("bn-rk");if(!box)return;if(!rk){box.innerHTML='<p class="muted">读取中…</p>';return;}
+var list=rk.list||[];if(!list.length){box.innerHTML='<p class="muted">这一轮还没有人签到。你来当第一个。</p>';return;}
+var show=rkAll?list.length:Math.min(10,list.length);box.innerHTML='<p class="bn-rk-top">第 '+n(rk.round)+" 轮 · 共 "+n(rk.w)+' 个钱包签到 · 按票数排</p><ol class="bn-rk-l">'+list.slice(0,show).map(function(r,i){var g=r.g||[],open=!!rkOpen[r.a],cut=open?g.length:Math.min(3,g.length),me=account&&r.a===account;var who=me?'<b class="bn-rk-me">我</b>':(A.nameTag?A.nameTag(r.a):short(r.a));return'<li class="bn-rk-i'+(me?" me":"")+'"><div class="bn-rk-h"><i class="bn-rk-no'+(i<3?" top":"")+'">'+(i+1)+'</i><span class="bn-rk-w mono">'+who+'</span><b class="bn-rk-t">'+n(r.t)+" 票</b></div>"+'<p class="bn-rk-s">签到 '+n(r.n)+" 天 · "+(r.td?"今天已签":"今天还没签")+(r.gn>=0?" · 现在有 "+n(r.gn)+" 枚创世域名":"")+"</p>"+
+(g.length?'<p class="bn-rk-g">'+g.slice(0,cut).map(function(x){return'<a href="#/names/'+encodeURIComponent(x[1]+".ailgns")+'">🌟 '+esc(x[1])+".ailgns <small>#"+x[0]+"</small></a>";}).join("")+
+(g.length>3?'<button type="button" class="bn-rk-more" data-rk="'+r.a+'">'+(open?"收起":"展开全部 "+n(r.gn)+" 枚")+"</button>":"")+
+(open&&r.gn>g.length?'<span class="bn-rk-rest">还有 '+n(r.gn-g.length)+" 枚没列出</span>":"")+"</p>":r.gn===0?'<p class="bn-rk-g none">签到后名字已转走或挂到市场，现在钱包里没有创世域名</p>':"")+"</li>";}).join("")+"</ol>"+(list.length>10?'<button type="button" class="bn-rk-all" id="bn-rk-all">'+(rkAll?"收起，只看前 10 名":"再看后面 "+n(list.length-10)+" 个钱包")+"</button>":"")+
+(rk.w>list.length?'<p class="note">榜上只列票数最多的 '+n(list.length)+" 个钱包。</p>":"");}
+function loadRank(){if(!rk){try{var c=JSON.parse(localStorage.getItem("bn:rk")||"null");if(c&&c.list)rk=c;}catch(e){}}
+try{paintRank();}catch(e){}
+return fetch("/api/bonus?rank=1").then(function(r){if(!r.ok)throw new Error("bad");return r.json();}).then(function(j){if(!j||!j.list)throw new Error("bad");rk=j;try{localStorage.setItem("bn:rk",JSON.stringify(j));}catch(e){}
+paintRank();}).catch(function(){try{if(!rk&&el("bn-rk"))el("bn-rk").innerHTML='<p class="muted">排行榜暂时没读到，稍后自动重试。</p>';}catch(e){}});}
+function loadPool(){return fetch("/api/name-genesis").then(function(r){if(!r.ok)throw new Error("bad");return r.json();}).then(function(j){if(j&&j.pool!==undefined&&j.pool!==null)pool=Number(j.pool)||0;paint();}).catch(function(){return A.wallet.rpcOn("anubis","eth_getBalance",[POOL,"latest"]).then(function(b){pool=Number(BigInt(b)/10n**14n)/1e4;paint();});}).catch(function(){if(el("bn-need")&&pool===null)el("bn-need").textContent="奖池金额暂时没读到，稍后自动重试";});}
+function loadInfo(){return fetch("/api/bonus"+(account?"?a="+account+(mainOf(account)?"&m="+mainOf(account):""):"")).then(function(r){return r.json().then(function(j){if(!r.ok||!j||j.error)throw new Error((j&&j.error)||"bad");return j;});}).then(function(j){info=j;paint();return j;}).catch(function(e){if(account&&el("bn-me")){el("bn-me").hidden=false;el("bn-me").textContent="钱包 "+short(account)+"："+(e&&/[一-龥]/.test(e.message||"")?e.message:"签到数据暂时没读到，稍后再试");}return null;});}
+function connect(){return A.wallets.choose().then(function(p){eth=p;return A.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){var got=String(a[0]).toLowerCase();if(got!==account){account=got;info=info?{day:info.day,round:info.round,goal:info.goal,all:info.all}:null;}return account;});}
+function onSign(){if(busy)return;var me=info&&info.me;if(account&&me&&me.held===0){location.hash="#/names/otc";return;}
+if(account&&me&&me.held>0&&!me.signed&&me.ok===false){location.hash="#/otc";return;}
+busy=true;say("");paint();var done=function(){busy=false;paint();};(eth&&account?Promise.resolve():connect()).then(function(){paint();return loadInfo();}).then(function(j){if(!j||!j.me)throw new Error("签到数据暂时没读到，稍后再点一次");if(j.me.held<0)throw new Error("暂时没读到你的域名，过一分钟再点");if(j.me.held===0){say("这个钱包里没有创世域名。刚买的等 1 分钟再点；挂在市场里卖的不算。",true);return null;}
+if(j.me.signed){say("今天已经签过了，明天再来。");return null;}
+if(j.me.ok===false){say("签到要持有至少 "+n(j.me.ailNeed)+" 枚 AiLGNS，或者至少 "+n(j.me.lgnsNeed)+" 枚 LGNS（官方质押里的 LGNS、质押在官方流动性池里的 LP 也算）。现在算到 AiLGNS "+ailFmt(j.me.ail)+" 枚、LGNS "+n(Math.floor(Number(j.me.lgns)||0))+" 枚，还不够。",true);return null;}
+var mn=j.me.main||"";say("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");return A.wallets.ask(eth,{method:"personal_sign",params:[utf8hex(mn?signTextM(j.day,account,mn):signText(j.day,account)),account]}).then(function(sig){say("正在登记…");return fetch("/api/bonus",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(mn?{a:account,sig:sig,m:mn}:{a:account,sig:sig})}).then(function(r){return r.json();});}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||"没记上，稍后再点一次");info=info||{};info.me=r.me;info.day=r.day;info.round=r.round;if(info.all&&!r.already){info.all.today=(Number(info.all.today)||0)+1;if(r.me.days===1)info.all.w=(Number(info.all.w)||0)+1;}
+say("✅ 签到成功，今天记 "+n(r.me.held)+" 票。明天再来。");setTimeout(function(){try{loadRank();}catch(e){}},1500);});}).then(done,function(e){var m=String((e&&e.message)||"");say(e&&(e.code===4001||/reject|denied|cancel/i.test(m))?"你取消了签名，没有签到。":/[一-龥]/.test(m)?m:"没签成，稍后再点一次。",true);done();});}
+function onBind(){if(busy)return;var sb=String((el("bn-b-sub")||{}).value||"").trim().toLowerCase();if(!isAddr(sb)){sayB("请先填对小号的钱包地址。",true);return;}
+busy=true;sayB("");paint();var done=function(){busy=false;paint();};(eth&&account?Promise.resolve():connect()).then(function(){if(sb===account)throw new Error("小号地址和现在连的钱包是同一个。请用主钱包打开这页再做这一步。");var ts=Date.now(),main=account;sayB("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");return A.wallets.ask(eth,{method:"personal_sign",params:[utf8hex(bindText(main,sb,ts)),main]}).then(function(sig){sayB("正在登记…");return fetch("/api/bonus",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({bind:1,main:main,sub:sb,ts:ts,sig:sig})}).then(function(r){return r.json();});}).then(function(r){if(!r||!r.ok)throw new Error((r&&r.error)||"没办成，稍后再点一次。");setMain(sb,main);sayB("✅ 作保成功。现在在钱包里换到小号，回到这页点签到。");return loadInfo();});}).then(done,function(e){var m=String((e&&e.message)||"");sayB(e&&(e.code===4001||/reject|denied|cancel/i.test(m))?"你取消了签名，没有作保。":/[一-龥]/.test(m)?m:"没办成，稍后再点一次。",true);done();});}
+function onSaveMain(){var m=String((el("bn-b-main")||{}).value||"").trim().toLowerCase();if(!account){sayB("请先点上面的按钮连接钱包。",true);return;}
+if(m&&!isAddr(m)){sayB("请先填对主钱包地址。",true);return;}
+if(m===account){sayB("主钱包地址和现在连的钱包是同一个，不用填。",true);return;}
+setMain(account,m);sayB(m?"已保存，正在核对…":"已清除。");loadInfo().then(function(j){if(!m||!j||!j.me)return;if(j.me.main===m)sayB("✅ 主钱包在给这个小号作保，可以签到了。");else sayB("这个主钱包现在没有给这个小号作保。请先用主钱包做第一步。",true);});}
+function render(){A.app.innerHTML='<section class="card bn"><h1>🎁 创世域名分红计划</h1><p class="sub">持有创世域名，再加至少 1 枚 AiLGNS 或 1 万枚 LGNS，每天签到。奖池每满 '+n(GOAL)+' DAI 分 '+n(WIN)+' 份：'+n(WIN_T)+' 份按票抽（票多中得多），'+n(WIN_W)+' 份按钱包抽（人人机会一样），发 AiLGNS。</p>'+'<div class="bn-cd"><p class="bn-cap">分红奖池现在有</p><div class="bn-big"><b id="bn-pool">…</b><span>DAI</span></div>'+'<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-need">读取中…</span><span id="bn-all"></span></p></div>'+'<p class="bn-me" id="bn-me" hidden></p>'+'<button type="button" class="bn-go bn-sign" id="bn-sign">连接钱包签到</button><p class="bn-st" id="bn-st" hidden></p>'+'<details class="bn-bind" id="bn-bind"><summary>创世域名在小号里？让主钱包作保</summary>'+'<p>AiLGNS、LGNS 或质押的 LP 放在另一个钱包的，让那个钱包签一次名给小号「作保」，小号就能签到。只是签名，不转账、不花钱。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p>'+'<div class="bn-bind-b"><b>第一步：用主钱包打开这页（只做一次）</b><input type="text" id="bn-b-sub" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="小号的钱包地址 0x…"><button type="button" class="bn-bind-go" id="bn-b-go">✍️ 主钱包签名作保（免费）</button></div>'+'<div class="bn-bind-b"><b>第二步：换回小号来签到</b><input type="text" id="bn-b-main" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="主钱包地址 0x…"><button type="button" class="bn-bind-go ghost" id="bn-b-save">保存主钱包地址</button><small>在同一个钱包 App 里换号的，这一步会自动填好。</small></div>'+'<p class="bn-st" id="bn-b-st" hidden></p></details>'+'<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/'+POOL+'">随时可查</a>。</p></section>'+'<section class="card bn"><h2>🏆 签到排行榜</h2><div id="bn-rk"></div><p class="note">每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。</p></section>'+'<section class="card bn"><h2>规则一共五条</h2><p class="bn-warn">⚠️ 试运行中，规则可能随时调整，以本页最新显示为准。</p><ol class="bn-rules">'+"<li><b>谁能领：有创世域名，并持有 1 枚 AiLGNS 或 1 万枚 LGNS</b><span>钱包里至少有 1 枚创世域名；另外还要持有至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。官方质押里的 LGNS 也算；质押在官方流动性池里的 LP 也算，按里面实际含的 AiLGNS 和 LGNS 折算。1 枚创世域名签到一天记 1 票，创世域名越多票越多；持仓够门槛就行，多了不加票。</span></li>"+"<li><b>怎么参加：每天签到</b><span>每天来这页点一次签到，免费。不签到的那天没有票。</span></li>"+"<li><b>怎么抽：奖池满 "+n(GOAL)+" DAI，分成 "+n(WIN)+" 份，两种抽法</b><span>奖池每累计满 "+n(GOAL)+" DAI 抽一次，分成 "+n(WIN)+" 份。① 按票抽 "+n(WIN_T)+" 份：从这一轮所有的票里随机抽 "+n(WIN_T)+" 张，票越多越容易中，票多的钱包可以中好几份。② 阳光普照 "+n(WIN_W)+" 份：从这一轮签到过的钱包里随机抽 "+n(WIN_W)+" 个，每个钱包机会一样，不看票多票少；按票已经中了的钱包不再参加这一步。抽完开始下一轮，票从头算。</span></li>"+"<li><b>发什么：AiLGNS</b><span>每一份是奖池的 "+n(WIN)+" 分之一（约 "+n(GOAL/WIN)+" DAI）。发 AiLGNS，直接打到钱包。</span></li>"+"<li><b>钱从哪里来</b><span>普通域名的销售收入。以后计划加入极速预言奖池的分红。</span></li>"+'</ol></section>'+'<section class="card bn"><h2>常见问题</h2>'+"<details><summary>签到要花钱吗？</summary><p>不花钱。签到只是在钱包里签个名，不转账、不用 Gas。任何让你转账才能签到的都是骗子。</p></details>"+"<details><summary>挂在市场上卖的创世域名算票吗？</summary><p>不算。挂单的名字存在市场里，不在你钱包里。撤单拿回钱包就算。已销毁的也不算。</p></details>"+"<details><summary>AiLGNS / LGNS 要放在哪？不够怎么办？</summary><p>至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。算的是：签到钱包里的余额，加上官方质押里的 LGNS（长期质押、即时质押、折扣质押等都算），再加上质押在官方流动性池里的 LP（按里面实际含的币折算）。挂在 OTC 卖单里的、押在借贷里的不算。不够可以去 <a href=\"#/otc\">OTC</a> 买。之前已经签到的票照旧保留。</p></details>"+"<details><summary>创世域名在小号里，币在主钱包里，怎么办？</summary><p>让主钱包给小号「作保」：先用主钱包打开这页，在签到按钮下面「让主钱包作保」里填小号地址、签一次名（免费，不转账）；再换回小号签到。以后门槛按小号和主钱包的持仓合起来算，票和奖都记在小号上。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p></details>"+"<details><summary>刚买的创世域名签不了？</summary><p>等 1 分钟再点。网站要等链上记录同步过来才认得出。</p></details>"+"<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>"+"<details><summary>什么时候抽？</summary><p>没有固定日期。奖池满 "+n(GOAL)+" DAI 就抽一次，上面的进度条能看到还差多少。</p></details>"+"<details><summary>签到了就一定有吗？</summary><p>不一定。每轮一共 "+n(WIN)+" 份："+n(WIN_T)+" 份按票抽，签到天数越多、创世域名越多，票就越多，越容易中，也可能中好几份；"+n(WIN_W)+" 份按钱包抽，只要这一轮签到过，每个钱包机会一样。票或者钱包不够抽的时候，有几个中几个，那一部分的钱平分。</p></details></section>";el("bn-sign").onclick=function(){try{onSign();}catch(e){busy=false;say("没签成，稍后再点一次。",true);}};el("bn-b-go").onclick=function(){try{onBind();}catch(e){busy=false;sayB("没办成，稍后再点一次。",true);}};el("bn-b-save").onclick=function(){try{onSaveMain();}catch(e){sayB("没办成，稍后再点一次。",true);}};info=null;busy=false;if(!eth||!account){eth=null;account="";var saved="";try{saved=String(localStorage.getItem("ib:acct")||"").toLowerCase();}catch(e){}
+if(/^0x[0-9a-f]{40}$/.test(saved))account=saved;}
+paint();loadPool();loadInfo();loadRank();el("bn-rk").onclick=function(e){try{var t=e.target,m=t.closest?t.closest("button[data-rk]"):null;if(m){var k=m.getAttribute("data-rk");rkOpen[k]=!rkOpen[k];paintRank();return;}
+if(t.id==="bn-rk-all"){rkAll=!rkAll;paintRank();}}catch(x){}};if(!eth){try{if(A.wallets&&A.wallets.silent)A.wallets.silent().then(function(a){a=String(a||"").toLowerCase();if(/^0x[0-9a-f]{40}$/.test(a)&&!eth&&a!==account){account=a;info=null;paint();loadInfo();}},function(){});}catch(e){}}
+clearInterval(timer);timer=setInterval(function(){if(!el("bn-pool")){clearInterval(timer);return;}loadPool();if(!busy)loadInfo();loadRank();},60000);}
+A.pages.bonus=function(){try{render();}catch(e){A.app.innerHTML='<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] bonus.js',e);};try{(function(){var A=window.AIL,W=A.wallet,DAI="0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";var SHOW_RES=true;var data=null,acct="",eth=null,picks=[],qty=1,busy=false,tick=0,poll=0,lastR=0,mineOpen=false;function el(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function two(n){return(n<10?"0":"")+n;}
+function at(r){var d=new Date((r+1)*600*1000);return two(d.getHours())+":"+two(d.getMinutes());}
+function money(v){return(Math.floor(Number(v||0)*100)/100).toFixed(2);}
+function short(a){return a.slice(0,6)+"…"+a.slice(-4);}
+var stT="",stBad=false;function say(t,bad){stT=t||"";stBad=!!bad;var s=el("fx-st");if(s){s.textContent=stT;s.className="fx-st"+(stBad?" bad":"");}}
+function load(){return fetch("/api/fast"+(acct?"?a="+acct:""),{cache:"no-store"}).then(function(r){return r.json().then(function(j){if(!r.ok&&!j.error)throw new Error("bad");return j;});}).then(function(j){if(j.error)throw new Error(j.error);data=j;try{localStorage.setItem("fx:last",JSON.stringify(j));}catch(e){}
+paint();}).catch(function(){if(!data){var b=el("fx-main");if(b)b.innerHTML='<p class="muted">数据没读出来，稍等几秒会自动再试。</p>';}});}
+function pend(){try{var p=JSON.parse(localStorage.getItem("fx:pend")||"null");return p&&acct&&p.a===String(acct).toLowerCase()&&Date.now()-p.t<180000?p:null;}catch(e){return null;}}
+function extra(){var me=data&&data.me,p=me&&data.v2?pend():null;if(!p)return 0;var x=p.target-me.left;if(x<=0){try{localStorage.removeItem("fx:pend");}catch(e){}return 0;}
+return x;}
+function left(){return data&&data.me?data.me.left+extra():0;}
+function PAYX(){return(data&&data.payx)||1.9;}
+function wf(k){return String(+(PAYX()*(k||1)).toFixed(2));}
+function maxQ(){var me=data&&data.me;if(!me)return 0;if(!data.v2||!data.cap2)return me.left;var used=(me.bets||[]).reduce(function(t,x){return t+(x.st==="wait"&&x.r===data.r?(x.n2||0):0);},0);if(data.v4){var used3=(me.bets||[]).reduce(function(t,x){return t+(x.st==="wait"&&x.r===data.r?(x.n3||0):0);},0);return(me.left1||0)+Math.min((me.left3||0)+extra(),Math.max(0,data.cap2-used3))+Math.min(me.left2||0,Math.max(0,(data.capOld||0)-used));}
+return(me.left1||0)+Math.min((me.left2||0)+(me.left3||0)+extra(),Math.max(0,data.cap2-used));}
+function newRoom(){var me=data&&data.me;if(!me||!data.v4)return-1;var used3=(me.bets||[]).reduce(function(t,x){return t+(x.st==="wait"&&x.r===data.r?(x.n3||0):0);},0);return Math.min((me.left3||0)+extra(),Math.max(0,data.cap2-used3));}
+function maxPer(){return Math.floor(maxQ()/Math.max(1,picks.length));}
+function dsText(){return picks.slice().sort().join("、");}
+var trendSig="";function paintTrend(){var sec=el("fx-trend"),box=el("fxt");if(!sec||!box)return;var L=(data&&data.trend)||[];if(L.length<2){sec.hidden=true;return;}
+sec.hidden=false;var sig=L.length+":"+L[L.length-1][0]+":"+L[0][0];if(sig===trendSig&&box.firstChild)return;var old=box.querySelector(".fxt-sc"),stay=old&&old.scrollHeight-old.scrollTop-old.clientHeight>40?old.scrollTop:-1;trendSig=sig;var miss=[0,0,0,0,0,0,0,0,0,0],cnt=[0,0,0,0,0,0,0,0,0,0],maxm=[0,0,0,0,0,0,0,0,0,0],pts=[],rows="",c;L.forEach(function(x,i){var d=Number(x[1]),cells="";for(c=0;c<10;c++){if(c===d){miss[c]=0;cnt[c]++;cells+='<span class="hit"><b>'+d+"</b></span>";}
+else{miss[c]++;if(miss[c]>maxm[c])maxm[c]=miss[c];cells+="<span>"+miss[c]+"</span>";}}
+pts.push((d+0.5)+","+(i+0.5));rows+='<div class="fxt-r'+((i+1)%5===0?" g5":"")+'"><i>'+at(x[0])+"</i>"+cells+"</div>";});var head='<div class="fxt-r fxt-h"><i>开奖</i>'+[0,1,2,3,4,5,6,7,8,9].map(function(n){return"<span>"+n+"</span>";}).join("")+"</div>";var foot=function(name,arr){return'<div class="fxt-r fxt-f"><i>'+name+"</i>"+arr.map(function(n){return"<span>"+n+"</span>";}).join("")+"</div>";};box.innerHTML='<div class="fxt-sc">'+head+'<div class="fxt-b">'+rows+'<svg class="fxt-ln" viewBox="0 0 10 '+L.length+'" preserveAspectRatio="none" aria-hidden="true"><polyline points="'+pts.join(" ")+'"/></svg></div>'+'<div class="fxt-ft">'+foot("出现次数",cnt)+foot("当前遗漏",miss)+foot("最大遗漏",maxm)+"</div></div>"+'<p class="fxt-n">共 '+L.length+" 期（"+at(L[0][0])+" – "+at(L[L.length-1][0])+"）· 可以上下滑动</p>";var sc=box.querySelector(".fxt-sc");if(sc)sc.scrollTop=stay>=0?stay:sc.scrollHeight;}
+function paint(){var box=el("fx-main");if(!box||!data)return;if(!data.open){box.innerHTML='<p class="fx-closed">⏳ 还没开放。开放时会在这里直接能玩，不用做任何准备。</p>';["fx-draws","fx-mine","fx-done"].forEach(function(i){if(el(i))el(i).hidden=true;});return;}
+var me=data.me,have=left(),v2=!!data.v2;var oldOn=v2&&(data.left1>0||data.tk>0||data.carry>0),myOld=v2&&me&&me.left1>0;var oldMine=myOld||!!(v2&&me&&(me.bets||[]).some(function(x){return x.st==="wait"&&x.r===data.r&&x.n>(x.n2||0)+(x.n3||0);}));if(!data.multi&&picks.length>1)picks=picks.slice(0,1);if(qty>maxPer())qty=Math.max(1,maxPer());var rk=v2+":"+!!data.v4+":"+PAYX();if(ruleV2!==rk){ruleV2=rk;var rb=el("fx-rules"),sb=el("fx-sub");if(rb)rb.innerHTML=rulesH(v2);if(sb)sb.textContent=subT(v2);}
+var grid="";for(var d=0;d<10;d++)grid+='<button type="button" class="fx-d'+(picks.indexOf(d)>=0?" on":"")+'" data-d="'+d+'"><b>'+d+"</b><i>"+(data.by[d]?data.by[d]+" 票":"还没人压")+"</i></button>";box.innerHTML=(data.trial?'<p class="fx-trial">🧪 预览演示：还没正式开始，现在下注<b>不发奖</b>，只用来看页面。</p>':"")+'<div class="fx-hero"><p class="fx-t">本期 <b>'+at(data.r)+'</b> 开奖，还剩</p><p class="fx-clock" id="fx-clock">--:--</p>'+
+(v2?'<p class="fx-pot">猜中每张票发 <b>'+wf()+' DAI</b></p><p class="fx-pot2">押 1 张猜中发 '+wf()+' DAI，押 10 张猜中发 <b>'+wf(10)+' DAI</b>（1 张票 = 1 DAI）· 本期已压 '+(data.tk+(data.tk2||0))+" 票</p>"+
+(data.v4&&me&&me.left2>0?'<p class="fx-res">你有 <b>'+me.left2+"</b> 张 11 月 18 日前买的票，按买的时候的规则：猜中每张发 <b>"+data.payOld+" DAI</b>。"+(me.left3>0?"下注先用新买的票（"+me.left3+" 张，每张 "+wf()+"），用完才用它们。":"新买的票才是每张 "+wf()+" DAI。")+"</p>":"")+
+(oldOn&&oldMine?'<p class="fx-res">你的老票（规则调整前买的）按老规则：本期老奖池 <b>'+money(data.pot)+" DAI</b>，已压 "+data.tk+" 张老票，猜中的按票数分。</p>":""):data.res&&SHOW_RES?'<p class="fx-pot">资金池 <b>'+money(data.res.dai)+" DAI</b></p>"+'<p class="fx-pot2">本期已压 '+data.tk+" 票 · 本期可分 <b>"+money(data.pot)+" DAI</b>"+(data.carry>0?"（含前面滚过来的 "+money(data.carry)+"）":"")+"</p>"+'<p class="fx-res">资金池是<a href="#/scan/'+data.pool+'">链上实际余额</a>'+(data.res.ail>0?"（另有 "+data.res.ail.toFixed(4)+" AiLGNS）":"")+"。猜中的人按票数分「本期可分」那部分，不是分整个资金池。已卖出、还没下注的票有 <b>"+Number(data.left||0).toLocaleString("en-US")+"</b> 张。</p>":'<p class="fx-pot">本期奖池 <b>'+money(data.pot)+" DAI</b></p>"+'<p class="fx-pot2">'+(data.carry>0?"其中 "+money(data.carry)+" DAI 是前面没人猜中滚过来的 · ":"")+"已压 "+data.tk+" 票</p>")+
+(v2&&data.res&&SHOW_RES?'<div class="fx-pool"><span class="fx-pool-l">💰 奖池</span><b class="fx-pool-n">'+money(data.res.dai+(data.transit||0))+' DAI</b>'+'<a class="fx-pool-v" href="#/scan/'+data.pool+'">🔗 链上验证 ›</a>'+''+(data.transit>0?'<p class="fx-pool-t">其中 '+money(data.transit)+' DAI 是刚卖出的票款，正在转进奖池钱包（一般十几分钟内到），链上查到的会暂时少这么多。</p>':"")+'<div class="fx-tags"><i>✅ 全额兑付</i><i>⚡ 中奖秒发 · 约 1 分钟到账</i></div></div>':"")+"</div>"+'<div class="fx-me">'+(!acct?'还不知道你是谁。<button type="button" class="fx-link" id="fx-conn">连接钱包看我的票</button>':have>0?"钱包 "+short(acct)+" 还有 <b>"+have+"</b> 张票"+(extra()>0?"（刚买的 "+extra()+" 张已到账，现在就能押）":"")+(myOld?(me.left2>0?"（其中老票 "+me.left1+" 张，先用老票）":"（都是老票，按老规则）"):"")+(v2?' <a class="fx-more" href="#/names/batch">＋ 买更多票</a>':""):v2?"钱包 "+short(acct)+" 现在<b>没有票</b>。注册任意域名就有票，付 5 DAI 就是 5 票（一次至少注册 2 个）。":"钱包 "+short(acct)+" 现在<b>没有票</b>。注册一个纯数字域名就有票，付 5 DAI 就是 5 张。")+"</div>"+
+(acct&&have<=0?(v2?'<a class="fx-go" href="#/names/batch" id="fx-buy">去买票（批量注册，至少 2 个域名）</a>':'<a class="fx-go" href="#/names">去买票（注册纯数字域名）</a>'):v2?'<a class="fx-go fx-go2" href="#/names/batch">🎟 注册域名买极速票（批量注册，至少 2 个）→</a>':"")+'<p class="fx-h">'+(data.multi?"① 选数字（可以多选 0-9）":"① 选一个数字")+'</p><div class="fx-grid">'+grid+"</div>"+
+(picks.length>1?'<p class="note fx-mn">选了 '+picks.length+" 个数字，押 1 倍 = "+picks.length+" 张票。开奖只开 1 个数字，所以最多只会中 1 个。"+(picks.length>=10?"<b>10 个全选一定亏</b>：押 1 倍花 10 张，只拿回 "+wf()+"。":"")+"</p>":"")+'<p class="fx-h">② 押几倍<small class="fx-hs">1 倍 = 每个选中的数字押 1 张票</small></p><div class="fx-qty"><button type="button" id="fx-minus">−</button><b id="fx-n">'+qty+'</b><button type="button" id="fx-plus">＋</button><button type="button" class="fx-all" id="fx-all">全压</button></div>'+'<button type="button" class="fx-bet" id="fx-bet"></button><p class="fx-st" id="fx-st"></p>'+
+(v2?'<p class="note">猜中：每张票发 '+wf()+' DAI（本金 1 + 净赚 '+String(+(PAYX()-1).toFixed(2))+'），换成 AiLGNS 自动转到你的钱包；不分别人的钱。猜不中：这几张票就用掉了。'+(myOld?"你的老票猜中还按老规则分老奖池。":"")+"</p>":'<p class="note">猜中：和本期所有猜中的人按票数平分奖池，奖金换成 AiLGNS 自动转到你的钱包。猜不中：这几张票就用掉了。</p>');say(stT,stBad);betLabel();clock();paintTrend();var dr=el("fx-draws");if(dr){dr.hidden=false;dr.querySelector(".fx-balls").innerHTML=data.draws.map(function(x){var tail=x.d!=null&&/^\d{6}$/.test(String(x.h||""))&&String(x.h).slice(-1)===String(x.d)?String(x.h):"";var inner="<b>"+(x.d==null?"…":(tail?'<small class="fx-tl">…'+tail.slice(0,5)+"</small>":"")+x.d)+"</b><i>"+at(x.r)+"</i>";return tail&&Number(x.b)>0?'<a class="fx-ball" href="https://anubisscan.io/block/'+Number(x.b)+'" target="_blank" rel="noopener">'+inner+"</a>":'<span class="fx-ball'+(x.d==null?" wait":"")+'">'+inner+"</span>";}).join("");}
+var mb=el("fx-mine");if(mb){var bets=(me&&me.bets)||[];mb.hidden=!acct;var betRow=function(x){var res=x.st==="wait"?'<span class="fx-tag wait">等开奖</span>':x.st==="win"?'<span class="fx-tag win">中了 '+money(x.pay)+" DAI"+(x.ail?"，已发 "+x.ail+" AiLGNS":data.trial?"":"，几分钟内到账")+"</span>":'<span class="fx-tag lose">没中，开的是 '+x.open+"</span>";return'<div class="fx-row"><span><b>'+at(x.r)+"</b> 期　压 <b>"+x.d+"</b>　"+x.n+" 票</span>"+res+"</div>";};mb.querySelector(".fx-list").innerHTML=bets.length?bets.slice(0,5).map(betRow).join("")+(bets.length>5?'<details class="fx-older"'+(mineOpen?" open":"")+"><summary>展开更早的 "+(bets.length-5)+" 条</summary>"+bets.slice(5).map(betRow).join("")+"</details>":""):'<p class="muted">还没有下注记录。</p>';var md=mb.querySelector(".fx-older");if(md)md.ontoggle=function(){mineOpen=md.open;};}
+var dn=el("fx-done");if(dn){dn.hidden=!data.done.length;dn.querySelector(".fx-list").innerHTML=data.done.map(function(x){var n2=x.tk2||0;return'<div class="fx-row"><span><b>'+at(x.r)+"</b> 期　开 <b>"+x.d+"</b>　"+(x.tk+n2)+" 票"+(x.tk||!n2?"　"+(n2?"老奖池 ":"奖池 ")+money(x.pot):"")+"</span>"+(x.winners?'<span class="fx-tag win">'+x.winners+" 人中</span>":'<span class="fx-tag wait">'+(x.tk||!n2?"没人中，滚存":"没人中")+"</span>")+"</div>";}).join("");}}
+function betLabel(){var b=el("fx-bet");if(!b)return;var have=left(),secs=data?data.ends-Date.now()/1000:0;b.disabled=busy;b.textContent=busy?"处理中…":!acct?"连接钱包再下注":have<=0?"没有票，先去买票":!picks.length?"先选数字":"押 "+qty+" 倍，猜 "+dsText()+"（共 "+qty*picks.length+" 张票）";b.className="fx-bet"+(!busy&&(!acct||(have>0&&picks.length))?" ready":"");if(el("fx-n"))el("fx-n").textContent=qty;if(!busy&&acct&&have>0&&picks.length&&secs<20&&secs>-5)say("本期快结束了，现在压多半会算到下一期。");}
+function clock(){var c=el("fx-clock");if(!c||!data||!data.open)return;var s=Math.floor(data.ends-Date.now()/1000);if(s<=0){c.textContent="开奖中…";if(lastR!==data.r){lastR=data.r;setTimeout(load,6000);}return;}
+c.textContent=two(Math.floor(s/60))+":"+two(s%60);}
+function connect(){return A.wallets.choose().then(function(p){eth=p;return A.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){acct=String(a[0]).toLowerCase();return W.switchTo(eth,"anubis");}).then(function(){return load();});}
+function hexOf(txt){return Array.prototype.map.call(new TextEncoder().encode(txt),function(b){return b.toString(16).padStart(2,"0");}).join("");}
+function bet(){if(busy)return;if(!acct||!eth){busy=true;betLabel();say("请在钱包里点「连接」");return connect().then(function(){busy=false;say("");paint();if(picks.length&&left()>0)bet();},function(e){busy=false;betLabel();say((e&&e.message)||"钱包没连上",true);});}
+var have=left();if(have<=0){location.hash="#/names";return;}
+if(!picks.length)return say("先在上面点一个数字。",true);if(data.v2&&maxQ()<=0)return say("这一期你已经押满 "+data.cap2+" 张了，每个钱包每期最多押 "+data.cap2+" 张。等下一期再押。",true);var k=picks.length,ds=picks.slice().sort();if(maxPer()<1)return say("票不够：选了 "+k+" 个数字，每个至少 1 张要 "+k+" 张票，你这一期最多还能押 "+maxQ()+" 张。少选几个数字，或者先去买票。",true);var n=Math.min(qty,maxPer()),tot=n*k,d=dsText();var win=data.v2?"猜中每张票发 "+wf()+" DAI":"猜中平分奖池";var room=newRoom(),oldest=(data.me&&data.me.left1)||0;if(room>=0&&tot-oldest>room){var nNew=Math.max(0,room),nOld=tot-oldest-nNew;win=nNew>0?"这 "+tot+" 张里有 "+nNew+" 张新票（猜中每张 "+wf()+" DAI）和 "+nOld+" 张 11 月 18 日前买的票（猜中每张 "+data.payOld+" DAI）"+(k>1?"，新票先用在小的数字上":""):"这 "+nOld+" 张都是 11 月 18 日前买的票：猜中每张发 "+data.payOld+" DAI（新买的票才是 "+wf()+"）";}
+if(!(A.sure2||confirm)(k===1?"确定押 "+n+" 倍，猜 "+d+"，一共 "+tot+" 张票吗？\n\n① 钱包会弹出来，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② "+win+"；猜不中，这 "+n+" 张票就用掉了\n③ 发出去以后不能撤回":"确定押 "+n+" 倍（每个数字 "+n+" 张），猜 "+d+"，一共 "+tot+" 张票吗？\n\n① 钱包只弹一次，显示「转账 0 DAI」，这是正常的，只花一点点 Gas\n② 开奖只开 1 个数字："+win+"，其余数字的票就用掉了"+(k>=10?"\n⚠️ 10 个数字全选一定亏":"")+"\n③ 发出去以后不能撤回"))return;var tx={from:acct,to:DAI,data:"0xa9059cbb"+data.pool.slice(2).padStart(64,"0")+"".padStart(64,"0")+hexOf("ailgns-fast:"+ds.join("")+":"+n)};busy=true;betLabel();say("请在钱包里点「确认」（显示转账 0 DAI 是正常的）");W.switchTo(eth,"anubis").then(function(){return A.wallets.ask(eth,{method:"eth_sendTransaction",params:[tx]});}).then(function(h){say("已发出，等链上记账，大约十几秒…");return W.waitOn("anubis",h);}).then(function(){try{var p0=pend();if(p0){p0.target-=tot;localStorage.setItem("fx:pend",JSON.stringify(p0));}}catch(e9){}busy=false;picks=[];say("✅ 押好了："+n+" 倍，猜 "+d+"，共 "+tot+" 张票。开奖后在下面「我的下注」看结果。");setTimeout(load,2500);setTimeout(load,8000);betLabel();}).catch(function(e){busy=false;betLabel();say(/reject|denied|取消|cancel/i.test((e&&e.message)||"")?"你在钱包里点了取消，没有下注。":"没发出去："+((e&&e.message)||"请稍后再试"),true);});}
+var ruleV2=false;function subT(v2){return v2?"10 分钟开一期，猜一个 0 到 9 的数字。猜中每张票发 "+wf()+" DAI。":"10 分钟开一期，猜一个 0 到 9 的数字。猜中的人平分本期奖池。";}
+function rulesH(v2){if(!v2)return'<h2>规则一共六条</h2><ol class="bn-rules">'+"<li><b>票从哪来</b><span>注册一个纯数字的 .ailgns 域名，付多少 DAI 就得多少张票，5 DAI 就是 5 张。票记在付款的钱包上，续费不算。要自己点注册才有票，交给机器人代点的暂时不算。</span></li>"+"<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。</span></li>"+"<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>"+"<li><b>奖池怎么分</b><span>每张票带 0.9 DAI 进本期奖池，另外 0.1 DAI 是平台服务费。猜中的人按票数平分奖池。</span></li>"+"<li><b>奖金怎么发</b><span>只发 AiLGNS。分到的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>"+"<li><b>没人猜中</b><span>整个奖池滚到下一期。</span></li></ol>"+'<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p>';return'<h2>规则一共七条</h2><ol class="bn-rules">'+"<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>"+"<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>"+"<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>"+"<li><b>猜中发多少</b><span>每张票发 "+wf()+" DAI：拿回本金 1 DAI，再赚 "+String(+(PAYX()-1).toFixed(2))+" DAI。压 5 张猜中就是 "+wf(5)+" DAI。"+(PAYX()>5?"十个数字全包要 10 张票，一定中 1 张，拿回 "+wf()+" DAI，也就是 95%。":"")+"不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>"+"<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>"+"<li><b>没猜中</b><span>压的票就用掉了，不退。票钱的 95% 自动进极速奖池，5% 是平台服务费；猜中的奖金从极速奖池里发。</span></li>"+
+(data&&data.v4?"<li><b>11 月 18 日前买的票</b><span>还能用，不作废，按买的时候的规则：猜中每张发 "+data.payOld+" DAI，每期最多押 "+data.capOld+" 张。只有 11 月 18 日赔率更正之后新买的票才是每张 "+wf()+" DAI（每期最多 "+data.cap2+" 张）。两种票都有时，先用新买的票。</span></li>":"")+"<li><b>老票</b><span>规则调整前用纯数字域名换的票还能用，按老规则：同一期的老票进老奖池，猜中的按票数分，没人中滚到下一期。老票和新票都有时，先用老票。</span></li></ol>"+'<p class="bn-warn">⚠️ 十个数字只开一个：猜中 1 张变 '+wf()+'，猜不中票就没了，平均下来是输的。这不是赚钱的办法，请只用闲钱玩。</p>';}
+function render(){ruleV2=false;A.app.innerHTML='<div id="fx-wrap">'+'<section class="card fx"><h1>⚡ 极速预言家 <small>试运行</small></h1><p class="sub" id="fx-sub">'+subT(false)+'</p><a class="fx-px" href="#/oracle"><span>AiLGNS 现价</span><b id="fx-px">…</b><span>DAI</span><i>去猜价格 ›</i></a><div id="fx-main"><p class="muted">读取中…</p></div></section>'+'<section class="card fx" id="fx-draws" hidden><h2>最近开奖</h2><div class="fx-balls"></div><p class="note">紫色大字是开奖数字：它是开奖区块的哈希换算成数字后的<b>最后一位</b>，前面灰色的是它前面 5 位。区块哈希谁也没法提前知道。下面是开奖时间，点格子可以到链上浏览器核对那个区块。</p></section>'+'<section class="card fx" id="fx-trend" hidden><h2>走势图</h2><div id="fxt"></div><p class="note">一行是一期，从上到下越来越新，最下面是刚开的。球是那一期开出的数字；格子里的小数字是「遗漏」：这个数字已经连续几期没开了。</p><p class="note">每一期的数字都来自区块哈希，期和期之间没有任何关系。走势图只是把开过的数字排出来，<b>不能用来预测下一期</b>。</p></section>'+'<section class="card fx" id="fx-mine" hidden><h2>我的下注</h2><div class="fx-list"></div></section>'+'<section class="card fx" id="fx-done" hidden><h2>最近几期结果</h2><div class="fx-list"></div></section>'+'<section class="card fx" id="fx-rules">'+rulesH(false)+"</section>"+'<section class="card fx"><h2>常见问题</h2>'+"<details><summary>票用完了，域名还在吗？</summary><p>在。域名还是你的，照常能用、能转、能卖。只是这个域名不能再换票，想继续玩要再注册新的。</p></details>"+"<details><summary>钱包为什么显示「转账 0 DAI」？</summary><p>下注就是给极速奖池发一笔 0 元的转账，里面写着你猜的数字和票数。不花钱，只花一点点 Gas。这样每一笔下注链上都有记录，谁也改不了。</p></details>"+"<details><summary>快结束的时候压，算哪一期？</summary><p>看这笔交易被链上记下来的时间。如果记下来时本期已经结束，就算下一期。最后 20 秒建议等下一期再压。</p></details>"+"<details><summary>压的票比我有的多会怎样？</summary><p>按你剩下的票数算。一张都不剩的那笔作废，只白花了 Gas。</p></details></section></div>";try{var sv=JSON.parse(localStorage.getItem("fx:last")||"null");if(sv&&sv.open&&Date.now()/1000-sv.now<600){data=sv;data.me=null;paint();}}catch(e){}
+stT="";picks=[];el("fx-wrap").addEventListener("click",function(ev){var t=ev.target;if(!t||!t.closest||!el("fx-main"))return;var d=t.closest(".fx-d");if(d){var dv=Number(d.getAttribute("data-d")),at=picks.indexOf(dv);if(data&&data.multi){if(at>=0)picks.splice(at,1);else picks.push(dv);}else picks=at>=0?[]:[dv];say("");paint();return;}
+if(t.closest("#fx-buy")){try{sessionStorage.setItem("nm:batch","1");}catch(e){}return;}
+if(t.closest("#fx-conn")){say("请在钱包里点「连接」");connect().then(function(){say("");},function(e){say((e&&e.message)||"钱包没连上",true);});return;}
+if(t.closest("#fx-minus")){qty=Math.max(1,qty-1);betLabel();return;}
+if(t.closest("#fx-plus")){qty=Math.min(Math.max(1,maxPer()),qty+1);betLabel();return;}
+if(t.closest("#fx-all")){qty=Math.max(1,maxPer());betLabel();return;}
+if(t.closest("#fx-bet"))bet();});var px=function(){try{fetch("/api/px").then(function(x){return x.ok?x.json():null;}).then(function(j){var e=el("fx-px");if(!e||!j||!j.r)return;var w=j.r.slice(2),ail=BigInt("0x"+w.slice(0,64)),d=BigInt("0x"+w.slice(64,128));if(ail>0n)e.textContent=(Number((d*1000000n)/ail)/1e6).toFixed(4);}).catch(function(){});}catch(e){}};var go=function(){load();px();};try{if(!acct&&A.wallets&&A.wallets.silent)A.wallets.silent().then(function(a){if(a)acct=String(a).toLowerCase();go();},go);else go();}catch(e){go();}
+clearInterval(tick);clearInterval(poll);tick=setInterval(function(){if(!el("fx-main")){clearInterval(tick);return;}try{clock();}catch(e){}},1000);poll=setInterval(function(){if(!el("fx-main")){clearInterval(poll);return;}if(!document.hidden&&!busy)load();if(!document.hidden)px();},10000);}
+if(!window.__fxRegBound){window.__fxRegBound=true;document.addEventListener("click",function(e){try{var a=e.target&&e.target.closest?e.target.closest('a[href="#/names/batch"]'):null;if(!a||location.hash.indexOf("#/fast")!==0||!A.useBundle)return;e.preventDefault();A.useBundle("names").then(function(){if(!A.nm||!A.nm.setDaily||!A.namesBatch){location.hash="#/names/batch";return;}
+A.nm.setDaily(false);A.namesBatch.open({tickets:true,stay:true});},function(){location.hash="#/names/batch";});}catch(x){}});}
+A.pages.fast=function(){try{render();}catch(e){A.app.innerHTML='<section class="card"><p class="muted">页面没画出来，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] fast.js',e);};try{(function(){"use strict";var A=window.AIL,CACHE="ailgns-funds-cache-v1";var AIL_T="0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB",LGNS_T="0x4D1D808a081FdAc440703b3765FC61f8028C06B8";var FUNDS=[{no:"①",n:"协议储备金",a:"0x27Cb55eE75E777fF972B74B6E68782D12Bd4ec46",w:"协议的家底，金额最大。大家买算力付的 DAI 都进这里。"},{no:"②",n:"初始铸造池",a:"0xcC95906Da4b92B3a5c4B187553050df0f90eaE08",w:"按官方命名，放的是初始铸造出来的 AiLGNS。里面主要是币，不是 DAI。"},{no:"③",n:"护盘资金",a:"0x85fF1E15CaBCa867F244B9c2465227477f251972",w:"官方标注用来护盘（稳住币价）的备用资金。"},{no:"④",n:"缓冲池",a:"0x0664F1369209677FEcb279F5EC3Df1E53a22212e",w:"官方标注的缓冲资金，行情波动大的时候当缓冲垫。"},{no:"⑤",n:"护价池 ①",a:"0x589B441A19fdFD28aEe5E57891a842e96d91de31",w:"官方标注用来托住价格的资金池。"},{no:"⑥",n:"护价池 ②",a:"0xF1Fb9cE9472DEc231bCed60d6Aa729f5e403020B",w:"官方标注用来托住价格的资金池。"},{no:"池",n:"底池资金",a:"0x0a1Cce65d995C6C5100e6F5bA3c388Ef34CEcaf0",pool:1,w:"AiLGNS/DAI 交易池。大家在 DEX 买卖 AiLGNS 就是和这个池子换；池里的 DAI ÷ AiLGNS 就是现在的币价。"}];function num(hex,dec){try{return Number(BigInt(!hex||hex==="0x"?"0x0":hex)/BigInt(Math.pow(10,dec-4)))/1e4;}catch(e){return 0;}}
+function direct(){var list=[];FUNDS.forEach(function(f){list.push(["eth_getBalance",[f.a,"latest"]]);list.push(["eth_call",[{to:AIL_T,data:"0x70a08231"+A.pad(f.a)},"latest"]]);list.push(["eth_call",[{to:LGNS_T,data:"0x70a08231"+A.pad(f.a)},"latest"]]);});return A.rpcMany(list).then(function(rs){if(rs.some(function(x){return x==null;}))throw new Error("缺结果");return{at:Date.now(),prev:null,f:FUNDS.map(function(f,i){return{a:f.a.toLowerCase(),dai:num(rs[i*3],18),ail:num(rs[i*3+1],18),lgns:num(rs[i*3+2],9)};})};});}
+function ok(d){return d&&d.f&&d.f.length===FUNDS.length&&d.f.every(function(x,i){return x&&String(x.a).toLowerCase()===FUNDS[i].a.toLowerCase()&&typeof x.dai==="number";});}
+function ago(at){var m=Math.max(0,Math.round((Date.now()-at)/60000));return m<1?"刚刚":m<60?m+" 分钟前":m<1440?Math.round(m/60)+" 小时前":Math.round(m/1440)+" 天前";}
+function draw(d,state){var wan=A.wan,fmt=A.fmt,html='<h1>📊 官方资金池</h1><p class="sub">官方公布的 7 个资金地址，链上余额原样读出来，所有人免费看。</p>';if(!ok(d)){A.app.innerHTML=html+'<section class="card"><p class="muted">'+(state==="fail"?'链上数据暂时没读到，<a href="javascript:location.reload()">点这里刷新</a>再试。':"⏳ 正在读链上余额…")+"</p></section>";return;}
+var six=0,guard=0,pool=d.f[6];d.f.forEach(function(x,i){if(i<6)six+=x.dai;if(i>=2&&i<6)guard+=x.dai;});var price=pool.ail>0?pool.dai/pool.ail:0,times=pool.dai>0?six/pool.dai:0;var word=times>=2?"家底厚":times>=1?"家底够":"家底偏薄",cls=times>=1?"good":"warn";var why=times>=1?"池子外面的备用资金，是交易池里 DAI 的 "+times.toFixed(1)+" 倍":"池子外面的备用资金，比交易池里的 DAI 少（"+times.toFixed(2)+" 倍）";html+='<section class="fd-sum '+cls+'"><div class="fd-tag">一句话总结</div><div class="fd-word">'+word+'</div><div class="fd-why">'+why+"</div>"+'<div class="fd-big"><b class="num">'+wan(six)+'</b><small>DAI</small></div><div class="fd-cap">①～⑥ 六个资金池的 DAI 合计</div>'+'<div class="fd-rows">'+'<div><span>其中储备金 ①</span><b class="num">'+wan(d.f[0].dai)+" DAI</b></div>"+'<div><span>护盘 / 缓冲 / 护价 ③④⑤⑥</span><b class="num">'+wan(guard)+" DAI</b></div>"+'<div><span>底池里的 DAI</span><b class="num">'+wan(pool.dai)+" DAI</b></div>"+
+(price?'<div><span>底池现价</span><b class="num">'+fmt(price,2)+" DAI / AiLGNS</b></div>":"")+
+(d.prev&&d.prev.six>0?'<div><span>六个池合计比昨天</span><b class="num '+(six>=d.prev.six?"up":"down")+'">'+(six>=d.prev.six?"+":"−")+wan(Math.abs(six-d.prev.six))+" DAI</b></div>":"")+"</div>"+'<p class="fd-note">这是链上此刻的真实数字，不是承诺。币价会涨也会跌，买不买、拿不拿请自己判断，本页不构成投资建议。</p></section>';html+='<div class="fd-list">'+FUNDS.map(function(f,i){var x=d.f[i],extra=[];var main=i===1?wan(x.ail)+"<small>AiLGNS</small>":wan(x.dai)+"<small>DAI</small>";if(i===1)extra.push("另有 "+fmt(x.dai,0)+" DAI");else if(x.ail>=1)extra.push("另有 "+wan(x.ail)+" AiLGNS");if(x.lgns>=1)extra.push("另有 "+wan(x.lgns)+" LGNS");return'<section class="fd-card'+(f.pool?" pool":"")+'"><div class="fd-head"><i>'+f.no+"</i><b>"+f.n+'</b><a href="#/scan/'+f.a.toLowerCase()+'">'+A.short(f.a)+" ›</a></div>"+'<div class="fd-amt num">'+main+"</div>"+(extra.length?'<div class="fd-extra">'+extra.join(" · ")+"</div>":"")+'<p class="fd-what">'+f.w+"</p></section>";}).join("")+"</div>";html+='<section class="card fd-foot"><p class="muted">数据时间：'+ago(d.at)+(state==="loading"?" · 正在更新…":"")+"（约 5 分钟更新一次）</p>"+"<details><summary>这些数字怎么来的？</summary><p>直接读 Anubis 链上这 7 个地址的余额，谁都可以自己核对：点每张卡片右上角的地址，就能在本站账本里看到它的每一笔进出。</p>"+"<p>每个池子的用途，是按官方公布的名称用大白话解释的；具体什么时候动用、怎么动用，以官方公告为准。本站只负责把链上余额原样读出来。</p>"+"<p>「家底厚 / 家底够 / 家底偏薄」是按数字自动算的：六个资金池的 DAI 合计 ÷ 底池里的 DAI，≥ 2 倍算厚，≥ 1 倍算够，不到 1 倍算偏薄。</p></details></section>";A.app.innerHTML=html;}
+A.pages.funds=function(id){var st=null;try{st=JSON.parse(localStorage.getItem(CACHE));}catch(e){st=null;}
+if(!ok(st))st=null;draw(st,"loading");A.getJSON("/api/funds").then(function(d){if(!ok(d))throw new Error("bad");return d;}).catch(function(){return direct();}).then(function(d){try{localStorage.setItem(CACHE,JSON.stringify(d));}catch(e){}
+if(A.isCurrent(id))draw(d,"done");},function(){if(A.isCurrent(id))draw(st,st?"done":"fail");});};})();}catch(e){console.error('[bundle] funds.js',e);};try{(function(){"use strict";var A=window.AIL,CACHE="ailgns-weekly-cache-v1";function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function dai(v){return Number(v||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function dayCn(d){var p=String(d||"").split("-");return p.length===3?Number(p[1])+"月"+Number(p[2])+"日":"";}
+function pct(s){var v=(s||0)*100;return(v>=10?v.toFixed(0):v.toFixed(1))+"%";}
+function left(ms){var h=Math.max(0,Math.floor((ms-Date.now())/3600e3));return h>=24?Math.floor(h/24)+" 天 "+(h%24)+" 小时":h+" 小时";}
+function addrBox(a){return'<div class="wkb-addr"><small>奖池托管地址（链上公开，点地址能看每一笔进出）</small><a href="#/scan/'+esc(a)+'">'+esc(a)+'</a><button type="button" class="wkb-cp" data-cp="'+esc(a)+'">复制</button></div>';}
+var bindCopy=function(root){Array.prototype.forEach.call(root.querySelectorAll(".wkb-cp"),function(b){b.onclick=function(){var t=b.getAttribute("data-cp")||"",done=function(){b.textContent="已复制";};var old=function(){try{var x=document.createElement("textarea");x.value=t;x.setAttribute("readonly","");x.style.cssText="position:fixed;left:-999px;top:0;opacity:0";document.body.appendChild(x);x.select();var ok=document.execCommand("copy");x.remove();b.textContent=ok?"已复制":"请长按地址复制";}catch(e){b.textContent="请长按地址复制";}};try{navigator.clipboard.writeText(t).then(done,old);}catch(e){old();}};});};var ST={wait:"⏳ 等烧创世名",say:"📣 等上传宣传截图",review:"🔎 凭证已交，等认证",ready:"🕐 机器人待发",sending:"🕐 发放中",paid:"✅ 已到账",forfeit:"已放弃"};var DEBOX_GROUP="https://m.debox.pro/card?id=twbzjko7&invite_code=twbzjko7";function wkShrink(file){return new Promise(function(ok,bad){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){try{var k=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);var g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(im,0,0,c.width,c.height);ok(c.toDataURL("image/jpeg",0.75));}catch(e){bad(new Error("这张图片打不开，请换一张"));}};im.onerror=function(){bad(new Error("这张图片打不开，请换一张"));};im.src=r.result;};r.onerror=function(){bad(new Error("这张图片读不出来，请换一张"));};r.readAsDataURL(file);});}
+function upBox(x,i,min){if(!x.say||x.say.ok||(x.st!=="wait"&&x.st!=="say"&&x.st!=="review"))return"";var tail='<a class="wkb-upg" href="'+DEBOX_GROUP+'" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>'+'<label class="nm-go wkb-upb"><input type="file" class="wkb-upf" data-i="'+i+'" accept="image/*,video/*" multiple hidden>'+(x.say.has?"🔁 重新上传截图 / 视频":"📷 上传截图 / 视频")+"</label>"+'<p class="wkb-ups" data-i="'+i+'"></p></li>';if(x.burn===false)return'<li class="wkb-upl"><p>这笔不用销毁创世名，领奖一共两步。这一行是你的话，照着做：</p>'+'<ol class="wkb-stp"><li class="'+(x.say.has?"done":"now")+'">第一步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里'+(x.say.has?" ✅ 已上传":" 👉 现在做这一步")+"</li>"+"<li>第二步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>"+tail;return'<li class="wkb-upl"><p>这笔超过 '+min+" DAI，领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>"+'<ol class="wkb-stp"><li class="'+(x.st==="wait"?"now":"done")+'">第一步：销毁 1 枚创世名'+(x.st==="wait"?" 👉 现在做这一步":" ✅ 已完成")+"</li>"+'<li class="'+(x.say.has?"done":x.st==="wait"?"":"now")+'">第二步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里'+(x.say.has?" ✅ 已上传":x.st==="wait"?"":" 👉 现在做这一步")+"</li>"+"<li>第三步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>"+
+(x.st==="wait"?'<a class="nm-go wkb-upb" href="#/genesis">🔥 去销毁名字</a>':"")+tail;}
+function bindUp(root,pays,reload){Array.prototype.forEach.call(root.querySelectorAll(".wkb-upf"),function(fi){var idx=fi.getAttribute("data-i"),x=pays[Number(idx)];var say=function(t,bad){var el=root.querySelector('.wkb-ups[data-i="'+idx+'"]');if(el){el.textContent=t;el.className="wkb-ups"+(bad?" bad":bad===0?" tip":"");}};var HELP2="在 DeBox 群里说一声自己中奖了，团队看到会手动通过。";fi.onclick=function(){say("选好以后回到这一页，这里会显示上传进度。如果选完回来这里一直没变化，是这个钱包 App 没把图片交给网页。不用反复试："+HELP2,0);};fi.onchange=function(){var files=[].slice.call(fi.files||[]);var isImg=function(f){return/^image\//.test(f.type)||(!f.type&&/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(f.name||""));};var isVid=function(f){return/^video\//.test(f.type)||(!f.type&&/\.(mp4|mov|m4v|webm|3gp)$/i.test(f.name||""));};var imgs=files.filter(isImg).slice(0,3),vid=files.filter(isVid)[0];if(!imgs.length&&!vid)imgs=files.filter(function(f){return!f.type;}).slice(0,3);var done=function(){try{fi.value="";}catch(e){}};if(!x){done();return;}
+if(!imgs.length&&!vid){done();return say(files.length?"选的不是图片或视频，请再选一次":"没选到图片或视频，请再选一次；还不行就"+HELP2,true);}
+if(vid&&vid.size>20*1024*1024){done();return say("这段视频有 "+Math.round(vid.size/1048576)+"MB，太大了（最多 20MB）。请录短一点（20 秒以内），或者改传截图",true);}
+var jsonOf=function(r){return r.json().catch(function(){return{error:"服务器没回正常的数据，请过几秒再试"};});};var within=function(p,ms,msg){return new Promise(function(ok,bad){var t=setTimeout(function(){bad(new Error(msg));},ms);p.then(function(v){clearTimeout(t);ok(v);},function(e){clearTimeout(t);bad(e);});});};var step=Promise.resolve(),lastSt="";if(imgs.length)step=step.then(function(){say("收到 "+imgs.length+" 张截图，正在处理…");return within(Promise.all(imgs.map(wkShrink)),30000,"图片处理不动（可能太大了），请换成手机截图再试");}).then(function(us){say("正在上传 "+us.length+" 张截图，请别关页面…");return within(fetch("/api/oracle-proof",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"shots",a:x.a,id:x.id,imgs:us})}).then(jsonOf),90000,"传了一分半钟还没传完，网络太慢，请换个网络再试");}).then(function(j){if(j.error)throw new Error(j.error);lastSt=j.st;});if(vid)step=step.then(function(){return imgs.length?new Promise(function(ok){setTimeout(ok,9000);say("截图已交，马上接着上传视频，请别关页面…");}):null;}).then(function(){say("正在上传视频（"+Math.max(1,Math.round(vid.size/1048576))+"MB），网慢要等一会儿，请别关页面…");return within(fetch("/api/oracle-proof?video=1&id="+encodeURIComponent(x.id)+"&a="+x.a,{method:"POST",headers:{"content-type":vid.type||"video/mp4"},body:vid}).then(jsonOf),240000,"视频传了 4 分钟还没传完，网络太慢。请改传截图");}).then(function(j){if(j.error)throw new Error(j.error);lastSt=j.st;});step.then(function(){done();say(lastSt==="ready"?"✅ 交上去了，已自动通过，机器人几分钟内发奖":lastSt==="wait"?"✅ 交上去了。销毁 1 枚创世名以后，机器人自动发奖":"✅ 交上去了，等团队看一眼（一般当天）");if(reload)setTimeout(reload,1500);},function(e){done();say("没交上："+((e&&e.message)||"网络不好，请再试一次")+"。再试一次；还不行就"+HELP2,true);});};});}
+function row(x,i,showAmt){return'<li><i class="wkb-no'+(i<3?" top":"")+'">'+(i+1)+'</i><div class="wkb-who"><b data-a="'+esc(x.a)+'">'+esc(x.name)+"</b><small>付手续费 "+dai(x.fee)+" DAI · 占 "+pct(x.share)+"</small></div>"+
+(showAmt?'<em class="num">'+(x.amt>0?"≈ "+dai(x.amt):"—")+"<small>DAI</small></em>":"")+"</li>";}
+function lastRow(x,i,pay){var st=pay?pay.st:"",due=st==="wait"||st==="say";var tag=!pay?"":st==="paid"?'<span class="wkb-lt ok">✅ 已发</span>':due?'<span class="wkb-lt due">⏰ 还没领'+(pay.due>Date.now()?" · 还剩 "+left(pay.due):"")+"</span>":st==="forfeit"?'<span class="wkb-lt off">已放弃</span>':'<span class="wkb-lt">'+(st==="review"?"🔎 审核中":"🕐 发放中")+"</span>";return"<li"+(due?' class="wkb-due"':"")+'><i class="wkb-no'+(i<3?" top":"")+'">'+(i+1)+'</i><div class="wkb-who"><b data-a="'+esc(x.a)+'">'+esc(x.name)+"</b><small>付手续费 "+dai(x.fee)+" DAI · 占 "+pct(x.share)+"</small>"+tag+"</div>"+'<em class="num">'+(x.amt>0?"≈ "+dai(x.amt):"—")+"<small>DAI</small></em></li>";}
+function draw(d,state,reload){if(!d){A.app.innerHTML='<section class="card"><p class="muted">'+(state==="fail"?"读取失败，请稍后刷新再试。":"读取中…")+"</p></section>";return;}
+var p=d.pool,canPay=d.on&&!d.pre&&p&&p.avail!=null,html="";if(d.demo)html+='<p class="wkb-demo">👀 这是预览站，下面全是<b>示例数据</b>，只为看页面长什么样。</p>';var due=[];(d.pays||[]).forEach(function(x,pi){if((x.st==="wait"||x.st==="say")&&x.due>Date.now())due.push({x:x,i:pi});});if(due.length)html+='<section class="card wkb-claim" id="wkb-claim"><h2>🎁 中奖了在这里领奖</h2><p class="wkb-clp">还有 <b>'+due.length+"</b> 位没领。点自己的名字，直接跳到领奖的地方照着做。<b>过期算放弃</b></p>"+'<div class="wkb-clc">'+due.map(function(o){return'<button type="button" class="wkb-clb" data-go="'+o.i+'"><b>'+esc(o.x.name)+"</b><small>"+dai(o.x.amt)+" DAI · 还剩 "+left(o.x.due)+"</small></button>";}).join("")+"</div>"+'<button type="button" class="nm-go wkb-clgo" data-go="'+due[0].i+'">👉 我要领奖</button></section>';html+='<section class="card wkb-hero"><div class="wkb-tag">🏆 OTC 手续费周榜 · 试运行</div>'+
+(canPay?'<div class="wkb-big"><b class="num">'+dai(p.avail)+'</b><small>DAI</small></div><div class="wkb-cap">奖金钱包里现在能分的钱 · 有多少分多少</div>':'<div class="wkb-big wkb-soon"><b>'+(d.on&&d.pre?dayCn(d.rules.from)+"开始":"准备中")+'</b></div><div class="wkb-cap">'+(d.on&&d.pre?"从这一周起，前 "+d.rules.top+" 名开始分奖金钱包里的钱":"奖金钱包开放后，这里显示钱包里能分的钱")+"</div>")+
+(p&&p.a?'<a class="or-pwal" href="#/scan/'+esc(p.a)+'">🏦 查看奖池钱包 ›</a>':"")+'<div class="wkb-week">本周：'+dayCn(d.cyc)+" – "+dayCn(d.to)+" · 周日 24 点截止，周一结算"+(d.endAt>Date.now()?"（还剩 "+left(d.endAt)+"）":"")+"</div>"+
+(canPay&&p.owed>0?'<div class="wkb-owed">钱包里另有 '+dai(p.owed)+" DAI 是前几周已经分出去、等领奖的，不算进本周</div>":"")+"</section>";html+='<section class="card"><div class="card-head"><h2>📋 本周榜单</h2><span class="muted">前 '+d.rules.top+" 名分钱</span></div>"+
+(d.top&&d.top.length?'<ol class="wkb-list">'+d.top.map(function(x,i){return row(x,i,canPay);}).join("")+"</ol>":'<p class="muted">本周还没有人上榜，第一笔吃单就是第一名。</p>')+'<p class="muted wkb-tip">'+(canPay?"金额跟着成交和钱包余额实时变，<b>以周一结算那一刻为准</b>，不承诺金额。发的是 <b>AiLGNS</b>。":"现在只显示排名，开始计奖后这里会显示每人预计分多少。")+"</p>"+'<a class="wkb-cta" href="#/otc">💱 去 OTC 吃一单，手续费直接计入 ›</a></section>';html+='<section class="card"><div class="card-head"><h2>📖 怎么算</h2></div><ul class="wkb-rules">'+"<li><b>排什么</b><span>每周一到周日（北京时间），你在本站 OTC <b>吃单付的手续费</b>加起来，从高到低排。挂单被别人吃不付手续费，不算。</span></li>"+"<li><b>谁能分</b><span>前 "+d.rules.top+" 名。钱包要先设好 .ailgns 主名字才上榜，没设的跳过、名额顺延。</span></li>"+"<li><b>分多少</b><span>周一结算那一刻，奖金钱包里<b>有多少就分多少</b>，按前 "+d.rules.top+" 名各自手续费的占比分。钱是团队手动转进去的，<b>不承诺金额，也可能是 0</b>。</span></li>"+"<li><b>怎么领</b><span>结算后 "+d.rules.burnDays+" 天内，到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到本页「发放记录」里自己那一行，传上来后机器人自动发到你的钱包，不用申请；看不清的，团队再看一眼。</span></li>"+"<li><b>超过 "+(d.rules.burnMin||50)+" DAI</b><span>分到超过 "+(d.rules.burnMin||50)+" DAI 的，还要在结算后 "+d.rules.burnDays+" 天内先到「🔥 创世域名销毁」页销毁 1 枚创世名。"+(d.rules.burnMin||50)+" DAI 及以下的不用销毁。</span></li>"+"<li><b>到账记得晒</b><span>奖金到账后，记得把到账截图或视频发到 DeBox 的 AiLGNS 群里晒一晒，让更多人看到周榜是真发奖。自愿的，不发也不影响领奖。</span></li>"+"<li><b>发什么</b><span>发 <b>AiLGNS</b>：机器人用你分到的这笔 DAI，在本站 OTC 按当时最便宜的卖价买成 AiLGNS 转给你，买到多少发多少。分到不足 1 DAI 的买不了币，不发，留到下周。</span></li>"+"<li><b>没领的</b><span>"+d.rules.burnDays+" 天内没做算放弃：超过 "+(d.rules.burnMin||50)+" DAI 的看有没有销毁创世名，"+(d.rules.burnMin||50)+" DAI 及以下的看有没有上传。这笔钱留在奖金钱包里，滚到下一周。</span></li>"+'</ul><a class="wkb-cta wkb-cta2" href="#/genesis">🔥 超过 50 DAI 的去销毁创世名 ›</a><p class="muted wkb-tip">📐 试运行期间规则可能调整，以本页为准。</p></section>';if(d.last&&d.last.top&&d.last.top.length){var lp={},lowe=0;(d.pays||[]).forEach(function(y){if(y.cyc===d.last.cyc)lp[String(y.a).toLowerCase()]=y;});d.last.top.forEach(function(x){var y=lp[String(x.a).toLowerCase()];if(y&&(y.st==="wait"||y.st==="say"))lowe++;});html+='<section class="card"><div class="card-head"><h2>🗓 上期中奖名单</h2><span class="muted">'+dayCn(d.last.cyc)+" – "+dayCn(d.last.to)+" · 共分 "+dai(d.last.avail)+' DAI</span></div>'+
+(lowe?'<p class="wkb-lowe">⏰ 还有 '+lowe+" 人没领。标黄的请到下面「发放记录」里自己那一行照着做，过期算放弃。</p>":"")+'<ol class="wkb-list">'+
+d.last.top.map(function(x,i){return lastRow(x,i,lp[String(x.a).toLowerCase()]);}).join("")+"</ol></section>";}
+if(d.pays&&d.pays.length){html+='<section class="card"><div class="card-head"><h2>💸 发放记录</h2></div><ul class="wkb-pays">'+d.pays.map(function(x,pi){var s=ST[x.st]||x.st,more=x.st==="wait"||(x.st==="say"&&x.burn===false)?" · 还剩 "+left(x.due):"";return'<li id="wkb-p'+pi+'"><div><b data-a="'+esc(x.a)+'">'+esc(x.name)+"</b><small>"+dayCn(x.cyc)+" 那一周 · "+dai(x.amt)+" DAI"+(x.ail>0?" → "+Number(x.ail).toFixed(4)+" AiLGNS":"")+more+'</small></div><span class="wkb-st '+esc(x.st)+'">'+(x.st==="paid"&&x.tx?'<a href="#/scan/'+esc(x.a)+'">'+s+" ›</a>":s)+"</span></li>"+upBox(x,pi,d.rules.burnMin||50);}).join("")+"</ul></section>";}
+A.app.innerHTML=html;try{var goRow=function(i){var li=document.getElementById("wkb-p"+i);if(!li)return;li.scrollIntoView({block:"start"});li.classList.add("wkb-flash");setTimeout(function(){li.classList.remove("wkb-flash");},2600);};Array.prototype.forEach.call(A.app.querySelectorAll("[data-go]"),function(b){b.onclick=function(){goRow(b.getAttribute("data-go"));};});if(/^#\/weekly\/claim/.test(location.hash)&&due.length&&!draw.went){draw.went=1;setTimeout(function(){var c=document.getElementById("wkb-claim");if(c)c.scrollIntoView({block:"start"});},60);}}catch(e){}
+try{bindCopy(A.app);}catch(e){}
+try{if(d.pays&&d.pays.length)bindUp(A.app,d.pays,reload);}catch(e){}
+try{if(A.credFill)A.credFill(A.app);}catch(e){}}
+A.pages.weekly=function(id){var st=null;try{st=JSON.parse(localStorage.getItem(CACHE));}catch(e){st=null;}
+if(!st||!st.rules)st=null;var load=function(){A.getJSON("/api/weekly").then(function(d){if(!d||!d.rules)throw new Error("bad");try{localStorage.setItem(CACHE,JSON.stringify(d));}catch(e){}
+if(A.isCurrent(id))draw(d,"done",load);}).catch(function(){if(A.isCurrent(id))draw(st,st?"done":"fail",load);});};draw(st,"loading",load);load();};})();}catch(e){console.error('[bundle] weekly.js',e);};try{(function(){"use strict";var A=window.AIL,W=A.wallet;var USDT="0xc2132d05d31c914a87c6611c10748aeb04b58e8f",PDAI="0x8f3cf7ad23cd3cadbd9735aff958023239c6a063";var BRIDGE="0x8932fe7726c1ee743f662f485c3e5a5d1d595f71";var DAI_ID="a5e92f3efb6826155f1f728e162af9d7cda33a574a1153b58f03ea01cc37e568";var CHAIN_ID={anubis:6714,polygon:137,bsc:56},FEE=0,BMIN=10,SLIP=50;var GAS_KEEP=50000000000000000n;var POL_MIN=20000000000000000n;var NETS={polygon:{key:"polygon",name:"Polygon",usdt:USDT,dai:PDAI,ud:6,gas:"POL",gasMin:POL_MIN,eta:2*60,canOut:true},bsc:{key:"bsc",name:"BSC",usdt:"0x55d398326f99059ff775485246999027b3197955",dai:"0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",ud:18,gas:"BNB",gasMin:500000000000000n,eta:4*60,canOut:false,cap:20000}};var net="polygon";function N(){return NETS[net];}
+var ROUTERS=["0x6131b5fae19ea4f9d964eac0408e4408b66337b5","0x6a000f20005980200259b80c5102003040001068"];var SEL={balanceOf:"0x70a08231",allowance:"0xdd62ed3e",approve:"0x095ea7b3",bridge:"0x8d3ccf9f"};var mode="std";var account=null,bal=null,q=null,busy=false,rid=0,qTimer=null,qSeq=0,watch=null,dir="in",sdir="in";var from="U",to="A",pick=null,amtStr="",way=null;function route(){var k=from+to;return k==="UA"?["swap","bridge"]:k==="AU"?["bridge","swap"]:(k==="UD"||k==="DU")?["swap"]:["bridge"];}
+function has(s){return route().indexOf(s)>=0;}
+function sync(){if(!N().canOut&&from==="A"){from="U";to="A";}if(from===to)to=from==="A"?"U":"A";sdir=from==="U"?"in":"out";dir=from==="A"?"out":"in";}
+function C(k){var c=N();return k==="U"?{cls:"usdt",ch:"₮",sym:"USDT",chain:c.name,bk:"usdt",d:c.ud}:k==="D"?{cls:"dai",ch:"◈",sym:"DAI",chain:c.name,bk:"pdai",d:18}:{cls:"dai an",ch:"◈",sym:"DAI",chain:"Anubis",bk:"adai",d:18};}
+function P(){var c=N();return sdir==="in"?{src:c.usdt,sd:c.ud,sn:"USDT",dd:18,dn:"DAI",sb:"usdt",db:"pdai"}:{src:c.dai,sd:18,sn:"DAI",dd:c.ud,dn:"USDT",sb:"pdai",db:"usdt"};}
+function B(){var c=N();return dir==="in"?{from:c.key,to:"anubis",fn:c.name,tn:"Anubis",fb:"pdai",tb:"adai"}:{from:"anubis",to:c.key,fn:"Anubis",tn:c.name,fb:"adai",tb:"pdai"};}
+function decOf(k){return k==="usdt"?N().ud:18;}
+var EXPECT={in:2*60,out:130*60};function expOf(d,nk){return d==="in"?(NETS[nk]||NETS.polygon).eta:EXPECT.out;}
+function dur(sec){sec=Math.max(0,Math.round(sec));if(sec<90)return sec<45?"不到 1 分钟":"约 1 分钟";var m=Math.round(sec/60);return m<60?"约 "+m+" 分钟":"约 "+Math.floor(m/60)+" 小时"+(m%60?" "+(m%60)+" 分钟":"");}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function g(id){return document.getElementById(id);}
+function u256(v){return BigInt(v).toString(16).padStart(64,"0");}
+function aw(a){return String(a).toLowerCase().replace("0x","").padStart(64,"0");}
+function units(s,d){s=String(s||"").trim().replace(/,/g,"");if(!/^\d*(\.\d*)?$/.test(s)||s===""||s===".")return 0n;var p=s.split(".");return BigInt(p[0]||"0")*10n**BigInt(d)+BigInt((p[1]||"").slice(0,d).padEnd(d,"0")||"0");}
+function n(wei,d){return Number(wei)/Math.pow(10,d);}
+function f(v,dg){return isFinite(v)?Number(v).toLocaleString("en-US",{minimumFractionDigits:dg===undefined?2:dg,maximumFractionDigits:dg===undefined?2:dg}):"—";}
+function plain(wei,d,dg){var v=n(wei,d),p=Math.pow(10,dg);return String(Math.floor(v*p)/p);}
+function nice(e){var m=(A.otcKit&&A.otcKit.niceError)?A.otcKit.niceError(e):String((e&&e.message)||e||"");return/reject|denied|取消|拒绝|cancel/i.test(m)?"你在钱包里取消了，币没有动。想继续再点一次就行":(m||"钱包没有响应，刷新后再试");}
+function rd(chain,to,data){return W.rpcOn(chain,"eth_call",[{to:to,data:data},"latest"]).then(function(h){return BigInt(h&&h!=="0x"?h:0);});}
+function balOf(k){return bal?f(n(bal[k],decOf(k))):"—";}
+function loadBal(){if(!account){bal=null;return Promise.resolve();}
+var a=account,c=N(),nk=net;return Promise.all([rd(c.key,c.usdt,SEL.balanceOf+aw(a)),rd(c.key,c.dai,SEL.balanceOf+aw(a)),W.rpcOn(c.key,"eth_getBalance",[a,"latest"]).then(BigInt),W.rpcOn("anubis","eth_getBalance",[a,"latest"]).then(BigInt)]).then(function(r){if(a===account&&nk===net)bal={usdt:r[0],pdai:r[1],pol:r[2],adai:r[3]};});}
+function setBal(){[["u2d-b1",balOf(C(from).bk)],["u2d-b2",balOf(C(to).bk)]].forEach(function(x){var e=g(x[0]);if(e)e.textContent=x[1];});}
+function paintBal(){var el=g("u2d-bal");if(!el)return;setBal();if(hisFor!==(account||""))loadHis();if(!account||!bal){el.innerHTML="";return;}
+var c=N(),low=bal.pol<c.gasMin,pol=f(n(bal.pol,18),low?4:2),tip=gasTip();el.innerHTML=!low?"":dir==="in"?'<p class="u2d-warn">⚠️ 这个钱包在 '+c.name+" 上只有 "+pol+" 个 "+c.gas+"，付不了 Gas。"+tip+"，再回来操作。</p>":'<p class="u2d-warn">⚠️ 先别急着跨：这个钱包在 '+c.name+" 上只有 "+pol+" 个 "+c.gas+"。DAI 跨到 "+c.name+" 以后，换成 USDT 那一步要用 "+c.gas+" 付 Gas。"+tip+"。</p>";}
+function gasTip(){var c=N();return"请先从交易所提一点 "+c.gas+"（"+(c.key==="bsc"?"0.005 个就够":"1 个就够")+"）到这个钱包（选 "+c.name+" 网络）";}
+function connect(chain){var eth;return A.wallets.choose().then(function(p){eth=p;return A.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){account=String(a[0]).toLowerCase();return W.switchTo(eth,chain);}).then(function(){return account;});}
+function ready(chain){return Promise.resolve().then(function(){return account?W.switchTo(W.get(),chain):connect(chain);});}
+function say(k,t,bad){var el=g("u2d-say");if(el){el.textContent=t||"";el.className="u2d-say"+(bad?" bad":t?" on":"");}}
+function lock(on){busy=on;[].forEach.call(document.querySelectorAll("#u2d-go, #u2d-flip, #u2d-max1, #u2d-std .u2d-tb, #u2d-std .u2d-pk button, #u2d-net button"),function(b){b.disabled=on;});var a=g("u2d-a1");if(a)a.readOnly=on;if(!on)paintBtn();}
+function wait(chain,hash){var tries=0;return new Promise(function(ok,fail){(function poll(){W.rpcOn(chain,"eth_getTransactionReceipt",[hash]).then(function(r){if(r)return r.status==="0x1"?ok(r):fail(new Error("这笔交易被链上拒绝了，币没有动（只花了一点 Gas）"));if(++tries>120)return fail(new Error("等了 4 分钟链上还没确认。别重复点：过一会儿刷新这一页，余额变了就是成功了"));setTimeout(poll,2000);},function(){setTimeout(poll,3000);});})();});}
+function send(chain,to,data,k,label){var eth=W.get();say(k,"正在检查这一步能不能成功…");return Promise.all([W.rpcOn(chain,"eth_call",[{from:account,to:to,data:data},"latest"]).catch(function(e){throw new Error("这一步现在做不成："+nice(e));}),W.rpcOn(chain,"eth_estimateGas",[{from:account,to:to,data:data}]).then(function(x){return"0x"+(BigInt(x)*13n/10n).toString(16);},function(){return null;})]).then(function(res){var tx={from:account,to:to,data:data};if(res[1])tx.gas=res[1];say(k,"请在钱包里确认「"+label+"」");return A.wallets.ask(eth,{method:"eth_sendTransaction",params:[tx]});}).then(function(hash){say(k,label+"已提交，等链上确认（一般十几秒）…");return wait(chain,hash);});}
+function allow(token,spender,amount,k,name){var ck=N().key;return rd(ck,token,SEL.allowance+aw(account)+aw(spender)).then(function(a){if(a>=amount)return;return send(ck,token,SEL.approve+aw(spender)+u256(amount),k,"授权 "+name+"（只授权这一笔的数量）");});}
+function getQuote(amt){var d=sdir,nk=net;return fetch("/api/u2d?amt="+amt+"&dir="+d+(nk==="polygon"?"":"&chain="+nk)).then(function(r){return r.json();}).then(function(j){if(!j||j.error||!j.ok)throw new Error((j&&j.error)||"现在拿不到报价，稍后再试");if((j.dir||"in")!==d||(j.chain||"polygon")!==nk)throw new Error("报价方向不对，请重新填一次数量");return{dir:d,net:nk,amt:amt,out:BigInt(j.out),fee:BigInt(j.fee||0),feeBps:Number(j.feeBps)||0,sum:j.sum,via:j.via,at:Date.now()};});}
+function amtIn(){return units(amtStr,C(from).d);}
+var FEE_WEI=BigInt(Math.round(FEE*1e6))*10n**12n;function paintInfo(err){var el=g("u2d-q"),o=g("u2d-out"),cf=C(from),ct=C(to),sw=has("swap"),br=has("bridge");if(!el)return;var amt=amtIn(),okq=sw&&!err&&!!q&&q.dir===sdir&&q.net===net&&q.amt===amt.toString();var outWei=!sw?(n(amt,18)>=BMIN?amt-FEE_WEI:0n):!okq?0n:(from==="U"&&to==="A")?(q.out>FEE_WEI?q.out-FEE_WEI:0n):q.out;if(o){o.textContent=outWei>0n?f(n(outWei,ct.d)):"0";o.className="u2d-num"+(outWei>0n?"":" zero");}
+paintBtn();if(err){el.innerHTML='<p class="u2d-warn">'+esc(err)+"</p>";return dtVis();}
+if(amt===0n){el.innerHTML="";return dtVis();}
+if(br&&!sw&&n(amt,18)<BMIN){el.innerHTML='<p class="u2d-warn">官方桥最少跨 '+BMIN+" DAI。</p>";return dtVis();}
+if(sw&&!okq)return dtVis();var rows=[],why="",warn="";if(sw){var p=P(),inU=n(q.amt,p.sd),out=n(q.out,p.dd),fee=n(q.fee,p.dd),pct=q.feeBps/100,gap=(1-(out+fee)/inU)*100,min=out*(1-SLIP/10000);var feeTxt=q.feeBps?"本站服务费 "+pct+"%（约 "+f(fee)+" "+p.dn+"）已经扣在这个数里":"本站不收服务费，这是全网比价后的到手数";rows.push(["兑换比例","1 "+p.sn+" ≈ "+f(out/inU,4)+" "+p.dn]);rows.push(["手续费",q.feeBps?pct+"%":'<b class="free">0</b>']);rows.push(["最少到手",f(min)+" "+p.dn]);why+='<p class="note">'+feeTxt+"。"+(gap>0.005?(q.feeBps?"另外约 ":"和 1:1 差的约 ")+f(gap,2)+"% 是 USDT 和 DAI 这两个币本身的市价差，不是手续费，在哪换都一样。":gap<-0.005?"这一刻 "+p.sn+" 比 "+p.dn+" 略贵，市价差对你有利。":"")+"</p>"+'<p class="note">最少到手 '+f(min)+" "+p.dn+"：成交那一刻价格突然变差超过 0.5%，这笔会自动取消，不会按更差的价成交。</p>";if(gap>1)warn+='<p class="u2d-warn">⚠️ 现在这个数量换下来比平时差不少（市价差超过 1%）。可以把数量改小分几次换，或者过一会儿再看。</p>';if(from==="U"&&to==="A"&&out<BMIN)warn+='<p class="u2d-warn">换出来不到 '+BMIN+" DAI，过不了桥（官方桥最少跨 "+BMIN+" DAI）。请把数量加大一点。</p>";if(from==="A"&&n(amt,18)<BMIN)warn+='<p class="u2d-warn">官方桥最少跨 '+BMIN+" DAI。</p>";}else rows.push(["手续费",FEE?FEE+" DAI":'<b class="free">0</b>']);rows.push(["预计到账",!br?"十几秒":dir==="out"?dur(EXPECT.out):net==="bsc"?"几分钟":dur(expOf("in",net))]);rows.push(["到账地址","你这个钱包 · "+ct.chain+" 链"]);if(br)why+='<p class="note">'+(FEE?"官方桥收 "+FEE+" DAI":"官方跨链桥不收费，跨多少到多少")+"。到账地址就是你现在这个钱包，在 "+ct.chain+' 链上。</p><p class="note">官方桥最少跨 '+BMIN+" DAI。</p>";el.innerHTML=warn+'<dl class="u2d-rows">'+rows.map(function(r){return"<div><dt>"+r[0]+"</dt><dd>"+r[1]+"</dd></div>";}).join("")+'</dl><details class="u2d-why"><summary>这些数是怎么算的？</summary>'+why+"</details>";dtVis();}
+function dtVis(){var d=g("u2d-dt"),w=g("u2d-way"),e=g("u2d-q");if(d)d.hidden=!(w&&w.innerHTML)&&!(e&&e.innerHTML);}
+function btnState(){if(!account)return{t:"连接钱包",act:"conn"};var amt=amtIn(),cf=C(from);if(amt===0n)return{t:"输入数量",dim:1,act:"focus"};if(bal&&bal[cf.bk]<amt)return{t:cf.sym+" 余额不足",dim:1,act:"go"};return{t:goLabel(),act:"go"};}
+function paintBtn(){var b=g("u2d-go");if(!b||busy)return;var st=btnState();b.textContent=st.t;b.className="u2d-go"+(st.dim?" dim":"");}
+function onAmt(){clearTimeout(qTimer);var seq=++qSeq,a=g("u2d-a1");if(a)amtStr=a.value;var amt=amtIn(),cf=C(from),one=10n**BigInt(cf.d);if(!has("swap")){q=null;return paintInfo();}
+if(amt<one){q=null;return amt>0n?paintInfo("最少换 1 "+cf.sym):paintInfo();}
+var el=g("u2d-q");if(el)el.innerHTML='<p class="muted">正在全网找最划算的价…</p>';dtVis();paintBtn();qTimer=setTimeout(function(){getQuote(amt.toString()).then(function(x){if(seq!==qSeq)return;q=x;paintInfo();},function(e){if(seq!==qSeq)return;q=null;paintInfo(String((e&&e.message)||e));});},450);}
+function settle(k,before){var tries=0;function later(){return++tries>=6?0n:new Promise(function(r){setTimeout(r,1500);}).then(again);}
+function again(){return loadBal().then(function(){return bal&&bal[k]>before?bal[k]-before:later();},later);}
+return again();}
+function doSwap(amt,needBridge){var d0=sdir,p=P(),c=N(),nk0=net,before=0n;if(c.cap&&n(amt,p.sd)>c.cap)return Promise.reject(new Error(c.name+" 上一次最多换 "+c.cap/10000+" 万（池子浅，再多会亏很多）。大额请在上面选 Polygon"));return ready(c.key).then(function(){return loadBal();}).then(function(){paintBal();if(!bal)throw new Error("没读到余额，刷新后再试");if(bal[p.sb]<amt)throw new Error(c.name+" 上的 "+p.sn+" 不够：你有 "+balOf(p.sb)+"，要换 "+f(n(amt,p.sd)));if(bal.pol<c.gasMin)throw new Error("钱包里的 "+c.gas+" 不够付 Gas，"+gasTip());before=bal[p.db];say("s","正在拿最新报价…");return getQuote(amt.toString());}).then(function(x){if(sdir!==d0||net!==nk0)throw new Error("方向或者链已经换了，请重新点一次");q=x;paintInfo();if(needBridge&&n(x.out,18)<BMIN)throw new Error("换出来不到 "+BMIN+" DAI，过不了桥（官方桥最少跨 "+BMIN+" DAI）。请把数量加大一点");return fetch("/api/u2d",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sum:x.sum,via:x.via,dir:d0,chain:nk0,sender:account,slip:SLIP})}).then(function(r){return r.json();});}).then(function(j){if(!j||j.error||!j.ok)throw new Error((j&&j.error)||"拿不到换币数据，稍后再试");if(ROUTERS.indexOf(String(j.to).toLowerCase())<0||(j.dir||"in")!==d0||(j.chain||"polygon")!==nk0||net!==nk0||String(j.data).toLowerCase().indexOf(account.slice(2))<0)throw new Error("换币数据没通过安全检查，已拦下，你的币没有动");return allow(p.src,j.to,amt,"s",p.sn).then(function(){return send(c.key,j.to,j.data,"s",p.sn+" 换成 "+p.dn);});}).then(function(){return settle(p.db,before);});}
+function doBridge(amt,then){var d0=dir,b=B(),c=N(),nk0=net,start=0n,txHash="";if(n(amt,18)<BMIN)return Promise.reject(new Error("官方桥最少跨 "+BMIN+" DAI"));if(d0==="out"&&!c.canOut)return Promise.reject(new Error("官方桥不支持把 DAI 跨回 "+c.name+"，往外提请在上面选 Polygon"));return ready(b.from).then(function(){return loadBal();}).then(function(){paintBal();if(!bal)throw new Error("没读到余额，刷新后再试");if(d0==="in"){if(bal.pdai<amt)throw new Error(c.name+" 上的 DAI 不够：你有 "+balOf("pdai")+"，要跨 "+f(n(amt,18)));if(bal.pol<c.gasMin/2n)throw new Error("钱包里的 "+c.gas+" 不够付 Gas，"+gasTip());}else if(bal.adai<amt+GAS_KEEP/5n)throw new Error("Anubis 上的 DAI 不够：你有 "+balOf("adai")+"，要跨 "+f(n(amt,18))+"，还要留一点点当 Gas。点「全部」会自动留好");start=bal[b.tb];return d0==="in"?allow(c.dai,BRIDGE,amt,"b","DAI 给官方跨链桥"):null;}).then(function(){if(dir!==d0||net!==nk0)throw new Error("方向或者链已经换了，请重新点一次");return send(b.from,BRIDGE,SEL.bridge+DAI_ID+u256(CHAIN_ID[b.to])+aw(account)+u256(amt),"b","DAI 跨到 "+b.tn);}).then(function(rc){txHash=rc&&rc.transactionHash;return loadBal();}).then(function(){track({a:account,dir:d0,net:nk0,amt:amt.toString(),start:start.toString(),t0:Date.now(),tx:txHash||"",then:then||""});setTimeout(function(){loadHis(true);},10000);});}
+function bridged(d,nk){return"✅ 已交给官方跨链桥，正在跨（官方桥到账"+dur(expOf(d,nk))+"）。进度看页面上方的进度条，可以关掉这一页，回来还在。";}
+function go(){if(busy)return;var k=from+to,r=route(),cf=C(from),amt=amtIn(),c=N(),stage=1,got1=0n,second=way&&way.now===2?way.k:"";if(amt===0n)return say("s","先填要付出多少 "+cf.sym,true);if(r[0]==="swap"&&amt<10n**BigInt(cf.d))return say("s","最少换 1 "+cf.sym,true);if(r[0]==="bridge"&&n(amt,18)<BMIN)return say("s","官方桥最少跨 "+BMIN+" DAI",true);if(pick){pick=null;render();}
+lock(true);say("s","正在连接钱包…");if(r.length===2){way={k:k,now:1};paintWay();}
+var job;if(k==="UA")job=doSwap(amt,true).then(function(got){got1=got;stage=2;from="D";to="A";amtStr=got>0n?plain(got,18,4):"";q=null;way={k:"UA",now:2};render();lock(true);if(got===0n)throw new Error("余额还没刷新出来。等几秒点「全部」，再点下面的按钮跨到 Anubis");say("s","✅ 第 1 步换好了，到手 "+f(n(got,18))+" DAI。接着第 2 步：跨到 Anubis…");return doBridge(got,"");}).then(function(){var nk=net;from="U";to="A";amtStr="";way=null;render();say("s",bridged("in",nk));});else if(k==="AU")job=doBridge(amt,"swap").then(function(){amtStr="";way=null;render();say("s","✅ 第 1 步已交给官方跨链桥，"+dur(EXPECT.out)+"后到 "+c.name+"。到了以后这一页会帮你填好第 2 步，点一下按钮把 DAI 换成 USDT。可以关掉这一页，回来还在。");});else if(r[0]==="swap")job=doSwap(amt,false).then(function(got){var ct=C(to),gotTxt=got>0n?"，到手 "+f(n(got,ct.d))+" "+ct.sym:"";if(second==="AU")pendClear();amtStr="";q=null;way=null;render();say("s",(second==="AU"?"🎉 换好了":"✅ 换好了")+gotTxt+"，就在你这个钱包里（"+c.name+" 链）。"+(second==="AU"?"两步都走完了。":""));});else job=doBridge(amt,"").then(function(){var d0=dir,nk=net;if(second==="UA"){from="U";to="A";}amtStr="";way=null;render();say("s",bridged(d0,nk));});job.catch(function(e){if(stage===2)say("s","第 1 步已经换好，"+(got1>0n?f(n(got1,18))+" ":"")+"DAI 在你钱包里（"+c.name+" 链），没有丢。第 2 步还没做："+nice(e),true);else{if(r.length===2){way=null;paintWay();}say("s","没成功："+nice(e),true);}}).then(function(){lock(false);});}
+var PKEY="u2d:pend:";function pend(){try{var p=JSON.parse(localStorage.getItem(PKEY+account)||"null");return p&&p.a===account&&Date.now()-p.t0<3*86400e3?p:null;}catch(e){return null;}}
+function pendSave(p){try{if(p)localStorage.setItem(PKEY+p.a,JSON.stringify(p));}catch(e){}}
+function pendClear(){try{localStorage.removeItem(PKEY+account);}catch(e){}var el=g("u2d-prog");if(el)el.innerHTML="";clearInterval(watch);}
+function paintProg(p){var el=g("u2d-prog");if(!el)return;if(!p){el.innerHTML="";return;}
+var isIn=p.dir==="in",pn=NETS[p.net]||NETS.polygon,to=isIn?"Anubis":pn.name,exp=expOf(p.dir,p.net),el2=(Date.now()-p.t0)/1000,amt=f(n(BigInt(p.amt),18)-FEE);var done=!!p.done,late=!done&&el2>exp*1.3+300,pct=done?100:Math.max(4,Math.min(96,el2/exp*100));var head=done?"🎉 到账了："+amt+" DAI 已经在 "+to+" 链上":"正在跨链："+amt+" DAI → "+to+" 链";var sub2=done?"这一趟用了"+dur((p.done-p.t0)/1000)+"。"+(isIn?"现在可以去买 AiLGNS 或注册域名了。":p.then===""?"DAI 已经在你这个钱包里了。":"接着在下面点按钮，把 DAI 换成 USDT。"):late?"已经过了"+dur(el2)+"，比平时（"+dur(exp)+"）慢。币不会丢，官方桥还在处理。":"已经过了"+dur(el2)+" · 预计还要"+dur(exp-el2);el.innerHTML='<div class="u2d-prog'+(done?" done":late?" late":"")+'"><div class="u2d-pt"><b>'+head+"</b><span>"+sub2+'</span></div>'+'<div class="u2d-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div>'+'<ol class="u2d-stg"><li class="ok">交易已上链</li><li class="'+(done?"ok":"now")+'">官方桥确认中</li><li class="'+(done?"ok":"")+'">到账</li></ol>'+
+(done?"":'<p class="note">'+(isIn?"这个方向官方桥一般"+dur(exp)+"到账。":"这个方向官方桥要等 2 小时 10 分钟左右，是它的安全规则（下面有详细说明），不是卡住了。")+"可以关掉这一页去做别的，回来还能看到进度。"+(late?"一直不到，就到官方桥 app.anubisbridge.com 的 History 里看这一笔，或者提工单把钱包地址和交易哈希发给我们。":"")+"</p>")+'<button type="button" class="u2d-px" id="u2d-px">'+(done?"知道了":"不看这条进度了")+"</button></div>";var x=g("u2d-px");if(x)x.onclick=pendClear;}
+function arrived(p,nowBal){if(p.done)return;p.done=Date.now();pendSave(p);clearInterval(watch);paintProg(p);loadBal().then(function(){paintBal();if(p.dir==="out"&&p.then!==""&&!busy&&!amtStr&&net===(p.net||"polygon")&&bal){var v=BigInt(p.amt);if(bal.pdai<v)v=bal.pdai;if(v>0n){from="D";to="U";pick=null;q=null;amtStr=plain(v,18,4);way={k:"AU",now:2};render();}}},function(){});}
+function checkProg(){var p=pend();if(!p||p.done)return clearInterval(watch);paintProg(p);var a=p.a,st=BigInt(p.start||0);(p.tx?fetch("/api/u2d?order="+p.tx+"&a="+a).then(function(r){return r.json();}).catch(function(){return null;}):Promise.resolve(null)).then(function(j){if(a!==account)return;if(j&&j.ok&&j.found&&(j.status==="completed"||j.receivedTs))return arrived(p);return(p.dir==="in"?W.rpcOn("anubis","eth_getBalance",[a,"latest"]).then(BigInt):rd((NETS[p.net]||NETS.polygon).key,(NETS[p.net]||NETS.polygon).dai,SEL.balanceOf+aw(a))).then(function(now){if(a===account&&now>st)arrived(p);});}).catch(function(){});}
+function track(p){if(p)pendSave(p);clearInterval(watch);var cur=pend();paintProg(cur);if(cur&&!cur.done){watch=setInterval(function(){if(!g("u2d-prog"))return clearInterval(watch);checkProg();},20000);checkProg();}}
+var his=null,hisAt=0,hisFor="",hisBusy=false,hisTimer=null,hisOpen=false,HSHOW=3;var HEXP={out:130*60,polygon:120,bsc:120},HNAME={anubis:"Anubis",polygon:"Polygon",bsc:"BSC"};function hm(ts){var d=new Date(ts*1000),p2=function(x){return(x<10?"0":"")+x;};return(new Date().toDateString()===d.toDateString()?"":(d.getMonth()+1)+"-"+d.getDate()+" ")+p2(d.getHours())+":"+p2(d.getMinutes());}
+function paintHis(msg){var el=g("u2d-his");if(!el)return;var head='<div class="u2d-hh"><b>我的跨链记录</b>'+(account?'<button type="button" class="u2d-hr" id="u2d-hr">'+(hisBusy?"查询中…":"查询进度")+"</button>":"")+"</div>";if(!account){el.innerHTML=head+'<p class="muted">连接钱包后，这里显示你最近的跨链：钱到哪了、还要多久到。</p>';return;}
+var L=hisFor===account&&his?his:null,body;if(msg)body='<p class="u2d-warn">'+esc(msg)+"</p>";else if(!L)body='<p class="muted">正在查…</p>';else if(!L.length)body='<p class="muted">这个钱包最近没有跨链记录。</p>';else body=L.map(function(o,i){var now=Date.now()/1000,exp=o.from==="anubis"?HEXP.out:(HEXP[o.from]||120),done=o.st==="completed"||o.recvTs>0,bad=!done&&!!(o.fail||/fail|refund|cancel/i.test(o.st));var el2=Math.max(0,now-o.sendTs),late=!done&&!bad&&el2>exp*1.3+300,pct=done?100:Math.max(4,Math.min(96,el2/exp*100));var amt=o.amt?f(n(BigInt(o.amt),o.dec))+" "+esc(o.sym):(esc(o.sym)||"跨链");var t=done?"✅ 已到账"+(o.recvTs?" · "+hm(o.recvTs)+" · 用了"+dur(o.recvTs-o.sendTs):""):bad?"⚠️ 官方桥显示这笔没成功"+(o.fail?"："+esc(o.fail):"")+"。请到官方桥 app.anubisbridge.com 的 History 里看，或者提工单给我们":late?"⏳ 已经过了"+dur(el2)+"，比平时（"+dur(exp)+"）慢。币不会丢，官方桥还在处理":"⏳ 正在跨 · 预计 "+hm(o.sendTs+exp)+" 到（还要"+dur(exp-el2)+"）";return{old:i>=HSHOW&&(done||bad),h:'<div class="u2d-ho'+(done?" done":bad?" bad":"")+'"><div class="u2d-ht"><b>'+amt+"</b><span>"+(HNAME[o.from]||"其它链")+" → "+(HNAME[o.to]||"其它链")+" · "+hm(o.sendTs)+' 发出</span></div><p>'+t+"</p>"+(done||bad?"":'<div class="u2d-bar"><i style="width:'+pct.toFixed(1)+'%"></i></div>')+"</div>"};});if(L&&L.length&&!msg){var olds=body.filter(function(r){return r.old;});body=body.filter(function(r){return!r.old;}).map(function(r){return r.h;}).join("")+(olds.length?'<details class="u2d-hm" id="u2d-hm"'+(hisOpen?" open":"")+"><summary>更早的 "+olds.length+" 笔</summary>"+olds.map(function(r){return r.h;}).join("")+"</details>":"");}
+el.innerHTML=head+body;var b=g("u2d-hr");if(b)b.onclick=function(){loadHis(true);};var hmEl=g("u2d-hm");if(hmEl)hmEl.ontoggle=function(){hisOpen=hmEl.open;};}
+function loadHis(force){clearTimeout(hisTimer);if(!account){hisFor="";return paintHis();}
+if(hisFor!==account){his=null;hisFor=account;hisAt=0;}
+if(hisBusy)return paintHis();if(!force&&his&&Date.now()-hisAt<20000){paintHis();return hisNext();}
+var a=account;hisBusy=true;paintHis();fetch("/api/u2d?orders="+a).then(function(r){return r.json();}).then(function(j){hisBusy=false;if(a!==account)return;if(!j||!j.ok)return paintHis(his?"":(j&&j.error)||"记录暂时查不到，过一会儿再点「查询进度」");his=j.list||[];hisAt=Date.now();paintHis();hisNext();},function(){hisBusy=false;if(a===account)paintHis(his?"":"网络不好，过一会儿再点「查询进度」");});}
+function hisNext(){clearTimeout(hisTimer);if(his&&his.some(function(o){return o.st!=="completed"&&!o.recvTs;}))hisTimer=setTimeout(function(){if(!g("u2d-his"))return;if(document.hidden)return hisNext();loadHis(true);},60000);}
+var hooked=false;function paintAll(){paintBal();paintInfo();paintWay();}
+function paintWay(){var el=g("u2d-way");if(!el)return;var k=way?way.k:from+to,now=way?way.now:0;if(k!=="UA"&&k!=="AU"){el.innerHTML="";dtVis();paintBtn();return;}
+var nm=k==="UA"?["换币","过桥"]:["过桥","换币"];el.innerHTML='<ol class="u2d-way">'+nm.map(function(x,i){var cl=now>i+1?"ok":now===i+1?"now":"";return'<li class="'+cl+'"><i>'+(cl==="ok"?"✓":i+1)+"</i><b>"+x+"</b></li>";}).join('<li class="ar"></li>')+"</ol>"+
+(k==="AU"&&now<2?'<p class="u2d-two">⚠️ 要点两次：'+dur(EXPECT.out)+"后到 "+C(to).chain+" 的先是 <b>DAI</b>；到了以后回到这一页，再点一次「第 2 步：换成 USDT」，才变成 USDT。</p>":"");dtVis();paintBtn();}
+function tokIn(k){var c=C(k);return'<span class="u2d-cw"><i class="u2d-coin '+c.cls+'"><img src="/icons/tokens/'+(c.sym==="USDT"?"usdt":"dai")+'.png?v=1" alt="" width="30" height="30">'+c.ch+"</i>"+(k==="A"?'<em class="u2d-ch" title="Anubis 链"></em>':"")+"</span><span><b>"+c.sym+"</b><small>"+c.chain+" 链</small></span>";}
+function tokBtn(side,k){return'<button type="button" class="u2d-tok u2d-tb" data-side="'+side+'" aria-label="换一个币">'+tokIn(k)+'<i class="u2d-car"></i></button>';}
+function pickList(side){var cur=side==="from"?from:to;var other=side==="from"?to:from;var ok=["U","D","A"].filter(function(k){return k!==cur&&!(side==="from"&&k==="A"&&!N().canOut);});var ks=ok.filter(function(k){return k!==other;});if(!ks.length)ks=ok;return'<div class="u2d-pk"><p>'+(side==="from"?"你要付出哪个币":"你要到账哪个币")+"</p>"+ks.map(function(k){return'<button type="button" class="u2d-tok" data-side="'+side+'" data-k="'+k+'">'+tokIn(k)+"</button>";}).join("")+"</div>";}
+function choose(side,k){if(busy)return;var of=from,ot=to;if(side==="from"){from=k;if(to===k)to=of;}else{to=k;if(from===k)from=ot;}
+if(!N().canOut&&from==="A")from=to==="U"?"D":"U";pick=null;way=null;q=null;qSeq++;clearTimeout(qTimer);render();}
+function goLabel(){var k=from+to,two=way&&way.now===2;return k==="UA"||k==="AU"?"开始跨链":k==="UD"?"换成 DAI":k==="DU"?(two?"第 2 步：换成 USDT":"换成 USDT"):(two?"第 2 步：":"")+"跨到 "+C(to).chain;}
+function etaHtml(){if(!has("bridge"))return"";if(dir==="in")return"";return'<div class="u2d-eta slow"><p>⏳ 过桥这一步要等 <b>2 小时 10 分钟左右</b>，比跨到 Anubis 慢很多。</p><p class="u2d-fastgo">着急？<a href="#/gale">⚡ 换成秒到通道（第三方 GaleBridge，约 20 秒，要收手续费）→</a></p><details><summary>为什么这么慢？能加急吗？</summary>'+'<p>慢的是 Anubis 官方跨链桥，不是本站，也不是你的钱包卡了。</p>'+'<p><b>原因</b>：官方桥为了安全，要等你在 Anubis 链上的这笔交易被后面 7200 个区块压住（大约 2 小时），确认它绝不会被撤回，才肯在 Polygon 那边把 DAI 放给你。别的链只要等 64 个区块，所以从 Polygon 跨到 Anubis 只要 2 分钟。</p>'+'<p><b>实际数字</b>：我们查了官方桥最近 72 笔从 Anubis 跨到 Polygon 的记录，每一笔都是 2 小时 10 分钟左右到账；从 Polygon 跨到 Anubis 的 29 笔都是 2 分钟左右。</p>'+'<p><b>官方桥不能加急</b>：这是官方桥写死的规则，谁也改不了。着急的可以在页面上方选「秒到通道」，那是第三方 GaleBridge 的服务，约 20 秒到，要收手续费。</p>'+'<p><b>等的时候</b>：币不会丢，它在官方桥里排队。你可以关掉这一页，回来页面上方的进度条还在；要换成 USDT 的，到账后这一页会帮你填好，点一下按钮就行。也可以到官方桥 app.anubisbridge.com 的 History 里看这一笔。</p>'+'<p><b>急用钱</b>：请提前 2 个多小时操作，或者走秒到通道。</p></details></div>';}
+function card(){var canFlip=N().canOut||to!=="A";return'<section class="u2d-card">'+'<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="u2d-b1">—</b><button type="button" class="u2d-max" id="u2d-max1">全部</button></span></div>'+'<div class="u2d-bm"><input id="u2d-a1" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">'+tokBtn("from",from)+"</div>"+(pick==="from"?pickList("from"):"")+"</div>"+
+(canFlip?'<div class="u2d-mid"><button type="button" class="u2d-flip" id="u2d-flip" aria-label="付出和到账对调" title="点一下，付出和到账对调">⇅</button></div>':'<div class="u2d-mid"><i>↓</i><span class="u2d-one">往外提请选 Polygon</span></div>')+'<div class="u2d-box end"><div class="u2d-bh"><span>你到账</span><span>余额 <b id="u2d-b2">—</b></span></div>'+'<div class="u2d-bm"><output id="u2d-out" class="u2d-num zero">0</output>'+tokBtn("to",to)+"</div>"+(pick==="to"?pickList("to"):"")+"</div>"+'<div class="u2d-dt" id="u2d-dt" hidden><div id="u2d-way"></div><div id="u2d-q"></div></div>'+etaHtml()+'<button type="button" class="u2d-go" id="u2d-go">'+goLabel()+'</button><p class="u2d-say" id="u2d-say"></p>'+
+(has("swap")&&N().cap?'<p class="note">'+N().name+" 上 DAI 的池子比较浅：一次最多换 "+N().cap/10000+" 万，超过 1 万价格会明显变差。大额请在上面选 Polygon。</p>":"")+"</section>";}
+function render(){sync();A.app.innerHTML='<div class="u2d">'+'<header class="u2d-hd"><h2>USDT 跨链桥</h2>'+'<div class="u2d-mode" id="u2d-mode">'+'<button type="button" data-mode="std"><b>本站通道</b><em class="free">0手续费</em><small>走官方桥：进约 2 分钟，出约 2 小时 10 分钟</small></button>'+'<button type="button" data-mode="fast"><b>⚡ 秒到通道</b><em class="paid">第三方收费</em><small>GaleBridge：约 20 秒</small></button>'+'</div></header>'+'<div id="u2d-fast" hidden></div><div id="u2d-std">'+'<div class="u2d-net" id="u2d-net"><span>你的币在哪条链</span>'+Object.keys(NETS).map(function(k){return'<button type="button" data-net="'+k+'"'+(k===net?' class="on"':"")+">"+NETS[k].name+"</button>";}).join("")+"</div>"+'<div id="u2d-bal"></div><div id="u2d-prog"></div>'+card()+'<section class="u2d-card u2d-his" id="u2d-his"></section>'+'<section class="u2d-card u2d-faq"><details><summary>这两步用的是谁的合约？安全吗？</summary>'+'<p class="note">都不是本站的合约，本站也没有为这个功能新做任何合约：</p>'+'<p class="note">① 换币用 <b>KyberSwap 聚合器</b>（第三方，自动在 Uniswap 等多家里挑最划算的路线；它临时不通时换 <b>ParaSwap 聚合器</b>）。</p>'+'<p class="note">② 跨链用 <b>Anubis 官方跨链桥</b>（app.anubisbridge.com），两个方向都是它，和你自己去官方桥页面操作是同一个合约。</p>'+'<p class="note">收费：本站不收服务费，换出来的币全部到你自己钱包；过桥官方也不收费。你只付链上的 Gas。直接去老池子换，1 万 USDT 要亏 4% 左右。</p>'+'<p class="note">③ 授权只给这一笔要用的数量，不给无限额度；每一步发出前本站先替你模拟一遍，会失败的不让钱包弹窗。</p>'+'<p class="note">④ 这是试运行功能，第一次请先用小额（比如 20 USDT）走一遍，到账了再放大。</p></details></section></div></div>';Array.prototype.forEach.call(g("u2d-mode").querySelectorAll("button"),function(b){b.onclick=function(){if(busy)return;mode=b.getAttribute("data-mode")==="fast"?"fast":"std";paintMode();};});paintMode();var a1=g("u2d-a1");a1.value=amtStr;a1.oninput=onAmt;g("u2d-max1").onclick=function(){if(!bal)return say("s","先连接钱包",true);var cf=C(from),v=bal[cf.bk];if(from==="A")v=v>GAS_KEEP?v-GAS_KEEP:0n;a1.value=plain(v,cf.d,cf.d===6?2:4);onAmt();};g("u2d-go").onclick=function(){if(busy)return;var st=btnState();if(st.act==="conn")return void connect(N().key).then(function(){track();return loadBal();}).then(paintAll,function(e){say("s",nice(e),true);});if(st.act==="focus"){say("s","");return a1.focus();}
+go();};if(g("u2d-flip"))g("u2d-flip").onclick=function(){if(busy)return;var t=from;from=to;to=t;pick=null;way=null;q=null;qSeq++;clearTimeout(qTimer);render();};[].forEach.call(document.querySelectorAll("#u2d-std .u2d-tb"),function(b){b.onclick=function(){if(busy)return;var s=b.getAttribute("data-side");pick=pick===s?null:s;render();};});[].forEach.call(document.querySelectorAll("#u2d-std .u2d-pk button"),function(b){b.onclick=function(){choose(b.getAttribute("data-side"),b.getAttribute("data-k"));};});[].forEach.call(document.querySelectorAll("#u2d-net button"),function(bt){bt.onclick=function(){setNet(bt.getAttribute("data-net"));};});paintAll();track();loadHis();if(amtStr&&has("swap")&&!q)onAmt();}
+function paintMode(){var m=g("u2d-mode"),st=g("u2d-std"),fa=g("u2d-fast");if(!m||!st||!fa)return;if(mode==="fast"&&!(A.gale&&A.gale.mount))mode="std";Array.prototype.forEach.call(m.querySelectorAll("button"),function(b){b.className=b.getAttribute("data-mode")===mode?"on":"";});st.hidden=mode==="fast";fa.hidden=mode!=="fast";try{if(mode==="fast"){if(!g("gbx-a"))A.gale.mount(fa,rid);}
+else if(A.gale){A.gale.unmount();fa.innerHTML="";}}catch(e){mode="std";st.hidden=false;fa.hidden=true;}}
+function setNet(k){if(busy||!NETS[k]||k===net)return;net=k;pick=null;way=null;q=null;qSeq++;clearTimeout(qTimer);bal=null;render();if(account)loadBal().then(paintAll,function(){});}
+A.pages.usdt=function(id){try{if(sessionStorage.getItem("u2d:mode")==="fast"){mode="fast";sessionStorage.removeItem("u2d:mode");}}catch(e){}
+if(mode==="fast"&&g("gbx-a")&&g("u2d-std")){rid=id;return;}
+rid=id;q=null;pick=null;sync();if(!hooked){hooked=true;A.wallets.onAccounts(function(a){account=a&&a[0]?String(a[0]).toLowerCase():null;bal=null;if(location.hash.indexOf("#/usdt")===0&&g("u2d-bal")){paintBal();track();loadBal().then(paintAll,function(){});}});}
+render();(account?Promise.resolve():A.wallets.silent().then(function(a){if(a)account=String(a).toLowerCase();},function(){})).then(function(){paintBal();track();return loadBal();}).then(function(){if(A.isCurrent(id))paintAll();},function(){if(A.isCurrent(id))paintBal();});};})();}catch(e){console.error('[bundle] usdt.js',e);};try{(function(){"use strict";var A=window.AIL,W=A.wallet;var FEE_BPS=5n;var PAYEE="0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6";var GALE="0xd1a5c8492ed1773ca0f1a97abad71afb122a750a";var DGALE={"137":["0xc615f91a31791f1bf4ac7f7fdc60525bf1804186","0xa2c1ec79872d2c961cbd33ef750659e3b2439647"],"56":["0xc615f91a31791f1bf4ac7f7fdc60525bf1804186","0xa2c1ec79872d2c961cbd33ef750659e3b2439647"]};var SEL={deposit:"0x5f377433",approve:"0x095ea7b3",allowance:"0xdd62ed3e",balanceOf:"0x70a08231",transfer:"0xa9059cbb"};var PAY="0xae33cb06d7303f889d953bb09540983050163c1c4c98b330db432a911cfb63fd";var DEP="0x1cbdf89ba7d7cd8303790e1d0c0dcbc95b421c3d27f4958e058ec003073df946";var FALLBACK={"DAI>DAI":0.0041,"DAI>USDT":0.0032,"USDT>USDT":0.003,"USDT>DAI":0.0034};var SRC={DAI:{k:"DAI",sym:"DAI",addr:"0x83fd06f0846d9d90b3016bf670efe2e0b11cde14",d:18,native:true},USDT:{k:"USDT",sym:"USDT",addr:"0xdfb6a28bc6dc51fed17c27c880f2c66cdd040a3e",d:6}};var DST={PD:{k:"PD",c:"137",key:"polygon",chain:"Polygon",sym:"DAI",addr:"0x8f3cf7ad23cd3cadbd9735aff958023239c6a063",d:18,scan:"https://polygonscan.com/tx/"},PU:{k:"PU",c:"137",key:"polygon",chain:"Polygon",sym:"USDT",addr:"0xc2132d05d31c914a87c6611c10748aeb04b58e8f",d:6,scan:"https://polygonscan.com/tx/"},BU:{k:"BU",c:"56",key:"bsc",chain:"BSC",sym:"USDT",addr:"0x55d398326f99059ff775485246999027b3197955",d:18,scan:"https://bscscan.com/tx/"},BD:{k:"BD",c:"56",key:"bsc",chain:"BSC",sym:"DAI",addr:"0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",d:18,scan:"https://bscscan.com/tx/"}};var GAS_KEEP=50000000000000000n;var src="DAI",dst="PD",amtStr="",account=null,bal={},info=null,infoAt=0,live={},busy=false,pick=null,host=null,rid=0,hooked=false,pend=null,timer=null;function g(id){return document.getElementById(id);}
+function low(s){return String(s||"").toLowerCase();}
+function word(h){return("0".repeat(64)+String(h).replace(/^0x/,"")).slice(-64);}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function show(v,dec,dg){var s=v.toString().padStart(dec+1,"0"),i=s.slice(0,s.length-dec),f=s.slice(s.length-dec).slice(0,dg==null?6:dg).replace(/0+$/,"");return i+(f?"."+f:"");}
+function toWei(str,dec){var m=/^(\d{0,12})(?:\.(\d{0,18}))?$/.exec(String(str||"").trim());if(!m||(!m[1]&&!m[2]))return null;return BigInt(m[1]||"0")*10n**BigInt(dec)+BigInt(((m[2]||"")+"0".repeat(dec)).slice(0,dec)||"0");}
+function num2(x){return(Math.floor(x*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});}
+function nice(e){var m=(A.otcKit&&A.otcKit.niceError)?A.otcKit.niceError(e):String((e&&e.message)||e||"");return/reject|denied|取消|拒绝|cancel/i.test(m)?"你在钱包里取消了，这一步没有发出去。":(m||"钱包没有响应，刷新后再试");}
+function say(t,bad){var el=g("gbx-say");if(el){el.textContent=t||"";el.className="u2d-say"+(bad?" bad":t?" on":"");}}
+function pair(){var d=DST[dst],lv=live[d.c];if(!info||!info.ok||!info.lim||!info.lim[src]||!lv||!lv.ok)return null;return{pct:lv.pct[src+">"+dst],fix:info.fix[dst],min:info.lim[src][0],max:info.lim[src][1],liq:lv.liq[dst],late:lv.late[dst]||0};}
+function loadInfo(force){if(!force&&info&&Date.now()-infoAt<120000)return Promise.resolve(info);return fetch("/api/gale").then(function(r){return r.json();}).then(function(j){info=j&&typeof j==="object"?j:{ok:false};infoAt=Date.now();return info;},function(){info={ok:false,why:"net"};infoAt=Date.now();return info;});}
+function analyse(deps,pays,fix,nowBlock,ks){var used={},samples={},late={},pct={};ks.forEach(function(k){samples[k]={DAI:[],USDT:[]};late[k]=0;});pays.forEach(function(p){var best=-1,gap=1;deps.forEach(function(d,i){if(used[i]||d.k!==p.k||d.recv!==p.to||!(d.amt>=p.amt))return;var x=(d.amt-p.amt)/d.amt;if(x<0.03&&x<gap){gap=x;best=i;}});if(best<0)return;used[best]=1;var d=deps[best],r=(d.amt-p.amt-(fix[p.k]||0))/d.amt;if(r>0&&r<0.02)samples[p.k][d.sym].push(r);});deps.forEach(function(d,i){var age=nowBlock-d.b;if(!used[i]&&age>180&&age<1500)late[d.k]++;});ks.forEach(function(k){["DAI","USDT"].forEach(function(sy){var a=samples[k][sy].sort(function(x,y){return x-y;});pct[sy+">"+k]=a.length>=3?a[Math.floor(a.length/2)]:FALLBACK[sy+">"+DST[k].sym];});});return{pct:pct,late:late};}
+function loadLive(c,force){var old=live[c];if(!force&&old&&Date.now()-old.at<180000)return Promise.resolve(old);var key=c==="137"?"polygon":"bsc",ks=Object.keys(DST).filter(function(k){return DST[k].c===c;});var hx=function(n){return"0x"+n.toString(16);};var liqP=Promise.all(ks.map(function(k){return rd(key,DST[k].addr,SEL.balanceOf+word(DGALE[c][0]));}));var logP=Promise.all([W.rpcOn("anubis","eth_blockNumber",[]).then(function(t){var top=parseInt(t,16);return Promise.all([[top-9999,top-5000],[top-4999,top]].map(function(r){return W.rpcOn("anubis","eth_getLogs",[{address:GALE,topics:[DEP],fromBlock:hx(r[0]),toBlock:hx(r[1])}]);})).then(function(a){return{top:top,logs:a[0].concat(a[1])};});}),W.rpcOn(key,"eth_blockNumber",[]).then(function(t){var top=parseInt(t,16);return W.rpcOn(key,"eth_getLogs",[{address:DGALE[c][0],topics:[PAY],fromBlock:hx(top-5000),toBlock:hx(top)}]);})]).then(function(res){var deps=[],pays=[];res[0].logs.forEach(function(l){var t="0x"+l.topics[2].slice(26),sy=Object.keys(SRC).filter(function(x){return SRC[x].addr===t;})[0];if(!sy)return;var d=l.data.slice(2),n=parseInt(d.slice(128,192),16),memo="";for(var i=0;i<n&&i<200;i++)memo+=String.fromCharCode(parseInt(d.slice(192+i*2,194+i*2),16));var m=memo.split(",");if(m.length!==3||m[0]!==c)return;var k=ks.filter(function(x){return DST[x].addr===low(m[2]);})[0];if(!k)return;deps.push({b:parseInt(l.blockNumber,16),sym:sy,amt:Number(BigInt("0x"+d.slice(0,64)))/Math.pow(10,SRC[sy].d),k:k,recv:low(m[1])});});res[1].forEach(function(l){var t="0x"+l.topics[2].slice(26),k=ks.filter(function(x){return DST[x].addr===t;})[0];if(!k)return;pays.push({k:k,to:"0x"+l.topics[3].slice(26),amt:Number(BigInt(l.data))/Math.pow(10,DST[k].d)});});return analyse(deps,pays,(info&&info.fix)||{},res[0].top,ks);}).catch(function(){return analyse([],[],{},0,ks);});return Promise.all([liqP,logP]).then(function(r){var liq={};ks.forEach(function(k,i){liq[k]=Number(r[0][i])/Math.pow(10,DST[k].d);});live[c]={ok:true,at:Date.now(),liq:liq,pct:r[1].pct,late:r[1].late};return live[c];},function(){live[c]={ok:false,at:Date.now()-150000};return live[c];});}
+function calc(){var s=SRC[src],d=DST[dst],p=pair(),amt=toWei(amtStr,s.d);if(!amt||amt<=0n)return null;var a=Number(amt)/Math.pow(10,s.d),ours=amt*FEE_BPS/10000n,oursN=Number(ours)/Math.pow(10,s.d);var galeN=p?a*p.pct+p.fix:0,outN=Math.max(0,a-galeN);return{s:s,d:d,p:p,amt:amt,a:a,ours:ours,oursN:oursN,galeN:galeN,outN:outN};}
+function check(c){if(!info)return{wait:true,short:"正在检查秒到通道…"};if(!info.ok)return{short:"秒到通道暂时用不了",long:"现在没法确认 GaleBridge 的状态，为了你的币安全，先不让发交易。请走「本站通道」，或者过几分钟再来。"};var lv=live[DST[dst].c];if(!lv)return{wait:true,short:"正在读 "+DST[dst].chain+" 链上的情况…"};if(!lv.ok)return{short:"读不到 "+DST[dst].chain+" 链",long:"现在读不到 "+DST[dst].chain+" 链上 GaleBridge 的情况，没法确认它付不付得出，先不让发交易。过一会儿再点一次，或者换一个到账的币。",retry:true};if(!c)return{idle:true};var p=c.p;if(!p)return{short:"秒到通道暂时用不了",long:"这一对币现在查不到，换一个到账的币试试。"};if(c.a<p.min)return{short:"最少 "+p.min+" "+c.s.sym,long:"GaleBridge 一笔最少 "+p.min+" "+c.s.sym+"。"};if(c.a>p.max)return{short:"一笔最多 "+p.max.toLocaleString("en-US"),long:"GaleBridge 一笔最多 "+p.max.toLocaleString("en-US")+" "+c.s.sym+"，请分几笔。"};if(c.a>p.liq*0.9)return{short:"对面的钱不够这一笔",long:"GaleBridge 在 "+c.d.chain+" 上的 "+c.d.sym+" 现在约有 "+Math.floor(p.liq).toLocaleString("en-US")+"，不够付这一笔。请把数量改小，或者换一个到账的币。"};if(p.late>=3)return{short:"GaleBridge 现在付款慢",long:"链上看到最近有 "+p.late+" 笔存进去超过 3 分钟还没付到 "+c.d.chain+"，它可能在排队。先别跨，过几分钟再看，或者走「本站通道」。"};if(account&&bal[src]!=null){var need=c.amt+c.ours+(c.s.native?GAS_KEEP:0n);if(bal[src]<need)return{short:c.s.sym+" 余额不足",long:"这一笔要用 "+show(c.amt+c.ours,c.s.d,4)+" "+c.s.sym+"（含服务费）"+(c.s.native?"，另外留 0.05 DAI 付 Gas":"")+"，钱包里不够。"};if(!c.s.native&&bal.DAI!=null&&bal.DAI<GAS_KEEP/5n)return{short:"没有 DAI 付 Gas",long:"Anubis 上的 Gas 用 DAI 付，这个钱包里几乎没有 DAI。先转一点 DAI 进来。"};}
+return{ok:true};}
+function tokIn(o,anubis){return'<span class="u2d-cw"><i class="u2d-coin '+(o.sym==="USDT"?"usdt":"dai")+'"><img src="/icons/tokens/'+(o.sym==="USDT"?"usdt":"dai")+'.png?v=1" alt="" width="30" height="30">'+(o.sym==="USDT"?"₮":"◈")+"</i>"+(anubis?'<em class="u2d-ch" title="Anubis 链"></em>':"")+"</span><span><b>"+o.sym+"</b><small>"+(anubis?"Anubis":o.chain)+" 链</small></span>";}
+function tokBtn(side){var o=side==="src"?SRC[src]:DST[dst];return'<button type="button" class="u2d-tok u2d-tb" data-side="'+side+'" aria-label="换一个币">'+tokIn(o,side==="src")+'<i class="u2d-car"></i></button>';}
+function pickList(side){var all=side==="src"?SRC:DST,cur=side==="src"?src:dst;return'<div class="u2d-pk"><p>'+(side==="src"?"你要付出哪个币":"你要到账哪个币")+"</p>"+Object.keys(all).filter(function(k){return k!==cur;}).map(function(k){return'<button type="button" class="u2d-tok" data-side="'+side+'" data-k="'+k+'">'+tokIn(all[k],side==="src")+"</button>";}).join("")+"</div>";}
+function draw(){if(!host)return;host.innerHTML='<div class="gbx"><section class="u2d-card">'+'<div class="u2d-box"><div class="u2d-bh"><span>你付出</span><span>余额 <b id="gbx-b1">—</b><button type="button" class="u2d-max" id="gbx-max">全部</button></span></div>'+'<div class="u2d-bm"><input id="gbx-a" class="u2d-num" inputmode="decimal" autocomplete="off" placeholder="0">'+tokBtn("src")+"</div>"+(pick==="src"?pickList("src"):"")+"</div>"+'<div class="u2d-mid"><i>↓</i></div>'+'<div class="u2d-box end"><div class="u2d-bh"><span>预计到手</span><span>约 20 秒到</span></div>'+'<div class="u2d-bm"><output id="gbx-out" class="u2d-num zero">0</output>'+tokBtn("dst")+"</div>"+(pick==="dst"?pickList("dst"):"")+"</div>"+'<div class="u2d-dt" id="gbx-q" hidden></div>'+'<button type="button" class="u2d-go" id="gbx-go"></button><p class="u2d-say" id="gbx-say"></p><div id="gbx-prog"></div>'+"</section>"+'<p class="gbx-note"><b>这是第三方 GaleBridge 的服务，不是本站，也不是官方桥。</b>你的币进的是 GaleBridge 的合约，由它在目标链付给你；到手的数是按它最近的实际成交估的，以实际到账为准。出了问题要找 GaleBridge 处理。</p>'+"</div>";var a=g("gbx-a");a.value=amtStr;a.oninput=function(){amtStr=a.value.replace(/[^\d.]/g,"");if(a.value!==amtStr)a.value=amtStr;paint();};g("gbx-max").onclick=function(){if(busy)return;if(bal[src]==null)return say("先连接钱包",true);var s=SRC[src],v=bal[src];if(s.native)v=v>GAS_KEEP?v-GAS_KEEP:0n;v=v*10000n/(10000n+FEE_BPS);amtStr=show(v,s.d,s.d===6?2:4);a.value=amtStr;paint();};g("gbx-go").onclick=onGo;[].forEach.call(host.querySelectorAll(".u2d-tb"),function(b){b.onclick=function(){if(busy)return;var sd=b.getAttribute("data-side");pick=pick===sd?null:sd;draw();};});[].forEach.call(host.querySelectorAll(".u2d-pk button"),function(b){b.onclick=function(){if(busy)return;var k=b.getAttribute("data-k");if(b.getAttribute("data-side")==="src")src=k;else dst=k;pick=null;draw();};});paint();paintProg();loadLive(DST[dst].c).then(paint);}
+function paint(){var c=calc(),st=check(c),out=g("gbx-out"),q=g("gbx-q"),go=g("gbx-go"),b1=g("gbx-b1");if(!out||!q||!go)return;if(b1)b1.textContent=bal[src]==null?"—":show(bal[src],SRC[src].d,SRC[src].d===6?2:4);var okNum=c&&c.p&&info&&info.ok;out.textContent=okNum?num2(c.outN):"0";out.className="u2d-num"+(okNum?"":" zero");var html="";if(st.long)html+='<p class="u2d-warn">'+esc(st.long)+"</p>";if(okNum){html+='<dl class="u2d-rows">'+"<div><dt>手续费</dt><dd>约 "+num2(c.galeN+c.oursN)+" "+c.s.sym+'<small class="gbx-in">含本站 0.05%</small></dd></div>'+"<div><dt>到账地址</dt><dd>"+(account?esc(A.short?A.short(account):account.slice(0,6)+"…"+account.slice(-4)):"你连接的钱包")+" · "+c.d.chain+"</dd></div>"+"<div><dt>钱包要确认</dt><dd>2～3 次（授权、服务费、跨链）</dd></div>"+"</dl>";}
+q.innerHTML=html;q.hidden=!html;go.textContent=busy?"处理中…":st.wait||st.retry||!info.ok?st.short:!account?"连接钱包":(!c?"输入数量":st.ok?"开始秒到跨链":st.short);go.className="u2d-go"+(!busy&&account&&(!c||!st.ok)?" off":"");}
+function lock(on){busy=on;if(host)[].forEach.call(host.querySelectorAll("#gbx-go, #gbx-max, .u2d-tb, .u2d-pk button"),function(b){b.disabled=on;});var a=g("gbx-a");if(a)a.readOnly=on;paint();}
+function rd(chain,to,data){return W.rpcOn(chain,"eth_call",[{to:to,data:data},"latest"]).then(function(x){return BigInt(x&&x!=="0x"?x:"0x0");});}
+function loadBal(){if(!account)return Promise.resolve();return Promise.all([W.rpcOn("anubis","eth_getBalance",[account,"latest"]).then(function(x){bal.DAI=BigInt(x);}),rd("anubis",SRC.USDT.addr,SEL.balanceOf+word(account)).then(function(x){bal.USDT=x;})]).then(paint,function(){});}
+function connect(){var eth;return A.wallets.choose().then(function(p){eth=p;return A.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){account=low(a[0]);return W.switchTo(eth,"anubis");}).then(function(){return account;});}
+function ready(){return Promise.resolve().then(function(){return account?W.switchTo(W.get(),"anubis"):connect();});}
+function wait(hash){var tries=0;return new Promise(function(ok,fail){(function poll(){W.rpcOn("anubis","eth_getTransactionReceipt",[hash]).then(function(r){if(r)return r.status==="0x1"?ok(r):fail(new Error("这笔交易被链上拒绝了，币没有动（只花了一点 Gas）。"));if(++tries>60)return fail(new Error("等了 2 分钟链上还没确认。别重复点：过一会儿刷新这一页再看。"));setTimeout(poll,1500);},function(){setTimeout(poll,2500);});})();});}
+function sendTx(tx,label){say("请在钱包里确认「"+label+"」");return A.wallets.ask(W.get(),{method:"eth_sendTransaction",params:[tx]}).then(function(h){say(label+"已提交，等链上确认…");return wait(h).then(function(){return h;});});}
+function paidGet(){try{return localStorage.getItem("gbx:paid")||"";}catch(e){return"";}}
+function paidSet(k){try{if(k)localStorage.setItem("gbx:paid",k);else localStorage.removeItem("gbx:paid");}catch(e){}}
+function depositData(c){var memo=c.d.c+","+account+","+c.d.addr,hex="";for(var i=0;i<memo.length;i++)hex+=("0"+memo.charCodeAt(i).toString(16)).slice(-2);return SEL.deposit+word(c.s.addr)+word(c.amt.toString(16))+word("60")+word(memo.length.toString(16))+hex+"0".repeat((64-hex.length%64)%64);}
+function onGo(){if(busy)return;if(!info||!info.ok)return void loadInfo(true).then(paint);if(!live[DST[dst].c]||!live[DST[dst].c].ok)return void loadLive(DST[dst].c,true).then(paint);if(!account)return void connect().then(function(){return loadBal();}).then(paint,function(e){say(nice(e),true);});var c0=calc();if(!c0){say("");var a=g("gbx-a");if(a)a.focus();return;}
+if(!check(c0).ok)return;lock(true);say("正在检查秒到通道…");var c,data,startBlock=0,hash="";ready().then(function(){return Promise.all([loadInfo(true),loadLive(DST[dst].c,true),loadBal()]);}).then(function(){c=calc();var st=check(c);if(!c||!st.ok)throw new Error(st.long||st.short||"现在不能跨，请稍后再试。");data=depositData(c);return rd("anubis",c.s.addr,SEL.allowance+word(account)+word(GALE));}).then(function(allow){if(allow>=c.amt)return;return sendTx({from:account,to:c.s.addr,data:SEL.approve+word(GALE)+word(c.amt.toString(16))},"授权 "+c.s.sym+"（只授权这一笔的数量）");}).then(function(){return W.rpcOn("anubis","eth_call",[{from:account,to:GALE,data:data},"latest"]).catch(function(){throw new Error("模拟跨链这一笔没通过，为了安全没有发出去，服务费也没有收。请过几分钟再试，或者走「本站通道」。");});}).then(function(){if(c.ours<=0n)return;var key=[account,c.d.c,c.s.addr,c.amt.toString()].join("|");if(paidGet()===key)return;var tx={from:account,to:c.s.addr,data:SEL.transfer+word(PAYEE)+word(c.ours.toString(16))};return sendTx(tx,"本站服务费 "+show(c.ours,c.s.d)+" "+c.s.sym).then(function(){paidSet(key);});}).then(function(){return W.rpcOn(c.d.key,"eth_blockNumber",[]).then(function(x){startBlock=parseInt(x,16);},function(){startBlock=0;});}).then(function(){say("请在钱包里确认「跨链 "+show(c.amt,c.s.d)+" "+c.s.sym+"」");return A.wallets.ask(W.get(),{method:"eth_sendTransaction",params:[{from:account,to:GALE,data:data}]});}).then(function(h){hash=h;paidSet("");pend={h:h,k:c.d.k,a:account,out:c.outN,from:startBlock,t:Date.now()};pendSave();say("跨链已提交，等 Anubis 确认…");paintProg();return wait(h);}).then(function(){say("");amtStr="";var a=g("gbx-a");if(a)a.value="";lock(false);loadBal();track();},function(e){var m=nice(e);if(hash){m="跨链这一笔在链上没成功，币没有动。";pend=null;pendSave();paintProg();}
+else if(/取消/.test(m)&&paidGet())m="你取消了跨链这一笔。服务费已经付过，同一个数量再点一次不会重复收。";lock(false);say(m,true);loadBal();});}
+function pendSave(){try{if(pend)localStorage.setItem("gbx:pend",JSON.stringify(pend));else localStorage.removeItem("gbx:pend");}catch(e){}}
+function pendLoad(){try{var p=JSON.parse(localStorage.getItem("gbx:pend")||"null");if(p&&p.h&&DST[p.k]&&Date.now()-p.t<6*3600e3)return p;}catch(e){}return null;}
+function paintProg(){var el=g("gbx-prog");if(!el)return;if(!pend){el.innerHTML="";return;}
+var d=DST[pend.k],sec=Math.floor((Date.now()-pend.t)/1000);if(pend.done){el.innerHTML='<div class="gbx-prog ok"><b>✅ 已到账 '+esc(pend.got)+" "+d.sym+"</b><span>在 "+d.chain+' 链，到你的钱包里看余额。</span><a href="'+d.scan+esc(pend.done)+'" target="_blank" rel="noopener">看这笔付款 ↗</a><button type="button" id="gbx-pok">知道了</button></div>';g("gbx-pok").onclick=function(){pend=null;pendSave();paintProg();};return;}
+el.innerHTML='<div class="gbx-prog"><b>⏳ 正在跨到 '+d.chain+"：预计到手约 "+num2(pend.out)+" "+d.sym+"</b>"+
+(sec<180?"<span>一般 20 秒左右到账，已等 "+sec+" 秒。可以关掉这一页，回来还能看到。</span>":'<span class="bad">已经等了 '+Math.floor(sec/60)+" 分钟，比平时慢。币在 GaleBridge 的合约里，不会凭空消失；请拿下面这笔交易的哈希到 galebridge.net 查，或者找 GaleBridge 的客服。本站查不到它内部的订单。</span>")+"<code>"+esc(pend.h)+'</code><button type="button" id="gbx-pcp">复制交易哈希</button></div>';g("gbx-pcp").onclick=function(){try{navigator.clipboard.writeText(pend.h);say("已复制");}catch(e){}};}
+function track(){clearTimeout(timer);if(!pend||pend.done)return;var d=DST[pend.k];var go=function(){if(!pend||pend.done)return;var from=pend.from?"0x"+pend.from.toString(16):"latest";W.rpcOn(d.key,"eth_getLogs",[{address:DGALE[d.c],topics:[PAY,null,"0x"+word(d.addr),"0x"+word(pend.a)],fromBlock:from,toBlock:"latest"}]).then(function(logs){if(logs&&logs.length){var l=logs[logs.length-1];pend.done=l.transactionHash;pend.got=show(BigInt(l.data),d.d,2);pendSave();paintProg();loadBal();return;}
+paintProg();timer=setTimeout(go,Date.now()-pend.t<120000?4000:15000);},function(){paintProg();timer=setTimeout(go,8000);});};go();}
+function unmount(){clearTimeout(timer);timer=null;host=null;}
+function mountIn(el,id){rid=id;host=el;if(!hooked){hooked=true;try{A.wallets.onAccounts(function(a){account=a&&a[0]?low(a[0]):null;bal={};if(host){paint();loadBal();}});}catch(e){}
+window.addEventListener("hashchange",function(){try{if(location.hash.indexOf("#/usdt")!==0)unmount();}catch(e){}});}
+pend=pend||pendLoad();draw();loadInfo().then(paint);(account?Promise.resolve():A.wallets.silent().then(function(a){if(a)account=low(a);},function(){})).then(function(){paint();return loadBal();}).then(function(){if(pend&&(!account||pend.a===account))track();},function(){});}
+A.gale={mount:mountIn,unmount:unmount};A.pages.gale=function(){try{sessionStorage.setItem("u2d:mode","fast");}catch(e){}
+location.replace("#/usdt");};})();}catch(e){console.error('[bundle] gale.js',e);};try{(function(){"use strict";var A=window.AIL,K=function(){return A.otcKit;};var KEY="cover-v1",rid=0,info=null,account=null,busy=false,draft={};try{draft=JSON.parse(localStorage.getItem(KEY)||"{}")||{};}catch(e){draft={};}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(draft));}catch(e){}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function g(id){return document.getElementById(id);}
+function dai(v){return Number(v||0).toLocaleString("en-US",{maximumFractionDigits:2});}
+function day(ms){var d=new Date(ms+8*3600e3);return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");}
+function low(a){return String(a||"").toLowerCase();}
+function pad(a){return low(a).replace("0x","").padStart(64,"0");}
+function utf8hex(t){var b=new TextEncoder().encode(t),h="0x";for(var i=0;i<b.length;i++)h+=b[i].toString(16).padStart(2,"0");return h;}
+function bindText(a,backup,ts){return"AiLGNS 互助保障 · 登记\n加入的钱包："+low(a)+"\n备用收款钱包（理赔款只打到这里）："+low(backup)+"\n时间："+ts;}
+function voteText(a,id,v,ts){return"AiLGNS 互助保障 · 投票\n理赔编号："+id+"\n我的钱包："+low(a)+"\n我的意见："+(v==="y"?"赞成赔付":"反对赔付")+"\n时间："+ts;}
+var myVote={};var ST={notice:"📢 公示中",approved:"✅ 已通过，等月度结算",rejected:"❌ 没通过",paid:"💰 已赔付"};function load(){return fetch("/api/cover"+(account?"?a="+account:"")).then(function(r){return r.json();}).then(function(j){info=j;},function(){info=null;});}
+function page(id){rid=id;try{if(K()&&K().M&&K().M().chain!=="anubis")K().useMarket("ailgns");}catch(e){}
+A.app.innerHTML='<section class="card"><p class="muted">⏳ 读取保障池…</p></section>';var sa=K()&&K().silentAccount?K().silentAccount():Promise.resolve();sa.then(function(){account=K().account();},function(){}).then(load).then(function(){if(A.isCurrent(rid))render();});}
+function render(){var R=(info&&info.rules)||{fee:50,waitDays:30,tiers:[[1,1000],[3,3000],[6,5000],[12,10000]],monthBudget:0.3,reportHours:72,noticeDays:7};if(R.opsShare==null)R.opsShare=0.1;if(!R.voteMin)R.voteMin=5;if(!R.voteQuorum)R.voteQuorum=0.2;var ops=Math.round(R.opsShare*100);var open=!!(info&&info.open),bal=info&&info.pool?info.pool.bal:null,me=info&&info.me,top=R.tiers[R.tiers.length-1][1];A.app.innerHTML='<section class="card lp-hero cvr-hero"><div class="lp-ht"><h2>🛡 互助保障 <span class="lp-tag">试运行</span></h2>'+"<p>大家每年各交 <b>"+R.fee+" DAI</b> 进一个公开的保障池。谁的账户被盗了，或者因为平台失误亏了钱，就从池子里赔。<b>池子里有多少，最多赔多少</b>，每一笔进出链上都查得到。</p></div>"+'<div class="lp-kpi"><div><small>保障池现在有</small><b>'+(bal==null?"—":dai(bal)+" DAI")+"</b><span>"+(open?"链上公开":"钱包准备中")+"</span></div><div><small>已加入</small><b>"+((info&&info.members)||0)+" 人</b><span>人越多池子越大</span></div><div><small>被盗最高赔</small><b>"+dai(top)+" DAI</b><span>连续加入满 1 年</span></div></div>"+
+(open&&info.pool.addr?'<p class="cvr-addr"><small>保障池钱包（点开能看每一笔进出）</small><a href="#/scan/'+esc(info.pool.addr)+'">'+esc(info.pool.addr)+"</a></p>":"")+"</section>"+'<section class="card cvr-what"><h2>能赔什么</h2>'+'<div class="cvr-k"><b>① 平台失误</b><p>合约出了漏洞、网站出错、机器人转错了钱，让你亏了。<b>损失多少赔多少</b>，最高到整个保障池；同时有好几个人出事、池子不够时，按比例分。加入当天就算。</p></div>'+'<div class="cvr-k"><b>② 账户被盗</b><p>私钥泄露、点了钓鱼链接，币被人转走了。最高赔多少，看你连续加入了多久：</p>'+'<table class="cvr-tb"><thead><tr><th>连续加入满</th><th>最高赔</th></tr></thead><tbody>'+R.tiers.map(function(x){return"<tr><td>"+x[0]+" 个月</td><td><b>"+dai(x[1])+" DAI</b></td></tr>";}).join("")+"</tbody></table>"+"<p>损失比上限少的，按实际损失赔。</p></div></section>"+'<section class="card cvr-warn"><b>⚠️ 加入前请看清楚</b><ul>'+"<li>这是大家互相帮忙的保障池，<b>不是保险公司的保险</b>，不承诺一定足额赔。</li>"+"<li><b>以保障池余额为限。</b>被盗类每个月最多动用池子的 "+Math.round(R.monthBudget*100)+"%"+(bal==null?"":"（现在约 "+dai(bal*R.monthBudget)+" DAI）")+"，当月要赔的超过这个数，大家<b>按比例打折</b>。</li>"+"<li>被盗保障在加入满 <b>"+R.waitDays+" 天</b>后才生效；被盗后 <b>"+R.reportHours+" 小时内</b>必须提工单，过期不受理。</li>"+"<li>每笔保费的 <b>"+ops+"%</b> 是运营费（人工核对、服务器），<b>"+(100-ops)+"%</b> 留在保障池。上面显示的保障池金额已经扣掉运营费。</li>"+"<li><b>赔不赔由加入的成员投票决定。</b>每笔理赔<b>公示 "+R.noticeDays+" 天</b>（公开钱包地址、金额、币去了哪里），这 "+R.noticeDays+" 天就是投票期：在这笔理赔登记之前已经加入满 "+R.waitDays+" 天的成员一人一票，申请人自己不能投；赞成多于反对、而且至少 "+Math.round(R.voteQuorum*100)+"% 的人投了票，才算通过。通过的每月结算一次。</li>"+"<li>有资格投票的不满 "+R.voteMin+" 人，或者投票的人不够时，由团队核对链上记录后决定。团队发现骗赔证据可以否决，并公开理由。</li>"+"<li><b>一个钱包只赔一次。</b>赔过以后这个钱包不再受保。</li>"+"<li>理赔款<b>只打到你加入时登记的备用收款钱包</b>。备用钱包请用另一组助记词，和这个钱包分开放。</li>"+"<li>保费交了不退。发现骗赔的，不赔并公开。</li></ul></section>"+'<section class="card cvr-me" id="cvr-me">'+meBox(R,open,me)+"</section>"+'<section class="card cvr-how"><h2>出事了怎么申请</h2><ol><li>先别慌，<b>不要理任何私聊你的「客服」</b>。平台不会私聊你，更不会让你先转钱。</li><li>打开 <a href="#/feedback">☰ 更多 → 服务 → 问题反馈</a>，标题写「互助保障理赔」。</li><li>写清楚：哪个钱包、什么时候、丢了多少、被盗那几笔交易的交易号，能截图就截图。</li><li>团队核对链上记录后公示 '+R.noticeDays+" 天，成员投票通过后进入当月结算，理赔款打到你登记的备用收款钱包。</li></ol></section>"+'<section class="card cvr-list"><h2>📢 理赔公示</h2><div id="cvr-claims">'+claimsBox()+"</div></section>";bind(R);}
+function meBox(R,open,me){var head='<div class="card-head"><h2>我的保障</h2><button type="button" class="ghost" id="cvr-conn">'+(account?A.short(account):"连接钱包")+"</button></div>";if(me&&me.closed)return head+'<p class="cvr-st bad">这个钱包已经赔过一次，不再受保。想继续加入请换一个钱包。</p>';if(me&&me.active){var soon=me.until-Date.now()<30*86400e3;return head+'<p class="cvr-st ok">✅ 已加入，保障到 '+day(me.until)+"</p>"+'<div class="cvr-rows"><p><span>加入日期</span><b>'+day(me.start)+"</b></p><p><span>连续加入</span><b>"+me.months+" 个月</b></p>"+"<p><span>平台失误</span><b>已生效</b></p>"+"<p><span>被盗保障</span><b>"+(me.effective?(me.cap>0?"现在最高赔 "+dai(me.cap)+" DAI":"已生效，满 1 个月开始有额度"):day(me.effectiveAt)+" 生效")+"</b></p>"+"<p><span>备用收款钱包</span><b class=\"mono\">"+esc(me.backup)+"</b></p></div>"+
+(soon?'<button type="button" class="nm-go cvr-go" id="cvr-go"'+(open?"":" disabled")+">续一年（"+R.fee+" DAI）</button><p class=\"muted\">到期后 "+(R.graceDays||7)+' 天内续上，连续加入的时间不断。</p><p class="muted nm-st" id="cvr-stt"></p>':'<p class="muted">快到期时这里会出现「续一年」按钮。备用收款钱包要更换，请提工单。</p>');}
+return head+(me&&!me.active&&me.start?'<p class="cvr-st bad">你的保障已在 '+day(me.until)+" 到期。重新加入后，连续加入的时间从头算。</p>":"")+'<p class="cvr-t">① 填一个备用收款钱包</p><p class="muted">万一这个钱包被盗，理赔款只打到备用钱包。偷到私钥的人改不了它。请填<b>另一组助记词</b>的钱包地址。</p>'+'<input id="cvr-bk" class="cvr-in" placeholder="0x 开头的钱包地址" autocomplete="off" autocapitalize="none" spellcheck="false" value="'+esc(draft.backup||"")+'"'+(me&&me.backup?" disabled":"")+">"+
+(me&&me.backup?'<p class="muted">沿用你以前登记的备用钱包 '+esc(me.backup)+"</p>":"")+'<p class="cvr-t">② 加入</p><p class="muted">钱包会弹 2 次：第 1 次是签名登记备用钱包（不花钱），第 2 次是交 '+R.fee+" DAI 保费。</p>"+'<button type="button" class="nm-go cvr-go" id="cvr-go"'+(open?"":" disabled")+">"+(draft.tx?"👉 保费已交，点这里完成登记":"🛡 加入互助保障（"+R.fee+" DAI / 年）")+"</button>"+
+(open?"":'<p class="cvr-soon">🧪 保障池钱包还在准备，暂时不能加入。开放时间会在收件箱和交流群通知。</p>')+'<p class="muted nm-st" id="cvr-stt"></p>';}
+function claimsBox(){var L=(info&&info.claims)||[];if(!L.length)return'<p class="muted">'+(info&&info.noKv?"预览站没有存储，看不到公示。":"还没有理赔。每一笔理赔都会在这里公开。")+"</p>";return L.map(function(c){return'<div class="cvr-c"><div class="cvr-ch"><b>'+(c.kind==="fault"?"平台失误":"账户被盗")+'</b><span class="cvr-cs '+esc(c.status)+'">'+(ST[c.status]||esc(c.status))+"</span></div>"+"<p><span>钱包</span><b>"+(A.nameTag?A.nameTag(c.a):A.short(c.a))+"</b></p><p><span>损失</span><b>"+dai(c.loss)+" DAI</b></p>"+
+(c.kind==="theft"?"<p><span>最高可赔</span><b>"+dai(c.cap)+" DAI</b></p>":"")+"<p><span>出事时间</span><b>"+day(c.when)+"</b></p>"+
+(c.status==="notice"?"<p><span>公示到</span><b>"+day(c.noticeUntil)+"</b></p>":"")+voteBox(c)+
+(c.status==="paid"?"<p><span>实际赔付</span><b>"+dai(c.pay)+" DAI"+(c.payTx?' <a href="#/scan/'+esc(c.payTx)+'">看账本</a>':"")+"</b></p>":"")+
+(c.txs&&c.txs.length?'<p class="cvr-tx">'+c.txs.map(function(t,i){return'<a href="#/scan/'+esc(t)+'">交易 '+(i+1)+"</a>";}).join(" · ")+"</p>":"")+
+(c.note?'<p class="cvr-note">'+esc(c.note)+"</p>":"")+"</div>";}).join("")+'<p class="muted">觉得哪一笔有问题，可以到「问题反馈」里举报。</p>';}
+function voteBox(c){var v=c.vote;if(!v)return"";var mine=myVote[c.id]||c.my||"",yes=v.yes,no=v.no;if(myVote[c.id]&&myVote[c.id]!==c.my){if(c.my==="y")yes--;if(c.my==="n")no--;if(myVote[c.id]==="y")yes++;else no++;}
+var count='<p class="cvr-vn">🗳 赞成 <b>'+yes+"</b> · 反对 <b>"+no+"</b></p>";if(c.status!=="notice")return v.elig>=((info.rules&&info.rules.voteMin)||5)&&(yes+no)?'<div class="cvr-vote">'+count+"</div>":"";if(v.state==="team")return'<div class="cvr-vote"><p class="cvr-vt">加入满 '+((info.rules&&info.rules.waitDays)||30)+" 天的成员还不够 "+((info.rules&&info.rules.voteMin)||5)+" 位，这一笔由团队核对决定。</p></div>";if(v.state==="low")return'<div class="cvr-vote">'+count+'<p class="cvr-vt">投票期已结束，投票的人不够，这一笔由团队核对决定。</p></div>';return'<div class="cvr-vote">'+count+'<p class="cvr-vq">有资格投票 '+v.elig+" 人，至少要 "+v.need+" 人投票才算数</p>"+
+(c.can?'<div class="cvr-vb"><button type="button" class="cvr-y'+(mine==="y"?" on":"")+'" data-vid="'+esc(c.id)+'" data-v="y">👍 赞成赔付</button><button type="button" class="cvr-n'+(mine==="n"?" on":"")+'" data-vid="'+esc(c.id)+'" data-v="n">👎 反对</button></div>'+'<p class="muted cvr-vh">'+(mine?"你投了「"+(mine==="y"?"赞成":"反对")+"」，公示期内可以改。":"点一下，钱包签个名就投好了，不花钱。")+"</p>":'<p class="muted cvr-vh">'+(account?"这一笔你不能投票：要在它登记之前已经加入满 "+((info.rules&&info.rules.waitDays)||30)+" 天，申请人自己也不能投。":"连接钱包后，符合条件的成员可以投票。")+"</p>")+"</div>";}
+function castVote(btn){if(busy)return;var id=btn.getAttribute("data-vid"),v=btn.getAttribute("data-v"),ts=Date.now();busy=true;K().ready().then(function(){account=K().account();return A.wallets.ask(A.wallet.get(),{method:"personal_sign",params:[utf8hex(voteText(account,id,v,ts)),account]});}).then(function(sig){return fetch("/api/cover",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"vote",a:account,id:id,v:v,ts:ts,sig:sig})}).then(function(r){return r.json();});}).then(function(j){if(!j||!j.ok)throw new Error((j&&j.error)||"投票没成功，请过一会儿再点一次");myVote[id]=v;busy=false;var box=g("cvr-claims");if(box){box.innerHTML=claimsBox();bindVotes();}}).then(null,function(e){busy=false;A.errTip(K().niceError(e),btn);});}
+function bindVotes(){Array.prototype.forEach.call(document.querySelectorAll("#cvr-claims [data-vid]"),function(b){b.onclick=function(){castVote(b);};});}
+function bind(R){bindVotes();var cb=g("cvr-conn");if(cb)cb.onclick=function(){K().connect().then(function(a){account=a;return load();}).then(function(){if(A.isCurrent(rid))render();},function(e){A.errTip(K().niceError(e),cb);});};var bk=g("cvr-bk");if(bk)bk.oninput=function(){draft.backup=bk.value.trim();save();};var go=g("cvr-go");if(go)go.onclick=function(){join(R,go);};}
+function join(R,go){if(busy)return;var say=function(t){var e=g("cvr-stt");if(e)e.textContent=t;},me=info&&info.me,has=!!(me&&me.backup);var backup=low(has?"":(g("cvr-bk")||{}).value||draft.backup);if(!has&&!/^0x[0-9a-f]{40}$/.test(backup))return A.errTip("请先填备用收款钱包地址（0x 开头，42 位）",go);busy=true;go.disabled=true;var done=function(){busy=false;return load().then(function(){if(A.isCurrent(rid))render();});};var post=function(){say("正在登记，网站在核对链上记录…");return fetch("/api/cover",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"join",a:account,backup:draft.backup||"",ts:draft.ts||0,sig:draft.sig||"",tx:draft.tx})}).then(function(r){return r.json();}).then(function(j){if(!j||!j.ok)throw new Error((j&&j.error)||"登记没成功，请过一会儿再点一次（不会多收费）");draft={};save();});};K().ready().then(function(){account=K().account();if(draft.by&&draft.by!==account){draft={backup:draft.backup};save();}
+if(!has&&backup===account)throw new Error("备用收款钱包不能和加入的钱包相同。请填另一组助记词的钱包地址");if(draft.tx)return;var step1=Promise.resolve();if(!has){var ts=Date.now();say("第 1 次：请在钱包里签名，登记备用收款钱包（不花钱）");step1=A.wallets.ask(A.wallet.get(),{method:"personal_sign",params:[utf8hex(bindText(account,backup,ts)),account]}).then(function(sig){draft.backup=backup;draft.ts=ts;draft.sig=sig;draft.by=account;save();});}
+return step1.then(function(){return K().balance(info.dai,account);}).then(function(b){var fee=BigInt(R.fee)*10n**18n;if(b<fee+10n**17n)throw new Error("DAI 不够：保费 "+R.fee+" DAI，另外留一点付 Gas");return K().send(info.dai,"0xa9059cbb"+pad(info.pool.addr)+fee.toString(16).padStart(64,"0"),say,"交互助保障保费 "+R.fee+" DAI");}).then(function(rc){if(!rc||!rc.transactionHash)throw new Error("保费交易没拿到交易号，请到账本里确认后再点一次");draft.tx=rc.transactionHash;draft.by=account;save();});}).then(post).then(done,function(e){busy=false;say("");render();A.errTip(K().niceError(e),g("cvr-go")||A.app);});}
+A.pages.cover=page;})();}catch(e){console.error('[bundle] cover.js',e);};try{(function(){"use strict";var A=window.AIL,PART=8*1024*1024;function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function key(){try{return localStorage.getItem("fbKey")||"";}catch(e){return"";}}
+function mb(n){return n>=1048576?Math.round(n/1048576)+" MB":Math.max(1,Math.round(n/1024))+" KB";}
+function api(body){return fetch("/api/tutorial",{method:"POST",headers:{"content-type":"application/json","x-key":key()},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+function u32(d,o){return d.getUint32(o);}
+function atomsOf(file,from,to){var out=[],off=from;function next(){if(off+8>to||out.length>200)return Promise.resolve(out);return file.slice(off,off+16).arrayBuffer().then(function(b){var d=new DataView(b),n=u32(d,0),t=String.fromCharCode(d.getUint8(4),d.getUint8(5),d.getUint8(6),d.getUint8(7));if(n===1){if(b.byteLength<16||u32(d,8)!==0)throw new Error("big");n=u32(d,12);}
+else if(n===0)n=to-off;if(n<8||off+n>to)throw new Error("bad");out.push({type:t,start:off,size:n});off+=n;return next();});}
+return next();}
+function patchMoov(buf,shift){var d=new DataView(buf),secs=0,bad=false;var BOX={moov:1,trak:1,mdia:1,minf:1,stbl:1,edts:0,udta:0};(function walk(from,to){var off=from;while(off+8<=to){var n=u32(d,off),t=String.fromCharCode(d.getUint8(off+4),d.getUint8(off+5),d.getUint8(off+6),d.getUint8(off+7));if(n<8||off+n>to){bad=true;return;}
+if(t==="cmov"){bad=true;return;}
+if(t==="mvhd"){var v=d.getUint8(off+8);var ts=v===1?u32(d,off+28):u32(d,off+20),du=v===1?u32(d,off+32)*4294967296+u32(d,off+36):u32(d,off+24);if(ts>0)secs=du/ts;}
+else if(t==="stco"){var c=u32(d,off+12);if(off+16+c*4>off+n){bad=true;return;}for(var i=0;i<c;i++){var o=off+16+i*4,nv=u32(d,o)+shift;if(nv>4294967295){bad=true;return;}d.setUint32(o,nv);}}
+else if(t==="co64"){var c2=u32(d,off+12);if(off+16+c2*8>off+n){bad=true;return;}for(var k=0;k<c2;k++){var o2=off+16+k*8,lo=u32(d,o2+4)+shift,hi=u32(d,o2);if(lo>4294967295){hi+=1;lo-=4294967296;}d.setUint32(o2,hi);d.setUint32(o2+4,lo);}}
+else if(BOX[t])walk(off+8,off+n);off+=n;}})(0,buf.byteLength);return bad?null:{secs:secs};}
+function fastStart(file){var keep={blob:file,secs:0,moved:false};return atomsOf(file,0,file.size).then(function(as){var mi=-1,di=-1;as.forEach(function(a,i){if(a.type==="moov"&&mi<0)mi=i;if(a.type==="mdat"&&di<0)di=i;});if(mi<0||di<0||as[0].type!=="ftyp"||as[mi].size>64*1024*1024)return keep;var m=as[mi];return file.slice(m.start,m.start+m.size).arrayBuffer().then(function(buf){if(mi<di){var r0=patchMoov(buf.slice(0),0);return{blob:file,secs:r0?r0.secs:0,moved:false};}
+var r=patchMoov(buf,m.size);if(!r)return keep;var parts=[file.slice(0,as[0].size),buf];as.forEach(function(a,i){if(i!==0&&i!==mi)parts.push(file.slice(a.start,a.start+a.size));});var out=new Blob(parts,{type:file.type});return out.size===file.size?{blob:out,secs:r.secs,moved:true}:keep;});}).catch(function(){return keep;});}
+function heavy(size,secs){return secs>5&&size/secs>10*1048576/60*1.5;}
+var CATS=[["otc","🏪 本站操作"],["off","🌀 官网操作"]];function catOf(x){return x.cat==="otc"||x.cat==="off"?x.cat:(/涡轮|卫星池|空投|质押|LP|helix|排放|投票|挖矿|官网|螺旋/i.test(x.title||"")?"off":"otc");}
+function catName(c){return c==="off"?CATS[1][1]:CATS[0][1];}
+var KEYS=[["📲 手机 App",/app|桌面|链接钱包|连钱包/i],["📮 工单",/工单|客服|反馈/],["🌐 域名",/域名/],["🔮 预言家",/预言|预测/],["🏪 OTC 交易",/otc|场外|盘口|买卖|交易/i]];function keyOf(x){if(catOf(x)!=="otc")return-1;for(var i=0;i<KEYS.length;i++)if(KEYS[i][1].test(x.title||""))return i;return-1;}
+function page(id){if((location.hash.split("/")[2]||"")==="admin")return admin(id);A.app.innerHTML='<section class="card vdg"><h2>🎬 视频教程</h2><p class="muted">不会操作的，点下面的视频跟着做。看完还不会，点「📮 问题反馈」找客服。</p><div id="vdg-list"><p class="muted">读取中…</p></div></section>';fetch("/api/tutorial?list=1").then(function(r){return r.json();}).then(function(d){if(!A.isCurrent(id))return;var el=document.getElementById("vdg-list"),list=(d&&d.list)||[];if(!el)return;if(!list.length){el.innerHTML='<p class="muted">教程视频正在录制，过几天再来看。着急的话点「📮 问题反馈」，客服教你。</p>';return;}
+var cur="";function draw(){var show=list.filter(function(x){return!cur||catOf(x)===cur;}),n=0;var tabs='<div class="vdc-tabs">'+[["","全部"]].concat(CATS).map(function(c){var cnt=list.filter(function(x){return!c[0]||catOf(x)===c[0];}).length;return'<button type="button" data-c="'+c[0]+'"'+(cur===c[0]?' class="on"':"")+">"+c[1]+"<small>"+cnt+"</small></button>";}).join("")+"</div>";var num={},body="";CATS.forEach(function(c){var g=show.filter(function(x){return catOf(x)===c[0];});if(!g.length)return;body+='<h3 class="vdc-g">'+c[1]+"<small>"+g.length+"</small></h3>"+g.map(function(x){num[x.id]=++n;return'<div class="vdg-it" id="vd-'+esc(x.id)+'"><h3 data-nobrand="1">'+n+". "+esc(x.title)+'</h3><video controls playsinline preload="none" src="/api/tutorial?v='+encodeURIComponent(x.id)+'"></video></div>';}).join("");});var keyIdx=[4,2,3,0,1].filter(function(i){return show.some(function(x){return keyOf(x)===i;});});var idx=keyIdx.length?'<p class="muted vdc-tip">👇 点关键词，直接跳到那类视频</p><div class="vdc-idx">'+keyIdx.map(function(i){var cnt=show.filter(function(x){return keyOf(x)===i;}).length;return'<button type="button" class="vdc-k vdc-otc" data-key="'+i+'">'+KEYS[i][0]+(cnt>1?"<small>"+cnt+"</small>":"")+"</button>";}).join("")+"</div>":"";el.innerHTML=tabs+idx+body;Array.prototype.forEach.call(el.querySelectorAll(".vdc-tabs button"),function(b){b.onclick=function(){cur=b.getAttribute("data-c");draw();};});Array.prototype.forEach.call(el.querySelectorAll("[data-key]"),function(b){b.onclick=function(){var k=Number(b.getAttribute("data-key"));var its=show.filter(function(x){return keyOf(x)===k;}).map(function(x){return document.getElementById("vd-"+x.id);}).filter(Boolean);var it=its[0];if(!it)return;var top=it.getBoundingClientRect().top+(window.pageYOffset||document.documentElement.scrollTop)-150;try{window.scrollTo({top:top,behavior:"smooth"});}catch(e){window.scrollTo(0,top);}
+its.forEach(function(v){v.classList.add("vdc-hit");setTimeout(function(){v.classList.remove("vdc-hit");},2200);});};});var vs=el.querySelectorAll("video");Array.prototype.forEach.call(vs,function(v){v.addEventListener("play",function(){Array.prototype.forEach.call(vs,function(o){if(o!==v){try{o.pause();}catch(e){}}});});});}
+draw();}).catch(function(){var el=document.getElementById("vdg-list");if(el)el.innerHTML='<p class="muted">没读出来，请刷新再试。</p>';});}
+function login(id,msg){A.app.innerHTML='<section class="card vdg"><h2>🎬 视频教程后台</h2><p class="muted">输入工单后台的口令（和工单后台是同一个）。</p>'+'<input type="password" id="vdg-k" placeholder="口令" autocomplete="off"><button type="button" class="nm-go" id="vdg-in">进入</button><p class="muted" id="vdg-st">'+esc(msg||"")+"</p></section>";document.getElementById("vdg-in").onclick=function(){var k=document.getElementById("vdg-k").value.trim();if(!k)return;try{localStorage.setItem("fbKey",k);}catch(e){}
+admin(id);};}
+function admin(id){if(!key())return login(id);A.app.innerHTML='<section class="card vdg"><div class="card-head"><h2>🎬 视频教程后台</h2><a href="#/videos">看客户页面 →</a></div>'+'<p class="muted">传上去客户马上就能在「视频教程」里看到。视频最大 200MB，用手机录屏的 mp4 / mov 就行。</p>'+'<div class="vdg-form"><input type="text" id="vdg-t" maxlength="40" placeholder="标题，例如：怎么买 AiLGNS">'+'<div class="vdc-pick" id="vdg-c" data-c="otc"><span class="muted">这是哪一类：</span><button type="button" class="on" data-c="otc">🏪 本站操作</button><button type="button" data-c="off">🌀 官网操作</button></div>'+'<input type="file" id="vdg-f" accept="video/*" hidden><button type="button" class="ghost" id="vdg-pick">🎬 选视频</button><div class="muted" id="vdg-fn">还没选视频</div>'+'<button type="button" class="nm-go" id="vdg-up">上传</button><p class="muted" id="vdg-st"></p></div></section>'+'<section class="card vdg"><h2>已有的教程</h2><div id="vdg-adm"><p class="muted">读取中…</p></div></section>';var fi=document.getElementById("vdg-f"),st=document.getElementById("vdg-st"),busy=false;function say(t,bad){st.textContent=t;st.className=bad?"nm-bad":"muted";}
+document.getElementById("vdg-pick").onclick=function(){fi.click();};var cb=document.getElementById("vdg-c");Array.prototype.forEach.call(cb.querySelectorAll("button"),function(b){b.onclick=function(){cb.setAttribute("data-c",b.getAttribute("data-c"));Array.prototype.forEach.call(cb.querySelectorAll("button"),function(o){o.className=o===b?"on":"";});};});fi.onchange=function(){var f=fi.files&&fi.files[0],fn=document.getElementById("vdg-fn");fn.textContent=f?f.name+"（"+mb(f.size)+"）":"还没选视频";if(!f)return;fastStart(f).then(function(r){if(fi.files[0]!==f||!heavy(f.size,r.secs))return;fn.textContent=f.name+"（"+mb(f.size)+"，"+Math.round(r.secs)+" 秒）。⚠️ 这个视频偏大，客户打开会慢。能重录的话，录屏清晰度选 720p；不方便就照传，也能看。";});};document.getElementById("vdg-up").onclick=function(){if(busy)return;var f=fi.files&&fi.files[0],title=document.getElementById("vdg-t").value.trim();if(!title)return say("请先写标题",true);if(!f)return say("请先选视频",true);if(!/^video\//.test(f.type||""))return say("这个文件不是视频，请选手机里的录屏 / 视频",true);busy=true;say("准备上传…");fastStart(f).then(function(fsr){f=fsr.blob;return api({action:"new",title:title,size:f.size,type:f.type,cat:cb.getAttribute("data-c")});}).then(function(j){if(j.error)throw new Error(j.error);var i=0,n=j.n,tries=0;function next(){if(i>=n)return null;say("正在上传 "+Math.round(i/n*100)+"%，请别关页面…");return fetch("/api/tutorial?up=1&id="+encodeURIComponent(j.id)+"&i="+i,{method:"POST",headers:{"content-type":f.type,"x-key":key()},body:f.slice(i*PART,Math.min(f.size,(i+1)*PART))}).then(function(r){return r.json();},function(){return{error:"网络断了",retry:1};}).then(function(r){if(r.error){if(r.retry&&tries++<3)return next();throw new Error(r.error);}
+tries=0;i++;return next();});}
+return next();}).then(function(){busy=false;say("✅ 传好了，客户已经能看到。");document.getElementById("vdg-t").value="";fi.value="";document.getElementById("vdg-fn").textContent="还没选视频";load();},function(e){busy=false;if(/口令/.test(e.message)){try{localStorage.removeItem("fbKey");}catch(x){}return login(id,"口令失效或不对，请重新输入");}
+say("没传成："+e.message+"。没传完的那条在下面，删掉后重新传。",true);load();});};function load(){fetch("/api/tutorial?list=1&_="+Date.now(),{headers:{"x-key":key()}}).then(function(r){return r.json();}).then(function(d){if(!A.isCurrent(id))return;if(d.error){try{localStorage.removeItem("fbKey");}catch(x){}return login(id,"口令失效或不对，请重新输入");}
+var el=document.getElementById("vdg-adm"),list=d.list||[];if(!el)return;el.innerHTML=list.length?list.map(function(x,i){return'<div class="vdg-row" data-id="'+esc(x.id)+'"><div class="vdg-rt"><b>'+(i+1)+". "+esc(x.title)+"</b><small class=\"muted\">"+catName(catOf(x))+" · "+mb(x.size)+(x.ok?"":" · ⚠️ 没传完，客户看不到，请删掉重传")+"</small></div>"+'<div class="vdg-btns"><button type="button" class="ghost" data-a="up"'+(i?"":" disabled")+'>上移</button><button type="button" class="ghost" data-a="down"'+(i<list.length-1?"":" disabled")+'>下移</button>'+'<button type="button" class="ghost" data-a="name">改标题</button><button type="button" class="ghost" data-a="cat" data-to="'+(catOf(x)==="off"?"otc":"off")+'">改成'+catName(catOf(x)==="off"?"otc":"off").replace(/^\S+\s/,"")+'</button><button type="button" class="ghost vdg-del" data-a="del">删除</button></div></div>';}).join(""):'<p class="muted">还没有教程，在上面传第一个。</p>';Array.prototype.forEach.call(el.querySelectorAll("button[data-a]"),function(b){b.onclick=function(){var row=b.closest(".vdg-row"),vid=row.getAttribute("data-id"),a=b.getAttribute("data-a"),job;if(a==="del"){if(!b._sure){b._sure=true;b.textContent="再点一次确认删除";setTimeout(function(){b._sure=false;b.textContent="删除";},3000);return;}
+job=api({action:"del",id:vid});}else if(a==="name"){var tb=row.querySelector(".vdg-rt"),old=tb.querySelector("b").textContent.replace(/^\d+\.\s/,"");tb.innerHTML='<input type="text" maxlength="40" value="'+esc(old)+'"><button type="button" class="ghost">保存</button>';tb.querySelector("button").onclick=function(){var nv=tb.querySelector("input").value.trim();if(!nv)return;api({action:"set",id:vid,title:nv}).then(load,load);};return;}else if(a==="cat")job=api({action:"set",id:vid,cat:b.getAttribute("data-to")});else job=api({action:"set",id:vid,move:a==="up"?-1:1});job.then(load,load);};});}).catch(function(){var el=document.getElementById("vdg-adm");if(el)el.innerHTML='<p class="muted">没读出来，请刷新再试。</p>';});}
+load();}
+A.pages.videos=page;})();}catch(e){console.error('[bundle] tutorial.js',e);};try{(function(){"use strict";var A=window.AIL;var COINS={ailgns:{sym:"AiLGNS",ico:"icons/tokens/ailgns.png?v=1",pd:2,qd:4,ca:"0x256EdB652db43E721EC6A12B6b51b6967D3bb8cB",otc:"#/otc/ailgns",foot:"AiLGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25"},lgns:{sym:"LGNS",ico:"icons/tokens/lgns.png?v=1",pd:4,qd:2,ca:"0x4D1D808a081FdAc440703b3765FC61f8028C06B8",otc:"#/otc/lgns",foot:"LGNS/DAI 官方 DEX 池子真实成交 · 北京时间 · 黄线 MA7 · 紫线 MA25",tax:1},lp:{sym:"LP",full:"AiLGNS-LGNS 的 LP",ico:"icons/tokens/lp.png?v=2",lp:1,ca:"0xc5029d6e80D2FDCE321B2b51010E9Ce3b1eDf1a2",otc:"#/otc/lp"}};var ORDER=["ailgns","lgns","lp"];var ZH=!window.AIL_LANG||/^zh/i.test(window.AIL_LANG)||window.AIL_LANG==="hant";var mem={};var timer=0;function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function num(v,d){return Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});}
+function big(v){v=Number(v)||0;if(ZH)return v>=1e8?num(v/1e8,2)+" 亿":v>=1e4?num(v/1e4,1)+" 万":num(v,v>=100?0:2);return v>=1e9?num(v/1e9,2)+"B":v>=1e6?num(v/1e6,2)+"M":v>=1e3?num(v/1e3,1)+"K":num(v,v>=100?0:2);}
+function hms(t){var d=new Date(t*1000+8*3600e3),p=function(n){return String(n).padStart(2,"0");};return p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds());}
+function short(a){return a.slice(0,6)+"…"+a.slice(-4);}
+function T(s){try{return window.AIL_LANG_T?window.AIL_LANG_T(s):s;}catch(e){return s;}}
+function getJSON(u){return fetch(u).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json();});}
+function dayOf(c){if(!c||!c.length)return null;var hi=-Infinity,lo=Infinity,vol=0,cl=[];c.forEach(function(x){if(x[2]>hi)hi=x[2];if(x[3]<lo)lo=x[3];vol+=x[5]||0;cl.push(x[4]);});var full=c.length>=92,open=c[0][1],last=c[c.length-1][4];return{hi:hi,lo:lo,vol:vol,cl:cl,full:full,chg:full&&open>0?(last/open-1)*100:null};}
+function load(k){var m=mem[k]||(mem[k]={});return Promise.all([getJSON("/api/dex?m="+k).then(function(d){if(d&&d.px>0)m.dex=d;},function(){}),getJSON("/api/candles?i=15m&n=97&m="+k).then(function(d){if(d&&d.c&&d.c.length){m.day=dayOf(d.c);m.lag=d.lag||0;}},function(){})]).then(function(){return m;});}
+function loadLp(){var m=mem.lp||(mem.lp={}),kit=A.otcKit;if(!kit||!kit.lpQuote)return Promise.resolve(m);return kit.lpQuote().then(function(q){m.q=q;return m;},function(){return m;});}
+function chgHtml(v){return v===null||v===undefined||!isFinite(v)?'<span class="cht-chg na">—</span>':'<span class="cht-chg '+(v>=0?"up":"dn")+'">'+(v>=0?"+":"")+v.toFixed(2)+"%</span>";}
+function spark(cl,up){if(!cl||cl.length<2)return'<svg class="cht-sp" viewBox="0 0 64 24"></svg>';var lo=Math.min.apply(null,cl),hi=Math.max.apply(null,cl),span=hi-lo||1,n=cl.length;var pts=cl.map(function(v,i){return(i/(n-1)*62+1).toFixed(1)+","+(21-(v-lo)/span*18).toFixed(1);}).join(" ");return'<svg class="cht-sp" viewBox="0 0 64 24" aria-hidden="true"><polyline points="'+pts+'" fill="none" stroke="'+(up?"#0ecb81":"#f6465d")+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>';}
+function rowHtml(k){var C=COINS[k],m=mem[k]||{},px="—",sub="",chg=chgHtml(null),sp=spark(null);if(C.lp){if(m.q)px=big(m.q.px);sub="参考价 · 按含的币折算";}else{if(m.dex){px=num(m.dex.px,C.pd);sub=T("池子")+" "+big(m.dex.liq);}
+if(m.day){chg=chgHtml(m.day.chg);sp=spark(m.day.cl,m.day.chg===null?m.day.cl[m.day.cl.length-1]>=m.day.cl[0]:m.day.chg>=0);if(m.day.full)sub+=(sub?" · ":"")+T("成交")+" "+big(m.day.vol);}}
+return'<a class="cht-row" href="#/chart/'+k+'"><img src="'+C.ico+'" alt="" width="34" height="34"><span class="cht-nm"><b>'+esc(C.sym)+'</b><small>'+esc(sub||(C.full||""))+"</small></span>"+sp+'<span class="cht-r"><b>'+px+"</b>"+(C.lp?'<span class="cht-chg na">DAI</span>':chg)+"</span></a>";}
+function drawList(){var el=document.getElementById("cht-rows");if(el)el.innerHTML=ORDER.map(rowHtml).join("");}
+function pageList(id){A.app.innerHTML='<section class="card cht"><h2>📈 看盘</h2><p class="muted">官方 DEX 池子的真实价格和成交，几秒更新一次。先上架这几只，点进去看 K 线和实时成交。</p>'+'<div class="cht-h"><span>币种</span><span>最新价（DAI） / 24 小时</span></div><div id="cht-rows"></div>'+'<p class="muted cht-tip">这里只看行情，不动钱包。价格是池子的标价；LGNS 在 DEX 卖出要扣手续费，实际到手会比标价少。</p></section>';drawList();var tick=function(){if(!A.isCurrent(id)){clearInterval(timer);return;}
+if(document.hidden)return;load("ailgns").then(function(){if(A.isCurrent(id))drawList();});load("lgns").then(function(){if(A.isCurrent(id))drawList();});loadLp().then(function(){if(A.isCurrent(id))drawList();});};tick();timer=setInterval(tick,15000);}
+function caHtml(k){var C=COINS[k];return C.ca?'<button type="button" class="cht-ca" id="cht-ca" data-ca="'+C.ca+'"><span class="cht-ca-l"><small>'+esc(C.sym)+' 合约地址（Anubis 链）</small><code>'+C.ca+'</code></span><span class="cht-ca-b" id="cht-ca-b">复制</span></button>':"";}
+function caBind(){var b=document.getElementById("cht-ca");if(!b)return;b.onclick=function(){var a=b.getAttribute("data-ca"),t=document.getElementById("cht-ca-b");var done=function(){if(t){t.textContent="✅ 已复制";setTimeout(function(){t.textContent="复制";},2000);}};var old=function(){try{var x=document.createElement("textarea");x.value=a;x.setAttribute("readonly","");x.style.cssText="position:fixed;left:-999px;top:0";document.body.appendChild(x);x.select();x.setSelectionRange(0,99);var ok=document.execCommand("copy");document.body.removeChild(x);if(ok)done();else if(t)t.textContent="请长按地址复制";}catch(e){if(t)t.textContent="请长按地址复制";}};try{navigator.clipboard.writeText(a).then(done,old);}catch(e){old();}};}
+function headHtml(k,sub){var C=COINS[k];return'<a class="cht-back" href="#/chart">‹ 全部币种</a><div class="cht-top"><img src="'+C.ico+'" alt="" width="40" height="40"><span class="cht-nm"><b>'+esc(C.sym)+' <i>/ DAI</i></b><small>'+esc(sub)+"</small></span></div>";}
+function cell(t,v){return'<div><small>'+t+"</small><b>"+v+"</b></div>";}
+function drawCoin(k){var C=COINS[k],m=mem[k]||{},d=m.dex,day=m.day,el;if((el=document.getElementById("cht-px")))el.innerHTML="<b>"+(d?num(d.px,C.pd):"—")+"</b>"+chgHtml(day?day.chg:null)+'<small>DAI · 24 小时</small>';if((el=document.getElementById("cht-st")))el.innerHTML=cell("24 小时最高",day&&day.full?num(day.hi,C.pd):"—")+cell("24 小时最低",day&&day.full?num(day.lo,C.pd):"—")+cell("24 小时成交额（DAI）",day&&day.full?big(day.vol):"—")+
+cell("池子资金（DAI）",d?big(d.liq):"—")+cell("持币地址",d&&d.info?big(d.info.holders):"—")+cell("发行总量",d&&d.info?big(d.info.supply):"—");if((el=document.getElementById("cht-lag")))el.textContent=day&&!day.full?"K 线历史还在补读，24 小时数据补齐后显示。":"";if((el=document.getElementById("cht-pool")))el.innerHTML=d?"<span>池子里现在有：</span><b>"+big(d.coin)+" "+esc(C.sym)+"</b> + <b>"+big(d.dai)+" DAI</b>"+(C.tax?"<br><span>LGNS 在 DEX 卖出要扣手续费（比例会变），实际到手比标价少，卖之前可以先看看本站 OTC 的买单。</span>":""):"";if((el=document.getElementById("cht-tr"))){var list=d&&d.list?d.list:null;el.innerHTML=!list?'<p class="muted">读取中…</p>':!list.length?'<p class="muted">最近一会儿没有成交</p>':'<div class="cht-th"><span>时间</span><span>方向</span><span>金额（DAI）</span><span>数量</span><span>钱包</span></div>'+list.map(function(x){var b=x.s==="b";return'<a class="cht-t '+(b?"up":"dn")+'" href="#/scan/tx/'+esc(x.tx)+'"><span>'+hms(x.t)+"</span><span>"+(b?"买入":"卖出")+"</span><span>"+num(x.d,2)+"</span><span>"+num(x.q,C.qd)+'</span><span class="cht-a">'+esc(short(x.a))+"</span></a>";}).join("");}}
+var kc=null;function pageCoin(id,k){var C=COINS[k];A.app.innerHTML='<section class="card cht">'+headHtml(k,"官方 DEX 池子价")+caHtml(k)+'<div class="cht-px" id="cht-px"></div><div class="cht-st" id="cht-st"></div><p class="muted cht-tip" id="cht-lag"></p>'+'<div id="cht-k"></div>'+'<a class="btn cht-go" href="'+C.otc+'">去本站 OTC 买卖 '+esc(C.sym)+'</a>'+'<h3 class="cht-h3">实时成交</h3><div class="cht-trs" id="cht-tr"></div>'+'<h3 class="cht-h3">池子</h3><p class="muted cht-tip" id="cht-pool"></p></section>';drawCoin(k);caBind();if(kc){try{kc.stop();}catch(e){}kc=null;}
+try{if(A.kchart)kc=A.kchart(document.getElementById("cht-k"),{i:"15m",m:k==="ailgns"?"":k,d:C.pd,foot:C.foot,alive:function(){return A.isCurrent(id);}});}catch(e){}
+var tick=function(){if(!A.isCurrent(id)){clearInterval(timer);return;}
+if(document.hidden)return;load(k).then(function(){if(A.isCurrent(id))drawCoin(k);});};tick();timer=setInterval(tick,9000);}
+function drawLp(){var m=mem.lp||{},q=m.q,el;if((el=document.getElementById("cht-px")))el.innerHTML="<b>"+(q?big(q.px):"—")+'</b><small>DAI / 1 个 LP（参考价）</small>';if((el=document.getElementById("cht-st"))&&q)el.innerHTML=cell("1 个 LP 含 AiLGNS",num(q.ail,2))+cell("1 个 LP 含 LGNS",big(q.lgns))+cell("LGNS 卖出手续费",(q.tax*100).toFixed(1)+"%")+
+cell("AiLGNS 这部分值",big(q.vAil)+" DAI")+cell("LGNS 这部分值",big(q.vLgns)+" DAI")+cell("合计",big(q.px)+" DAI");}
+function pageLp(id){A.app.innerHTML='<section class="card cht">'+headHtml("lp","AiLGNS-LGNS 的 LP · 参考价")+caHtml("lp")+'<div class="cht-px" id="cht-px"></div><div class="cht-st" id="cht-st"></div>'+'<p class="muted cht-tip">LP 现在拆不开，DEX 上也没有能直接卖 LP 的池子，所以没有 K 线和成交记录。这个参考价是按「1 个 LP 里含的 AiLGNS 和 LGNS，拿去 DEX 卖出实际到手多少 DAI」折算的，会随行情和 LGNS 卖出手续费变化，只供参考。</p>'+'<a class="btn cht-go" href="#/otc/lp">去本站 LP 市场买卖</a></section>';drawLp();caBind();var tick=function(){if(!A.isCurrent(id)){clearInterval(timer);return;}
+if(document.hidden)return;loadLp().then(function(){if(A.isCurrent(id))drawLp();});};tick();timer=setInterval(tick,30000);}
+A.pages.chart=function(id){clearInterval(timer);if(kc){try{kc.stop();}catch(e){}kc=null;}
+var k=(location.hash.split("/")[2]||"").toLowerCase().split("?")[0];try{if(k==="lp")pageLp(id);else if(COINS[k])pageCoin(id,k);else pageList(id);}catch(e){A.app.innerHTML='<section class="card"><p class="muted">看盘页没打开，请刷新再试。</p></section>';}};})();}catch(e){console.error('[bundle] chart.js',e);};try{(function(){"use strict";var A=window.AIL;var OURS="https://rpc.ailgns.dev",CHAIN_HEX="0x1a3a",CHAIN_ID=6714,EXPLORER="https://browser.anubispace.org";var NODES=[{k:"o1",name:"官方节点 1",url:"https://rpc.anubispace.org"},{k:"o2",name:"官方节点 2",url:"https://rpc2.anubispace.org"},{k:"o3",name:"官方节点 3",url:"https://rpc3.anubispace.org"},{k:"us",name:"本站备用节点",url:OURS,ours:1}];var timer=0;function T(s){try{return window.AIL_LANG_T?window.AIL_LANG_T(s):s;}catch(e){return s;}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function ping(url){var t0=Date.now(),ac=window.AbortController?new AbortController():null,tm=ac&&setTimeout(function(){ac.abort();},8000);return fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_blockNumber",params:[]}),signal:ac?ac.signal:undefined}).then(function(r){return r.json();}).then(function(j){clearTimeout(tm);var n=j&&typeof j.result==="string"?parseInt(j.result,16):NaN;if(!(n>0))throw new Error("bad");return{ok:true,ms:Date.now()-t0,block:n};}).catch(function(){clearTimeout(tm);return{ok:false,ms:Date.now()-t0,block:0};});}
+function draw(res){var el=document.getElementById("rpcp-st");if(!el)return;var top=0;res.forEach(function(r){if(r&&r.ok&&r.block>top)top=r.block;});el.innerHTML=NODES.map(function(n,i){var r=res[i],st,cls;if(!r){st=T("检测中…");cls="wait";}
+else if(!r.ok){st="❌ "+T("连不上");cls="bad";}
+else{var lag=top-r.block;st=(lag>30?"⚠️ "+T("落后")+" "+lag+" "+T("块"):"✅ "+T("正常"))+" · "+(r.ms/1000).toFixed(2)+" "+T("秒");cls=lag>30?"slow":"ok";}
+return'<div class="rpcp-row '+cls+(n.ours?" ours":"")+'"><span>'+esc(T(n.name))+"</span><b>"+st+"</b></div>";}).join("");var tip=document.getElementById("rpcp-tip");if(!tip)return;if(res.some(function(r){return!r;})){tip.textContent="";return;}
+var offOk=res.slice(0,3).some(function(r){return r.ok;}),usOk=res[3].ok;tip.textContent=offOk?(usOk?"官方节点现在是通的，可以不用换；想换也行。":"官方节点现在是通的，不用换。本站备用节点这会儿连不上。"):usOk?"从你这边连官方节点连不上，可以先换成本站备用节点。":"两边都连不上，多半是你的网络问题：换个网络（Wi-Fi / 流量互换）再试。";}
+function check(){var res=[null,null,null,null];draw(res);NODES.forEach(function(n,i){ping(n.url).then(function(r){res[i]=r;draw(res);});});}
+function copy(text,btn){var done=function(){if(btn){var o=btn.textContent;btn.textContent="✅ 已复制";setTimeout(function(){btn.textContent=o;},2000);}};var old=function(){try{var x=document.createElement("textarea");x.value=text;x.setAttribute("readonly","");x.style.cssText="position:fixed;left:-999px;top:0";document.body.appendChild(x);x.select();x.setSelectionRange(0,999);var ok=document.execCommand("copy");document.body.removeChild(x);if(ok)done();else if(btn)btn.textContent="请长按地址复制";}catch(e){if(btn)btn.textContent="请长按地址复制";}};try{navigator.clipboard.writeText(text).then(done,old);}catch(e){old();}}
+function addToWallet(btn){var say=function(t){var s=document.getElementById("rpcp-say");if(s)s.textContent=t;};var eth=window.ethereum;if(!eth||!eth.request){say("这个浏览器里没有钱包。请在钱包 App 里打开本页再点，或者按下面的步骤手动填。");return;}
+btn.disabled=true;say("请在钱包里确认…");eth.request({method:"wallet_addEthereumChain",params:[{chainId:CHAIN_HEX,chainName:"Anubis",nativeCurrency:{name:"DAI",symbol:"DAI",decimals:18},rpcUrls:[OURS],blockExplorerUrls:[EXPLORER]}]}).then(function(){btn.disabled=false;say("钱包已处理。有的钱包对已有的网络不会换节点：到钱包的网络设置里看一下 Anubis 的节点地址是不是 "+OURS+"，不是就按下面手动填。");},function(e){btn.disabled=false;say(e&&e.code===4001?"你在钱包里点了取消。":"这个钱包不支持一键添加，请按下面的步骤手动填。");});}
+A.pages.rpc=function(id){clearInterval(timer);A.app.innerHTML='<section class="card rpcp"><h2>🛰 备用节点</h2>'+'<p class="muted">钱包里点了没反应、交易一直发不出去，有时是钱包连的官方节点卡了。本站自己跑了一个 Anubis 节点，可以当备用。先看下面从你这边连过去通不通：</p>'+'<div id="rpcp-st" class="rpcp-st"></div><p id="rpcp-tip" class="rpcp-tip"></p>'+'<button type="button" class="ghost rpcp-re" id="rpcp-re">重新检测</button>'+'<div class="rpcp-warn"><b>⚠️ 防骗，先看这个</b><p>备用节点只认本页这一个地址。客服和技术人员<b>不会私聊</b>让你改节点、「同步」「升级」钱包，更不会要助记词或私钥。有人私聊让你加别的节点地址，就是骗子。</p></div>'+'<h3 class="rpcp-h3">备用节点地址</h3>'+'<button type="button" class="rpcp-url" id="rpcp-url"><code>'+OURS+'</code><span id="rpcp-cp">复制</span></button>'+'<button type="button" class="rpcp-add" id="rpcp-add">一键添加到钱包</button><p class="muted rpcp-say" id="rpcp-say"></p>'+'<h3 class="rpcp-h3">手动怎么填</h3>'+'<ol class="rpcp-ol"><li>打开钱包，进「网络」设置（有的钱包叫「自定义网络」或「节点设置」），找到 <b>Anubis</b> 网络。</li>'+'<li>选「添加节点」或「修改 RPC 地址」，把上面的地址粘贴进去。</li><li>其它几项照下面填（已经有的不用动），保存，然后选中这个节点。</li></ol>'+'<div class="rpcp-kv"><div><span>网络名称</span><b>Anubis</b></div><div><span>RPC 地址</span><b>'+OURS+'</b></div><div><span>链 ID</span><b>'+CHAIN_ID+'</b></div><div><span>货币符号</span><b>DAI</b></div><div><span>区块浏览器</span><b>'+EXPLORER+"</b></div></div>"+'<h3 class="rpcp-h3">要知道的几件事</h3>'+'<ul class="rpcp-ul"><li>节点只负责把你<b>已经签好名</b>的交易送上链，碰不到你的私钥和助记词，动不了你的钱。</li>'+'<li>这是备用：官方节点恢复后可以换回去；本站节点偶尔也会维护，连不上时换回官方节点就行。</li>'+'<li>换节点不影响你的资产，币都在链上，不在节点里。</li></ul></section>';var on=function(i,f){var e=document.getElementById(i);if(e)e.onclick=f;};on("rpcp-re",check);on("rpcp-url",function(){copy(OURS,document.getElementById("rpcp-cp"));});on("rpcp-add",function(){addToWallet(document.getElementById("rpcp-add"));});check();timer=setInterval(function(){if(!A.isCurrent(id)){clearInterval(timer);return;}if(!document.hidden)check();},30000);};})();}catch(e){console.error('[bundle] rpcpage.js',e);};try{(function(){"use strict";var A=window.AIL,LS="ainews:c",timer=0,idx=0,hold=false;function T(s){try{return window.AIL_LANG_T?window.AIL_LANG_T(s):s;}catch(e){return s;}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function ago(ts){var m=Math.max(1,Math.round((Date.now()-ts)/60000));if(m<60)return m+" "+T("分钟前");if(m<1440)return Math.round(m/60)+" "+T("小时前");return Math.round(m/1440)+" "+T("天前");}
+function zh(){return!window.AIL_LANG||window.AIL_LANG==="zh";}
+function title(x){return zh()?x.t:(x.o||x.t);}
+function usable(x){return!!x&&!!x.t&&(!zh()||/[\u4e00-\u9fff]/.test(x.t));}
+function showTop(list){var el=document.getElementById("ainw-top");if(!el||!list.length)return;var x=list[idx%list.length];el.innerHTML='<div class="ainw-hot"><span class="ainw-tag">'+T("最新")+" "+(idx%list.length+1)+"/"+list.length+'</span><b>'+esc(title(x))+'</b><i>'+esc(x.s)+" · "+ago(x.ts)+"</i></div>";}
+function draw(d){var box=document.getElementById("ainw-list");if(!box)return;var list=((d&&d.list)||[]).filter(usable);if(!list.length){box.innerHTML='<p class="muted">'+T("暂时没有读到资讯，过一会儿再来看。")+"</p>";return;}
+var hot=list.slice(0,10);idx=0;showTop(hot);clearInterval(timer);timer=setInterval(function(){if(!document.getElementById("ainw-top")){clearInterval(timer);return;}if(hold||document.hidden)return;idx++;showTop(hot);},5000);box.innerHTML=list.map(function(x){return'<div class="ainw-it"><b>'+esc(title(x))+"</b><i>"+esc(x.s)+" · "+ago(x.ts)+"</i></div>";}).join("");var at=document.getElementById("ainw-at");if(at&&d.at)at.textContent=T("更新于")+" "+ago(d.at);}
+A.pages.ainews=function(id){clearInterval(timer);A.app.innerHTML='<section class="card ainw"><h2>🤖 AI 资讯</h2>'+'<p class="muted">每小时自动更新一次，只看标题就行。 <span id="ainw-at"></span></p>'+'<div id="ainw-top" class="ainw-top"></div>'+'<div id="ainw-list" class="ainw-list"><p class="muted">加载中…</p></div>'+'<p class="muted ainw-foot">资讯标题来自国外第三方媒体，中文标题是机器翻译的，可能不准。不代表本站观点，不构成投资建议。</p></section>';var top=document.getElementById("ainw-top");if(top){top.addEventListener("touchstart",function(){hold=true;},{passive:true});top.addEventListener("touchend",function(){hold=false;},{passive:true});top.addEventListener("mouseenter",function(){hold=true;});top.addEventListener("mouseleave",function(){hold=false;});}
+hold=false;var cached=null;try{cached=JSON.parse(localStorage.getItem(LS)||"null");}catch(e){}
+if(cached&&cached.list)draw(cached);fetch("/api/ainews").then(function(r){return r.json();}).then(function(d){if(!A.isCurrent(id))return;if(d&&d.list&&d.list.length){draw(d);try{localStorage.setItem(LS,JSON.stringify({at:d.at,list:d.list.slice(0,40)}));}catch(e){}}
+else if(!cached)draw(d);}).catch(function(){if(A.isCurrent(id)&&!cached)draw(null);});};})();}catch(e){console.error('[bundle] ainews.js',e);};try{(function(){"use strict";var A=window.AIL,K=function(){return A.otcKit;};var VAULT="0x3deea5f638ca0dfb03a0873cf4c0b90ba50e1aa2",TURBINE="0xe884a336550a4482ca6a17a3f93aa30ed4ed9bad";var LEDGER="0x9e68f61e2615cc1d2c4a2d0026bfc1ebfdf68c1b";var AIRDROP="0xf0e9ec153f68bfa2fc8c76165db2b80579dcb217",CLAIM_LP="0x4e71d92d";var DYN={root:"0xfdab463d",credited:"0xe4472872",withRoot:"0x60c8a4ea",plain:"0xc1f55a03"},MAXU=(1n<<256n)-1n;function dynData(cum,proof,amt){return DYN.withRoot+u(cum)+u(96)+u(amt)+u(proof.length)+proof.map(function(x){return x.replace(/^0x/,"");}).join("");}
+function proofOf(a){var ctl=typeof AbortController!=="undefined"?new AbortController():null,tm=ctl&&setTimeout(function(){ctl.abort();},6000);return fetch("/api/helix-proof?a="+a,{signal:ctl?ctl.signal:undefined}).then(function(r){clearTimeout(tm);return r.json();}).then(function(j){return j&&j.proof&&j.root&&j.cumulativeRaw?j:null;},function(){return null;});}
+function dynOf(a,usable,rootHex,creditedHex,pf){var plain={amt:usable,cum:"",proof:null};try{if(!pf||!rootHex||!creditedHex)return Promise.resolve(plain);var chainRoot="0x"+rootHex.slice(66,130).toLowerCase(),cum=BigInt(pf.cumulativeRaw);if(pf.root!==chainRoot||cum<=big(creditedHex))return Promise.resolve(plain);return A.rpc("eth_call",[{from:a,to:VAULT,data:dynData(cum,pf.proof,MAXU)},"latest"]).then(function(h){return{amt:big(h),cum:cum.toString(),proof:pf.proof,full:usable+cum-big(creditedHex)};},function(){return plain;});}catch(e){return Promise.resolve(plain);}}
+var DAI="0x83fd06f0846d9d90b3016bf670efe2e0b11cde14",AIL="0x256edb652db43e721ec6a12b6b51b6967d3bb8cb";var SEL={pendingOf:"0xf44136a1",usable:"0x8c9a2d45",claimStatic:"0x064f3406",feeBps:"0x24a9d853",lockSeconds:"0xbfa6fddb",claimed:"0x9886c2a5",locksOf:"0xc3f9ab58",lockOf:"0x632a4861",rateBps:"0xbe7f8c68",open:"0x549c4627",minDai:"0xa2b7b1c5",participate:"0x845c9306",active:"0x6cf2fa36",pendingPow:"0xaa81a38f",quote:"0xed1bd76c",activate:"0xd96c5110",claimUnlocked:"0xadaace55",approve:"0x095ea7b3"};var SLIP_BPS=100n,DEADLINE=1800,LOCKS_MAX=30;var account=null,S=null,busy=false,tick=0,pageId=0,hooked=false;var sellStr="",daiStr="",sellQ=null;var GAS_KEEP=2n*10n**17n;var LOW_SELL=90n;function mem(k,v){try{var key="tbn:"+k+":"+account;if(v===undefined)return localStorage.getItem(key)||"";localStorage.setItem(key,v);}catch(e){}return"";}
+function plain(w,dp){return f(w,dp).replace(/,/g,"");}
+function T(s){try{return window.AIL_LANG_T?window.AIL_LANG_T(s):s;}catch(e){return s;}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function u(v){return BigInt(v).toString(16).padStart(64,"0");}
+function big(h){try{return h&&h.length>=3?BigInt(h):0n;}catch(e){return 0n;}}
+function word(h,i){return"0x"+String(h||"").slice(2+64*i,66+64*i);}
+function f(w,dp){dp=dp==null?4:dp;var neg=w<0n;if(neg)w=-w;var base=10n**18n,cut=10n**BigInt(18-dp),r=(w+cut/2n)/cut,i=r/(10n**BigInt(dp)),d=(r%(10n**BigInt(dp))).toString().padStart(dp,"0").replace(/0+$/,"");return(neg?"-":"")+i.toString().replace(/\B(?=(\d{3})+(?!\d))/g,",")+(d?"."+d:"");}
+function fd(w){return f(w,w<10n**18n?4:2);}
+function read(to,data){return A.bcall?A.bcall(to,data):K().read(to,data);}
+function bal(token,who){return read(token,"0x70a08231"+u(who)).then(BigInt);}
+function keep(st){try{localStorage.setItem("tbn:S:"+account,JSON.stringify(st,function(k,v){return typeof v==="bigint"?"n:"+v.toString():v;}));localStorage.setItem("tbn:last",account);}catch(e){}}
+function recall(a){try{var st=JSON.parse(localStorage.getItem("tbn:S:"+a)||"null",function(k,v){return typeof v==="string"&&/^n:-?\d+$/.test(v)?BigInt(v.slice(2)):v;});if(!st||typeof st.ail!=="bigint"||typeof st.dai!=="bigint"||!Array.isArray(st.locks)||typeof st.feeBps!=="number")return null;return st;}catch(e){return null;}}
+var fresh=false;function sa(a){return a.slice(0,6)+"…"+a.slice(-4);}
+function left(sec){if(sec<=0)return T("已解锁");var h=Math.floor(sec/3600),m=Math.ceil((sec%3600)/60);if(m===60){h++;m=0;}return(h?h+" "+T("小时")+" ":"")+m+" "+T("分钟");}
+function load(){var a=account;return Promise.all([read(VAULT,SEL.pendingOf+u(a)),read(VAULT,SEL.usable+u(a)),read(TURBINE,SEL.claimed+u(a)),read(TURBINE,SEL.locksOf+u(a)),bal(DAI,a),bal(AIL,a),read(TURBINE,SEL.feeBps),read(TURBINE,SEL.lockSeconds),read(LEDGER,SEL.rateBps).catch(function(){return"";}),read(LEDGER,SEL.open).catch(function(){return"";}),read(LEDGER,SEL.minDai).catch(function(){return"";}),read(LEDGER,SEL.active+u(a)).catch(function(){return"";}),read(LEDGER,SEL.pendingPow+u(a)).catch(function(){return"";}),read(TURBINE,SEL.quote+u(10n**18n)).catch(function(){return"";}),read(AIRDROP,SEL.pendingOf+u(a)).catch(function(){return"";}),read(VAULT,DYN.root).catch(function(){return"";}),read(VAULT,DYN.credited+u(a)).catch(function(){return"";}),proofOf(a)]).then(function(r){var pending=big(r[0]),usable=big(r[1]),n=Number(big(word(r[3],1))),ids=[];for(var i=Math.max(0,n-LOCKS_MAX);i<n;i++)ids.push(big(word(r[3],2+i)));var st={stat:pending>usable?pending-usable:0n,dyn:usable,wait:big(r[2]),dai:r[4],ail:r[5],feeBps:Number(big(r[6])),lockSec:Number(big(r[7])),locks:[],quote:null,rate:Number(big(r[8])),open:r[9]?big(r[9])>0n:null,minDai:big(r[10]),pow:big(r[11]),powWait:big(r[12]),mkt:r[13]?big(word(r[13],0)):0n,lp:r[14]?big(r[14]):0n};var jobs=ids.map(function(id){return read(TURBINE,SEL.lockOf+u(id)).then(function(h){return{id:id,amt:big(word(h,1)),at:Number(big(word(h,2))),done:big(word(h,3))>0n};},function(){return null;});});var q=st.wait>0n?read(TURBINE,SEL.quote+u(st.wait)).then(function(h){return{buy:big(word(h,0)),fee:big(word(h,1)),total:big(word(h,2))};},function(){return null;}):Promise.resolve(null);return Promise.all([Promise.all(jobs),q,dynOf(a,usable,r[15],r[16],r[17])]).then(function(x){st.locks=x[0].filter(function(l){return l&&!l.done;}).reverse();st.quote=x[1];st.dynC=x[2];return st;});});}
+function fit(st){if(!st.quote||st.wait<=0n)return Promise.resolve(null);var need=st.quote.total+st.quote.total*SLIP_BPS/10000n;var have=st.dai>GAS_KEEP?st.dai-GAS_KEEP:0n;if(have>=need)return Promise.resolve({amt:st.wait,q:st.quote,max:need,part:false});var amt=st.wait*have/need*99n/100n;if(amt<=0n)return Promise.resolve(null);return read(TURBINE,SEL.quote+u(amt)).then(function(h){var q={buy:big(word(h,0)),fee:big(word(h,1)),total:big(word(h,2))},max=q.total+q.total*SLIP_BPS/10000n;return max<=have?{amt:amt,q:q,max:max,part:true}:null;},function(){return null;});}
+function step(n,title,sub,body,done,opt){return'<div class="tbn-step'+(done?" off":" on")+'"><div class="tbn-dot">'+n+'</div><div class="tbn-card"><div class="tbn-h"><b data-nobrand>'+title+"</b>"+
+(opt?'<em class="tbn-opt">可选</em>':"")+(done?"":'<em class="tbn-now">现在可以做</em>')+'</div><p class="tbn-sub">'+sub+"</p>"+body+"</div></div>";}
+function draw(){var box=document.getElementById("tbn-box");if(!box)return;if(!account){box.innerHTML='<button type="button" class="nm-go tbn-go" id="tbn-conn">连接钱包</button><p class="muted nm-st" id="tbn-cst"></p>';document.getElementById("tbn-conn").onclick=conn;return;}
+var whoBar='<div class="tbn-who"><span>'+T("当前钱包")+' <b class="mono">'+sa(account)+'</b></span><button type="button" class="link" id="tbn-sw">'+T("换账号")+'</button></div><p class="muted tbn-sm" id="tbn-who-st"></p>';var wire=function(){var sw=document.getElementById("tbn-sw");if(sw)sw.onclick=switchAcct;};if(!S){box.innerHTML=whoBar+'<div class="tbn-sk"><i></i><i></i><i></i></div><p class="muted">'+T("正在读取你的排放和涡轮数据…")+"</p>";wire();return;}
+var now=Math.floor(Date.now()/1000),open=S.locks.filter(function(l){return l.at<=now;}),shut=S.locks.filter(function(l){return l.at>now;});var openAmt=open.reduce(function(x,l){return x+l.amt;},0n),F=S.fit,fee=(S.feeBps/100)+"%",hrs=Math.round(S.lockSec/3600);var lp=typeof S.lp==="bigint"?S.lp:0n,s1="";if(lp>0n)s1+='<p>现在可以领 <b class="tbn-n">'+f(lp,6)+'</b> AiLGNS 的 LP 空投。</p><button type="button" class="nm-go tbn-go" data-act="claimlp">领取 LP 空投到涡轮</button>';if(S.stat>0n)s1+='<p>现在可以领 <b class="tbn-n">'+f(S.stat,6)+'</b> AiLGNS 的个人排放。</p><button type="button" class="nm-go tbn-go" data-act="claim">领取排放</button>';var dc=S.dynC&&typeof S.dynC.amt==="bigint"?S.dynC:{amt:typeof S.dyn==="bigint"?S.dyn:0n,cum:"",proof:null};if(dc.amt>0n)s1+='<p>现在可以领 <b class="tbn-n">'+f(dc.amt,6)+'</b> AiLGNS 的社区动态排放。</p><button type="button" class="nm-go tbn-go" data-act="claimdyn">领取社区动态排放</button>'+
+(typeof dc.full==="bigint"&&dc.full>dc.amt?'<p class="muted tbn-sm">你累计的动态排放比这个数多，多出来的部分受官方 NFT 额度限制，暂时领不了，以官方页面为准。</p>':"");if(lp<=0n&&S.stat<=0n&&dc.amt<=0n)s1='<p class="muted">现在没有可领的 LP 空投、个人排放和社区动态排放。'+(S.wait>0n?"之前领的还在第二步等着激活。":"")+'</p>'+'<p class="muted tbn-sm">LP 空投由官方每天记一次账（一般在北京时间凌晨）。官方页面上显示的「奖励」要等记完账才变成可领取；今天已经领过的，要等明天。</p>';var s2;if(S.wait<=0n)s2='<p class="muted">没有等着激活的排放。先做第一步。</p>';else if(!S.quote)s2='<p>有 <b class="tbn-n">'+f(S.wait,6)+'</b> AiLGNS 等着激活，但这会儿没读到官方报价。</p><button type="button" class="ghost tbn-go" data-act="reload">重新读取</button>';else if(!F)s2='<p>有 <b class="tbn-n">'+f(S.wait,6)+"</b> AiLGNS 等着激活，全部激活要付约 <b>"+f(S.quote.total,2)+" DAI</b>。</p><p class=\"tbn-warn\">你钱包里只有 "+f(S.dai,2)+' DAI，不够。先准备好 DAI 再回来点「重新读取」。</p><button type="button" class="ghost tbn-go" data-act="reload">重新读取</button>';else s2="<p>"+(F.part?"有 "+f(S.wait,6)+" AiLGNS 等着激活，你的 DAI 只够先激活 ":"激活 ")+'<b class="tbn-n">'+f(F.amt,6)+"</b> AiLGNS：</p>"+'<div class="tbn-kv"><div><span>要付</span><b>'+fd(F.q.total)+" DAI</b></div><div><span>其中官方手续费（"+fee+"）</span><b>"+fd(F.q.fee)+" DAI</b></div>"+"<div><span>付完马上到钱包</span><b>"+f(F.amt,6)+" AiLGNS</b></div><div><span>"+hrs+" 小时后再到手</span><b>"+f(F.amt,6)+" AiLGNS</b></div><div><span>你的 DAI 余额</span><b>"+f(S.dai,2)+" DAI</b></div></div>"+'<p class="muted tbn-sm">官方规则：付的 DAI 用来在市场上买同样数量的 AiLGNS，买到的马上给你；排放的那一份锁 '+hrs+" 小时。市价会动，实际付的可能比上面多一点，最多多 1%，超过就不成交。</p>"+'<button type="button" class="nm-go tbn-go" data-act="activate">授权并激活涡轮</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次要付的 DAI，再激活。</p>';var s3="";if(open.length)s3+='<p>已经解锁 <b class="tbn-n">'+f(openAmt,6)+"</b> AiLGNS（"+open.length+' 笔），可以领了。</p><button type="button" class="nm-go tbn-go" data-act="unlock">领取已解锁的</button>';if(shut.length)s3+='<div class="tbn-locks">'+shut.map(function(l){var pct=S.lockSec>0?Math.max(3,Math.min(100,Math.round((S.lockSec-(l.at-now))/S.lockSec*100))):0;return'<div class="tbn-lock"><div class="tbn-lockr"><span>'+f(l.amt,6)+' AiLGNS</span><b class="tbn-left" data-at="'+l.at+'">'+T("还要")+" "+left(l.at-now)+'</b></div><div class="tbn-bar"><i style="width:'+pct+'%"></i></div></div>';}).join("")+"</div>";if(!s3)s3='<p class="muted">没有锁着的。第二步激活后，'+hrs+" 小时回来这里领。</p>";if(!sellStr){var ls=mem("sell");try{if(ls&&BigInt(ls)>0n&&BigInt(ls)<=S.ail)sellStr=plain(BigInt(ls),6);}catch(e){}}
+if(!daiStr){var ld=mem("dai");try{if(ld&&BigInt(ld)>0n&&BigInt(ld)<=S.dai)daiStr=plain(BigInt(ld),2);}catch(e){}}
+var s4='<p>钱包里有 <b class="tbn-n">'+f(S.ail,6)+"</b> AiLGNS。想卖多少，填在下面：</p>"+'<div class="tbn-in"><input id="tbn-sell" inputmode="decimal" autocomplete="off" placeholder="卖多少 AiLGNS" value="'+esc(sellStr)+'"><button type="button" class="ghost" data-act="sellall">全部</button></div>';if(sellQ)s4+='<div class="tbn-kv"><div><span>卖出</span><b>'+f(sellQ.tok,6)+" AiLGNS</b></div><div><span>到手（已扣 1% 手续费）</span><b>"+fd(sellQ.dai)+" DAI</b></div><div><span>合每枚</span><b>"+f(sellQ.avg,2)+" DAI</b></div>"+
+(S.mkt>0n?"<div><span>涡轮的市场买入价</span><b>"+f(S.mkt,2)+" DAI</b></div>":"")+"</div>"+
+(sellQ.short?'<p class="tbn-warn">现在的买单只够接 '+f(sellQ.tok,6)+" AiLGNS，剩下的这次卖不掉。</p>":"")+
+(sellQ.low?'<p class="tbn-warn">现在买单的出价太低（比涡轮的市场买入价低 10% 以上），这个价先不卖。可以过一会儿再来，或者到 OTC 自己挂卖单。</p><a class="ghost tbn-otc" href="#/otc">去 OTC 挂卖单 →</a>':'<button type="button" class="nm-go tbn-go" data-act="sellgo">确认卖出</button><p class="muted tbn-sm">吃的是 OTC 里现成的买单（'+sellQ.n+" 张），一笔交易成交。第一次用会先让你授权一次。</p>");else s4+='<button type="button" class="nm-go tbn-go" data-act="sellq">算一下能卖多少 DAI</button>';var rateX=S.rate?(S.rate/10000):0,s5;if(S.open===false)s5='<p class="tbn-warn">官方现在暂停了 DAI 参与算力，等开放后再来。</p>';else s5='<p>钱包里有 <b class="tbn-n">'+f(S.dai,2)+"</b> DAI。想投多少进官方算力，填在下面：</p>"+'<div class="tbn-in"><input id="tbn-dai" inputmode="decimal" autocomplete="off" placeholder="投多少 DAI" value="'+esc(daiStr)+'"><button type="button" class="ghost" data-act="daiall">全部</button></div>'+
+(rateX?'<p class="muted tbn-sm">官方现在的规则：1 DAI 记 '+rateX+" 算力。投进去的 DAI 不能取回。官方每天有总额度，满了这一步会不成功。</p>":"")+'<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';s5+='<p class="muted tbn-sm">你现在的算力：生效中 '+f(S.pow,2)+(S.powWait>0n?"，等生效 "+f(S.powWait,2):"")+"。</p>";box.innerHTML=whoBar+(fresh?"":'<p class="tbn-upd">'+T("先显示上次的数据，正在读最新的…")+"</p>")+'<div class="tbn-hero"><div><span>AiLGNS</span><b>'+f(S.ail,4)+"</b></div><div><span>DAI</span><b>"+f(S.dai,2)+"</b></div><div><span>"+T("算力")+"</span><b>"+f(S.pow+S.powWait,0)+'</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>'+'<div class="tbn-steps">'+step(1,"领排放","把 LP 空投、个人排放、社区动态排放领进涡轮",s1,S.stat<=0n&&lp<=0n&&dc.amt<=0n)+step(2,"激活涡轮","付 DAI，换回同样数量的币",s2,S.wait<=0n)+step(3,"到点领取","锁满 "+hrs+" 小时后领回排放的那一份",s3,!open.length)+
+step(4,"卖成 DAI","在本站 OTC 卖给现成的买单",s4,S.ail<=0n,1)+step(5,"复投算力","把 DAI 投进官方算力",s5,S.dai<=0n||S.open===false,1)+"</div>"+'<p class="muted nm-st tbn-st" id="tbn-st"></p>';var i4=document.getElementById("tbn-sell"),i5=document.getElementById("tbn-dai");if(i4)i4.oninput=function(){sellStr=i4.value;if(sellQ){sellQ=null;draw();var n4=document.getElementById("tbn-sell");if(n4){n4.focus();try{n4.setSelectionRange(n4.value.length,n4.value.length);}catch(e){}}}};if(i5)i5.oninput=function(){daiStr=i5.value;};Array.prototype.forEach.call(box.querySelectorAll("[data-act]"),function(b){b.onclick=function(){act(b.getAttribute("data-act"),b);};if(!fresh)b.disabled=true;});wire();}
+function say(t,bad){var e=document.getElementById("tbn-st");if(e){e.textContent=t||"";e.className=(bad?"nm-bad":"muted")+" nm-st";}}
+function refresh(){var who=account;return load().then(function(st){return fit(st).then(function(F){if(who!==account)return;st.fit=F;S=st;fresh=true;keep(st);if(A.isCurrent(pageId))draw();});});}
+function switchAcct(){var tip=function(t){var e=document.getElementById("tbn-who-st");if(e)e.textContent=t;};var eth=A.wallets&&A.wallets.current&&A.wallets.current();if(!eth)return conn();Promise.resolve().then(function(){return A.wallets.ask(eth,{method:"wallet_requestPermissions",params:[{eth_accounts:{}}]});}).then(function(){return A.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){if(a&&a[0])setAcct(String(a[0]).toLowerCase());},function(){tip("这个钱包不能在网页里换账号：请到钱包 App 里切换账号，这一页会自动跟着换。");});}
+function setAcct(a){if(a===account)return;account=a||null;busy=false;sellStr="";daiStr="";sellQ=null;fresh=false;S=account?recall(account):null;if(!A.isCurrent(pageId))return;draw();if(account)refresh().catch(function(){});}
+function conn(){var st=document.getElementById("tbn-cst");try{K().useMarket("ailgns");}catch(e){}
+K().connect().then(function(a){account=String(a||K().account()||"").toLowerCase()||null;fresh=false;S=account?recall(account):null;draw();if(account)return refresh();},function(e){if(st){st.textContent=K().niceError(e);st.className="nm-bad nm-st";}});}
+function act(kind,btn){if(kind==="reload"){S=null;fresh=false;draw();refresh().catch(function(){S=null;say("没读出来，再点一次「刷新数据」。",true);});return;}
+if(kind==="sellall"){sellStr=plain(S.ail,6);if(BigInt(K().toWei(sellStr,18))>S.ail)sellStr=plain(S.ail-10n**12n,6);sellQ=null;draw();return;}
+if(kind==="daiall"){daiStr=plain(S.dai-(S.dai>2n*10n**18n?2n*10n**18n:0n),2);if(BigInt(K().toWei(daiStr,18))>S.dai)daiStr="0";draw();say(S.dai>2n*10n**18n?"留了 2 DAI 当手续费（Anubis 链的 Gas 用的就是 DAI）。":"");return;}
+if(kind==="sellq"){if(busy||!S)return;var want;try{want=BigInt(K().toWei(sellStr,18));}catch(e){want=0n;}
+if(want<=0n){say("先填要卖多少 AiLGNS。",true);return;}
+if(want>S.ail){say("钱包里没有这么多 AiLGNS。",true);return;}
+busy=true;say("正在读 OTC 的买单…");K().sellQuote(want).then(function(q){busy=false;try{K().useMarket("ailgns");}catch(e){}
+if(!q||!q.n||q.tok<=0n){say("OTC 现在没有能接的买单。可以到 OTC 自己挂卖单。",true);return;}
+var avg=q.dai*(10n**18n)/q.tok;sellQ={p:q.p,dai:q.dai,tok:q.tok,n:q.n,avg:avg,short:q.tok<want*99n/100n,low:S.mkt>0n&&avg*100n<S.mkt*LOW_SELL};draw();say("");},function(){busy=false;say("没读到 OTC 的买单，再点一次。",true);});return;}
+if(busy||!S)return;busy=true;Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"),function(b){b.disabled=true;});var done=function(msg){busy=false;return refresh().then(function(){say(msg);},function(){say(msg);});};var fail=function(e){busy=false;Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"),function(b){b.disabled=false;});say("没成功："+K().niceError(e),true);};try{K().useMarket("ailgns");}catch(e){}
+say("正在连接钱包…");K().ready().then(function(){if(String(K().account()||"").toLowerCase()!==account)throw new Error("钱包换了账户，请刷新页面再来");if(kind==="claimdyn"){var d=S.dynC&&typeof S.dynC.amt==="bigint"?S.dynC:{amt:S.dyn,cum:"",proof:null};if(!(d.amt>0n))throw new Error("现在没有可领的社区动态排放");return K().send(VAULT,d.proof?dynData(BigInt(d.cum),d.proof,d.amt):DYN.plain+u(d.amt),say,"领取社区动态排放").then(function(){return done("✅ 社区动态排放领好了，接着做第二步。");});}
+if(kind==="claimlp")return K().send(AIRDROP,CLAIM_LP,say,"领取 LP 空投到涡轮").then(function(){return done("✅ LP 空投领好了，接着做第二步。");});if(kind==="claim")return K().send(VAULT,SEL.claimStatic+u(S.stat),say,"领取排放").then(function(){return done("✅ 排放领好了，接着做第二步。");});if(kind==="unlock"){var now=Math.floor(Date.now()/1000),ids=S.locks.filter(function(l){return l.at<=now;}).map(function(l){return l.id;});if(!ids.length)throw new Error("还没有解锁的");return K().send(TURBINE,SEL.claimUnlocked+u(32)+u(ids.length)+ids.map(u).join(""),say,"领取已解锁的 AiLGNS").then(function(){return done("✅ 已经领到钱包了。");});}
+if(kind==="sellgo"){if(!sellQ||sellQ.low)throw new Error("先点「算一下能卖多少 DAI」");var plan=sellQ.p;return K().sellFire(plan,say).then(function(r){sellQ=null;sellStr="";mem("sell","0");mem("dai",r.got.toString());daiStr=plain(r.got,2);if(BigInt(K().toWei(daiStr,18))>r.got)daiStr=plain(r.got-10n**16n,2);return done("✅ 卖掉 "+f(r.paid,6)+" AiLGNS，到手 "+fd(r.got)+" DAI。想复投就接着做第五步。");});}
+if(kind==="invest"){var amt;try{amt=BigInt(K().toWei(daiStr,18));}catch(e){amt=0n;}
+if(amt<=0n)throw new Error("先填要投多少 DAI");if(amt>S.dai)throw new Error("钱包里没有这么多 DAI");if(S.minDai>0n&&amt<S.minDai)throw new Error("官方要求每次最少 "+f(S.minDai,2)+" DAI");return K().allowance(DAI,account,LEDGER).then(function(al){if(al>=amt)return;return K().send(DAI,SEL.approve+u(LEDGER)+u(amt),say,"授权这一次要投的 DAI（"+fd(amt)+" DAI）");}).then(function(){return K().send(LEDGER,SEL.participate+u(amt),say,"DAI 投入算力");}).then(function(){daiStr="";mem("dai","0");return done("✅ "+fd(amt)+" DAI 已投入算力。");});}
+if(kind==="activate"){return load().then(function(st){return fit(st).then(function(F){if(!F)throw new Error("DAI 不够，或者没读到官方报价");return K().allowance(DAI,account,TURBINE).then(function(al){if(al>=F.max)return;return K().send(DAI,SEL.approve+u(TURBINE)+u(F.max),say,"授权这一次要付的 DAI（"+fd(F.max)+" DAI）");}).then(function(){var dl=Math.floor(Date.now()/1000)+DEADLINE;return K().send(TURBINE,SEL.activate+u(F.amt)+u(F.max)+u(dl),say,"激活涡轮");}).then(function(){mem("sell",F.amt.toString());sellStr="";sellQ=null;return done("✅ 激活好了：买到的 AiLGNS 已经进钱包（想卖成 DAI 看第四步），另一份到时间后回来做第三步。");});});});}}).catch(fail);}
+A.pages.turbine=function(id){pageId=id;clearInterval(tick);S=null;busy=false;sellStr="";daiStr="";sellQ=null;fresh=false;try{K().useMarket("ailgns");}catch(e){}
+account=String((K()&&K().account&&K().account())||"").toLowerCase()||null;var known=!!account,guess="";if(!account){try{guess=localStorage.getItem("tbn:last")||"";}catch(e){}if(/^0x[0-9a-f]{40}$/.test(guess))account=guess;}
+if(account)S=recall(account);if(!hooked){hooked=true;try{A.wallets.onAccounts(function(a){if(location.hash.indexOf("#/turbine")===0)setAcct(a&&a[0]?String(a[0]).toLowerCase():null);});}catch(e){}}
+A.app.innerHTML='<section class="card tbn"><h2>🌀 涡轮助手 <small class="tbn-tag">试运行</small></h2>'+'<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四、五步是可选的：把币在本站 OTC 卖成 DAI，再投回官方算力。</p>'+'<div id="tbn-box"></div>'+'<div class="tbn-note"><b>要知道的</b><ul><li>第一、二、三、五步调用的是官方合约，本站不经手、不收费。第四步是在本站 OTC 成交，和平时吃单一样收 1% 手续费。</li>'+"<li>手续费、锁定时间是官方定的，以官方页面为准；官方改规则时，这一页可能要等技术人员跟着更新。</li>"+"<li>本页只是把操作变简单，不是投资建议。要不要激活、要不要卖，请自己判断。</li></ul></div></section>";draw();var failed=function(){if(S)return;var b=document.getElementById("tbn-box");if(b&&A.isCurrent(id))b.innerHTML='<p class="nm-bad">没读出来。</p><button type="button" class="ghost tbn-go" id="tbn-again">再读一次</button>';var g=document.getElementById("tbn-again");if(g)g.onclick=function(){S=null;draw();refresh().catch(function(){});};};if(account)refresh().catch(failed);if(!known)Promise.resolve().then(function(){return K().silentAccount();}).then(function(){if(!A.isCurrent(id))return;var real=String(K().account()||"").toLowerCase()||null;if(real){if(real!==account)setAcct(real);return;}
+if(guess){account=null;S=null;draw();}
+if(window.ethereum)K().connect().then(function(a){if(A.isCurrent(id))setAcct(String(a||K().account()||"").toLowerCase()||null);},function(){});},function(){});tick=setInterval(function(){if(!A.isCurrent(id)){clearInterval(tick);return;}
+if(!S||busy)return;var now=Math.floor(Date.now()/1000),due=false;Array.prototype.forEach.call(document.querySelectorAll(".tbn-left"),function(e){var at=Number(e.getAttribute("data-at"));if(at<=now)due=true;else e.textContent=T("还要")+" "+left(at-now);});if(due)draw();},30000);};})();}catch(e){console.error('[bundle] turbine.js',e);}
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h23d36dd554";
+/*v:h23d36dd554*/
