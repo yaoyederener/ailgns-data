@@ -79,7 +79,7 @@
       (me && me.backup ? '<p class="muted">沿用你以前登记的备用钱包 ' + esc(me.backup) + "</p>" : "") +
       '<p class="cvr-t">② 加入</p><p class="muted">钱包会弹 2 次：第 1 次是签名登记备用钱包（不花钱），第 2 次是交 ' + R.fee + " DAI 保费。</p>" +
       '<button type="button" class="nm-go cvr-go" id="cvr-go"' + (open ? "" : " disabled") + ">" + (draft.tx ? "👉 保费已交，点这里完成登记" : "🛡 加入互助保障（" + R.fee + " DAI / 年）") + "</button>" +
-      (open ? "" : '<p class="cvr-soon">🧪 保障池钱包还在准备，暂时不能加入。开放时间会写进更新日志和收件箱。</p>') +
+      (open ? "" : '<p class="cvr-soon">🧪 保障池钱包还在准备，暂时不能加入。开放时间会在收件箱和交流群通知。</p>') +
       '<p class="muted nm-st" id="cvr-stt"></p>';
   }
   function claimsBox() {
