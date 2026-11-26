@@ -1,0 +1,7 @@
+{
+"💧 做市商页面（一键做市）暂时下架维护。已经挂在盘口上的单不受影响，照常成交、随时可撤；想挂单请到 OTC 页或交易所盘口。": "💧 The Market Maker page (one-click market making) is temporarily offline for maintenance. Orders already on the book are unaffected: they fill as usual and can be cancelled anytime. To place orders, use the OTC page or the exchange order book.",
+"暂时下架": "Temporarily offline",
+"做市商页面（一键做市）暂时下架维护，恢复时间会在「☰ 更多 → 服务 → 更新日志」里通知。": "The Market Maker page (one-click market making) is temporarily offline for maintenance. We will announce when it returns in “☰ More → Service → Updates”.",
+"你已经挂在盘口上的单不受影响，照常成交，随时可以在「订单查询」里撤单。想挂单请到 OTC 页或交易所盘口，一张一张挂。": "Orders you already have on the book are unaffected: they fill as usual and you can cancel them anytime under “Order lookup”. To place orders, use the OTC page or the exchange order book, one at a time.",
+"去 OTC 挂单 →": "Go to OTC →"
+}

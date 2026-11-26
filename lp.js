@@ -18,7 +18,18 @@
       '<div class="lp-kpi"><div><small>返佣比例</small><b>50–70%</b><span>1 万 / 3 万 / 5 万三档</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>随时撤单，不托管</span></div></div>' +
       '<p style="margin-top:14px"><a class="nm-go" href="#/trade">先去交易所盘口挂单 →</a></p></section>';
   }
+  /* 🛑 站长 2026-11-26「先把做市商通道下架」：当天一键做市出了串价事故（客户 100 DAI 买了 0.1 枚 LGNS，见 load 上面的说明）。
+     漏洞已修，但站长要先整个下架。LP_OFF = true 时：页面只显示一句「暂时下架」，一键做市、排行榜、数据读取全都不跑。要恢复改成 false，并把菜单（menu.js）里的入口加回来——恢复前要站长点头。 */
+  var LP_OFF = true;
+  function paused(id) {
+    rid = id; clearInterval(sideTimer);
+    A.app.innerHTML = '<section class="card lp-hero lp-soon"><div class="lp-ht"><h2>💧 做市商 <span class="lp-tag">暂时下架</span></h2>' +
+      '<p>做市商页面（一键做市）暂时下架维护，恢复时间会在「☰ 更多 → 服务 → 更新日志」里通知。</p>' +
+      '<p class="muted">你已经挂在盘口上的单不受影响，照常成交，随时可以在「订单查询」里撤单。想挂单请到 OTC 页或交易所盘口，一张一张挂。</p></div>' +
+      '<p style="margin-top:14px"><a class="nm-go" href="#/otc">去 OTC 挂单 →</a></p></section>';
+  }
   function page(id) {
+    if (LP_OFF) return paused(id);
     rid = id;
     var hp = location.hash.split("/"); MK = hp[2] === "lgns" ? "lgns" : "ailgns"; // #/lp = AiLGNS，#/lp/lgns = LGNS（Anubis）；别的币种先不开
     K().useMarket(MK); M = K().M();
