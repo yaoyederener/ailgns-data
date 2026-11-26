@@ -40,12 +40,21 @@ GROUPS = {
     "misc":     ["trades.js", "arb.js", "updates.js", "orders.js", "med.js", "partner.js", "ops.js", "square.js", "bonus.js", "fast.js", "funds.js", "weekly.js", "usdt.js", "gale.js", "cover.js", "tutorial.js", "chart.js", "rpcpage.js", "ainews.js", "turbine.js"],
 }
 
+# 2026-11-27：压缩用的两个库（rjsmin / rcssmin，纯 Python，Apache 2.0 许可）放进了仓库的 tools/minlib/。
+# 原因：云端「游戏自动开发」那台机器没装这两个库，每晚打包出来的是没压缩的文件（core.js 666 KB → 920 KB），推上线后全站变慢，还没人发现。
+# 现在哪台机器打包都一样；两个库都找不到时直接停，不再悄悄打出没压缩的包。
 try:
     import rjsmin, rcssmin
-    def minjs(s): return rjsmin.jsmin(s)
-    def mincss(s): return rcssmin.cssmin(s)
-    MIN = True
 except ImportError:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "minlib"))
+    try:
+        import rjsmin, rcssmin
+    except ImportError:
+        raise SystemExit("打包停止：找不到压缩库（tools/minlib/rjsmin.py、rcssmin.py）。不要打没压缩的包上线。")
+def minjs(s): return rjsmin.jsmin(s)
+def mincss(s): return rcssmin.cssmin(s)
+MIN = True
+if False:
     def minjs(s): return s
     def mincss(s): return s
     MIN = False
