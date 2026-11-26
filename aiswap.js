@@ -104,7 +104,7 @@
       '<section class="card as-soon"><h2>🧪 合约部署中</h2>' +
       '<p>aiswap 用的是 PancakeSwap V2 原版合约（全球用了好几年、几千亿成交量验证过），我们一行不改地部署到 Anubis 链上，先彩排、再主网小额验收、验收通过才开放。</p>' +
       '<ol class="as-steps"><li class="done">✅ 方案、费率、报价币已定（2026-11-11）</li><li class="now">🧪 合约部署 + 小额验收中</li><li>⏳ 开放兑换 / 加撤流动性 / 池子列表</li><li>⏳ 发射台：持有 1 枚创世 .ailgns 域名才能发币</li></ol>' +
-      '<p class="muted">开放时间会写进「☰ 更多 → 服务 → 更新日志」和收件箱。现在买卖 AiLGNS 请用 <a href="#/otc">OTC 担保交易</a>。</p></section>' + RULES;
+      '<p class="muted">开放时间会在收件箱和交流群通知。现在买卖 AiLGNS 请用 <a href="#/otc">OTC 担保交易</a>。</p></section>' + RULES;
   }
   function connBtn(id) { return '<button type="button" class="ghost" id="' + id + '">' + (account ? A.short(account) : "连接钱包") + "</button>"; }
   function after() { document.querySelectorAll(".as-conn").forEach(function (b) { b.textContent = A.short(account); }); if (tab === "swap") swapBal(); if (tab === "liq") myLiq(); }
@@ -355,7 +355,7 @@
       stp(4, "交发币费", "从你钱包转 " + R.feeAil + " 枚 AiLGNS 到平台收款钱包。") +
       stp(5, "登记上榜", "网站核对链上记录，通过后你的币出现在下面的榜单和 aiswap 里。不花钱。") + "</ol>" +
       (lch.done ? '<p class="lch-ok">🎉 你的币已经上榜。</p><div class="lch-btns"><button type="button" class="nm-go" id="lch-trade">去 aiswap 看我的币</button><button type="button" class="ghost" id="lch-new">再发一个</button></div>'
-        : !open ? '<p class="lch-soon">🧪 标准代币合约还在核对中，发币暂时没开放。开放时间会写进更新日志和收件箱。</p>'
+        : !open ? '<p class="lch-soon">🧪 标准代币合约还在核对中，发币暂时没开放。开放时间会在收件箱和交流群通知。</p>'
         : '<button type="button" class="nm-go lch-go" id="lch-go">' + (now === 1 ? "🚀 开始发币" : "👉 接着做第 " + now + " 步") + "</button>" + (locked ? "" : "")) +
       '<p class="muted nm-st" id="lch-st"></p>' +
       (locked && !lch.done ? '<p class="muted lch-reset"><a href="javascript:void(0)" id="lch-reset">放弃这一个，重新填（已经发出去的币和交易不受影响，花掉的 Gas 不退）</a></p>' : "") + "</section>" +

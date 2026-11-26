@@ -234,7 +234,7 @@
   A.pages.inbox = function (id) {
     cur = id;
     if (PAUSED) {
-      A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱 <span class="lp-tag">调整中，暂未开放</span></h2><p>成交、借贷、工单回复、预言家中奖、链上留言的通知功能正在重新设计（手机 App 里登录体验还不够顺），弄好会在「更新日志」公布。</p><p class="muted">这期间通知不会丢：所有消息都在后台替你存着，开放后一次看到。成交 / 到期提醒现在仍可通过 DeBox 机器人接收（OTC 页「DeBox 私信」卡片）。</p><p><a class="nm-go" href="#/scan">去账本查我的单 →</a></p></section>';
+      A.app.innerHTML = '<section class="card ib-login"><h2>🔔 收件箱 <span class="lp-tag">调整中，暂未开放</span></h2><p>成交、借贷、工单回复、预言家中奖、链上留言的通知功能正在重新设计（手机 App 里登录体验还不够顺），弄好会在交流群通知。</p><p class="muted">这期间通知不会丢：所有消息都在后台替你存着，开放后一次看到。成交 / 到期提醒现在仍可通过 DeBox 机器人接收（OTC 页「DeBox 私信」卡片）。</p><p><a class="nm-go" href="#/scan">去账本查我的单 →</a></p></section>';
       return;
     }
     if (!auth) {

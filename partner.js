@@ -229,11 +229,11 @@ var PARTNER_BUILD = "2026-11-10"; // 换地址重发：CDN 把旧地址缓存成
       (j.canWrite ? '<p class="ptn-cfg"><input id="ptn-plan-new" placeholder="加一条计划，回车保存" style="width:100%"></p>' : "") +
       '<div id="ptn-upd" class="ptn-upd"></div>' +
       addrTable(j) +
-      (j.canWrite ? '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' : "") +
+      (j.canWrite ? '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb on">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' : "") +
       '<p class="muted ptn-note">' + esc(j.note) + "</p></section>";
     A.app.innerHTML = h;
-    fetch("/api/updates").then(function (r) { return r.json(); }).then(function (u) {
-      var el = document.getElementById("ptn-upd"); if (!el || !A.isCurrent(rid)) return;
+    fetch("/api/updates", { headers: { "x-key": (function () { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } })() } }).then(function (r) { return r.json(); }).then(function (u) {
+      var el = document.getElementById("ptn-upd"); if (!el || !A.isCurrent(rid) || !u || !u.list) return; // 不是站长口令就不显示这一块
       el.innerHTML = '<h3 class="ad-h">🆕 最近上线</h3>' + (u.list || []).slice(0, 7).map(function (x) { return '<div><span class="muted">' + esc(x.d.slice(5)) + "</span> " + esc(x.t.slice(0, 70)) + (x.t.length > 70 ? "…" : "") + "</div>"; }).join("");
     }).catch(function () {});
     if (!j.canWrite) return;

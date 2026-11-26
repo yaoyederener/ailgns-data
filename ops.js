@@ -13,7 +13,7 @@
     inp.onkeydown = function (e) { if (e.key === "Enter") go.click(); };
   }
   function nav(cur) {
-    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/todo" class="ad-nb' + (cur === "todo" ? " on" : "") + '">📝 待办</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
+    return '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb' + (cur === "notify" ? " on" : "") + '">📣 发站内信</a><a href="#/todo" class="ad-nb' + (cur === "todo" ? " on" : "") + '">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
   }
   // 站长 2026-11-12：「弄个动态的滚动页，把紧急、重要的推送放前面滚动」→ 导航下面一条滚动条：红的在前、黄的在后，4 秒换一条，点一下跳到下面的详情
   function hot(j) { var rs = j.risks || []; return rs.filter(function (r) { return r.level === "red"; }).concat(rs.filter(function (r) { return r.level === "yellow"; })); }

@@ -14,7 +14,7 @@
   function soon(id) {
     A.app.innerHTML = '<section class="card lp-hero lp-soon"><div class="lp-ht"><h2>💧 做市返佣 <span class="lp-tag">即将开放</span></h2>' +
       '<p>在本站 OTC 挂单，有人吃你的单，吃单方付的 1% 手续费按比例返给你。<b>按你挂在盘口的资金量分档</b>：日均挂单 ≥ 1 万 DAI 返 <b>50%</b>，≥ 3 万返 <b>60%</b>，≥ 5 万返 <b>70%</b>（返的是吃你单的人付的 1% 手续费），每天自动结算到你钱包。挂单即参与，不用报名，资金全程在你自己的钱包和 OTC 合约里。</p>' +
-      '<p class="muted">正在做最后的打磨和安全测试，开放时间会在「☰ 更多 → 服务 → 更新日志」和收件箱通知。现在在 OTC 正常挂单不受影响。</p></div>' +
+      '<p class="muted">正在做最后的打磨和安全测试，开放时间会在收件箱和交流群通知。现在在 OTC 正常挂单不受影响。</p></div>' +
       '<div class="lp-kpi"><div><small>返佣比例</small><b>50–70%</b><span>1 万 / 3 万 / 5 万三档</span></div><div><small>结算</small><b>每天</b><span>北京时间 0 点后结算前一天</span></div><div><small>资金</small><b>全程自管</b><span>随时撤单，不托管</span></div></div>' +
       '<p style="margin-top:14px"><a class="nm-go" href="#/trade">先去交易所盘口挂单 →</a></p></section>';
   }
@@ -24,7 +24,7 @@
   function paused(id) {
     rid = id; clearInterval(sideTimer);
     A.app.innerHTML = '<section class="card lp-hero lp-soon"><div class="lp-ht"><h2>💧 做市商 <span class="lp-tag">暂时下架</span></h2>' +
-      '<p>做市商页面（一键做市）暂时下架维护，恢复时间会在「☰ 更多 → 服务 → 更新日志」里通知。</p>' +
+      '<p>做市商页面（一键做市）暂时下架维护，恢复时间会在收件箱和交流群通知。</p>' +
       '<p class="muted">你已经挂在盘口上的单不受影响，照常成交，随时可以在「订单查询」里撤单。想挂单请到 OTC 页或交易所盘口，一张一张挂。</p></div>' +
       '<p style="margin-top:14px"><a class="nm-go" href="#/otc">去 OTC 挂单 →</a></p></section>';
   }
@@ -68,7 +68,7 @@
         '<li>不发返佣：做市赚的是买卖价差，平台不另外给钱；吃单方照常付 1% 手续费。</li>' +
         '<li>缺哪边挂哪边：页面顶部实时显示盘口现在缺买单还是缺卖单，「批量挂单」默认就铺缺的那边，大家一起把买卖铺平。</li>' +
         '<li>不改合约、不碰你的币、不保本：挂单、撤单、成交全在原 OTC 合约里，和平时一样。</li>' +
-        '<li>一视同仁：平台不审查交易双方是谁；称号只看挂单资金，不看是谁。规则如有调整会提前在更新日志公示。</li></ol></section>';
+        '<li>一视同仁：平台不审查交易双方是谁；称号只看挂单资金，不看是谁。规则如有调整会提前在交流群公示。</li></ol></section>';
     bind();
     load();
     K().silentAccount().then(function () { account = K().account(); if (account) after(); });
