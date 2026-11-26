@@ -242,7 +242,8 @@
     }).then(function (px) {
       if (!(px > 0)) throw new Error("现在读不到 " + SYM + " 的链上市价，没法核对你的中间价，这一批先不发（没有扣任何钱）。请过一会儿再点。");
       if (String(K().M().otc).toLowerCase() !== String(otc0).toLowerCase()) throw new Error("页面已经换了市场，这一批没有发出去。请重新点。");
-      if (p.mid >= px * 2 || p.mid <= px * 0.5) throw new Error("中间价 " + f(p.mid, PD) + " 和 " + SYM + " 现在的链上市价（约 " + f(px, PD) + "）差了一倍以上，这一批没有发出去（没有扣任何钱）。请到「高级设置」把中间价改到市价附近再点。");
+      var lowRef = px * (Number(K().M().dexSell) > 0 && Number(K().M().dexSell) < 1 ? Number(K().M().dexSell) : 1); // LGNS 在 DEX 卖要扣约一半的税，场外价本来就在 DEX 价的一半左右：下限按「DEX 卖出到手价」的一半算，别把正常价误拦
+      if (p.mid >= px * 2 || p.mid <= lowRef * 0.5) throw new Error("中间价 " + f(p.mid, PD) + " 和 " + SYM + " 现在的链上市价（约 " + f(px, PD) + "）差了一倍以上，这一批没有发出去（没有扣任何钱）。请到「高级设置」把中间价改到市价附近再点。");
       account = K().account(); after(); at = "读钱包余额";
       return Promise.all([K().balance(DAI, account), K().balance(TOKEN, account)]);
     }).then(function (b) {
