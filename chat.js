@@ -148,7 +148,7 @@
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function linkify(s) { return esc(s).replace(/(https?:\/\/[^\s，。）)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, "<br>"); }
   function humanHtml() { // 站长 2026-11-07：不写人工时间；先引导加群，再提交工单
-    return '<a class="cb-human" href="#" data-group>💬 进 5000 人大群（群里 @客服，最快）→</a>' +
+    return '<a class="cb-human" href="#" data-group>💬 进大群（目标 10 万人；群里 @客服，最快）→</a>' +
       '<span class="cb-need">⚠️ 进群前先改资料：在 DeBox 把自己的名字改成「<b>志愿者+名字</b>」再申请，否则申请不会通过。</span>' +
       '<br><a class="cb-human" href="#/feedback">📮 群里没解决？提交问题工单（附截图，技术人员按轻重缓急处理）→</a>' +
       '<br><span class="muted">也可以直接在这里留言，你的每一条留言我们都会阅读并反馈。</span>';
@@ -187,7 +187,7 @@
         reply((g.length ? "我没完全看懂，你是想问下面哪个？点一下就行：" + '<div class="cb-guess">' + g.map(function (x) { return '<button type="button" data-i="' + FAQ.indexOf(x.f) + '">' + esc(x.f.q) + "</button>"; }).join("") + "</div>" + "都不是的话，" : "这个问题我暂时答不好，") + "可以直接问人工：<br>" + humanHtml(), "问答库没对上，给了相近问题，建议联系人工");
       });
   }
-  var GRP = '<div class="cb-grp"><a href="#" data-group>💬 欢迎进 5000 人大群，和大家交流心得 →</a><small class="cb-need">进群前先在 DeBox 把名字改成「志愿者+名字」，否则申请不会通过</small></div>'; // 每条回复都带进群入口（站长 2026-11-09 晚）
+  var GRP = '<div class="cb-grp"><a href="#" data-group>💬 欢迎进大群，一起冲 10 万人 →</a><small class="cb-need">进群前先在 DeBox 把名字改成「志愿者+名字」，否则申请不会通过</small></div>'; // 每条回复都带进群入口（站长 2026-11-09 晚）
   function reply(html, plain) {
     add("bot", html + (/data-group/.test(html) ? "" : GRP));
     history.push({ role: "assistant", content: plain });
@@ -251,8 +251,8 @@
       root.classList.toggle("open", open);
       if (open) fab.classList.remove("cb-new");
       // 站长 2026-11-08（工单 #33）：打开窗口先打招呼，第一件事引导加群（最快有人回）；只显示一次，不算进对话
-      // 站长 2026-11-09 晚：开场先说「有问题发我」，再欢迎进 5000 人大群；很多人进群问的都是客服能答的简单问题
-      if (open && !list.children.length) add("bot", '您好 👋 我是 AiLGNS 客服。<br><b>有任何问题直接发给我，我来帮你解决。</b><br>另外欢迎进入 <b>5000 人大群</b>，和大家交流心得：<br><a class="cb-human cb-hi" href="#" data-group>💬 点这里进 5000 人大群 →</a><br><span class="cb-need">⚠️ 进群前先改资料：在 DeBox 把自己的名字改成「<b>志愿者+名字</b>」（例如：志愿者+小张）再申请，否则申请不会通过。</span>');
+      // 站长 2026-11-09 晚：开场先说「有问题发我」，再欢迎进大群（2026-11-26 站长：改成 10 万人大群，这是我们的目标。群现在约 7 千人，所以写成「目标 / 一起冲」，不写成已经有 10 万人）；很多人进群问的都是客服能答的简单问题
+      if (open && !list.children.length) add("bot", '您好 👋 我是 AiLGNS 客服。<br><b>有任何问题直接发给我，我来帮你解决。</b><br>另外欢迎进入大群，我们的目标是 <b>10 万人大群</b>，和大家交流心得：<br><a class="cb-human cb-hi" href="#" data-group>💬 点这里进群，一起冲 10 万人 →</a><br><span class="cb-need">⚠️ 进群前先改资料：在 DeBox 把自己的名字改成「<b>志愿者+名字</b>」（例如：志愿者+小张）再申请，否则申请不会通过。</span>');
       schedule();
       if (open && matchMedia("(min-width: 601px)").matches) input.focus();
     }
