@@ -5776,3 +5776,8 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .cb-need { display: block; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #fff8e8; border: 1px solid #fbd38d; color: #7c4a03; font-size: 13px; line-height: 1.55; }
 .cb-need b { color: #b45309; }
 .cb-grp small.cb-need { margin-top: 6px; font-size: 12px; padding: 6px 9px; }
+
+/* 顶部导航：跨链桥沿用原会员位置的紫色按钮，图标改成画线（皇冠是实心的）；两个四字角标收小一点 */
+.tabs a.vipt.navb svg { fill: none; stroke: #fff; stroke-width: 1.8; }
+.tabs a.vipt.navb i, .tabs a.rankt i { white-space: nowrap; }
+@media (max-width: 600px) { .tabs a .tb-x { display: none; } .tabs a.vipt.navb i, .tabs a.rankt i { font-size: 8px; padding: 2px 3px; right: -2px; } } /* 手机一排六个：「涡轮助手」放不下，只显示「涡轮」；四字角标再小一号 */
