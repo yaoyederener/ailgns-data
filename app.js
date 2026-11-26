@@ -777,7 +777,7 @@
     var d = document.createElement("div"); d.id = "grp-m"; d.className = "grp-m";
     d.innerHTML = '<div class="grp-c"><button type="button" class="grp-x" aria-label="关闭">×</button><h3>💬 加入 AiLGNS OTC 交流群</h3><p class="muted">用 <b>DeBox</b> 扫一扫，进群聊 OTC、域名、预言家；站长和机器人都在群里</p>' +
       /* 站长 2026-11-26：「进群的时候要修改个人资料，把名字改成『志愿者+名字』再申请，否则申请不会被通过。所有进群提示都加一下」 */
-      '<p class="grp-need">⚠️ <b>进群前先改资料</b>：在 DeBox 把自己的名字改成「<b>志愿者+名字</b>」（例如：志愿者小张）再申请，否则申请不会通过。</p>' +
+      '<p class="grp-need">⚠️ <b>进群前先改资料</b>：在 DeBox 把自己的名字改成「<b>志愿者+名字</b>」（例如：志愿者+小张）再申请，否则申请不会通过。</p>' +
       '<img src="icons/otc-group-qr.png?v=1" alt="OTC 交流群二维码" width="240" height="250">' +
       (GROUP_LINK ? '<a class="nm-go" href="' + GROUP_LINK + '" target="_blank" rel="noopener">手机上点这里直接加群 →</a>' : "") +
       '<p class="muted grp-tip">手机：长按二维码保存 → 打开 DeBox → 扫一扫 → 相册选图。没有 DeBox？<a href="#/app">先看这里 →</a></p></div>';
