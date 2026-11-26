@@ -1131,7 +1131,9 @@
     root.querySelectorAll("[data-dbx-link]").forEach(function (b) { b.onclick = showLink; });
   }
   // 弹出机器人二维码：客户长按保存（或截图），到 DeBox「扫一扫」从相册选图，直接打开机器人关注
-  var QR_LIB = "vendor/qrcode-1.4.4.min.js?v=1"; // 放在本站：国内访问外站 CDN 不稳定（和 cdnjs 上 1.4.4 版逐字节相同）
+  /* 2026-11-26 站长：「机器人二维码显示不出来」。原因：11-20 改秒到通道时把 vendor 目录整个删了，这个文件跟着没了（线上打开它返回的是首页），二维码坏了 5 天。
+     文件已补回；版本号换成 v=2（v=1 那个地址被缓存成了网页）；tools/build.py 加了检查，文件不在就打包失败。 */
+  var QR_LIB = "vendor/qrcode-1.4.4.min.js?v=2"; // 放在本站：国内访问外站 CDN 不稳定（和 cdnjs 上 1.4.4 版逐字节相同）
   function loadQr() {
     if (window.qrcode) return Promise.resolve(window.qrcode);
     return new Promise(function (ok, fail) {
