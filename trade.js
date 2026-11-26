@@ -355,7 +355,8 @@
           return K().marketPrice().then(function (x) { return x; }, function () { return 0; });
         }).then(function (mp) {
           if (!(mp > 0)) throw new Error("现在读不到 " + SYM + " 的链上市价，没法核对你的价格，这张单先不发（没有扣任何钱）。请过一会儿再试");
-          if (sell ? px <= mp * 0.5 : px >= mp * 2) throw new Error("你填的价格 " + f2(px) + " 和 " + SYM + " 现在的链上市价（约 " + f2(mp) + "）差了一倍以上，这张单没有发出去（没有扣任何钱）。请把价格改到市价附近");
+          var ds = Number(K().M().dexSell), lowRef = mp * (ds > 0 && ds < 1 ? ds : 1); // 下限按「DEX 卖出到手价」的一半算（LGNS 在 DEX 卖要扣约一半的税，场外价本来就低）
+          if (sell ? px <= lowRef * 0.5 : px >= mp * 2) throw new Error("你填的价格 " + f2(px) + " 和 " + SYM + " 现在的链上市价（约 " + f2(mp) + "）差了一倍以上，这张单没有发出去（没有扣任何钱）。请把价格改到市价附近");
           return K().balance(token, account);
         }).then(function (b) {
           if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));
