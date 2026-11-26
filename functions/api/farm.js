@@ -8,6 +8,12 @@ export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV;
   if (!kv) return new Response("no kv", { status: 503 });
   const q = new URL(ctx.request.url).searchParams;
+  if (q.get("diag")) { // 🔎 站长口令：看某个钱包的名字门槛每一步是怎么判的
+    const k = String(ctx.request.headers.get("x-key") || ""); // 口令走请求头，不放网址里
+    if (!k || !ctx.env.FEEDBACK_KEY || k !== ctx.env.FEEDBACK_KEY) return Response.json({ error: "口令不对" }, { status: 403 });
+    const { selfRegDiag } = await import("../../lib/oracle.js");
+    return Response.json(await selfRegDiag(kv, String(q.get("diag")).toLowerCase()), NO_STORE);
+  }
   if (q.get("list")) return Response.json(await neighbors(kv, String(q.get("me") || "").toLowerCase()), NO_STORE);
   if (q.get("rules")) {
     const plots = []; for (let n = START_PLOTS; n < MAX_PLOTS; n++) plots.push(plotPrice(n));
