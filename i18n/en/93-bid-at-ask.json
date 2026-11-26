@@ -1,3 +1,3 @@
 {
-"💱 挂买单放宽：买单的出价现在可以和盘口里最低的卖单同价，只有出价比最低卖价还高才不让挂。卖单的规矩没变。": "💱 Buy orders relaxed: a buy order may now be priced the same as the lowest sell order on the book; it is only blocked when your bid is higher than the lowest ask. Sell-order rules are unchanged."
+"💱 挂买单放宽：买单的出价现在可以和盘口里最低的卖单同价，只有出价比最低卖价还高才不让挂；盘口倒挂时也能挂同价的买单，指导价会直接给到这个价。卖单的规矩没变。": "💱 Buy orders relaxed: a buy order may now be priced the same as the lowest sell order on the book; it is only blocked when your bid is higher than the lowest ask. This also works when the book is inverted, and the suggested price shows that level. Sell-order rules are unchanged."
 }

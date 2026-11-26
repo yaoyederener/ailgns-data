@@ -100,6 +100,9 @@
       return "现在有卖单要价 " + fx(ask) + " DAI，你的出价 " + fx(px) + " 比它还高。这种单不用挂：直接点盘口里那张卖单的「买入」，马上成交，还更便宜。想挂买单，请把单价填到 " + fx(ask) + " 或更低。";
     return "";
   }
+  // 站长 2026-11-27「现在盘口倒挂的时候，允许挂相同价格」：最低卖单已经跌到买单最低出价以下时（倒挂），以前买单一个价位都挂不了；
+  // 现在允许挂一张和最低卖单同价的买单——这个价有人肯卖，不算压价。纯计算：出价是不是和盘口上显示的最低卖价同价
+  function atAsk(px, ask, pd) { px = Number(px) || 0; ask = Number(ask) || 0; if (!(px > 0) || !(ask > 0)) return false; return Math.abs(px - Number(ask.toFixed(pd))) <= Math.pow(10, -pd) * 1e-6; }
   var LOW_BID = 0.95;
   function lowBidCut(mkt) { return dexNet(mkt) * LOW_BID; }
   // 指导价跟真实成交走（站长要求）：/api/guide 给出最近 30 笔成交价 ÷ 当时 DEX 市价的中位数，页面乘上现在的市价
@@ -1615,8 +1618,10 @@
             var gfl = bidFloor(mkt), gmin = gfl ? (Math.floor(gfl / tick) + 1) * tick : 0;
             if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = MK === "lgns" ? "比本站买单最低出价（约 " + A.fmt(gfl, PD) + "）高一点；这条线是「卖家去 DEX 卖的到手价」再低 2%，比它低不让挂" : "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
             else if (otcBid) { g1 = otcBid; why = "和其他客户最高的买单同价，排在最前面一档；同价的先挂先成交"; }
-            else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk - tick : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
-            if (g1 && g1 !== Infinity && xAsk && g1 >= xAsk - tick * 1e-6) { g1 = (Math.round(xAsk / tick) - 1) * tick; why = "比现在最低的卖单（" + A.fmt(xAsk, PD) + "）低一档。出价不能高于或等于现成的卖单要价——那样直接买那张卖单就行"; } // 不许挂穿盘口
+            else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
+            // 2026-11-27：买单可以和最低卖单同价（鼓励挂买单）。指导价碰到或超过最低卖价时，就给「和最低卖单同价」——包括倒挂（卖单已经比买单最低出价还低）的时候
+            var askD = xAsk ? Number(Number(xAsk).toFixed(PD)) : 0;
+            if (g1 && g1 !== Infinity && askD && g1 >= askD - tick * 1e-6) { g1 = askD; why = "和现在最低的卖单（" + A.fmt(xAsk, PD) + "）同价，这是买单能挂的最高价，排在最前面。出价不能比现成的卖单要价还高——那样直接买那张卖单更便宜"; }
           }
           if (!(g1 > 0) || g1 === Infinity) { el.hidden = true; return; }
           var gs = g1.toFixed(PD);
@@ -1756,10 +1761,10 @@
         var block = far && (side === "buy" ? true : (otcBid ? num(p) <= otcBid * 0.5 : true));
         var farMsg = far ? "⛔ 你填的单价 " + A.fmt(num(p), PD) + " 比现在的" + oref.n + "（约 " + A.fmt(oref.p, PD) + "）" + (side === "sell" ? "低 " : "高 ") + Math.abs(diff).toFixed(0) + "%，差了一倍以上。是不是" + (side === "sell" ? "少写" : "多写") + "了一个零？挂出去会被别人马上" + (side === "sell" ? "低价买走" : "高价卖给你") + "。" + (block ? "【这个价不能挂】链上成交撤不回来，请把单价改到市价附近再发布。" : "") : "";
         var bfl = side === "buy" ? bidFloor(mkt) : 0;
-        if (bfl && num(p) <= bfl) { far = true; block = true; farMsg = "⛔ " + bidFloorMsg(bfl); } // 买单出价不高于 DEX 到手价：不让挂
+        if (bfl && num(p) <= bfl && !atAsk(num(p), xAsk, PD)) { far = true; block = true; farMsg = "⛔ " + bidFloorMsg(bfl); } // 买单出价不高于 DEX 到手价：不让挂（和最低卖单同价的除外，2026-11-27）
         { // 不许挂穿盘口的单（见 crossText）。买单还有一种情况：最低的卖单已经不高于买单底线，这时没有能挂买单的价位了，直接告诉他去买那张卖单
           var tk = Math.pow(10, -PD), cx = crossText(side, num(p), xBid, xAsk, PD);
-          if (side === "buy" && bfl && xAsk && xAsk <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了，没有能挂买单的价位。直接点盘口里那张卖单的「买入」就行，马上成交。";
+          if (side === "buy" && bfl && xAsk && xAsk <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6 && !atAsk(num(p), xAsk, PD)) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了。这时买单只能挂和它同价：请把单价填成 " + Number(xAsk).toFixed(PD) + "；或者直接点盘口里那张卖单的「买入」，马上成交。";
           if (cx) { far = true; block = true; farMsg = "⛔ " + cx; }
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
@@ -2472,7 +2477,7 @@
     M: function () { return M; }, OTC: function () { return OTC; }, DAI: function () { return DAI; }, EXPLORER: function () { return EXPLORER; },
     useMarket: useMarket, // lend.js 用：切到对应市场，让链、钱包切链都对
     cancelMany: cancelMany, // 账本「一键批量撤单」用
-    bidFloor: bidFloor, lowBidCut: lowBidCut, loadTax: loadTax, // 一键做市铺买单也守「买单最低出价」（站长 2026-11-21）
+    bidFloor: bidFloor, lowBidCut: lowBidCut, loadTax: loadTax, atAsk: atAsk, // 一键做市铺买单也守「买单最低出价」（站长 2026-11-21）
     deboxCard: deboxCard, // 借贷 / 卡牌页复用 DeBox 通知绑定卡片
     lpQuote: lpQuote, // 看盘页（chart.js）显示 LP 参考价
     marketPrice: marketPrice, // 一键做市发单前现读一次链上市价（2026-11-26 串价事故后加）
