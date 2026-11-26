@@ -46,8 +46,11 @@
     }
     return list;
   }
+  // 2026-11-26 串价事故（见 lp.js load 上面的说明）：这一页也是「晚到的旧数据会被当成现在这一页的」。每次读都记住是哪一页、哪个市场发出去的，回来时对不上就丢掉
   function loadBook(fresh) {
-    return fetch("/api/book?m=" + MK + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+    var id0 = rid, mk0 = MK;
+    return fetch("/api/book?m=" + mk0 + (fresh ? "&fresh=1" : "")).then(function (r) { return r.json(); }).then(function (j) {
+      if (id0 !== rid || mk0 !== MK) throw new Error("页面已经换了市场，这一步没有做。请在现在这个币的页面重新操作");
       var now = Date.now() / 1000, all = parseOrders(j.orders, Number(j.from || 0));
       try { /* 工单 #282：窗口之前还有效的老单（后台放在 j.old）也算进盘口 */
         (j.old || []).forEach(function (x) { var o = x && x.o; if (!o || o.length !== 7 || !(x.id < Number(j.from || 0))) return; all.push({ id: x.id, maker: "0x" + o[0].slice(24), sellAilgns: BigInt("0x" + o[1]) === 1n, open: BigInt("0x" + o[2]) === 1n, expiry: Number(BigInt("0x" + o[3])), giveTotal: BigInt("0x" + o[4]), wantTotal: BigInt("0x" + o[5]), giveLeft: BigInt("0x" + o[6]) }); });
@@ -71,7 +74,7 @@
       book = { asks: asks, bids: bids, all: all, mkt: mkt };
     });
   }
-  function loadFills() { return fetch("/api/fills?m=" + MK).then(function (r) { return r.json(); }).then(function (j) { fills = j.list || []; }, function () {}); }
+  function loadFills() { var id0 = rid, mk0 = MK; return fetch("/api/fills?m=" + mk0).then(function (r) { return r.json(); }).then(function (j) { if (id0 === rid && mk0 === MK) fills = j.list || []; }, function () {}); }
 
   // 深度聚合：同一价格（保留 PD 位小数）合并
   function agg(list, n) {
@@ -135,7 +138,8 @@
     K().silentAccount().then(function () { account = K().account(); if (account) afterConnect(); });
   }
   function refresh(first) {
-    return Promise.all([loadBook(false), loadFills()]).then(function () { if (!A.isCurrent(rid)) return; renderStats(); renderBook(); renderTrades(); if (account) renderMine(); if (first) setDefaultPrice(); updateBal(); }).catch(function () {});
+    var id0 = rid, mk0 = MK;
+    return Promise.all([loadBook(false), loadFills()]).then(function () { if (id0 !== rid || mk0 !== MK || !A.isCurrent(id0)) return; renderStats(); renderBook(); renderTrades(); if (account) renderMine(); if (first) setDefaultPrice(); updateBal(); }).catch(function () {});
   }
   function bestAsk() { return book.asks.length ? priceOf(book.asks[0]) : 0; }
   function bestBid() { return book.bids.length ? priceOf(book.bids[0]) : 0; }
@@ -344,7 +348,16 @@
           try { cx = K().crossText ? K().crossText(side === "sell" ? "sell" : "buy", px, xb ? priceOf(xb) : 0, xs ? priceOf(xs) : 0, PD) : ""; } catch (e) { cx = ""; }
           if (cx) throw new Error(cx + "（或者把上面的「限价」切到「市价」直接成交。）"); }
         var sell = side === "sell", give = sell ? coin : dai, want = sell ? dai : coin, token = sell ? TOKEN : DAI, name = sell ? SYM : "DAI";
-        return K().balance(token, account).then(function (b) {
+        // 发单前最后一道闸（2026-11-26 串价事故后加）：市场没被别的页面换掉；链上现读这个市场的价，买价高出一倍、卖价低一半、或者读不到价，都不发
+        var otc0 = OTC;
+        return Promise.resolve().then(function () {
+          if (String(K().M().otc).toLowerCase() !== String(otc0).toLowerCase()) throw new Error("页面已经换了市场，这张单没有发出去。请回到要交易的那个币的页面重新下单");
+          return K().marketPrice().then(function (x) { return x; }, function () { return 0; });
+        }).then(function (mp) {
+          if (!(mp > 0)) throw new Error("现在读不到 " + SYM + " 的链上市价，没法核对你的价格，这张单先不发（没有扣任何钱）。请过一会儿再试");
+          if (sell ? px <= mp * 0.5 : px >= mp * 2) throw new Error("你填的价格 " + f2(px) + " 和 " + SYM + " 现在的链上市价（约 " + f2(mp) + "）差了一倍以上，这张单没有发出去（没有扣任何钱）。请把价格改到市价附近");
+          return K().balance(token, account);
+        }).then(function (b) {
           if (b < give) throw new Error((sell ? SYM : "DAI") + " 余额不够：有 " + (sell ? fq(num(b, TD)) : f(num(b), 2)) + "，需要 " + (sell ? fq(num(give, TD)) : f(num(give), 2)));
           return ensureAllowance(token, give, say, name);
         }).then(function () { return K().send(OTC, SEL.create + u256(sell ? 1 : 0) + u256(give) + u256(want) + u256(dur), say, "发布挂单"); })
