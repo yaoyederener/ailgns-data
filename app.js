@@ -6,7 +6,7 @@
   //   拦不住肯花时间删掉这段的人，只防「原样搬走」的。自己的 6 个域名、Pages 预览地址、本机开发地址放行。出任何错都不影响页面。
   try {
     (function () {
-      var h = String(location.hostname || "").toLowerCase();
+      var h = String(location.hostname || "").toLowerCase().replace(/\.+$/, ""); // 2026-11-26：有的浏览器把网址写成 ailgns.dev.（末尾多一个点，是合法写法），以前被当成仿冒站弹红色警告；比对前先去掉末尾的点
       var mine = /^(.+\.)?(ailgns\.dev|ailgnsotc\.(com|net|org|cc|xyz)|ailgns-data\.pages\.dev)$/.test(h);
       var local = h === "" || h === "localhost" || h === "127.0.0.1" || h === "[::1]" || /\.(localhost|test)$/.test(h);
       if (mine || local) return;
