@@ -698,6 +698,28 @@
       if (outs.length) return { ico: "📤", text: "<b>" + (EXT[sel] || "转入其他平台") + "</b> " + outs.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（非本站合约）" };
       if (ins.length) return { ico: "📥", text: "从<b>" + lab + "</b>收到 " + ins.map(function (m) { return fmtN(m.v, m.sym); }).join("、") + "（非本站合约）" };
     }
+    // —— 官方合约（站长 2026-11-28「账本看不到客户在 Anubis 链上的情况」）：质押、治理锁仓、涡轮、算力按币的进出说人话；对不上的照旧走下面的通用说法，不装懂 ——
+    if (t && (STAKE_OF[to] || OTURB[to] || to === AWAY.ve || to === AWAY.turbine || to === AWAY.vault || to === AWAY.airdrop || to === AWAY.power)) {
+      var oIn = ms.filter(function (m) { return m.dir === "in" && !m.nft; }), oOut = ms.filter(function (m) { return m.dir === "out" && !m.nft; });
+      var lst = function (l) { return l.map(function (m) { return fmtN(m.v, m.sym); }).join("、"); };
+      if (STAKE_OF[to]) {
+        var sn = "官方" + (/^\d/.test(STAKE_OF[to]) ? " " : "") + STAKE_OF[to] + "质押"; // 整句放进一个粗体里：英文 / 韩文词典能整句对上（拆开逐词换会很别扭）
+        if (oOut.length && !oIn.length) return { ico: "🔒", text: "<b>存入" + sn + "</b> " + lst(oOut) };
+        if (oIn.length && !oOut.length) return { ico: "🔓", text: "<b>从" + sn + "取出</b> " + lst(oIn) };
+      }
+      if (to === AWAY.ve) {
+        if (oOut.length && !oIn.length) return { ico: "🗳", text: "<b>治理锁仓（veAiLGNS）锁入</b> " + lst(oOut) };
+        if (oIn.length && !oOut.length) return { ico: "🔓", text: "<b>从治理锁仓领回</b> " + lst(oIn) };
+      }
+      if (to === AWAY.turbine) { // 链上实际走法见 turbine.js：激活 = 付 DAI 按市价买同样数量马上到账，排放的那一份锁 24 小时
+        if (oOut.length && oIn.length) return { ico: "🌀", text: "<b>激活涡轮</b>：付 " + lst(oOut) + "，马上到账 " + lst(oIn) + "（排放的那一份锁 24 小时后再领）" };
+        if (oIn.length && !oOut.length) return { ico: "🌀", text: "<b>从 Helix 涡轮领取</b> " + lst(oIn) };
+      }
+      if ((to === AWAY.vault || to === AWAY.airdrop) && !ms.length) return { ico: "🌀", text: "<b>" + (to === AWAY.vault ? "领取社区排放" : "领取 LP 空投") + "</b>（领进涡轮，激活后到账）" };
+      if (to === AWAY.power && oOut.length && !oIn.length) return { ico: "⚡", text: (oOut.some(function (m) { return m.sym !== "DAI"; }) ? "<b>销毁换算力</b>：" : "<b>投入算力</b>：") + lst(oOut) };
+      if (OTURB[to] && oOut.length && oIn.length) return { ico: "🌀", text: "<b>官方" + OTURB[to] + "</b>：付 " + lst(oOut) + "，收到 " + lst(oIn) };
+      if (OTURB[to] && oIn.length && !oOut.length) return { ico: "🌀", text: "<b>官方" + OTURB[to] + "</b>：收到 " + lst(oIn) };
+    }
     var k = KNOWN[to];
     return { ico: "🔧", text: (k ? "与「" + esc(k) + "」交互" : (EXT[sel] ? EXT[sel] + "（其他平台）" : "与其他平台的合约交互")) + (METHODS[sel] ? "：" + METHODS[sel] : "") + (ms.length ? "，" + ms.map(function (m) { return (m.dir === "in" ? "收到 " : "付出 ") + (m.nft ? "域名" : fmtN(m.v, m.sym)); }).join("、") : "") };
   }
@@ -725,6 +747,11 @@
     if (/收到域名/.test(s)) return ["收到域名", "in"];
     if (/转让域名/.test(s)) return ["转让域名", "out"];
     if (/域名/.test(s)) return ["域名", "name"];
+    if (/存入官方.*质押|治理锁仓.*锁入/.test(s)) return ["质押", "wait"];
+    if (/从官方.*质押取出|从治理锁仓领回/.test(s)) return ["取回", "in"];
+    if (/领取社区排放|领取 LP 空投/.test(s)) return ["领排放", "in"];
+    if (/激活涡轮|涡轮领取|^官方[^：]*涡轮[^：]*：付/.test(s)) return ["涡轮", "buy"];
+    if (/投入算力/.test(s)) return ["算力", "out"];
     if (/运营|调拨/.test(s)) return ["运营", "etc"];
     if (/换了|兑换|其他平台|非本站/.test(s)) return ["其他平台", "etc"];
     if (/转出|付出/.test(s)) return ["转出", "out"];
@@ -732,7 +759,7 @@
     if (/OTC/.test(s)) return ["OTC 操作", "etc"];
     return ["其他", "etc"];
   }
-  var DIR = { "🪙": "in", "🤖": "trade",  "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
+  var DIR = { "🔓": "in", "🌀": "trade", "🪙": "in", "🤖": "trade",  "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
   function rowHtml(a, row) {
     var r = translate(a, row), tg = tagOf(r), money = (row.tr && row.tr.length) || (row.tx && row.tx.value && Number(row.tx.value) > 0) || /收到|付出|转出|转入|买入|卖出|成交|退回|注册|续费/.test(r.text);
     return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + (DIR[r.ico] ? '" data-dir="' + DIR[r.ico] : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><span class="lg-tag lg-k-' + tg[1] + '">' + tg[0] + '</span><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
@@ -866,55 +893,116 @@
   }
   // 🃏 卡牌 / NFT 显示框：AWAKE 卡牌直接读链（刚买完马上就有，不等官方浏览器收录），其它 NFT 用浏览器接口的结果；域名另有一栏，不在这里重复
   var AWAKE = "0x58839f46bd0e3f4494e2beb8ca93da9352208615", CARD_MAX = 60;
-  /* 💼 押在别处的（站长 2026-11-25：账本只算钱包里的币，客户押在官方的看不到，以为钱没了 / 以为自己够门槛，工单 #447）。
-     只读链上，不动钱。三处：官方 LGNS 质押 360 天、600 天两个合约（getDepositorBalance），官方流动性池里押着的 AiLGNS-LGNS LP（lpOf，按池子存量折成两种币）。
-     哪一处读不到就不显示那一行（不当成 0 写出来）；三处都没有就整块不显示。折算用的价和上面余额是同一个（池子标价），只是「大约」 */
-  var AWAY = { s360: "0x88ea98af226cd4402a3873400308a4d78784ece6", s600: "0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", lpMgr: "0x5ddc8a13eabda89593beb885ab8b2afda26a3587", lp: "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2",
-    ilo: "0x4ff8e905ab40ed18355b0b2c0dfae8213d5d8d90", ido: "0x5e6d77f8071642561c999e97c1022108b8d5de57" };
+  /* 💼 押在别处的（站长 2026-11-25 起：账本只算钱包里的币，客户押在官方的看不到，以为钱没了 / 以为自己够门槛，工单 #447）。只读链上，不动钱；
+     哪一处读不到就不显示那一行（不当成 0 写出来），都没有就整块不显示；折算用的价和上面余额是同一个（池子标价），只是「大约」 */
+  /* 💼 押在别处的（站长 2026-11-28「账本功能，无法看到客户在 Anubis 链上的情况」）
+     以前只读了官方 360 / 600 天两个质押 + LP + ILO / IDO。拿 11-27 那期预言家 542 个真实客户钱包核过：146 人在另外四个质押（即时 / 折扣 / 活跃积分 / 债券）里
+     押着约 41 万枚 LGNS，账本上一个字都没有；75 人有算力；53 人的 Helix 涡轮里锁着 AiLGNS、28 人到期了还没领；24 人做了治理锁仓（veAiLGNS）；13 人有生产 NFT。
+     现在照官方「我的资产」页（awakehelix.io）同一套读法补全：地址、函数名都从官方前端脚本核对过（2026-11-28），542 个钱包逐个试读都读得出。
+       · 能取回 / 已经是这个钱包的（质押、LP、治理期限锁还没释放的 + 已释放可领的、涡轮里锁 24 小时的 + 到期可领的）按现价折成 DAI，算进「约值」；
+       · 领进涡轮还没激活的、待领的社区排放和 LP 空投：要先在涡轮付等值 DAI 激活才到手，只列数，不算进约值；
+       · 算力、治理永久锁（已经销毁换永久治理资格）、生产 NFT 额度：官方自己也不算资产，只列数、不估价 */
+  var AWAY = { lpMgr: "0x5ddc8a13eabda89593beb885ab8b2afda26a3587", lp: "0xc5029d6e80d2fdce321b2b51010e9ce3b1edf1a2",
+    ilo: "0x4ff8e905ab40ed18355b0b2c0dfae8213d5d8d90", ido: "0x5e6d77f8071642561c999e97c1022108b8d5de57",
+    ve: "0x52d7f7745d4ba3de6c3a0b503815878aee7edf14", clock: "0x6c5352e15a8327c3f44898fe220100edc2989c58", turbine: "0xe884a336550a4482ca6a17a3f93aa30ed4ed9bad",
+    vault: "0x3deea5f638ca0dfb03a0873cf4c0b90ba50e1aa2", airdrop: "0xf0e9ec153f68bfa2fc8c76165db2b80579dcb217", power: "0x9e68f61e2615cc1d2c4a2d0026bfc1ebfdf68c1b", pnft: "0x77e6ab1c5557fd456b0656304e0e5c02a6d7dcca" };
+  // 官方六个质押合约各记各的账，都用 getDepositorBalance(钱包) 读押着多少 LGNS（9 位小数）；和 functions/api/bonus.js 的 STK 是同一份（2026-11-25 真实钱包核过）
+  var STAKES = [["0x88ea98af226cd4402a3873400308a4d78784ece6", "360 天"], ["0x04ed22c6d1d020a9b5e032e93d79ab28293ef72f", "600 天"], ["0xf7788f5a5cbbafac4120c63c79dcd9f1931c7824", "即时"],
+    ["0x5584cdeb1369673c91c6ad7ebea0ce7cb630ce60", "折扣"], ["0x1e5feec473f7f445fc7f5feec0beabb2270b0b4e", "活跃积分"], ["0xf190ab12b73bfe1b626379af96e8f1859ec91f20", "债券"]];
+  var STAKE_OF = {}; STAKES.forEach(function (x) { STAKE_OF[x[0]] = x[1]; });
+  var OTURB = { "0x92b53785090f6fe0717ca3cf5db8f8040d3b070b": "涡轮", "0x0664f1369209677fecb279f5ec3df1e53a22212e": "新涡轮", "0x229e0aa54ebcfd887a1c06bc649ad1afca87486a": "新涡轮 4x", "0x8250f8eeaae5b6e21043fbd8c61c70e1b0906109": "新涡轮（社区）" };
+  var VE_MAX = 40; // 治理锁仓一个钱包最多读 40 个仓位（样本里最多的一位 31 个）
   var awayFor = "";
   function awayBox(a, px, fb) {
     awayFor = a; // 读链要几秒：这期间客户又查了别的钱包，晚到的这份就不能画上去
-    var big = function (h) { return h && h.length >= 66 ? BigInt(h) : null; }, soft = function (pr) { return pr.then(big, function () { return null; }); };
-    Promise.all([
-      soft(call(AWAY.s360, "0xb79215d6" + u256(a))), soft(call(AWAY.s600, "0xb79215d6" + u256(a))),
-      soft(call(AWAY.lpMgr, "0x963fdeb3" + u256(AWAY.lp) + u256(a))),
-      call(AWAY.lp, "0x0902f1ac").catch(function () { return null; }), soft(call(AWAY.lp, "0x18160ddd")),
-      /* 站长 2026-11-25：「我账户里还有 ILO 共建代币，没有扫出来」。ILO 共建不是代币，是官方 ILO 合约里的参与记录（投了多少、奖励释放了多少、还能领多少），
-         按代币扫不到，要直接问合约：getUserDeposits(address) 每笔 9 个数（DAI 等值、LGNS 数量、LP、价格、时间、期数、总奖励、已领、模式），
-         getUserRewardSummary(address) = 奖励总值（DAI）、已释放、已领、现在可领（后三个是 LGNS，9 位小数）。官方 IDO 认购只读投入总额 totalDaiDeposited(address) */
-      call(AWAY.ilo, "0x2a5bf6d2" + u256(a)).catch(function () { return null; }), call(AWAY.ilo, "0xc5d304e9" + u256(a)).catch(function () { return null; }),
-      soft(call(AWAY.ido, "0xde4a534e" + u256(a)))
-    ]).then(function (r) {
-      if (awayFor !== a) return;
-      var card = document.querySelector(".sc-balc"), old = document.getElementById("sc-away"); if (old) old.remove();
+    var one = function (h) { return h && h.length >= 66 ? BigInt(h.slice(0, 66)) : null; };
+    var rd = function (to, data) { return bcall(to, data).then(one, function () { return null; }); }; // 读一个数；读不到 = null（不当成 0）
+    var raw = function (to, data) { return bcall(to, data).catch(function () { return null; }); };
+    var A32 = u256(a), jobs = STAKES.map(function (x) { return rd(x[0], "0xb79215d6" + A32); }); // 0–5 六个质押
+    jobs.push(rd(AWAY.lpMgr, "0x963fdeb3" + u256(AWAY.lp) + A32), raw(AWAY.lp, "0x0902f1ac"), rd(AWAY.lp, "0x18160ddd")); // 6 押着的 LP（lpOf），7 池子储备，8 LP 总量
+    /* ILO 共建（站长 2026-11-25「我账户里还有 ILO 共建代币，没有扫出来」）：不是代币，是官方 ILO 合约里的参与记录，要直接问合约：
+       getUserDeposits(address) 每笔 9 个数（DAI 等值、LGNS 数量、LP、价格、时间、期数、总奖励、已领、模式），
+       getUserRewardSummary(address) = 奖励总值（DAI）、已释放、已领、现在可领（后三个是 LGNS，9 位小数）。官方 IDO 认购只读投入总额 totalDaiDeposited(address) */
+    jobs.push(raw(AWAY.ilo, "0x2a5bf6d2" + A32), raw(AWAY.ilo, "0xc5d304e9" + A32), rd(AWAY.ido, "0xde4a534e" + A32)); // 9 ILO 每笔，10 ILO 奖励，11 IDO
+    jobs.push(rd(AWAY.turbine, "0x9886c2a5" + A32), rd(AWAY.turbine, "0x59355736" + A32), rd(AWAY.turbine, "0x8903ab9d" + A32)); // 12 领进涡轮待激活 claimedBalance，13 锁 24 小时中 lockedBalanceOf，14 到期可领 claimableOf
+    jobs.push(rd(AWAY.vault, "0xf44136a1" + A32), rd(AWAY.airdrop, "0xf44136a1" + A32)); // 15 社区排放待领，16 LP 空投待领（都是 pendingOf）
+    jobs.push(rd(AWAY.power, "0x6cf2fa36" + A32), rd(AWAY.power, "0xaa81a38f" + A32), rd(AWAY.power, "0x4f343040" + A32)); // 17 有效算力 activePowerOf，18 待生效 pendingPowerOf，19 累计 totalPowerOf
+    jobs.push(rd(AWAY.pnft, "0x70a08231" + A32), rd(AWAY.pnft, "0x98fddec6" + A32)); // 20 生产 NFT 张数，21 现在可用额度（DAI）consumableOf
+    jobs.push(raw(AWAY.ve, "0xf867d46b" + A32), rd(AWAY.clock, "0x76671808")); // 22 治理锁仓的仓位编号 positionsOf，23 现在第几期 currentEpoch（一期 7 天）
+    Promise.all(jobs).then(function (r) {
+      if (awayFor !== a) return null;
+      var vw = (r[22] || "0x").slice(2).match(/.{64}/g) || [], n = vw.length > 1 ? Number(BigInt("0x" + vw[1])) : 0, ids = [];
+      for (var i = 0; i < Math.min(n, VE_MAX) && vw.length >= 2 + n; i++) ids.push(BigInt("0x" + vw[2 + i]));
+      // 每个仓位：positions(id) =（主人、种类 0 期限锁 / 1 永久、本金、起始期、锁几期、已领本金、已关闭），remainingPrincipalOf(id) = 还没释放的，claimableOf(id) = 已释放可领的
+      return Promise.all(ids.map(function (id) { return Promise.all([raw(AWAY.ve, "0x99fbab88" + u256(id)), rd(AWAY.ve, "0xf7672c3f" + u256(id)), rd(AWAY.ve, "0x513bed12" + u256(id))]); }))
+        .then(function (vp) { return { r: r, vp: vp }; });
+    }).then(function (x) {
+      if (!x || awayFor !== a) return;
+      var r = x.r, card = document.querySelector(".sc-balc"), old = document.getElementById("sc-away"); if (old) old.remove();
       if (!card) return;
-      var rows = [], sum = 0;
-      var lg = function (v, name) { if (v === null || v <= 0n) return; var n = Number(v) / 1e9; if (n < 0.01) return; var w = n * (px.LGNS || 0); sum += w; rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lgns.png?v=1" alt="">' + name + "</span><b>" + fb(n) + " LGNS</b>" + (w ? "<small>≈ " + fb(w) + " DAI</small>" : "") + "</div>"); };
-      lg(r[0], "官方质押 · 360 天"); lg(r[1], "官方质押 · 600 天");
-      if (r[2] !== null && r[2] > 0n && r[3] && r[3].length >= 130 && r[4] !== null && r[4] > 0n) {
-        var ONE = 10n ** 18n, r0 = BigInt("0x" + r[3].slice(2, 66)), r1 = BigInt("0x" + r[3].slice(66, 130));
-        var ail = Number(r0 * r[2] / r[4]) / 1e18, lgn = Number(r1 * r[2] / r[4]) / 1e9, w2 = ail * (px.AiLGNS || 0) + lgn * (px.LGNS || 0);
-        if (ail > 1e-6 || lgn > 0.01) {
-          sum += w2;
-          rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lp.png?v=2" alt="">官方流动性池 · 押着的 LP</span><b>' + fb(Number(r[2] * 100000000n / ONE) / 1e8) + " 个</b><small>里面含 " + fb(ail) + " AiLGNS + " + fb(lgn) + " LGNS" + (w2 ? "，≈ " + fb(w2) + " DAI" : "") + "</small></div>");
-        }
+      var rows = [], rights = [], sum = 0, E18 = 10n ** 18n, pa = px.AiLGNS || 0, pl = px.LGNS || 0;
+      var n18 = function (v) { return v === null || v === undefined ? 0 : Number(v * 1000000n / E18) / 1e6; };
+      var row = function (ico, name, b, sm) { return '<div class="sc-aw"><span>' + ico + name + "</span><b>" + b + "</b>" + (sm ? "<small>" + sm + "</small>" : "") + "</div>"; };
+      var img = function (k) { return '<img class="sc-ci" src="icons/tokens/' + k + ".png?v=" + (k === "lp" ? 2 : 1) + '" alt="">'; };
+      // ① 官方质押（LGNS）
+      STAKES.forEach(function (s, i) {
+        var v = r[i]; if (v === null || v <= 0n) return; var q = Number(v) / 1e9; if (q < 0.01) return;
+        var w = q * pl; sum += w; rows.push(row(img("lgns"), "官方质押 · " + s[1], fb(q) + " LGNS", w ? "≈ " + fb(w) + " DAI" : ""));
+      });
+      // ② 官方流动性池 LP
+      if (r[6] !== null && r[6] > 0n && r[7] && r[7].length >= 130 && r[8] !== null && r[8] > 0n) {
+        var r0 = BigInt("0x" + r[7].slice(2, 66)), r1 = BigInt("0x" + r[7].slice(66, 130));
+        var ail = Number(r0 * r[6] / r[8]) / 1e18, lgn = Number(r1 * r[6] / r[8]) / 1e9, w2 = ail * pa + lgn * pl;
+        if (ail > 1e-6 || lgn > 0.01) { sum += w2; rows.push(row(img("lp"), "官方流动性池 · 押着的 LP", fb(Number(r[6] * 100000000n / E18) / 1e8) + " 个", "里面含 " + fb(ail) + " AiLGNS + " + fb(lgn) + " LGNS" + (w2 ? "，≈ " + fb(w2) + " DAI" : ""))); }
       }
-      try { // ILO 共建
-        var W = function (h) { return (h || "0x").slice(2).match(/.{64}/g) || []; }, dw = W(r[5]), sw = W(r[6]);
+      // ③ 治理锁仓（veAiLGNS）：期限锁每 7 天按比例释放（26–208 期），永久锁 = 销毁换永久治理资格
+      var ep = r[23] !== null ? Number(r[23]) : null, tRem = 0n, tCl = 0n, tN = 0, endMax = 0, perm = 0n, pN = 0;
+      x.vp.forEach(function (p) {
+        var w = (p[0] || "0x").slice(2).match(/.{64}/g) || []; if (w.length < 7) return;
+        var kind = Number(BigInt("0x" + w[1])), principal = BigInt("0x" + w[2]), start = Number(BigInt("0x" + w[3])), lock = Number(BigInt("0x" + w[4])), closed = BigInt("0x" + w[6]) > 0n;
+        if (kind === 1) { if (principal > 0n) { perm += principal; pN++; } return; }
+        if (closed) return;
+        tRem += p[1] || 0n; tCl += p[2] || 0n; tN++; if (start + lock > endMax) endMax = start + lock;
+      });
+      if (tRem + tCl > 0n) {
+        var rem = n18(tRem), cl = n18(tCl), w3 = (rem + cl) * pa, wk = ep !== null ? endMax - ep : 0; sum += w3;
+        rows.push(row(img("ailgns"), "治理锁仓 · 期限锁", fb(rem) + " AiLGNS", "还没释放 · " + tN + " 个仓位，每 7 天按比例释放" + (wk > 0 ? "，约 " + wk + " 周放完" : "") +
+          (cl > 0 ? "；已释放可领 <b>" + fb(cl) + " AiLGNS</b>" : "") + (w3 ? "，≈ " + fb(w3) + " DAI" : "")));
+      }
+      // ④ Helix 涡轮：锁 24 小时的、到期可领的已经是这个钱包的；领进来还没激活的、待领的排放要先付等值 DAI 激活才到手
+      var tLock = n18(r[13]), tCan = n18(r[14]), tWait = n18(r[12]);
+      if (tLock + tCan > 0) {
+        var w4 = (tLock + tCan) * pa; sum += w4;
+        rows.push(row(img("ailgns"), "Helix 涡轮", fb(tLock + tCan) + " AiLGNS", [tLock > 0 ? "锁 24 小时中 " + fb(tLock) : "", tCan > 0 ? "<b>已到期可领 " + fb(tCan) + "</b>" : ""].filter(Boolean).join(" · ") + (w4 ? "，≈ " + fb(w4) + " DAI" : "")));
+      }
+      var eV = n18(r[15]), eL = n18(r[16]), waitT = tWait + eV + eL;
+      if (waitT > 0) rows.push(row(img("ailgns"), "待激活的排放", fb(waitT) + " AiLGNS", [tWait > 0 ? "领进涡轮还没激活 " + fb(tWait) : "", eV > 0 ? "社区排放待领 " + fb(eV) : "", eL > 0 ? "LP 空投待领 " + fb(eL) : ""].filter(Boolean).join(" · ") +
+        "。要在涡轮付等值 DAI 激活才到手，不算进约值"));
+      // ⑤ ILO 共建、IDO 认购（参与记录）
+      try {
+        var W2 = function (h) { return (h || "0x").slice(2).match(/.{64}/g) || []; }, dw = W2(r[9]), sw = W2(r[10]);
         var cnt = dw.length > 1 ? Number(BigInt("0x" + dw[1])) : 0;
         if (cnt > 0 && cnt < 500 && dw.length >= 2 + cnt * 9) {
-          var dai = 0, lg2 = 0;
-          for (var i = 0; i < cnt; i++) { dai += Number(BigInt("0x" + dw[2 + i * 9])) / 1e18; lg2 += Number(BigInt("0x" + dw[3 + i * 9])) / 1e9; }
+          var dIn = 0, lIn = 0;
+          for (var i = 0; i < cnt; i++) { dIn += Number(BigInt("0x" + dw[2 + i * 9])) / 1e18; lIn += Number(BigInt("0x" + dw[3 + i * 9])) / 1e9; }
           var rel = sw.length >= 4 ? Number(BigInt("0x" + sw[1])) / 1e9 : null, got = sw.length >= 4 ? Number(BigInt("0x" + sw[2])) / 1e9 : null, can = sw.length >= 4 ? Number(BigInt("0x" + sw[3])) / 1e9 : null;
-          if (can) sum += can * (px.LGNS || 0);
-          rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/lgns.png?v=1" alt="">官方 ILO 共建 · ' + cnt + " 笔</span><b>投入 " + fb(lg2) + " LGNS</b><small>投入时约 " + fb(dai) + " DAI" +
-            (rel !== null ? " · 奖励已释放 " + fb(rel) + " LGNS，已领 " + fb(got) + "，现在可领 " + fb(can) : "") + "</small></div>");
+          if (can) sum += can * pl;
+          rows.push(row(img("lgns"), "官方 ILO 共建 · " + cnt + " 笔", "投入 " + fb(lIn) + " LGNS", "投入时约 " + fb(dIn) + " DAI" + (rel !== null ? " · 奖励已释放 " + fb(rel) + " LGNS，已领 " + fb(got) + "，现在可领 " + fb(can) : "")));
         }
       } catch (e) { /* 这一行读不懂就不显示 */ }
-      if (r[7] !== null && r[7] > 0n) { var idoDai = Number(r[7]) / 1e18; if (idoDai >= 0.01) rows.push('<div class="sc-aw"><span><img class="sc-ci" src="icons/tokens/dai.png?v=1" alt="">官方 IDO 认购</span><b>投入 ' + fb(idoDai) + " DAI</b><small>释放和领取进度请到官方页面查看</small></div>"); }
-      if (!rows.length) return;
-      card.insertAdjacentHTML("beforeend", '<div class="sc-away" id="sc-away"><div class="sc-awh"><b>💼 押在别处的</b><span class="muted">' + (sum ? "约 " + fb(sum) + " DAI · " : "") + "不在钱包里</span></div>" + rows.join("") +
-        '<p class="muted sc-awn">这些在官方合约里，上面的「账户余额」没有算它们。质押和 LP 要到官方页面取回才能用；ILO、IDO 是参与记录，「约值」只算了现在可领的奖励，本金怎么处理以官方规则为准。</p></div>');
+      if (r[11] !== null && r[11] > 0n) { var idoDai = Number(r[11]) / 1e18; if (idoDai >= 0.01) rows.push(row(img("dai"), "官方 IDO 认购", "投入 " + fb(idoDai) + " DAI", "释放和领取进度请到官方页面查看")); }
+      // ⑥ 官方权益：不是钱，只列数（官方「我的资产」页也不把它们算进资产估值）
+      var pw = n18(r[17]), pwWait = n18(r[18]), pwAll = n18(r[19]);
+      if (pw > 0 || pwWait > 0) rights.push(row("⚡ ", "算力", fb(pw), (pwWait > 0 ? "待生效 " + fb(pwWait) + " · " : "") + (pwAll > pw ? "累计记入 " + fb(pwAll) + " · " : "") + "参与每天排放的资格，不是余额"));
+      if (perm > 0n) rights.push(row("🔥 ", "治理永久锁", fb(n18(perm)) + " AiLGNS", pN + " 个仓位 · 已销毁换永久治理资格，不退回"));
+      if (r[20] !== null && r[20] > 0n) rights.push(row("🏭 ", "生产 NFT", String(r[20]) + " 张", "现在可用额度 " + fb(n18(r[21])) + " DAI · 额度不是余额"));
+      if (!rows.length && !rights.length) return;
+      var claim = tCan > 0 || waitT > 0 || tCl > 0n;
+      card.insertAdjacentHTML("beforeend", '<div class="sc-away" id="sc-away">' +
+        (rows.length ? '<div class="sc-awh"><b>💼 押在别处的</b><span class="muted">' + (sum ? "约 " + fb(sum) + " DAI · " : "") + '<i class="sc-nw">不在钱包里</i></span></div>' + rows.join("") : "") +
+        (rights.length ? '<div class="sc-awh sc-awh2"><b>🏛 官方权益</b><span class="muted">不是钱 · 不算进约值</span></div>' + rights.join("") : "") +
+        '<p class="muted sc-awn">这些都在官方合约里，上面的「账户余额」没有算它们。约值只算能取回、已经属于这个钱包的部分；质押、LP、治理锁仓要到官方页面取回，涡轮里锁着的到点再领。' +
+        (claim ? ' <a href="#/turbine">去涡轮助手领取 / 激活 ›</a>' : "") + "</p></div>");
     }).catch(function () { /* 读不到就不显示，不影响别的 */ });
   }
   /* 🔑 授权检查 + 一键取消（站长 2026-11-25：「让客户知道账户有哪些授权是很好的，出个一键取消授权功能」）。
@@ -1299,12 +1387,16 @@
   function catOf(txt) { return /域名|注册|续费|\.ailgns|\.lgns|主名字|转赠|置顶|名字/.test(txt) ? "names" : /借|还款|出借|抵押|逾期|利息/.test(txt) ? "loan" : /OTC|挂单|吃单|成交|撤单|买入|卖出|盘口|求购|手续费|套利|回购/.test(txt) ? "otc" : "other"; }
   function catBtns(a, cur) { return '<div class="seg sc-cats">' + Object.keys(CATS).map(function (k) { return '<a href="#/scan/' + a + (k === "all" ? "" : "/" + k) + '" data-cat="' + k + '"' + (k === cur ? ' class="on"' : "") + ">" + CATS[k] + '<b class="sc-n" hidden></b></a>'; }).join("") + "</div>"; }
   // 「在本站的事」：每个分类按钮上标出有几单（OTC 2 · 借贷 0…），一眼看到有没有订单挂着
+  /* 英文 / 韩文版：这里写的字要先翻好再写（2026-11-28 查到：线上英文版账本打开十来秒就卡死，韩文版同样）。
+     原因：下面只在「字变了」时才写，写的是中文；翻译程序（lang.js）马上把它换成英文，这里一比「不一样」又写回中文，
+     两个都在盯页面变化的程序你改我、我改你，停不下来。直接写译好的字，翻译程序就不用再动它了。中文版没有 AIL_LANG_T，照旧写中文 */
+  function TL(s) { try { return window.AIL_LANG_T ? window.AIL_LANG_T(s) : s; } catch (e) { return s; } }
   function posCounts(root) {
     var pos = root.querySelector("#sc-pos"); if (!pos) return;
     var n = { all: 0, otc: 0, loan: 0, names: 0, other: 0 };
     pos.querySelectorAll(".lg-row").forEach(function (r) { if (!r.getAttribute("data-cat")) r.setAttribute("data-cat", catOf(r.textContent || "")); n.all++; n[r.getAttribute("data-cat")] = (n[r.getAttribute("data-cat")] || 0) + 1; });
-    root.querySelectorAll("#sc-posc .sc-cats a").forEach(function (b) { var k = b.getAttribute("data-cat"), c = n[k] || 0, e = b.querySelector(".sc-n"); var t = c ? c + " 单" : "0"; e.hidden = false; if (e.textContent !== t) e.textContent = t; b.classList.toggle("has", c > 0); }); // 只在变了才写，不然会触发 MutationObserver 死循环
-    var sum = document.getElementById("sc-possum"), st = n.all ? "共 " + n.all + " 单在挂" : "没有在挂的订单"; if (sum && sum.textContent !== st) sum.textContent = st;
+    root.querySelectorAll("#sc-posc .sc-cats a").forEach(function (b) { var k = b.getAttribute("data-cat"), c = n[k] || 0, e = b.querySelector(".sc-n"); var t = c ? TL(c + " 单") : "0"; e.hidden = false; if (e.textContent !== t) e.textContent = t; b.classList.toggle("has", c > 0); }); // 只在变了才写，不然会触发 MutationObserver 死循环
+    var sum = document.getElementById("sc-possum"), st = TL(n.all ? "共 " + n.all + " 单在挂" : "没有在挂的订单"); if (sum && sum.textContent !== st) sum.textContent = st;
   }
   function applyCat(root, cat) {
     root.querySelectorAll(".lg-row").forEach(function (r) {
@@ -1316,7 +1408,7 @@
     var call = root.querySelector(".sc-call"); if (call) call.hidden = !!cat && cat !== "all" && cat !== "otc"; // 批量撤单只在「全部 / OTC」里出现
     root.querySelectorAll(".lg-list:not(#sc-msgs)").forEach(function (l) {
       var vis = l.querySelectorAll(".lg-row:not(.sc-hide)").length, none = l.querySelector(".sc-none");
-      if (!vis && cat && cat !== "all" && l.querySelector(".lg-row") && !none) { none = document.createElement("p"); none.className = "muted sc-none"; none.textContent = "这一类暂时没有"; l.appendChild(none); }
+      if (!vis && cat && cat !== "all" && l.querySelector(".lg-row") && !none) { none = document.createElement("p"); none.className = "muted sc-none"; none.textContent = TL("这一类暂时没有"); l.appendChild(none); }
       if (none && (vis || !cat || cat === "all")) none.remove();
     });
   }
@@ -1438,25 +1530,31 @@
       if (el("sc-who")) el("sc-who").remove();
     });
     // 余额：最值钱的三种大字（AiLGNS / LGNS / DAI），折算成 DAI 合计；其它币小字列出；Gas 不单列（这条链 Gas 就是 DAI）
-    var px = { AiLGNS: 0, LGNS: 0 };
+    // 站长 2026-11-28 加 gLGNS：1 枚约 8 万多 DAI，以前混在「其它」里只写个 0.01，客户看不出值多少钱。只认官方 gLGNS 合约，同名的山寨币还在「其它」里
+    var px = { AiLGNS: 0, LGNS: 0, gLGNS: 0 }, GLGNS = "0xf140a92c156e76f5a1d3d6f96284b250330f8f4c";
     var pxJob = Promise.all([fetch("/api/book?m=ailgns").then(function (r) { return r.json(); }), fetch("/api/book?m=lgns").then(function (r) { return r.json(); })]).then(function (j) {
       var rs = function (x, dec) { var w = (x.reserves || "0x").slice(2).match(/.{64}/g); if (!w || w.length < 2) return 0; var r0 = Number(BigInt("0x" + w[0])) / Math.pow(10, dec), r1 = Number(BigInt("0x" + w[1])) / 1e18; return r0 ? r1 / r0 : 0; };
       px.AiLGNS = rs(j[0], 18); px.LGNS = rs(j[1], 9);
     }).catch(function () {});
-    Promise.all([get("/addresses/" + a + "/token-balances").catch(function () { return []; }), pxJob]).then(function (r) {
-      var bals = r[0] || [], main = ["AiLGNS", "LGNS", "DAI"], num = {}, others = [];
+    var pxG = fetch("/api/book?m=glgns").then(function (r) { return r.json(); }).then(function (x) { // gLGNS/DAI 池子：DAI 地址小、排在前面（和上面两个池子相反）
+      var w = (x.reserves || "0x").slice(2).match(/.{64}/g); if (!w || w.length < 2) return;
+      var d = Number(BigInt("0x" + w[0])) / 1e18, g = Number(BigInt("0x" + w[1])) / 1e18; px.gLGNS = g ? d / g : 0;
+    }).catch(function () {});
+    Promise.all([get("/addresses/" + a + "/token-balances").catch(function () { return []; }), pxJob, pxG]).then(function (r) {
+      var bals = r[0] || [], main = ["AiLGNS", "LGNS", "DAI", "gLGNS"], num = {}, others = [];
       bals.forEach(function (b) {
         if (!b.token || b.token.type !== "ERC-20") return;
         var v = Number(b.value || 0) / Math.pow(10, Number(b.token.decimals || 18)); if (v < 1e-6) return;
-        var fk = fakeSym(b.token, ""); if (!fk && main.indexOf(b.token.symbol) >= 0) num[b.token.symbol] = v; else others.push({ sym: fk || b.token.symbol, v: v });
+        var fk = fakeSym(b.token, ""), ta = String(b.token.address_hash || b.token.address || "").toLowerCase();
+        if (!fk && main.indexOf(b.token.symbol) >= 0 && (b.token.symbol !== "gLGNS" || ta === GLGNS)) num[b.token.symbol] = v; else others.push({ sym: fk || b.token.symbol, v: v });
       });
       var box = el("sc-bal"); if (!box) return;
       var fb = function (v) { return v >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 100 ? v.toFixed(2) : v >= 1 ? (+v.toFixed(4)).toString() : v ? (+v.toPrecision(4)).toString() : "0"; }; // 大字余额：数字别太长，手机上不换行
-      var total = (num.DAI || 0) + (num.AiLGNS || 0) * px.AiLGNS + (num.LGNS || 0) * px.LGNS;
+      var total = (num.DAI || 0) + (num.AiLGNS || 0) * px.AiLGNS + (num.LGNS || 0) * px.LGNS + (num.gLGNS || 0) * px.gLGNS;
       var have = main.map(function (k) { var v = num[k] || 0; return { k: k, v: v, worth: k === "DAI" ? v : v * (px[k] || 0) }; }).filter(function (c) { return c.v > 0; }).sort(function (x, y) { return y.worth - x.worth; }); // 站长 2026-11-07：为 0 的不显示，有钱的高亮、按价值排
-      box.className = "sc-bal sc-n" + Math.min(have.length, 3);
+      box.className = "sc-bal sc-n" + Math.min(have.length, 4);
       box.innerHTML = have.length ? have.map(function (c, i) {
-        return '<div class="sc-coin sc-has' + (i === 0 ? " sc-top" : "") + '"><span><img class="sc-ci" src="icons/tokens/' + c.k.toLowerCase() + '.png?v=1" alt="">' + c.k + (c.k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(c.v) + "</b>" + (c.k !== "DAI" ? "<small>≈ " + fb(c.worth) + " DAI</small>" : "") + "</div>";
+        return '<div class="sc-coin sc-has' + (i === 0 ? " sc-top" : "") + '"><span><img class="sc-ci" src="icons/tokens/' + c.k.toLowerCase() + '.png?v=1" alt="">' + c.k + (c.k === "DAI" ? "（1 DAI ≈ 1 美元）" : "") + "</span><b>" + fb(c.v) + "</b>" + (c.k !== "DAI" && c.worth ? "<small>≈ " + fb(c.worth) + " DAI</small>" : "") + "</div>";
       }).join("") : '<div class="sc-coin sc-zero"><span>AiLGNS · LGNS · DAI</span><b>0</b></div>';
       var sum = el("sc-balsum"); if (sum) sum.textContent = total ? "一共约 " + fb(total) + " DAI" : "这个钱包现在没有钱";
       awayBox(a, px, fb);

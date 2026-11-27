@@ -3264,6 +3264,10 @@ table.book.buys tbody tr { --bkc: rgba(14,203,129,.13); } table.book.sells tbody
 
 /* 💰 账户余额：只显示有钱的币，高亮显眼；按张数自适应列数（站长 2026-11-07） */
 .sc-balc .sc-bal.sc-n1 { grid-template-columns: 1fr; } .sc-balc .sc-bal.sc-n2 { grid-template-columns: 1fr 1fr; }
+.sc-balc .sc-bal.sc-n4 { grid-template-columns: 1fr 1fr; } /* 四种币（多了 gLGNS）：两行两列 */
+@media (max-width: 600px) { /* 手机上三列太窄，大字数字会被折成两行（「242.4 / 1」）→ 三种币：最值钱的占一整行、另外两个并排；四种币：两行两列、字小一号 */
+  .sc-balc .sc-bal.sc-n3, .sc-balc .sc-bal.sc-n4 { grid-template-columns: 1fr 1fr; } .sc-balc .sc-bal.sc-n3 .sc-coin.sc-top { grid-column: 1 / -1; }
+  .sc-balc .sc-bal.sc-n4 .sc-coin.sc-has b { font-size: 22px; } .sc-balc .sc-bal.sc-n4 .sc-coin.sc-top b { font-size: 26px; } }
 .sc-coin.sc-has { background: linear-gradient(135deg, #fff7d6, #ffe9a6 55%, #ffd978); border: 1px solid #e2b64a; box-shadow: 0 6px 18px rgba(226, 182, 74, .28); }
 .sc-coin.sc-has span { color: #7a4d00; font-weight: 700; } .sc-coin.sc-has b { color: #3a2400; font-size: 30px; } .sc-coin.sc-has small { color: #0b7a4b; font-weight: 700; }
 .sc-coin.sc-top { background: linear-gradient(135deg, #ffe9a6, #ffd45c 55%, #ffb648); } .sc-coin.sc-top b { font-size: 36px; }
@@ -5332,12 +5336,13 @@ html.lang-ko body { word-break: keep-all; }
 .sc-ci { width: 18px; height: 18px; border-radius: 50%; vertical-align: -4px; margin-right: 5px; object-fit: cover; }
 .sc-away { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: #faf8ff; border: 1px solid #e4dcfb; }
 .sc-awh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-.sc-awh b { color: #2e2654; }
+.sc-awh b { color: #2e2654; flex: none; white-space: nowrap; } .sc-awh span { text-align: right; } .sc-nw { font-style: normal; white-space: nowrap; } /* 合计数字长了，标题不能被挤成两行 */
 .sc-aw { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 0; border-top: 1px solid #ece6fb; }
 .sc-aw span { color: #5b5385; font-size: 13.5px; margin-right: auto; }
 .sc-aw b { font-size: 15.5px; color: #2e2654; }
 .sc-aw small { flex-basis: 100%; text-align: right; color: #8a7fb0; font-size: 12.5px; }
 .sc-awn { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; }
+.sc-awh.sc-awh2 { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #d9cff5; } /* 「官方权益」和上面的钱分开 */
 .sc-unk { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 13.5px; line-height: 1.6; }
 .sc-unk.ok { background: #f3eeff; border-color: #d6c8fa; color: #4a3a8a; }
 .sc-unk.bad { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
