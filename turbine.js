@@ -150,10 +150,11 @@
     if (shut.length) s3 += '<div class="tbn-locks">' + shut.map(function (l) { var pct = S.lockSec > 0 ? Math.max(3, Math.min(100, Math.round((S.lockSec - (l.at - now)) / S.lockSec * 100))) : 0; return '<div class="tbn-lock"><div class="tbn-lockr"><span>' + f(l.amt, 6) + ' AiLGNS</span><b class="tbn-left" data-at="' + l.at + '">' + T("还要") + " " + left(l.at - now) + '</b></div><div class="tbn-bar"><i style="width:' + pct + '%"></i></div></div>'; }).join("") + "</div>";
     if (!s3) s3 = '<p class="muted">没有锁着的。第二步激活后，' + hrs + " 小时回来这里领。</p>";
     if (!daiStr) { var ld = mem("dai"); try { if (ld && BigInt(ld) > 0n && BigInt(ld) <= S.dai) daiStr = plain(BigInt(ld), 2); } catch (e) {} }
-    // 🏦 第四步「复投或囤币」（站长 2026-11-27：领导说引导大家囤币不要卖）：上面囤币（推荐，不用点），下面复投算力
+    // 🔁 第四步「复投或囤币」（站长 2026-11-27 先说「领导说引导大家囤币不要卖」；同日又定「复投放在上面，囤币引导放在下面，我们还是优先客户复投」）：
+    //    上面复投算力（标「推荐」，站长同日「推荐也加上」），下面囤币（不想复投就留在钱包，什么都不用点）
     var rateX = S.rate ? (S.rate / 10000) : 0;
-    var s4 = '<div class="tbn-hold"><b>🏦 囤币<em>推荐</em></b><p>领到的 AiLGNS 留在钱包里就是囤着，<b>什么都不用点</b>。你钱包里现在有 <b class="tbn-n">' + f(S.ail, 6) + "</b> AiLGNS。</p></div>" +
-      '<div class="tbn-reinv"><b>🔁 复投算力</b>';
+    var hold = '<div class="tbn-hold"><b>🏦 囤币</b><p>不想复投？领到的 AiLGNS 留在钱包里就是囤着，<b>什么都不用点</b>。你钱包里现在有 <b class="tbn-n">' + f(S.ail, 6) + "</b> AiLGNS。</p></div>";
+    var s4 = '<div class="tbn-reinv"><b>🔁 复投算力<em>推荐</em></b>';
     var rule = rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "";
     var daiForm = '<div class="tbn-in"><input id="tbn-dai" inputmode="decimal" autocomplete="off" placeholder="投多少 DAI" value="' + esc(daiStr) + '"><button type="button" class="ghost" data-act="daiall">全部</button></div>' +
       '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
@@ -173,10 +174,10 @@
       } else s4 += '<button type="button" class="nm-go tbn-go" data-act="ailq">算一下能投多少</button>';
       s4 += rule + '<details class="tbn-dai2" id="tbn-dai2"' + (daiFold ? " open" : "") + '><summary>直接用钱包里的 DAI 复投（有 ' + f(S.dai, 2) + " DAI）</summary>" + daiForm + "</details>";
     } else s4 += '<p>钱包里有 <b class="tbn-n">' + f(S.dai, 2) + "</b> DAI。想投多少进官方算力，填在下面：</p>" + daiForm + rule; // 没有 AiLGNS：直接用 DAI 复投
-    s4 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p></div>";
+    s4 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p></div>" + hold; // 囤币放在复投下面
     box.innerHTML = whoBar + (fresh ? "" : '<p class="tbn-upd">' + T("先显示上次的数据，正在读最新的…") + "</p>") + '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
       '<div class="tbn-steps">' + step(1, "领排放", "把 LP 空投、个人排放、社区动态排放领进涡轮", s1, S.stat <= 0n && lp <= 0n && dc.amt <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
-      step(4, "复投或囤币", "领到的币留着囤，或者投进官方算力", s4, (S.dai <= 0n && S.ail < AIL_DUST) || S.open === false, 1) + "</div>" +
+      step(4, "复投或囤币", "把领到的币投进官方算力，或者留着囤", s4, (S.dai <= 0n && S.ail < AIL_DUST) || S.open === false, 1) + "</div>" +
       '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
     var i5 = document.getElementById("tbn-dai"), i6 = document.getElementById("tbn-ail"), d2 = document.getElementById("tbn-dai2");
     if (d2) d2.ontoggle = function () { daiFold = d2.open; }; // 客户自己点开 / 收起都记住
@@ -310,7 +311,7 @@
     if (account) S = recall(account);
     if (!hooked) { hooked = true; try { A.wallets.onAccounts(function (a) { if (location.hash.indexOf("#/turbine") === 0) setAcct(a && a[0] ? String(a[0]).toLowerCase() : null); }); } catch (e) {} }
     A.app.innerHTML = '<section class="card tbn"><h2>🌀 涡轮助手 <small class="tbn-tag">试运行</small></h2>' +
-      '<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四步是可选的：领到的币留着囤，或者把 DAI 投回官方算力。</p>' +
+      '<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四步是可选的：把领到的币复投进官方算力，或者留着囤。</p>' +
       '<div id="tbn-box"></div>' +
       '<div class="tbn-note"><b>要知道的</b><ul><li>每一步调用的都是官方合约，本站不经手、不收费。</li>' +
       "<li>手续费、锁定时间是官方定的，以官方页面为准；官方改规则时，这一页可能要等技术人员跟着更新。</li>" +

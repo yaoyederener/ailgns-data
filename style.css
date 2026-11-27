@@ -5831,7 +5831,8 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .tbn-hold > b em { font-style: normal; font-size: 11.5px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #16a34a; color: #fff; }
 .tbn-hold p { margin: 6px 0 0; color: #166534; }
 .tbn-reinv { margin: 10px 0 0; padding: 11px 13px 4px; border-radius: 14px; background: #faf8ff; border: 1px solid #ece4fb; }
-.tbn-reinv > b { display: block; font-size: 15px; color: #2e2654; }
+.tbn-reinv > b { display: flex; align-items: center; gap: 6px; font-size: 15px; color: #2e2654; }
+.tbn-reinv > b em { font-style: normal; font-size: 11.5px; font-weight: 800; padding: 1px 8px; border-radius: 999px; background: #16a34a; color: #fff; } /* 复投标「推荐」（站长 2026-11-27） */
 .tbn-reinv > p:first-of-type { margin-top: 6px; }
 .tbn-ail2 { margin: 12px 0 4px; padding-top: 10px; border-top: 1px dashed #e4dcfb; }
 .tbn-ail2 > p:first-child { margin: 0; }
