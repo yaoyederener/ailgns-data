@@ -35,7 +35,9 @@ function signer(a, ts, sig) {
   try { return recoverAddress(inboxText(a, ts), String(sig)) === a ? a : ""; } catch (e) { return ""; }
 }
 const signerOf = (p) => signer(p.get("pa"), p.get("pts"), p.get("psig"));
-const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效" };
+// 站长 2026-11-27：「后台工单加一个删除功能」→ 删除 = 放进回收站（状态 del）：后台各栏、客户自己的「我的反馈进度」都不再显示，
+// 但东西还在，回收站里能恢复（恢复时回到删除前的状态 st0，不会再给客户发一遍通知）。和其它工单一样 180 天后自动清掉。不做「永久删除」：删错了找不回来。
+const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效", del: "回收站" };
 const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
@@ -90,7 +92,7 @@ export async function onRequestGet(ctx) {
   if (isAddr(mine)) {
     if (reviewerOf(mine) && signerOf(u.searchParams) !== mine) return json({ list: [], lock: 1 }); // 🔒 光知道地址不行，要本人签过名
     const ids = (await kv.get("tk:a:" + mine, "json")) || [];
-    const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter(Boolean).reverse();
+    const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && t.st !== "del").reverse(); // 删掉的不给客户看
     return json({ list: ts.map(pub) });
   }
   // 站长电脑上的提醒小程序用：只给「还没处理的工单数」，不给内容，不用口令
@@ -130,9 +132,10 @@ export async function onRequestGet(ctx) {
   const st = u.searchParams.get("st") || "";
   const ids = ((await kv.get("tk:list", "json")) || []).slice(-300).reverse();
   let ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && (boss || !isPriv(t))); // 🔒 私密工单只给站长钱包
-  const cnt = { new: 0, doing: 0, done: 0, skip: 0 };
+  const cnt = { new: 0, doing: 0, done: 0, skip: 0, del: 0 };
   ts.forEach((t) => { cnt[t.st] = (cnt[t.st] || 0) + 1; });
   if (st) ts = ts.filter((t) => t.st === st);
+  else ts = ts.filter((t) => t.st !== "del"); // 不分栏看全部时，不带回收站里的
   if (st === "done" || st === "skip") ts.sort((x, y) => ((y.up || y.t) - (x.up || x.t))); // 已解决 / 无效：最近处理的在前（站长 2026-11-08：之前按级别排，老单子一直占着第一条）
   else ts.sort((x, y) => ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // ⭐ 产品优化员置顶；再按轻重缓急：级别高的在前，同级新的在前
   return json({ list: ts, cnt, boss });
@@ -224,7 +227,10 @@ export async function onRequestPost(ctx) {
     const t = await kv.get("tk:" + b.id, "json");
     if (!t) return json({ error: "没有这个工单" }, 404);
     if (isPriv(t) && !BOSS.includes(signer(b.pa, b.pts, b.psig))) return json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
+    const wasDel = t.st === "del"; // 从回收站恢复的：不再给客户发通知
+    if (b.st === "del" && !wasDel) t.st0 = t.st; // 记下删除前在哪一栏，恢复时放回去
     if (b.st && ST[b.st]) t.st = b.st;
+    if (wasDel && b.st !== "del") delete t.st0;
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);
     // 🧹 清理正文（站长 2026-11-24：#434 客户把助记词写进了工单）：站长口令 + redact:1 才能改正文，记下改过的时间
@@ -238,7 +244,7 @@ export async function onRequestPost(ctx) {
     t.up = Date.now();
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
     // 处理完：客户绑定过 DeBox 机器人的，私信告诉他回复内容
-    if (b.st === "done" && t.note) {
+    if (b.st === "done" && t.note && !wasDel) {
       const users = (await kv.get("dbx:a:" + t.a, "json")) || [];
       const msg = "📮 你的反馈工单 #" + t.id + " 已处理\n\n💬 客服回复：" + t.note + (t.rn ? "\n🖼️ 客服还附了 " + t.rn + " 张图，到网站反馈页看" : "") + "\n\n查看 👉 https://ailgns.dev/#/feedback";
       await pushInbox(kv, t.a, "ticket", msg, "#/feedback").catch(() => {}); // 🔔 站内信
