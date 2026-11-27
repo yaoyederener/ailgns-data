@@ -5814,3 +5814,14 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
   header.top .top-in .debox { padding: 0; width: 36px; height: 36px; justify-content: center; }
   header.top .top-in .debox span { display: none; } /* 加群按钮只留图标，第一行放得下 */
 }
+/* 🔮 顶部「预测」栏目下两个玩法的切换条（2026-11-27）：每日预言家 / 极速预言家，样子跟跨链桥的两个通道一样 */
+.pred-sw { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin: 14px 0 12px; }
+.pred-sw a { display: grid; gap: 5px; align-content: start; min-width: 0; padding: 10px 12px 9px; border-radius: 16px; border: 1.5px solid #e4dcf7; background: #fff; color: #4b4470; text-decoration: none; }
+.pred-sw a:hover { text-decoration: none; border-color: #b9a2ee; }
+.pred-sw a.on { border-color: #6d3fd4; background: #f5f0ff; box-shadow: 0 4px 14px rgba(109, 63, 212, .14); }
+.pred-sw b { font-size: 15.5px; font-weight: 800; color: #1f1a3d; }
+.pred-sw em { justify-self: start; font-style: normal; padding: 0 9px; height: 21px; line-height: 21px; border-radius: 11px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.pred-sw em.free { background: linear-gradient(90deg, #ff4d4f, #ff7a45); color: #fff; }
+.pred-sw em.hot { background: linear-gradient(90deg, #7c3aed, #a855f7); color: #fff; }
+.pred-sw small { font-size: 11.5px; line-height: 1.45; color: #6b6690; }
+@media (max-width: 600px) { .pred-sw { margin-top: 10px; } .pred-sw a { padding: 9px 10px 8px; } .pred-sw b { font-size: 14.5px; } }

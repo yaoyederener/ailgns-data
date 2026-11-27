@@ -792,17 +792,25 @@
     list: function (kind) { try { return JSON.parse(localStorage.getItem("just") || "[]").filter(function (x) { return Date.now() - x.at < 600e3 && (!kind || x.k === kind); }); } catch (e) { return []; } },
     has: function (kind, key) { key = String(key || "").toLowerCase(); return this.list(kind).some(function (x) { return !x.key || x.key === key; }); }
   };
+  // 🔮 顶部「预测」栏目下的两个玩法（站长 2026-11-27「把极速预言家放到预测栏目下面，方便客户查询」）：
+  // 每日预言家、极速预言家两页的最上面（引导卡上面）都放这一条，点一下互相切换，两页上位置一样不跳
+  function predNav(cur) {
+    var it = [["oracle", "#/oracle", "🔮 每日预言家", "免费", "猜今晚 AiLGNS 揭晓价，晚上 9–10 点揭晓"], ["fast", "#/fast", "⚡ 极速预言家", "10 分钟一期", "猜区块开出的数字，试运行"]];
+    return '<nav class="pred-sw" aria-label="预测玩法">' + it.map(function (x) {
+      return '<a href="' + x[1] + '"' + (x[0] === cur ? ' class="on" aria-current="page"' : "") + "><b>" + x[2] + '</b><em class="' + (x[0] === "oracle" ? "free" : "hot") + '">' + x[3] + "</em><small>" + x[4] + "</small></a>";
+    }).join("") + "</nav>";
+  }
   function guide(tab, parts) {
     var box = document.getElementById("guide"); if (!box) return;
-    var g = GUIDES[tab];
+    var g = GUIDES[tab], pre = tab === "oracle" || tab === "fast" ? predNav(tab) : "";
     // 站长 2026-11-09：LGNS / gLGNS / Polygon LGNS 市场也要同样的四步引导（「我们现在靠这俩赚钱」）；卡牌市场没有扫单，不配
     if (tab === "otc" && parts[1]) {
       var MS = { lgns: "LGNS", plgns: "LGNS（Polygon）", glgns: "gLGNS", lp: "LP", rm: "RM", flgns: "fLGNS" }, sym = MS[parts[1]]; // 2026-11-11 Polygon LGNS 恢复；2026-11-19 gLGNS 重新上架
       g = sym ? ['<i class="gd-xin">信</i>', sym + " 担保交易", "小白看这里：想干什么点哪个，0 滑点，手续费 1%", [["我要买 " + sym.replace(/（.*）/, ""), "click:[data-sw=buy]"], ["我要卖 " + sym.replace(/（.*）/, ""), "click:[data-sw=sell]"], ["我要挂单", "click:[data-goform=sell]"], ["订单查询", "click:.ot-sw"]]] : null; // 站长 2026-11-10：和 AiLGNS 卡一致（订单查询在下面快捷条里已有）
     } else if (parts[1]) g = null;
     document.body.classList.toggle("has-guide", !!g);
-    if (!g) { box.innerHTML = ""; return; }
-    box.innerHTML = '<section class="gd"><div class="gd-h"><span class="gd-i">' + g[0] + '</span><div><b>' + g[1] + "</b><small>" + g[2] + '</small></div></div><div class="gd-s">' +
+    if (!g) { box.innerHTML = pre; return; }
+    box.innerHTML = pre + '<section class="gd"><div class="gd-h"><span class="gd-i">' + g[0] + '</span><div><b>' + g[1] + "</b><small>" + g[2] + '</small></div></div><div class="gd-s">' +
       g[3].map(function (st, i) { return '<button type="button" data-gd="' + st[1].replace(/"/g, "&quot;") + '"><i>' + (i + 1) + "</i>" + st[0] + "</button>"; }).join("") + "</div></section>";
   }
   function gdFind(t) {
