@@ -7,9 +7,12 @@
 // GET  ?mine=0x…                                    → 这个地址的工单进度（客户看：编号、时间、状态、回复，不含截图）
 // GET  ?key=FEEDBACK_KEY&list=1[&st=new|doing|done]   → 工单列表（站长）
 // GET  ?key=FEEDBACK_KEY&img=<id>:<n>                 → 一张截图
-// POST { key, action: "set", id, st?, note? }       → 改状态 / 写回复（回复客户能在页面上看到）
+// POST { key, action: "set", id, st?, note? }       → 改状态 / 写回复（回复客户能在页面上看到）；st: "del" = 删除，只能删自己提交的（要签名，见 canDel）
 // POST { key, action: "set", id, urg: 0 }           → 取消加急
 // GET  ?urgok=1&a=0x…[&pa&pts&psig]                → 提交页问：这台设备能不能给工单「加急」（只给站长 / 产品优化员）
+// GET  ?mine=0x…&tk=<编号>[&pa&pts&psig]           → 在这个地址自己的工单里按编号找（站长 2026-11-28）
+// GET  ?key=…&tk=<编号>[&pa&pts&psig]              → 后台按编号找一张工单，很久以前、列表里翻不到的也能找到
+// POST { action: "del", id, pa, pts, psig[, key][, undo: 1] } → 删除（放进回收站）/ 恢复自己提交的工单：只认提交这张工单的钱包签名，见 canDel
 // KV：tk:seq 编号；tk:list [id…]；tk:<id> 工单；tk:img:<id>:<n> 截图
 import { sendDebox } from "../../lib/debox.js";
 import { pushInbox, inboxText, AUTH_TTL, OWNER_ALSO } from "../../lib/inbox.js";
@@ -41,7 +44,11 @@ const signerOf = (p) => signer(p.get("pa"), p.get("pts"), p.get("psig"));
    只给站长和产品优化员用（站长定的：普通客户看不到这个开关，免得人人都勾、加急就不灵了）。
    怎么认人：和私密工单一样，用「收件箱登录」的钱包签名（pa / pts / psig）；签名的钱包是站长或产品优化员才算，工单上填的地址可以是别人的（站长替客户提单）。 */
 const canUrg = (a) => !!a && (BOSS.includes(a) || !!reviewerOf(a));
-// 站长 2026-11-27：「后台工单加一个删除功能」→ 删除 = 放进回收站（状态 del）：后台各栏、客户自己的「我的反馈进度」都不再显示，
+/* 🗑 删除只能删自己提交的（站长 2026-11-28：「去掉删除别的工单的功能……只让产品体验官快速识别自己的工单并删除自己的工单，无法删除别人的工单」，
+   站长自己也一样：别人的工单只能标「无效」）。认人靠签名：签名的钱包 = 工单上填的地址，才算「自己的」。
+   在哪删：工单后台（拿口令的人，删自己提交的）；「我的反馈进度」（没有口令，只给站长 / 产品优化员；普通客户那里不显示删除） */
+const canDel = (me, t, viaKey) => !!me && !!t && me === t.a && (viaKey || canUrg(me));
+// 站长 2026-11-27：「后台工单加一个删除功能」（2026-11-28 起只能删自己提交的，见 canDel）→ 删除 = 放进回收站（状态 del）：后台各栏、客户自己的「我的反馈进度」都不再显示，
 // 但东西还在，回收站里能恢复（恢复时回到删除前的状态 st0，不会再给客户发一遍通知）。和其它工单一样 180 天后自动清掉。不做「永久删除」：删错了找不回来。
 const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效", del: "回收站" };
 const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0, urg: t.urg ? 1 : 0 });
@@ -110,9 +117,16 @@ export async function onRequestGet(ctx) {
       return json({ up });
     }
     if (reviewerOf(mine) && signerOf(u.searchParams) !== mine) return json({ list: [], lock: 1 }); // 🔒 光知道地址不行，要本人签过名
+    const del = canDel(signerOf(u.searchParams), { a: mine }, false) ? 1 : 0; // 这台设备签名的正是这个地址，而且是站长 / 产品优化员 → 页面上显示「删除」
+    const q = Number(u.searchParams.get("tk")) || 0;
+    if (q) { // 🔎 按编号找自己的工单（老的、列表里没有的也能找到）。不是这个地址的、已删除的（能删的人除外：要能恢复）一律当没有
+      const t = await kv.get("tk:" + q, "json");
+      if (!t || t.a !== mine || (t.st === "del" && !del)) return json({ list: [], none: 1, del });
+      return json({ list: [pub(t)], del });
+    }
     const ids = (await kv.get("tk:a:" + mine, "json")) || [];
     const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && t.st !== "del").reverse(); // 删掉的不给客户看
-    return json({ list: ts.map(pub) });
+    return json({ list: ts.map(pub), del });
   }
   // 站长电脑上的提醒小程序用：只给「还没处理的工单数」，不给内容，不用口令
   if (u.searchParams.get("pending")) {
@@ -133,11 +147,11 @@ export async function onRequestGet(ctx) {
     return json({ can: can ? 1 : 0, sign: !can && canUrg(String(u.searchParams.get("a") || "").toLowerCase()) ? 1 : 0 });
   }
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
-  const boss = BOSS.includes(signerOf(u.searchParams)); // 🔒 是不是站长钱包
+  const me = signerOf(u.searchParams), boss = BOSS.includes(me); // 🔒 是不是站长钱包；me = 这台设备签名的钱包（认「自己提交的工单」：自己的私密工单自己能看、能删）
   const vid = u.searchParams.get("vid");
   if (vid) {
     const vt = await kv.get("tk:" + (Number(vid) || 0), "json");
-    if (isPriv(vt) && !boss) return new Response("not found", { status: 404 });
+    if (isPriv(vt) && !boss && vt.a !== me) return new Response("not found", { status: 404 });
     if (vt && vt.vn) return videoParts(ctx, kv, vt.id, vt);
     const r = await kv.getWithMetadata("tk:vid:" + (Number(vid) || 0), "arrayBuffer");
     if (!r || !r.value) return new Response("视频没找到（可能已过期：视频只留 14 天，11-19 之前传的留 60 天）", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } });
@@ -145,7 +159,7 @@ export async function onRequestGet(ctx) {
   }
   const img = u.searchParams.get("img");
   if (img) {
-    if (!boss && isPriv(await kv.get("tk:" + (Number(img.split(":")[0]) || 0), "json"))) return new Response("not found", { status: 404 });
+    if (!boss) { const it = await kv.get("tk:" + (Number(img.split(":")[0]) || 0), "json"); if (isPriv(it) && it.a !== me) return new Response("not found", { status: 404 }); }
     const d = await kv.get("tk:img:" + img.replace(":", ":"));
     if (!d) return new Response("not found", { status: 404 });
     const m = d.match(/^data:(image\/\w+);base64,(.+)$/);
@@ -153,16 +167,24 @@ export async function onRequestGet(ctx) {
     const bin = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
     return new Response(bin, { headers: { "content-type": m[1], "cache-control": "private, max-age=86400" } });
   }
+  // 🔎 按编号找（站长 2026-11-28）：直接读这一张，很久以前、列表里翻不到的也能找到（工单留 180 天）。看不了的私密工单和没有一样
+  const q = Number(u.searchParams.get("tk")) || 0;
+  if (q) {
+    const t = await kv.get("tk:" + q, "json");
+    if (!t || (isPriv(t) && !boss && t.a !== me)) return json({ none: 1, seq: Number(await kv.get("tk:seq")) || 0, boss, me });
+    return json({ t, boss, me });
+  }
   const st = u.searchParams.get("st") || "";
   const ids = ((await kv.get("tk:list", "json")) || []).slice(-300).reverse();
-  let ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && (boss || !isPriv(t))); // 🔒 私密工单只给站长钱包
+  let ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && (boss || !isPriv(t) || t.a === me)); // 🔒 私密工单只给站长钱包，和发单人自己
   const cnt = { new: 0, doing: 0, done: 0, skip: 0, del: 0 };
   ts.forEach((t) => { cnt[t.st] = (cnt[t.st] || 0) + 1; });
+  const own = me ? ts.filter((t) => t.a === me && t.st !== "del").sort((x, y) => y.t - x.t) : []; // 🙋 签名的这个钱包自己提交的（各栏都算，回收站除外），页面上单独标出来（站长 2026-11-28）
   if (st) ts = ts.filter((t) => t.st === st);
   else ts = ts.filter((t) => t.st !== "del"); // 不分栏看全部时，不带回收站里的
   if (st === "done" || st === "skip") ts.sort((x, y) => ((y.up || y.t) - (x.up || x.t))); // 已解决 / 无效：最近处理的在前（站长 2026-11-08：之前按级别排，老单子一直占着第一条）
   else ts.sort((x, y) => ((y.urg ? 1 : 0) - (x.urg ? 1 : 0)) || ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // 🚨 加急的最上面；⭐ 产品优化员其次；再按轻重缓急：级别高的在前，同级新的在前
-  return json({ list: ts, cnt, boss });
+  return json({ list: ts, cnt, boss, me, own });
 }
 
 const VID_OK = /^video\/(mp4|quicktime|webm|x-m4v|3gpp)$/i, VID_MAX = 20 * 1024 * 1024;
@@ -246,15 +268,32 @@ export async function onRequestPost(ctx) {
   if (pu.searchParams.get("video")) return putVideo(ctx, kv, pu);
   let b = {};
   try { b = await ctx.request.json(); } catch (e) { return json({ error: "格式不对（截图太大的话请少传几张）" }, 400); }
+  if (b.action === "del") { // 🗑 删除 / 恢复自己提交的工单（见 canDel）：放进回收站，不是真删；undo: 1 = 从回收站拿回来，回到删除前那一栏
+    const t = await kv.get("tk:" + (Number(b.id) || 0), "json");
+    if (!t) return json({ error: "没有这个工单" }, 404);
+    const me = signer(b.pa, b.pts, b.psig);
+    if (!me) return json({ error: "先用提交这张工单的钱包签个名（免费，不是交易，不花 Gas），认一下是你本人", sign: 1 }, 403);
+    if (!canDel(me, t, keyOk(ctx.env, b.key))) return json({ error: "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
+    if (b.undo) { if (t.st === "del") { t.st = t.st0 && t.st0 !== "del" && ST[t.st0] ? t.st0 : "new"; delete t.st0; delete t.dl; } }
+    else if (t.st !== "del") { t.st0 = t.st; t.st = "del"; t.dl = Date.now(); } // dl = 什么时候删的（回收站里看）
+    await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+    return json({ ok: true, id: t.id, st: t.st });
+  }
   if (b.action === "set") {
     if (!keyOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
     const t = await kv.get("tk:" + b.id, "json");
     if (!t) return json({ error: "没有这个工单" }, 404);
-    if (isPriv(t) && !BOSS.includes(signer(b.pa, b.pts, b.psig))) return json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
+    const me = signer(b.pa, b.pts, b.psig);
+    if (b.st === "del") { // 后台的「删除」按钮（老页面也是走这里）：一样只能删自己提交的（站长 2026-11-28，见 canDel）
+      if (!me) return json({ error: "先用提交这张工单的钱包签个名（到 📬 收件箱用它登录一次，免费），再回来删", sign: 1 }, 403);
+      if (!canDel(me, t, true)) return json({ error: "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
+      if (t.st !== "del") { t.st0 = t.st; t.st = "del"; t.dl = Date.now(); await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 }); }
+      return json({ ok: true, t });
+    }
+    if (isPriv(t) && !BOSS.includes(me)) return t.a === me ? json({ error: "这是你自己提交的工单，站长亲自处理：你这里只能删除，不能回复、改状态" }, 403) : json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
     const wasDel = t.st === "del"; // 从回收站恢复的：不再给客户发通知
-    if (b.st === "del" && !wasDel) t.st0 = t.st; // 记下删除前在哪一栏，恢复时放回去
     if (b.st && ST[b.st]) t.st = b.st;
-    if (wasDel && b.st !== "del") delete t.st0;
+    if (wasDel && b.st) { delete t.st0; delete t.dl; } // 从回收站恢复
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);
     if (b.urg === 0) delete t.urg; // 🚨 取消加急（加急只能在提交时勾，后台只能取消）
