@@ -8,6 +8,8 @@
 // GET  ?key=FEEDBACK_KEY&list=1[&st=new|doing|done]   → 工单列表（站长）
 // GET  ?key=FEEDBACK_KEY&img=<id>:<n>                 → 一张截图
 // POST { key, action: "set", id, st?, note? }       → 改状态 / 写回复（回复客户能在页面上看到）
+// POST { key, action: "set", id, urg: 0 }           → 取消加急
+// GET  ?urgok=1&a=0x…[&pa&pts&psig]                → 提交页问：这台设备能不能给工单「加急」（只给站长 / 产品优化员）
 // KV：tk:seq 编号；tk:list [id…]；tk:<id> 工单；tk:img:<id>:<n> 截图
 import { sendDebox } from "../../lib/debox.js";
 import { pushInbox, inboxText, AUTH_TTL, OWNER_ALSO } from "../../lib/inbox.js";
@@ -35,10 +37,14 @@ function signer(a, ts, sig) {
   try { return recoverAddress(inboxText(a, ts), String(sig)) === a ? a : ""; } catch (e) { return ""; }
 }
 const signerOf = (p) => signer(p.get("pa"), p.get("pts"), p.get("psig"));
+/* 🚨 加急（站长 2026-11-27，工单 #504）：提交工单时可以勾「加急」，后台排到最上面、马上私信通知。
+   只给站长和产品优化员用（站长定的：普通客户看不到这个开关，免得人人都勾、加急就不灵了）。
+   怎么认人：和私密工单一样，用「收件箱登录」的钱包签名（pa / pts / psig）；签名的钱包是站长或产品优化员才算，工单上填的地址可以是别人的（站长替客户提单）。 */
+const canUrg = (a) => !!a && (BOSS.includes(a) || !!reviewerOf(a));
 // 站长 2026-11-27：「后台工单加一个删除功能」→ 删除 = 放进回收站（状态 del）：后台各栏、客户自己的「我的反馈进度」都不再显示，
 // 但东西还在，回收站里能恢复（恢复时回到删除前的状态 st0，不会再给客户发一遍通知）。和其它工单一样 180 天后自动清掉。不做「永久删除」：删错了找不回来。
 const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效", del: "回收站" };
-const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0 });
+const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0, urg: t.urg ? 1 : 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
   if (t.src === "inbox") { // 💬 客户在站内信里「回复站长」（2026-11-08）：不分诊、不判无效，直接推给站长
@@ -50,7 +56,7 @@ async function runTriage(ctx, kv, t) {
   if (t.vip) { // ⭐ 产品优化员的反馈：不分诊、不判无效、不自动答复，直接推给站长亲审
     t.tri = { ok: true, lv: 2, cat: "review", topic: "⭐ " + t.vip + "反馈", why: "站长亲自审查", dup: 0 };
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
-    await pushInbox(kv, OWNER, "ticket", "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200), "#/feedback/admin/" + t.id).catch(() => {});
+    await pushInbox(kv, OWNER, "ticket", (t.urg ? "🚨 加急 · " : "") + "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200), "#/feedback/admin/" + t.id).catch(() => {});
     return;
   }
   const tri = await triage(ctx.env, t.txt, t.n, ctx.request.headers.get("cf-ipcountry") || "");
@@ -61,12 +67,13 @@ async function runTriage(ctx, kv, t) {
     if (others.length >= 1 && tri.ok && tri.lv > 1) { tri.lv = 1; tri.dup = others.length + 1; tri.why = "同一问题已有 " + (others.length + 1) + " 位客户反馈：" + tri.why; }
     else if (others.length) tri.dup = others.length + 1;
   }
+  if (t.urg) { tri.ok = true; delete tri.reply; } // 🚨 加急的：AI 不许判无效、不自动答复，等人处理
   t.tri = { ok: tri.ok, lv: tri.lv, cat: tri.cat, topic: tri.topic, why: tri.why, dup: tri.dup || 0, ai: tri.ai, ...(tri.err ? { err: tri.err } : {}) };
   if (!tri.ok) t.st = "skip";
   if (tri.ok && tri.lv === 3 && tri.reply) t.bot = tri.reply;
   await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
-  if (tri.ok && tri.lv <= 1) {
-    const msg = LV_NAME[tri.lv] + " 工单 #" + t.id + (tri.dup ? "（" + tri.dup + " 人反馈同一问题）" : "") + "\n主题：" + tri.topic + "\n钱包：" + t.a + "\n内容：" + (t.txt || "（只有截图）").slice(0, 300) + "\n\n处理 👉 https://ailgns.dev/#/feedback/admin/" + t.id;
+  if ((tri.ok && tri.lv <= 1) || t.urg) {
+    const msg = (t.urg ? "🚨 加急 · " : "") + LV_NAME[tri.lv] + " 工单 #" + t.id + (tri.dup ? "（" + tri.dup + " 人反馈同一问题）" : "") + "\n主题：" + tri.topic + "\n钱包：" + t.a + "\n内容：" + (t.txt || "（只有截图）").slice(0, 300) + "\n\n处理 👉 https://ailgns.dev/#/feedback/admin/" + t.id;
     await sendDebox(ctx.env, SUPPORT_USER, msg, "private").catch(() => {});
   }
   return t;
@@ -105,8 +112,13 @@ export async function onRequestGet(ctx) {
     for (const t of todo) await runTriage(ctx, kv, t).catch(() => {});
     const open = ts.filter((t) => t.st === "new" || t.st === "doing"), lv = [0, 0, 0, 0];
     open.forEach((t) => { lv[t.tri ? t.tri.lv : 2]++; });
-    const top = open.slice().sort((x, y) => ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t))[0];
-    return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, lv, top: top ? { id: top.id, lv: top.tri ? top.tri.lv : 2, topic: top.tri ? top.tri.topic : "", dup: top.tri ? top.tri.dup : 0 } : null, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
+    const top = open.slice().sort((x, y) => ((y.urg ? 1 : 0) - (x.urg ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t))[0]; // 🚨 加急的算最紧急
+    return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, lv, urg: open.filter((t) => t.urg).length, top: top ? { id: top.id, lv: top.tri ? top.tri.lv : 2, topic: top.tri ? top.tri.topic : "", dup: top.tri ? top.tri.dup : 0, urg: top.urg ? 1 : 0 } : null, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
+  }
+  // 🚨 提交页问「能不能加急」：can = 这台设备签过名的钱包是站长 / 产品优化员；sign = 还没签（或签的不是），但填的地址是站长 / 产品优化员的 → 提示先签名。普通客户两样都是 0，页面上什么都不显示
+  if (u.searchParams.get("urgok")) {
+    const can = canUrg(signerOf(u.searchParams));
+    return json({ can: can ? 1 : 0, sign: !can && canUrg(String(u.searchParams.get("a") || "").toLowerCase()) ? 1 : 0 });
   }
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
   const boss = BOSS.includes(signerOf(u.searchParams)); // 🔒 是不是站长钱包
@@ -137,7 +149,7 @@ export async function onRequestGet(ctx) {
   if (st) ts = ts.filter((t) => t.st === st);
   else ts = ts.filter((t) => t.st !== "del"); // 不分栏看全部时，不带回收站里的
   if (st === "done" || st === "skip") ts.sort((x, y) => ((y.up || y.t) - (x.up || x.t))); // 已解决 / 无效：最近处理的在前（站长 2026-11-08：之前按级别排，老单子一直占着第一条）
-  else ts.sort((x, y) => ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // ⭐ 产品优化员置顶；再按轻重缓急：级别高的在前，同级新的在前
+  else ts.sort((x, y) => ((y.urg ? 1 : 0) - (x.urg ? 1 : 0)) || ((y.vip ? 1 : 0) - (x.vip ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t)); // 🚨 加急的最上面；⭐ 产品优化员其次；再按轻重缓急：级别高的在前，同级新的在前
   return json({ list: ts, cnt, boss });
 }
 
@@ -233,6 +245,7 @@ export async function onRequestPost(ctx) {
     if (wasDel && b.st !== "del") delete t.st0;
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
     if (typeof b.note === "string") t.note = b.note.slice(0, 1000);
+    if (b.urg === 0) delete t.urg; // 🚨 取消加急（加急只能在提交时勾，后台只能取消）
     // 🧹 清理正文（站长 2026-11-24：#434 客户把助记词写进了工单）：站长口令 + redact:1 才能改正文，记下改过的时间
     if (b.redact === 1 && typeof b.txt === "string") { t.txt = b.txt.slice(0, 4000); t.red = Date.now(); }
     // 客服回复附图（最多 4 张，和客户截图一样存 KV）：覆盖式，重新保存就换新的一组
@@ -259,6 +272,8 @@ export async function onRequestPost(ctx) {
   if (txt.length > 2000) return json({ error: "文字太长了，2000 字以内" }, 400);
   if (imgs.length > 4) return json({ error: "截图最多 4 张" }, 400);
   if (imgs.some((x) => x.length > 1.5e6)) return json({ error: "有一张截图太大了，请换一张" }, 400);
+  const urg = b.urg ? canUrg(signer(b.pa, b.pts, b.psig)) : false;
+  if (b.urg && !urg) return json({ error: "「加急」只给站长和产品优化员用：请先用你的钱包签个名（免费，不花 Gas），或者去掉「加急」再提交" }, 400);
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x";
   if (await kv.get("tk:rl:" + ip)) return json({ error: "提交太快了，请 1 分钟后再试" }, 400);
   await kv.put("tk:rl:" + ip, "1", { expirationTtl: 60 });
@@ -267,6 +282,7 @@ export async function onRequestPost(ctx) {
   const t = { id, a, txt, n: imgs.length, t: Date.now(), st: "new", note: "" };
   if (b.src === "inbox") t.src = "inbox";
   const vip = reviewerOf(a); if (vip) t.vip = vip; // ⭐ 产品优化员
+  if (urg) t.urg = Date.now(); // 🚨 加急（记下加急的时间）
   for (let i = 0; i < imgs.length; i++) await kv.put("tk:img:" + id + ":" + i, imgs[i], { expirationTtl: 180 * 86400 });
   await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
   const list = ((await kv.get("tk:list", "json")) || []).concat(id).slice(-1000);
@@ -274,5 +290,5 @@ export async function onRequestPost(ctx) {
   const mine = ((await kv.get("tk:a:" + a, "json")) || []).concat(id).slice(-50);
   await kv.put("tk:a:" + a, JSON.stringify(mine));
   ctx.waitUntil(runTriage(ctx, kv, t).catch(() => {})); // AI 分诊：无效忽略、分级、0/1 级才立刻私信站长
-  return json({ ok: true, id });
+  return json({ ok: true, id, urg: urg ? 1 : 0 });
 }
