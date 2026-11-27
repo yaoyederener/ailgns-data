@@ -92,7 +92,7 @@
     var oldMine = myOld || !!(v2 && me && (me.bets || []).some(function (x) { return x.st === "wait" && x.r === data.r && x.n > (x.n2 || 0) + (x.n3 || 0); })); /* 我手里有老票 / 这一期押了老票：才给我看老奖池那一行 */
     if (!data.multi && picks.length > 1) picks = picks.slice(0, 1);
     if (qty > maxPer()) qty = Math.max(1, maxPer());
-    var rk = v2 + ":" + !!data.v4 + ":" + PAYX(); if (ruleV2 !== rk) { ruleV2 = rk; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
+    var rk = v2 + ":" + !!data.v4 + ":" + PAYX() + ":" + !!data.oldVoid + ":" + data.cap2; if (ruleV2 !== rk) { /* 老票作废那一刻规则第 5 条要跟着换 */ ruleV2 = rk; var rb = el("fx-rules"), sb = el("fx-sub"); if (rb) rb.innerHTML = rulesH(v2); if (sb) sb.textContent = subT(v2); }
     var grid = "";
     for (var d = 0; d < 10; d++) grid += '<button type="button" class="fx-d' + (picks.indexOf(d) >= 0 ? " on" : "") + '" data-d="' + d + '"><b>' + d + "</b><i>" + (data.by[d] ? data.by[d] + " 票" : "还没人压") + "</i></button>";
     box.innerHTML =
@@ -215,16 +215,18 @@
       "<li><b>奖金怎么发</b><span>只发 AiLGNS。分到的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
       "<li><b>没人猜中</b><span>整个奖池滚到下一期。</span></li></ol>" +
       '<p class="bn-warn">⚠️ 猜不中，压的票就用掉了，不退。请只用闲钱玩。</p>';
-    return '<h2>规则一共七条</h2><ol class="bn-rules">' +
-      "<li><b>票从哪来</b><span>用「批量注册」一次注册 2 个及以上 .ailgns 域名，什么名字都行，不用纯数字。每个域名付多少 DAI 就得多少张票，5 DAI 就是 5 张。只注册 1 个不算票。怎么算一批：同一个钱包 10 分钟内注册满 2 个。自己点、交给机器人代点都算；票记在付款的钱包上，机器人代点的记在域名归属的钱包上。续费不算。</span></li>" +
-      "<li><b>怎么猜</b><span>每 10 分钟一期。选一个 0 到 9 的数字，压几张票，在钱包里点一次确认。票可以存着，哪一期想玩再用。可以一次选多个数字（0-9 随便选几个），再选押几倍：1 倍 = 每个选中的数字押 1 张票，钱包只确认一次；开奖只开 1 个数字，所以最多中 1 个。<b>每个钱包每期最多押 100 张</b>，超出的不算下注，票还留在你钱包里。</span></li>" +
-      "<li><b>怎么开奖</b><span>本期结束后，链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁也没法提前知道，谁都能自己上链核对。</span></li>" +
-      "<li><b>猜中发多少</b><span>每张票发 " + wf() + " DAI：拿回本金 1 DAI，再赚 " + String(+(PAYX() - 1).toFixed(2)) + " DAI。压 5 张猜中就是 " + wf(5) + " DAI。" + (PAYX() > 5 ? "十个数字全包要 10 张票，一定中 1 张，拿回 " + wf() + " DAI，也就是 95%。" : "") + "不分别人的钱。极速池里的钱暂时不够时不打折，等钱够了自动补发。</span></li>" +
-      "<li><b>奖金怎么发</b><span>只发 AiLGNS。该发的 DAI 按本站 OTC 的价格换成 AiLGNS，开奖后约 1 分钟自动转到你下注的钱包，不用自己领。</span></li>" +
-      "<li><b>没猜中</b><span>压的票就用掉了，不退。票钱的 95% 自动进极速奖池，5% 是平台服务费；猜中的奖金从极速奖池里发。</span></li>" +
-      (data && data.v4 ? "<li><b>11 月 18 日前买的票</b><span>还能用，不作废，按买的时候的规则：猜中每张发 " + data.payOld + " DAI，每期最多押 " + data.capOld + " 张。只有 11 月 18 日赔率更正之后新买的票才是每张 " + wf() + " DAI（每期最多 " + data.cap2 + " 张）。两种票都有时，先用新买的票。</span></li>" : "") +
-      "<li><b>老票</b><span>规则调整前用纯数字域名换的票还能用，按老规则：同一期的老票进老奖池，猜中的按票数分，没人中滚到下一期。老票和新票都有时，先用老票。</span></li></ol>" +
-      '<p class="bn-warn">⚠️ 十个数字只开一个：猜中 1 张变 ' + wf() + '，猜不中票就没了，平均下来是输的。这不是赚钱的办法，请只用闲钱玩。</p>';
+    /* 站长 2026-11-27「规则一律按新的来，老票不要了，简化规则，让人一目了然」：七条 + 两段老票说明 → 五条大白话。数字跟接口走（猜中发多少、每期上限）。
+       老票作废那一期（lib/fast.js 的 OLD_VOID_ROUND）之前，第 5 条提前说什么时候作废；作废以后只说「只有一种票」 */
+    var cap = (data && data.cap2) || 20, vAt = data && data.oldVoidAt, soon = data && !data.oldVoid && vAt && vAt * 1000 > Date.now();
+    var when = soon ? (function (d) { return (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })(new Date(vAt * 1000)) : "";
+    return '<h2>规则一共五条</h2><ol class="bn-rules">' +
+      "<li><b>票怎么来</b><span>用「批量注册」10 分钟内注册 2 个及以上 .ailgns 域名，每个域名付多少 DAI 就得多少张票（5 DAI = 5 张）。只注册 1 个、续费都不算票。</span></li>" +
+      "<li><b>怎么猜</b><span>每 10 分钟一期。选 0 到 9 的数字（可以多选），每个数字押几张票，钱包确认一次。每个钱包每期最多押 <strong>" + cap + "</strong> 张。</span></li>" +
+      "<li><b>怎么开奖</b><span>本期结束后链上出的第一个区块，它的哈希除以 10 的余数就是开奖数字。谁都能上链核对。</span></li>" +
+      "<li><b>猜中发多少</b><span>每张票发 <strong>" + wf() + " DAI</strong>，换成 AiLGNS，开奖后约 1 分钟自动到你下注的钱包。没猜中，票就用掉了，不退。</span></li>" +
+      (soon ? "<li><b>老票作废</b><span><strong>" + when + "</strong> 起老票（11 月 18 日前买的票、更早的纯数字域名票）作废，之后只有上面这一种票。</span></li>"
+        : "<li><b>只有一种票</b><span>所有票都按上面这一套规则，以前的老票已经作废。</span></li>") + "</ol>" +
+      '<p class="bn-warn">⚠️ 十个数字只开一个，平均下来是输的。请只用闲钱玩。</p>';
   }
   function render() {
     ruleV2 = false;
