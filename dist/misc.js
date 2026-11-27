@@ -609,7 +609,8 @@ if(kind==="ailq"){if(busy||!S)return;var want;try{want=BigInt(K().toWei(ailStr,1
 if(want<=0n){say("先填用多少 AiLGNS。",true);return;}
 if(want>S.ail){say("钱包里没有这么多 AiLGNS。",true);return;}
 busy=true;say("正在算能换多少 DAI…");K().sellQuote(want).then(function(q){busy=false;try{K().useMarket("ailgns");}catch(e){}
-if(!q||!q.n||q.tok<=0n){say("OTC 现在没有能接的买单。可以先囤着，或者用 DAI 复投。",true);return;}
+if(!q||!q.n||q.tok<=0n){if(q&&q.bids>0&&q.min>0n&&want<q.min){var mn=(q.min+10n**12n-1n)/10n**12n*10n**12n;say("数量太少：每次至少要换够 1 DAI，现在大约 "+f(mn,6)+" AiLGNS 起。",true);return;}
+say("OTC 现在没有能接的买单。可以先囤着，或者用 DAI 复投。",true);return;}
 var avg=q.dai*(10n**18n)/q.tok;ailQ={p:q.p,dai:q.dai,tok:q.tok,n:q.n,short:q.tok<want*99n/100n,low:S.mkt>0n&&avg*100n<S.mkt*LOW_SELL};draw();say("");},function(){busy=false;say("没读到 OTC 的买单，再点一次。",true);});return;}
 if(kind==="daiall"){daiFold=true;daiStr=plain(S.dai-(S.dai>2n*10n**18n?2n*10n**18n:0n),2);if(BigInt(K().toWei(daiStr,18))>S.dai)daiStr="0";draw();say(S.dai>2n*10n**18n?"留了 2 DAI 当手续费（Anubis 链的 Gas 用的就是 DAI）。":"");return;}
 if(busy||!S)return;busy=true;Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"),function(b){b.disabled=true;});var done=function(msg){busy=false;return refresh().then(function(){say(msg);},function(){say(msg);});};var fail=function(e){busy=false;Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"),function(b){b.disabled=false;});say("没成功："+K().niceError(e),true);};try{K().useMarket("ailgns");}catch(e){}
@@ -626,5 +627,5 @@ A.app.innerHTML='<section class="card tbn"><h2>🌀 涡轮助手 <small class="t
 if(guess){account=null;S=null;draw();}
 if(window.ethereum)K().connect().then(function(a){if(A.isCurrent(id))setAcct(String(a||K().account()||"").toLowerCase()||null);},function(){});},function(){});tick=setInterval(function(){if(!A.isCurrent(id)){clearInterval(tick);return;}
 if(!S||busy)return;var now=Math.floor(Date.now()/1000),due=false;Array.prototype.forEach.call(document.querySelectorAll(".tbn-left"),function(e){var at=Number(e.getAttribute("data-at"));if(at<=now)due=true;else e.textContent=T("还要")+" "+left(at-now);});if(due)draw();},30000);};})();}catch(e){console.error('[bundle] turbine.js',e);}
-;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h8566e9ea48";
-/*v:h8566e9ea48*/
+;(window.AIL_LOADED=window.AIL_LOADED||{})["misc"]="h7b5886b744";
+/*v:h7b5886b744*/

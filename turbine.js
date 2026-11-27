@@ -225,7 +225,11 @@
       busy = true; say("正在算能换多少 DAI…");
       K().sellQuote(want).then(function (q) {
         busy = false; try { K().useMarket("ailgns"); } catch (e) {}
-        if (!q || !q.n || q.tok <= 0n) { say("OTC 现在没有能接的买单。可以先囤着，或者用 DAI 复投。", true); return; }
+        if (!q || !q.n || q.tok <= 0n) {
+          /* 站长 2026-11-27「我的机器人一直在，怎么接不了」：填 0.001 AiLGNS 只值 0.88 DAI，本站每笔成交至少 1 DAI（otc.js MIN_DAI，免得把买单切成成交不了的零头），以前却说成「没有买单」 */
+          if (q && q.bids > 0 && q.min > 0n && want < q.min) { var mn = (q.min + 10n ** 12n - 1n) / 10n ** 12n * 10n ** 12n; say("数量太少：每次至少要换够 1 DAI，现在大约 " + f(mn, 6) + " AiLGNS 起。", true); return; }
+          say("OTC 现在没有能接的买单。可以先囤着，或者用 DAI 复投。", true); return;
+        }
         var avg = q.dai * (10n ** 18n) / q.tok;
         ailQ = { p: q.p, dai: q.dai, tok: q.tok, n: q.n, short: q.tok < want * 99n / 100n, low: S.mkt > 0n && avg * 100n < S.mkt * LOW_SELL };
         draw(); say("");
