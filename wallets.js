@@ -57,12 +57,27 @@
     if (/^0x095ea7b3/i.test(d)) return "🔒 <b>授权说明</b>：授权给的是本站托管合约 <span class=\"mono\">" + ("0x" + d.slice(34, 38) + "…" + d.slice(70, 74)) + "</span>。合约代码开源、<b>无管理员、无后门、谁都改不了</b>，只会在<b>你本人</b>下单或成交时转你的币，任何人（包括我们）都动不了。授权只需一次，不放心可随时在钱包里取消。";
     return "🔒 这笔交易由你本人发起，金额以钱包里显示的为准；托管合约开源、无管理员、无后门，币只按合约规则走。";
   }
+  /* 站长 2026-11-27：「头顶提示总是存在，需要刷新才消失」。原来只在「钱包回话」时才收起；有的钱包把弹窗关掉后根本不回话（既不算同意也不算拒绝），
+     提示就一直挂在页面顶上。现在多三条收起的路：① 最多挂 25 秒；② 客户点一下提示本身；③ 客户又在页面上点了别的东西、或者换了页面——
+     能点到页面，说明钱包弹窗已经不在了。每次显示有自己的编号，旧的定时器不会误收新的提示。 */
+  var safeSeq = 0, safeTimer = 0, safeAt = 0;
   function safeShow(t) {
     var el = document.getElementById("safe-tip");
+    clearTimeout(safeTimer);
     if (!t) return el && el.remove();
     if (!el) { el = document.createElement("div"); el.id = "safe-tip"; el.className = "safe-tip"; document.body.appendChild(el); }
     el.innerHTML = t;
+    var my = ++safeSeq; safeAt = Date.now();
+    safeTimer = setTimeout(function () { if (my === safeSeq) safeShow(""); }, 25000);
   }
+  try {
+    document.addEventListener("pointerdown", function (e) {
+      var el = document.getElementById("safe-tip"); if (!el) return;
+      if (el.contains(e.target)) return safeShow(""); // 点提示本身：马上收起
+      if (Date.now() - safeAt > 1500) safeShow(""); // 提示出来 1.5 秒以后还能点到页面：钱包弹窗已经不在了（1.5 秒内的点击多半就是点「连接」的那一下）
+    }, true);
+    window.addEventListener("hashchange", function () { if (document.getElementById("safe-tip")) safeShow(""); });
+  } catch (e) { /* 监听加不上不影响连接钱包 */ }
   // 弹钱包时顺便显示说明。不改钱包对象本身（OKX 钱包内部会回调自己的 request，改了会无限循环）
   /* 钱包锁着或没选账户时会回一个空名单，以前被当成地址「undefined」拿去读链直接报错（2026-11-13 错误日志）：不是正常地址就当没连上 */
   var ADDR_OK = /^0x[0-9a-f]{40}$/i;
