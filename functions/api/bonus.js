@@ -86,6 +86,23 @@ export function bindCheck(old, sub, now) {
   return { ok: true, already: false, wait: 0 };
 }
 // m 真的在给 a 作保才返回 m，否则返回 ""
+/* 站长 2026-11-27（客户反馈「主钱包已经作保了还是签不了，每天做这个要花很多时间」；站长问「能不能永久只要一次授权」）：
+   作保本来就是签一次、一直有效，但有创世域名的钱包每换一台设备都要再手填一次放币钱包的地址，还很容易把两个钱包填反。
+   现在作保时多记一条反查索引 bn:bs:<被作保的钱包> = 放币的钱包；查状态、签到时不带 m 就自动查出来。作保一次，以后永远不用再填。
+   以前作保过的没有这条索引：第一次用到时把所有 bn:bm:* 补建一遍（只做一次，做完打标记 bn:bs:built）。 */
+async function autoMain(kv, a) {
+  try {
+    let m = await kv.get("bn:bs:" + a);
+    if (!m && !(await kv.get("bn:bs:built"))) {
+      let cursor; const todo = [];
+      for (let i = 0; i < 20; i++) { const r = await kv.list({ prefix: "bn:bm:", cursor }); (r.keys || []).forEach((k) => todo.push(k.name)); if (r.list_complete || !r.cursor) break; cursor = r.cursor; }
+      for (const k of todo.slice(0, 400)) { try { const b = await kv.get(k, "json"); if (b && isAddr(b.s)) await kv.put("bn:bs:" + b.s, k.slice(6)); } catch (e) { /* 这一条补不上不影响别的 */ } }
+      await kv.put("bn:bs:built", "1");
+      m = await kv.get("bn:bs:" + a);
+    }
+    return isAddr(m || "") ? m : "";
+  } catch (e) { return ""; }
+}
 async function mainOf(kv, a, m) { if (!isAddr(m) || m === a) return ""; const b = await kv.get("bn:bm:" + m, "json"); return b && b.s === a ? m : ""; }
 const sh = (a) => a.slice(0, 6) + "…" + a.slice(-4);
 export const dayOf = (ms) => new Date(ms + 8 * 3600e3).toISOString().slice(0, 10);
@@ -186,7 +203,8 @@ export async function onRequestGet(ctx) {
     if (u.searchParams.get("rank")) return json(await rankOf(kv, u.origin, round, day, ctx));
     const out = { day, round, goal: GOAL, all: await allOf(kv, round, day, ctx) };
     if (/^0x[0-9a-f]{40}$/.test(a)) {
-      const mq = (u.searchParams.get("m") || "").toLowerCase(), m = await mainOf(kv, a, mq); // m：小号页面上记着的主钱包；真的在作保才算
+      let mq = (u.searchParams.get("m") || "").toLowerCase(), m = await mainOf(kv, a, mq); // m：小号页面上记着的主钱包；真的在作保才算
+      if (!m) { const am = await autoMain(kv, a); if (am) { const m2 = await mainOf(kv, a, am); if (m2) { m = m2; mq = ""; } } } // 页面没带、或带的不对：自动查谁在给它作保
       const [rec, held, hold, back] = await Promise.all([kv.get("bn:s:" + round + ":" + a, "json"), heldOf(u.origin, a), holdOf(m ? [a, m] : [a]), kv.get("bn:bm:" + a, "json")]);
       const d = (rec && rec.d) || {}, ks = Object.keys(d);
       // ail / lgns：算进门槛的合计（钱包 + 质押的 LP + 作保的主钱包）；读不到是 -1。ok：够不够门槛（读不到是 null）。back：这个钱包自己正在给哪个小号作保
@@ -209,8 +227,9 @@ export async function onRequestPost(ctx) {
     if (who !== main) return json({ error: "签名核对失败，请用主钱包重新签一次" }, 400);
     try {
       const c = bindCheck(await kv.get("bn:bm:" + main, "json"), sub, now);
-      if (!c.ok) return json({ error: "这个主钱包已经在给另一个小号作保，" + c.wait + " 天后才能换。" }, 400);
+      if (!c.ok) return json({ error: "这个放币的钱包已经在给另一个钱包作保，" + c.wait + " 天后才能换。" }, 400);
       if (!c.already) await kv.put("bn:bm:" + main, JSON.stringify({ s: sub, t: now }));
+      try { await kv.put("bn:bs:" + sub, main); } catch (e) { /* 反查索引记不上不影响作保：页面还能手填 */ }
       return json({ ok: true, already: c.already, main, sub });
     } catch (e) { return json({ error: "没记上，稍后再点一次" }, 503); }
   }

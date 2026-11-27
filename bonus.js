@@ -42,6 +42,10 @@
     box.hidden = false;
     if (!me) { box.textContent = "钱包 " + short(account) + "：签到数据读取中…"; btn.textContent = "✍️ 今日签到（免费）"; return; }
     if (me.held < 0) { box.textContent = "钱包 " + short(account) + "：暂时没读到你的域名，过一分钟再来。"; btn.textContent = "✍️ 今日签到（免费）"; return; }
+    if (me.held === 0 && me.back) { // 这个钱包没有创世域名，但它在给别的钱包作保：它是「放币的钱包」，签到要换到有创世域名的那个
+      box.innerHTML = "钱包 " + short(account) + ' 里<b>没有创世域名</b>，所以不能用它签到。<br><span class="bn-lack">它是放币的钱包，已经在给 <b class="mono">' + short(me.back.s) + '</b> 作保（作保一次，永久有效）。请在钱包 App 里<b>切换到 <span class="mono">' + short(me.back.s) + "</span></b>（有创世域名的那个钱包），再回这页点签到，不用再填任何地址。</span>";
+      btn.textContent = "请切换到有创世域名的钱包"; return;
+    }
     if (me.held === 0) {
       box.innerHTML = "钱包 " + short(account) + " 里没有创世域名，有 1 枚就能签到。" + (me.days > 0 ? "（本轮已签 " + n(me.days) + " 天）" : "");
       btn.textContent = "去域名市场买创世域名 →"; return;
@@ -50,10 +54,10 @@
     var got = "AiLGNS <b>" + ailFmt(me.ail) + "</b> 枚、LGNS <b>" + n(Math.floor(Number(me.lgns) || 0)) + "</b> 枚";
     box.innerHTML = "钱包 " + short(account) + " 有 <b>" + n(me.held) + "</b> 枚创世域名，签到一天记 <b>" + n(me.held) + "</b> 票。" +
       (me.days > 0 ? "<br>本轮已签 <b>" + n(me.days) + "</b> 天，共 <b>" + n(me.tickets) + "</b> 票。" : "") +
-      (lack ? '<br><span class="bn-lack">持仓还不够签到：现在算到 ' + got + "。要至少 " + n(me.ailNeed) + " 枚 AiLGNS，或至少 " + n(me.lgnsNeed) + " 枚 LGNS（质押的 LP 也算）。持仓在别的钱包？看下面「让主钱包作保」。</span>"
-        : me.ok === true && !me.signed ? "<br>持仓够了：" + got + (me.main ? '，含主钱包 <b class="mono">' + short(me.main) + "</b> 的持仓。可以签到了。" : "。可以签到了。") : "") +
-      (me.mainBad ? '<br><span class="bn-lack">你填的主钱包 <b class="mono">' + short(me.mainBad) + "</b> 现在没有给这个小号作保。请先用主钱包做下面第一步。</span>" : "") +
-      (me.back ? '<br>这个钱包正在给小号 <b class="mono">' + short(me.back.s) + "</b> 作保。" : "");
+      (lack ? '<br><span class="bn-lack">持仓还不够签到：现在算到 ' + got + "。要至少 " + n(me.ailNeed) + " 枚 AiLGNS，或至少 " + n(me.lgnsNeed) + " 枚 LGNS（质押的 LP 也算）。币在别的钱包？看下面「作保一次，永久有效」。</span>"
+        : me.ok === true && !me.signed ? "<br>持仓够了：" + got + (me.main ? '，含放币的钱包 <b class="mono">' + short(me.main) + "</b> 的持仓（已作保，永久有效）。可以签到了。" : "。可以签到了。") : "") +
+      (me.mainBad ? '<br><span class="bn-lack">你填的放币钱包 <b class="mono">' + short(me.mainBad) + "</b> 现在没有给这个钱包作保。请先用那个放币的钱包做下面第一步。</span>" : "") +
+      (me.back ? '<br>这个钱包正在给 <b class="mono">' + short(me.back.s) + "</b> 作保。" : "");
     if (me.signed) { btn.textContent = "✅ 今天已签到，明天再来"; btn.disabled = true; }
     else if (lack) btn.textContent = "去 OTC 买 AiLGNS →";
     else btn.textContent = "✍️ 今日签到（免费）";
@@ -115,6 +119,7 @@
   function onSign() {
     if (busy) return;
     var me = info && info.me;
+    if (account && me && me.held === 0 && me.back) { say("这个钱包里没有创世域名，不能用它签到。请在钱包 App 里切换到 " + short(me.back.s) + "（有创世域名的那个钱包）再点签到。", true); return; }
     if (account && me && me.held === 0) { location.hash = "#/names/otc"; return; }
     if (account && me && me.held > 0 && !me.signed && me.ok === false) { location.hash = "#/otc"; return; }
     busy = true; say(""); paint();
@@ -147,11 +152,11 @@
   function onBind() {
     if (busy) return;
     var sb = String((el("bn-b-sub") || {}).value || "").trim().toLowerCase();
-    if (!isAddr(sb)) { sayB("请先填对小号的钱包地址。", true); return; }
+    if (!isAddr(sb)) { sayB("请先填对「有创世域名的钱包」地址。", true); return; }
     busy = true; sayB(""); paint();
     var done = function () { busy = false; paint(); };
     (eth && account ? Promise.resolve() : connect()).then(function () {
-      if (sb === account) throw new Error("小号地址和现在连的钱包是同一个。请用主钱包打开这页再做这一步。");
+      if (sb === account) throw new Error("你填的地址和现在连的钱包是同一个。这一步要用放币的钱包打开这页，填的是有创世域名的那个钱包地址。");
       var ts = Date.now(), main = account;
       sayB("请在钱包里签名（只是签名，不扣钱、不花 Gas）…");
       return A.wallets.ask(eth, { method: "personal_sign", params: [utf8hex(bindText(main, sb, ts)), main] }).then(function (sig) {
@@ -160,7 +165,7 @@
       }).then(function (r) {
         if (!r || !r.ok) throw new Error((r && r.error) || "没办成，稍后再点一次。");
         setMain(sb, main); // 同一个钱包 App 里换到小号，第二步就自动填好了
-        sayB("✅ 作保成功。现在在钱包里换到小号，回到这页点签到。");
+        sayB("✅ 作保成功，永久有效，以后不用再做这一步。现在在钱包里换到有创世域名的那个钱包，回到这页直接点签到。");
         return loadInfo();
       });
     }).then(done, function (e) {
@@ -173,14 +178,16 @@
   function onSaveMain() {
     var m = String((el("bn-b-main") || {}).value || "").trim().toLowerCase();
     if (!account) { sayB("请先点上面的按钮连接钱包。", true); return; }
-    if (m && !isAddr(m)) { sayB("请先填对主钱包地址。", true); return; }
-    if (m === account) { sayB("主钱包地址和现在连的钱包是同一个，不用填。", true); return; }
+    if (m && !isAddr(m)) { sayB("请先填对放币的钱包地址。", true); return; }
+    if (m === account) { sayB("你填的地址和现在连的钱包是同一个，不用填。", true); return; }
     setMain(account, m);
     sayB(m ? "已保存，正在核对…" : "已清除。");
     loadInfo().then(function (j) {
       if (!m || !j || !j.me) return;
-      if (j.me.main === m) sayB("✅ 主钱包在给这个小号作保，可以签到了。");
-      else sayB("这个主钱包现在没有给这个小号作保。请先用主钱包做第一步。", true);
+      // 2026-11-27：以前只要作保关系对就说「可以签到了」，连着的钱包里一枚创世域名都没有也这么说，客户照着点却签不了（两个钱包填反了）
+      if (j.me.main !== m) sayB("这个放币的钱包现在没有给现在连着的钱包作保。请先用放币的钱包做第一步。", true);
+      else if (j.me.held === 0) sayB("作保关系是对的，但现在连着的这个钱包里没有创世域名，签不了到。签到要用有创世域名的那个钱包：是不是两个钱包弄反了？请换到另一个钱包再试。", true);
+      else sayB("✅ 放币的钱包在给这个钱包作保，可以点上面的签到了。");
     });
   }
   function render() {
@@ -190,10 +197,11 @@
       '<div class="bn-bar"><i id="bn-fill"></i></div><p class="bn-meta"><span id="bn-need">读取中…</span><span id="bn-all"></span></p></div>' +
       '<p class="bn-me" id="bn-me" hidden></p>' +
       '<button type="button" class="bn-go bn-sign" id="bn-sign">连接钱包签到</button><p class="bn-st" id="bn-st" hidden></p>' +
-      '<details class="bn-bind" id="bn-bind"><summary>创世域名在小号里？让主钱包作保</summary>' +
-      '<p>AiLGNS、LGNS 或质押的 LP 放在另一个钱包的，让那个钱包签一次名给小号「作保」，小号就能签到。只是签名，不转账、不花钱。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p>' +
-      '<div class="bn-bind-b"><b>第一步：用主钱包打开这页（只做一次）</b><input type="text" id="bn-b-sub" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="小号的钱包地址 0x…"><button type="button" class="bn-bind-go" id="bn-b-go">✍️ 主钱包签名作保（免费）</button></div>' +
-      '<div class="bn-bind-b"><b>第二步：换回小号来签到</b><input type="text" id="bn-b-main" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="主钱包地址 0x…"><button type="button" class="bn-bind-go ghost" id="bn-b-save">保存主钱包地址</button><small>在同一个钱包 App 里换号的，这一步会自动填好。</small></div>' +
+      '<details class="bn-bind" id="bn-bind"><summary>创世域名和币不在同一个钱包？作保一次，永久有效</summary>' +
+      '<p>创世域名在一个钱包，AiLGNS、LGNS 或质押的 LP 在另一个钱包的：让<b>放币的钱包</b>签一次名，给<b>有创世域名的钱包</b>「作保」。<b>只做一次，永久有效</b>，以后每天只用有创世域名的钱包点签到，不用再填地址。只是签名，不转账、不花钱。一个放币的钱包同一时间只能给一个钱包作保，要换得等 7 天。</p>' +
+      '<div class="bn-bind-b"><b>第一步（只做一次）：用「放币的钱包」打开这页，填「有创世域名的钱包」地址</b><input type="text" id="bn-b-sub" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="有创世域名的钱包地址 0x…"><button type="button" class="bn-bind-go" id="bn-b-go">✍️ 放币的钱包签名作保（免费）</button></div>' +
+      '<div class="bn-bind-b"><b>第二步：换到「有创世域名的钱包」，直接点上面的签到</b><small>会自动认出谁在给它作保，不用填。票和奖都记在有创世域名的钱包上。</small>' +
+      '<details class="bn-bind-x"><summary>没自动认出来？手动填</summary><input type="text" id="bn-b-main" class="mono" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="放币的钱包地址 0x…"><button type="button" class="bn-bind-go ghost" id="bn-b-save">保存放币的钱包地址</button></details></div>' +
       '<p class="bn-st" id="bn-b-st" hidden></p></details>' +
       '<p class="note">签到只是在钱包里签个名，不花钱、不转账、不用 Gas。奖池的钱在链上，<a href="#/scan/' + POOL + '">随时可查</a>。</p></section>' +
       '<section class="card bn"><h2>🏆 签到排行榜</h2><div id="bn-rk"></div><p class="note">每分钟更新一次。名字是钱包现在手里的创世域名；挂在市场里卖的不算。</p></section>' +
@@ -208,7 +216,7 @@
       "<details><summary>签到要花钱吗？</summary><p>不花钱。签到只是在钱包里签个名，不转账、不用 Gas。任何让你转账才能签到的都是骗子。</p></details>" +
       "<details><summary>挂在市场上卖的创世域名算票吗？</summary><p>不算。挂单的名字存在市场里，不在你钱包里。撤单拿回钱包就算。已销毁的也不算。</p></details>" +
       "<details><summary>AiLGNS / LGNS 要放在哪？不够怎么办？</summary><p>至少 1 枚 AiLGNS，或者至少 1 万枚 LGNS，满足一个就行。算的是：签到钱包里的余额，加上官方质押里的 LGNS（长期质押、即时质押、折扣质押等都算），再加上质押在官方流动性池里的 LP（按里面实际含的币折算）。挂在 OTC 卖单里的、押在借贷里的不算。不够可以去 <a href=\"#/otc\">OTC</a> 买。之前已经签到的票照旧保留。</p></details>" +
-      "<details><summary>创世域名在小号里，币在主钱包里，怎么办？</summary><p>让主钱包给小号「作保」：先用主钱包打开这页，在签到按钮下面「让主钱包作保」里填小号地址、签一次名（免费，不转账）；再换回小号签到。以后门槛按小号和主钱包的持仓合起来算，票和奖都记在小号上。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p></details>" +
+      "<details><summary>创世域名在一个钱包，币在另一个钱包，怎么办？</summary><p>让放币的钱包给有创世域名的钱包「作保」，只做一次，永久有效：先用放币的钱包打开这页，在签到按钮下面「作保一次，永久有效」里填有创世域名的钱包地址、签一次名（免费，不转账）；以后每天换到有创世域名的钱包，直接点签到，不用再填。以后门槛按小号和主钱包的持仓合起来算，票和奖都记在小号上。一个主钱包同一时间只能给一个小号作保，换小号要等 7 天。</p></details>" +
       "<details><summary>刚买的创世域名签不了？</summary><p>等 1 分钟再点。网站要等链上记录同步过来才认得出。</p></details>" +
       "<details><summary>没有创世域名怎么办？</summary><p>1 万枚创世域名已经全部注册完，现在只能去 <a href=\"#/names/otc\">域名市场</a> 买别人挂出来的。</p></details>" +
       "<details><summary>什么时候抽？</summary><p>没有固定日期。奖池满 " + n(GOAL) + " DAI 就抽一次，上面的进度条能看到还差多少。</p></details>" +
