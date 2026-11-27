@@ -71,6 +71,9 @@
     fetch("/api/oracle", { cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("bad"); return r.json(); }).then(function (d) {
       if (!A.isCurrent(rid) || !data || !d || !Array.isArray(d.players)) return;
       if (d.round !== data.round) return load(rid); /* 换轮了：整页重取 */
+      /* 公开名单是服务器 2 分钟一更新的快照（站长 2026-11-27 省 KV 读取）：我自己刚交的预测可能还没进去，先补上，免得名单里我一会有一会没有 */
+      var me = data.me;
+      if (me && me.pname && me.ps && me.ps.length && !d.players.some(function (g) { return g.name === me.pname; })) d.players = d.players.concat([{ name: me.pname, ps: me.ps, tx: "" }]);
       var rows = [];
       d.players.forEach(function (g) { (g.ps || []).forEach(function (p) { rows.push({ name: g.name, p: p, m: Math.round(Number(p) * RS) }); }); });
       if (!rows.length || !document.getElementById("or-live")) { if (rows.length && !liveRows.length) load(rid); return; } /* 原来一个人都没有、现在有了：整页重取才有排行这一块 */

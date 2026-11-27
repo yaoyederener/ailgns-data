@@ -259,7 +259,13 @@
     A.wallets.silent().then(function (acc) {
       if (!acc) return; acc = String(acc).toLowerCase();
       var seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + acc) || 0); } catch (e) {}
-      return fetch("/api/feedback?mine=" + acc + fbPq(acc)).then(function (r) { return r.json(); }).then(function (j) {
+      if (document.getElementById("fb-pill") || pillOff) return;
+      // 先只问「最近一次客服回复是什么时候」（读一条），比我看过的新才去拿工单全文（站长 2026-11-27 省 KV 读取）
+      return fetch("/api/feedback?mine=" + acc + "&peek=1" + fbPq(acc)).then(function (r) { return r.json(); }).then(function (pk) {
+        if (!pk || !(Number(pk.up) > seen)) return;
+        return fetch("/api/feedback?mine=" + acc + fbPq(acc)).then(function (r) { return r.json(); });
+      }).then(function (j) {
+        if (!j) return;
         var fresh = (j.list || []).filter(function (t) { return t.note && t.up > seen; });
         if (!fresh.length || document.getElementById("fb-pill") || pillOff) return;
         var t = fresh[0], el = document.createElement("a"); el.id = "fb-pill"; el.className = "fb-pill"; el.href = "#/feedback/" + t.id;
@@ -306,7 +312,10 @@
       if (row) row.textContent = j.test && !j.test.ok ? "✅ 这台设备已登记，但测试通知没发出去（" + (j.test.status || j.test.err || "未知") + "），稍后再点一次试试" : "✅ 这台设备已开启站长提醒。刚发了一条测试通知，看看弹出来没有";
     }).catch(function (e) { fail(String((e && e.message) || e)); });
   }
-  var adTimer = null, adSeen = null, nagTimer = null, titleTimer = null, baseTitle = document.title;
+  var adTimer = null, adSeen = null, nagTimer = null, titleTimer = null, baseTitle = document.title, adVis = null, lastPend = 0;
+  /* 💰 省 KV 读取（站长 2026-11-27：Cloudflare 账单大头是 KV 读取）：工单后台列表每刷新一次要读 300 张工单。
+     页面切到后台（看别的标签 / 手机锁屏）就不刷新列表，切回来马上刷新一次；铃铛在后台改成每分钟查一次，新工单照样响、照样弹通知 */
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && adVis) adVis(); });
   // 右上角铃铛：固定在页面右上角，显示待处理数；有 0/1 级没处理就按级别节奏响一声 + 标题闪烁 + 浏览器通知（站长开着这一页就够了，不用开新页）
   var NAG = { 0: 60e3, 1: 300e3, 2: 1800e3, 3: 6 * 3600e3 };
   function bellEl() {
@@ -352,6 +361,8 @@
     }
   }
   function pendingPoll() {
+    if (document.hidden && Date.now() - lastPend < 55e3) return; // 页面在后台：一分钟查一次就够
+    lastPend = Date.now();
     fetch("/api/feedback?pending=1" + fbPq()).then(function (r) { return r.json(); }).then(function (p) { bellPaint(p); nag(p); }).catch(function () {});
   }
   function startNag() { clearInterval(nagTimer); pendingPoll(); nagTimer = setInterval(pendingPoll, 30000); }
@@ -577,6 +588,7 @@
     function load(first) {
       var box = document.getElementById("fb-list"); if (!box) return clearInterval(adTimer);
       if (!first && box.querySelector("textarea:focus")) return; // 正在写回复：不刷新
+      if (!first && document.hidden) return; // 页面在后台：不刷新（切回来马上刷新，见 adVis）
       if (st === "stats") { // 📊 站长数据面板：成交、域名、装机、访问、收入、钱包
         if (!first) return; // 不用 20 秒刷新
         fetch("/api/admin-stats?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
@@ -649,6 +661,7 @@
     }
     load(true);
     adTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(adTimer); load(false); }, 20000);
+    adVis = function () { if (!A.isCurrent(rid) || !/feedback\/admin/.test(location.hash)) { adVis = null; return; } load(false); pendingPoll(); }; // 切回这个标签：马上刷新列表和铃铛
   }
   function one(rid, id) {
     A.app.innerHTML = '<section class="card fb-one"><div class="fb-nav"><a href="#/feedback/admin">← 全部工单</a><span class="muted" id="fb-left"></span></div><div id="fb-1"><p class="muted">读取中…</p></div></section>';

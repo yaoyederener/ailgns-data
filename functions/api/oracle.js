@@ -9,7 +9,7 @@ import { pushInbox } from "../../lib/inbox.js";
 const OWNER = "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6"; // 站长站内信（谷歌社交账号钱包），和工单后台同一个
 const KIND_CN = { king: "贡献王", closest: "天眼通", second: "地灵通", jackpot: "神算子大奖", daily: "每日前三" };
 const admOk = (env, k) => !!k && ((env.FEEDBACK_KEY && k === env.FEEDBACK_KEY) || (env.BACKUP_KEY && k === env.BACKUP_KEY)); // 后台只用工单口令（站长：只留一个口令）
-import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, normG, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, PLAIN_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, kingOn, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
+import { poolFunds, POOL, otcHi, heldSince, priceMilli, openRound, drawStart, prevDay, settle, guessesOf, sealedGuesses, liveGuesses, mergeMe, normG, allotOf, primaryName, tierOf, otcBonus, fmtP, decOf, scOf, MAX_GUESS, FIRST_DAY, poolNow, eligibility, OTC_MIN, PLAIN_MIN, feeBoard, cycleStart, showName, KING, KING_SPLIT, KING_CAP, kingsOf, kingOn, weekStart, bjDay, kingBudget, KING_IN, KING_IN_FROM, burnCheck, payState, payDue, needBurn, BURN_DAYS, cutoffAt, needCount, burnedCount, NAME_PRICE, DAILY_FROM, DAILY_PRIZE, DAILY_TOP, DAILY_COOL_DAYS } from "../../lib/oracle.js";
 
 const isAddr = (a) => /^0x[0-9a-f]{40}$/.test(a || "");
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -24,7 +24,7 @@ async function quota(kv, a, name, day) {
 // 🔗 链上存证：封卷（21:00）后把本期全部预测按固定格式排好、算 SHA-256 指纹，奖池钱包发一笔 0 元交易把指纹写进链上（keeper oracle_anchor.py 做）
 // 任何人都能：下载本期清单 → 自己算 SHA-256 → 和链上交易 data 里的指纹对比 → 证明名单没被改过
 async function proofOf(kv, day) {
-  const g = await guessesOf(kv, day);
+  const g = await sealedGuesses(kv, day); // 封卷满 15 分钟后读打包好的一条；没到点照旧逐条读（存证机器人 9 点封卷后马上来核对，走的是逐条读）
   const entries = g.map((x) => ({ name: x.name, a: x.a, ps: (x.ps || []).map((p) => [p[0], p[1]]) })).sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
   const canon = JSON.stringify({ day, entries });
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon)))].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -36,7 +36,7 @@ async function buildPub(kv, ctx, now) {
   // 到点了顺手开奖（算过就不再算）
   let res = null;
   try { res = await settle(kv, drawing, now); } catch (e) { res = null; }
-  const [g, poolV, last, wins, al, alDraw] = await Promise.all([guessesOf(kv, round), poolNow(kv), kv.get("or:last", "json"), kv.get("or:wins", "json"), allotOf(kv, round), allotOf(kv, drawing)]);
+  const [g, poolV, last, wins, al, alDraw] = await Promise.all([liveGuesses(kv, round, now), poolNow(kv), /* 当轮公开名单用 2 分钟一更新的快照（省 KV 读取） */ kv.get("or:last", "json"), kv.get("or:wins", "json"), allotOf(kv, round), allotOf(kv, drawing)]);
   const out = {
     now, round, dec: decOf(round), cutoff: cutoffAt(round), drawFrom: drawStart(round), drawTo: drawStart(round) + 3600e3,
     pool: poolV, allot: al.allot,
@@ -72,12 +72,13 @@ async function buildPub(kv, ctx, now) {
     out.kings = { cyc, n: kc.n, top: kc.top, share: KING, cap: KING_CAP, minLv: 2, budget: kc.budget || null, inRate: KING_IN, inFrom: KING_IN_FROM, all: kc.all }; // all 只在服务端用，返回前删掉
   } catch (e) { out.kings = null; }
   // 正在开奖的这一轮：9 点以后已经锁定，公开所有预测
-  if (now >= cutoffAt(drawing)) out.drawing.list = (await guessesOf(kv, drawing)).map((g) => pub(g, drawing)); // 封卷后公开全部预测
+  if (now >= cutoffAt(drawing)) out.drawing.list = (await sealedGuesses(kv, drawing, now)).map((g) => pub(g, drawing)); // 封卷后公开全部预测（封卷满 15 分钟后读打包好的一条，原来每次 500 多次）
   // 站长 2026-11-08：揭晓卡公开发奖记录（谁、什么奖、多少 AiLGNS、链上交易），公开公正；只给最近 14 天
   try { const p0 = (await kv.get("or:pay", "json")) || [], d0 = bjDay(now - 14 * 86400e3); out.pays = p0.filter((x) => x.day >= d0).map((x) => ({ day: x.day, kind: x.kind, a: x.a, name: x.name, amt: x.amt, ail: x.ail || 0, tx: x.tx || "", st: payState(x), due: needBurn(x) ? payDue(x) : 0, burn: x.burn ? x.burn.no : 0, need: needCount(x), bn: burnedCount(x), say: x.say && sayUrlOk(x.say.url) ? x.say.url : "" })); } catch (e) { out.pays = []; }
   return out;
 }
 
+let PUB_JOB = null; // 本进程里正在进行的那次重算（同时来的请求共用）
 export async function onRequestGet(ctx) {
   const kv = ctx.env.TEAM_KV, u = new URL(ctx.request.url);
   if (!kv) return new Response("no kv", { status: 503 });
@@ -93,11 +94,34 @@ export async function onRequestGet(ctx) {
     const { pays } = await burnCheck(kv, u.origin, (await kv.get("or:pay", "json")) || [], Date.now()); // 🔥 先烧才发：核对销毁记录、过期作废
     return json({ pay: pays.filter((x) => payState(x) === "ready") });
   }
-  const now = Date.now(), fresh = 30e3;
-  let out = null, cached = await kv.get("or:pub", "json");
-  if (cached && cached.out && now - cached.at < fresh) out = cached.out;
-  else if (cached && cached.out) { out = cached.out; ctx.waitUntil(buildPub(kv, ctx, Date.now()).then((o) => kv.put("or:pub", JSON.stringify({ at: Date.now(), out: o }), { expirationTtl: 600 })).catch(() => {})); }
-  else { out = await buildPub(kv, ctx, now); ctx.waitUntil(kv.put("or:pub", JSON.stringify({ at: now, out }), { expirationTtl: 600 }).catch(() => {})); }
+  /* 💰 省 KV 读取（站长 2026-11-27）：以前 or:pub 一过 30 秒，每个进来的请求都在后台各自重算一遍（每次重算读几百上千次 KV），KV 同步又慢，等于一直在重算。现在三层：
+     ① 本机房边缘缓存 20 秒：命中就不读 KV；② or:pub（60 秒内算的直接用）；③ 过期了只让本机房一个请求去重算（25 秒的「正在重算」标记），别的请求先用旧的 */
+  const now = Date.now(), fresh = 60e3, cache = caches.default;
+  const CK = new Request("https://ailgns.dev/api/oracle?__pub=1"), LK = new Request("https://ailgns.dev/api/oracle?__build=1");
+  const pubResp = (o) => new Response(JSON.stringify(o), { headers: { "content-type": "application/json", "cache-control": "public, max-age=20" } });
+  let out = null;
+  try { const hit = await cache.match(CK); if (hit) out = await hit.json(); } catch (e) { out = null; }
+  if (!out) {
+    const cached = await kv.get("or:pub", "json");
+    if (cached && cached.out) out = cached.out;
+    const stale = !out || !(now - cached.at < fresh);
+    if (!stale) ctx.waitUntil(cache.put(CK, pubResp(out)).catch(() => {}));
+    else {
+      let busy = false; try { busy = !!(await cache.match(LK)); } catch (e) { busy = false; }
+      if (!out || !busy) {
+        // 同一个进程里同时进来的请求共用这一次重算（先同步占位，再去放 25 秒标记，别让同一瞬间进来的几个都去算）
+        if (!PUB_JOB) PUB_JOB = (async () => {
+          try { await cache.put(LK, new Response("1", { headers: { "cache-control": "public, max-age=25" } })); } catch (e) { /* 标记放不上就照常算 */ }
+          const o = await buildPub(kv, ctx, Date.now());
+          await kv.put("or:pub", JSON.stringify({ at: Date.now(), out: o }), { expirationTtl: 600 }).catch(() => {});
+          await cache.put(CK, pubResp(o)).catch(() => {});
+          return o;
+        })().finally(() => { PUB_JOB = null; });
+        const job = PUB_JOB;
+        if (out) ctx.waitUntil(job.catch(() => {})); else out = await job;
+      }
+    }
+  }
   out = JSON.parse(JSON.stringify(out)); out.now = now; // 倒计时用当前时间，别用缓存里的
   const round = out.round;
   const a = (u.searchParams.get("a") || "").toLowerCase();
@@ -120,6 +144,7 @@ export async function onRequestGet(ctx) {
       if (el.ok) {
         const q = await quota(kv, a, name, round), mine = normG(await kv.get("or:g:" + round + ":" + el.key, "json"), round);
         out.me = { ...out.me, ...q, used: mine ? mine.ps.length : 0, ps: mine ? mine.ps.map((x) => fmtP(x[0], round)) : [], taken: !!(mine && mine.a !== a) };
+        if (mine && mine.a === a) { try { const pn = mergeMe(out, mine, round); if (pn) out.me.pname = pn; } catch (e) { /* 补不进去就算了，不影响别的 */ } } // 🙋 公开名单是 2 分钟一更新的快照：刚交的人先把自己补进去
         const gtx = await kv.get("or:gtx:" + round + ":" + a, "json"); out.me && (out.me.chain = gtx || null);
         const lk = await kv.get("or:w:" + round + ":" + a); // 一个钱包一轮只认一个名字
         if (lk && lk !== el.key) out.me.lock = lk;

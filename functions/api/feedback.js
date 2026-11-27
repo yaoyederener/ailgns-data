@@ -97,6 +97,18 @@ export async function onRequestGet(ctx) {
     return new Response(Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0)), { headers: { "content-type": m[1], "cache-control": "private, max-age=86400" } });
   }
   if (isAddr(mine)) {
+    /* 🔔 回复气泡（每个连着钱包的访客每分钟问一次）先只问「最近一次客服回复是什么时候」：读一条 tk:up:<地址>，有新回复页面再来拿全文。
+       以前每次都把这个地址最近 20 张工单逐张读一遍（站长 2026-11-27 省 KV 读取）。老地址第一次问时现算一遍记下来，没工单的记 0 */
+    if (u.searchParams.get("peek")) {
+      if (reviewerOf(mine) && signerOf(u.searchParams) !== mine) return json({ up: 0, lock: 1 });
+      const v = await kv.get("tk:up:" + mine);
+      if (v !== null) return json({ up: Number(v) || 0 });
+      const ids = (await kv.get("tk:a:" + mine, "json")) || [];
+      const ts = ids.length ? (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && t.st !== "del" && t.note) : [];
+      const up = ts.reduce((m, t) => Math.max(m, t.up || 0), 0);
+      ctx.waitUntil(kv.put("tk:up:" + mine, String(up), { expirationTtl: 180 * 86400 }).catch(() => {}));
+      return json({ up });
+    }
     if (reviewerOf(mine) && signerOf(u.searchParams) !== mine) return json({ list: [], lock: 1 }); // 🔒 光知道地址不行，要本人签过名
     const ids = (await kv.get("tk:a:" + mine, "json")) || [];
     const ts = (await Promise.all(ids.slice(-20).map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && t.st !== "del").reverse(); // 删掉的不给客户看
@@ -256,6 +268,7 @@ export async function onRequestPost(ctx) {
     }
     t.up = Date.now();
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
+    if (t.note && t.st !== "del") await kv.put("tk:up:" + t.a, String(t.up), { expirationTtl: 180 * 86400 }).catch(() => {}); // 🔔 客户的回复气泡只看这一条（见 GET ?mine=&peek=1）
     // 处理完：客户绑定过 DeBox 机器人的，私信告诉他回复内容
     if (b.st === "done" && t.note && !wasDel) {
       const users = (await kv.get("dbx:a:" + t.a, "json")) || [];
