@@ -221,8 +221,9 @@ function list(){var all=announced.map(function(d){return{id:d.info.rdns||d.info.
 function saved(){try{return localStorage.getItem(KEY);}catch(e){return null;}}
 function save(id){try{localStorage.setItem(KEY,id);}catch(e){}}
 function safeText(a){var m=a&&a.method,d=(a&&a.params&&a.params[0]&&a.params[0].data)||"";if(m==="eth_requestAccounts")return"🔒 连接 / 登录只是让本站看到你的钱包地址（DeBox 还有昵称头像），<b>不会转走任何币，也不花一分钱</b>。";if(m==="personal_sign"||/^eth_signTypedData/.test(m||""))return"🔒 这只是签名确认身份，<b>不是转账，不会动你的币</b>，也不花 Gas。";if(m!=="eth_sendTransaction")return"";if(/^0x095ea7b3/i.test(d))return"🔒 <b>授权说明</b>：授权给的是本站托管合约 <span class=\"mono\">"+("0x"+d.slice(34,38)+"…"+d.slice(70,74))+"</span>。合约代码开源、<b>无管理员、无后门、谁都改不了</b>，只会在<b>你本人</b>下单或成交时转你的币，任何人（包括我们）都动不了。授权只需一次，不放心可随时在钱包里取消。";return"🔒 这笔交易由你本人发起，金额以钱包里显示的为准；托管合约开源、无管理员、无后门，币只按合约规则走。";}
-function safeShow(t){var el=document.getElementById("safe-tip");if(!t)return el&&el.remove();if(!el){el=document.createElement("div");el.id="safe-tip";el.className="safe-tip";document.body.appendChild(el);}
-el.innerHTML=t;}
+var safeSeq=0,safeTimer=0,safeAt=0;function safeShow(t){var el=document.getElementById("safe-tip");clearTimeout(safeTimer);if(!t)return el&&el.remove();if(!el){el=document.createElement("div");el.id="safe-tip";el.className="safe-tip";document.body.appendChild(el);}
+el.innerHTML=t;var my=++safeSeq;safeAt=Date.now();safeTimer=setTimeout(function(){if(my===safeSeq)safeShow("");},25000);}
+try{document.addEventListener("pointerdown",function(e){var el=document.getElementById("safe-tip");if(!el)return;if(el.contains(e.target))return safeShow("");if(Date.now()-safeAt>1500)safeShow("");},true);window.addEventListener("hashchange",function(){if(document.getElementById("safe-tip"))safeShow("");});}catch(e){}
 var ADDR_OK=/^0x[0-9a-f]{40}$/i;var WS=window.AIL_WALLET=window.AIL_WALLET||{n:0,t:0};var WS_SKIP=/^(eth_accounts|eth_chainId|net_version|wallet_getCapabilities|wallet_getCallsStatus)$/;function ask(eth,a){if(a&&WS_SKIP.test(a.method||""))return ask0(eth,a);WS.n++;WS.t=Date.now();var fin=function(){WS.n=Math.max(0,WS.n-1);WS.t=Date.now();},p;try{p=ask0(eth,a);}catch(e){fin();throw e;}
 return p.then(function(v){fin();return v;},function(e){fin();throw e;});}
 function ask0(eth,a){var t=safeText(a);if(t)safeShow(t);var send=function(){return Promise.resolve().then(function(){return eth.request(a);}).catch(function(e){var tx=a&&a.method==="eth_sendTransaction"&&a.params&&a.params[0],m="";try{m=String((e&&e.message)||"")+" "+(typeof e==="string"?e:JSON.stringify(e));}catch(e2){}
@@ -1227,5 +1228,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h3742a94669";
-/*v:h3742a94669*/
+;window.AIL_CORE="h338f642be3";
+/*v:h338f642be3*/
