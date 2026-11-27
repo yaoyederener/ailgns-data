@@ -3,6 +3,7 @@
 // 还没上线（FAST_START 没填）时：正式站直接说「还没开放」；preview 用最近 6 小时的真实链上数据试算，方便站长看页面。
 import { FAST_START, TRIAL_BLOCKS, FAST_POOL, STATE_V, batch, fresh, advance, view, mine, JP_GATE, JP_SKIP_FROM, JP_LAG, setClaims } from "../../lib/fast.js";
 import { payDue, BURN_DAYS } from "../../lib/oracle.js";
+import { recoverAddress } from "../../lib/evmsig.js";
 
 const AIL = "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb"; // AiLGNS（Anubis）
 const json = (o, s) => Response.json(o, { status: s || 200, headers: { "cache-control": "no-store" } });
@@ -48,6 +49,9 @@ export async function onRequestGet(ctx) {
   if (trial && !/(\.pages\.dev|^localhost|^127\.0\.0\.1)$/.test(u.hostname)) return json({ open: false });
   if (!trial && !ctx.env.TEAM_KV) return new Response("no kv", { status: 503 });
   const a = (u.searchParams.get("a") || "").toLowerCase();
+  if (u.searchParams.get("hb") === "1") { // ⚡ 常驻发奖程序上次报到的时间（毫秒）：GitHub 定时任务看它决定自己快发还是只做后备（见 onRequestPost）
+    return json({ hb: trial ? 0 : Number(await ctx.env.TEAM_KV.get("fast:hb")) || 0, now: Date.now() });
+  }
   if (u.searchParams.get("jpc") === "1") { // 机器人读领奖名单（只读 KV，不读链）
     try { return json({ jpc: await claims(trial ? null : ctx.env.TEAM_KV), gate: JP_GATE }); } catch (e) { return json({ error: "读不到名单" }, 502); }
   }
@@ -67,4 +71,21 @@ export async function onRequestGet(ctx) {
     if (JP_GATE && st.to >= JP_GATE && (st.jpc || []).some((c) => c.a === a && c.f <= now && now <= c.t)) out.me.jp = true;
   }
   return json(out);
+}
+
+/* ⚡ 常驻发奖程序报到（站长 2026-11-28「#528 中奖没到账，能不能秒到账」）：POST { action: "hb", t: 毫秒时间, sig }
+   sig = 极速资金池钱包 personal_sign("ailgns-fast-hb:" + t)。常驻程序装在站长服务器上，开奖一确认就发奖，每 30 秒报到一次；
+   GitHub 上的定时任务（monita fast_oracle.py）发奖前先看这里：150 秒内报过到就只做后备，两边不会抢着发。
+   只认极速资金池钱包的签名、时间差 2 分钟以内；只记一个时间戳（fast:hb），不动任何钱 */
+export async function onRequestPost(ctx) {
+  const kv = ctx.env.TEAM_KV;
+  if (!kv) return new Response("no kv", { status: 503 });
+  let b = {};
+  try { b = await ctx.request.json(); } catch (e) { return json({ error: "格式不对" }, 400); }
+  if (!b || b.action !== "hb") return json({ error: "不支持" }, 400);
+  const t = Number(b.t);
+  if (!Number.isFinite(t) || Math.abs(Date.now() - t) > 120e3) return json({ error: "时间不对" }, 400);
+  if (recoverAddress("ailgns-fast-hb:" + t, String(b.sig || "")) !== FAST_POOL) return json({ error: "签名不对" }, 403);
+  await kv.put("fast:hb", String(t), { expirationTtl: 7 * 86400 });
+  return json({ ok: true });
 }
