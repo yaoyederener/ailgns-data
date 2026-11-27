@@ -454,7 +454,7 @@
   // 🔗 链上存证说明条 + 弹窗
   function proofBar(dr) {
     var an = dr.anchor;
-    return '<div class="or-proof' + (an ? " on" : "") + '"><span class="or-pf-i">🔗</span><div><b>' + (an ? "本期全部预测已写入链上，任何人可查、不可篡改" : "封卷后本期全部预测将打包写入链上，不可篡改") + "</b><small>" + (an ? "交易 " + an.tx.slice(0, 10) + "… · 指纹 " + an.hash.slice(0, 12) + "… · " + an.n + " 人 " + an.guesses + " 个预测" : "每个预测都有钱包签名；21:00 封卷后奖池钱包发一笔 0 元交易，把全部预测的 SHA-256 指纹永久记在链上") + '</small></div><button type="button" class="ghost or-pf-btn" data-day="' + dr.day + '">' + (an ? "查看 / 验证" : "怎么验证") + "</button></div>";
+    return '<div class="or-proof' + (an ? " on" : "") + '"><span class="or-pf-i">🔗</span><div><b>' + (an ? "本期全部预测已写入链上，任何人可查、不可篡改" : "封卷后本期全部预测将打包写入链上，不可篡改") + "</b><small>" + (an ? "交易 " + an.tx.slice(0, 10) + "… · 指纹 " + an.hash.slice(0, 12) + "… · " + an.n + " 人 " + an.guesses + " 个预测" : "每个预测都有钱包签名；下午 3 点封卷后奖池钱包发一笔 0 元交易，把全部预测的 SHA-256 指纹永久记在链上") + '</small></div><button type="button" class="ghost or-pf-btn" data-day="' + dr.day + '">' + (an ? "查看 / 验证" : "怎么验证") + "</button></div>";
   }
   function proofModal(day) {
     var box = document.createElement("div"); box.className = "modal"; box.innerHTML = '<div class="modal-box"><div class="card-head"><h2>🔗 预测上链存证</h2><button class="ghost" data-close style="padding:4px 12px">关闭</button></div><p class="muted">读取中…</p></div>';
@@ -467,7 +467,7 @@
         mine + '<div class="or-pf-big' + (an ? " on" : "") + '">' + (an ? "✅ 已写入链上 · 不可篡改" : "⏳ 封卷后写入链上") + "</div>" +
         '<p><b>' + p.n + " 人 · " + p.guesses + ' 个预测</b></p>' +
         '<p class="or-pf-k">本期指纹（SHA-256）<br><span class="mono">' + p.hash + "</span></p>" +
-        (an ? '<p class="or-pf-k">链上交易<br><a class="mono" href="#/scan/' + an.tx + '">' + an.tx + '</a><br><small class="muted">交易 data 里写的是 ailgns-oracle:' + day + ":" + an.hash.slice(0, 16) + "…，由奖池钱包发出，" + A.timeBJ(an.at) + ' 上链</small></p>' : '<p class="muted">每个预测提交时都经钱包签名；今晚 21:00 封卷后，奖池钱包会把上面这个指纹写进链上，之后这里显示交易哈希。</p>') +
+        (an ? '<p class="or-pf-k">链上交易<br><a class="mono" href="#/scan/' + an.tx + '">' + an.tx + '</a><br><small class="muted">交易 data 里写的是 ailgns-oracle:' + day + ":" + an.hash.slice(0, 16) + "…，由奖池钱包发出，" + A.timeBJ(an.at) + ' 上链</small></p>' : '<p class="muted">每个预测提交时都经钱包签名；下午 3 点封卷后（一般 3 点半前），奖池钱包会把上面这个指纹写进链上，之后这里显示交易哈希。</p>') +
         '<ol class="steps or-pf-steps"><li><a href="' + dl + '" download="ailgns-oracle-' + day + '.json">下载本期预测清单（JSON）</a></li><li>用任何工具算它的 SHA-256（电脑终端：<span class="mono">shasum -a 256 文件名</span>）</li><li>和上面的指纹、链上交易里的指纹对比——一致就说明名单没被改过一个字</li></ol>' +
         '<p class="muted">清单包含每个名字、钱包、预测价和提交时间，和页面显示一致。</p>';
     }).catch(function () { box.querySelector("p").textContent = "读取失败，请稍后再试"; });

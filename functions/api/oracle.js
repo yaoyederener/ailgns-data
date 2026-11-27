@@ -21,10 +21,10 @@ async function quota(kv, a, name, day) {
   return { tier: t.label, base: t.n, bonus, n: Math.min(MAX_GUESS, t.n + bonus) };
 }
 
-// 🔗 链上存证：封卷（21:00）后把本期全部预测按固定格式排好、算 SHA-256 指纹，奖池钱包发一笔 0 元交易把指纹写进链上（keeper oracle_anchor.py 做）
+// 🔗 链上存证：封卷（11-12 起下午 3 点）后把本期全部预测按固定格式排好、算 SHA-256 指纹，奖池钱包发一笔 0 元交易把指纹写进链上（keeper oracle_anchor.py 做）
 // 任何人都能：下载本期清单 → 自己算 SHA-256 → 和链上交易 data 里的指纹对比 → 证明名单没被改过
 async function proofOf(kv, day) {
-  const g = await sealedGuesses(kv, day); // 封卷满 15 分钟后读打包好的一条；没到点照旧逐条读（存证机器人 9 点封卷后马上来核对，走的是逐条读）
+  const g = await sealedGuesses(kv, day); // 封卷满 15 分钟后读打包好的一条；没到点照旧逐条读（存证机器人 2026-11-28 起等封卷满 16 分钟才来：拿清单、回报核对、页面存证卡片读的都是打包好的这一条，指纹一定一致）
   const entries = g.map((x) => ({ name: x.name, a: x.a, ps: (x.ps || []).map((p) => [p[0], p[1]]) })).sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
   const canon = JSON.stringify({ day, entries });
   const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon)))].map((b) => b.toString(16).padStart(2, "0")).join("");
