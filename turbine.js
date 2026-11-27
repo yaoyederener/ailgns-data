@@ -49,8 +49,9 @@
     quote: "0xed1bd76c", activate: "0xd96c5110", claimUnlocked: "0xadaace55", approve: "0x095ea7b3" };
   var SLIP_BPS = 100n, DEADLINE = 1800, LOCKS_MAX = 30; // 报价上多留 1%（市价会动）；交易 30 分钟内有效
   var account = null, S = null, busy = false, tick = 0, pageId = 0, hooked = false;
-  var daiStr = "", ailStr = "", ailQ = null; // 第四步「复投」两个输入框里的数（重画时不丢）；ailQ = 算好、等客户确认的「用 AiLGNS 复投」计划
+  var daiStr = "", ailStr = "", ailQ = null, ailEdited = false; // ailEdited = 客户自己改过 AiLGNS 数量（就不再默认填满） // 第四步「复投」两个输入框里的数（重画时不丢）；ailQ = 算好、等客户确认的「用 AiLGNS 复投」计划
   var LOW_SELL = 90n; // 换 DAI 的均价不到「涡轮市场买入价」的 90% 就不让换
+  var AIL_DUST = 10n ** 12n; // 不到 0.000001 AiLGNS（页面显示成 0）当没有：复投直接走 DAI，不默认填一个 0
   var GAS_KEEP = 2n * 10n ** 17n; // 留 0.2 DAI 付 Gas
   function mem(k, v) { try { var key = "tbn:" + k + ":" + account; if (v === undefined) return localStorage.getItem(key) || ""; localStorage.setItem(key, v); } catch (e) {} return ""; }
   function plain(w, dp) { return f(w, dp).replace(/,/g, ""); }
@@ -152,32 +153,33 @@
     var rateX = S.rate ? (S.rate / 10000) : 0;
     var s4 = '<div class="tbn-hold"><b>🏦 囤币<em>推荐</em></b><p>领到的 AiLGNS 留在钱包里就是囤着，<b>什么都不用点</b>。你钱包里现在有 <b class="tbn-n">' + f(S.ail, 6) + "</b> AiLGNS。</p></div>" +
       '<div class="tbn-reinv"><b>🔁 复投算力</b>';
-    if (S.open === false) s4 += '<p class="tbn-warn">官方现在暂停了 DAI 参与算力，等开放后再来。</p>';
-    else s4 += '<p>钱包里有 <b class="tbn-n">' + f(S.dai, 2) + "</b> DAI。想投多少进官方算力，填在下面：</p>" +
-      '<div class="tbn-in"><input id="tbn-dai" inputmode="decimal" autocomplete="off" placeholder="投多少 DAI" value="' + esc(daiStr) + '"><button type="button" class="ghost" data-act="daiall">全部</button></div>' +
-      (rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的 DAI 不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "") +
+    var rule = rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "";
+    var daiForm = '<div class="tbn-in"><input id="tbn-dai" inputmode="decimal" autocomplete="off" placeholder="投多少 DAI" value="' + esc(daiStr) + '"><button type="button" class="ghost" data-act="daiall">全部</button></div>' +
       '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
-    // 💱 用 AiLGNS 复投：页面上只说「换成 DAI 投进算力」，不出现「卖出」（站长 2026-11-27）
-    if (S.open !== false && S.ail > 0n) {
-      s4 += '<div class="tbn-ail2"><p><b>DAI 不够？用钱包里的 AiLGNS 复投</b></p><p class="muted tbn-sm">按 OTC 现成的买单换成 DAI，直接投进算力。</p>' +
+    if (S.open === false) s4 += '<p class="tbn-warn">官方现在暂停了 DAI 参与算力，等开放后再来。</p>';
+    else if (S.ail >= AIL_DUST) {
+      /* 💱 站长 2026-11-27「复投算力这一步默认把 AiLGNS 换成 DAI 复投」：钱包里有 AiLGNS 就默认走这条——按 OTC 现成的买单换成 DAI，直接投进算力；
+         数量默认填钱包里全部的 AiLGNS（客户改过就按他填的）。页面上只说「换成 DAI」，不出现「卖出」。直接用 DAI 复投收进下面的折叠里 */
+      if (!ailStr && !ailEdited) { ailStr = plain(S.ail, 6); try { if (BigInt(K().toWei(ailStr, 18)) > S.ail) ailStr = plain(S.ail - 10n ** 12n, 6); } catch (e) {} }
+      s4 += '<p>把钱包里的 AiLGNS 换成 DAI，直接投进官方算力：</p>' +
         '<div class="tbn-in"><input id="tbn-ail" inputmode="decimal" autocomplete="off" placeholder="用多少 AiLGNS" value="' + esc(ailStr) + '"><button type="button" class="ghost" data-act="ailall">全部</button></div>';
       if (ailQ) {
         var pw = S.rate ? ailQ.dai * BigInt(Math.round(S.rate)) / 10000n : 0n;
         s4 += '<div class="tbn-kv"><div><span>用掉</span><b>' + f(ailQ.tok, 6) + ' AiLGNS</b></div><div><span>换成</span><b>约 ' + fd(ailQ.dai) + " DAI</b></div>" + (pw > 0n ? "<div><span>记算力</span><b>约 " + f(pw, 2) + "</b></div>" : "") + "</div>" +
           (ailQ.short ? '<p class="tbn-warn">现在的买单只够换 ' + f(ailQ.tok, 6) + " AiLGNS，剩下的这次换不了。</p>" : "") +
-          (ailQ.low ? '<p class="tbn-warn">现在 OTC 买单的出价太低（比涡轮的市场价低 10% 以上），先别换。可以先囤着，或者用上面的 DAI 复投。</p>'
-            : '<button type="button" class="nm-go tbn-go" data-act="ailgo">确认用 AiLGNS 复投</button><p class="muted tbn-sm">钱包会弹几次：先把 AiLGNS 换成 DAI，再授权、投入算力（第一次用还要先授权一次 AiLGNS）。</p>');
-      } else s4 += '<button type="button" class="ghost tbn-go" data-act="ailq">算一下能投多少</button>';
-      s4 += "</div>";
-    }
+          (ailQ.low ? '<p class="tbn-warn">现在 OTC 买单的出价太低（比涡轮的市场价低 10% 以上），先别换。可以先囤着，或者用下面的 DAI 直接复投。</p>'
+            : '<button type="button" class="nm-go tbn-go" data-act="ailgo">确认复投</button><p class="muted tbn-sm">钱包会弹几次：先把 AiLGNS 换成 DAI，再授权、投入算力（第一次用还要先授权一次 AiLGNS）。</p>');
+      } else s4 += '<button type="button" class="nm-go tbn-go" data-act="ailq">算一下能投多少</button>';
+      s4 += rule + '<details class="tbn-dai2"><summary>直接用钱包里的 DAI 复投（有 ' + f(S.dai, 2) + " DAI）</summary>" + daiForm + "</details>";
+    } else s4 += '<p>钱包里有 <b class="tbn-n">' + f(S.dai, 2) + "</b> DAI。想投多少进官方算力，填在下面：</p>" + daiForm + rule; // 没有 AiLGNS：直接用 DAI 复投
     s4 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p></div>";
     box.innerHTML = whoBar + (fresh ? "" : '<p class="tbn-upd">' + T("先显示上次的数据，正在读最新的…") + "</p>") + '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
       '<div class="tbn-steps">' + step(1, "领排放", "把 LP 空投、个人排放、社区动态排放领进涡轮", s1, S.stat <= 0n && lp <= 0n && dc.amt <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
-      step(4, "复投或囤币", "领到的币留着囤，或者投进官方算力", s4, (S.dai <= 0n && S.ail <= 0n) || S.open === false, 1) + "</div>" +
+      step(4, "复投或囤币", "领到的币留着囤，或者投进官方算力", s4, (S.dai <= 0n && S.ail < AIL_DUST) || S.open === false, 1) + "</div>" +
       '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
     var i5 = document.getElementById("tbn-dai"), i6 = document.getElementById("tbn-ail");
     if (i5) i5.oninput = function () { daiStr = i5.value; };
-    if (i6) i6.oninput = function () { ailStr = i6.value; if (ailQ) { ailQ = null; draw(); var n6 = document.getElementById("tbn-ail"); if (n6) { n6.focus(); try { n6.setSelectionRange(n6.value.length, n6.value.length); } catch (e) {} } } };
+    if (i6) i6.oninput = function () { ailStr = i6.value; ailEdited = true; if (ailQ) { ailQ = null; draw(); var n6 = document.getElementById("tbn-ail"); if (n6) { n6.focus(); try { n6.setSelectionRange(n6.value.length, n6.value.length); } catch (e) {} } } };
     Array.prototype.forEach.call(box.querySelectorAll("[data-act]"), function (b) { b.onclick = function () { act(b.getAttribute("data-act"), b); }; if (!fresh) b.disabled = true; });
     wire();
   }
@@ -201,7 +203,7 @@
   }
   function setAcct(a) {
     if (a === account) return;
-    account = a || null; busy = false; daiStr = ""; ailStr = ""; ailQ = null; fresh = false;
+    account = a || null; busy = false; daiStr = ""; ailStr = ""; ailQ = null; ailEdited = false; fresh = false;
     S = account ? recall(account) : null;
     if (!A.isCurrent(pageId)) return;
     draw(); if (account) refresh().catch(function () {});
@@ -253,7 +255,7 @@
         if (!ailQ || ailQ.low) throw new Error("先点「算一下能投多少」");
         var plan = ailQ.p, minD = S.minDai || 0n;
         return K().sellFire(plan, say, "把 AiLGNS 换成 DAI（复投用）").then(function (r) {
-          ailQ = null; ailStr = "";
+          ailQ = null; ailStr = ""; ailEdited = false;
           return bal(DAI, account).then(function (have) {
             var inv = r.got; if (have - inv < GAS_KEEP) inv = have > GAS_KEEP ? have - GAS_KEEP : 0n;
             if (inv <= 0n || (minD > 0n && inv < minD)) return done("✅ 已换到 " + fd(r.got) + " DAI，在你钱包里。" + (minD > 0n ? "不够官方每次最少 " + f(minD, 2) + " DAI，" : "") + "这次没投进算力。");
@@ -262,7 +264,7 @@
               return K().send(DAI, SEL.approve + u(LEDGER) + u(inv), say, "授权这一次要投的 DAI（" + fd(inv) + " DAI）");
             }).then(function () { return K().send(LEDGER, SEL.participate + u(inv), say, "DAI 投入算力"); })
               .then(function () { return done("✅ 用 " + f(r.paid, 6) + " AiLGNS 换到 " + fd(r.got) + " DAI，已投入算力 " + fd(inv) + " DAI。"); },
-                function (e) { return done("⚠️ AiLGNS 已经换成 " + fd(r.got) + " DAI，在你钱包里；投入算力这一步没成功（" + String((e && e.message) || e).slice(0, 60) + "）。可以用上面的「授权并投入算力」再投。"); });
+                function (e) { return done("⚠️ AiLGNS 已经换成 " + fd(r.got) + " DAI，在你钱包里；投入算力这一步没成功（" + String((e && e.message) || e).slice(0, 60) + "）。可以展开「直接用钱包里的 DAI 复投」再投。"); });
           });
         });
       }
@@ -294,7 +296,7 @@
   }
 
   A.pages.turbine = function (id) {
-    pageId = id; clearInterval(tick); S = null; busy = false; daiStr = ""; ailStr = ""; ailQ = null; fresh = false;
+    pageId = id; clearInterval(tick); S = null; busy = false; daiStr = ""; ailStr = ""; ailQ = null; ailEdited = false; fresh = false;
     try { K().useMarket("ailgns"); } catch (e) {}
     account = String((K() && K().account && K().account()) || "").toLowerCase() || null;
     var known = !!account, guess = "";

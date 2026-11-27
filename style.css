@@ -5836,3 +5836,7 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .tbn-ail2 { margin: 12px 0 4px; padding-top: 10px; border-top: 1px dashed #e4dcfb; }
 .tbn-ail2 > p:first-child { margin: 0; }
 .tbn-ail2 .tbn-kv { margin-top: 8px; }
+/* 复投默认用 AiLGNS（2026-11-27）：直接用 DAI 复投收进折叠 */
+.tbn-dai2 { margin: 10px 0 4px; border-top: 1px dashed #e4dcfb; padding-top: 8px; }
+.tbn-dai2 > summary { cursor: pointer; color: #6d28d9; font-weight: 700; font-size: 14px; padding: 4px 0; }
+.tbn-dai2[open] > summary { margin-bottom: 6px; }
