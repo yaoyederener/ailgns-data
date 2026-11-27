@@ -5798,3 +5798,19 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 
 /* 工单后台 · 删除按钮 */
 .fb-act .fb-del { color: #c0392b; border-color: #f0c4bd; }
+/* 📐 平板 / 小笔记本（宽 601–1519）顶部排两行（2026-11-27 客户反馈：「iPad 上 OTC 首页不显示涡轮了」）。
+   11-26 顶部换成 6 个功能键后，一行要约 1320 像素，版心只有 1120：iPad 竖屏「涡轮助手」被挤到屏幕外，横屏和小笔记本右上角的铃铛 / App / 工单 / 加群被切掉。
+   现在：第一行放菜单、Logo、右上角按钮；6 个功能键单独排第二行，一样宽、字大一号（客户说常用 iPad 看、眼花）。手机（≤600）和大屏（≥1520）不变。 */
+@media (min-width: 601px) and (max-width: 1519px) {
+  header.top .top-in { flex-wrap: wrap; height: auto; padding-top: 8px; padding-bottom: 0; row-gap: 2px; }
+  header.top .top-r { margin-left: auto; }
+  header.top .tabs { order: 3; flex: 1 1 100%; width: 100%; max-width: 980px; margin: 0 auto; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; padding: 10px 0 12px; overflow: visible; }
+  header.top .tabs a { display: inline-flex; align-items: center; justify-content: center; text-align: center; min-width: 0; padding: 10px 6px; font-size: 15px; }
+}
+@media (min-width: 601px) and (max-width: 760px) {
+  header.top .tabs { gap: 8px; }
+  header.top .tabs a { padding: 9px 4px; font-size: 14px; }
+  header.top .tabs a .tb-x { display: none; } /* 窄的平板和手机一样只写「涡轮」 */
+  header.top .top-in .debox { padding: 0; width: 36px; height: 36px; justify-content: center; }
+  header.top .top-in .debox span { display: none; } /* 加群按钮只留图标，第一行放得下 */
+}
