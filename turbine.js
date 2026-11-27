@@ -4,11 +4,13 @@
 //   · 客户自己的钱包签名。DAI 授权只批这一次要付的数，不批无限额
 //   · 链上实际走法（拿真实交易核过）：激活 X 枚 → 付「市价买 X 枚的 DAI + 2.5% 手续费」→ 市场买到的 X 枚马上进钱包；排放的那 X 枚锁 24 小时后再领
 //   · 只做「个人排放」（claimStatic）。社区动态排放要带官方接口给的证明，这一版不做，页面上提示去官方领
-//   · 第四、五步（站长 2026-11-25：「自动在 OTC 卖出、DAI 复投算力，做出来」）：
-//       第四步 把 AiLGNS 在本站 OTC 卖成 DAI——吃现成的买单，和「闪兑」第 1 步同一套代码（A.otcKit.sellQuote / sellFire），照收 1% 吃单手续费；
-//               先算给客户看再让他点确认；卖出均价比涡轮的市场买入价低 10% 以上就不让卖（买盘太浅）
-//       第五步 把 DAI 投进官方算力账本 LEDGER.participate(DAI 数量)（链上核过：现在 1 DAI 记 2.5 算力、开放中）。授权同样只批这一次的数
-//       页面只摆数字，不说「复投更赚」——划不划算客户自己判断
+//   · 第四步「复投或囤币」（站长 2026-11-27：「第 4 步和第 5 步合并变成复投或囤币，领导说引导大家囤币不要卖」「不要太详细扣 1% 手续费」）：
+//       原来的第四步「在本站 OTC 卖成 DAI」整个去掉；原来的第五步「复投算力」并进来。两条路：
+//       囤币（推荐）= 领到的 AiLGNS 留在钱包里，什么都不用点；复投 = 把 DAI 投进官方算力账本 LEDGER.participate(DAI 数量)（链上核过：1 DAI 记 2.5 算力），授权只批这一次的数
+//       站长 2026-11-27 又补：「复投算力那里要加入卖出的按钮，只是我们不显示，复投要用 DAI」→ 复投框里加「DAI 不够？用钱包里的 AiLGNS 复投」：
+//       先按 OTC 现成的买单把 AiLGNS 换成 DAI（A.otcKit.sellQuote / sellFire，和闪兑第 1 步同一套），换到的 DAI 直接投进算力。页面不出现「卖出」字样、不单独给卖出按钮；
+//       先算给客户看（用掉多少 AiLGNS、换成约多少 DAI、记多少算力）再确认；买单出价比涡轮的市场买入价低 10% 以上就不让换（买盘太浅，保护客户）
+//       页面只摆数字，不说「复投更赚」
 //   · 试运行：真钱包完整走一遍还没人试过。官方改规则时这里要跟着改
 (function () {
   "use strict";
@@ -47,9 +49,9 @@
     quote: "0xed1bd76c", activate: "0xd96c5110", claimUnlocked: "0xadaace55", approve: "0x095ea7b3" };
   var SLIP_BPS = 100n, DEADLINE = 1800, LOCKS_MAX = 30; // 报价上多留 1%（市价会动）；交易 30 分钟内有效
   var account = null, S = null, busy = false, tick = 0, pageId = 0, hooked = false;
-  var sellStr = "", daiStr = "", sellQ = null; // 第四、五步输入框里的数（重画时不丢）；sellQ = 算好等客户确认的卖出计划
+  var daiStr = "", ailStr = "", ailQ = null; // 第四步「复投」两个输入框里的数（重画时不丢）；ailQ = 算好、等客户确认的「用 AiLGNS 复投」计划
+  var LOW_SELL = 90n; // 换 DAI 的均价不到「涡轮市场买入价」的 90% 就不让换
   var GAS_KEEP = 2n * 10n ** 17n; // 留 0.2 DAI 付 Gas
-  var LOW_SELL = 90n; // 卖出均价不到「涡轮市场买入价」的 90% 就不让卖
   function mem(k, v) { try { var key = "tbn:" + k + ":" + account; if (v === undefined) return localStorage.getItem(key) || ""; localStorage.setItem(key, v); } catch (e) {} return ""; }
   function plain(w, dp) { return f(w, dp).replace(/,/g, ""); }
   function T(s) { try { return window.AIL_LANG_T ? window.AIL_LANG_T(s) : s; } catch (e) { return s; } }
@@ -110,8 +112,8 @@
     return read(TURBINE, SEL.quote + u(amt)).then(function (h) { var q = { buy: big(word(h, 0)), fee: big(word(h, 1)), total: big(word(h, 2)) }, max = q.total + q.total * SLIP_BPS / 10000n; return max <= have ? { amt: amt, q: q, max: max, part: true } : null; }, function () { return null; });
   }
 
-  /* 版式（站长 2026-11-25「把这五步做精美一点」）：左边一条竖线串起五个圆点（像物流进度），右边是卡片。
-     轮到要做的那一步：圆点实心、卡片白底描紫边带一点阴影，标题旁有「现在可以做」；没事可做的：圆点空心、卡片淡一档。第四、五步带「可选」小标 */
+  /* 版式（站长 2026-11-25「把这五步做精美一点」；11-27 第四、五步合并后是四步）：左边一条竖线串起圆点（像物流进度），右边是卡片。
+     轮到要做的那一步：圆点实心、卡片白底描紫边带一点阴影，标题旁有「现在可以做」；没事可做的：圆点空心、卡片淡一档。第四步带「可选」小标 */
   function step(n, title, sub, body, done, opt) {
     return '<div class="tbn-step' + (done ? " off" : " on") + '"><div class="tbn-dot">' + n + '</div><div class="tbn-card"><div class="tbn-h"><b data-nobrand>' + title + "</b>" +
       (opt ? '<em class="tbn-opt">可选</em>' : "") + (done ? "" : '<em class="tbn-now">现在可以做</em>') + '</div><p class="tbn-sub">' + sub + "</p>" + body + "</div></div>";
@@ -139,36 +141,43 @@
     else s2 = "<p>" + (F.part ? "有 " + f(S.wait, 6) + " AiLGNS 等着激活，你的 DAI 只够先激活 " : "激活 ") + '<b class="tbn-n">' + f(F.amt, 6) + "</b> AiLGNS：</p>" +
       '<div class="tbn-kv"><div><span>要付</span><b>' + fd(F.q.total) + " DAI</b></div><div><span>其中官方手续费（" + fee + "）</span><b>" + fd(F.q.fee) + " DAI</b></div>" +
       "<div><span>付完马上到钱包</span><b>" + f(F.amt, 6) + " AiLGNS</b></div><div><span>" + hrs + " 小时后再到手</span><b>" + f(F.amt, 6) + " AiLGNS</b></div><div><span>你的 DAI 余额</span><b>" + f(S.dai, 2) + " DAI</b></div></div>" +
-      '<p class="muted tbn-sm">官方规则：付的 DAI 用来在市场上买同样数量的 AiLGNS，买到的马上给你；排放的那一份锁 ' + hrs + " 小时。市价会动，实际付的可能比上面多一点，最多多 1%，超过就不成交。</p>" +
+      '<p class="muted tbn-sm">官方规则：付的 DAI 用来在市场上买同样数量的 AiLGNS，买到的马上给你；排放的那一份锁 ' + hrs + " 小时。市价会动，实际付的可能比上面略多一点，多太多就不成交。</p>" +
       '<button type="button" class="nm-go tbn-go" data-act="activate">授权并激活涡轮</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次要付的 DAI，再激活。</p>';
     var s3 = "";
     if (open.length) s3 += '<p>已经解锁 <b class="tbn-n">' + f(openAmt, 6) + "</b> AiLGNS（" + open.length + ' 笔），可以领了。</p><button type="button" class="nm-go tbn-go" data-act="unlock">领取已解锁的</button>';
     if (shut.length) s3 += '<div class="tbn-locks">' + shut.map(function (l) { var pct = S.lockSec > 0 ? Math.max(3, Math.min(100, Math.round((S.lockSec - (l.at - now)) / S.lockSec * 100))) : 0; return '<div class="tbn-lock"><div class="tbn-lockr"><span>' + f(l.amt, 6) + ' AiLGNS</span><b class="tbn-left" data-at="' + l.at + '">' + T("还要") + " " + left(l.at - now) + '</b></div><div class="tbn-bar"><i style="width:' + pct + '%"></i></div></div>'; }).join("") + "</div>";
     if (!s3) s3 = '<p class="muted">没有锁着的。第二步激活后，' + hrs + " 小时回来这里领。</p>";
-    if (!sellStr) { var ls = mem("sell"); try { if (ls && BigInt(ls) > 0n && BigInt(ls) <= S.ail) sellStr = plain(BigInt(ls), 6); } catch (e) {} }
     if (!daiStr) { var ld = mem("dai"); try { if (ld && BigInt(ld) > 0n && BigInt(ld) <= S.dai) daiStr = plain(BigInt(ld), 2); } catch (e) {} }
-    var s4 = '<p>钱包里有 <b class="tbn-n">' + f(S.ail, 6) + "</b> AiLGNS。想卖多少，填在下面：</p>" +
-      '<div class="tbn-in"><input id="tbn-sell" inputmode="decimal" autocomplete="off" placeholder="卖多少 AiLGNS" value="' + esc(sellStr) + '"><button type="button" class="ghost" data-act="sellall">全部</button></div>';
-    if (sellQ) s4 += '<div class="tbn-kv"><div><span>卖出</span><b>' + f(sellQ.tok, 6) + " AiLGNS</b></div><div><span>到手（已扣 1% 手续费）</span><b>" + fd(sellQ.dai) + " DAI</b></div><div><span>合每枚</span><b>" + f(sellQ.avg, 2) + " DAI</b></div>" +
-      (S.mkt > 0n ? "<div><span>涡轮的市场买入价</span><b>" + f(S.mkt, 2) + " DAI</b></div>" : "") + "</div>" +
-      (sellQ.short ? '<p class="tbn-warn">现在的买单只够接 ' + f(sellQ.tok, 6) + " AiLGNS，剩下的这次卖不掉。</p>" : "") +
-      (sellQ.low ? '<p class="tbn-warn">现在买单的出价太低（比涡轮的市场买入价低 10% 以上），这个价先不卖。可以过一会儿再来，或者到 OTC 自己挂卖单。</p><a class="ghost tbn-otc" href="#/otc">去 OTC 挂卖单 →</a>'
-        : '<button type="button" class="nm-go tbn-go" data-act="sellgo">确认卖出</button><p class="muted tbn-sm">吃的是 OTC 里现成的买单（' + sellQ.n + " 张），一笔交易成交。第一次用会先让你授权一次。</p>");
-    else s4 += '<button type="button" class="nm-go tbn-go" data-act="sellq">算一下能卖多少 DAI</button>';
-    var rateX = S.rate ? (S.rate / 10000) : 0, s5;
-    if (S.open === false) s5 = '<p class="tbn-warn">官方现在暂停了 DAI 参与算力，等开放后再来。</p>';
-    else s5 = '<p>钱包里有 <b class="tbn-n">' + f(S.dai, 2) + "</b> DAI。想投多少进官方算力，填在下面：</p>" +
+    // 🏦 第四步「复投或囤币」（站长 2026-11-27：领导说引导大家囤币不要卖）：上面囤币（推荐，不用点），下面复投算力
+    var rateX = S.rate ? (S.rate / 10000) : 0;
+    var s4 = '<div class="tbn-hold"><b>🏦 囤币<em>推荐</em></b><p>领到的 AiLGNS 留在钱包里就是囤着，<b>什么都不用点</b>。你钱包里现在有 <b class="tbn-n">' + f(S.ail, 6) + "</b> AiLGNS。</p></div>" +
+      '<div class="tbn-reinv"><b>🔁 复投算力</b>';
+    if (S.open === false) s4 += '<p class="tbn-warn">官方现在暂停了 DAI 参与算力，等开放后再来。</p>';
+    else s4 += '<p>钱包里有 <b class="tbn-n">' + f(S.dai, 2) + "</b> DAI。想投多少进官方算力，填在下面：</p>" +
       '<div class="tbn-in"><input id="tbn-dai" inputmode="decimal" autocomplete="off" placeholder="投多少 DAI" value="' + esc(daiStr) + '"><button type="button" class="ghost" data-act="daiall">全部</button></div>' +
       (rateX ? '<p class="muted tbn-sm">官方现在的规则：1 DAI 记 ' + rateX + " 算力。投进去的 DAI 不能取回。官方每天有总额度，满了这一步会不成功。</p>" : "") +
       '<button type="button" class="nm-go tbn-go" data-act="invest">授权并投入算力</button><p class="muted tbn-sm">钱包会弹 2 次：先授权这一次的 DAI，再投入。</p>';
-    s5 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p>";
+    // 💱 用 AiLGNS 复投：页面上只说「换成 DAI 投进算力」，不出现「卖出」（站长 2026-11-27）
+    if (S.open !== false && S.ail > 0n) {
+      s4 += '<div class="tbn-ail2"><p><b>DAI 不够？用钱包里的 AiLGNS 复投</b></p><p class="muted tbn-sm">按 OTC 现成的买单换成 DAI，直接投进算力。</p>' +
+        '<div class="tbn-in"><input id="tbn-ail" inputmode="decimal" autocomplete="off" placeholder="用多少 AiLGNS" value="' + esc(ailStr) + '"><button type="button" class="ghost" data-act="ailall">全部</button></div>';
+      if (ailQ) {
+        var pw = S.rate ? ailQ.dai * BigInt(Math.round(S.rate)) / 10000n : 0n;
+        s4 += '<div class="tbn-kv"><div><span>用掉</span><b>' + f(ailQ.tok, 6) + ' AiLGNS</b></div><div><span>换成</span><b>约 ' + fd(ailQ.dai) + " DAI</b></div>" + (pw > 0n ? "<div><span>记算力</span><b>约 " + f(pw, 2) + "</b></div>" : "") + "</div>" +
+          (ailQ.short ? '<p class="tbn-warn">现在的买单只够换 ' + f(ailQ.tok, 6) + " AiLGNS，剩下的这次换不了。</p>" : "") +
+          (ailQ.low ? '<p class="tbn-warn">现在 OTC 买单的出价太低（比涡轮的市场价低 10% 以上），先别换。可以先囤着，或者用上面的 DAI 复投。</p>'
+            : '<button type="button" class="nm-go tbn-go" data-act="ailgo">确认用 AiLGNS 复投</button><p class="muted tbn-sm">钱包会弹几次：先把 AiLGNS 换成 DAI，再授权、投入算力（第一次用还要先授权一次 AiLGNS）。</p>');
+      } else s4 += '<button type="button" class="ghost tbn-go" data-act="ailq">算一下能投多少</button>';
+      s4 += "</div>";
+    }
+    s4 += '<p class="muted tbn-sm">你现在的算力：生效中 ' + f(S.pow, 2) + (S.powWait > 0n ? "，等生效 " + f(S.powWait, 2) : "") + "。</p></div>";
     box.innerHTML = whoBar + (fresh ? "" : '<p class="tbn-upd">' + T("先显示上次的数据，正在读最新的…") + "</p>") + '<div class="tbn-hero"><div><span>AiLGNS</span><b>' + f(S.ail, 4) + "</b></div><div><span>DAI</span><b>" + f(S.dai, 2) + "</b></div><div><span>" + T("算力") + "</span><b>" + f(S.pow + S.powWait, 0) + '</b></div><button type="button" class="tbn-re" data-act="reload" aria-label="刷新数据">↻</button></div>' +
       '<div class="tbn-steps">' + step(1, "领排放", "把 LP 空投、个人排放、社区动态排放领进涡轮", s1, S.stat <= 0n && lp <= 0n && dc.amt <= 0n) + step(2, "激活涡轮", "付 DAI，换回同样数量的币", s2, S.wait <= 0n) + step(3, "到点领取", "锁满 " + hrs + " 小时后领回排放的那一份", s3, !open.length) +
-      step(4, "卖成 DAI", "在本站 OTC 卖给现成的买单", s4, S.ail <= 0n, 1) + step(5, "复投算力", "把 DAI 投进官方算力", s5, S.dai <= 0n || S.open === false, 1) + "</div>" +
+      step(4, "复投或囤币", "领到的币留着囤，或者投进官方算力", s4, (S.dai <= 0n && S.ail <= 0n) || S.open === false, 1) + "</div>" +
       '<p class="muted nm-st tbn-st" id="tbn-st"></p>';
-    var i4 = document.getElementById("tbn-sell"), i5 = document.getElementById("tbn-dai");
-    if (i4) i4.oninput = function () { sellStr = i4.value; if (sellQ) { sellQ = null; draw(); var n4 = document.getElementById("tbn-sell"); if (n4) { n4.focus(); try { n4.setSelectionRange(n4.value.length, n4.value.length); } catch (e) {} } } };
+    var i5 = document.getElementById("tbn-dai"), i6 = document.getElementById("tbn-ail");
     if (i5) i5.oninput = function () { daiStr = i5.value; };
+    if (i6) i6.oninput = function () { ailStr = i6.value; if (ailQ) { ailQ = null; draw(); var n6 = document.getElementById("tbn-ail"); if (n6) { n6.focus(); try { n6.setSelectionRange(n6.value.length, n6.value.length); } catch (e) {} } } };
     Array.prototype.forEach.call(box.querySelectorAll("[data-act]"), function (b) { b.onclick = function () { act(b.getAttribute("data-act"), b); }; if (!fresh) b.disabled = true; });
     wire();
   }
@@ -192,7 +201,7 @@
   }
   function setAcct(a) {
     if (a === account) return;
-    account = a || null; busy = false; sellStr = ""; daiStr = ""; sellQ = null; fresh = false;
+    account = a || null; busy = false; daiStr = ""; ailStr = ""; ailQ = null; fresh = false;
     S = account ? recall(account) : null;
     if (!A.isCurrent(pageId)) return;
     draw(); if (account) refresh().catch(function () {});
@@ -204,22 +213,22 @@
   }
   function act(kind, btn) {
     if (kind === "reload") { S = null; fresh = false; draw(); refresh().catch(function () { S = null; say("没读出来，再点一次「刷新数据」。", true); }); return; }
-    if (kind === "sellall") { sellStr = plain(S.ail, 6); if (BigInt(K().toWei(sellStr, 18)) > S.ail) sellStr = plain(S.ail - 10n ** 12n, 6); sellQ = null; draw(); return; }
-    if (kind === "daiall") { daiStr = plain(S.dai - (S.dai > 2n * 10n ** 18n ? 2n * 10n ** 18n : 0n), 2); if (BigInt(K().toWei(daiStr, 18)) > S.dai) daiStr = "0"; draw(); say(S.dai > 2n * 10n ** 18n ? "留了 2 DAI 当手续费（Anubis 链的 Gas 用的就是 DAI）。" : ""); return; }
-    if (kind === "sellq") {
-      if (busy || !S) return; var want; try { want = BigInt(K().toWei(sellStr, 18)); } catch (e) { want = 0n; }
-      if (want <= 0n) { say("先填要卖多少 AiLGNS。", true); return; }
+    if (kind === "ailall") { ailStr = plain(S.ail, 6); if (BigInt(K().toWei(ailStr, 18)) > S.ail) ailStr = plain(S.ail - 10n ** 12n, 6); ailQ = null; draw(); return; }
+    if (kind === "ailq") { // 用 AiLGNS 复投：先算能换多少 DAI、记多少算力，给客户看了再确认
+      if (busy || !S) return; var want; try { want = BigInt(K().toWei(ailStr, 18)); } catch (e) { want = 0n; }
+      if (want <= 0n) { say("先填用多少 AiLGNS。", true); return; }
       if (want > S.ail) { say("钱包里没有这么多 AiLGNS。", true); return; }
-      busy = true; say("正在读 OTC 的买单…");
+      busy = true; say("正在算能换多少 DAI…");
       K().sellQuote(want).then(function (q) {
         busy = false; try { K().useMarket("ailgns"); } catch (e) {}
-        if (!q || !q.n || q.tok <= 0n) { say("OTC 现在没有能接的买单。可以到 OTC 自己挂卖单。", true); return; }
+        if (!q || !q.n || q.tok <= 0n) { say("OTC 现在没有能接的买单。可以先囤着，或者用 DAI 复投。", true); return; }
         var avg = q.dai * (10n ** 18n) / q.tok;
-        sellQ = { p: q.p, dai: q.dai, tok: q.tok, n: q.n, avg: avg, short: q.tok < want * 99n / 100n, low: S.mkt > 0n && avg * 100n < S.mkt * LOW_SELL };
+        ailQ = { p: q.p, dai: q.dai, tok: q.tok, n: q.n, short: q.tok < want * 99n / 100n, low: S.mkt > 0n && avg * 100n < S.mkt * LOW_SELL };
         draw(); say("");
       }, function () { busy = false; say("没读到 OTC 的买单，再点一次。", true); });
       return;
     }
+    if (kind === "daiall") { daiStr = plain(S.dai - (S.dai > 2n * 10n ** 18n ? 2n * 10n ** 18n : 0n), 2); if (BigInt(K().toWei(daiStr, 18)) > S.dai) daiStr = "0"; draw(); say(S.dai > 2n * 10n ** 18n ? "留了 2 DAI 当手续费（Anubis 链的 Gas 用的就是 DAI）。" : ""); return; }
     if (busy || !S) return; busy = true;
     Array.prototype.forEach.call(document.querySelectorAll(".tbn-go"), function (b) { b.disabled = true; });
     var done = function (msg) { busy = false; return refresh().then(function () { say(msg); }, function () { say(msg); }); };
@@ -240,12 +249,21 @@
         if (!ids.length) throw new Error("还没有解锁的");
         return K().send(TURBINE, SEL.claimUnlocked + u(32) + u(ids.length) + ids.map(u).join(""), say, "领取已解锁的 AiLGNS").then(function () { return done("✅ 已经领到钱包了。"); });
       }
-      if (kind === "sellgo") {
-        if (!sellQ || sellQ.low) throw new Error("先点「算一下能卖多少 DAI」");
-        var plan = sellQ.p;
-        return K().sellFire(plan, say).then(function (r) {
-          sellQ = null; sellStr = ""; mem("sell", "0"); mem("dai", r.got.toString()); daiStr = plain(r.got, 2); if (BigInt(K().toWei(daiStr, 18)) > r.got) daiStr = plain(r.got - 10n ** 16n, 2);
-          return done("✅ 卖掉 " + f(r.paid, 6) + " AiLGNS，到手 " + fd(r.got) + " DAI。想复投就接着做第五步。");
+      if (kind === "ailgo") { // 用 AiLGNS 复投：① 按 OTC 现成买单换成 DAI ② 换到的 DAI 投进算力（留一点 DAI 付 Gas）
+        if (!ailQ || ailQ.low) throw new Error("先点「算一下能投多少」");
+        var plan = ailQ.p, minD = S.minDai || 0n;
+        return K().sellFire(plan, say, "把 AiLGNS 换成 DAI（复投用）").then(function (r) {
+          ailQ = null; ailStr = "";
+          return bal(DAI, account).then(function (have) {
+            var inv = r.got; if (have - inv < GAS_KEEP) inv = have > GAS_KEEP ? have - GAS_KEEP : 0n;
+            if (inv <= 0n || (minD > 0n && inv < minD)) return done("✅ 已换到 " + fd(r.got) + " DAI，在你钱包里。" + (minD > 0n ? "不够官方每次最少 " + f(minD, 2) + " DAI，" : "") + "这次没投进算力。");
+            return K().allowance(DAI, account, LEDGER).then(function (al) {
+              if (al >= inv) return;
+              return K().send(DAI, SEL.approve + u(LEDGER) + u(inv), say, "授权这一次要投的 DAI（" + fd(inv) + " DAI）");
+            }).then(function () { return K().send(LEDGER, SEL.participate + u(inv), say, "DAI 投入算力"); })
+              .then(function () { return done("✅ 用 " + f(r.paid, 6) + " AiLGNS 换到 " + fd(r.got) + " DAI，已投入算力 " + fd(inv) + " DAI。"); },
+                function (e) { return done("⚠️ AiLGNS 已经换成 " + fd(r.got) + " DAI，在你钱包里；投入算力这一步没成功（" + String((e && e.message) || e).slice(0, 60) + "）。可以用上面的「授权并投入算力」再投。"); });
+          });
         });
       }
       if (kind === "invest") {
@@ -269,14 +287,14 @@
           }).then(function () {
             var dl = Math.floor(Date.now() / 1000) + DEADLINE;
             return K().send(TURBINE, SEL.activate + u(F.amt) + u(F.max) + u(dl), say, "激活涡轮");
-          }).then(function () { mem("sell", F.amt.toString()); sellStr = ""; sellQ = null; return done("✅ 激活好了：买到的 AiLGNS 已经进钱包（想卖成 DAI 看第四步），另一份到时间后回来做第三步。"); });
+          }).then(function () { return done("✅ 激活好了：买到的 AiLGNS 已经进钱包，另一份到时间后回来做第三步。"); });
         }); });
       }
     }).catch(fail);
   }
 
   A.pages.turbine = function (id) {
-    pageId = id; clearInterval(tick); S = null; busy = false; sellStr = ""; daiStr = ""; sellQ = null; fresh = false;
+    pageId = id; clearInterval(tick); S = null; busy = false; daiStr = ""; ailStr = ""; ailQ = null; fresh = false;
     try { K().useMarket("ailgns"); } catch (e) {}
     account = String((K() && K().account && K().account()) || "").toLowerCase() || null;
     var known = !!account, guess = "";
@@ -284,11 +302,11 @@
     if (account) S = recall(account);
     if (!hooked) { hooked = true; try { A.wallets.onAccounts(function (a) { if (location.hash.indexOf("#/turbine") === 0) setAcct(a && a[0] ? String(a[0]).toLowerCase() : null); }); } catch (e) {} }
     A.app.innerHTML = '<section class="card tbn"><h2>🌀 涡轮助手 <small class="tbn-tag">试运行</small></h2>' +
-      '<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四、五步是可选的：把币在本站 OTC 卖成 DAI，再投回官方算力。</p>' +
+      '<p class="muted">官方的「领排放 → 涡轮 → 领取」要在三个页面里来回点。这里放到一页，按第一步、第二步、第三步的顺序点就行。第四步是可选的：领到的币留着囤，或者把 DAI 投回官方算力。</p>' +
       '<div id="tbn-box"></div>' +
-      '<div class="tbn-note"><b>要知道的</b><ul><li>第一、二、三、五步调用的是官方合约，本站不经手、不收费。第四步是在本站 OTC 成交，和平时吃单一样收 1% 手续费。</li>' +
+      '<div class="tbn-note"><b>要知道的</b><ul><li>每一步调用的都是官方合约，本站不经手、不收费。</li>' +
       "<li>手续费、锁定时间是官方定的，以官方页面为准；官方改规则时，这一页可能要等技术人员跟着更新。</li>" +
-      "<li>本页只是把操作变简单，不是投资建议。要不要激活、要不要卖，请自己判断。</li></ul></div></section>";
+      "<li>本页只是把操作变简单，不是投资建议。要不要激活、要不要复投，请自己判断。</li></ul></div></section>";
     draw();
     var failed = function () { if (S) return; var b = document.getElementById("tbn-box"); if (b && A.isCurrent(id)) b.innerHTML = '<p class="nm-bad">没读出来。</p><button type="button" class="ghost tbn-go" id="tbn-again">再读一次</button>'; var g = document.getElementById("tbn-again"); if (g) g.onclick = function () { S = null; draw(); refresh().catch(function () {}); }; };
     if (account) refresh().catch(failed); // 数据是公开的链上数据，不用等钱包回话就能先读

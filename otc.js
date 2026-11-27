@@ -2482,10 +2482,10 @@
     lpQuote: lpQuote, // 看盘页（chart.js）显示 LP 参考价
     marketPrice: marketPrice, // 一键做市发单前现读一次链上市价（2026-11-26 串价事故后加）
     crossText: crossText, // 交易所盘口页的限价单也守「不许挂穿盘口」
-    /* 涡轮助手（turbine.js）第四步「卖成 DAI」用：和闪兑第 1 步同一套——读最新盘口、从出价最高的买单吃起、离谱价的单不吃、批量扫单合约一笔成交。
-       sellQuote(币数) → { p 计划, dai 扣完 1% 到手, tok 实际卖掉多少币, n 吃几张 }；sellFire(计划) → { paid 卖掉的币, got 到手 DAI, tx } */
+    /* 涡轮助手（turbine.js）第四步「复投」里「用 AiLGNS 复投」用（2026-11-27 起不单独显示卖出，换成 DAI 直接投进算力）：和闪兑第 1 步同一套——读最新盘口、从出价最高的买单吃起、离谱价的单不吃、批量扫单合约一笔成交。
+       sellQuote(币数) → { p 计划, dai 扣完 1% 到手, tok 实际卖掉多少币, n 吃几张 }；sellFire(计划, say, 钱包提示文字?) → { paid 卖掉的币, got 到手 DAI, tx } */
     sellQuote: function (amt) { return swapBook("ailgns", true).then(function (b) { var p = sweepPlanTok(swapLive("ailgns", b).buys, amt); return { p: p, dai: swapNet(p.steps), tok: p.tok, n: p.steps.length }; }); },
-    sellFire: function (p, say) { return swapFire("ailgns", false, p, undefined, say, "在 OTC 卖出 AiLGNS", function () {}); }
+    sellFire: function (p, say, label) { return swapFire("ailgns", false, p, undefined, say, label || "在 OTC 卖出 AiLGNS", function () {}); }
   };
   A.pages.otc = function (id) {
     // #/otc · #/otc/lgns · #/otc/plgns · #/otc/glgns（后面可再跟 /sell、/buy）；部署页 #/otc/deploy/<市场>
