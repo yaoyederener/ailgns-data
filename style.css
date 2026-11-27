@@ -5755,6 +5755,7 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .gxl-c:active { transform: scale(.94); }
 .gxl-c.on { background: linear-gradient(145deg, #a98bff, #7c4dff); box-shadow: 0 0 14px rgba(124, 77, 255, .55), inset 0 -3px 0 rgba(0, 0, 0, .1); }
 .gxl-c.hint { outline: 3px solid #ffb300; outline-offset: 1px; }
+html.night .gxl-c.hint { outline-color: #ffc83d; box-shadow: 0 0 12px rgba(255, 200, 61, .5); } /* 夜间：提示框要亮，夜间生成器会把琥珀色变暗 */
 .gxl-tools { display: flex; gap: 8px; margin: 12px 0 8px; flex-wrap: wrap; }
 .gxl-b { flex: 1 1 0; min-width: 70px; border: 1px solid #d9cdfa; background: #fff; color: #4a2fb8; border-radius: 12px; padding: 10px 6px; font-size: 14px; font-family: inherit; cursor: pointer; }
 .gxl-b.pri { background: #7c4dff; color: #fff; border-color: #7c4dff; width: 100%; margin: 6px 0; }
