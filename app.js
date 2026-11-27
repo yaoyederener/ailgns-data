@@ -957,7 +957,9 @@
     errTip(m || (e && (e.message || e.reason)) || "操作没完成，请刷新页面再试一次");
   }
   window.addEventListener("unhandledrejection", function (ev) { oops(ev.reason); });
-  var BAN_RE = /毛泽东|刘少奇|李先念|杨尚昆|江泽民|胡锦涛|习近平|maozedong|liushaoqi|lixiannian|yangshangkun|jiangzemin|hujintao|xijinping/i;
+  // 🚫 敏感名字（和 lib/ban.js 同一套，2026-11-27 站长定：只拦历任国家主席 / 总书记的姓名、拼音、缩写、外号）
+  var BAN_RE = /毛泽东|刘少奇|李先念|杨尚昆|江泽民|胡锦涛|习近平|华国锋|胡耀邦|赵紫阳|邓小平|maozedong|liushaoqi|lixiannian|yangshangkun|jiangzemin|hujintao|xijinping|huaguofeng|huyaobang|zhaoziyang|dengxiaoping|习大大|近平|进平|晋平|刁近平|习禁评|习特勒|习包子|习猪头|习主席|习总|习皇|习帝|维尼|小熊维尼|总加速师|加速师|刁大大|细颈瓶|吸精瓶|西金平|习近乎|毛主席|毛腊肉|泽东|择东|江蛤|胡总/i;
+  var BAN_SHORT = /^[0-9]*(xjp|jzm|hjt|mzd|dxp|hyb|zzy|hgf)[0-9]*$/i; // 短缩写只在整个名字就是它时才算
   window.addEventListener("error", function (ev) { if (ev.error && !foreign(ev.filename)) oops(ev.error); });
   /* 工单 #283（2026-11-17）：Bitget 等钱包自带的浏览器不弹系统确认框，confirm() 一瞬间就返回「取消」，客户点「撤单」像没反应。
      人不可能在 0.08 秒内点掉一个确认框：这么快就返回 false 说明框根本没弹出来，按「确定」算（后面钱包自己还会弹一次确认）。正常浏览器照旧弹框，行为不变 */
@@ -1020,7 +1022,7 @@
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）
     hiddenNames: new Proxy({ "加拿大局长.ailgns": 1, "aiotc.ailgns": 1, "四哥.ailgns": 1, "觉醒人生.ailgns": 1, "加拿大局长.lgns": 1 }, { get: function (o, k) { return o[k] || (typeof k === "string" && BAN_RE.test(k) ? 1 : undefined); } }),
-    nameBanned: function (n) { return BAN_RE.test(String(n || "")); }, // 🚫 涉政名字：不开放注册、全站不显示（和 lib/ban.js 保持一致）
+    nameBanned: function (n) { var x = String(n || "").toLowerCase().replace(/[-_\s.]+/g, ""); return BAN_RE.test(x) || BAN_SHORT.test(x); }, // 🚫 涉政名字：不开放注册、全站不显示（和 lib/ban.js 保持一致）
     pages: {}, shorts: SHORTS, app: app, api: api, rpc: rpc, rpcMany: rpcMany, brpc: brpc, bcall: bcall, call: call, pad: pad, word: word, getJSON: getJSON,
     allReferrals: allReferrals, pool: pool, n: n, fmt: fmt, wan: wan, short: short, isAddr: isAddr, esc: esc, lv: lv, just: just,
     addrLink: addrLink, searchBox: searchBox, renderTeam: renderTeam, isCurrent: function (id) { return id === renderId; },
