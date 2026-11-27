@@ -77,10 +77,14 @@
   function cn(s) { return /[\u4e00-\u9fff]/.test(s); }
   // 带汉字：2 个字 50、3 个字及以上 5；英文：3 位 640、4 位 160、5 位及以上 5（DAI / 年）
   function yearPrice(s) { var n = chars(s); return cn(s) ? (n === 2 ? 50 : 5) : n === 3 ? 640 : n === 4 ? 160 : 5; }
-  // 付款币种：AiLGNS 优先，再 DAI、LGNS（合约按 DEX 实时价格换算）
+  // 付款币种：AiLGNS 优先，再 DAI（合约按 DEX 实时价格换算）
+  // 🚫 站长 2026-11-27「去掉 LGNS 付款，这玩意出错很多次了」：本站不再提供 LGNS 付款（合约本身仍收 LGNS，只是页面不给这个选项）。
+  //   原因：LGNS 在 DEX 卖出要扣税（11-27 约 48%），合约写死改不了，只能先单独补一笔「卖出税差价」再注册，分 2 笔经常出错
+  //   （第 1 笔付了、第 2 笔没点，钱卡在差价里，见工单 #518），客户还要多付近 1 倍。下面关于 LGNS 补差的代码留着：读老客户没用完的差价（topUpCredit）还要用。
   // LGNS：合约按 DEX 现价收，但 LGNS 在 DEX 卖出要扣税（动态，约 50%），平台收到的只值一部分。
   // 合约写死改不了，所以用 LGNS 付时先单独补一笔「卖出税差价」给分账合约（PAYEE），再注册：总共付 合约报价 ÷ (1 − 税率)
   var TOK = { AiLGNS: { a: "0x256edb652db43e721ec6a12b6b51b6967d3bb8cb", d: 18 }, DAI: { a: DAI, d: 18 }, LGNS: { a: "0x4d1d808a081fdac440703b3765fc61f8028c06b8", d: 9 } };
+  var PAY = ["AiLGNS", "DAI"]; // 页面上能选的付款币种（TOK 里的 LGNS 只用来读余额、算老差价）
   var PAYEE = "0x99f47ca8e7ed873e01a337aefc5b75f5328d2da3"; // 域名合约的收款地址（回购分账合约）
   var taxP = null;
   function lgnsTax() { // 现在 LGNS 在 DEX 卖出扣多少（万分比）；测不到按 50%
@@ -98,8 +102,8 @@
   function topUp(q) { return lgnsTax().then(function (bp) { return q * bp / (10000n - bp); }); } // 合约收 q 个 LGNS 时要补的差价
   // 付款币种直接摊开三个按钮（下拉框客户以为只有 AiLGNS）；隐藏的 select 仍是数据来源，原有 onchange 照用
   function tokSel(id) {
-    return '<select id="' + id + '" hidden>' + Object.keys(TOK).map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</select>" +
-      '<span class="nm-pay" data-for="' + id + '">' + Object.keys(TOK).map(function (k, i) { return '<button type="button" data-k="' + k + '"' + (i ? "" : ' class="on"') + ">" + k + "</button>"; }).join("") + "</span>";
+    return '<select id="' + id + '" hidden>' + PAY.map(function (k) { return "<option>" + k + "</option>"; }).join("") + "</select>" +
+      '<span class="nm-pay" data-for="' + id + '">' + PAY.map(function (k, i) { return '<button type="button" data-k="' + k + '"' + (i ? "" : ' class="on"') + ">" + k + "</button>"; }).join("") + "</span>";
   }
   document.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest(".nm-pay button"); if (!b) return;
@@ -171,7 +175,8 @@
     });
   }
   function prepay(dai, k, say) {
-    var t = TOK[k], max, lgLeft = null, ks = Object.keys(TOK);
+    if (PAY.indexOf(k) < 0) return Promise.reject(new Error("LGNS 付款已经停用，请用 AiLGNS 或 DAI 付")); // 老页面没刷新还选着 LGNS 的：直接拦下
+    var t = TOK[k], max, lgLeft = null, ks = PAY;
     // 站长 2026-11-12「点注册反应慢」：余额、授权额度和报价同时查（以前一个等一个，钱包要晚几秒才弹）
     var balP = Promise.all(ks.map(function (x) { return W.rpcOn("anubis", "eth_call", [{ to: TOK[x].a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt, function () { return -1n; }); })
       .concat([W.rpcOn("anubis", "eth_getBalance", [account, "latest"]).then(BigInt, function () { return -1n; })]));
@@ -185,7 +190,7 @@
         if (k !== "LGNS" && mine >= 0n && mine < q) {
           var have = ks.filter(function (x, i) { return x !== k && bal[i] > 0n; }).map(function (x) { return x + " " + fmt(bal[ks.indexOf(x)], TOK[x].d); });
           throw new Error(k + " 不够：要约 " + fmt(q, TOK[k].d) + " " + k + "，你的钱包只有 " + fmt(mine, TOK[k].d) + "（钱包「确定」会点不动）（活期 / 质押里的币不算，要先「赎回」取回钱包才能付）。" +
-            (have.length ? "你钱包里有 " + have.join("、") + "，点上面「付款」换成它付就行" : "请先往钱包里转 AiLGNS、DAI 或 LGNS"));
+            (have.length ? "你钱包里有 " + have.join("、") + "，点上面「付款」换成它付就行" : "请先往钱包里转 AiLGNS 或 DAI"));
         }
         return q;
       });
@@ -400,7 +405,7 @@
       '<form class="nm-search" id="nm-f"><input id="nm-q" placeholder="中文、英文都行" autocomplete="off" autocapitalize="none" spellcheck="false" value="' + esc(q) + '"><select id="nm-t" hidden><option value="ailgns">.ailgns</option><option value="lgns">.lgns</option></select><span class="nm-tld">.ailgns</span><button type="submit">搜索</button></form>' +
       // 💰 价格紧跟搜索栏、高亮（站长 2026-11-12：很多人找不到价格）；搜出结果时结果在上、价格在下；付款方式和规则折叠在价格下面
       '<div id="nm-r"></div><div class="nm-pbox"><p class="nm-pbt">💰 注册价格<small>每年 · 按名字长度</small></p><div class="nm-price nm-pc"><div><b>英文 3 位</b><span>640 DAI</span><small class="nm-q" data-dai="640"></small></div><div><b>英文 4 位</b><span>160 DAI</span><small class="nm-q" data-dai="160"></small></div><div><b>英文 5 位+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div><div><b>中文 2 字</b><span>50 DAI</span><small class="nm-q" data-dai="50"></small></div><div><b>中文 3 字+</b><span>5 DAI</span><small class="nm-q" data-dai="5"></small></div></div>' +
-      '<details class="nm-pdet"><summary>用什么付、注册规则</summary><p class="muted">可以用 <b>AiLGNS、DAI、LGNS</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p><ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></details></div>' +
+      '<details class="nm-pdet"><summary>用什么付、注册规则</summary><p class="muted">可以用 <b>AiLGNS、DAI</b> 付（Anubis 链）。AiLGNS 按 DEX 实时价格换算，<b>不经过 DEX、没有滑点</b>，比先卖成 DAI 再付划算。<span id="nm-px"></span></p><ul class="nm-rules"><li>可以用<b>中文</b>、小写字母、数字、连字符 -；英文最少 3 位，中文最少 2 个字</li><li>一次买 1–100 年（买 100 年相当于永久）；到期后有 <b>90 天宽限期</b>，只有原主人能续费</li><li>🌟 前 1 万个注册的名字是<b>创世域名</b>，按链上注册顺序永久编号</li><li>每个名字是一个 NFT，可以转让、买卖；转让后自动指向新主人</li><li>🔒 合约开源、无管理员、不能升级，平台也收不走你的名字</li></ul></details></div>' +
       '<div id="nm-genc"></div></section>' +
       '<div id="nm-burnc"></div>' +
       '<section class="card" id="nm-mycard"><div class="card-head"><h2>🔍 查询域名</h2><button type="button" class="nm-myw" id="nm-myw">👛 查我的钱包</button></div>' +
@@ -805,7 +810,7 @@
     // 自动选币：查钱包里哪种币够付，直接帮客户选好（大爷大妈不用自己挑）；都不够就大字说明
     function autoPick(v, y, kk) {
       if (!account) return;
-      var dai = yearPrice(v) * y.value, ks = Object.keys(TOK), tip = document.getElementById("nm-pick");
+      var dai = yearPrice(v) * y.value, ks = PAY, tip = document.getElementById("nm-pick");
       Promise.all(ks.map(function (k) {
         return Promise.all([quote(dai, k).then(function (q) { return k === "LGNS" ? topUp(q).then(function (e) { return q + e; }) : q; }),
           W.rpcOn("anubis", "eth_call", [{ to: TOK[k].a, data: "0x70a08231" + A.pad(account) }, "latest"]).then(BigInt)]).then(function (x) { return x[1] >= x[0] * 102n / 100n; }, function () { return false; });
@@ -814,7 +819,7 @@
         var i = ok.indexOf(true), box = tip || document.createElement("p");
         box.id = "nm-pick"; box.className = "nm-pick";
         if (!tip) document.getElementById("nm-go").before(box);
-        if (i < 0) { box.innerHTML = "⚠️ 你的钱包里 AiLGNS、DAI、LGNS 都不够付这个名字。<b>活期 / 质押里的币不算，要先「赎回」取回钱包；或者找志愿者帮你代注册。</b>"; return; }
+        if (i < 0) { box.innerHTML = "⚠️ 你的钱包里 AiLGNS、DAI 都不够付这个名字。<b>活期 / 质押里的币不算，要先「赎回」取回钱包；或者找志愿者帮你代注册。</b>"; return; }
         if (kk.value !== ks[i]) { var pb = document.querySelector('.nm-pay button[data-k="' + ks[i] + '"]'); if (pb) pb.click(); }
         box.innerHTML = "✅ 已自动帮你选好：用你钱包里的 <b>" + ks[i] + "</b> 付款，直接点下面蓝色按钮就行";
       });
@@ -1062,14 +1067,14 @@
     gcRead().then(draw, function () { var b = document.getElementById("nm-genc"); if (b) b.innerHTML = ""; });
     gcTimer = setInterval(function () { if (!document.getElementById("nm-genc")) { clearInterval(gcTimer); return; } if (!document.hidden) gcRead().then(draw, function () {}); }, 15000);
   }
-  // 价格表：每档下面标出用 AiLGNS / LGNS 付要多少个（LGNS 含卖出税补差）（合约 quote = DEX 实时价格）
+  // 价格表：每档下面标出用 AiLGNS 付要多少个（合约 quote = DEX 实时价格）。2026-11-27 起不再列 LGNS（LGNS 付款已停用）
   function livePrices() {
     var els = document.querySelectorAll(".nm-q");
     if (!els.length || !NAMES) return;
-    Promise.all([quote(1, "AiLGNS"), quote(1, "LGNS").then(function (q) { return topUp(q).then(function (e) { return q + e; }); }), lgnsTax()]).then(function (q) {
-      els.forEach(function (el) { var d = BigInt(el.getAttribute("data-dai")); el.innerHTML = "≈ " + fmt(q[0] * d, 18) + " AiLGNS<br>≈ " + fmt(q[1] * d, 9) + " LGNS"; });
+    quote(1, "AiLGNS").then(function (q0) {
+      els.forEach(function (el) { var d = BigInt(el.getAttribute("data-dai")); el.innerHTML = "≈ " + fmt(q0 * d, 18) + " AiLGNS"; });
       var px = document.getElementById("nm-px");
-      if (px) px.textContent = " 现在 1 AiLGNS ≈ " + (1e18 / Number(q[0])).toFixed(2) + " DAI。用 LGNS 付要补 DEX 卖出税（现在约 " + (Number(q[2]) / 100).toFixed(0) + "%）的差价，上面 LGNS 数量已含补差。";
+      if (px) px.textContent = " 现在 1 AiLGNS ≈ " + (1e18 / Number(q0)).toFixed(2) + " DAI。";
     }, function () {});
   }
 
