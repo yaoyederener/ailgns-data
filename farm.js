@@ -364,10 +364,26 @@
       if (!A.isCurrent(rid)) return;
       stat();
       if (sig && needName) { /* 站长 2026-11-25：绑定主域名才能玩。金币和地都还在，设好回来点一下就进 */
-        out.innerHTML = '<section class="card fm-login fm-need"><div class="fm-big"><span>🌐</span></div><p><b>农场只认你自己注册的主名字</b></p><p>' + needName.replace(/[<>&]/g, "") + '</p>' +
-          '<div class="fm-acts"><button type="button" id="fm-goname">去注册 / 设主名字</button><button type="button" class="ghost" id="fm-retry">我设好了，再试一次</button></div></section>';
+        /* 站长 2026-11-27 转工单 #500 #502「有域名还是进不了，点了『我设好了』还是不行」。用诊断接口查这两位：服务器对他们工单里的钱包都判「通过」。
+           真正的原因在这张卡片：农场认的是「上次签名进场的那个钱包」，记 6 天；客户以前用另一个钱包（比如 DeBox 里的钱包）进过农场，
+           后来在自己常用的钱包上设好了主名字，可农场还在拿旧钱包去问，自然一直说没有主名字；「再试一次」也还是拿旧钱包再问一遍，怎么点都没用，
+           卡片上又没写农场现在用的是哪个钱包。现在：写明农场用的是哪个钱包；钱包和它不一样时明说；多一个「用现在的钱包重新进」；
+           「我设好了，再试一次」也会先看一眼钱包换没换，换了就按现在的钱包重新签名进场。 */
+        var same = !walletNow || walletNow === sig.addr;
+        out.innerHTML = '<section class="card fm-login fm-need"><div class="fm-big"><span>🌐</span></div><p><b>农场只认你自己注册的主名字</b></p>' +
+          '<p class="fm-need-who">农场现在用的钱包是 <b class="mono">' + A.short(sig.addr) + "</b>" + (same ? "。这个钱包还没有主名字。" : '，可你的钱包现在是 <b class="mono">' + A.short(walletNow) + "</b>，<b>不是同一个</b>。点下面第一个按钮换过来。") + "</p>" +
+          "<p>" + needName.replace(/[<>&]/g, "") + "</p>" +
+          '<div class="fm-acts"><button type="button" id="fm-relog">🔄 用现在的钱包重新进（免费签名）</button><button type="button" class="ghost" id="fm-goname">去注册 / 设主名字</button><button type="button" class="ghost" id="fm-retry">我设好了，再试一次</button></div>' +
+          '<p class="muted fm-need-tip">主名字设在哪个钱包，就要用哪个钱包进农场。在钱包 App 里切到那个钱包，再点「用现在的钱包重新进」。</p></section>';
         document.getElementById("fm-goname").onclick = function () { location.hash = "#/names"; };
-        document.getElementById("fm-retry").onclick = function () { post("me").then(draw, function (e) { toast(e.message, true); draw(); }); };
+        document.getElementById("fm-relog").onclick = function () { login(); };
+        document.getElementById("fm-retry").onclick = function () {
+          var again = function () { post("me").then(draw, function (e) { toast(e.message, true); draw(); }); };
+          try { // 先悄悄问一下钱包现在是哪个号：换了就按新钱包重新签名进场，没换才原样再试
+            A.wallets.silent().then(function (a) { if (a && /^0x[0-9a-f]{40}$/.test(a) && a !== sig.addr) { walletNow = a; login(); } else again(); }, again);
+          } catch (e) { again(); }
+        };
+        if (same) try { A.wallets.silent().then(function (a) { if (a && /^0x[0-9a-f]{40}$/.test(a) && a !== walletNow && A.isCurrent(rid)) { walletNow = a; if (sig && needName && a !== sig.addr) draw(); } }).catch(function () {}); } catch (e) { /* 问不到就算了 */ }
         return;
       }
       if (!sig) {
