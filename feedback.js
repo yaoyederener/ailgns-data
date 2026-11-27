@@ -4,7 +4,7 @@
   "use strict";
   var A = window.AIL;
   var imgs = [], pasteOn = false;
-  var ST = { new: ["待处理", "#e11d48"], doing: ["处理中", "#d97706"], done: ["已解决", "#16a34a"], skip: ["无效", "#9ca3af"] };
+  var ST = { new: ["待处理", "#e11d48"], doing: ["处理中", "#d97706"], done: ["已解决", "#16a34a"], skip: ["无效", "#9ca3af"], del: ["🗑 回收站", "#9ca3af"] };
   var LV = { 0: ["🚨 资金安全", "#b91c1c"], 1: ["🔴 交易故障", "#dc2626"], 2: ["🟠 功能问题", "#d97706"], 3: ["🟢 咨询建议", "#16a34a"] };
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function tm(t) { var d = new Date(t); return (d.getMonth() + 1) + "-" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
@@ -339,7 +339,7 @@
     var ims = ""; for (var i = 0; i < t.n; i++) ims += '<a href="' + imgUrl(t.id, i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, i) + '"></a>';
     if (t.v) ims += '<a class="fb-vbtn" href="/api/feedback?vid=' + t.id + "&key=" + encodeURIComponent(key()) + fbPq() + '" target="_blank" rel="noopener">▶ 看客户的视频' + (t.vs ? "（" + Math.max(1, Math.round(t.vs / 1048576)) + " MB）" : "") + "</a>"; // 站长 2026-11-17：客户随工单传的录屏，新开一页播放
     var s = ST[t.st] || ST["new"], tr = t.tri, lv = tr ? LV[tr.lv] : null;
-    return '<div class="fb-tk lv' + (tr ? tr.lv : 2) + (t.vip ? " fb-vip" : "") + '" data-id="' + t.id + '"><div class="fb-tkh"><b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> ' + (t.vip ? '<span class="fb-tag" style="background:#b45309">⭐ ' + esc(t.vip) + ' · 站长亲审</span> ' : "") + '<span class="fb-tag" style="background:' + s[1] + '">' + s[0] + "</span>" + (lv ? '<span class="fb-tag" style="background:' + lv[1] + '">' + lv[0] + (tr.dup > 1 ? " · " + tr.dup + " 人同问" : "") + "</span>" : '<span class="fb-tag" style="background:#9ca3af">分诊中</span>') +
+    return '<div class="fb-tk lv' + (tr ? tr.lv : 2) + (t.vip ? " fb-vip" : "") + '" data-id="' + t.id + '" data-st="' + t.st + '"><div class="fb-tkh"><b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> ' + (t.vip ? '<span class="fb-tag" style="background:#b45309">⭐ ' + esc(t.vip) + ' · 站长亲审</span> ' : "") + '<span class="fb-tag" style="background:' + s[1] + '">' + s[0] + "</span>" + (lv ? '<span class="fb-tag" style="background:' + lv[1] + '">' + lv[0] + (tr.dup > 1 ? " · " + tr.dup + " 人同问" : "") + "</span>" : '<span class="fb-tag" style="background:#9ca3af">分诊中</span>') +
       (one ? "" : ' <a href="#/feedback/admin/' + t.id + '">打开处理 →</a>') + "</div>" +
       '<div class="fb-addr"><span class="mono">' + t.a + '</span> <button type="button" class="ghost" data-cp="' + t.a + '">复制</button> <a href="#/scan/' + t.a + '" target="_blank" rel="noopener">📒 看他的账本 ↗</a></div>' +
       (tr ? '<p class="fb-tri muted">🤖 ' + esc(tr.topic || "") + (tr.why ? " · " + esc(tr.why) : "") + "</p>" : "") +
@@ -347,7 +347,8 @@
       '<textarea rows="' + (one ? 4 : 2) + '" placeholder="回复客户（客户在反馈页面能看到；绑定了 DeBox 的还会收到私信）">' + esc(t.note || "") + "</textarea>" +
       '<div class="fb-rim"><label class="fb-rimpick">🖼️ 附图给客户<input type="file" accept="image/*" multiple hidden data-rfile></label><span class="muted">最多 4 张。截完图直接在回复框里粘贴（Ctrl / ⌘ + V）就行，也可以把图拖进来</span><div class="fb-ims fb-rimth" data-rth></div>' +
       (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { return '<a href="' + imgUrl(t.id, "r" + i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, "r" + i) + '" title="上次回复附的图"></a>'; }).join("") + "</div>" : "") + "</div>" +
-      '<div class="fb-act"><button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button>' + (t.st === "skip" ? '<button type="button" class="ghost" data-set="new">恢复为待处理</button>' : '<button type="button" class="ghost" data-set="skip">标为无效</button>') + "</div></div>";
+      '<div class="fb-act"><button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button>' + (t.st === "del" ? '<button type="button" class="ghost" data-set="' + (ST[t.st0] && t.st0 !== "del" ? t.st0 : "done") + '">↩️ 恢复（放回「' + (ST[t.st0] && t.st0 !== "del" ? ST[t.st0][0] : "已解决") + '」）</button>'
+        : (t.st === "skip" ? '<button type="button" class="ghost" data-set="new">恢复为待处理</button>' : '<button type="button" class="ghost" data-set="skip">标为无效</button>') + '<button type="button" class="ghost fb-del" data-set="del">🗑 删除</button>') + "</div></div>";
   }
   function bindCards(box, after) {
     box.querySelectorAll("[data-cp]").forEach(function (b) { b.onclick = function () { navigator.clipboard && navigator.clipboard.writeText(b.getAttribute("data-cp")); b.textContent = "已复制"; }; });
@@ -379,6 +380,11 @@
         var cd = b.closest(".fb-tk"), s = b.getAttribute("data-set"), note = cd.querySelector("textarea").value.trim(), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), note: note }, sg = fbSig();
         if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
         if (cd._rimgs && cd._rimgs.length) body.rimgs = cd._rimgs;
+        if (s === "del") { // 删除：不用系统弹窗（有的钱包 App 不弹）。点第一次变成「再点一次确认」，3 秒不点就恢复
+          if (!b._sure) { b._sure = true; b.textContent = "再点一次确认删除"; setTimeout(function () { b._sure = false; b.textContent = "🗑 删除"; }, 3000); return; }
+          delete body.note; delete body.rimgs; // 只挪进回收站，不动回复内容
+        }
+        if (cd.getAttribute("data-st") === "del" && s !== "del") { delete body.note; delete body.rimgs; } // 从回收站恢复：原样放回去
         if (s === "done" && !note && !confirm("还没写回复，确定直接标「已解决」吗？")) return;
         if (s !== "save") body.st = s;
         b.disabled = true;
@@ -454,7 +460,7 @@
     A.app.innerHTML = '<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' +
       '<div id="fb-says-tip"></div>' + pushRow() + // 站长 2026-11-25：「中奖待认证」那一大块挡着看工单，挪到工单列表下面（见这一行末尾的 fb-says）
-      '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div><div id="fb-says"></div></section>';
+      '<p class="muted">AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip", "del"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-list"><p class="muted">读取中…</p></div><div id="fb-says"></div></section>';
     document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
     document.querySelectorAll(".ad-nb").forEach(function (b) { b.onclick = function (e) { e.preventDefault(); location.hash = b.getAttribute("href"); admin(rid, b.getAttribute("data-s")); }; });
     document.getElementById("fb-out").onclick = function () { try { localStorage.removeItem("fbKey"); } catch (e) {} admin(rid); };
@@ -538,7 +544,7 @@
         fetch("/api/admin-stats?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(function (j) {
           if (j.error && /口令/.test(j.error)) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
           if (j.error) { box.innerHTML = '<p class="nm-bad">' + esc(j.error) + "</p>"; return; }
-          (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats" class="on">📊 数据</button>';
+          (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip", "del"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats" class="on">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
           try { box.innerHTML = statsHtml(j); } catch (e) { box.innerHTML = '<p class="nm-bad">面板渲染出错：' + esc(e.message) + "</p>"; }
 
@@ -561,7 +567,7 @@
           box.querySelectorAll("[data-kbdel]").forEach(function (b) { b.onclick = function () { if (confirm("删掉这一条？客服就不再按它回答了。")) send({ del: b.getAttribute("data-kbdel") }); }; });
         };
         fetch("/api/kb?key=" + encodeURIComponent(key())).then(function (r) { return r.json(); }).then(kbDraw).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
-        (document.getElementById("fb-seg") || {}).innerHTML = ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb" class="on">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
+        (document.getElementById("fb-seg") || {}).innerHTML = ["new", "doing", "done", "skip", "del"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb" class="on">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
         document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         return;
       }
@@ -575,7 +581,7 @@
           box.innerHTML = '<div class="ad-tiles"><div class="ad-tile"><small>最近 24 小时咨询</small><b>' + today + ' 条</b></div><div class="ad-tile"><small>记录总数</small><b>' + l.length + ' 条</b><span>最多留 400 条</span></div><div class="ad-tile' + (human ? " warn" : "") + '"><small>点了「找人工」</small><b>' + human + ' 次</b></div></div>' +
             (top.length ? '<p class="muted">客户最常问（按关键词）：' + top.map(function (k) { return "<b>" + esc(k) + "</b> " + cnt[k]; }).join(" · ") + "</p>" : "") +
             (l.length ? l.slice(0, 150).map(function (x) { return '<div class="fb-tk lv' + (x.h ? "1" : "2") + '"><div class="fb-tkh"><small class="muted">' + tm(x.t) + " · " + esc(x.page || "/") + (x.c ? " · " + esc(x.c) : "") + (x.w ? ' · <a href="#/scan/' + x.w + '" target="_blank" rel="noopener">' + x.w.slice(0, 6) + "…" + x.w.slice(-4) + "</a>" : " · 没连钱包") + (x.h ? ' · <b style="color:#c6454a">要找人工</b>' : "") + '</small></div><div class="fb-bub me"><small>客户问</small>' + esc(x.q) + '</div>' + (x.a ? '<div class="fb-bub bot"><small>🤖 机器人答</small>' + esc(x.a) + "</div>" : "") + "</div>"; }).join("") : '<p class="muted">还没有咨询记录（从上线这功能起开始记）</p>');
-          (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat" class="on">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
+          (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip", "del"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err">🐞 程序报错</button><button type="button" data-s="chat" class="on">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
         return;
@@ -585,7 +591,7 @@
           if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
           var l = j.list || [];
           box.innerHTML = l.length ? l.map(function (x) { return '<div class="fb-tk lv2"><div class="fb-tkh"><b>' + esc(x.p || "") + '</b> <small class="muted">' + tm(x.t) + (x.n > 1 ? " · " + x.n + " 次" : "") + (x.v ? " · v" + esc(x.v) : "") + '</small></div><p class="fb-txt mono">' + esc(x.m) + '</p><p class="muted" style="font-size:11.5px">' + esc(x.ua) + "</p></div>"; }).join("") : '<p class="muted">没有程序报错 🎉</p>';
-          (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err" class="on">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
+          (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip", "del"].map(function (s) { return '<button type="button" data-s="' + s + '">' + ST[s][0] + "</button>"; }).join("") + '<button type="button" data-s="err" class="on">🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
           document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
         return;
@@ -595,7 +601,7 @@
         var c = j.cnt || {}, maxId = (j.list || []).reduce(function (x, t) { return Math.max(x, t.id); }, 0);
         if (adSeen !== null && st === "new" && maxId > adSeen) { beep(); var nw = document.getElementById("fb-nw"); if (nw) nw.innerHTML = '<span class="fb-new">🔔 新工单</span>'; }
         if (st === "new") adSeen = Math.max(adSeen || 0, maxId);
-        (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
+        (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip", "del"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
         document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
         var l = j.list || [];
         box.innerHTML = l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">没有' + ST[st][0] + "的工单 🎉</p>";

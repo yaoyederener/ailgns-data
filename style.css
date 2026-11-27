@@ -5789,3 +5789,6 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .fm-need-who { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: #fff8e8; border: 1px solid #fbd38d; color: #7c4a03; font-size: 14.5px; line-height: 1.6; }
 .fm-need-who b { color: #b45309; } .fm-need-tip { font-size: 13px; margin-top: 10px; }
 .fm-need .fm-acts { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+
+/* 工单后台 · 删除按钮 */
+.fb-act .fb-del { color: #c0392b; border-color: #f0c4bd; }
