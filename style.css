@@ -5781,3 +5781,6 @@ a.mkt-more.mkt-all.on > span:last-child { font-weight: 600; color: #6d28d9; whit
 .tabs a.vipt.navb svg { fill: none; stroke: #fff; stroke-width: 1.8; }
 .tabs a.vipt.navb i, .tabs a.rankt i { white-space: nowrap; }
 @media (max-width: 600px) { .tabs a .tb-x { display: none; } .tabs a.vipt.navb i, .tabs a.rankt i { font-size: 8px; padding: 2px 3px; right: -2px; } } /* 手机一排六个：「涡轮助手」放不下，只显示「涡轮」；四字角标再小一号 */
+
+/* 签到页 · 作保卡片里的「手动填」折叠 */
+.bn-bind-x { margin-top: 8px; } .bn-bind-x summary { cursor: pointer; font-size: 13px; color: #8a80b5; } .bn-bind-x input { margin-top: 8px; }
