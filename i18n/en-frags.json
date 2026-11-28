@@ -8413,5 +8413,10 @@
 "已删除 #": "Deleted #",
 "，可以撤销": ", you can undo it",
 "⚠️ 填的是你的地址，但提交时没有签名，可能不是你本人提交的": "⚠️ This is your address, but it was submitted without your signature, so it may not have been you",
-"站长亲自处理：你这里只能看，不能回复、改状态，也不能删。": "The site owner handles this personally: here you can only view it, not reply, change its status or delete it."
+"站长亲自处理：你这里只能看，不能回复、改状态，也不能删。": "The site owner handles this personally: here you can only view it, not reply, change its status or delete it.",
+"正在读这个地址的工单，读完再查找": "Loading this address's tickets; search again once they appear",
+"这是站长 / 产品优化员的钱包地址，这台设备还没用它签名（或者签名过期了）。": "This is the site owner's / a product reviewer's wallet address, and this device hasn't signed with it yet (or the signature expired).",
+"不签名提交的工单不算你本人提交的：后台不标「我」，你自己也删不掉。": "Tickets submitted without a signature don't count as yours: they won't be marked as “me” in the admin, and you won't be able to delete them.",
+"点「取消」，先用这个钱包签个名（上面的「✍️ 签名」，或者到 📬 收件箱登录一次，免费）；点「确定」，照样提交。": "Tap “Cancel” to sign with this wallet first (the “✍️ Sign” button above, or log in once in 📬 Inbox, free); tap “OK” to submit anyway.",
+"⚠️ 提交时没有这个钱包的签名，可能是别人冒填的地址": "⚠️ Submitted without this wallet's signature; someone else may have used this address"
 }

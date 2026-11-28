@@ -98,7 +98,7 @@ export async function onRequestGet(ctx) {
     const t0 = await kv.get("tk:" + m0[1], "json");
     if (!t0 || t0.a !== ra) return new Response("not found", { status: 404 });
     if (signerOf(u.searchParams) !== ra) { // 没签名（光知道地址）：只给这个地址最近 20 张工单的图，和「我的反馈进度」列表看得到的一样；更早的要本人签名（站长 2026-11-28 评审：按编号查找不能把别人的老工单翻出来）
-      if (isPriv(t0)) return new Response("not found", { status: 404 }); // 🔒 私密工单的图：只有本人签过名才给
+      if (isPriv(t0) || t0.st === "del") return new Response("not found", { status: 404 }); // 🔒 私密工单、回收站里的：图只有本人签过名才给（和列表、按编号查找一样）
       const ids0 = (await kv.get("tk:a:" + ra, "json")) || [];
       if (!ids0.slice(-20).map(Number).includes(Number(m0[1]))) return new Response("not found", { status: 404 });
     }
@@ -148,12 +148,13 @@ export async function onRequestGet(ctx) {
     const open = ts.filter((t) => t.st === "new" || t.st === "doing"), lv = [0, 0, 0, 0];
     open.forEach((t) => { lv[t.tri ? t.tri.lv : 2]++; });
     const top = open.slice().sort((x, y) => ((y.urg ? 1 : 0) - (x.urg ? 1 : 0)) || ((x.tri ? x.tri.lv : 2) - (y.tri ? y.tri.lv : 2)) || (y.t - x.t))[0]; // 🚨 加急的算最紧急
-    return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, lv, urg: open.filter((t) => t.urg).length, top: top ? { id: top.id, lv: top.tri ? top.tri.lv : 2, topic: top.tri ? top.tri.topic : "", dup: top.tri ? top.tri.dup : 0, urg: top.urg ? 1 : 0 } : null, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
+    return json({ n: open.filter((t) => t.st === "new").length, doing: open.filter((t) => t.st === "doing").length, lv, urg: open.filter((t) => t.urg).length, top: top ? { id: top.id, st: top.st, lv: top.tri ? top.tri.lv : 2, topic: top.tri ? top.tri.topic : "", dup: top.tri ? top.tri.dup : 0, urg: top.urg ? 1 : 0 } : null, latest: open.length ? Math.max(...open.map((t) => t.t || 0)) : 0 }, 200);
   }
   // 🚨 提交页问「能不能加急」：can = 这台设备签过名的钱包是站长 / 产品优化员；sign = 还没签（或签的不是），但填的地址是站长 / 产品优化员的 → 提示先签名。普通客户两样都是 0，页面上什么都不显示
   if (u.searchParams.get("urgok")) {
     const can = canUrg(signerOf(u.searchParams));
-    return json({ can: can ? 1 : 0, sign: !can && canUrg(String(u.searchParams.get("a") || "").toLowerCase()) ? 1 : 0 });
+    const pa0 = canUrg(String(u.searchParams.get("a") || "").toLowerCase());
+    return json({ can: can ? 1 : 0, sign: !can && pa0 ? 1 : 0, priv: pa0 ? 1 : 0 }); // priv：填的是站长 / 产品优化员的地址（提交页据此提醒「不签名提交的不算你本人的」）
   }
   if (!keyOk(ctx.env, u.searchParams.get("key"))) return json({ error: "口令不对" }, 403);
   const me = signerOf(u.searchParams), boss = BOSS.includes(me); // 🔒 是不是站长钱包；me = 这台设备签名的钱包（认「自己提交的工单」：自己的私密工单自己能看、能删）
@@ -343,7 +344,7 @@ export async function onRequestPost(ctx) {
   await kv.put("tk:seq", String(id));
   const t = { id, a, txt, n: imgs.length, t: Date.now(), st: "new", note: "" };
   if (b.src === "inbox") t.src = "inbox";
-  const vip = reviewerOf(a); if (vip) t.vip = vip; // ⭐ 产品优化员
+  const vip = reviewerOf(a); if (vip && sg === a) t.vip = vip; // ⭐ 产品优化员：要本人签名提交才算（冒填地址的不置顶、照常 AI 分诊；但仍是私密工单，见 isPriv）
   if (urg) t.urg = Date.now(); // 🚨 加急（记下加急的时间）
   if (canUrg(a) && sg !== a) t.nosig = 1; // 填的是站长 / 产品优化员的地址，提交时却没有这个钱包的签名：可能是别人冒填的，不算本人提交的（后台不标「我」、不能删）
   for (let i = 0; i < imgs.length; i++) await kv.put("tk:img:" + id + ":" + i, imgs[i], { expirationTtl: 180 * 86400 });
