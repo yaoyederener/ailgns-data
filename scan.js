@@ -762,13 +762,13 @@
   var DIR = { "🔓": "in", "🌀": "trade", "🪙": "in", "🤖": "trade",  "📥": "in", "🏆": "in", "🎁": "in", "↩️": "in", "💸": "out", "📤": "out", "🔥": "out", "🛒": "trade", "💰": "trade", "✅": "trade", "⇄": "trade", "🔄": "trade", "🔁": "trade", "❌": "bad" };
   function rowHtml(a, row) {
     var r = translate(a, row), tg = tagOf(r), money = (row.tr && row.tr.length) || (row.tx && row.tx.value && Number(row.tx.value) > 0) || /收到|付出|转出|转入|买入|卖出|成交|退回|注册|续费/.test(r.text);
-    return '<div class="lg-row" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + (DIR[r.ico] ? '" data-dir="' + DIR[r.ico] : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><span class="lg-tag lg-k-' + tg[1] + '">' + tg[0] + '</span><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
+    return '<div class="lg-row" data-h="' + esc(String(row.h || "").toLowerCase()) + '" data-kind="' + (r.cls ? "money" : money ? "money" : "other") + (r.cls ? '" data-cls="' + r.cls : "") + (DIR[r.ico] ? '" data-dir="' + DIR[r.ico] : "") + '"><span class="lg-ico">' + r.ico + '</span><div class="lg-main"><span class="lg-tag lg-k-' + tg[1] + '">' + tg[0] + '</span><div class="lg-txt">' + r.text + '</div><small>' + bj(row.t) + '</small></div><a class="lg-link" href="#/scan/' + row.h + '" title="看详情">详情 ›</a></div>';
   }
   // 站长 2026-11-11：流水不要全折叠，先露最新 5 条，其余点「展开」再看
   function clipLg(box) {
     var open = !!box.getAttribute("data-open"), all = !!box.getAttribute("data-all"), vis = 0, hid = 0;
     box.querySelectorAll(".lg-row").forEach(function (r) {
-      var counts = all || r.getAttribute("data-kind") !== "other"; if (counts) vis++;
+      var counts = (all || r.getAttribute("data-kind") !== "other") && !r.classList.contains("lg-grp"); if (counts) vis++; // 收进挂单那一行的成交不算数
       var cut = !open && counts && vis > 5; if (cut) hid++;
       r.classList.toggle("lg-fold", cut); r.classList.toggle("lg-end", !open && counts && vis === 5);
     });
@@ -777,6 +777,127 @@
     if (ub && (open || !more)) { ub.remove(); ub = null; }
     if (!open && more && !ub) { ub = document.createElement("button"); ub.type = "button"; ub.className = "sc-unfold"; ub.textContent = "展开看更多 ▾"; ub.onclick = function () { box.setAttribute("data-open", "1"); clipLg(box); }; box.appendChild(ub); }
     if (hb) { hb.hidden = !open; hb.onclick = function () { box.removeAttribute("data-open"); clipLg(box); var c = box.closest(".card"); if (c) window.scrollTo({ top: c.getBoundingClientRect().top + window.pageYOffset - 70, behavior: "smooth" }); }; }
+  }
+  /* 📦 一张挂单卖了多少钱（站长 2026-11-28 转客户反馈：「挂了一个卖单卖 1 个，回头看不知道卖了多少钱；被分成很多单成交，
+     客户查订单只想知道这一单一共卖了多少钱；分了几单应该在订单详情里表现」）
+     账本本来「一笔交易一行」：同一张挂单被分几次吃掉，就是好几行「卖单成交」，看不出属于哪张单、一共多少。
+     现在：从官方浏览器的日志接口（走 /api/bs 代理，30 秒边缘缓存；RPC 的 eth_getLogs 一次最多查 5000 个区块，查不了全部历史）读
+       这个钱包在各 OTC 市场挂过的单（Created），和每张单的成交 / 结束（Filled / Closed）→
+       ① 账本里「挂卖单 / 挂买单」那一行直接写：卖出多少、一共收到多少 DAI、均价、分几笔；那几行成交收进这一行（点「看明细」展开），不再单独占行
+       ② 点这张挂单的「详情」：列出每一笔成交和合计 ③ 点某一笔成交的「详情」：写明它属于哪张挂单，能跳回整张单
+     只读不写。读不到（接口慢、出错）就照旧一笔一行；机器人 / 运营地址挂单成千上万，不做。
+     几个 OTC 市场是同一套合约，事件一样（2026-11-28 逐个核过）。 */
+  var OTC_M = { "0x4e730be6d46be71223ded5a32dc45799f6d4bc15": { sym: "AiLGNS", dec: 18 }, "0xb6a7a3be9a17ad241665ab9bddbd9a573d488818": { sym: "LGNS", dec: 9 }, "0x2b0ab121d60f823fffc4cef75af26055df388e2b": { sym: "gLGNS", dec: 18 },
+    "0xfeeaa5f8a104836d15b492399b2ea587a41c4771": { sym: "LP", dec: 18 }, "0x0fddaa1a312699b2ae43e2b43d8f7595087e21d0": { sym: "RM", dec: 9 }, "0x5449ad74dd30360ee2f77e0a82a69053e3c48993": { sym: "fLGNS", dec: 18 } };
+  var OTC_EV = { created: "0xabeda1aaf527ebcdd00999e25c2ae410eec4a6098fe233573eb8d956dd149bff", filled: "0x69c74c6fcd53500d036d8a37cc9514fb69b660b99d36728e8aba82e7a53b055d", closed: "0xec091cd14d8a8ba29bf6a14340c9c648295a414a131bd9ad694b621358842776" };
+  var ordCache = {}, ordById = {};
+  function logsQ(q) { return viaProxy("/api?module=logs&action=getLogs&fromBlock=0&toBlock=latest&" + q).then(function (j) { return Array.isArray(j && j.result) ? j.result : []; }); }
+  function wds(d) { return String(d || "").slice(2).match(/.{64}/g) || []; }
+  function ordMake(otc, l) { var w = wds(l.data); return { otc: otc, id: BigInt(l.topics[1]).toString(), h: String(l.transactionHash).toLowerCase(), ts: Number(l.timeStamp || 0) * 1000, sell: !!w[0] && w[0].slice(-1) === "1", give: BigInt("0x" + (w[1] || "0")), want: BigInt("0x" + (w[2] || "0")), exp: Number(BigInt("0x" + (w[3] || "0"))) }; }
+  function ordersOf(otc, a) { // 这个钱包在这个市场挂过的所有单（新的在后）
+    var k = otc + ":" + a;
+    return ordCache[k] || (ordCache[k] = logsQ("address=" + otc + "&topic0=" + OTC_EV.created + "&topic2=0x" + u256(a) + "&topic0_2_opr=and").then(function (ls) {
+      return ls.map(function (l) { var o = ordMake(otc, l); ordById[otc + ":" + o.id] = ordById[otc + ":" + o.id] || o; return ordById[otc + ":" + o.id]; });
+    }, function (e) { delete ordCache[k]; throw e; }));
+  }
+  function ordEvents(o) { // 这张单的每一笔成交、怎么结束的
+    return o.evp || (o.evp = logsQ("address=" + o.otc + "&topic1=0x" + u256(o.id)).then(function (ls) {
+      o.fills = []; o.closed = null;
+      ls.forEach(function (l) {
+        var t0 = String(l.topics[0]).toLowerCase(), w = wds(l.data), h = String(l.transactionHash).toLowerCase(), ts = Number(l.timeStamp || 0) * 1000;
+        if (t0 === OTC_EV.filled) o.fills.push({ h: h, ts: ts, amt: BigInt("0x" + w[0]), paid: BigInt("0x" + w[1]), left: BigInt("0x" + w[3]) });
+        else if (t0 === OTC_EV.closed) o.closed = { h: h, ts: ts, back: BigInt("0x" + w[0]), exp: !!w[1] && w[1].slice(-1) === "1" };
+      });
+      return o;
+    }, function (e) { delete o.evp; throw e; }));
+  }
+  function d2(v) { return v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function ordSum(o) { // 合计：give 是挂出去的（卖单是币，买单是 DAI），paid 是挂单人收到的（卖单是 DAI，买单是币）
+    var m = OTC_M[o.otc], gd = o.sell ? m.dec : 18, pd = o.sell ? 18 : m.dec, did = 0n, got = 0n;
+    o.fills.forEach(function (f) { did += f.amt; got += f.paid; });
+    var left = o.closed ? 0n : o.fills.length ? o.fills[o.fills.length - 1].left : o.give;
+    var s = { sym: m.sym, give: big(o.give, gd), did: big(did, gd), got: big(got, pd), left: big(left, gd), back: o.closed ? big(o.closed.back, gd) : 0, n: o.fills.length, gd: gd, pd: pd };
+    s.coin = o.sell ? s.did : s.got; s.dai = o.sell ? s.got : s.did; s.px = s.coin > 0 ? s.dai / s.coin : 0;
+    s.want = big(o.want, o.sell ? 18 : m.dec); s.ask = o.sell ? (s.give ? s.want / s.give : 0) : (s.want ? s.give / s.want : 0); // 挂的单价
+    s.all = o.fills.length > 0 && !(o.closed && o.closed.back > 0n) && left === 0n; // 全部成交
+    s.open = !o.closed && left > 0n && o.exp * 1000 > Date.now();
+    return s;
+  }
+  function ordLine(o, s) { // 一句话：这张单的结果
+    var cs = esc(s.sym), half = function (x) { return fmtA(x) + " " + cs; };
+    if (!s.n) return o.closed ? (o.closed.exp ? "⏰ 到期没成交，" : "↩️ 没成交，已撤单，") + (o.sell ? half(s.back) : d2(s.back) + " DAI") + " 已退回钱包" : s.open ? "⏳ 还没成交，挂着等" + (o.sell ? "买家" : "卖家") : "⏰ 已到期，等退回";
+    var head = o.sell
+      ? (s.all ? "✅ <b>已全部卖出</b> " + half(s.coin) : "已卖出 <b>" + fmtA(s.coin) + "</b> / " + half(s.give)) + "，一共收到 <b>" + d2(s.dai) + " DAI</b>"
+      : (s.all ? "✅ <b>已全部买到</b> " + half(s.coin) : "已买到 <b>" + fmtA(s.coin) + " " + cs + "</b>") + "，一共花了 <b>" + d2(s.dai) + " DAI</b>" + (s.all ? "" : "（挂了 " + d2(s.give) + " DAI）");
+    var tail = s.all ? "" : s.open ? " · 还剩 " + (o.sell ? half(s.left) : d2(s.left) + " DAI") + " 在挂" : o.closed ? " · 剩下的 " + (o.sell ? half(s.back) : d2(s.back) + " DAI") + (o.closed.exp ? " 到期" : " 撤单") + "退回了" : " · 已到期，剩下的等退回";
+    return head + "（均价 " + s.px.toFixed(3) + "）" + tail;
+  }
+  function ordFills(o, s) { // 每一笔成交（订单详情里的明细）
+    return o.fills.map(function (f, i) {
+      var c = big(o.sell ? f.amt : f.paid, o.sell ? s.gd : s.pd), d = big(o.sell ? f.paid : f.amt, o.sell ? s.pd : s.gd);
+      return '<a class="lg-of" href="#/scan/' + f.h + '"><span>' + (i + 1) + ". " + (f.ts ? bj(f.ts) : "") + "</span><span>" + (o.sell ? "卖出 " : "买到 ") + fmtA(c) + " " + esc(s.sym) + (o.sell ? " → 收到 <b>" : " · 花了 <b>") + d2(d) + " DAI</b></span><i>›</i></a>";
+    }).join("");
+  }
+  function ordPaint(box, o) { // 账本里：挂单那一行写上结果；属于这张单的成交行收进来
+    var row = box.querySelector('.lg-row[data-h="' + o.h + '"]'); if (!row || !o.fills) return;
+    var s = ordSum(o), key = o.id + ":" + s.n + ":" + (o.closed ? 1 : 0);
+    if (row.getAttribute("data-ord") === key) return;
+    row.setAttribute("data-ord", key);
+    var tg = row.querySelector(".lg-tag"); if (tg && s.n) tg.textContent = (o.sell ? "卖单" : "买单") + (s.all ? " · 已成交" : " · 部分成交");
+    var tx = row.querySelector(".lg-txt"); if (tx && !s.open) tx.innerHTML = tx.innerHTML.replace(/（[^（）]*等(买|卖)家）/, ""); // 单子已经结束：不再写「等买家」
+    var old = row.querySelector(".lg-ord"); if (old) old.remove();
+    var el = document.createElement("div"); el.className = "lg-ord";
+    el.innerHTML = "<div>" + ordLine(o, s) + "</div>" + (s.n ? '<button type="button" class="lg-ofb">' + (s.n > 1 ? "分 " + s.n + " 笔成交 · 看明细 ▾" : "看成交明细 ▾") + '</button><div class="lg-ofl" hidden>' + ordFills(o, s) + "</div>" : "");
+    (row.querySelector(".lg-main") || row).appendChild(el);
+    var b = el.querySelector(".lg-ofb"); if (b) b.onclick = function () { var l = el.querySelector(".lg-ofl"); l.hidden = !l.hidden; b.textContent = l.hidden ? (s.n > 1 ? "分 " + s.n + " 笔成交 · 看明细 ▾" : "看成交明细 ▾") : "收起 ▴"; };
+    o.fills.forEach(function (f) { if (f.h === o.h) return; box.querySelectorAll('.lg-row[data-h="' + f.h + '"]').forEach(function (r) { r.classList.add("lg-grp"); }); }); // 成交行收进挂单那一行
+  }
+  function ordGroup(a, box, rows) {
+    if (TEAM[a] || (A.BOT && a === A.BOT) || C.fast === a || C.pool === a) return; // 机器人 / 运营 / 奖池：挂单太多，不做
+    var mk = {};
+    rows.forEach(function (r) { var t = r.tx, to = t && t.to && String(t.to.hash || "").toLowerCase(); if (to && OTC_M[to] && String(t.from && t.from.hash || "").toLowerCase() === a) mk[to] = 1; });
+    Object.keys(mk).forEach(function (otc) {
+      ordersOf(otc, a).then(function (os) {
+        var hit = os.filter(function (o) { return box.querySelector('.lg-row[data-h="' + o.h + '"]'); }).slice(-20); // 只管已经显示出来的挂单，最多 20 张
+        return Promise.all(hit.map(function (o) { return ordEvents(o).catch(function () { return null; }); })).then(function () {
+          hit.forEach(function (o) { ordPaint(box, o); });
+          if (box.id === "sc-lg") clipLg(box);
+        });
+      }).catch(function () { /* 读不到：照旧一笔一行 */ });
+    });
+  }
+  // 交易详情页：这笔是挂单 → 列出每一笔成交和合计；这笔是某张挂单的一笔成交 → 写明属于哪张单，能跳回去
+  function ordDetail(h, t, tt, out) {
+    var to = String(t.to && t.to.hash || "").toLowerCase(), from = String(t.from && t.from.hash || "").toLowerCase();
+    var touch = OTC_M[to] || C.sweep[to] || tt.some(function (x) { return OTC_M[String(x.from && x.from.hash || "").toLowerCase()] || OTC_M[String(x.to && x.to.hash || "").toLowerCase()]; });
+    if (!touch) return;
+    var slot = document.createElement("div"); slot.className = "lg-odet";
+    var one = out.querySelector(".lg-one"); if (!one) return; one.parentNode.insertBefore(slot, one.nextSibling);
+    var show = function (o, me) { // me：这笔交易就是挂单本身；否则是这张单的其中一笔成交
+      var s = ordSum(o), what = (o.sell ? "挂单卖出 " + fmtA(s.give) + " " + esc(s.sym) : "挂单买入 " + fmtA(s.want) + " " + esc(s.sym) + "（锁了 " + d2(s.give) + " DAI）") + " · 单价 " + s.ask.toFixed(3);
+      return '<div class="lg-ordc"><h3 class="lg-h3">📦 ' + (me ? "这张挂单后来怎么样了" : "这笔成交属于挂单 #" + esc(o.id)) + '</h3><p class="muted">' + what + (o.ts ? " · " + bj(o.ts) + " 挂出" : "") + (me ? "" : ' · <a href="#/scan/' + o.h + '">看整张单 ›</a>') + "</p>" +
+        '<p class="lg-ordl">' + ordLine(o, s) + "</p>" + (s.n ? '<div class="lg-ofl">' + (s.n > 1 ? '<p class="muted">被分成 ' + s.n + " 笔成交（不同的买家各吃了一部分）：</p>" : "") + ordFills(o, s) + "</div>" : "") + "</div>";
+    };
+    if (OTC_M[to] && from) { // 可能就是挂单本身
+      ordersOf(to, from).then(function (os) {
+        var o = os.filter(function (x) { return x.h === String(h).toLowerCase(); })[0]; if (!o) return fillSide();
+        return ordEvents(o).then(function () { slot.innerHTML = show(o, true); });
+      }).catch(function () {});
+    } else fillSide();
+    function fillSide() { // 一笔成交：从这笔交易的日志里找 Filled，认出是哪张单
+      get("/transactions/" + h + "/logs").then(function (d) {
+        var ls = (d.items || []).filter(function (l) { var ad = String(l.address && (l.address.hash || l.address) || "").toLowerCase(); return OTC_M[ad] && String((l.topics || [])[0] || "").toLowerCase() === OTC_EV.filled; }).slice(0, 3);
+        return Promise.all(ls.map(function (l) {
+          var otc = String(l.address.hash || l.address).toLowerCase(), id = BigInt(l.topics[1]).toString(), k = otc + ":" + id;
+          var got = ordById[k] ? Promise.resolve(ordById[k]) : logsQ("address=" + otc + "&topic0=" + OTC_EV.created + "&topic1=0x" + u256(id) + "&topic0_1_opr=and").then(function (cs) { if (!cs[0]) return null; ordById[k] = ordById[k] || ordMake(otc, cs[0]); return ordById[k]; });
+          return got.then(function (o) { return o ? ordEvents(o) : null; });
+        })).then(function (os) {
+          os = os.filter(Boolean);
+          if (os.length) slot.innerHTML = os.map(function (o) { return show(o, false); }).join("");
+          slot.querySelectorAll('.lg-of[href="#/scan/' + String(h).toLowerCase() + '"]').forEach(function (x) { x.classList.add("on"); x.querySelector("span").insertAdjacentHTML("beforeend", " · 就是这一笔"); });
+        });
+      }).catch(function () {});
+    }
   }
   // 账本列表：发出的交易 + 收到的币，合在一起按时间排；「再看更早的」两边各翻一页
   function ledger(a, box) {
@@ -815,6 +936,7 @@
         var hs = document.getElementById("sc-hsum"), ht = "最近一笔 " + bj(rows[0].t); if (hs && box.id === "sc-lg" && hs.textContent !== ht) hs.textContent = ht;
         if (box.id === "sc-lg") clipLg(box);
         fillNames(box); sweepFill(box); whyFill(box, txs);
+        ordGroup(a, box, rows); // 📦 同一张挂单的几笔成交收进挂单那一行，写上一共卖了多少钱
       });
     }
     return load();
@@ -1620,6 +1742,7 @@
         '<p class="muted lg-raw">交易编号 <span class="mono">' + h + '</span> · <a href="https://anubisscan.io/tx/' + h + '" target="_blank" rel="noopener">链上原始记录 ↗</a></p></section>' +
         '<p class="muted" style="text-align:center"><a href="#/scan/' + a + '">← 回到 ' + (KNOWN[a] || "这个钱包") + ' 的账本</a></p>';
       fillNames(out);
+      if (!failed(t)) try { ordDetail(h, t, tt, out); } catch (e) { /* 挂单汇总出错不影响看交易 */ }
       if (failed(t)) whyFail(t).then(function (s) { var w = document.getElementById("sc-why"); if (w) w.innerHTML = "为什么：<b>" + esc(s) + "</b>"; out.querySelectorAll(".lg-why").forEach(function (e) { e.remove(); }); }); // 上面那句已经写了失败，原因放在「状态」那一格
       // 预言家奖池发出去的奖：中奖人领奖时把名字烧掉了，钱包里已经没有名字可显示 → 从发奖记录里按这笔交易找到他中奖用的名字，标在地址上
       if (a === PRIZE_POOL) fetch("/api/oracle").then(function (r) { return r.json(); }).then(function (j) {
