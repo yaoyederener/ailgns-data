@@ -87,17 +87,22 @@
      现在：卖单的单价必须高于别人现成的最高买单；买单的单价不能高于别人现成的最低卖单（2026-11-27 起可以平价，鼓励挂买单）。只拦从本站页面新挂的单，已经挂着的不动；
      自己的单、离谱价被隐藏的单不算对手。平台不规定买卖之间要留多大差价——差价由竞争决定。
      纯计算：side = "sell" / "buy"，px = 要挂的单价，bid / ask = 别人现成的最高买价 / 最低卖价（没有填 0），pd = 价格几位小数。能挂返回 ""，不能挂返回给客户看的话 */
+  /* 🔓 站长 2026-11-28 放宽：「客户不理解挂单保护……还是放宽吧，-5%～+5% 允许，要不然客户体验不是很好」（客户截图：卖价 854.21 和买单同价被拦，
+     群里问「为什么挂 AiLGNS 会让去盘口卖」「不知道盘口在哪里看」）。
+     → 卖单可以挂到最高买单价的 95%（和买单同价、比买单低 5% 以内都能挂）；买单可以挂到最低卖单价的 105%。超出 5% 才拦——那样直接成交明显更划算，挂出去是亏。
+     注意：比买单低 2% 以上的卖单，自动撮合机器人（MATCHER）会按卖家自己挂的价吃掉，卖家照样拿到自己要的价。 */
+  var CROSS_SLACK = 0.05;
   function crossText(side, px, bid, ask, pd) {
     px = Number(px) || 0; bid = Number(bid) || 0; ask = Number(ask) || 0;
     // 链上的单价常常不是整的（比如 0.064251），盘口上显示成 0.0643。按「客户在盘口上看到的价」来比：不然会出现卖单 0.0643 和显示成 0.0643 的买单同价并排挂着
     if (bid > 0) bid = Number(bid.toFixed(pd)); if (ask > 0) ask = Number(ask.toFixed(pd));
     if (!(px > 0)) return "";
     var tick = Math.pow(10, -pd), eps = tick * 1e-6, fx = function (v) { return Number(v).toFixed(pd); };
-    if (side === "sell" && bid > 0 && px <= bid + eps)
-      return "现在有买单出价 " + fx(bid) + " DAI，你的卖价 " + fx(px) + " 没有比它高。这种单不用挂：直接点盘口里那张买单的「卖出」，马上成交。想挂单等人来买，请把单价填到 " + fx((Math.round(bid / tick) + 1) * tick) + " 或更高。";
-    // 站长 2026-11-27：「挂买单允许和最低卖单平价，我们要鼓励挂买单」→ 买单出价可以等于最低卖价，只有比它还高才拦。卖单这边不变（必须高于最高买单）
-    if (side === "buy" && ask > 0 && px > ask + eps)
-      return "现在有卖单要价 " + fx(ask) + " DAI，你的出价 " + fx(px) + " 比它还高。这种单不用挂：直接点盘口里那张卖单的「买入」，马上成交，还更便宜。想挂买单，请把单价填到 " + fx(ask) + " 或更低。";
+    var minSell = Math.ceil(bid * (1 - CROSS_SLACK) / tick - 1e-6) * tick, maxBuy = Math.floor(ask * (1 + CROSS_SLACK) / tick + 1e-6) * tick;
+    if (side === "sell" && bid > 0 && px < minSell - eps)
+      return "现在有人出价 " + fx(bid) + " DAI 收购，你的卖价 " + fx(px) + " 比它低了 5% 以上，这样挂出去亏。直接卖给那张买单更划算，马上成交；想挂单的话，单价不能低于 " + fx(minSell) + "。";
+    if (side === "buy" && ask > 0 && px > maxBuy + eps)
+      return "现在有人要价 " + fx(ask) + " DAI 在卖，你的出价 " + fx(px) + " 比它高了 5% 以上，这样挂出去多花钱。直接买那张卖单更便宜，马上成交；想挂买单的话，单价不能高于 " + fx(maxBuy) + "。";
     return "";
   }
   // 站长 2026-11-27「现在盘口倒挂的时候，允许挂相同价格」：最低卖单已经跌到买单最低出价以下时（倒挂），以前买单一个价位都挂不了；
@@ -1613,7 +1618,7 @@
           if (side === "sell") {
             if (otcAsk) { g1 = otcAsk; why = "和现在最低的卖单同价，排在最前面一档；同价的先挂先成交"; }
             else if (mkt || otcBid) { g1 = Math.max(mkt || 0, otcBid ? otcBid + tick : 0); why = M.lp ? "现在没有别的卖单。这是按 LP 里面含的币折算的参考价；LP 现在拆不开，想快点卖掉可以挂低一些" : "现在没有别的卖单，按行情价挂，你就排第一"; }
-            if (g1 && xBid && g1 <= xBid + tick * 1e-6) { g1 = (Math.round(xBid / tick) + 1) * tick; why = "比现在最高的买单（" + A.fmt(xBid, PD) + "）高一档。卖价不能低于或等于现成的买单出价——那样直接卖给那张买单就行"; } // 不许挂穿盘口
+            if (g1 && xBid && g1 <= xBid + tick * 1e-6) { g1 = (Math.round(xBid / tick) + 1) * tick; why = "比现在最高的买单（" + A.fmt(xBid, PD) + "）高一档。挂这个价排在卖单最前面；也可以和买单同价或稍低（5% 以内），不过那样不如直接卖给那张买单，马上到账"; } // 不许挂穿盘口
           } else {
             var gfl = bidFloor(mkt), gmin = gfl ? (Math.floor(gfl / tick) + 1) * tick : 0;
             if (gmin && gmin > (otcBid || 0)) { g1 = gmin; why = MK === "lgns" ? "比本站买单最低出价（约 " + A.fmt(gfl, PD) + "）高一点；这条线是「卖家去 DEX 卖的到手价」再低 2%，比它低不让挂" : "比卖家去官方 DEX 卖的到手价（约 " + A.fmt(gfl, PD) + "）高一点，卖家才愿意卖给你；本站规定买单不能低于这个价"; }
@@ -1621,7 +1626,7 @@
             else if (mkt || otcAsk) { g1 = Math.min(mkt || Infinity, otcAsk ? otcAsk : Infinity); why = "现在没有别的买单，按行情价挂，你就排第一"; }
             // 2026-11-27：买单可以和最低卖单同价（鼓励挂买单）。指导价碰到或超过最低卖价时，就给「和最低卖单同价」——包括倒挂（卖单已经比买单最低出价还低）的时候
             var askD = xAsk ? Number(Number(xAsk).toFixed(PD)) : 0;
-            if (g1 && g1 !== Infinity && askD && g1 >= askD - tick * 1e-6) { g1 = askD; why = "和现在最低的卖单（" + A.fmt(xAsk, PD) + "）同价，这是买单能挂的最高价，排在最前面。出价不能比现成的卖单要价还高——那样直接买那张卖单更便宜"; }
+            if (g1 && g1 !== Infinity && askD && g1 >= askD - tick * 1e-6) { g1 = askD; why = "和现在最低的卖单（" + A.fmt(xAsk, PD) + "）同价，排在买单最前面。也可以比它稍高（5% 以内），不过那样不如直接买那张卖单，马上成交还更便宜"; }
           }
           if (!(g1 > 0) || g1 === Infinity) { el.hidden = true; return; }
           var gs = g1.toFixed(PD);
@@ -1764,7 +1769,8 @@
         if (bfl && num(p) <= bfl && !atAsk(num(p), xAsk, PD)) { far = true; block = true; farMsg = "⛔ " + bidFloorMsg(bfl); } // 买单出价不高于 DEX 到手价：不让挂（和最低卖单同价的除外，2026-11-27）
         { // 不许挂穿盘口的单（见 crossText）。买单还有一种情况：最低的卖单已经不高于买单底线，这时没有能挂买单的价位了，直接告诉他去买那张卖单
           var tk = Math.pow(10, -PD), cx = crossText(side, num(p), xBid, xAsk, PD);
-          if (side === "buy" && bfl && xAsk && xAsk <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6 && !atAsk(num(p), xAsk, PD)) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了。这时买单只能挂和它同价：请把单价填成 " + Number(xAsk).toFixed(PD) + "；或者直接点盘口里那张卖单的「买入」，马上成交。";
+          // 放宽 5% 以后：只有「最低卖价再加 5% 也够不到买单底线」才真没价位可挂，这时买单只能和最低卖单同价
+          if (side === "buy" && bfl && xAsk && xAsk * (1 + CROSS_SLACK) <= (Math.floor(bfl / tk) + 1) * tk + tk * 1e-6 && !atAsk(num(p), xAsk, PD)) cx = "现在最低的卖单要价 " + A.fmt(xAsk, PD) + " DAI，已经不比买单最低出价高了。这时买单只能挂和它同价：请把单价填成 " + Number(xAsk).toFixed(PD) + "；或者直接点盘口里那张卖单的「买入」，马上成交。";
           if (cx) { far = true; block = true; farMsg = "⛔ " + cx; }
         }
         sum.innerHTML = (side === "sell" ? "存入 <b>" + tShow(q) + " " + SYM + "</b>，全部成交后收到 <b>" + show(total, 2) + " DAI</b>" : "存入 <b>" + show(total, 2) + " DAI</b>，全部成交后收到 <b>" + tShow(q) + " " + SYM + "</b>") +
