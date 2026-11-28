@@ -403,11 +403,20 @@
     h.connect().then(function () {
       a = h.account();
       try { fetch("/api/fast?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.me) jpNo = !!j.me.jp; if (j && j.v2 && j.me && typeof j.me.left === "number") base = j.me.left; }, function () {}); } catch (e0) { /* 读不到不影响下单 */ }
-      return Promise.all([h.balance(h.DAI), h.allowance(h.DAI, REG)]);
+      /* 站长 2026-11-28 查出：连着下两张代点委托，第二张时上一张的授权还没被机器人用掉，页面以为「已经授权够了」就没再授权，
+         机器人收完第一张的钱，第二张就「授权不够」全失败了。现在先算上自己还没注册完的委托要扣的钱，授权按「这次 + 还欠的」一起授权 */
+      var pend = fetch("/api/reg-order?a=" + a, { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+        return ((j && j.list) || []).filter(function (o) { return o.state === "pending"; }).reduce(function (s, o) {
+          var left = Array.isArray(o.todo) ? o.todo : (o.names || []).filter(function (n) { return (o.done || []).indexOf(n) < 0; });
+          return s + left.reduce(function (x, n) { return x + price(n); }, 0);
+        }, 0);
+      }, function () { return 0; });
+      return Promise.all([h.balance(h.DAI), h.allowance(h.DAI, REG), pend]);
     }).then(function (r) {
-      if (r[0] < wei) throw new Error("DAI 不够：要 " + t + " DAI，钱包只有 " + (Number(r[0] / 10n ** 16n) / 100));
-      if (r[1] >= wei) return;
-      return h.tx(h.DAI, "0x095ea7b3" + A.pad(REG) + wei.toString(16).padStart(64, "0"), say, "🔒 第 1 步：授权机器人只能收这次的 " + t + " DAI（不扣钱）。请在钱包确认");
+      var owe = r[2] || 0, need = wei + BigInt(owe) * 10n ** 18n, all = t + owe;
+      if (r[0] < need) throw new Error("DAI 不够：要 " + all + " DAI" + (owe ? "（这次 " + t + " + 上一张还没注册完的 " + owe + "）" : "") + "，钱包只有 " + (Number(r[0] / 10n ** 16n) / 100));
+      if (r[1] >= need) return;
+      return h.tx(h.DAI, "0x095ea7b3" + A.pad(REG) + need.toString(16).padStart(64, "0"), say, owe ? "🔒 第 1 步：授权机器人收 " + all + " DAI（这次 " + t + " + 上一张还没注册完的 " + owe + "，不扣钱）。请在钱包确认" : "🔒 第 1 步：授权机器人只能收这次的 " + t + " DAI（不扣钱）。请在钱包确认");
     }).then(function () {
       say("✍️ 第 2 步：签名委托（不扣钱、不花 Gas），请在钱包确认");
       var day = bjDay();

@@ -8473,5 +8473,11 @@
 "⚠️ 没有本人签名（可能是冒填）·": "⚠️ No owner signature (may be spoofed) ·",
 "地址的新反馈 #": "address: new feedback #",
 "，请到后台核对": ", please check it in the admin",
-"这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名。请先用这个钱包签个名（到 📬 收件箱登录一次，免费）再点提交；还不行就刷新页面再试。不签名提交的不算你本人提交的，以后自己删不掉": "This is the site owner's / a product reviewer's wallet address, but this submission didn't include that wallet's signature. Sign with this wallet first (log in once in 📬 Inbox, free), then submit; if it still fails, refresh the page and try again. Tickets submitted without a signature don't count as yours and you won't be able to delete them later"
+"这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名。请先用这个钱包签个名（到 📬 收件箱登录一次，免费）再点提交；还不行就刷新页面再试。不签名提交的不算你本人提交的，以后自己删不掉": "This is the site owner's / a product reviewer's wallet address, but this submission didn't include that wallet's signature. Sign with this wallet first (log in once in 📬 Inbox, free), then submit; if it still fails, refresh the page and try again. Tickets submitted without a signature don't count as yours and you won't be able to delete them later",
+"（这次": " (this order",
+"+ 上一张还没注册完的": "+ still owed on your unfinished previous order",
+"，钱包只有": ", wallet has only",
+"🔒 第 1 步：授权机器人收": "🔒 Step 1: allow the bot to collect",
+"DAI（这次": "DAI (this order",
+"，不扣钱）。请在钱包确认": "; nothing is charged now). Please confirm in your wallet"
 }
