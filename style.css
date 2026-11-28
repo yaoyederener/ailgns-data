@@ -5948,3 +5948,22 @@ button.fb-lnk { background: none; box-shadow: none; border: 0; padding: 0 6px; m
 .lg-ordl { font-size: 14.5px; line-height: 1.6; }
 @media (max-width: 600px) { .lg-of { flex-wrap: wrap; gap: 2px 8px; } .lg-of span:first-child { width: 100%; font-size: 12px; } }
 .lg-of.on { border-color: #a78bfa; background: #f3f0ff; }
+/* 🧾 极速预言家「最近几期结果」点开看明细：谁押了什么、谁中了多少（站长 2026-11-28） */
+.fx-dd { border-top: 1px solid #efe8fb; }
+.fx-dd:first-child { border-top: 0; }
+.fx-dd > summary { list-style: none; cursor: pointer; border-top: 0; }
+.fx-dd > summary::-webkit-details-marker { display: none; }
+.fx-dd[open] > summary .fx-tag { opacity: .75; }
+.fx-det { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #faf8ff; border: 1px solid #efe8fb; font-size: 13.5px; }
+.fx-dh { margin: 0 0 6px; color: var(--muted); }
+.fx-dh b { color: #6927db; font-size: 15px; }
+.fx-drow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 0; border-top: 1px dashed #e9e1fb; }
+.fx-drow:first-of-type { border-top: 0; }
+.fx-drow.win { background: #effbf3; margin: 0 -6px; padding: 6px; border-radius: 8px; border-top-color: transparent; }
+.fx-dwho { font-family: ui-monospace, Menlo, monospace; color: #3d2f66; text-decoration: none; }
+.fx-dbets { color: #3d2f66; }
+.fx-dbets b { display: inline-block; min-width: 1.4em; text-align: center; border-radius: 6px; background: #f1ecff; color: #3d2f66; }
+.fx-dbets b.hit { background: #16a34a; color: #fff; }
+.fx-dwin { color: #15803d; font-weight: 700; }
+.fx-dwin a { color: #15803d; }
+.fx-dnone { margin: 6px 0 0; color: var(--muted); }

@@ -1,6 +1,6 @@
-window.AIL_NIGHT="dist/night.css?v=hb4df851b0c";
-window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=h2f1ee63d08","ko":"dist/lang-ko.js?v=h321507bb67"};
-window.AIL_BUNDLES={"names":"dist/names.js?v=he389c2890a","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=h27ddba9162","trade":"dist/trade.js?v=haf7d879098","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=h488293a5e1","aiswap":"dist/aiswap.js?v=hec95b0c54e","feedback":"dist/feedback.js?v=h9769dba093","games":"dist/games.js?v=h0a6719e0dc","mj":"dist/mj.js?v=hc48ff62250","gd":"dist/gd.js?v=hdfd7ca82c7","gxlight":"dist/gxlight.js?v=h7659e91ee8","misc":"dist/misc.js?v=h566d5e377e"};
+window.AIL_NIGHT="dist/night.css?v=hbac94508d8";
+window.AIL_LANGS={"hant":"dist/lang-hant.js?v=h5ec3cce9b6","en":"dist/lang-en.js?v=hf1d976a417","ko":"dist/lang-ko.js?v=hb79a4d07f4"};
+window.AIL_BUNDLES={"names":"dist/names.js?v=he389c2890a","kchart":"dist/kchart.js?v=hc5a4b8b313","oracle":"dist/oracle.js?v=h27ddba9162","trade":"dist/trade.js?v=haf7d879098","lend":"dist/lend.js?v=hca25de670c","lp":"dist/lp.js?v=h488293a5e1","aiswap":"dist/aiswap.js?v=hec95b0c54e","feedback":"dist/feedback.js?v=h9769dba093","games":"dist/games.js?v=h0a6719e0dc","mj":"dist/mj.js?v=hc48ff62250","gd":"dist/gd.js?v=hdfd7ca82c7","gxlight":"dist/gxlight.js?v=h7659e91ee8","misc":"dist/misc.js?v=he7afed6c12"};
 try{(function(){"use strict";var KEY="ail:night",root=document.documentElement,link=null;var OK=false;try{OK=!!(window.CSS&&CSS.supports&&CSS.supports("selector(:where(a))"));}catch(e){OK=false;}
 window.AIL_NIGHT_OK=OK;function saved(){try{return OK&&localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function load(){if(link||!window.AIL_NIGHT)return;link=document.createElement("link");link.rel="stylesheet";link.id="ntm-css";link.href=window.AIL_NIGHT;document.head.appendChild(link);}
@@ -1255,5 +1255,5 @@ var addr=null;function wallet(){var t=document.getElementById("dw-wt");if(addr){
 t.textContent="连接钱包";if(A.wallets)A.wallets.silent().then(function(a){if(a){addr=String(a).toLowerCase();t.textContent="已连接 "+A.short(addr);}}).catch(function(){});}
 document.getElementById("dw-wallet").onclick=function(){if(addr){close();location.hash="#/member";return;}
 var t=document.getElementById("dw-wt");A.wallets.choose().then(function(eth){return AIL.wallets.ask(eth,{method:"eth_requestAccounts"});}).then(function(a){addr=String(a[0]).toLowerCase();t.textContent="已连接 "+A.short(addr);},function(){t.textContent="连接钱包";});};})();}catch(e){console.error('[bundle] menu.js',e);}
-;window.AIL_CORE="h52edf653e4";
-/*v:h52edf653e4*/
+;window.AIL_CORE="h5edc1625e4";
+/*v:h5edc1625e4*/

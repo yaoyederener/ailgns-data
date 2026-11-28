@@ -8383,5 +8383,13 @@
 "卖单 · 已成交": "Sell order · filled",
 "卖单 · 部分成交": "Sell order · partly filled",
 "买单 · 已成交": "Buy order · filled",
-"买单 · 部分成交": "Buy order · partly filled"
+"买单 · 部分成交": "Buy order · partly filled",
+"🎉 中": "🎉 Won",
+"已发": "sent",
+"，待发": ", payout pending",
+"开奖数字": "Winning number",
+"个钱包押了": "wallets bet",
+"（本期没人押）": "(no bets this round)",
+"没人押中": "Nobody picked",
+"人中 ▾": "won ▾"
 }

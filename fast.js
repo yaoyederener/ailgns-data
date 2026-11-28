@@ -4,7 +4,7 @@
 (function () {
   var A = window.AIL, W = A.wallet, DAI = "0x83fd06f0846d9d90b3016bf670efe2e0b11cde14";
   var SHOW_RES = true; /* 「资金池余额」那一行：站长 2026-11-14 说「显示资金池金额」，正式站也显示（本期没人下注时「本期奖池」是 0，容易被当成没钱） */
-  var data = null, acct = "", eth = null, picks = [], qty = 1, busy = false, tick = 0, poll = 0, lastR = 0, mineOpen = false;
+  var data = null, acct = "", eth = null, picks = [], qty = 1, busy = false, tick = 0, poll = 0, lastR = 0, mineOpen = false, doneOpen = {};
   function el(id) { return document.getElementById(id); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function two(n) { return (n < 10 ? "0" : "") + n; }
@@ -148,10 +148,28 @@
     var dn = el("fx-done");
     if (dn) {
       dn.hidden = !data.done.length;
+      /* 🧾 站长 2026-11-28：「这里能不能详细一点，谁押注了什么，中了什么，多少金额」→ 每一期点开：每个钱包押了哪几个数字、各几票，
+         谁中了、中了多少 DAI、已经发了多少 AiLGNS（点开看发奖交易）。地址显示成 0x1234…abcd，设了主名字的会自动换成名字。
+         页面每 10 秒重画一次，点开了哪几期记在 doneOpen 里，免得刚点开又合上 */
+      var detail = function (x) {
+        var w = x.who; if (!w) return "";
+        var mine = function (a) { return acct && a === acct ? "（我）" : ""; }, pay = {};
+        (w.pays || []).forEach(function (p) { pay[p[0]] = p; });
+        var by = {}, order = [];
+        (w.bets || []).forEach(function (b) { if (!by[b[0]]) { by[b[0]] = []; order.push(b[0]); } by[b[0]].push(b); });
+        order.sort(function (p, q) { return (pay[q] ? pay[q][1] : -1) - (pay[p] ? pay[p][1] : -1); }); // 中了的排前面，中得多的在前
+        var rows = order.map(function (a) {
+          var p = pay[a], got = p ? '<span class="fx-dwin">🎉 中 ' + money(p[1]) + " DAI" + (p[2] ? ' · <a href="#/scan/' + esc(p[3]) + '">已发 ' + p[2] + " AiLGNS ›</a>" : data.trial ? "" : "，待发") + "</span>" : "";
+          return '<div class="fx-drow' + (p ? " win" : "") + '"><a class="fx-dwho" href="#/scan/' + esc(a) + '">' + short(a) + "</a>" + mine(a) + '<span class="fx-dbets">押 ' + by[a].map(function (b) { return '<b class="' + (b[1] === x.d ? "hit" : "") + '">' + b[1] + "</b>×" + b[2] + " 票"; }).join("、") + "</span>" + got + "</div>";
+        }).join("");
+        return '<div class="fx-det"><p class="fx-dh">开奖数字 <b>' + x.d + "</b> · " + order.length + " 个钱包押了 " + (x.tk + (x.tk2 || 0)) + " 票" + (order.length ? "" : "（本期没人押）") + "</p>" + rows +
+          (order.length && !(w.pays || []).length ? '<p class="fx-dnone">没人押中 ' + x.d + "</p>" : "") + "</div>";
+      };
       dn.querySelector(".fx-list").innerHTML = data.done.map(function (x) {
         var n2 = x.tk2 || 0;
-        return '<div class="fx-row"><span><b>' + at(x.r) + "</b> 期　开 <b>" + x.d + "</b>　" + (x.tk + n2) + " 票" + (x.tk || !n2 ? "　" + (n2 ? "老奖池 " : "奖池 ") + money(x.pot) : "") + "</span>" + (x.winners ? '<span class="fx-tag win">' + x.winners + " 人中</span>" : '<span class="fx-tag wait">' + (x.tk || !n2 ? "没人中，滚存" : "没人中") + "</span>") + "</div>";
+        return '<details class="fx-dd" data-r="' + x.r + '"' + (doneOpen[x.r] ? " open" : "") + '><summary class="fx-row"><span><b>' + at(x.r) + "</b> 期　开 <b>" + x.d + "</b>　" + (x.tk + n2) + " 票" + (x.tk || !n2 ? "　" + (n2 ? "老奖池 " : "奖池 ") + money(x.pot) : "") + "</span>" + (x.winners ? '<span class="fx-tag win">' + x.winners + " 人中 ▾</span>" : '<span class="fx-tag wait">' + (x.tk || !n2 ? "没人中，滚存" : "没人中") + " ▾</span>") + "</summary>" + detail(x) + "</details>";
       }).join("");
+      Array.prototype.forEach.call(dn.querySelectorAll(".fx-dd"), function (d) { d.ontoggle = function () { var r = d.getAttribute("data-r"); if (d.open) doneOpen[r] = 1; else delete doneOpen[r]; }; });
     }
   }
   function betLabel() {
