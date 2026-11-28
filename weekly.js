@@ -37,19 +37,21 @@
   }
   function upBox(x, i, min) { // 发放记录里「要交凭证、还没通过」的那一行下面的上传块
     if (!x.say || x.say.ok || (x.st !== "wait" && x.st !== "say" && x.st !== "review")) return "";
-    var tail = '<a class="wkb-upg" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
+    var pst = x.say.has ? "" : '<span class="pst-only" hidden>，带上一张下面的宣传海报</span>'; // 🖼 站长 2026-11-28：让上榜的人发群里时带上我们的海报（没有海报时不显示，见 app.js posterBox）
+    var tail = (x.say.has ? "" : '<div class="pst-box" data-pst hidden></div>') + '<a class="wkb-upg" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' +
       '<label class="nm-go wkb-upb"><input type="file" class="wkb-upf" data-i="' + i + '" accept="image/*,video/*" multiple hidden>' + (x.say.has ? "🔁 重新上传截图 / 视频" : "📷 上传截图 / 视频") + "</label>" +
       '<p class="wkb-ups" data-i="' + i + '"></p></li>';
     if (x.burn === false) return '<li class="wkb-upl"><p>这笔不用销毁创世名，领奖一共两步。这一行是你的话，照着做：</p>' + // 50 DAI 及以下（站长 2026-11-23）
-      '<ol class="wkb-stp"><li class="' + (x.say.has ? "done" : "now") + '">第一步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : " 👉 现在做这一步") + "</li>" +
+      '<ol class="wkb-stp"><li class="' + (x.say.has ? "done" : "now") + '">第一步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜' + pst + "，把截图或视频传到这里" + (x.say.has ? " ✅ 已上传" : " 👉 现在做这一步") + "</li>" +
       "<li>第二步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" + tail;
     return '<li class="wkb-upl"><p>这笔超过 ' + min + " DAI，领奖一共三步，三步都做完才发奖。这一行是你的话，照着做：</p>" +
       '<ol class="wkb-stp"><li class="' + (x.st === "wait" ? "now" : "done") + '">第一步：销毁 1 枚创世名' + (x.st === "wait" ? " 👉 现在做这一步" : " ✅ 已完成") + "</li>" +
-      '<li class="' + (x.say.has ? "done" : x.st === "wait" ? "" : "now") + '">第二步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜，把截图或视频传到这里' + (x.say.has ? " ✅ 已上传" : x.st === "wait" ? "" : " 👉 现在做这一步") + "</li>" +
+      '<li class="' + (x.say.has ? "done" : x.st === "wait" ? "" : "now") + '">第二步：到 DeBox 的 AiLGNS 群里说一声自己上了周榜' + pst + "，把截图或视频传到这里" + (x.say.has ? " ✅ 已上传" : x.st === "wait" ? "" : " 👉 现在做这一步") + "</li>" +
       "<li>第三步：传上来机器人就自动发（看不清的，团队再看一眼）</li></ol>" +
       (x.st === "wait" ? '<a class="nm-go wkb-upb" href="#/genesis">🔥 去销毁名字</a>' : "") + tail;
   }
   function bindUp(root, pays, reload) {
+    if (A.posterBox && root.querySelector("[data-pst]")) A.posterBox(root); // 🖼 领奖那一步的宣传海报
     Array.prototype.forEach.call(root.querySelectorAll(".wkb-upf"), function (fi) {
       var idx = fi.getAttribute("data-i"), x = pays[Number(idx)];
       var say = function (t, bad) { var el = root.querySelector('.wkb-ups[data-i="' + idx + '"]'); if (el) { el.textContent = t; el.className = "wkb-ups" + (bad ? " bad" : bad === 0 ? " tip" : ""); } };

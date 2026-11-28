@@ -37,7 +37,7 @@ GROUPS = {
     "mj":       ["mj.js"],
     "gd":       ["gd.js"],
     "gxlight":  ["gx-light.js"],
-    "misc":     ["trades.js", "arb.js", "updates.js", "orders.js", "med.js", "partner.js", "ops.js", "square.js", "bonus.js", "fast.js", "funds.js", "weekly.js", "usdt.js", "gale.js", "cover.js", "tutorial.js", "chart.js", "rpcpage.js", "ainews.js", "turbine.js"],
+    "misc":     ["trades.js", "arb.js", "updates.js", "orders.js", "med.js", "partner.js", "ops.js", "square.js", "bonus.js", "fast.js", "funds.js", "weekly.js", "usdt.js", "gale.js", "cover.js", "tutorial.js", "posters.js", "chart.js", "rpcpage.js", "ainews.js", "turbine.js"],
 }
 
 # 2026-11-27：压缩用的两个库（rjsmin / rcssmin，纯 Python，Apache 2.0 许可）放进了仓库的 tools/minlib/。

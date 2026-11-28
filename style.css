@@ -5864,3 +5864,29 @@ html.night .gxl-c.hint { outline-color: #ffc83d; box-shadow: 0 0 12px rgba(255, 
 .fb-ref .fb-bub { max-width: 100%; font-size: 13.5px; }
 .fb-refw { margin: 4px 0 0; font-size: 12.5px; color: #b45309; }
 @media (max-width: 600px) { .fb-q .nm-go { padding: 0 14px; } }
+/* 🖼 宣传海报（站长 2026-11-28）：领奖第二步的一排海报、点开的大图、#/posters 页、#/posters/admin 后台 */
+.pst-box { margin: 10px 0 12px; padding: 10px; border-radius: 12px; background: #faf7ff; border: 1px dashed #d9ccff; }
+.pst-h { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: #4b2fb0; }
+.pst-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+.pst-it { flex: 0 0 auto; width: 118px; display: flex; flex-direction: column; gap: 4px; padding: 6px; margin: 0; background: #fff; border: 1px solid #e4dcfb; border-radius: 12px; box-shadow: none; color: inherit; cursor: pointer; scroll-snap-align: start; text-align: left; }
+.pst-it img { display: block; width: 100%; height: 158px; object-fit: cover; border-radius: 8px; background: #f3f0ff; }
+.pst-it span { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.pst-tip { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.pst-ov { position: fixed; inset: 0; z-index: 300; background: rgba(20, 12, 50, .72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.pst-ovb { width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow: auto; background: #fff; border-radius: 16px; padding: 12px; text-align: center; box-sizing: border-box; }
+.pst-ovb img { display: block; max-width: 100%; max-height: 62vh; margin: 0 auto 8px; border-radius: 10px; -webkit-touch-callout: default; }
+.pst-ovb p { margin: 4px 0 10px; font-size: 13.5px; line-height: 1.6; }
+.pst-ova { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.pst-ova .nm-go { display: inline-block; width: auto; margin: 0; padding: 10px 18px; text-decoration: none; }
+.pst-ova button { margin: 0; }
+.pst-page .pst-box { background: none; border: 0; padding: 0; }
+.pst-page .pst-h { display: none; }
+.pst-page .pst-row { flex-wrap: wrap; overflow: visible; }
+.pst-page .pst-it { width: calc(50% - 5px); }
+.pst-page .pst-it img { height: auto; aspect-ratio: 3 / 4; }
+@media (min-width: 700px) { .pst-page .pst-it { width: calc(33.33% - 7px); } }
+.pst-pre { display: flex; flex-direction: column; gap: 2px; margin: 6px 0 10px; font-size: 13px; }
+.pst-arow { flex-direction: row; align-items: flex-start; gap: 12px; }
+.pst-ath { flex: none; }
+.pst-ath img { display: block; width: 72px; height: 96px; object-fit: cover; border-radius: 8px; background: #f3f0ff; }
+.pst-ainfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }

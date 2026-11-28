@@ -555,7 +555,7 @@
 
   // ---------- 路由 ----------
   // 每个页面在浏览器标签和分享时显示的标题
-  var PAGE_TITLES = { gxlight: "💡 每日熄灯", videos: "🎬 视频教程", cover: "🛡 互助保障（试运行）", gale: "⚡ 秒到跨链（第三方 GaleBridge）", funds: "📊 官方资金池", weekly: "🏆 OTC 手续费周榜（试运行）", mj: "🀄 血流成河麻将（试玩）", fast: "⚡ 极速预言家（试运行）", bonus: "🎁 创世域名分红 · 每日签到", aiswap: "🔁 aiswap 兑换池", usdt: "USDT 跨链桥 · Polygon ⇄ Anubis（试运行）", todo: "📝 待办（内部）", genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市商 · 认证称号", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
+  var PAGE_TITLES = { gxlight: "💡 每日熄灯", videos: "🎬 视频教程", posters: "🖼 AiLGNS OTC 宣传海报", cover: "🛡 互助保障（试运行）", gale: "⚡ 秒到跨链（第三方 GaleBridge）", funds: "📊 官方资金池", weekly: "🏆 OTC 手续费周榜（试运行）", mj: "🀄 血流成河麻将（试玩）", fast: "⚡ 极速预言家（试运行）", bonus: "🎁 创世域名分红 · 每日签到", aiswap: "🔁 aiswap 兑换池", usdt: "USDT 跨链桥 · Polygon ⇄ Anubis（试运行）", todo: "📝 待办（内部）", genesis: "🔥 创世域名销毁进行中", square: "链上广场", lp: "做市商 · 认证称号", inbox: "收件箱", lend: "借贷", trades: "成交查询", trade: "交易所盘口", arb: "EVM 套利做市商（内部）", updates: "更新日志", orders: "全站订单（内部）", feedback: "问题反馈",
     otc: "AiLGNS OTC 担保交易 · 0 滑点 手续费 1%", flows: "AiLGNS 资金流向 · 净流入监测", wallet: "钱包快查 · 等级算力团队", member: "会员中心",
     team: "团队与等级查询", growth: "团队新增业绩", tree: "团队结构图", upline: "上级查询", custom: "私人定制 · 商户合作", promo: "AiLGNS OTC 介绍 · 交易就送会员", app: "下载 AiLGNS OTC App", pixel: "LGNS 像素墙 · 销毁乐园", play: "销毁乐园 · 玩小游戏销毁 LGNS", g2048: "2048 · 销毁乐园", snake: "贪吃蛇 · 销毁乐园", tetris: "俄罗斯方块 · 销毁乐园", flappy: "飞翔小鸟 · 销毁乐园", mines: "扫雷 · 销毁乐园", brick: "打砖块 · 销毁乐园", merge: "DNA 合成 · 销毁乐园", pet: "HELIX 宠物 · 销毁乐园", names: "域名 · .ailgns", scan: "AiLGNS 账本", rank: "🏆 AiLGNS 荣耀榜 · OTC 大户排行", oracle: "🔮 AiLGNS 每日预言家", farm: "开心农场", br: "🐺 大逃杀（试运行）"
   };
@@ -609,7 +609,7 @@
   var LAZY = (function () {
     var m = {}, G = { names: ["names", "genesis"], oracle: ["oracle"], trade: ["trade"], lend: ["lend"], lp: ["lp"], aiswap: ["aiswap"], feedback: ["feedback"], mj: ["mj"], gd: ["gd"], gxlight: ["gxlight"],
       games: ["farm", "br"],
-      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly", "usdt", "gale", "cover", "videos", "chart", "rpc", "ainews", "turbine"] };
+      misc: ["trades", "arb", "updates", "orders", "med", "partner", "ops", "notify", "todo", "square", "bonus", "fast", "funds", "weekly", "usdt", "gale", "cover", "videos", "posters", "chart", "rpc", "ainews", "turbine"] };
     Object.keys(G).forEach(function (b) { G[b].forEach(function (r) { m[r] = [b]; }); });
     m.oracle = ["kchart", "oracle"]; m.trade = ["kchart", "trade"]; m.chart = ["kchart", "misc"]; // K 线组件两页共用，单独一个小包
     return m;
@@ -1025,7 +1025,50 @@
       } catch (e) { done(null); }
     });
   }
-  window.AIL = { useBundle: function (k) { return loadBundle(k); }, sure: sure, sure2: sure2, askText: askText, errTip: errTip, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
+  // 🖼 宣传海报（站长 2026-11-28：「让中奖的伙伴转发我们的 OTC 海报帮我们宣传，在领奖界面放几个我们的海报，让他们来发，截图」）
+  //   页面上放一个 <div data-pst hidden>，调 A.posterBox(容器) → 填一排海报：点开看大图 → 长按 / 下载 / 分享 → 发到 DeBox 群 → 截图回来上传。
+  //   同一块里 class="pst-only" 的字（比如「带上一张海报」）有海报才显示。海报在后台 #/posters/admin 上传，接口 /api/posters。
+  //   一张海报都没有（或读不到）时整块不出现，原来的领奖步骤照旧。预言家、周榜两个领奖页都用这一份（它们在不同的包里，所以放在主包）
+  var pstList = null, pstAt = 0;
+  function posterBox(root) {
+    var boxes = (root || document).querySelectorAll("[data-pst]");
+    var got = pstList && Date.now() - pstAt < 60000 ? Promise.resolve(pstList)
+      : fetch("/api/posters?list=1").then(function (r) { return r.json(); }).then(function (j) { pstList = (j && j.list) || []; pstAt = Date.now(); return pstList; });
+    return got.then(function (l) {
+      if (!l.length) return l;
+      Array.prototype.forEach.call(boxes, function (b) {
+        b.innerHTML = '<p class="pst-h">📣 发群里的时候，带上一张我们的海报，帮 AiLGNS OTC 宣传 👇</p><div class="pst-row">' + l.map(function (x, i) {
+          return '<button type="button" class="pst-it" data-pi="' + i + '"><img loading="lazy" src="/api/posters?img=' + encodeURIComponent(x.id) + '" alt="' + esc(x.title || "宣传海报") + '"><span>' + esc(x.title || "海报 " + (i + 1)) + "</span></button>";
+        }).join("") + '</div><p class="pst-tip">点海报看大图 → 存到相册 → 发到 DeBox 群（配一句你中了什么）→ 把发出去的那条截图，回到这里上传</p>';
+        b.hidden = false;
+        Array.prototype.forEach.call((b.parentNode || b).querySelectorAll(".pst-only"), function (s) { s.hidden = false; });
+        Array.prototype.forEach.call(b.querySelectorAll("[data-pi]"), function (it) { it.onclick = function () { posterView(l[Number(it.getAttribute("data-pi"))]); }; });
+      });
+      return l;
+    }).catch(function () { return []; }); // 读不到海报：不显示这一块，领奖步骤照旧
+  }
+  function posterView(x) { // 点开大图：手机长按保存；电脑点「下载」；手机浏览器支持系统分享的，多一个「分享」直接交给 DeBox
+    var src = "/api/posters?img=" + encodeURIComponent(x.id), ext = /png/.test(x.type || "") ? "png" : /webp/.test(x.type || "") ? "webp" : "jpg";
+    var name = "AiLGNS-OTC-" + String(x.title || "海报").replace(/[\\/:*?"<>|\s]+/g, "-") + "." + ext;
+    var m = document.createElement("div"); m.className = "pst-ov";
+    m.innerHTML = '<div class="pst-ovb"><img src="' + src + '" alt="' + esc(x.title || "宣传海报") + '"><p>📱 手机：<b>长按图片</b> → 存到相册<span data-shtip hidden>（或点「分享」直接发到 DeBox）</span><br>💻 电脑：点「下载海报」</p>' +
+      '<div class="pst-ova"><a class="nm-go" href="' + src + '" download="' + esc(name) + '">⬇ 下载海报</a><button type="button" class="ghost" data-sh hidden>📤 分享</button><button type="button" class="ghost" data-x>关闭</button></div></div>';
+    var bye = function () { m.remove(); window.removeEventListener("hashchange", bye); };
+    m.onclick = function (e) { if (e.target === m) bye(); };
+    m.querySelector("[data-x]").onclick = bye;
+    window.addEventListener("hashchange", bye);
+    document.body.appendChild(m);
+    var sh = m.querySelector("[data-sh]");
+    try {
+      if (navigator.canShare && navigator.share && window.File) fetch(src).then(function (r) { return r.blob(); }).then(function (bl) {
+        var f = new File([bl], name, { type: bl.type || "image/" + (ext === "jpg" ? "jpeg" : ext) });
+        if (!navigator.canShare({ files: [f] }) || !m.isConnected) return;
+        sh.hidden = false; m.querySelector("[data-shtip]").hidden = false;
+        sh.onclick = function () { navigator.share({ files: [f], text: "AiLGNS OTC · ailgns.dev" }).catch(function () { /* 客户自己取消了 */ }); };
+      }).catch(function () {});
+    } catch (e) { /* 不支持分享：长按 / 下载照样能存 */ }
+  }
+  window.AIL = { useBundle: function (k) { return loadBundle(k); }, sure: sure, sure2: sure2, askText: askText, errTip: errTip, posterBox: posterBox, quiet: function (ms) { quietUntil = Date.now() + (ms || 10000); }, freshCheck: function () { freshCheck(); }, toDai: toDai, timeBJ: timeBJ,
     // 站长自己的钱包：本站不显示它们的域名、创世编号，域名搜到也不显示指向哪个地址（链上匿名）
     hidden: { "0xedb9c6900a11d2dd37da6b59f3604c35a39db1e6": 1, "0x89dd06754bb239b6c4c92bc47c8fa72889084e27": 1 },
     // 站长和四哥注册的前 4 个创世域名：不进「最近被抢注」、不显示编号和持有人（站长要求）

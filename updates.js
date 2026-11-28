@@ -5,7 +5,7 @@
   var A = window.AIL;
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function key() { try { return localStorage.getItem("fbKey") || ""; } catch (e) { return ""; } }
-  var NAV = '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb">📣 发站内信</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb on">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
+  var NAV = '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/posters/admin" class="ad-nb">🖼 宣传海报</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/notify" class="ad-nb">📣 发站内信</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb on">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>';
   function login(id, msg) {
     A.app.innerHTML = '<section class="card ptn-login"><h2>🆕 更新日志（内部）</h2><p class="muted">这一页只有内部能看。输入工单后台的口令（同一个）。</p>' + (msg ? '<p class="nm-bad">' + esc(msg) + "</p>" : "") +
       '<input id="up-k" type="password" placeholder="口令" autocomplete="current-password"><button type="button" class="nm-go" id="up-go">进入</button></section>';

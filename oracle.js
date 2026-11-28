@@ -367,7 +367,8 @@
         '<p class="or-stp-tip">点上面的按钮，从相册选就行：截图最多 3 张；视频 20 秒以内（最大 20MB）。不用签名、不花钱。</p>';
       var b2 = x.ok && !has ? "<p>团队已在群里看到你。</p>"
         : has ? "<p>凭证已交（" + what + "）。" + (x.url ? ' <a href="' + esc(x.url) + '" target="_blank" rel="noopener">看帖子 ↗</a>' : "") + "</p>" + up
-        : '<ul class="or-stp-l"><li>打开 DeBox 的 AiLGNS 群，说一声自己中奖了（写上你的名字、哪一期、中了多少）。</li><li>把你发的那条消息截个图，或者录一小段视频。</li><li>回到这一页，点下面的按钮上传。</li></ul>' +
+        : '<div class="pst-box" data-pst hidden></div>' + // 🖼 站长 2026-11-28：放几张我们的海报，让中奖的人发群里帮忙宣传（没有海报时不显示，见 app.js posterBox）
+          '<ul class="or-stp-l"><li>打开 DeBox 的 AiLGNS 群，说一声自己中奖了（写上你的名字、哪一期、中了多少）<span class="pst-only" hidden>，再带上一张上面的海报一起发</span>。</li><li>把你发的那条消息截个图，或者录一小段视频。</li><li>回到这一页，点下面的按钮上传。</li></ul>' +
           '<a class="or-say-g" href="' + DEBOX_GROUP + '" target="_blank" rel="noopener">👉 打开 DeBox 的 AiLGNS 群 ↗</a>' + up;
       var b3 = "<p>" + (x.ok ? "团队已认证" + (burnOk ? "，机器人几分钟内把奖发到这个钱包。" : "，名字烧够后机器人自动发奖。") : has ? "等团队看一眼凭证（一般当天），看过后机器人自动把 AiLGNS 发到这个钱包。" : "前两步做完、团队看过后，机器人自动把 AiLGNS 发到这个钱包。") + "</p>";
       return '<div class="or-say"><b>🏆 你中了 ' + dayCn(x.day) + " 的" + (KN[x.kind] || "奖") + "：" + (x.ail ? Number(x.ail).toFixed(4) + " AiLGNS（≈ " + dai(x.amt) + "）" : dai(x.amt)) + "</b>" +
@@ -700,6 +701,7 @@
     return A.wallets.choose().then(function (p) { eth = p; return A.wallets.ask(eth, { method: "eth_requestAccounts" }); }).then(function (a) { account = String(a[0]).toLowerCase(); return account; });
   }
   function bind(rid) {
+    if (A.posterBox && document.querySelector("[data-pst]")) A.posterBox(A.app); // 🖼 领奖第二步的宣传海报
     // 📷 领奖凭证：选截图（最多 3 张，先压小）或一段视频（最多 20MB）→ 直接上传，不用签名（站长 2026-11-16：要方便）
     document.querySelectorAll(".or-say-f").forEach(function (fi) {
       // 🛡 2026-11-20 加固（工单 #327：客户说「发截图没反应」，服务器上一条都没收到，查不出卡在哪）：
