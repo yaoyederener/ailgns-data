@@ -1,0 +1,5 @@
+{
+"收了 {0} 块地，卖得 {1} 金币（其中 {2} 块被大家偷光了，菜熟了早点来收）": "Harvested {0} plots, sold for {1} coins ({2} of them were stolen clean by others; harvest sooner once ripe)",
+"🏡 开心农场偷菜不设上限了：菜熟了主人不来收，可以被大家一直偷到光（以前每块地最多被偷走 {0}%，被偷几次就偷不动了）。每块地每人还是只能偷 {1} 次，看门狗、警察照常看家。菜熟了记得早点来收！": "🏡 No more cap on stealing in Happy Farm: if the owner doesn't harvest ripe crops, everyone can keep stealing until they're all gone (before, each plot could lose at most {0}%, so it stopped after a few thefts). Each person can still steal only {1} time per plot, and guard dogs and police still protect farms. Harvest soon once your crops are ripe!",
+"开心农场偷菜不设上限了：菜熟了主人不来收，可以被大家一直偷到光（以前每块地最多被偷走 {0}%，被偷几次就偷不动了）。每块地每人还是只能偷 {1} 次，看门狗、警察照常看家。菜熟了记得早点来收！": "No more cap on stealing in Happy Farm: if the owner doesn't harvest ripe crops, everyone can keep stealing until they're all gone (before, each plot could lose at most {0}%, so it stopped after a few thefts). Each person can still steal only {1} time per plot, and guard dogs and police still protect farms. Harvest soon once your crops are ripe!"
+}

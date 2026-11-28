@@ -8419,5 +8419,15 @@
 "不签名提交的工单不算你本人提交的：后台不标「我」，你自己也删不掉。": "Tickets submitted without a signature don't count as yours: they won't be marked as “me” in the admin, and you won't be able to delete them.",
 "点「取消」，先用这个钱包签个名（上面的「✍️ 签名」，或者到 📬 收件箱登录一次，免费）；点「确定」，照样提交。": "Tap “Cancel” to sign with this wallet first (the “✍️ Sign” button above, or log in once in 📬 Inbox, free); tap “OK” to submit anyway.",
 "⚠️ 提交时没有这个钱包的签名，可能是别人冒填的地址": "⚠️ Submitted without this wallet's signature; someone else may have used this address",
-"这里没有要显示的工单：删掉的在回收站里，更早的不列在这里，都可以用上面的框按工单号找回来": "No tickets to show here: deleted ones are in the recycle bin and older ones aren't listed; find any of them by ticket number with the box above"
+"这里没有要显示的工单：删掉的在回收站里，更早的不列在这里，都可以用上面的框按工单号找回来": "No tickets to show here: deleted ones are in the recycle bin and older ones aren't listed; find any of them by ticket number with the box above",
+"被偷光了": "All stolen",
+"，但每块地一次最多被偷走": ", but per theft each plot loses at most",
+"别人的菜熟了没收，就能去偷：每块地每人只能偷 1 颗，": "If another farmer's veggies are ripe and not harvested, you can steal: each plot can be stolen once per person, ",
+"主人不来收，可以被大家一直偷到光": "and if the owner doesn't harvest, everyone can keep stealing until it's all gone",
+"最多被偷走": "up to",
+"；鸡蛋攒到 2 个以上能偷 1 个。每天最多偷": "; with 2 or more eggs saved you can steal 1. Up to",
+"（其中": " (",
+"块被大家偷光了，菜熟了早点来收）": "of them were stolen clean by others; harvest sooner once ripe)",
+"% 的机会在打瞌睡，那一次拦不住，但每块地一次最多被偷走": "% chance of dozing off and missing that one, but per theft each plot loses at most",
+"🏡 开心农场偷菜不设上限了：菜熟了主人不来收，可以被大家一直偷到光（以前每块地最多被偷走 40%，被偷几次就偷不动了）。每块地每人还是只能偷 1 次，看门狗、警察照常看家。菜熟了记得早点来收！": "🏡 No more cap on stealing in Happy Farm: if the owner doesn't harvest ripe crops, everyone can keep stealing until they're all gone (before, each plot could lose at most 40%, so it stopped after a few thefts). Each person can still steal only 1 time per plot, and guard dogs and police still protect farms. Harvest soon once your crops are ripe!"
 }
