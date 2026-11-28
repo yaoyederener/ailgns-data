@@ -5890,3 +5890,44 @@ html.night .gxl-c.hint { outline-color: #ffc83d; box-shadow: 0 0 12px rgba(255, 
 .pst-ath { flex: none; }
 .pst-ath img { display: block; width: 72px; height: 96px; object-fit: cover; border-radius: 8px; background: #f3f0ff; }
 .pst-ainfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* 🔎🙋🗑 工单：按工单号找 + 标出「我提交的」+ 只能删自己的（站长 2026-11-28，方案 A）。
+   新加的零件不发光、不加渐变；红色只给删除。手机上能点的地方都不小于 44px */
+.fb-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 10px; }
+.fb-find[hidden], button.fb-switch[hidden], .fb-privtip[hidden] { display: none; } /* 下面写了 display，要让「隐藏」照样生效 */
+.fb-find { display: flex; align-items: center; gap: 6px; min-height: 52px; margin: 0 0 10px; padding: 3px 4px 3px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; flex: 1 1 240px; min-width: 0; }
+.fb-tools .fb-find { margin: 0; }
+.fb-find:focus-within { border-color: var(--gold); }
+.fb-find .pre { font: 700 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+.fb-find input { flex: 1; min-width: 0; border: 0; outline: 0; box-shadow: none; background: transparent; font-size: 15px; color: var(--text); padding: 8px 0; }
+.fb-find button.ghost { flex: none; min-height: 44px; border-radius: 8px; } /* iPhone 的数字键盘没有回车，只能点「查找」 */
+button.fb-switch { min-height: 52px; display: inline-flex; align-items: center; gap: 8px; border-color: var(--line); color: var(--text); border-radius: 12px; }
+.fb-switch .trk { width: 30px; height: 18px; border-radius: 9px; background: #d9d3ea; position: relative; flex: none; }
+.fb-switch .trk::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left .15s; }
+.fb-switch[aria-pressed="true"] .trk { background: var(--purple-ink); }
+.fb-switch[aria-pressed="true"] .trk::after { left: 14px; }
+.fb-own-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-right: 2px; vertical-align: middle; }
+.fb-me { color: var(--purple-ink); font-weight: 700; }
+.fb-ownro { margin: 6px 0 0; font-size: 12.5px; color: #8a5a00; }
+button.fb-deltxt { background: none; box-shadow: none; border: 0; color: var(--muted); min-height: 44px; padding: 0 12px; margin-left: -12px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+button.fb-deltxt:hover { color: #b42318; filter: none; }
+.fb-arm { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fb-arm button { min-height: 44px; }
+button.fb-delgo { background: #b42318; color: #fff; box-shadow: none; border-radius: 9px; min-width: 9.5em; }
+button.fb-delgo:disabled { opacity: .75; }
+.fb-arm small { color: var(--muted); font-size: 12px; }
+.fb-delerr { flex-basis: 100%; color: #b42318; font-size: 13px; }
+button.fb-lnk { background: none; box-shadow: none; border: 0; padding: 0 6px; min-height: 44px; color: var(--purple-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.fb-gone { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-height: 48px; padding: 2px 6px 2px 12px; margin-bottom: 8px; border-radius: 12px; border: 1px dashed #d9ccff; background: #fbfaff; color: var(--muted); font-size: 13.5px; }
+.fb-gone b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); font-weight: 600; }
+.fb-gone-h { margin: 0 2px 6px; font-size: 12.5px; color: var(--muted); }
+.fb-found { margin: 0 0 10px; }
+.fb-found-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 2px 2px; font-size: 13px; color: var(--muted); }
+.fb-found-h b { color: var(--text); }
+.fb-msg { margin: 0 0 10px; font-size: 13.5px; color: var(--muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fb-msg.no { color: #b42318; }
+.fb-note300 { margin: 10px 2px 0; font-size: 12.5px; color: var(--muted); }
+/* 「我的反馈进度」每张底下那一行（补充说明 / 追问、删除）：单独占一行，两个按钮之间留空（.fb-th 和截图缩略图那一排同名，会被排成横排） */
+.fb-th > .fb-thf { flex-basis: 100%; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.fb-thf button.fb-deltxt { margin-left: 0; }
+.fb-own-dot { margin-right: 4px; }
