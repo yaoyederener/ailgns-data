@@ -8429,5 +8429,11 @@
 "（其中": " (",
 "块被大家偷光了，菜熟了早点来收）": "of them were stolen clean by others; harvest sooner once ripe)",
 "% 的机会在打瞌睡，那一次拦不住，但每块地一次最多被偷走": "% chance of dozing off and missing that one, but per theft each plot loses at most",
-"🏡 开心农场偷菜不设上限了：菜熟了主人不来收，可以被大家一直偷到光（以前每块地最多被偷走 40%，被偷几次就偷不动了）。每块地每人还是只能偷 1 次，看门狗、警察照常看家。菜熟了记得早点来收！": "🏡 No more cap on stealing in Happy Farm: if the owner doesn't harvest ripe crops, everyone can keep stealing until they're all gone (before, each plot could lose at most 40%, so it stopped after a few thefts). Each person can still steal only 1 time per plot, and guard dogs and police still protect farms. Harvest soon once your crops are ripe!"
+"🏡 开心农场偷菜不设上限了：菜熟了主人不来收，可以被大家一直偷到光（以前每块地最多被偷走 40%，被偷几次就偷不动了）。每块地每人还是只能偷 1 次，看门狗、警察照常看家。菜熟了记得早点来收！": "🏡 No more cap on stealing in Happy Farm: if the owner doesn't harvest ripe crops, everyone can keep stealing until they're all gone (before, each plot could lose at most 40%, so it stopped after a few thefts). Each person can still steal only 1 time per plot, and guard dogs and police still protect farms. Harvest soon once your crops are ripe!",
+"提交时没有这个钱包的签名，不算你本人提交的，删不了；要处理请找站长": "Submitted without this wallet's signature, so it doesn't count as yours and can't be deleted; ask the site owner to handle it",
+"这个地址的工单没读出来，网络不好：请点一下地址框外面再试，或刷新页面": "Couldn't load this address's tickets (network problem): tap outside the address box to try again, or refresh the page",
+"正在读这个地址的工单，读完马上帮你找": "Loading this address's tickets; we'll search as soon as they load",
+"刚处理过这张，稍等一下再点": "You just acted on this ticket; wait a moment before tapping again",
+"这张提交时没有这个钱包的签名，不算你本人提交的，删不了；要处理请找站长（站长可以标「无效」）": "This ticket was submitted without this wallet's signature, so it doesn't count as yours and can't be deleted; ask the site owner to handle it (the owner can mark it “Invalid”)",
+"这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名（签名过期、换了设备，或者页面太旧）。请刷新页面，先用这个钱包签个名再提交；不签名提交的不算你本人提交的，以后自己删不掉": "This is the site owner's / a product reviewer's wallet address, but this submission didn't include that wallet's signature (expired signature, new device, or an outdated page). Refresh the page and sign with this wallet before submitting; tickets submitted without a signature don't count as yours and you won't be able to delete them later"
 }

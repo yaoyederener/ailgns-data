@@ -283,7 +283,7 @@ export async function onRequestPost(ctx) {
     if (!t) return json({ error: "没有这个工单" }, 404);
     const me = signer(b.pa, b.pts, b.psig);
     if (!me) return json({ error: "先用提交这张工单的钱包签个名（免费，不是交易，不花 Gas），认一下是你本人", sign: 1 }, 403);
-    if (!canDel(me, t, keyOk(ctx.env, b.key))) return json({ error: "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
+    if (!canDel(me, t, keyOk(ctx.env, b.key))) return json({ error: t.nosig && me === t.a ? "这张提交时没有这个钱包的签名，不算你本人提交的，删不了；要处理请找站长（站长可以标「无效」）" : "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
     if (b.undo) { if (t.st === "del") { t.st = t.st0 && t.st0 !== "del" && Object.prototype.hasOwnProperty.call(ST, t.st0) ? t.st0 : "new"; delete t.st0; delete t.dl; } }
     else if (t.st !== "del") { t.st0 = t.st; t.st = "del"; t.dl = Date.now(); } // dl = 什么时候删的（回收站里看）
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
@@ -297,11 +297,11 @@ export async function onRequestPost(ctx) {
     const me = signer(b.pa, b.pts, b.psig);
     if (b.st === "del") { // 后台的「删除」按钮（老页面也是走这里）：一样只能删自己提交的（站长 2026-11-28，见 canDel）
       if (!me) return json({ error: "先用提交这张工单的钱包签个名（到 📬 收件箱用它登录一次，免费），再回来删", sign: 1 }, 403);
-      if (!canDel(me, t, true)) return json({ error: "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
+      if (!canDel(me, t, true)) return json({ error: t.nosig && me === t.a ? "这张提交时没有这个钱包的签名，不算你本人提交的，删不了；要处理请找站长（站长可以标「无效」）" : "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
       if (t.st !== "del") { t.st0 = t.st; t.st = "del"; t.dl = Date.now(); await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 }); }
       return json({ ok: true, t });
     }
-    if (isPriv(t) && !BOSS.includes(me)) return t.a === me ? json({ error: "这是你自己提交的工单，站长亲自处理：你这里只能删除，不能回复、改状态" }, 403) : json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
+    if (isPriv(t) && !BOSS.includes(me)) return t.a === me ? json({ error: t.nosig ? "这张提交时没有这个钱包的签名，不算你本人提交的，删不了；要处理请找站长（站长可以标「无效」）" : "这是你自己提交的工单，站长亲自处理：你这里只能删除，不能回复、改状态" }, 403) : json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
     const wasDel = t.st === "del", wasDone = t.st === "done", note0 = t.note || ""; // wasDel：从回收站恢复的，不再给客户发通知；wasDone + note0：同一条回复不发第二遍
     if (b.st && ST[b.st]) t.st = b.st;
     if (wasDel && b.st) { delete t.st0; delete t.dl; } // 从回收站恢复
@@ -338,6 +338,7 @@ export async function onRequestPost(ctx) {
   if (imgs.some((x) => x.length > 1.5e6)) return json({ error: "有一张截图太大了，请换一张" }, 400);
   const sg = signer(b.pa, b.pts, b.psig), urg = b.urg ? canUrg(sg) : false;
   if (b.urg && !urg) return json({ error: "「加急」只给站长和产品优化员用：请先用你的钱包签个名（免费，不花 Gas），或者去掉「加急」再提交" }, 400);
+  if (canUrg(a) && sg !== a && !b.nosigOk) return json({ error: "这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名（签名过期、换了设备，或者页面太旧）。请刷新页面，先用这个钱包签个名再提交；不签名提交的不算你本人提交的，以后自己删不掉", sign: 1 }, 400);
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x";
   if (await kv.get("tk:rl:" + ip)) return json({ error: "提交太快了，请 1 分钟后再试" }, 400);
   await kv.put("tk:rl:" + ip, "1", { expirationTtl: 60 });
@@ -345,7 +346,7 @@ export async function onRequestPost(ctx) {
   await kv.put("tk:seq", String(id));
   const t = { id, a, txt, n: imgs.length, t: Date.now(), st: "new", note: "" };
   if (b.src === "inbox") t.src = "inbox";
-  const vip = reviewerOf(a); if (vip && sg === a) t.vip = vip; // ⭐ 产品优化员：要本人签名提交才算（冒填地址的不置顶、照常 AI 分诊；但仍是私密工单，见 isPriv）
+  const vip = reviewerOf(a); if (vip) t.vip = vip; // ⭐ 产品优化员：按地址认（站长定的规矩：不走 AI 分诊、不判无效、不自动答复、推站内信给站长亲审）。冒填的另有 nosig 提示
   if (urg) t.urg = Date.now(); // 🚨 加急（记下加急的时间）
   if (canUrg(a) && sg !== a) t.nosig = 1; // 填的是站长 / 产品优化员的地址，提交时却没有这个钱包的签名：可能是别人冒填的，不算本人提交的（后台不标「我」、不能删）
   for (let i = 0; i < imgs.length; i++) await kv.put("tk:img:" + id + ":" + i, imgs[i], { expirationTtl: 180 * 86400 });
