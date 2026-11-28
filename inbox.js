@@ -225,7 +225,7 @@
     box.querySelector(".ib-rs").onclick = function () {
       var v = ta.value.trim(), s = this; if (v.length < 2) { st.textContent = "多写几个字吧"; return; }
       s.disabled = true; st.textContent = "发送中…";
-      fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: auth.a, src: "inbox", txt: "【回复站内信】" + v + "\n\n—— 回复的是：" + String(it.txt || "").slice(0, 300) }) }).then(function (r) { return r.json(); }).then(function (j) {
+      fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ a: auth.a, src: "inbox", pa: auth.a, pts: auth.ts, psig: auth.sig, txt: "【回复站内信】" + v + "\n\n—— 回复的是：" + String(it.txt || "").slice(0, 300) }) }).then(function (r) { return r.json(); }).then(function (j) {
         if (j.error) { s.disabled = false; st.textContent = "❌ " + j.error; return; }
         box.innerHTML = '<p class="ib-rok">✅ 已发给站长（工单 #' + j.id + '），回复会出现在这里和「我的反馈进度」</p>';
       }, function () { s.disabled = false; st.textContent = "❌ 网络不好，再点一次"; });

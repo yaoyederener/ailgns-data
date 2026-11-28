@@ -106,7 +106,7 @@
       '<button type="button" class="nm-go fb-go" id="fb-go">✅ 提交反馈</button><p class="fb-st" id="fb-st"></p>' +
       '<div class="fb-dbx"><p>🔔 <b>客服回复第一时间通知你</b>：关注 DeBox 机器人并发送你的钱包地址，工单处理好了机器人会<b>私信</b>你，不用一直刷页面。</p><div id="dbx-slot"></div></div>' +
       '<p class="muted fb-safe">🔒 我们<b>绝不会</b>向你要私钥、助记词或密码；任何人找你要，都是骗子。</p></section>' +
-      '<section class="card"><div class="card-head"><h2>🧾 我的反馈进度</h2><span class="muted">按钱包地址查</span></div>' + findForm("fb-mf", "输入你的工单号，如 402", "在我的工单里按工单号找", true) + '<div id="fb-mmsg"></div><div id="fb-mfound"></div><div id="fb-mine"><p class="muted">填好钱包地址后，这里显示你提交过的反馈和客服回复</p></div></section>';
+      '<section class="card"><div class="card-head"><h2>🧾 我的反馈进度</h2><span class="muted">按钱包地址查</span></div>' + findForm("fb-mf", "输入你的工单号，如 402", "在我的工单里按工单号找", true) + '<div id="fb-mmsg"></div><div id="fb-mfound"></div><p class="fb-sr" id="fb-live" aria-live="polite"></p><div id="fb-mine"><p class="muted">填好钱包地址后，这里显示你提交过的反馈和客服回复</p></div></section>';
     var mf = document.getElementById("fb-mf"); if (mf) mf.onsubmit = function (e) { e.preventDefault(); mineFind(); };
     if (prefill) { var pf = document.getElementById("fb-x"); if (pf) { pf.value = prefill; pf.focus(); pf.setSelectionRange(pf.value.length, pf.value.length); } }
     if (A.otcKit && A.otcKit.deboxCard) A.otcKit.deboxCard(rid, { title: "绑定 DeBox 机器人，客服回复秒通知", on: "已绑定：工单处理好、客服回复了，机器人会私信你；OTC 成交也会通知你" });
@@ -167,10 +167,11 @@
       if (!isAddr(a)) { inp.focus(); return say("请填正确的钱包地址（0x 开头，42 位）"); }
       if (x.length < 2 && !imgs.length && !vid) return say("请写一下遇到的问题，或者贴一张截图 / 选一个视频");
       go.disabled = true; say("提交中…");
-      var uc = document.getElementById("fb-urgc"), urg = !!(uc && uc.checked && !document.getElementById("fb-urg").hidden), sg = urg ? fbSig() : null;
+      var uc = document.getElementById("fb-urgc"), urg = !!(uc && uc.checked && !document.getElementById("fb-urg").hidden), sg = fbSig(a) || (urg ? fbSig() : null); // 这台设备签过名的正是这个地址：一律带上签名，后台据此认「本人提交的」（站长 / 产品优化员的地址没签名的不算，见后台 nosig）
       var okMsg = function (id, extra) { return "✅ 提交成功！工单号 #" + id + (j0.urg ? "（🚨 已加急，排在后台最上面）" : "") + (extra || "") + "。回复会比较慢，请耐心等：技术人员正忙着优化每一个客户的问题。进度在下面「我的反馈进度」里看"; }, j0 = {};
       var body = { a: a, txt: x || (vid ? "（见视频）" : ""), imgs: imgs, v: vid ? 1 : 0 };
-      if (urg) { body.urg = 1; if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; } }
+      if (urg) body.urg = 1;
+      if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
       fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
         .then(function (r) { return r.json(); }).then(function (j) {
           if (j.error) { go.disabled = false; return say(j.error); }
@@ -235,8 +236,9 @@
   }
   /* 🔎🗑 站长 2026-11-28（方案 A）：「我的反馈进度」能按工单号找自己的工单（老的、列表里没有的也行，别人的编号一律说没有）；
      站长 / 产品优化员签过名的话，每张工单多一个「删除」（只能删自己的，后台按签名认人；删了是放进回收站，能撤销 / 恢复） */
-  var mArm = {}, mineA = "", mineSeen = 0;
+  var mArm = {}, mineA = "", mineSeen = 0, mineSeq = 0, findSeq = 0, mFocus = 0; // mFocus：撤销 / 恢复以后，焦点要放回哪一张 // mineA：下面列表是哪个地址的；mineSeq / findSeq：读列表、查找的请求序号，晚到的旧结果不画
   function mthread(t, a, seen, del) {
+        del = del && !t.nosig; // 填的是这个地址、提交时却没签名的（可能是别人冒填的）：不算本人提交的，不给删
         var s = ST[t.st] || ST["new"], fresh = t.note && t.up > seen, more = t.st !== "done" || t.note;
         return '<div class="fb-th' + (fresh ? " fresh" : "") + '" id="fb-t' + t.id + '"><div class="fb-thh"><span class="fb-tag" style="background:' + s[1] + '">' + (t.st === "done" ? "✅ " : t.st === "doing" ? "⏳ " : "📮 ") + s[0] + '</span>' + (t.urg ? '<span class="fb-tag" style="background:#dc2626">🚨 加急</span>' : "") + '<b>工单 #' + t.id + '</b><small class="muted">' + tm(t.t) + "</small>" + (fresh ? '<i class="fb-new">新回复</i>' : "") + "</div>" +
           '<div class="fb-bub me"><small>我</small>' + esc(t.txt || "（截图 " + t.n + " 张）") + (t.n ? '<div class="fb-ims">' + Array.apply(null, Array(t.n)).map(function (_, i) { var u = "/api/feedback?mimg=" + t.id + ":" + i + "&a=" + a + fbPq(a); return '<a href="' + u + '" target="_blank"><img loading="lazy" src="' + u + '" alt="我的截图"></a>'; }).join("") + "</div>" : "") + "</div>" + // 站长 2026-11-08：显示客户自己当初的截图
@@ -246,18 +248,23 @@
   }
   function mine(a) {
     var box = document.getElementById("fb-mine"); if (!box) return;
+    var my = ++mineSeq, wipe = function () { findSeq++; ["fb-mmsg", "fb-mfound"].forEach(function (k) { var x = document.getElementById(k); if (x) x.innerHTML = ""; }); }; // 清掉查找结果，还没回来的查找也作废
+    if (a !== mineA) wipe(); // 换了地址：上一个地址的查找结果马上清掉（以前要等列表读回来，锁住的地址干脆不清）
     fetch("/api/feedback?mine=" + a + fbPq(a)).then(function (r) { return r.json(); }).then(function (j) {
+      if (my !== mineSeq || !document.getElementById("fb-mine")) return; // 后面又换过地址 / 已经离开这一页
       var mf = document.getElementById("fb-mf");
-      if (j.lock) { if (mf) mf.hidden = true; box.innerHTML = '<p class="muted">🔒 这个地址的工单只有本人能看。先到 <a href="#/inbox">📬 收件箱</a> 用钱包登录一次（签名免费），再回到这里。</p>'; return; }
+      if (j.lock) { mineA = ""; mineDel = false; wipe(); if (mf) mf.hidden = true; box.innerHTML = '<p class="muted">🔒 这个地址的工单只有本人能看。先到 <a href="#/inbox">📬 收件箱</a> 用钱包登录一次（签名免费），再回到这里。</p>'; return; }
       var l = j.list || [], seen = 0; try { seen = Number(localStorage.getItem("fb:seen:" + a) || 0); } catch (e) {}
-      if (mineA !== a) { var mm = document.getElementById("fb-mmsg"), mfd = document.getElementById("fb-mfound"); if (mm) mm.innerHTML = ""; if (mfd) mfd.innerHTML = ""; } // 换了地址：上一个地址的查找结果清掉
       mineA = a; mineSeen = seen; mineDel = !!j.del;
-      if (mf) mf.hidden = !l.length;
+      if (mf) mf.hidden = !(l.length || mineDel); // 站长 / 产品优化员（能删的）一直有查找框：最近 20 张全删了，也要能按编号把删掉的找回来
+      var fd = document.getElementById("fb-mfound"), mm = document.getElementById("fb-mmsg"), dup = fd ? l.filter(function (t) { return fd.querySelector('[id="fb-t' + t.id + '"]'); })[0] : null, moved = !!(dup && fd.querySelector("[data-done]"));
+      if (dup) { fd.innerHTML = ""; if (mm) mm.innerHTML = moved ? '<p class="fb-msg">✅ #' + dup.id + " 已恢复，在下面列表里</p>" : ""; } // 查找出来的那张现在列表里也有了：查找区清掉，一张不出现两次；刚恢复的，说一声它挪到哪了
       // 客户看进度：像聊天一样——左边我说的，右边客服回的；状态大字；新回复高亮
-      box.innerHTML = l.length ? l.map(function (t) { return mthread(t, a, seen, mineDel); }).join("") + '<p class="fb-note300">这里只列你最近 20 张工单，更早的用上面的框按工单号找</p>' : '<p class="muted">这个地址还没有提交过反馈</p>';
+      box.innerHTML = l.length ? l.map(function (t) { return mthread(t, a, seen, mineDel); }).join("") + '<p class="fb-note300">这里只列你最近 20 张工单，更早的用上面的框按工单号找</p>' : '<p class="muted">' + (mineDel ? "这里没有你正在处理的工单。删掉的在回收站里，可以用上面的框按工单号找回来" : "这个地址还没有提交过反馈") + "</p>";
       try { var mx = Math.max.apply(null, [0].concat(l.map(function (t) { return t.up || 0; }))); if (mx) localStorage.setItem("fb:seen:" + a, String(mx)); } catch (e) {}
       var pill = document.getElementById("fb-pill"); if (pill) pill.remove();
       bindThreads(box);
+      if (moved) flashTk(document.getElementById("fb-t" + dup.id)); // 刚恢复的那张：跳过去闪一下（焦点在 bindThreads 里放回它的「删除」）
       var h = location.hash.match(/feedback\/(\d+)/); if (h) { var el = document.getElementById("fb-t" + h[1]); if (el) setTimeout(function () { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("fresh"); }, 200); }
     }, function () {});
   }
@@ -268,44 +275,62 @@
       var id = Number(sl.getAttribute("data-mdel"));
       wireArm('[data-mdel="' + id + '"]', mArm, id, function () { return delReqMine(mineA, id, false); }, function () { mineGone(id); });
     });
+    if (mFocus) { var rf = root.querySelector('[data-mdel="' + mFocus + '"] .fb-deltxt'); if (rf) try { rf.focus({ preventScroll: true }); } catch (e) {} } // 撤销 / 恢复以后：焦点放回这一张的「删除」（不然掉到页面最上面，读屏的人找不回来）
   }
+  function backTo(id) { live("#" + id + " 已恢复"); mFocus = id; setTimeout(function () { if (mFocus === id) mFocus = 0; }, 4000); }
   // 删掉以后：这一张收成一行「已删除 #编号 · 撤销」；撤销 = 从回收站拿回来
   function mineGone(id) {
     var el = document.getElementById("fb-t" + id); if (!el) return;
-    el.outerHTML = '<div class="fb-gone" id="fb-t' + id + '"><span>已删除 <b>#' + id + '</b></span><button type="button" class="fb-lnk" data-mundo="' + id + '">撤销</button></div>';
+    var a = mineA, inFd = !!el.closest("#fb-mfound"); // 删的是查找出来的那张（列表里没有它），还是列表里的
+    el.outerHTML = '<div class="fb-gone" id="fb-t' + id + '"><span>已删除 <b>#' + id + '</b></span><button type="button" class="fb-lnk" data-mundo="' + id + '" aria-label="撤销删除 #' + id + '">↩️ 撤销</button></div>';
     var u = document.querySelector('[data-mundo="' + id + '"]'); if (!u) return;
     try { u.focus(); } catch (e) {}
     u.onclick = function () {
+      if (a !== mineA) return; // 已经换了地址
       u.disabled = true;
-      delReqMine(mineA, id, true).then(function (j) { if (!j || !j.ok) { u.disabled = false; return A.errTip((j && j.error) || "没撤销成，请再点一次", u); } var fd = document.getElementById("fb-mfound"); if (fd) fd.innerHTML = ""; mine(mineA); }, function () { u.disabled = false; A.errTip("网络不好，再点一次", u); });
+      delReqMine(a, id, true).then(function (j) {
+        if (!j || !j.ok) { u.disabled = false; return A.errTip((j && j.error) || "没撤销成，请再点一次", u); }
+        if (a !== mineA) return; // 撤销的时候换了地址
+        backTo(id);
+        if (inFd) mineShow(a, id, "已恢复"); else mine(a); // 查找出来的：原地画回来（以前撤销后这张就不见了）；列表里的：重画列表，查找结果不动
+      }, function () { u.disabled = false; A.errTip("网络不好，再点一次", u); });
     };
   }
   // 按工单号找自己的工单：在列表里就闪一下；不在就问服务器（只回这个地址自己的，别人的编号一律「没有找到」）
   function mineFind() {
     var a = mineA, q = document.getElementById("fb-mfq"), msg = document.getElementById("fb-mmsg"), fd = document.getElementById("fb-mfound");
     if (!a || !q || !msg || !fd) return;
-    var id = idOf(q.value); msg.innerHTML = ""; fd.innerHTML = "";
-    var clear = function () { msg.innerHTML = ""; fd.innerHTML = ""; q.value = ""; try { q.focus(); } catch (e) {} };
+    var id = idOf(q.value); findSeq++; msg.innerHTML = ""; fd.innerHTML = ""; // findSeq++：上一次还没回来的查找作废
     if (!id) { msg.innerHTML = '<p class="fb-msg no">工单号是数字，如 402</p>'; return; }
     var el = document.getElementById("fb-t" + id);
-    if (el) { try { el.scrollIntoView({ block: "center" }); } catch (e) { el.scrollIntoView(); } el.classList.remove("fresh"); void el.offsetWidth; el.classList.add("fresh"); return; }
+    if (el) { // 就在下面列表里：跳过去闪一下（不用「新回复」那个高亮，那个不会消失，看着像有新回复）
+      flashTk(el);
+      if (el.classList.contains("fb-gone")) msg.innerHTML = '<p class="fb-msg">#' + id + " 刚删除：点它右边的「撤销」就能拿回来</p>";
+      return;
+    }
+    mineShow(a, id);
+  }
+  // 查找区里画出这一张（不在列表里的老工单、回收站里的）。done：刚做完什么（「已恢复」），写在上面
+  function mineShow(a, id, done) {
+    var q = document.getElementById("fb-mfq"), msg = document.getElementById("fb-mmsg"), fd = document.getElementById("fb-mfound"); if (!msg || !fd) return;
+    var my = ++findSeq, clear = function () { findSeq++; msg.innerHTML = ""; fd.innerHTML = ""; if (q) { q.value = ""; try { q.focus(); } catch (e) {} } };
     msg.innerHTML = '<p class="fb-msg">查找中…</p>';
     fetch("/api/feedback?mine=" + a + "&tk=" + id + fbPq(a)).then(function (r) { return r.json(); }).then(function (j) {
-      if (a !== mineA) return; // 查的时候换了地址
+      if (my !== findSeq || a !== mineA) return; // 查的时候又查了别的号 / 换了地址：这个结果不要了
       var t = j.list && j.list[0];
-      if (!t) { msg.innerHTML = '<p class="fb-msg no">没有找到你的 #' + id + ' <button type="button" class="fb-lnk" data-mclear="1">清除</button></p>'; }
+      msg.innerHTML = ""; fd.innerHTML = "";
+      if (!t) { msg.innerHTML = '<p class="fb-msg no">没有找到你的 #' + id + (j.sign ? '。更早的工单要先到 <a href="#/inbox">📬 收件箱</a> 用这个钱包签个名（免费），才能按工单号找' : "") + ' <button type="button" class="fb-lnk" data-mclear="1">清除</button></p>'; } // sign：没签名，只能找最近 20 张
       else if (t.st === "del") {
-        msg.innerHTML = "";
         fd.innerHTML = '<div class="fb-gone"><span>你的 <b>#' + id + '</b> 已删除，在回收站里</span>' + (j.del ? '<button type="button" class="fb-lnk" data-mrestore="1">恢复</button>' : "") + '<button type="button" class="fb-lnk" data-mclear="1">清除</button></div>';
         var rb = fd.querySelector("[data-mrestore]");
-        if (rb) rb.onclick = function () { rb.disabled = true; delReqMine(a, id, true).then(function (j2) { if (!j2 || !j2.ok) { rb.disabled = false; return A.errTip((j2 && j2.error) || "没恢复成，请再点一次", rb); } clear(); mine(a); }, function () { rb.disabled = false; A.errTip("网络不好，再点一次", rb); }); };
+        if (rb) rb.onclick = function () { rb.disabled = true; delReqMine(a, id, true).then(function (j2) { if (!j2 || !j2.ok) { rb.disabled = false; return A.errTip((j2 && j2.error) || "没恢复成，请再点一次", rb); } if (a === mineA) { backTo(id); mineShow(a, id, "已恢复"); } }, function () { rb.disabled = false; A.errTip("网络不好，再点一次", rb); }); }; // 恢复以后原地画出这张（以前清空了，看不出成没成）
       } else {
-        msg.innerHTML = "";
-        fd.innerHTML = '<div class="fb-found-h"><span>找到你的 <b>#' + id + '</b></span><button type="button" class="fb-lnk" data-mclear="1">清除</button></div>' + mthread(t, a, mineSeen, !!j.del);
+        fd.innerHTML = '<div class="fb-found-h"' + (done ? ' data-done="1"' : "") + '><span>' + (done ? "✅ <b>#" + id + "</b> " + done : "找到你的 <b>#" + id + "</b>") + '</span><button type="button" class="fb-lnk" data-mclear="1">清除</button></div>' + mthread(t, a, mineSeen, !!j.del);
         bindThreads(fd);
+        if (done) mine(a); // 恢复了：下面的列表也重新读（这张要是在最近 20 张里，会挪进列表，见 mine 里的 dup）
       }
       [msg, fd].forEach(function (x) { var c = x.querySelector("[data-mclear]"); if (c) c.onclick = clear; });
-    }, function () { msg.innerHTML = '<p class="fb-msg no">网络不好，再点一次「查找」</p>'; });
+    }, function () { if (my === findSeq && a === mineA) msg.innerHTML = '<p class="fb-msg no">网络不好，再点一次「查找」</p>'; });
   }
   // 全站：连过钱包的客户有新客服回复时，右下角弹一个漂亮的提醒气泡（60 秒查一次，看过就消失）
   var pillOff = false;
@@ -384,9 +409,11 @@
   function bellGo(e) {
     if (!/feedback\/admin/.test(location.hash)) return; // 不在后台：照常跳过去
     e.preventDefault();
-    var find = function (tries) {
-      var id = lastP && lastP.top && lastP.top.id, el = (id && document.querySelector('.fb-tk[data-id="' + id + '"]')) || document.querySelector(".fb-tk[data-id]");
+    var id = lastP && lastP.top && lastP.top.id;
+    var find = function (tries) { // 等列表换好、找到最紧急的那一张；实在没有才退回第一张（以前列表还没换好，就闪了旧列表的第一张）
+      var el = id && document.querySelector('#fb-list .fb-tk[data-id="' + id + '"]');
       if (!el && tries > 0) return setTimeout(function () { find(tries - 1); }, 400);
+      if (!el) el = document.querySelector("#fb-list .fb-tk[data-id]");
       // 直接跳过去，不用「慢慢滚」的动画：上线后核对时，带动画的滚动有一次根本没动（页面没在画面上时浏览器会把动画停掉），老的钱包浏览器也不一定认
       var jump = function (x) { try { x.scrollIntoView({ block: "center" }); } catch (e2) { x.scrollIntoView(); } };
       if (!el) { el = document.getElementById("fb-seg"); if (el) jump(el); return; }
@@ -394,8 +421,11 @@
       el.classList.add("fb-flash"); setTimeout(function () { el.classList.remove("fb-flash"); }, 1800);
     };
     if (lastP && !lastP.n) { var b = document.getElementById("fb-bell"); if (b && A.errTip) A.errTip("现在没有待处理的工单", b); }
-    var seg = document.querySelector('#fb-seg button[data-s="new"]');
-    if (seg && seg.className.indexOf("on") < 0) { seg.click(); setTimeout(function () { find(8); }, 500); } else find(8);
+    var seg = document.querySelector('#fb-seg button[data-s="new"]'), sw = document.getElementById("fb-only");
+    if (!seg) { location.hash = "#/feedback/admin"; return setTimeout(function () { find(10); }, 600); } // 在单张页：先回到列表再找（以前在单张页点铃铛只会闪当前这张）
+    var only = adOnly && sw && !sw.hidden;
+    if (only) { adOnly = false; try { localStorage.setItem("fb:only", "0"); } catch (e2) { /* 存不上也照样关 */ } } // 开着「只看我提交的」：最紧急的那张多半不是自己的，先关掉，不然找不到它
+    if (only || adQ || seg.className.indexOf("on") < 0) { seg.click(); setTimeout(function () { find(8); }, 500); } else find(8); // 正看着搜索结果也一样：回到「待处理」列表
   }
   function bellPaint(p) {
     lastP = p || null;
@@ -433,8 +463,9 @@
        8 秒不点自动收回（手指按着、焦点在上面时重新计时）。删了是放进回收站：10 分钟内原地点「撤销」，之后到「回收站」栏恢复。
      · 后台每 20 秒刷新一次列表：正在确认删除时不刷新；刚删的工单刷新后挪到列表上方「刚删除的」里，照样能撤销
      · 搜索框、点开引用的工单是另一处（见下面 5960f28 那段），编号搜索按方案 A：在列表里就闪一下，不在就把那一张放到列表位置 */
-  var adOwn = [], adArm = {}, adGoneAt = {}, adReload = null, adOnly = false; // adMe / adBoss 在下面「引用的工单」那段声明
+  var adOwn = [], adArm = {}, adGoneAt = {}, adReload = null, adOnly = false, adLoadSeq = 0, adFocus = 0; // adMe / adBoss 在下面「引用的工单」那段声明；adLoadSeq：往列表位置画东西的请求序号，晚到的旧结果不画
   try { adOnly = localStorage.getItem("fb:only") === "1"; } catch (e) { /* 读不到就是关 */ }
+  function live(msg) { var l = document.getElementById("fb-live"); if (!l) return; l.textContent = ""; setTimeout(function () { l.textContent = msg; }, 60); } // 读屏播报（页面上看不见）：删了、恢复了说一声
   function idOf(v) { var m = String(v || "").match(/\d{1,7}/); return m ? Number(m[0]) : 0; }
   function findForm(idp, ph, label, hide) { return '<form class="fb-find" id="' + idp + '" role="search"' + (hide ? " hidden" : "") + '><label class="pre" for="' + idp + 'q" aria-hidden="true">#</label><input id="' + idp + 'q" inputmode="numeric" enterkeyhint="search" autocomplete="off" placeholder="' + ph + '" aria-label="' + label + '"><button type="submit" class="ghost">查找</button></form>'; }
   function flashTk(el) { if (!el) return; el.classList.remove("fb-flash"); void el.offsetWidth; el.classList.add("fb-flash"); try { el.scrollIntoView({ block: "center" }); } catch (e) { el.scrollIntoView(); } }
@@ -443,7 +474,7 @@
   function delReqMine(a, id, undo) { var sg = fbSig(a), b = { action: "del", id: id }; if (undo) b.undo = 1; if (sg) { b.pa = sg.a; b.pts = sg.ts; b.psig = sg.sig; } return postFb(b); }
   function armHtml(arm, id) {
     var a = arm[id];
-    if (!a) return '<button type="button" class="fb-deltxt" data-del="ask">删除</button>';
+    if (!a) return '<button type="button" class="fb-deltxt" data-del="ask" aria-label="删除工单 #' + id + '">删除</button>';
     return '<span class="fb-arm" role="group" aria-label="确认删除工单 #' + id + '"><button type="button" class="ghost" data-del="keep"' + (a.busy ? " disabled" : "") + ">保留</button>" +
       '<button type="button" class="fb-delgo" data-del="go"' + (a.busy ? ' disabled aria-busy="true"' : "") + ">" + (a.busy ? "删除中…" : "确认删除 #" + id) + "</button>" +
       (a.busy ? "" : "<small>8 秒不点就不删</small>") +
@@ -454,7 +485,7 @@
     function tick() {
       var a = arm[id]; if (!a || a.busy) return;
       clearTimeout(a.tm);
-      a.tm = setTimeout(function () { if (arm[id] && !arm[id].busy) { delete arm[id]; paint(); } }, 8000);
+      a.tm = setTimeout(function () { if (arm[id] && !arm[id].busy) { var sl = document.querySelector(sel), had = !!(sl && sl.contains(document.activeElement)); delete arm[id]; paint(had ? "ask" : ""); } }, 8000); // 8 秒收回：焦点原来在这一格里的，放回新的「删除」上
     }
     function paint(focus) {
       var slot = document.querySelector(sel); if (!slot) return;
@@ -468,7 +499,7 @@
             if (Date.now() - a.at < 500) return; // 确认按钮刚出来半秒内的点击不算（防连点）
             clearTimeout(a.tm); a.busy = true; a.err = ""; paint();
             send().then(function (j) {
-              if (j && j.ok) { delete arm[id]; return done(j); }
+              if (j && j.ok) { delete arm[id]; live("已删除 #" + id + "，可以撤销"); return done(j); }
               a.busy = false; a.err = (j && j.error) || "没删成，请再点一次"; a.sign = !!(j && j.sign); a.at = Date.now(); tick(); paint("keep");
             }, function () { a.busy = false; a.err = "网络不好，没删成，请再点一次"; a.sign = false; a.at = Date.now(); tick(); paint("keep"); });
           }
@@ -476,18 +507,18 @@
       });
       var g = slot.querySelector(".fb-arm");
       if (g) { g.addEventListener("pointerdown", tick); g.addEventListener("focusin", tick); }
-      if (focus) { var f = slot.querySelector('[data-del="' + focus + '"]'); if (f) try { f.focus(); } catch (e) {} }
+      if (focus) { var f = slot.querySelector('[data-del="' + focus + '"]'); if (f) try { f.focus({ preventScroll: true }); } catch (e) {} } // 不滚动：手机上一滚，「确认删除」可能正好挪到手指下面
     }
     paint();
   }
-  function goneHtml(id) { return '<div class="fb-gone" data-gone="' + id + '"><span>已删除 <b>#' + id + '</b></span><button type="button" class="fb-lnk" data-undo="' + id + '">撤销</button></div>'; }
+  function goneHtml(id) { return '<div class="fb-gone" data-gone="' + id + '"><span>已删除 <b>#' + id + '</b></span><button type="button" class="fb-lnk" data-undo="' + id + '" aria-label="撤销删除 #' + id + '">↩️ 撤销</button></div>'; }
   function wireUndo(id) {
     document.querySelectorAll('[data-undo="' + id + '"]').forEach(function (b) {
       b.onclick = function () {
         b.disabled = true;
         delReq(id, true).then(function (j) {
           if (!j || !j.ok) { b.disabled = false; return A.errTip((j && j.error) || "没撤销成，请再点一次", b); }
-          delete adGoneAt[id];
+          delete adGoneAt[id]; adFocus = id; live("#" + id + " 已恢复"); // 重画以后焦点放回这一张（见 bindCards 最后）
           if (adReload) adReload(); else b.closest(".fb-gone").remove();
         }, function () { b.disabled = false; A.errTip("网络不好，再点一次", b); });
       };
@@ -499,16 +530,16 @@
     wireUndo(id);
     var u = document.querySelector('[data-undo="' + id + '"]'); if (u) try { u.focus(); } catch (e) {}
   }
-  function paintGone() { // 刚删的（10 分钟内）：列表重画以后放在列表上方，照样能撤销
+  function paintGone() { // 刚删的（10 分钟内）：列表重画以后放在列表上方，照样能撤销（「回收站」栏里本来就列着它们，那一栏不重复放）
     var g = document.getElementById("fb-gone"); if (!g) return;
-    var now = Date.now(), ids = Object.keys(adGoneAt).filter(function (k) { if (now - adGoneAt[k] > 600e3) { delete adGoneAt[k]; return false; } return true; });
+    var now = Date.now(), ids = Object.keys(adGoneAt).filter(function (k) { if (now - adGoneAt[k] > 600e3) { delete adGoneAt[k]; return false; } return adminSt !== "del"; });
     g.innerHTML = ids.length ? '<p class="fb-gone-h">刚删除的，10 分钟内能撤销（之后到「回收站」恢复）</p>' + ids.map(goneHtml).join("") : "";
     ids.forEach(wireUndo);
   }
-  function paintTools(toggle) {
+  function paintTools(toggle, n) {
     var sw = document.getElementById("fb-only"); if (!sw) return;
     sw.hidden = !adMe; sw.setAttribute("aria-pressed", adOnly && adMe ? "true" : "false");
-    sw.innerHTML = '<span class="trk" aria-hidden="true"></span>只看我提交的 ' + adOwn.length; sw.onclick = toggle;
+    sw.innerHTML = '<span class="trk" aria-hidden="true"></span>只看我提交的 ' + n; sw.onclick = toggle;
   }
   /* 站长 2026-11-28：
      ①「把删除按钮去掉」②「只给站长审核人员留删自己工单的权利」→ 后台只在「自己提交的工单」上显示 🗑 删除
@@ -554,19 +585,21 @@
     var ims = ""; for (var i = 0; i < t.n; i++) ims += '<a href="' + imgUrl(t.id, i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, i) + '"></a>';
     if (t.v) ims += '<a class="fb-vbtn" href="/api/feedback?vid=' + t.id + "&key=" + encodeURIComponent(key()) + fbPq() + '" target="_blank" rel="noopener">▶ 看客户的视频' + (t.vs ? "（" + Math.max(1, Math.round(t.vs / 1048576)) + " MB）" : "") + "</a>"; // 站长 2026-11-17：客户随工单传的录屏，新开一页播放
     var s = ST[t.st] || ST["new"], tr = t.tri, lv = tr ? LV[tr.lv] : null, refs = refsOf(t);
-    var own = !!adMe && t.a === adMe, ro = own && !adBoss && !!t.vip; // ro：产品优化员自己提交的私密工单，站长亲审——自己这里只能删 / 恢复，不能回复、改状态（后端同一条规矩）
+    var myA = !!adMe && t.a === adMe, own = myA && !t.nosig, ro = myA && !adBoss && !!t.vip; // own：真是自己提交的（填的是自己的地址、提交时也签了名；nosig 的可能是别人冒填的，不算） // ro：产品优化员自己提交的私密工单，站长亲审——自己这里只能删 / 恢复，不能回复、改状态（后端同一条规矩）
     var delBtn = own && t.st !== "del" ? '<span class="fb-delslot" data-delslot="' + t.id + '"></span>' : ""; // 只有自己提交的才有删除：灰字「删除」→ 原位「保留 / 确认删除 #编号」（方案 A，见 wireArm）
-    var act = ro ? (t.st === "del" ? '<button type="button" class="ghost" data-set="undo">↩️ 恢复</button>' : delBtn)
-      : '<button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button>' + (t.urg ? '<button type="button" class="ghost" data-unurg="1">取消加急</button>' : "") + (t.st === "del" ? '<button type="button" class="ghost" data-set="' + (ST[t.st0] && t.st0 !== "del" ? t.st0 : "done") + '">↩️ 恢复（放回「' + (ST[t.st0] && t.st0 !== "del" ? ST[t.st0][0] : "已解决") + '」）</button>'
-        : (t.st === "skip" ? '<button type="button" class="ghost" data-set="new">恢复为待处理</button>' : '<button type="button" class="ghost" data-set="skip">标为无效</button>') + delBtn);
+    var gone = t.st === "del", back = ST[t.st0] && t.st0 !== "del" ? t.st0 : "", act; // gone：在回收站里；back：删之前在哪一栏
+    if (ro) act = !own ? "" : gone ? '<button type="button" class="ghost" data-set="undo">↩️ 恢复（放回「' + ST[back || "new"][0] + '」）</button>' : delBtn;
+    else if (gone) act = '<button type="button" class="nm-go" data-set="' + (back || "done") + '">↩️ 恢复（放回「' + ST[back || "done"][0] + '」）</button>'; // 回收站里的只给「恢复」，恢复了才能回复、改状态（以前还摆着「确认已处理并回复」：点了说已发给客户，回复其实没存上）
+    else act = '<button type="button" class="nm-go" data-set="done">✅ 确认已处理并回复</button><button type="button" class="ghost" data-set="doing">先标处理中</button><button type="button" class="ghost" data-set="save">只保存回复</button>' + (t.urg ? '<button type="button" class="ghost" data-unurg="1">取消加急</button>' : "") +
+      (t.st === "skip" ? '<button type="button" class="ghost" data-set="new">恢复为待处理</button>' : '<button type="button" class="ghost" data-set="skip">标为无效</button>') + delBtn;
     return '<div class="fb-tk lv' + (tr ? tr.lv : 2) + (t.vip ? " fb-vip" : "") + (t.urg ? " fb-urgk" : "") + '" data-id="' + t.id + '" data-a="' + esc(t.a) + '" data-st="' + t.st + '"><div class="fb-tkh">' + (own ? '<i class="fb-own-dot" title="你提交的"></i>' : "") + '<b>#' + t.id + '</b> <small class="muted">' + tm(t.t) + '</small> ' + (t.urg ? '<span class="fb-tag fb-urgt" style="background:#dc2626">🚨 加急</span> ' : "") + (t.vip ? '<span class="fb-tag" style="background:#b45309">⭐ ' + esc(t.vip) + ' · 站长亲审</span> ' : "") + '<span class="fb-tag fb-stt" style="background:' + s[1] + '">' + s[0] + "</span>" + (lv ? '<span class="fb-tag" style="background:' + lv[1] + '">' + lv[0] + (tr.dup > 1 ? " · " + tr.dup + " 人同问" : "") + "</span>" : '<span class="fb-tag" style="background:#9ca3af">分诊中</span>') +
       (one ? "" : ' <a href="#/feedback/admin/' + t.id + '">' + (ro ? "打开看看 →" : "打开处理 →") + "</a>") + "</div>" +
       (own ? '<div class="fb-addr">提交人 <b class="fb-me">我</b> <span class="mono muted">' + t.a + "</span></div>"
-        : '<div class="fb-addr"><span class="mono">' + t.a + '</span> <button type="button" class="ghost" data-cp="' + t.a + '">复制</button> <a href="#/scan/' + t.a + '" target="_blank" rel="noopener">📒 看他的账本 ↗</a></div>') +
+        : '<div class="fb-addr"><span class="mono">' + t.a + '</span> <button type="button" class="ghost" data-cp="' + t.a + '">复制</button> <a href="#/scan/' + t.a + '" target="_blank" rel="noopener">📒 看他的账本 ↗</a>' + (myA ? ' <small class="fb-nosig">⚠️ 填的是你的地址，但提交时没有签名，可能不是你本人提交的</small>' : "") + "</div>") +
       (tr ? '<p class="fb-tri muted">🤖 ' + esc(tr.topic || "") + (tr.why ? " · " + esc(tr.why) : "") + "</p>" : "") +
       '<p class="fb-txt">' + linkRefs(t) + "</p>" + (refs.length ? '<div class="fb-refs">' + refs.map(function (r) { return '<div data-refslot="' + r + '">' + refBox(t, r) + "</div>"; }).join("") + "</div>" : "") +
       (ims ? '<div class="fb-ims">' + ims + "</div>" : "") + (t.bot ? '<p class="fb-reply fb-bot">🤖 机器人已初步答复：' + esc(t.bot) + "</p>" : "") +
-      (ro ? (t.note ? '<p class="fb-reply">💬 站长回复：' + esc(t.note) + "</p>" : "") + '<p class="fb-ownro">这张是你提交的，站长亲自处理。你只能删除，不能回复或改状态。</p>'
+      (ro || gone ? (t.note ? '<p class="fb-reply">💬 ' + (ro ? "站长回复：" : "之前的回复：") + esc(t.note) + "</p>" : "") + '<p class="fb-ownro">' + (!ro ? "这张在回收站里：先恢复，才能回复或改状态。" : !own ? "站长亲自处理：你这里只能看，不能回复、改状态，也不能删。" : gone ? "这张是你提交的，在回收站里。站长亲自处理：你这里只能恢复，不能回复或改状态。" : "这张是你提交的，站长亲自处理。你只能删除，不能回复或改状态。") + "</p>"
         : '<textarea rows="' + (one ? 4 : 2) + '" placeholder="回复客户（客户在反馈页面能看到；绑定了 DeBox 的还会收到私信）">' + esc(t.note || "") + "</textarea>" +
       '<div class="fb-rim"><label class="fb-rimpick">🖼️ 附图给客户<input type="file" accept="image/*" multiple hidden data-rfile></label><span class="muted">最多 4 张。截完图直接在回复框里粘贴（Ctrl / ⌘ + V）就行，也可以把图拖进来</span><div class="fb-ims fb-rimth" data-rth></div>' +
       (t.rn ? '<div class="fb-ims">' + Array.apply(null, Array(t.rn)).map(function (_, i) { return '<a href="' + imgUrl(t.id, "r" + i) + '" target="_blank"><img loading="lazy" src="' + imgUrl(t.id, "r" + i) + '" title="上次回复附的图"></a>'; }).join("") + "</div>" : "") + "</div>") +
@@ -621,18 +654,21 @@
         if (s === "undo") body = { key: key(), action: "del", id: body.id, undo: 1 }; // 自己提交的私密工单从回收站拿回来：走「删除 / 恢复自己的」那条接口
         if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
         if (cd._rimgs && cd._rimgs.length && s !== "undo") body.rimgs = cd._rimgs;
-        if (cd.getAttribute("data-st") === "del" && s !== "del") { delete body.note; delete body.rimgs; } // 从回收站恢复：原样放回去
-        if (s === "done" && !note && !confirm("还没写回复，确定直接标「已解决」吗？")) return;
+        var back = cd.getAttribute("data-st") === "del"; // 从回收站恢复：原样放回去（不带回复、不再通知客户）
+        if (back) { delete body.note; delete body.rimgs; }
+        if (s === "done" && !back && !note && !confirm("还没写回复，确定直接标「已解决」吗？")) return;
         if (s !== "save" && s !== "undo") body.st = s;
         b.disabled = true;
         fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j2) {
           b.disabled = false;
           if (j2.error) return A.errTip(j2.error, b);
           if (s === "save") { b.textContent = "已保存 ✓"; return; }
-          after(cd, s);
+          if (back) { delete adGoneAt[body.id]; paintGone(); live("#" + body.id + " 已恢复"); } // 恢复了：上方「刚删除的」里那一行也去掉
+          after(cd, s, back);
         }, function () { b.disabled = false; A.errTip("网络不好，再点一次", b); });
       };
     });
+    if (adFocus) { var rf = box.querySelector('.fb-tk[data-id="' + adFocus + '"] .fb-deltxt'); adFocus = 0; if (rf) try { rf.focus({ preventScroll: true }); } catch (e) {} } // 撤销以后：焦点放回恢复回来的那张的「删除」（不然掉到页面最上面）
   }
   function login(rid, msg) {
     A.app.innerHTML = '<section class="card fb-login"><h2>📮 工单后台</h2><p class="muted">输入后台口令，只存在这台设备上，以后打开直接进。</p>' +
@@ -696,7 +732,7 @@
     st = st || "new"; adminSt = st; adQ = ""; refCache = {}; // 换栏 / 重新进来：清掉上次的搜索；引用的老工单重新读（可能有了新回复）
     A.app.innerHTML ='<section class="card"><div class="card-head"><h2>📮 工单后台<span id="fb-nw"></span></h2><span>' + ("Notification" in window && Notification.permission !== "granted" ? '<button type="button" class="ghost" id="fb-notify">开启桌面通知</button> ' : "") + '<button type="button" class="ghost" id="fb-out">退出</button></span></div>' +
       '<div class="ad-nav"><a href="#/feedback/admin" class="ad-nb' + (st === "stats" ? "" : " on") + '" data-s="new">📮 工单</a><a href="#/videos/admin" class="ad-nb">🎬 上传视频</a><a href="#/posters/admin" class="ad-nb">🖼 宣传海报</a><a href="#/partner" class="ad-nb">📊 数据面板</a><a href="#/todo" class="ad-nb">📝 待办</a><a href="#/updates" class="ad-nb">🆕 更新日志</a><a href="#/med" class="ad-nb">💊 吃药</a></div>' +
-      '<div id="fb-says-tip"></div>' + pushRow() + // 站长 2026-11-25：「中奖待认证」那一大块挡着看工单，挪到工单列表下面（见这一行末尾的 fb-says）
+      '<p class="fb-sr" id="fb-live" aria-live="polite"></p><div id="fb-says-tip"></div>' + pushRow() + // 站长 2026-11-25：「中奖待认证」那一大块挡着看工单，挪到工单列表下面（见这一行末尾的 fb-says）
       '<p class="muted">🚨 站长 / 产品优化员提交时勾了「加急」的排最上面。AI 已分诊：🚨 资金安全 › 🔴 交易故障 / 多人同问 › 🟠 功能问题 › 🟢 咨询建议，按这个顺序排；无效的自动归到「无效」栏。每 20 秒刷新，有新工单响一声。</p>' +
       '<div class="fb-row fb-q"><input id="fb-q" type="search" placeholder="搜工单：编号 / 钱包地址 / 关键词" autocapitalize="off" spellcheck="false" enterkeyhint="search"><button type="button" class="nm-go" id="fb-qgo">🔍 搜</button><button type="button" class="ghost fb-switch" id="fb-only" aria-pressed="false" hidden></button></div><div class="seg" id="fb-seg">' + ["new", "doing", "done", "skip", "del"].map(function (s2) { return '<button type="button" data-s="' + s2 + '"' + (s2 === st ? ' class="on"' : "") + ">" + ST[s2][0] + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats"' + (st === "stats" ? ' class="on"' : "") + '>📊 数据</button></div><div id="fb-gone"></div><div id="fb-list"><p class="muted">读取中…</p></div><div id="fb-says"></div></section>';
     document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
@@ -708,34 +744,39 @@
     //   填钱包地址 / 关键词 → 在最近 300 张里找（只有编号有直接读的接口，别的只能翻列表）。搜索结果显示着的时候，20 秒自动刷新先停
     function qHead(msg) { return '<div class="fb-qh"><span>🔎 ' + msg + '</span><button type="button" class="fb-lk" data-qx="1">✕ 清除搜索</button></div>'; }
     function bindQ(box) { var x = box.querySelector("[data-qx]"); if (x) x.onclick = function () { var qi = document.getElementById("fb-q"); if (qi) qi.value = ""; adQ = ""; load(true); }; }
-    function search() {
-      var qi = document.getElementById("fb-q"), box = document.getElementById("fb-list"); if (!qi || !box) return;
-      var q = qi.value.trim(), n = q.replace(/^(工单\s*)?#?\s*/, "");
+    function search() { var qi = document.getElementById("fb-q"); if (qi) find(qi.value.trim()); }
+    function find(q, done) { // done：刚对搜到的那张做了什么（「已恢复」「已处理」…），结果上面写一句
+      var box = document.getElementById("fb-list"); if (!box) return;
+      var n = q.replace(/^(工单\s*)?#?\s*/, ""), num = /^\d{1,7}$/.test(n);
       if (!q) { adQ = ""; return load(true); }
+      var inl = num && !adQ && !done && document.querySelector('#fb-list .fb-tk[data-id="' + n + '"]');
+      if (inl) return flashTk(inl); // 列表正显示着、这张就在里面：闪一下那张（方案 A）
       adQ = q.toLowerCase();
-      if (/^\d{1,7}$/.test(n)) {
-        var inl = document.querySelector('#fb-list .fb-tk[data-id="' + n + '"]');
-        if (inl) { adQ = ""; return flashTk(inl); } // 就在当前列表里：闪一下那张（方案 A）
-        var w0 = adQ;
+      var my = ++adLoadSeq, w = adQ, isA = /^0x[0-9a-f]{3,40}$/.test(w), again = function (what) { find(q, what); };
+      if (num) {
         box.innerHTML = '<p class="muted">找工单 #' + n + "…</p>";
         return api("tk=" + n).then(function (j) {
+          if (my !== adLoadSeq || !document.getElementById("fb-list")) return; // 搜索已经清掉 / 换了词 / 离开了这一页
           if (j && j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
-          if (adQ !== w0) return; // 搜索已经清掉 / 换了词
-          if (j && j.t) { adMe = j.me || ""; adBoss = !!j.boss; box.innerHTML = qHead("找到 #" + n + "，在「" + (ST[j.t.st] || ST["new"])[0] + "」栏") + card(j.t, false); bindQ(box); bindCards(box, function (cd) { cd.remove(); }); flashTk(box.querySelector(".fb-tk")); return; }
+          if (j && j.t) {
+            adMe = j.me || ""; adBoss = !!j.boss; adReload = function () { again("已恢复"); }; // 在这张上删了又点「撤销」：重新读这一张
+            box.innerHTML = qHead((done ? "✅ #" + n + " " + done + " · 现在在「" : "找到 #" + n + "，在「") + (ST[j.t.st] || ST["new"])[0] + "」栏") + card(j.t, false);
+            bindQ(box); bindCards(box, function (cd, s, back) { again(back ? "已恢复" : s === "done" ? "已处理" : "已改好"); }); // 处理、恢复以后重新读这一张：状态、按钮跟着变（以前这张直接不见了）
+            flashTk(box.querySelector(".fb-tk")); return;
+          }
           box.innerHTML = qHead("没有找到工单 #" + n + (j && j.seq ? "（现在最新的是 #" + j.seq + "）" : "") + "。私密工单要站长的钱包签过名才看得到；超过 180 天的已经清掉了");
           bindQ(box);
-        }, function () { box.innerHTML = qHead("读取失败，网络不好，再搜一次"); bindQ(box); });
+        }, function () { if (my !== adLoadSeq) return; box.innerHTML = qHead("读取失败，网络不好，再搜一次"); bindQ(box); });
       }
       box.innerHTML = '<p class="muted">搜索中…</p>';
-      var w = adQ, isA = /^0x[0-9a-f]{3,40}$/.test(w);
       api("list=1").then(function (j) {
+        if (my !== adLoadSeq || !document.getElementById("fb-list")) return; // 搜索已经清掉 / 换了词 / 离开了这一页
         if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
-        if (adQ !== w) return; // 搜索已经清掉 / 换了词
-        adMe = j.me || ""; adBoss = !!j.boss;
+        adMe = j.me || ""; adBoss = !!j.boss; adReload = function () { again(); }; // 在搜索结果里删了又点「撤销」：重新搜一遍
         var l = (j.list || []).filter(function (t) { return isA ? String(t.a).indexOf(w) >= 0 : [t.txt, t.note, t.bot, t.tri && t.tri.topic, t.a].join(" ").toLowerCase().indexOf(w) >= 0; }).sort(function (x, y) { return y.id - x.id; });
         box.innerHTML = qHead("「" + esc(q) + "」找到 " + l.length + " 张" + (l.length > 50 ? "，只显示最新 50 张" : "") + " · 只搜最近 300 张，更早的请按编号搜") + l.slice(0, 50).map(function (t) { return card(t, false); }).join("");
         bindQ(box); bindCards(box, function (cd) { cd.remove(); });
-      }, function () { box.innerHTML = qHead("读取失败，网络不好，再搜一次"); bindQ(box); });
+      }, function () { if (my !== adLoadSeq) return; box.innerHTML = qHead("读取失败，网络不好，再搜一次"); bindQ(box); });
     }
     var qgo = document.getElementById("fb-qgo"), qin = document.getElementById("fb-q");
     if (qgo) qgo.onclick = search;
@@ -873,53 +914,59 @@
         }).catch(function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
         return;
       }
+      var my = ++adLoadSeq;
       api("list=1&st=" + st).then(function (j) {
+        if (my !== adLoadSeq || !document.getElementById("fb-list")) return; // 晚到的旧结果：后面又刷新过、换成了搜索结果，或者已经离开这一页
         if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
         var c = j.cnt || {}, maxId = (j.list || []).reduce(function (x, t) { return Math.max(x, t.id); }, 0);
         if (adSeen !== null && st === "new" && maxId > adSeen) { beep(); var nw = document.getElementById("fb-nw"); if (nw) nw.innerHTML = '<span class="fb-new">🔔 新工单</span>'; }
         if (st === "new") adSeen = Math.max(adSeen || 0, maxId);
         (document.getElementById("fb-seg") || {}).innerHTML = /* 已离开工单页时不报错 */ ["new", "doing", "done", "skip", "del"].map(function (s) { return '<button type="button" data-s="' + s + '"' + (s === st ? ' class="on"' : "") + ">" + ST[s][0] + " " + (c[s] || 0) + "</button>"; }).join("") + '<button type="button" data-s="err"' + (st === "err" ? ' class="on"' : "") + '>🐞 程序报错</button><button type="button" data-s="chat">💬 咨询</button><button type="button" data-s="kb">📚 知识</button><button type="button" data-s="stats">📊 数据</button>';
         document.querySelectorAll("#fb-seg button").forEach(function (b) { b.onclick = function () { admin(rid, b.getAttribute("data-s")); }; });
-        adMe = j.me || ""; adBoss = !!j.boss; adOwn = j.own || []; // 签名的钱包：认「我提交的」工单（只有这些能删）
-        var only = adOnly && !!adMe, l = only ? adOwn : (j.list || []);
-        paintTools(function () { adOnly = !adOnly; try { localStorage.setItem("fb:only", adOnly ? "1" : "0"); } catch (e) {} load(true); });
+        adMe = j.me || ""; adBoss = !!j.boss; // 签名的钱包：认「我提交的」工单（只有这些能删）
+        var bin = st === "del", keep = function (t) { return bin || !adGoneAt[t.id]; }; // 刚删掉的：这次读到的就算还是删之前的样子（请求在删之前发出），也不画回列表——上方「刚删除的」里有它
+        var all = (j.list || []).filter(keep), mineBin = all.filter(function (t) { return bin && t.a === adMe; });
+        adOwn = (j.own || []).filter(keep);
+        var only = adOnly && !!adMe, l = !only ? all : bin ? mineBin : adOwn; // 回收站栏：只看自己删掉的那几张（别的栏：自己提交的、各栏都算）
+        paintTools(function () { adOnly = !adOnly; try { localStorage.setItem("fb:only", adOnly ? "1" : "0"); } catch (e) {} adQ = ""; var qi = document.getElementById("fb-q"); if (qi) qi.value = ""; load(true); }, bin ? mineBin.length : adOwn.length); // 正看着搜索结果时切开关：退出搜索、回到列表（不然 adQ 还在，20 秒自动刷新一直停着）
         adReload = function () { load(true); };
-        box.innerHTML = (only ? '<p class="fb-msg">只看你提交的工单（各栏都算，回收站里的不算）</p>' : "") +
-          (l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">' + (only ? "最近 300 张工单里没有你提交的" : "没有" + ST[st][0] + "的工单 🎉") + "</p>") +
+        box.innerHTML = (only ? '<p class="fb-msg">' + (bin ? "只看你提交的、在回收站里的工单" : "只看你提交的工单（各栏都算，回收站里的不算）") + "</p>" : "") +
+          (l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">' + (only ? (bin ? "回收站里没有你提交的工单" : "最近 300 张工单里没有你提交的") : "没有" + ST[st][0] + "的工单 🎉") + "</p>") +
           '<p class="fb-note300">列表只装最近 300 张工单，更早的用上面的框按编号搜</p>';
         bindCards(box, function (cd) { cd.remove(); });
         paintGone();
         if (!j.me) box.insertAdjacentHTML("beforeend", '<p class="muted fb-privtip">🔒 先在 <a href="#/inbox">📬 收件箱</a> 用自己的钱包登录一次再回来：站长能看到全部私密工单；你自己提交的工单编号前会有个小圆点，只有这些能删（别人的工单可以标「无效」）。</p>');
         else if (j.boss === false) box.insertAdjacentHTML("beforeend", '<p class="muted fb-privtip">🔒 有一类工单只有站长的钱包能看：站长先在 <a href="#/inbox">📬 收件箱</a> 用自己的钱包登录一次，再回到这里。</p>');
-      }, function () { box.innerHTML = '<p class="muted">读取失败</p>'; });
+      }, function () { if (my === adLoadSeq) box.innerHTML = '<p class="muted">读取失败</p>'; });
     }
     load(true);
     adTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(adTimer); load(false); }, 20000);
     adVis = function () { if (!A.isCurrent(rid) || !/feedback\/admin/.test(location.hash)) { adVis = null; return; } load(false); pendingPoll(); }; // 切回这个标签：马上刷新列表和铃铛
   }
   function one(rid, id) {
-    A.app.innerHTML = '<section class="card fb-one"><div class="fb-nav"><a href="#/feedback/admin">← 全部工单</a><span class="muted" id="fb-left"></span></div><div id="fb-1"><p class="muted">读取中…</p></div></section>';
+    A.app.innerHTML = '<section class="card fb-one"><div class="fb-nav"><a href="#/feedback/admin">← 全部工单</a><span class="muted" id="fb-left"></span></div><p class="fb-sr" id="fb-live" aria-live="polite"></p><div id="fb-1"><p class="muted">读取中…</p></div></section>';
     api("list=1").then(function (j) {
+      var box = document.getElementById("fb-1"); if (!box || !A.isCurrent(rid)) return; // 读的时候已经回到列表 / 换了一张：什么都不动（以前晚到的结果会把列表页「撤销」以后要重画的改成这一张，还会报错）
       if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
       adMe = j.me || ""; adBoss = !!j.boss; adReload = function () { one(rid, id); };
-      var l = j.list || [], t = l.filter(function (x) { return x.id === id; })[0], box = document.getElementById("fb-1");
+      var l = j.list || [], t = l.filter(function (x) { return x.id === id; })[0];
       var todo = l.filter(function (x) { return x.st !== "done"; }).sort(function (a, b) { return a.id - b.id; });
-      document.getElementById("fb-left").textContent = "还有 " + todo.length + " 张没处理完";
+      var left = document.getElementById("fb-left"); if (left) left.textContent = "还有 " + todo.length + " 张没处理完";
       var show = function (t) {
-        if (!document.getElementById("fb-1")) return; // 已经离开这一页
+        if (!document.getElementById("fb-1") || !A.isCurrent(rid)) return; // 已经离开这一页
         box.innerHTML = card(t, true);
-        bindCards(box, function (cd, s) {
-          if (s === "del" || s === "undo") return one(rid, id); // 删除 / 恢复以后整张重画：按钮跟着变
+        bindCards(box, function (cd, s, back) {
+          if (s === "del" || s === "undo" || back) return one(rid, id); // 删除 / 从回收站恢复以后整张重画：按钮跟着变（恢复不算「已处理」，不跳下一张）
           if (s !== "done") { var tg = cd.querySelector(".fb-stt"); if (tg) tg.textContent = ST[s][0]; return; }
-          var next = todo.filter(function (x) { return x.id !== id; })[0];
-          box.innerHTML = '<p class="fb-st ok">✅ #' + id + " 已处理，回复已发给客户</p>" + (next ? '<p class="muted">正在打开下一张 #' + next.id + "…</p>" : '<p class="muted">全部处理完了 🎉</p><a href="#/feedback/admin">← 回到工单列表</a>');
+          var ta = cd.querySelector("textarea"), sent = !!(ta && ta.value.trim()), next = todo.filter(function (x) { return x.id !== id; })[0];
+          box.innerHTML = '<p class="fb-st ok">✅ #' + id + (sent ? " 已处理，回复已发给客户" : " 已标「已解决」（没写回复）") + "</p>" + (next ? '<p class="muted">正在打开下一张 #' + next.id + "…</p>" : '<p class="muted">全部处理完了 🎉</p><a href="#/feedback/admin">← 回到工单列表</a>');
           if (next) setTimeout(function () { location.hash = "#/feedback/admin/" + next.id; }, 900);
         });
         box.querySelectorAll("[data-ref]").forEach(function (b) { b.click(); }); // 单张打开时，客户引用的前一张自动展开（站长 2026-11-28：要看前面那张是什么）
       };
       if (t) return show(t);
       // 列表里没有（很久以前的、回收站里的）：按编号直接读
-      api("tk=" + id).then(function (j2) { if (j2 && j2.t) show(j2.t); else box.innerHTML = '<p class="muted">找不到工单 #' + id + "</p>"; }, function () { box.innerHTML = '<p class="muted">找不到工单 #' + id + "（网络不好，刷新再试）</p>"; });
+      api("tk=" + id).then(function (j2) { if (!A.isCurrent(rid) || !document.getElementById("fb-1")) return; if (j2 && j2.t) show(j2.t); else box.innerHTML = '<p class="muted">找不到工单 #' + id + "</p>"; }, function () { if (A.isCurrent(rid) && document.getElementById("fb-1")) box.innerHTML = '<p class="muted">找不到工单 #' + id + "（网络不好，刷新再试）</p>"; });
     });
   }
   A.pages.feedback = page;

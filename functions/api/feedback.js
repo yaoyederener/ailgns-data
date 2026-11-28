@@ -47,11 +47,11 @@ const canUrg = (a) => !!a && (BOSS.includes(a) || !!reviewerOf(a));
 /* 🗑 删除只能删自己提交的（站长 2026-11-28：「去掉删除别的工单的功能……只让产品体验官快速识别自己的工单并删除自己的工单，无法删除别人的工单」，
    站长自己也一样：别人的工单只能标「无效」）。认人靠签名：签名的钱包 = 工单上填的地址，才算「自己的」。
    在哪删：工单后台（拿口令的人，删自己提交的）；「我的反馈进度」（没有口令，只给站长 / 产品优化员；普通客户那里不显示删除） */
-const canDel = (me, t, viaKey) => !!me && !!t && me === t.a && (viaKey || canUrg(me));
+const canDel = (me, t, viaKey) => !!me && !!t && me === t.a && !t.nosig && (viaKey || canUrg(me)); // nosig：填的是站长 / 产品优化员的地址、提交时却没有这个钱包的签名（可能是别人冒填的）——不算本人提交的，不能删
 // 站长 2026-11-27：「后台工单加一个删除功能」（2026-11-28 起只能删自己提交的，见 canDel）→ 删除 = 放进回收站（状态 del）：后台各栏、客户自己的「我的反馈进度」都不再显示，
 // 但东西还在，回收站里能恢复（恢复时回到删除前的状态 st0，不会再给客户发一遍通知）。和其它工单一样 180 天后自动清掉。不做「永久删除」：删错了找不回来。
 const ST = { new: "待处理", doing: "处理中", done: "已解决", skip: "无效", del: "回收站" };
-const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0, urg: t.urg ? 1 : 0 });
+const pub = (t) => ({ id: t.id, t: t.t, up: t.up || 0, st: t.st === "skip" ? "done" : t.st, txt: t.txt.slice(0, 200), note: t.note || "", bot: t.bot || "", n: t.n, rn: t.rn || 0, urg: t.urg ? 1 : 0, nosig: t.nosig ? 1 : 0 });
 // 分诊一张工单：写 tri / bot / st；同主题 7 天内多人反复问 → 升到 1 级；0/1 级立刻 DeBox 通知站长
 async function runTriage(ctx, kv, t) {
   if (t.src === "inbox") { // 💬 客户在站内信里「回复站长」（2026-11-08）：不分诊、不判无效，直接推给站长
@@ -97,7 +97,11 @@ export async function onRequestGet(ctx) {
     const m0 = rimg.match(/^(\d+):(\d)$/); if (!m0) return new Response("bad", { status: 400 });
     const t0 = await kv.get("tk:" + m0[1], "json");
     if (!t0 || t0.a !== ra) return new Response("not found", { status: 404 });
-    if (isPriv(t0) && signerOf(u.searchParams) !== ra) return new Response("not found", { status: 404 }); // 🔒 私密工单的图：只有本人签过名才给
+    if (signerOf(u.searchParams) !== ra) { // 没签名（光知道地址）：只给这个地址最近 20 张工单的图，和「我的反馈进度」列表看得到的一样；更早的要本人签名（站长 2026-11-28 评审：按编号查找不能把别人的老工单翻出来）
+      if (isPriv(t0)) return new Response("not found", { status: 404 }); // 🔒 私密工单的图：只有本人签过名才给
+      const ids0 = (await kv.get("tk:a:" + ra, "json")) || [];
+      if (!ids0.slice(-20).map(Number).includes(Number(m0[1]))) return new Response("not found", { status: 404 });
+    }
     const d = await kv.get("tk:img:" + m0[1] + ":" + (mimg ? "" : "r") + m0[2]);
     const m = d && d.match(/^data:(image\/\w+);base64,(.+)$/);
     if (!m) return new Response("not found", { status: 404 });
@@ -120,8 +124,13 @@ export async function onRequestGet(ctx) {
     const del = canDel(signerOf(u.searchParams), { a: mine }, false) ? 1 : 0; // 这台设备签名的正是这个地址，而且是站长 / 产品优化员 → 页面上显示「删除」
     const q = Number(u.searchParams.get("tk")) || 0;
     if (q) { // 🔎 按编号找自己的工单（老的、列表里没有的也能找到）。不是这个地址的、已删除的（能删的人除外：要能恢复）一律当没有
+      const signed = signerOf(u.searchParams) === mine;
+      if (!signed) { // 没签名（光知道地址）：只在这个地址最近 20 张里找，和上面列表看得到的一样，不把更早的翻出来；sign:1 → 页面提示先签名
+        const ids0 = (await kv.get("tk:a:" + mine, "json")) || [];
+        if (!ids0.slice(-20).map(Number).includes(q)) return json({ list: [], none: 1, del, sign: 1 });
+      }
       const t = await kv.get("tk:" + q, "json");
-      if (!t || t.a !== mine || (t.st === "del" && !del)) return json({ list: [], none: 1, del });
+      if (!t || t.a !== mine || (t.st === "del" && !del)) return json({ list: [], none: 1, del, sign: signed ? 0 : 1 });
       return json({ list: [pub(t)], del });
     }
     const ids = (await kv.get("tk:a:" + mine, "json")) || [];
@@ -179,7 +188,7 @@ export async function onRequestGet(ctx) {
   let ts = (await Promise.all(ids.map((id) => kv.get("tk:" + id, "json")))).filter((t) => t && (boss || !isPriv(t) || t.a === me)); // 🔒 私密工单只给站长钱包，和发单人自己
   const cnt = { new: 0, doing: 0, done: 0, skip: 0, del: 0 };
   ts.forEach((t) => { cnt[t.st] = (cnt[t.st] || 0) + 1; });
-  const own = me ? ts.filter((t) => t.a === me && t.st !== "del").sort((x, y) => y.t - x.t) : []; // 🙋 签名的这个钱包自己提交的（各栏都算，回收站除外），页面上单独标出来（站长 2026-11-28）
+  const own = me ? ts.filter((t) => t.a === me && !t.nosig && t.st !== "del").sort((x, y) => y.t - x.t) : []; // 🙋 签名的这个钱包自己提交的（各栏都算，回收站除外），页面上单独标出来（站长 2026-11-28）
   if (st) ts = ts.filter((t) => t.st === st);
   else ts = ts.filter((t) => t.st !== "del"); // 不分栏看全部时，不带回收站里的
   if (st === "done" || st === "skip") ts.sort((x, y) => ((y.up || y.t) - (x.up || x.t))); // 已解决 / 无效：最近处理的在前（站长 2026-11-08：之前按级别排，老单子一直占着第一条）
@@ -274,13 +283,14 @@ export async function onRequestPost(ctx) {
     const me = signer(b.pa, b.pts, b.psig);
     if (!me) return json({ error: "先用提交这张工单的钱包签个名（免费，不是交易，不花 Gas），认一下是你本人", sign: 1 }, 403);
     if (!canDel(me, t, keyOk(ctx.env, b.key))) return json({ error: "只能删除你自己提交的工单。别人的工单可以标「无效」" }, 403);
-    if (b.undo) { if (t.st === "del") { t.st = t.st0 && t.st0 !== "del" && ST[t.st0] ? t.st0 : "new"; delete t.st0; delete t.dl; } }
+    if (b.undo) { if (t.st === "del") { t.st = t.st0 && t.st0 !== "del" && Object.prototype.hasOwnProperty.call(ST, t.st0) ? t.st0 : "new"; delete t.st0; delete t.dl; } }
     else if (t.st !== "del") { t.st0 = t.st; t.st = "del"; t.dl = Date.now(); } // dl = 什么时候删的（回收站里看）
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
     return json({ ok: true, id: t.id, st: t.st });
   }
   if (b.action === "set") {
     if (!keyOk(ctx.env, b.key)) return json({ error: "口令不对" }, 403);
+    if (b.st !== undefined && !(typeof b.st === "string" && Object.prototype.hasOwnProperty.call(ST, b.st))) return json({ error: "状态不对" }, 400); // 只认这几种状态：以前传 ["del"]、"toString" 这种也会照写进去，工单就从各栏（连回收站）消失了，还绕过了「只能删自己的」
     const t = await kv.get("tk:" + b.id, "json");
     if (!t) return json({ error: "没有这个工单" }, 404);
     const me = signer(b.pa, b.pts, b.psig);
@@ -324,7 +334,7 @@ export async function onRequestPost(ctx) {
   if (txt.length > 2000) return json({ error: "文字太长了，2000 字以内" }, 400);
   if (imgs.length > 4) return json({ error: "截图最多 4 张" }, 400);
   if (imgs.some((x) => x.length > 1.5e6)) return json({ error: "有一张截图太大了，请换一张" }, 400);
-  const urg = b.urg ? canUrg(signer(b.pa, b.pts, b.psig)) : false;
+  const sg = signer(b.pa, b.pts, b.psig), urg = b.urg ? canUrg(sg) : false;
   if (b.urg && !urg) return json({ error: "「加急」只给站长和产品优化员用：请先用你的钱包签个名（免费，不花 Gas），或者去掉「加急」再提交" }, 400);
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x";
   if (await kv.get("tk:rl:" + ip)) return json({ error: "提交太快了，请 1 分钟后再试" }, 400);
@@ -335,6 +345,7 @@ export async function onRequestPost(ctx) {
   if (b.src === "inbox") t.src = "inbox";
   const vip = reviewerOf(a); if (vip) t.vip = vip; // ⭐ 产品优化员
   if (urg) t.urg = Date.now(); // 🚨 加急（记下加急的时间）
+  if (canUrg(a) && sg !== a) t.nosig = 1; // 填的是站长 / 产品优化员的地址，提交时却没有这个钱包的签名：可能是别人冒填的，不算本人提交的（后台不标「我」、不能删）
   for (let i = 0; i < imgs.length; i++) await kv.put("tk:img:" + id + ":" + i, imgs[i], { expirationTtl: 180 * 86400 });
   await kv.put("tk:" + id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
   const list = ((await kv.get("tk:list", "json")) || []).concat(id).slice(-1000);

@@ -4973,7 +4973,7 @@ button.u2d-tok:hover { box-shadow: 0 2px 8px rgba(76, 29, 149, .14), 0 0 0 1px #
 .u2d-hm .u2d-ho:first-of-type { border-top: 0; }
 
 /* 工单后台：点铃铛后，最紧急的那张工单闪一下（工单 #324） */
-.fb-tk.fb-flash { animation: fb-flash 1.8s ease; }
+.fb-tk.fb-flash, .fb-th.fb-flash, .fb-gone.fb-flash { animation: fb-flash 1.8s ease; } /* 「我的反馈进度」按工单号找到的那张也闪一下（不再借用「新回复」那个不会消失的高亮） */
 @keyframes fb-flash { 0%, 60% { box-shadow: 0 0 0 4px rgba(124, 58, 237, .45); } 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); } }
 
 /* 一键偷菜结果：偷到的东西按品种列出来（工单 #330） */
@@ -5967,3 +5967,11 @@ button.fb-lnk { background: none; box-shadow: none; border: 0; padding: 0 6px; m
 .fx-dwin { color: #15803d; font-weight: 700; }
 .fx-dwin a { color: #15803d; }
 .fx-dnone { margin: 6px 0 0; color: var(--muted); }
+/* 工单评审（手机 / 读屏，2026-11-28）：「删除」单独一行——点了以后「保留」就在「删除」原来的位置，确认组不会换行、跳到手指下面；
+   手机上搜索框不被「只看我提交的」挤窄；「撤销 / 清除 / 恢复」至少 44px 宽；读屏播报区看不见 */
+.fb-act .fb-delslot, .fb-thf .fb-delslot { flex-basis: 100%; }
+button.fb-lnk { min-width: 44px; }
+.fb-nosig { color: #8a5a00; font-size: 12px; }
+.fb-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 600px) { .fb-row.fb-q { flex-wrap: wrap; } .fb-row.fb-q #fb-only { flex: 1 1 100%; justify-content: center; } }
+.fb-thf .fb-delslot button.fb-deltxt { margin-left: -12px; } /* 「删除」单独一行以后，和上面的「补充说明 / 追问」左边对齐 */
