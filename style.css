@@ -5990,3 +5990,6 @@ button.fb-lnk { min-width: 44px; }
 .nb-prog.ok .nb-pt { color: #047857; font-weight: 700; font-size: 15px; }
 .nb-prog.bad { background: #fff7ed; border-color: #fed7aa; } .nb-prog.bad .nb-bar i { background: #f59e0b; } .nb-prog.bad .nb-pt { color: #9a3412; }
 @media (prefers-reduced-motion: reduce) { .nb-bar i { transition: none; } .nb-prog .nb-bar i { animation: none !important; } }
+/* 后台列表里处理完的那张：原地换成一行结果，外框大小不变（等下次刷新列表再去掉），连点的第二下不会落到别的单上 */
+.fb-tk.fb-settled { display: flex; align-items: center; justify-content: center; }
+.fb-settled-t { margin: 0; color: var(--muted); font-size: 14px; }

@@ -85,7 +85,7 @@
   function page(rid) {
     if (/feedback\/admin\/stats/.test(location.hash)) { location.replace("#/partner"); return; } // 旧数据面板网址已发给合伙人：不用先登工单后台，直接换成合伙人面板
     if (/feedback\/admin/.test(location.hash)) return admin(rid);
-    imgs = []; mineDeep = 1; liveEl();
+    imgs = []; mineDeep = 1; liveEl().textContent = ""; findLater = 0; mFocus = 0; mineA = ""; mineWant = ""; mineSeq++; findSeq++; // 上一次进这一页留下的状态清干净
     var prefill = ""; try { prefill = sessionStorage.getItem("fb:prefill") || ""; sessionStorage.removeItem("fb:prefill"); } catch (e) {} // 错误弹窗「报给客服」带过来的内容
     A.app.innerHTML = '<section class="card fb"><div class="card-head"><h2>📮 问题反馈</h2><span class="muted">提交后生成工单，客服挨个处理</span></div>' +
       '<p class="fb-lead">遇到问题？按下面 3 步填好，<b>一次说清楚</b>，处理最快 👇</p>' +
@@ -167,7 +167,7 @@
       if (!isAddr(a)) { inp.focus(); return say("请填正确的钱包地址（0x 开头，42 位）"); }
       if (x.length < 2 && !imgs.length && !vid) return say("请写一下遇到的问题，或者贴一张截图 / 选一个视频");
       var nosigOk = urgPriv === a && !fbSig(a);
-      if (nosigOk && !confirm("这是站长 / 产品优化员的钱包地址，这台设备还没用它签名（或者签名过期了）。\n不签名提交的工单不算你本人提交的：后台不标「我」，你自己也删不掉。\n\n点「取消」，先用这个钱包签个名（上面的「✍️ 签名」，或者到 📬 收件箱登录一次，免费）；点「确定」，照样提交。")) return;
+      if (nosigOk && !confirm(NOSIG_ASK)) return;
       go.disabled = true; say("提交中…");
       var uc = document.getElementById("fb-urgc"), urg = !!(uc && uc.checked && !document.getElementById("fb-urg").hidden), sg = fbSig(a) || (urg ? fbSig() : null); // 这台设备签过名的正是这个地址：一律带上签名，后台据此认「本人提交的」（站长 / 产品优化员的地址没签名的不算，见后台 nosig）
       var okMsg = function (id, extra) { return "✅ 提交成功！工单号 #" + id + (j0.urg ? "（🚨 已加急，排在后台最上面）" : "") + (extra || "") + "。回复会比较慢，请耐心等：技术人员正忙着优化每一个客户的问题。进度在下面「我的反馈进度」里看"; }, j0 = {};
@@ -175,8 +175,13 @@
       if (urg) body.urg = 1;
       if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
       if (nosigOk) body.nosigOk = 1; // 上面问过、点了「确定」：照样提交（不算本人提交的）
-      fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      var send = function () { fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
         .then(function (r) { return r.json(); }).then(function (j) {
+          if (j.error && j.sign && !body.nosigOk) { // 站长 / 产品优化员的地址、服务器认不出这个钱包的签名：当场问，不叫人刷新（刷新会丢掉写好的内容）
+            urgPriv = a; urgCheck(); // 顺手把上面的「✍️ 签名」按钮叫出来
+            if (confirm(NOSIG_ASK)) { body.nosigOk = 1; say("提交中…"); return send(); }
+            go.disabled = false; return say("先用这个钱包签个名再提交：点上面的「✍️ 签名」，或者到 📬 收件箱登录一次（免费）。你写的内容都还在，签好再点「提交反馈」");
+          }
           if (j.error) { go.disabled = false; return say(j.error); }
           j0 = j; if (uc) uc.checked = false;
           imgs = []; thumbs(); document.getElementById("fb-x").value = "";
@@ -212,7 +217,8 @@
             });
           };
           return run(0);
-        }, function () { go.disabled = false; say("网络不好，请再点一次"); });
+        }, function () { go.disabled = false; say("网络不好，请再点一次"); }); };
+      send();
     };
   }
   // 🔒 私密工单：把「收件箱登录」的钱包签名带上（站长钱包能看全部；发单人能看自己的）。a 给了就只在签名正是这个地址时才带
@@ -220,7 +226,7 @@
   function fbPq(a) { var x = fbSig(a); return x ? "&pa=" + x.a + "&pts=" + x.ts + "&psig=" + x.sig : ""; }
   // 🚨 加急（站长 2026-11-27，工单 #504）：提交时可以勾「加急」，后台排最上面。只给站长 / 产品优化员：
   // 这台设备在收件箱签过名、签名的钱包是站长 / 产品优化员 → 显示开关；填的是站长 / 产品优化员的地址但还没签名 → 提示先签名；普通客户什么都不显示
-  var urgSeq = 0, urgPriv = ""; // urgPriv：服务器说这个地址是站长 / 产品优化员的
+  var urgSeq = 0, urgPriv = "", NOSIG_ASK = "这是站长 / 产品优化员的钱包地址，这台设备还没用它签名（或者签名过期了）。\n不签名提交的工单不算你本人提交的：后台不标「我」，你自己也删不掉。\n\n点「取消」，先用这个钱包签个名（上面的「✍️ 签名」，或者到 📬 收件箱登录一次，免费）；点「确定」，照样提交。"; // urgPriv：服务器说这个地址是站长 / 产品优化员的
   function urgCheck() {
     var box = document.getElementById("fb-urg"), inp = document.getElementById("fb-a"); if (!box || !inp) return;
     var a = inp.value.trim().toLowerCase(), my = ++urgSeq;
@@ -276,8 +282,14 @@
       var h = location.hash.match(/feedback\/(\d+)/); if (h && mineDeep) { var el = document.getElementById("fb-t" + h[1]); if (el) { mineDeep = 0; setTimeout(function () { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.add("fresh"); }, 200); } } // 从回复气泡（#/feedback/<编号>）进来：只在第一次画出那张时滚过去（以前每次重画列表都把人拉回去）
     }, function () { // 读失败：换了地址的，旧地址的列表不能再挂着当新地址的；查找也别一直「正在读」
       if (my !== mineSeq || !document.getElementById("fb-mine")) return;
-      mFocus = 0; findLater = 0;
-      if (a !== mineA) { mineA = ""; mineWant = ""; var mf3 = document.getElementById("fb-mf"); if (mf3) mf3.hidden = true; box.innerHTML = '<p class="muted">这个地址的工单没读出来，网络不好：请点一下地址框外面再试，或刷新页面</p>'; }
+      var fl = findLater; mFocus = 0; findLater = 0;
+      if (a !== mineA) { // 换了地址读失败：旧地址的列表不能挂着冒充新地址的
+        mineA = ""; // mineWant 不清：还在路上的提交回来时（mineAgain）看得出地址换过了，不会去读旧地址
+        var mf3 = document.getElementById("fb-mf"); if (mf3) mf3.hidden = true;
+        var mm3 = document.getElementById("fb-mmsg"); if (mm3) mm3.innerHTML = "";
+        box.innerHTML = '<p class="muted">这个地址的工单没读出来，网络不好。 <button type="button" class="fb-lnk" id="fb-mretry">🔁 重新读取</button></p>';
+        var rt = document.getElementById("fb-mretry"); if (rt) rt.onclick = function () { mine(a); };
+      } else if (fl) mineFind(); // 同一个地址刷新失败：列表还是对的，答应的查找照样做
     });
   }
   var mineDel = false;
@@ -435,9 +447,9 @@
     e.preventDefault();
     var top = lastP && lastP.top, id = top && top.id, tab = top && top.st === "doing" ? "doing" : "new"; // 最紧急那张在哪一栏（标了「处理中」的也算没处理完）
     var find = function (tries) { // 等列表换好、找到最紧急的那一张；实在没有才退回第一张（以前列表还没换好，就闪了旧列表的第一张）
-      var el = id && document.querySelector('#fb-list .fb-tk[data-id="' + id + '"]');
+      var el = id && document.querySelector('#fb-list .fb-tk[data-id="' + id + '"]:not(.fb-settled)');
       if (!el && tries > 0) return setTimeout(function () { find(tries - 1); }, 400);
-      if (!el) el = document.querySelector("#fb-list .fb-tk[data-id]");
+      if (!el) el = document.querySelector("#fb-list .fb-tk[data-id]:not(.fb-settled)");
       // 直接跳过去，不用「慢慢滚」的动画：上线后核对时，带动画的滚动有一次根本没动（页面没在画面上时浏览器会把动画停掉），老的钱包浏览器也不一定认
       var jump = function (x) { try { x.scrollIntoView({ block: "center" }); } catch (e2) { x.scrollIntoView(); } };
       if (!el) { el = document.getElementById("fb-seg"); if (el) jump(el); return; }
@@ -487,7 +499,7 @@
        8 秒不点自动收回（手指按着、焦点在上面时重新计时）。删了是放进回收站：10 分钟内原地点「撤销」，之后到「回收站」栏恢复。
      · 后台每 20 秒刷新一次列表：正在确认删除时不刷新；刚删的工单刷新后挪到列表上方「刚删除的」里，照样能撤销
      · 搜索框、点开引用的工单是另一处（见下面 5960f28 那段），编号搜索按方案 A：在列表里就闪一下，不在就把那一张放到列表位置 */
-  var adOwn = [], adArm = {}, adGoneAt = {}, adReload = null, adOnly = false, adLoadSeq = 0, adFocus = 0, adActAt = {}; // adActAt：每张工单最近一次点处理 / 恢复的时间（防连点） // adMe / adBoss 在下面「引用的工单」那段声明；adLoadSeq：往列表位置画东西的请求序号，晚到的旧结果不画
+  var adOwn = [], adArm = {}, adGoneAt = {}, adReload = null, adOnly = false, adLoadSeq = 0, adFocus = 0, adActAt = {}, adNextAt = 0; // adActAt：每张工单最近一次点处理 / 恢复的时间（防连点） // adMe / adBoss 在下面「引用的工单」那段声明；adLoadSeq：往列表位置画东西的请求序号，晚到的旧结果不画
   try { adOnly = localStorage.getItem("fb:only") === "1"; } catch (e) { /* 读不到就是关 */ }
   function liveEl() { var l = document.getElementById("fb-live"); if (!l) { l = document.createElement("p"); l.id = "fb-live"; l.className = "fb-sr"; l.setAttribute("aria-live", "polite"); document.body.appendChild(l); } return l; } // 整个网站一个、常驻在 body 上（页面重画不换掉它）
   function live(msg) { var l = liveEl(); l.textContent = ""; setTimeout(function () { l.textContent = msg; }, 60); } // 写字前再找一次：单张页恢复以后整页重画，旧的播报区已经不在页面上了 // 读屏播报（页面上看不见）：删了、恢复了说一声
@@ -560,6 +572,12 @@
     var now = Date.now(), ids = Object.keys(adGoneAt).filter(function (k) { if (now - adGoneAt[k] > 600e3) { delete adGoneAt[k]; return false; } return adminSt !== "del"; });
     g.innerHTML = ids.length ? '<p class="fb-gone-h">刚删除的，10 分钟内能撤销（之后到「回收站」恢复）</p>' + ids.map(goneHtml).join("") : "";
     ids.forEach(wireUndo);
+  }
+  function settle(cd, s, back) { // 处理完的这张：原地换成同样大小的一行「✅ #编号 已…」，外框（边距、边框）不变，下面的卡片一张都不挪，等下次整张列表重画再去掉
+    var id = cd.getAttribute("data-id"), h = cd.offsetHeight;
+    var what = back ? "已恢复（放回「" + (ST[s] || ST["new"])[0] + "」）" : s === "done" ? "已处理" : s === "doing" ? "已标「处理中」" : s === "skip" ? "已标「无效」" : s === "new" ? "已放回「待处理」" : "已改好";
+    cd.style.boxSizing = "border-box"; cd.style.height = h + "px"; cd.style.overflow = "hidden";
+    cd.classList.add("fb-settled"); cd.innerHTML = '<p class="fb-settled-t">✅ #' + esc(id) + " " + what + "</p>";
   }
   function paintTools(toggle, n) {
     var sw = document.getElementById("fb-only"); if (!sw) return;
@@ -663,14 +681,17 @@
     // 🚨 取消加急：只动加急，不动回复内容和状态
     box.querySelectorAll("[data-unurg]").forEach(function (b) {
       b.onclick = function () {
-        var cd = b.closest(".fb-tk"), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), urg: 0 }, sg = fbSig();
+        var cd = b.closest(".fb-tk"), tid = Number(cd.getAttribute("data-id")), body = { key: key(), action: "set", id: tid, urg: 0 }, sg = fbSig();
+        if (adActAt[tid] && Date.now() - adActAt[tid] < 1500) { if (A.errTip) A.errTip("刚处理过这张，稍等一下再点", b); return; }
         if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
-        b.disabled = true;
+        adActAt[tid] = Date.now(); b.disabled = true;
         fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j2) {
           b.disabled = false;
-          if (j2.error) return A.errTip(j2.error, b);
-          cd.classList.remove("fb-urgk"); var tg = cd.querySelector(".fb-urgt"); if (tg) tg.remove(); b.remove();
-        }, function () { b.disabled = false; A.errTip("网络不好，再点一次", b); });
+          if (j2.error) { delete adActAt[tid]; return A.errTip(j2.error, b); }
+          adActAt[tid] = Date.now(); // 界面要变了：从这一刻再续 1.5 秒
+          cd.classList.remove("fb-urgk"); var tg = cd.querySelector(".fb-urgt"); if (tg) tg.style.visibility = "hidden"; // 标签不拿掉：拿掉了标题会重排，整张卡上下挪
+          b.disabled = true; b.removeAttribute("data-unurg"); b.textContent = "已取消加急"; // 按钮原地变灰，不拿掉：后面的「标为无效」就不会挪到手指下面
+        }, function () { b.disabled = false; delete adActAt[tid]; A.errTip("网络不好，再点一次", b); });
       };
     });
     box.querySelectorAll("[data-set]").forEach(function (b) {
@@ -752,7 +773,7 @@
   }
   var adminSt = "";
   function admin(rid, st) {
-    clearInterval(adTimer); liveEl();
+    clearInterval(adTimer); liveEl().textContent = ""; // 换页：读屏播报区里上一页的话清掉
     if (!key()) return login(rid);
     var m = location.hash.match(/feedback\/admin\/(\d+)/);
     if (m) return one(rid, Number(m[1]));
@@ -777,7 +798,7 @@
       var box = document.getElementById("fb-list"); if (!box) return;
       var n = q.replace(/^(工单\s*)?#?\s*/, ""), num = /^\d{1,7}$/.test(n);
       if (!q) { adQ = ""; return load(true); }
-      var inl = num && !adQ && !done && document.querySelector('#fb-list .fb-tk[data-id="' + n + '"]');
+      var inl = num && !adQ && !done && document.querySelector('#fb-list .fb-tk[data-id="' + n + '"]:not(.fb-settled)');
       if (inl) return flashTk(inl); // 列表正显示着、这张就在里面：闪一下那张（方案 A）
       adQ = q.toLowerCase();
       var my = ++adLoadSeq, w = adQ, isA = /^0x[0-9a-f]{3,40}$/.test(w), again = function (what) { find(q, what); };
@@ -804,7 +825,7 @@
         adMe = j.me || ""; adBoss = !!j.boss;
         var l = (j.list || []).filter(function (t) { return isA ? String(t.a).indexOf(w) >= 0 : [t.txt, t.note, t.bot, t.tri && t.tri.topic, t.a].join(" ").toLowerCase().indexOf(w) >= 0; }).sort(function (x, y) { return y.id - x.id; });
         box.innerHTML = qHead("「" + esc(q) + "」找到 " + l.length + " 张" + (l.length > 50 ? "，只显示最新 50 张" : "") + " · 只搜最近 300 张，更早的请按编号搜") + l.slice(0, 50).map(function (t) { return card(t, false); }).join("");
-        bindQ(box); bindCards(box, function (cd) { cd.remove(); });
+        bindQ(box); bindCards(box, settle);
       }, function () { if (my !== adLoadSeq) return; box.innerHTML = qHead("读取失败，网络不好，再搜一次"); bindQ(box); });
     }
     var qgo = document.getElementById("fb-qgo"), qin = document.getElementById("fb-q");
@@ -966,7 +987,7 @@
         box.innerHTML = (only ? '<p class="fb-msg">' + (bin ? "只看你提交的、在回收站里的工单" : "只看你提交的工单（各栏都算，回收站里的不算）") + "</p>" : "") +
           (l.length ? l.map(function (t) { return card(t, false); }).join("") : '<p class="muted">' + (only ? (bin ? "回收站里没有你提交的工单" : "最近 300 张工单里没有你提交的") : "没有" + ST[st][0] + "的工单 🎉") + "</p>") +
           '<p class="fb-note300">列表只装最近 300 张工单，更早的用上面的框按编号搜</p>';
-        bindCards(box, function (cd) { cd.remove(); });
+        bindCards(box, settle);
         paintGone();
         if (!j.me) box.insertAdjacentHTML("beforeend", '<p class="muted fb-privtip">🔒 先在 <a href="#/inbox">📬 收件箱</a> 用自己的钱包登录一次再回来：站长能看到全部私密工单；你自己提交的工单编号前会有个小圆点，只有这些能删（别人的工单可以标「无效」）。</p>');
         else if (j.boss === false) box.insertAdjacentHTML("beforeend", '<p class="muted fb-privtip">🔒 有一类工单只有站长的钱包能看：站长先在 <a href="#/inbox">📬 收件箱</a> 用自己的钱包登录一次，再回到这里。</p>');
@@ -988,14 +1009,14 @@
       var show = function (t) {
         if (!document.getElementById("fb-1") || !A.isCurrent(rid)) return; // 已经离开这一页
         box.innerHTML = card(t, true);
-        if (hold) adActAt[id] = Date.now(); // 刚处理 / 恢复完重画的：再续 1.5 秒防连点
+        if (hold || (adNextAt && Date.now() - adNextAt < 5000)) { adActAt[id] = Date.now(); adNextAt = 0; } // 刚处理 / 恢复完重画的、上一张处理完自动跳过来的：1.5 秒内不收点击（防连点）
         bindCards(box, function (cd, s, back) {
           if (back || s === "undo") adFocus = id; // 恢复以后焦点放回这一张
           if (s === "del" || s === "undo" || back) return one(rid, id, true); // 删除 / 从回收站恢复以后整张重画：按钮跟着变（恢复不算「已处理」，不跳下一张）
           if (s !== "done") { var tg = cd.querySelector(".fb-stt"); if (tg) tg.textContent = ST[s][0]; return; }
           var ta = cd.querySelector("textarea"), sent = !!(ta && ta.value.trim()), next = todo.filter(function (x) { return x.id !== id; })[0];
           box.innerHTML = '<p class="fb-st ok">✅ #' + id + (sent ? " 已处理，回复已发给客户" : " 已标「已解决」（没写回复）") + "</p>" + (next ? '<p class="muted">正在打开下一张 #' + next.id + "…</p>" : '<p class="muted">全部处理完了 🎉</p><a href="#/feedback/admin">← 回到工单列表</a>');
-          if (next) setTimeout(function () { location.hash = "#/feedback/admin/" + next.id; }, 900);
+          if (next) { adNextAt = Date.now(); setTimeout(function () { location.hash = "#/feedback/admin/" + next.id; }, 900); }
         });
         box.querySelectorAll("[data-ref]").forEach(function (b) { b.click(); }); // 单张打开时，客户引用的前一张自动展开（站长 2026-11-28：要看前面那张是什么）
       };

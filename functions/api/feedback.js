@@ -61,9 +61,11 @@ async function runTriage(ctx, kv, t) {
     return;
   }
   if (t.vip) { // ⭐ 产品优化员的反馈：不分诊、不判无效、不自动答复，直接推给站长亲审
-    t.tri = { ok: true, lv: 2, cat: "review", topic: "⭐ " + t.vip + "反馈", why: "站长亲自审查", dup: 0 };
+    t.tri = { ok: true, lv: 2, cat: "review", topic: "⭐ " + t.vip + "反馈", why: t.nosig ? "没有本人签名，可能是冒填，请核对" : "站长亲自审查", dup: 0 };
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
-    await pushInbox(kv, OWNER, "ticket", (t.urg ? "🚨 加急 · " : "") + "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200), "#/feedback/admin/" + t.id).catch(() => {});
+    const head = t.nosig ? "⚠️ 没有本人签名（可能是冒填）· " + t.vip + "地址的新反馈 #" + t.id + "，请到后台核对" // 冒填的不带正文：免得冒填的话术、链接直接出现在站长手机上
+      : (t.urg ? "🚨 加急 · " : "") + "⭐ " + t.vip + "新反馈 #" + t.id + "（请亲自审查）\n" + (t.txt || "（只有截图）").slice(0, 200);
+    await pushInbox(kv, OWNER, "ticket", head, "#/feedback/admin/" + t.id).catch(() => {});
     return;
   }
   const tri = await triage(ctx.env, t.txt, t.n, ctx.request.headers.get("cf-ipcountry") || "");
@@ -338,7 +340,7 @@ export async function onRequestPost(ctx) {
   if (imgs.some((x) => x.length > 1.5e6)) return json({ error: "有一张截图太大了，请换一张" }, 400);
   const sg = signer(b.pa, b.pts, b.psig), urg = b.urg ? canUrg(sg) : false;
   if (b.urg && !urg) return json({ error: "「加急」只给站长和产品优化员用：请先用你的钱包签个名（免费，不花 Gas），或者去掉「加急」再提交" }, 400);
-  if (canUrg(a) && sg !== a && !b.nosigOk) return json({ error: "这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名（签名过期、换了设备，或者页面太旧）。请刷新页面，先用这个钱包签个名再提交；不签名提交的不算你本人提交的，以后自己删不掉", sign: 1 }, 400);
+  if (canUrg(a) && sg !== a && !b.nosigOk) return json({ error: "这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名。请先用这个钱包签个名（到 📬 收件箱登录一次，免费）再点提交；还不行就刷新页面再试。不签名提交的不算你本人提交的，以后自己删不掉", sign: 1 }, 400);
   const ip = ctx.request.headers.get("cf-connecting-ip") || "x";
   if (await kv.get("tk:rl:" + ip)) return json({ error: "提交太快了，请 1 分钟后再试" }, 400);
   await kv.put("tk:rl:" + ip, "1", { expirationTtl: 60 });

@@ -8460,5 +8460,18 @@
 "（注册失败，已退款）": " (registration failed, refunded)",
 "（注册失败，退款待人工）": " (registration failed, refund pending manual handling)",
 "（出错，没扣钱）": " (error, not charged)",
-"🤖 交给机器人代点买票更快了，还有进度条：机器人现在每 5 个名字只收一次款，10 个名字从约 2 分钟缩短到 1 分钟以内；等的时候能看到注册好了几个、大概还要多久，做完整条变绿，没成功的会单独写出原因。": "🤖 “Let the bot do it” is faster and now has a progress bar: the bot collects payment once per 5 names, so 10 names go from about 2 minutes to under 1 minute; while you wait you can see how many are done and roughly how long is left, the bar turns green when finished, and any failures are listed with reasons."
+"🤖 交给机器人代点买票更快了，还有进度条：机器人现在每 5 个名字只收一次款，10 个名字从约 2 分钟缩短到 1 分钟以内；等的时候能看到注册好了几个、大概还要多久，做完整条变绿，没成功的会单独写出原因。": "🤖 “Let the bot do it” is faster and now has a progress bar: the bot collects payment once per 5 names, so 10 names go from about 2 minutes to under 1 minute; while you wait you can see how many are done and roughly how long is left, the bar turns green when finished, and any failures are listed with reasons.",
+"先用这个钱包签个名再提交：点上面的「✍️ 签名」，或者到 📬 收件箱登录一次（免费）。你写的内容都还在，签好再点「提交反馈」": "Sign with this wallet before submitting: tap “✍️ Sign” above, or log in once in 📬 Inbox (free). What you wrote is still here; tap “Submit feedback” again after signing",
+"这个地址的工单没读出来，网络不好。": "Couldn't load this address's tickets (network problem).",
+"🔁 重新读取": "🔁 Reload",
+"已恢复（放回「": "restored (back to “",
+"已标「处理中」": "marked “In progress”",
+"已标「无效」": "marked “Invalid”",
+"已放回「待处理」": "moved back to “Pending”",
+"已取消加急": "Urgent removed",
+"没有本人签名，可能是冒填，请核对": "No signature from the owner of this address; it may have been submitted by someone else, please check",
+"⚠️ 没有本人签名（可能是冒填）·": "⚠️ No owner signature (may be spoofed) ·",
+"地址的新反馈 #": "address: new feedback #",
+"，请到后台核对": ", please check it in the admin",
+"这是站长 / 产品优化员的钱包地址，这次提交没有带上这个钱包的签名。请先用这个钱包签个名（到 📬 收件箱登录一次，免费）再点提交；还不行就刷新页面再试。不签名提交的不算你本人提交的，以后自己删不掉": "This is the site owner's / a product reviewer's wallet address, but this submission didn't include that wallet's signature. Sign with this wallet first (log in once in 📬 Inbox, free), then submit; if it still fails, refresh the page and try again. Tickets submitted without a signature don't count as yours and you won't be able to delete them later"
 }
