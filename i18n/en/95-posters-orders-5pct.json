@@ -1,0 +1,18 @@
+{
+"现在有人出价 {0} DAI 收购，你的卖价 {1} 比它低了 {2}% 以上，这样挂出去亏。直接卖给那张买单更划算，马上成交；想挂单的话，单价不能低于 {3}。": "Someone is offering {0} DAI to buy right now. Your price {1} is more than {2}% below that, so you'd lose by posting it. Selling to that buy order is better and fills at once; to post an order, the price can't be lower than {3}.",
+"⛔ 现在有人出价 {0} DAI 收购，你的卖价 {1} 比它低了 {2}% 以上，这样挂出去亏。直接卖给那张买单更划算，马上成交；想挂单的话，单价不能低于 {3}。": "⛔ Someone is offering {0} DAI to buy right now. Your price {1} is more than {2}% below that, so you'd lose by posting it. Selling to that buy order is better and fills at once; to post an order, the price can't be lower than {3}.",
+"现在有人出价 {0} DAI 收购，你的卖价 {1} 比它低了 {2}% 以上，这样挂出去亏。直接卖给那张买单更划算，马上成交；想挂单的话，单价不能低于 {3}。（或者把上面的「限价」切到「市价」直接成交。）": "Someone is offering {0} DAI to buy right now. Your price {1} is more than {2}% below that, so you'd lose by posting it. Selling to that buy order is better and fills at once; to post an order, the price can't be lower than {3}. (Or switch “Limit” above to “Market” to trade right away.)",
+"现在有人要价 {0} DAI 在卖，你的出价 {1} 比它高了 {2}% 以上，这样挂出去多花钱。直接买那张卖单更便宜，马上成交；想挂买单的话，单价不能高于 {3}。": "Someone is selling at {0} DAI right now. Your price {1} is more than {2}% above that, so you'd overpay. Buying that sell order is cheaper and fills at once; to post a buy order, the price can't be higher than {3}.",
+"⛔ 现在有人要价 {0} DAI 在卖，你的出价 {1} 比它高了 {2}% 以上，这样挂出去多花钱。直接买那张卖单更便宜，马上成交；想挂买单的话，单价不能高于 {3}。": "⛔ Someone is selling at {0} DAI right now. Your price {1} is more than {2}% above that, so you'd overpay. Buying that sell order is cheaper and fills at once; to post a buy order, the price can't be higher than {3}.",
+"现在有人要价 {0} DAI 在卖，你的出价 {1} 比它高了 {2}% 以上，这样挂出去多花钱。直接买那张卖单更便宜，马上成交；想挂买单的话，单价不能高于 {3}。（或者把上面的「限价」切到「市价」直接成交。）": "Someone is selling at {0} DAI right now. Your price {1} is more than {2}% above that, so you'd overpay. Buying that sell order is cheaper and fills at once; to post a buy order, the price can't be higher than {3}. (Or switch “Limit” above to “Market” to trade right away.)",
+"比现在最高的买单（{0}）高一档。挂这个价排在卖单最前面；也可以和买单同价或稍低（{1}% 以内），不过那样不如直接卖给那张买单，马上到账。想挂别的价可以自己改。": "One tick above the highest buy order now ({0}). At this price you're first in line among sell orders. You can also match the buy order or go a little lower (within {1}%), but then selling straight to that buy order is better and pays out right away. You can change the price if you like.",
+"和现在最低的卖单（{0}）同价，排在买单最前面。也可以比它稍高（{1}% 以内），不过那样不如直接买那张卖单，马上成交还更便宜。想挂别的价可以自己改。": "Same price as the lowest sell order now ({0}), first in line among buy orders. You can also go a little higher (within {1}%), but then buying that sell order is better: it fills at once and costs less. You can change the price if you like.",
+"分 {0} 笔成交 · 看明细 ▾": "{0} trades · see details ▾",
+"被分成 {0} 笔成交（不同的买家各吃了一部分）：": "Split into {0} trades (different buyers each took a part):",
+"正在处理第 {0} / {1} 张…": "Processing {0} / {1}…",
+"正在上传第 {0} / {1} 张（{2} MB），请别关页面…": "Uploading {0} / {1} ({2} MB), please keep this page open…",
+"正在上传第 {0} / {1} 张（{2} KB），请别关页面…": "Uploading {0} / {1} ({2} KB), please keep this page open…",
+"✅ 传好了 {0} 张，领奖页已经能看到（最多晚 {1} 分钟）。": "✅ Uploaded {0} posters; they now show on the prize claim pages (up to {1} minute delay).",
+"最多放 {0} 张海报，先删掉不用的再传": "You can have at most {0} posters; delete unused ones before uploading more",
+"图片太大了（{0}MB），最大 {1}MB": "Image too big ({0}MB), max {1}MB"
+}

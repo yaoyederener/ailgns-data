@@ -844,7 +844,8 @@
     if (row.getAttribute("data-ord") === key) return;
     row.setAttribute("data-ord", key);
     var tg = row.querySelector(".lg-tag"); if (tg && s.n) tg.textContent = (o.sell ? "卖单" : "买单") + (s.all ? " · 已成交" : " · 部分成交");
-    var tx = row.querySelector(".lg-txt"); if (tx && !s.open) tx.innerHTML = tx.innerHTML.replace(/（[^（）]*等(买|卖)家）/, ""); // 单子已经结束：不再写「等买家」
+    // 单子已经结束：不再写「等买家 / 等卖家来成交」。整句重写（不在原文上删字：英文 / 韩文版这时已经翻译过了，删不到），翻译程序会再翻一遍新写的这句
+    var tx = row.querySelector(".lg-txt"); if (tx && !s.open) tx.innerHTML = o.sell ? "在 OTC <b>挂单卖出</b> " + fmtN(s.give, s.sym) : "在 OTC <b>挂单买入</b>，锁定 " + fmtN(s.give, "DAI");
     var old = row.querySelector(".lg-ord"); if (old) old.remove();
     var el = document.createElement("div"); el.className = "lg-ord";
     el.innerHTML = "<div>" + ordLine(o, s) + "</div>" + (s.n ? '<button type="button" class="lg-ofb">' + (s.n > 1 ? "分 " + s.n + " 笔成交 · 看明细 ▾" : "看成交明细 ▾") + '</button><div class="lg-ofl" hidden>' + ordFills(o, s) + "</div>" : "");
