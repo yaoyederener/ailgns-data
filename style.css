@@ -5976,3 +5976,5 @@ button.fb-lnk { min-width: 44px; }
 @media (max-width: 600px) { .fb-row.fb-q { flex-wrap: wrap; } .fb-row.fb-q #fb-only { flex: 1 1 100%; justify-content: center; } }
 .fb-thf .fb-delslot button.fb-deltxt { margin-left: -12px; } /* 「删除」单独一行以后，和上面的「补充说明 / 追问」左边对齐 */
 .fx-dwho .fx-dnm { font-family: -apple-system, BlinkMacSystemFont, system-ui, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif; font-weight: 700; color: #4b2fb0; } /* 极速预言家明细：有域名昵称时显示昵称（站长 2026-11-28） */
+/* 手机上左下角浮着「客服」按钮（约 12–93px 宽）：「删除」那一行往右让开，免得点到客服；点了以后「保留」仍在「删除」原来的位置 */
+@media (max-width: 600px) { .fb-act .fb-delslot, .fb-thf .fb-delslot { padding-left: 100px; } }

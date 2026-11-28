@@ -302,7 +302,7 @@ export async function onRequestPost(ctx) {
       return json({ ok: true, t });
     }
     if (isPriv(t) && !BOSS.includes(me)) return t.a === me ? json({ error: "这是你自己提交的工单，站长亲自处理：你这里只能删除，不能回复、改状态" }, 403) : json({ error: "没有这个工单" }, 404); // 🔒 私密工单只有站长钱包能回复 / 改状态
-    const wasDel = t.st === "del"; // 从回收站恢复的：不再给客户发通知
+    const wasDel = t.st === "del", wasDone = t.st === "done", note0 = t.note || ""; // wasDel：从回收站恢复的，不再给客户发通知；wasDone + note0：同一条回复不发第二遍
     if (b.st && ST[b.st]) t.st = b.st;
     if (wasDel && b.st) { delete t.st0; delete t.dl; } // 从回收站恢复
     if (b.st === "new" && t.tri && !t.tri.ok) t.tri.ok = true; // 从「无效」恢复
@@ -320,7 +320,8 @@ export async function onRequestPost(ctx) {
     await kv.put("tk:" + t.id, JSON.stringify(t), { expirationTtl: 180 * 86400 });
     if (t.note && t.st !== "del") await kv.put("tk:up:" + t.a, String(t.up), { expirationTtl: 180 * 86400 }).catch(() => {}); // 🔔 客户的回复气泡只看这一条（见 GET ?mine=&peek=1）
     // 处理完：客户绑定过 DeBox 机器人的，私信告诉他回复内容
-    if (b.st === "done" && t.note && !wasDel) {
+    const same = wasDone && t.note === note0 && !(Array.isArray(b.rimgs) && b.rimgs.length); // 已经是「已解决」、回复也没变：手机连点、重复提交，不再通知第二遍
+    if (b.st === "done" && t.note && !wasDel && !same) {
       const users = (await kv.get("dbx:a:" + t.a, "json")) || [];
       const msg = "📮 你的反馈工单 #" + t.id + " 已处理\n\n💬 客服回复：" + t.note + (t.rn ? "\n🖼️ 客服还附了 " + t.rn + " 张图，到网站反馈页看" : "") + "\n\n查看 👉 https://ailgns.dev/#/feedback";
       await pushInbox(kv, t.a, "ticket", msg, "#/feedback").catch(() => {}); // 🔔 站内信

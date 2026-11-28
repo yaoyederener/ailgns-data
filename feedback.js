@@ -264,7 +264,7 @@
       var fd = document.getElementById("fb-mfound"), mm = document.getElementById("fb-mmsg"), dup = fd ? l.filter(function (t) { return fd.querySelector('[id="fb-t' + t.id + '"]'); })[0] : null, moved = !!(dup && fd.querySelector("[data-done]"));
       if (dup) { fd.innerHTML = ""; if (mm) mm.innerHTML = moved ? '<p class="fb-msg">✅ #' + dup.id + " 已恢复，在下面列表里</p>" : ""; } // 查找出来的那张现在列表里也有了：查找区清掉，一张不出现两次；刚恢复的，说一声它挪到哪了
       // 客户看进度：像聊天一样——左边我说的，右边客服回的；状态大字；新回复高亮
-      box.innerHTML = l.length ? l.map(function (t) { return mthread(t, a, seen, mineDel); }).join("") + '<p class="fb-note300">这里只列你最近 20 张工单，更早的用上面的框按工单号找</p>' : '<p class="muted">' + (mineDel ? "这里没有你正在处理的工单。删掉的在回收站里，可以用上面的框按工单号找回来" : "这个地址还没有提交过反馈") + "</p>";
+      box.innerHTML = l.length ? l.map(function (t) { return mthread(t, a, seen, mineDel); }).join("") + '<p class="fb-note300">这里只列你最近 20 张工单，更早的用上面的框按工单号找</p>' : '<p class="muted">' + (mineDel ? "这里没有要显示的工单：删掉的在回收站里，更早的不列在这里，都可以用上面的框按工单号找回来" : "这个地址还没有提交过反馈") + "</p>";
       try { var mx = Math.max.apply(null, [0].concat(l.map(function (t) { return t.up || 0; }))); if (mx) localStorage.setItem("fb:seen:" + a, String(mx)); } catch (e) {}
       var pill = document.getElementById("fb-pill"); if (pill) pill.remove();
       bindThreads(box);
@@ -480,7 +480,7 @@
      · 搜索框、点开引用的工单是另一处（见下面 5960f28 那段），编号搜索按方案 A：在列表里就闪一下，不在就把那一张放到列表位置 */
   var adOwn = [], adArm = {}, adGoneAt = {}, adReload = null, adOnly = false, adLoadSeq = 0, adFocus = 0; // adMe / adBoss 在下面「引用的工单」那段声明；adLoadSeq：往列表位置画东西的请求序号，晚到的旧结果不画
   try { adOnly = localStorage.getItem("fb:only") === "1"; } catch (e) { /* 读不到就是关 */ }
-  function live(msg) { var l = document.getElementById("fb-live"); if (!l) return; l.textContent = ""; setTimeout(function () { l.textContent = msg; }, 60); } // 读屏播报（页面上看不见）：删了、恢复了说一声
+  function live(msg) { var l = document.getElementById("fb-live"); if (l) l.textContent = ""; setTimeout(function () { var l2 = document.getElementById("fb-live"); if (l2) l2.textContent = msg; }, 60); } // 写字前再找一次：单张页恢复以后整页重画，旧的播报区已经不在页面上了 // 读屏播报（页面上看不见）：删了、恢复了说一声
   function idOf(v) { var m = String(v || "").match(/\d{1,7}/); return m ? Number(m[0]) : 0; }
   function findForm(idp, ph, label, hide) { return '<form class="fb-find" id="' + idp + '" role="search"' + (hide ? " hidden" : "") + '><label class="pre" for="' + idp + 'q" aria-hidden="true">#</label><input id="' + idp + 'q" inputmode="numeric" enterkeyhint="search" autocomplete="off" placeholder="' + ph + '" aria-label="' + label + '"><button type="submit" class="ghost">查找</button></form>'; }
   function flashTk(el) { if (!el) return; el.classList.remove("fb-flash"); void el.offsetWidth; el.classList.add("fb-flash"); try { el.scrollIntoView({ block: "center" }); } catch (e) { el.scrollIntoView(); } }
@@ -654,6 +654,7 @@
     box.querySelectorAll("[data-unurg]").forEach(function (b) {
       b.onclick = function () {
         var cd = b.closest(".fb-tk"), body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), urg: 0 }, sg = fbSig();
+        if (cd._hold && Date.now() - cd._hold < 800) return; // 刚重画出来：0.8 秒内的点击不算（防连点）
         if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
         b.disabled = true;
         fetch("/api/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) { return r.json(); }).then(function (j2) {
@@ -666,6 +667,7 @@
     box.querySelectorAll("[data-set]").forEach(function (b) {
       b.onclick = function () {
         var cd = b.closest(".fb-tk"), s = b.getAttribute("data-set"), ta = cd.querySelector("textarea"), note = ta ? ta.value.trim() : "", body = { key: key(), action: "set", id: Number(cd.getAttribute("data-id")), note: note }, sg = fbSig();
+        if (cd._hold && Date.now() - cd._hold < 800) return; // 处理 / 恢复后原地重画出来的同一张：0.8 秒内的点击不算（手机上第二下会落在新画出的同一个按钮上，客户收到两遍通知）
         if (s === "undo") body = { key: key(), action: "del", id: body.id, undo: 1 }; // 自己提交的私密工单从回收站拿回来：走「删除 / 恢复自己的」那条接口
         if (sg) { body.pa = sg.a; body.pts = sg.ts; body.psig = sg.sig; }
         if (cd._rimgs && cd._rimgs.length && s !== "undo") body.rimgs = cd._rimgs;
@@ -683,7 +685,7 @@
         }, function () { b.disabled = false; A.errTip("网络不好，再点一次", b); });
       };
     });
-    if (adFocus) { var rf = box.querySelector('.fb-tk[data-id="' + adFocus + '"] .fb-deltxt'); if (rf) { adFocus = 0; if (focusLost()) try { rf.focus({ preventScroll: true }); } catch (e) {} } } // 撤销以后：焦点放回恢复回来的那张的「删除」（不然掉到页面最上面）
+    if (adFocus) { var c1 = box.querySelector('.fb-tk[data-id="' + adFocus + '"]'); adFocus = 0; if (c1 && focusLost()) { var rf = c1.querySelector(".fb-deltxt"); if (!rf) { c1.setAttribute("tabindex", "-1"); rf = c1; } try { rf.focus({ preventScroll: true }); } catch (e) {} } } // 撤销以后：焦点放回恢复回来的那张的「删除」（不然掉到页面最上面）
   }
   function login(rid, msg) {
     A.app.innerHTML = '<section class="card fb-login"><h2>📮 工单后台</h2><p class="muted">输入后台口令，只存在这台设备上，以后打开直接进。</p>' +
@@ -777,8 +779,8 @@
           if (j && j.t) {
             adMe = j.me || ""; adBoss = !!j.boss;
             box.innerHTML = qHead((done ? "✅ #" + n + " " + done + " · 现在在「" : "找到 #" + n + "，在「") + (ST[j.t.st] || ST["new"])[0] + "」栏") + card(j.t, false);
-            bindQ(box); bindCards(box, function (cd, s, back) { again(back ? "已恢复" : s === "done" ? "已处理" : "已改好"); }); // 处理、恢复以后重新读这一张：状态、按钮跟着变（以前这张直接不见了）
-            flashTk(box.querySelector(".fb-tk")); return;
+            bindQ(box); bindCards(box, function (cd, s, back) { if (back) adFocus = Number(n); again(back ? "已恢复" : s === "done" ? "已处理" : "已改好"); }); // 处理、恢复以后重新读这一张：状态、按钮跟着变（以前这张直接不见了）
+            var c0 = box.querySelector(".fb-tk"); if (done) { if (c0) c0._hold = Date.now(); } else flashTk(c0); return; // 刚处理完重读的：不再居中（按钮会挪到手指下面），0.8 秒内不收点击
           }
           box.innerHTML = qHead("没有找到工单 #" + n + (j && j.seq ? "（现在最新的是 #" + j.seq + "）" : "") + "。私密工单要站长的钱包签过名才看得到；超过 180 天的已经清掉了");
           bindQ(box);
@@ -963,20 +965,22 @@
     adTimer = setInterval(function () { if (!A.isCurrent(rid)) return clearInterval(adTimer); load(false); }, 20000);
     adVis = function () { if (!A.isCurrent(rid) || !/feedback\/admin/.test(location.hash)) { adVis = null; return; } load(false); pendingPoll(); }; // 切回这个标签：马上刷新列表和铃铛
   }
-  function one(rid, id) {
+  function one(rid, id, hold) { // hold：刚处理 / 恢复完重画的，0.8 秒内不收点击（防连点）
     A.app.innerHTML = '<section class="card fb-one"><div class="fb-nav"><a href="#/feedback/admin">← 全部工单</a><span class="muted" id="fb-left"></span></div><p class="fb-sr" id="fb-live" aria-live="polite"></p><div id="fb-1"><p class="muted">读取中…</p></div></section>';
     api("list=1").then(function (j) {
       var box = document.getElementById("fb-1"); if (!box || !A.isCurrent(rid)) return; // 读的时候已经回到列表 / 换了一张：什么都不动（以前晚到的结果会把列表页「撤销」以后要重画的改成这一张，还会报错）
       if (j.error) { try { localStorage.removeItem("fbKey"); } catch (e) {} return login(rid, "口令失效或不对，请重新输入"); }
-      adMe = j.me || ""; adBoss = !!j.boss; adReload = function () { one(rid, id); };
+      adMe = j.me || ""; adBoss = !!j.boss; adReload = function () { one(rid, id, true); };
       var l = j.list || [], t = l.filter(function (x) { return x.id === id; })[0];
       var todo = l.filter(function (x) { return x.st !== "done"; }).sort(function (a, b) { return a.id - b.id; });
       var left = document.getElementById("fb-left"); if (left) left.textContent = "还有 " + todo.length + " 张没处理完";
       var show = function (t) {
         if (!document.getElementById("fb-1") || !A.isCurrent(rid)) return; // 已经离开这一页
         box.innerHTML = card(t, true);
+        var c2 = box.querySelector(".fb-tk"); if (hold && c2) c2._hold = Date.now();
         bindCards(box, function (cd, s, back) {
-          if (s === "del" || s === "undo" || back) return one(rid, id); // 删除 / 从回收站恢复以后整张重画：按钮跟着变（恢复不算「已处理」，不跳下一张）
+          if (back || s === "undo") adFocus = id; // 恢复以后焦点放回这一张
+          if (s === "del" || s === "undo" || back) return one(rid, id, true); // 删除 / 从回收站恢复以后整张重画：按钮跟着变（恢复不算「已处理」，不跳下一张）
           if (s !== "done") { var tg = cd.querySelector(".fb-stt"); if (tg) tg.textContent = ST[s][0]; return; }
           var ta = cd.querySelector("textarea"), sent = !!(ta && ta.value.trim()), next = todo.filter(function (x) { return x.id !== id; })[0];
           box.innerHTML = '<p class="fb-st ok">✅ #' + id + (sent ? " 已处理，回复已发给客户" : " 已标「已解决」（没写回复）") + "</p>" + (next ? '<p class="muted">正在打开下一张 #' + next.id + "…</p>" : '<p class="muted">全部处理完了 🎉</p><a href="#/feedback/admin">← 回到工单列表</a>');
