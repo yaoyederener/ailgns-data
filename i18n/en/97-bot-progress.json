@@ -1,0 +1,13 @@
+{
+"🤖 交给机器人代点买票更快了，还有进度条：机器人现在每 {0} 个名字只收一次款，{1} 个名字从约 {2} 分钟缩短到 {3} 分钟以内；等的时候能看到注册好了几个、大概还要多久，做完整条变绿，没成功的会单独写出原因。": "🤖 “Let the bot do it” is faster and now has a progress bar: the bot collects payment once per {0} names, so {1} names go from about {2} minutes to under {3} minute; while you wait you can see how many are done and roughly how long is left, the bar turns green when finished, and any failures are listed with reasons.",
+"交给机器人代点买票更快了，还有进度条：机器人现在每 {0} 个名字只收一次款，{1} 个名字从约 {2} 分钟缩短到 {3} 分钟以内；等的时候能看到注册好了几个、大概还要多久，做完整条变绿，没成功的会单独写出原因。": "“Let the bot do it” is faster and now has a progress bar: the bot collects payment once per {0} names, so {1} names go from about {2} minutes to under {3} minute; while you wait you can see how many are done and roughly how long is left, the bar turns green when finished, and any failures are listed with reasons.",
+"✅ 机器人注册好了 {0} 个。{1} 张极速票已到账，现在就能去押。": "✅ The bot registered {0} names. {1} Fast Oracle tickets have arrived — you can go and bet now.",
+"✅ 机器人注册好了 {0} 个。{1} 张极速票大约半分钟到账。": "✅ The bot registered {0} names. {1} Fast Oracle tickets arrive in about half a minute.",
+"✅ 机器人注册好了 {0} 个。": "✅ The bot registered {0} names.",
+"🤖 机器人正在注册：已好 {0} / {1} 个 · 已等 {2} 秒 · 预计还要 {3} 秒左右": "🤖 The bot is registering: {0} / {1} done · waited {2}s · about {3}s to go",
+"🤖 机器人正在注册：已好 {0} / {1} 个 · 已等 {2} 秒 · 比平时慢一点，马上就好": "🤖 The bot is registering: {0} / {1} done · waited {2}s · a bit slower than usual, almost done",
+"✅ 全部注册好了：{0} / {1} 个": "✅ All registered: {0} / {1}",
+"✅ 注册好 {0} 个，没成功 {1} 个（原因见下面）": "✅ Registered {0}, failed {1} (reasons below)",
+"✅ 已交给机器人：{0} 个名字，共 {1} DAI。名字直接到你钱包；被抢先的不扣钱。结果也会发站内信 📬": "✅ Handed to the bot: {0} names, {1} DAI in total. Names go straight to your wallet; names taken first are not charged. Results also go to your inbox 📬",
+"钱包只确认 {0} 次（授权 {1} 次 + 签名 {2} 次），一般 {3} 分钟内替你注册完，有进度条": "Confirm only {0} times in your wallet ({1} approval + {2} signature); usually registered for you within {3} minute, with a progress bar"
+}
